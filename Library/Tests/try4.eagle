@@ -1,0 +1,44 @@
+###############################################################################
+#
+# try4.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test try-5.1 {try/catch/throw/finally} -setup {
+  unset -nocomplain x z
+} -body {
+  list [catch {
+    try {
+      lappend z try_before
+      catch {unset x}
+      throw "try throw" 999
+      lappend z try_after
+    } finally {
+      lappend z finally_before
+      catch {unset x}
+      throw "finally throw"
+      lappend z finally_after
+    }
+  } error] [string match "caught exception while executing command:\
+Eagle._Components.Public.ScriptException: finally throw\n*" \
+[string map [list \r\n \n] $error]] $z
+} -cleanup {
+  unset -nocomplain z error
+} -constraints {eagle} -result {1 True {try_before finally_before}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,82 @@
+###############################################################################
+#
+# busy.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test busy-1.1 {async cancel nop busy loop} -setup {
+  set savedFlags [after flags]
+  after flags =Immediate
+} -body {
+  after 2000 [list interp cancel]
+  while {1} {}
+} -cleanup {
+  after flags [appendArgs = $savedFlags]
+  unset -nocomplain savedFlags
+} -constraints {eagle tip285} -returnCodes 1 -result {eval canceled}}
+
+###############################################################################
+
+runTest {test busy-1.2 {event timing} -body {
+  set result [list]
+
+  for {set i 10000} {$i > 0} {incr i -1000} {
+    after $i [list lappend result [expr {$i / 1000}]]
+  }
+
+  after 11000 [list set forever 1]; vwait forever
+
+  set result
+} -cleanup {
+  unset -nocomplain result i forever
+} -result {1 2 3 4 5 6 7 8 9 10}}
+
+###############################################################################
+
+runTest {test busy-1.3 {afters global and not eval'd until wait} -setup {
+  proc waitForCounter {} {
+    set ::count 0
+
+    while {$::count < 10} {
+      lappend ::result $::count
+      vwait ::count
+    }
+  }
+} -body {
+  variable count 0; # this should create a global "count" variable.
+
+  for {set i 0} {$i < 10} {incr i} {
+    #
+    # NOTE: Used "count", not "::count" here to test that [after]
+    #       is actually evaluating the script in the global scope.
+    #
+    after [expr {$i * 1000}] [list incr count]
+  }
+
+  set result [llength [after info]]
+
+  waitForCounter
+
+  lappend result $i $count
+} -cleanup {
+  rename waitForCounter ""
+
+  unset -nocomplain count result i
+} -result {10 0 1 2 3 4 5 6 7 8 9 10 10}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,363 @@
+###############################################################################
+#
+# object11.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to exception formatting differences, some tests are disabled on
+#       Mono.
+###############################################################################
+
+proc getErrors { test x verbose } {
+  set result [list $test]
+
+  set assembly [getTestAssemblyName]
+
+  foreach y $x {
+    if {!$verbose} then {
+      lappend result $y; continue
+    }
+    if {[string first [appendArgs "assembly '" $assembly ", "] $y] == -1 && \
+        [string first "assembly 'System.Configuration, " $y] == -1 && \
+        [string first "assembly 'System.MoreBogus, " $y] == -1} then {
+      #
+      # NOTE: Some random loaded assembly, skip it.
+      #
+      continue
+    }
+    if {[regexp -- {(System\.TypeLoadException: .*?\'\.)} $y dummy z]} then {
+      lappend result $z; continue
+    }
+  }
+
+  return $result
+}
+
+###############################################################################
+
+runTest {test object-11.1 {search semantics for missing types} -body {
+  catch {
+    object create -objectvalueflags +AllGetTypeErrors FooBar
+  } msg
+  getErrors "No Asm, No Ns" $msg false
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object dotNetOrDotNetCore monoMatchFramework} \
+-result {{No Asm, No Ns} {type "FooBar" not found} {expected type value but got\
+"FooBar"}}}
+
+###############################################################################
+
+runTest {test object-11.2 {search semantics for missing types} -body {
+  catch {
+    object create -objectvalueflags +AllGetTypeErrors System.FooBar
+  } msg
+  getErrors "No Asm, Good Ns" $msg false
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object dotNetOrDotNetCore monoMatchFramework} \
+-result {{No Asm, Good Ns} {type "System.FooBar" not found} {expected type\
+value but got "System.FooBar"}}}
+
+###############################################################################
+
+runTest {test object-11.3 {search semantics for missing types} -body {
+  catch {
+    object create -objectvalueflags +AllGetTypeErrors Splog.FooBar
+  } msg
+  getErrors "No Asm, Bad Ns" $msg false
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object dotNetOrDotNetCore monoMatchFramework} \
+-match glob -result {{No Asm, Bad Ns} {type "Splog.FooBar" not found} {expected\
+type value but got "Splog.FooBar"}}}
+
+###############################################################################
+
+runTest {test object-11.4 {search semantics for missing types} -body {
+  catch {
+    object create -objectvalueflags +AllGetTypeErrors \
+        "System.Bogus, System.Configuration, Version=2.0.0.0,\
+        Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a"
+  } msg
+  getErrors "Good Asm, Bad Ns" $msg false
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object compile.CONFIGURATION} -result \
+{{Good Asm, Bad Ns} {type "System.Bogus, System.Configuration, Version=2.0.0.0,\
+Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" not found} {expected type\
+value but got "System.Bogus, System.Configuration, Version=2.0.0.0,\
+Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a"}}}
+
+###############################################################################
+
+runTest {test object-11.5 {search semantics for missing types} -body {
+  list [catch {
+    object create "System.Bogus, System.MoreBogus, Version=2.0.0.0,\
+        Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a"
+  } msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object} -result {1 {{type "System.Bogus,\
+System.MoreBogus, Version=2.0.0.0, Culture=neutral,\
+PublicKeyToken=b03f5f7f11d50a3a" not found} {expected type value but got\
+"System.Bogus, System.MoreBogus, Version=2.0.0.0, Culture=neutral,\
+PublicKeyToken=b03f5f7f11d50a3a"}}}}
+
+###############################################################################
+
+runTest {test object-11.6 {search semantics for missing types, verbose} -body {
+  catch {
+    object create -objectvalueflags +AllGetTypeErrors -verbose FooBar
+  } msg
+  getErrors "No Asm, No Ns" $msg true
+} -cleanup {
+  unset -nocomplain msg
+} -constraints \
+{eagle command.object dotNetCoreOrShell dotNetOrDotNetCore monoMatchFramework} \
+-match glob -result [string map [list %testAsm% [getTestAssemblyName]] \
+{{No Asm, No Ns} {System.TypeLoadException: Could not load type 'FooBar' from\
+assembly '%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}\
+{System.TypeLoadException: Could not load type\
+'Eagle._Components.Public.FooBar' from assembly '%testAsm%, Version=1.0.*,\
+Culture=neutral, PublicKeyToken=*'.} {System.TypeLoadException: Could not load\
+type 'Eagle._Containers.Public.FooBar' from assembly '%testAsm%,\
+Version=1.0.*, Culture=neutral, PublicKeyToken=*'.} {System.TypeLoadException:\
+Could not load type 'System.FooBar' from assembly '%testAsm%, Version=1.0.*,\
+Culture=neutral, PublicKeyToken=*'.} *{System.TypeLoadException: Could not load\
+type 'FooBar' from assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
+PublicKeyToken=*'.} {System.TypeLoadException: Could not load type\
+'Eagle._Components.Public.FooBar' from assembly '%testAsm%, Version=1.0.*,\
+Culture=neutral, PublicKeyToken=*'.} {System.TypeLoadException: Could not load\
+type 'Eagle._Containers.Public.FooBar' from assembly '%testAsm%,\
+Version=1.0.*, Culture=neutral, PublicKeyToken=*'.} {System.TypeLoadException:\
+Could not load type 'System.FooBar' from assembly '%testAsm%, Version=1.0.*,\
+Culture=neutral, PublicKeyToken=*'.}*}]}
+
+###############################################################################
+
+runTest {test object-11.7 {search semantics for missing types, verbose} -body {
+  catch {
+    object create -objectvalueflags +AllGetTypeErrors -verbose System.FooBar
+  } msg
+  getErrors "No Asm, Good Ns" $msg true
+} -cleanup {
+  unset -nocomplain msg
+} -constraints \
+{eagle command.object dotNetCoreOrShell dotNetOrDotNetCore monoMatchFramework} \
+-match glob -result [string map [list %testAsm% [getTestAssemblyName]] \
+{{No Asm, Good Ns} {System.TypeLoadException: Could not load type\
+'System.FooBar' from assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
+PublicKeyToken=*'.} *{System.TypeLoadException: Could not load type\
+'System.FooBar' from assembly '%testAsm%, Version=1.0.*, Culture=neutral,\
+PublicKeyToken=*'.}*}]}
+
+###############################################################################
+
+runTest {test object-11.8 {search semantics for missing types, verbose} -body {
+  catch {
+    object create -objectvalueflags +AllGetTypeErrors -verbose Splog.FooBar
+  } msg
+  getErrors "No Asm, Bad Ns" $msg true
+} -cleanup {
+  unset -nocomplain msg
+} -constraints \
+{eagle command.object dotNetCoreOrShell dotNetOrDotNetCore monoMatchFramework} \
+-match glob -result [string map [list %testAsm% [getTestAssemblyName]] \
+{{No Asm, Bad Ns} {System.TypeLoadException: Could not load type 'Splog.FooBar'\
+from assembly '%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}\
+*{System.TypeLoadException: Could not load type 'Splog.FooBar' from assembly\
+'%testAsm%, Version=1.0.*, Culture=neutral, PublicKeyToken=*'.}*}]}
+
+###############################################################################
+
+runTest {test object-11.9 {search semantics for missing types, verbose} -body {
+  catch {
+    object create -verbose \
+        "System.Bogus, System.Configuration, Version=2.0.0.0,\
+        Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a"
+  } msg
+  getErrors "Good Asm, Bad Ns" $msg true
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object dotNetOrDotNetCore compile.CONFIGURATION} \
+-match glob -result {{Good Asm, Bad Ns} {System.TypeLoadException: Could not\
+load type 'System.Bogus' from assembly 'System.Configuration, Version=2.0.0.0,\
+Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a'.}}}
+
+###############################################################################
+
+runTest {test object-11.10 {search semantics for missing types, verbose} -body {
+  list [catch {
+    object create -verbose \
+        "System.Bogus, System.MoreBogus, Version=2.0.0.0,\
+        Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a"
+  } msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object dotNetOrDotNetCore} -match glob -result {1\
+{{type "System.Bogus, System.MoreBogus, Version=2.0.0.0, Culture=neutral,\
+PublicKeyToken=b03f5f7f11d50a3a" not found} {System.IO.FileNotFoundException:\
+Could not load file or assembly 'System.MoreBogus, Version=2.0.0.0,\
+Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a'*}}}}
+
+###############################################################################
+
+proc getRuntimeAssemblyNameOnly {} {
+  return [lindex [split [getRuntimeAssemblyName] ,] 0]
+}
+
+###############################################################################
+
+#
+# NOTE: *HACK* This test is disabled for .NET Core due to differences in the
+#       loaded assembly names.
+#
+runTest {test object-11.11 {[object search] sub-command} -setup {
+  proc modifyErrMsg { msg } {
+    if {[string is list $msg] && [string first \{ $msg] != -1} then {
+      set result [list]
+
+      set pattern(1) [appendArgs \
+          {type "*, } [getTestAssemblyName] {" not found}]
+
+      set pattern(2) [appendArgs \
+          {type "*, } [getTestAssemblyName] {, *" not found}]
+
+      set asm [getRuntimeAssemblyNameOnly]
+
+      set pattern(3) [appendArgs {type "*, } $asm {" not found}]
+      set pattern(4) [appendArgs {type "*, } $asm {, *" not found}]
+
+      foreach m [lsort $msg] {
+        if {[string first . $m] == -1 && [string first , $m] == -1} then {
+          lappend result $m
+        } elseif {[string first , $m] == -1} then {
+          lappend result $m
+        } elseif {[string match $pattern(1) $m] || \
+            [string match $pattern(2) $m]} then {
+          lappend result $m
+        } elseif {[string match $pattern(3) $m] || \
+            [string match $pattern(4) $m]} then {
+          lappend result $m
+        } elseif {[string match {type "*, System" not found} $m] || \
+            [string match {type "*, System, *" not found} $m]} then {
+          lappend result $m
+        }
+      }
+
+      return $result
+    } else {
+      return $msg
+    }
+  }
+} -body {
+  list [catch {
+    object search -objectvalueflags +AllGetTypeErrors foo
+  } msg] [modifyErrMsg $msg] [catch {
+    object search -objectvalueflags +AllGetTypeErrors -nonamespace foo
+  } msg] [modifyErrMsg $msg] [catch {
+    object search -objectvalueflags +AllGetTypeErrors -noassembly foo
+  } msg] [modifyErrMsg $msg] [catch {
+    object search -objectvalueflags +AllGetTypeErrors -noshowname foo
+  } msg] [modifyErrMsg $msg] [catch {
+    object search -objectvalueflags +AllGetTypeErrors -stricttype foo
+  } msg] [modifyErrMsg $msg] [catch {
+    object search -objectvalueflags +AllGetTypeErrors -fullname foo
+  } msg] [modifyErrMsg $msg] [catch {
+    object search -objectvalueflags +AllGetTypeErrors -nonamespace \
+        -fullname foo
+  } msg] [modifyErrMsg $msg]
+} -cleanup {
+  rename modifyErrMsg ""
+
+  unset -nocomplain msg
+} -constraints [fixConstraints {eagle command.object strongName.official\
+!dotNetCore}] -match regexp -result [string map [list %testAsm% \
+[getTestAssemblyName] %corAsm% [assemblyNameToRegexp [getRuntimeAssemblyName]] \
+%corAsmOnly% [getRuntimeAssemblyNameOnly]] {^1 \{\{type\
+"Eagle\._Components\.Public\.foo" not found\} \{type\
+"Eagle\._Components\.Public\.foo, %testAsm%" not found\} \{type\
+"Eagle\._Components\.Public\.foo, System" not found\} \{type\
+"Eagle\._Components\.Public\.foo, %corAsmOnly%" not found\} \{type\
+"Eagle\._Containers\.Public\.foo" not found\} \{type\
+"Eagle\._Containers\.Public\.foo, %testAsm%" not found\} \{type\
+"Eagle\._Containers\.Public\.foo, System" not found\} \{type\
+"Eagle\._Containers\.Public\.foo, %corAsmOnly%" not found\} \{type\
+"System\.foo" not found\} \{type "System\.foo, %testAsm%" not found\} \{type\
+"System\.foo, System" not found\} \{type "System\.foo, %corAsmOnly%" not\
+found\} \{type "foo" not found\} \{type "foo, %testAsm%" not found\} \{type\
+"foo, System" not found\} \{type "foo, %corAsmOnly%" not found\}\} 1 \{\{type\
+"foo" not found\} \{type "foo, %testAsm%" not found\} \{type "foo, System" not\
+found\} \{type "foo, %corAsmOnly%" not found\}\} 1 \{\{type\
+"Eagle\._Components\.Public\.foo" not found\} \{type\
+"Eagle\._Containers\.Public\.foo" not found\} \{type "System\.foo" not found\}\
+\{type "foo" not found\}\} 1 (?:\{)?\{expected type value but got\
+"foo"\}(:?\})? 1 \{type "foo" not found\} 1 \{\{type\
+"Eagle\._Components\.Public\.foo" not found\} \{type\
+"Eagle\._Components\.Public\.foo, %testAsm%, Version=1\.0\.\d+\.\d+,\
+Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
+found\} \{type "Eagle\._Components\.Public\.foo, System, Version=[24]\.0\.0\.0,\
+Culture=neutral, PublicKeyToken=b77a5c561934e089" not found\} \{type\
+"Eagle\._Components\.Public\.foo, %corAsm%" not found\} \{type\
+"Eagle\._Containers\.Public\.foo" not found\} \{type\
+"Eagle\._Containers\.Public\.foo, %testAsm%, Version=1\.0\.\d+\.\d+,\
+Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
+found\} \{type "Eagle\._Containers\.Public\.foo, System, Version=[24]\.0\.0\.0,\
+Culture=neutral, PublicKeyToken=b77a5c561934e089" not found\} \{type\
+"Eagle\._Containers\.Public\.foo, %corAsm%" not found\} \{type\
+"System\.foo" not found\} \{type "System\.foo, %testAsm%,\
+Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
+found\} \{type "System\.foo, System, Version=[24]\.0\.0\.0, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089" not found\} \{type "System\.foo, %corAsm%" not\
+found\} \{type "foo" not found\} \{type "foo, %testAsm%,\
+Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
+found\} \{type "foo, System, Version=[24]\.0\.0\.0, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089" not found\} \{type "foo, %corAsm%" not\
+found\}\} 1 \{\{type "foo" not found\} \{type "foo, %testAsm%,\
+Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
+found\} \{type "foo, System, Version=[24]\.0\.0\.0, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089" not found\} \{type "foo, %corAsm%" not\
+found\}\}$}]}
+
+###############################################################################
+
+rename getRuntimeAssemblyNameOnly ""
+
+###############################################################################
+
+runTest {test object-11.12 {type namespace use and detection} -body {
+  list [catch {object search IEnumerable`1\[System.String\]}] \
+    [object import System.Collections.Generic] \
+    [catch {object search IEnumerable`1\[System.String\]} msg] $msg
+} -cleanup {
+  object unimport -importpattern System.Collections.Generic
+
+  unset -nocomplain msg
+} -constraints {eagle command.object} -result \
+{1 {} 0 {System.Collections.Generic.IEnumerable`1[System.String]}}}
+
+###############################################################################
+
+rename getErrors ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <EagleDir>$(MSBuildProjectDirectory)\..</EagleDir>
+  </PropertyGroup>
+  <Import Project="$(EagleDir)\Targets\Eagle.Presets.targets" />
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{35481897-62AF-4A7A-8405-31556C168656}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>EagleTest</RootNamespace>
+    <AssemblyName>EagleTest</AssemblyName>
+    <BaseAddress>1635778560</BaseAddress>
+    <EagleProjectName>Eagle Test Shell</EagleProjectName>
+  </PropertyGroup>
+  <Import Project="$(EagleDir)\Targets\Eagle.Builds.targets" />
+  <Import Project="$(EagleDir)\Targets\Eagle.Settings.targets" />
+  <PropertyGroup Condition="'$(EagleOnlyNetFx20)' != 'false'">
+    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleBinaryOutputPath)' != ''">
+    <OutputPath>$(EagleBinaryOutputPath)</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG;TRACE;DAEMON</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE;DAEMON</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Commands\Report.cs" />
+    <Compile Include="Components\Private\CommonOps.cs" />
+    <Compile Include="Components\Private\DefineConstants.cs" />
+    <Compile Include="Components\Private\Shell.cs" />
+    <Compile Include="Components\Public\Delegates.cs" />
+    <Compile Include="Forms\TestForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\TestForm.Designer.cs">
+      <DependentUpon>TestForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <Compile Include="Resources\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleNotify)' != 'false' Or
+                        '$(EagleNotifyObject)' != 'false'">
+    <Compile Include="Plugins\TestForm.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleConsole)' != 'false'">
+    <Compile Include="Hosts\Custom.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Forms\TestForm.resx">
+      <DependentUpon>TestForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\Resources.resx">
+      <SubType>Designer</SubType>
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <LogicalName>EagleTest.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Tests\progress.eagle" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(EagleDir)\lib\Eagle1.0\auxiliary.eagle">
+      <Link>lib\Eagle1.0\auxiliary.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\compat.eagle">
+      <Link>lib\Eagle1.0\compat.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\csharp.eagle">
+      <Link>lib\Eagle1.0\csharp.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\database.eagle">
+      <Link>lib\Eagle1.0\database.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\exec.eagle">
+      <Link>lib\Eagle1.0\exec.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\file1.eagle">
+      <Link>lib\Eagle1.0\file1.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\file2.eagle">
+      <Link>lib\Eagle1.0\file2.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\file3.eagle">
+      <Link>lib\Eagle1.0\file3.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\info.eagle">
+      <Link>lib\Eagle1.0\info.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\list.eagle">
+      <Link>lib\Eagle1.0\list.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\object.eagle">
+      <Link>lib\Eagle1.0\object.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\pkgt.eagle">
+      <Link>lib\Eagle1.0\pkgt.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\platform.eagle">
+      <Link>lib\Eagle1.0\platform.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\process.eagle">
+      <Link>lib\Eagle1.0\process.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\runopt.eagle">
+      <Link>lib\Eagle1.0\runopt.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\shim.eagle">
+      <Link>lib\Eagle1.0\shim.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\testlog.eagle">
+      <Link>lib\Eagle1.0\testlog.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\unkobj.eagle">
+      <Link>lib\Eagle1.0\unkobj.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\unzip.eagle">
+      <Link>lib\Eagle1.0\unzip.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\update.eagle">
+      <Link>lib\Eagle1.0\update.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\init.eagle">
+      <Link>lib\Eagle1.0\init.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\embed.eagle">
+      <Link>lib\Eagle1.0\embed.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\safe.eagle">
+      <Link>lib\Eagle1.0\safe.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\shell.eagle">
+      <Link>lib\Eagle1.0\shell.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\test.eagle">
+      <Link>lib\Eagle1.0\test.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\vendor.eagle">
+      <Link>lib\Eagle1.0\vendor.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\word.tcl">
+      <Link>lib\Eagle1.0\word.tcl</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\pkgIndex.eagle">
+      <Link>lib\Eagle1.0\pkgIndex.eagle</Link>
+    </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\pkgIndex.tcl">
+      <Link>lib\Eagle1.0\pkgIndex.tcl</Link>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="lib\Test\test.eagle" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(EagleShell)' != 'false'">
+    <DefineConstants>$(DefineConstants);SHELL</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleMono)' != 'false'">
+    <DefineConstants>$(DefineConstants);MONO</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleMonoBuild)' != 'false'">
+    <DefineConstants>$(DefineConstants);MONO_BUILD</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleMonoHacks)' != 'false'">
+    <DefineConstants>$(DefineConstants);MONO_HACKS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleMonoLegacy)' != 'false'">
+    <DefineConstants>$(DefineConstants);MONO_LEGACY</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleOnlyNetFx20)' != 'false'">
+    <DefineConstants>$(DefineConstants);NET_20_ONLY</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleNotify)' != 'false'">
+    <DefineConstants>$(DefineConstants);NOTIFY</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleNotifyObject)' != 'false'">
+    <DefineConstants>$(DefineConstants);NOTIFY_OBJECT</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleThrowOnDisposed)' != 'false'">
+    <DefineConstants>$(DefineConstants);THROW_ON_DISPOSED</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleConsole)' != 'false'">
+    <DefineConstants>$(DefineConstants);CONSOLE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(EagleSolution)' != 'false'">
+    <ProjectReference Include="..\Library\Eagle2022.csproj">
+      <Project>{2D4021DA-415C-4FAD-95FF-6ACA0974A677}</Project>
+      <Name>Eagle2022</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleSolution)' == 'false'">
+    <Reference Include="Eagle">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>$(EagleLkgDir)\bin\Eagle.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(EagleDir)\Targets\Eagle.targets" />
+  <PropertyGroup>
+    <BuildDependsOn>
+      EagleDetectUserBuilds;
+      EagleDetectUserSettings;
+      EagleDetectBuildTool;
+      EagleDetectOperatingSystem;
+      EagleDetectNetFx20;
+      EagleDetectNetFx20Sp;
+      EagleDetectNetFx30;
+      EagleDetectNetFx35;
+      EagleDetectNetFx40;
+      EagleDetectNetFx45;
+      EagleDetectNetFx451;
+      EagleDetectNetFx452;
+      EagleDetectNetFx46;
+      EagleDetectNetFx461;
+      EagleDetectNetFx462;
+      EagleDetectNetFx47;
+      EagleDetectNetFx471;
+      EagleDetectNetFx472;
+      EagleDetectNetFx48;
+      $(BuildDependsOn);
+      EagleDetectVs2022;
+      EagleDetectVcTools2022;
+      EagleSetStack2022;
+      EagleSetStackExternals;
+      EagleSetIcon;
+      EagleStripPdbPath;
+      EagleStrongNameSign;
+      FixCopyFilesToOutputDirectory;
+      GetDoneFiles;
+      UpdateDoneFiles;
+    </BuildDependsOn>
+    <CleanDependsOn>
+      $(CleanDependsOn);
+      CleanDoneFiles;
+    </CleanDependsOn>
+  </PropertyGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

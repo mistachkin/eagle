@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <metadata>
+    <id>Eagle.Tools.CLRv4</id>
+    <title>The Eagle Project (Tools, CLRv4)</title>
+    <version>1.0.8192.54321</version>
+    <authors>Eagle Development Team</authors>
+    <description>An implementation of the Tcl scripting language.  This package contains the MSBuild tasks and PowerShell cmdlets that enable integration [with Eagle] as well as the command-line shell [for Eagle].</description>
+    <language>en-US</language>
+    <projectUrl>https://eagle.to/</projectUrl>
+    <iconUrl>https://eagle.to/images/eagle128.png</iconUrl>
+    <licenseUrl>https://eagle.to/enterprise/license.html</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <tags>automation console database dynamic extensibility functional integration interop interpreter mono msbuild parser plugin powershell reflection scripting sockets tcl/tk winforms wix wpf</tags>
+    <copyright>Copyright &#x00A9; 2007-2012 by Joe Mistachkin.  All rights reserved.</copyright>
+    <dependencies>
+      <group targetFramework="net40" />
+    </dependencies>
+  </metadata>
+  <files>
+    <!--
+        NOTE: For this package to work properly, the DLL below must be compiled
+              with the script library embedded (e.g. via the MSBuild command
+              line option "/property:EagleEmbeddedLibrary=true").
+    -->
+    <file src="bin\Eagle.dll" target="tools\net40" />
+    <file src="bin\Eagle.Eye.dll" target="tools\net40" />
+    <file src="bin\EagleShell.exe" target="tools\net40" />
+    <file src="bin\EagleShell32.exe" target="tools\net40" />
+    <file src="bin\EagleCmdlets.dll" target="tools\net40" />
+    <file src="bin\EagleCmdlets.ps1" target="tools\net40" />
+    <file src="bin\Eagle.dll" target="build\net40" />
+    <file src="bin\EagleTasks.dll" target="build\net40" />
+    <file src="bin\Eagle.tasks" target="build\net40" />
+    <file src="build\Eagle.Tools.NuGet.targets" target="build\net40\Eagle.Tools.CLRv4.targets" />
+  </files>
+</package>

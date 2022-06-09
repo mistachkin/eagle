@@ -1,0 +1,16 @@
+;
+; Garuda.def -- Eagle Package for Tcl (Garuda)
+;
+; Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+;
+; See the file "license.terms" for information on usage and redistribution of
+; this file, and for a DISCLAIMER OF ALL WARRANTIES.
+;
+; RCS: @(#) $Id: $
+;
+EXPORTS
+
+Garuda_Init
+Garuda_SafeInit
+Garuda_Unload
+Garuda_SafeUnload

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <metadata>
+    <id>Eagle.Tools</id>
+    <title>The Eagle Project (Tools)</title>
+    <version>1.0.8192.54321</version>
+    <authors>Eagle Development Team</authors>
+    <description>An implementation of the Tcl scripting language.  This package contains the MSBuild tasks and PowerShell cmdlets that enable integration [with Eagle] as well as the command-line shell [for Eagle].</description>
+    <language>en-US</language>
+    <projectUrl>https://eagle.to/</projectUrl>
+    <iconUrl>https://eagle.to/images/eagle128.png</iconUrl>
+    <licenseUrl>https://eagle.to/enterprise/license.html</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <tags>automation console database dynamic extensibility functional integration interop interpreter mono msbuild parser plugin powershell reflection scripting sockets tcl/tk winforms wix wpf</tags>
+    <copyright>Copyright &#x00A9; 2007-2012 by Joe Mistachkin.  All rights reserved.</copyright>
+    <dependencies>
+      <group targetFramework="net20">
+        <dependency id="Eagle.Tools.CLRv2" version="[1.0.8192.54321]" />
+      </group>
+      <group targetFramework="net40">
+        <dependency id="Eagle.Tools.CLRv4" version="[1.0.8192.54321]" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files />
+</package>

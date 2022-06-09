@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <metadata>
+    <id>Eagle.DotNet.Standard.2.0</id>
+    <title>The Eagle Project (.NET Standard 2.0)</title>
+    <version>1.0.8192.54321</version>
+    <authors>Eagle Development Team</authors>
+    <description>An implementation of the Tcl scripting language.</description>
+    <language>en-US</language>
+    <projectUrl>https://eagle.to/</projectUrl>
+    <iconUrl>https://eagle.to/images/eagle128.png</iconUrl>
+    <licenseUrl>https://eagle.to/enterprise/license.html</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <tags>automation console database dynamic extensibility functional integration interop interpreter mono msbuild parser plugin powershell reflection scripting sockets tcl/tk winforms wix wpf</tags>
+    <copyright>Copyright &#x00A9; 2007-2012 by Joe Mistachkin.  All rights reserved.</copyright>
+    <dependencies>
+      <group targetFramework="netstandard2.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <!--
+        NOTE: For this package to work properly, the DLL below must be compiled
+              with the script library embedded (e.g. via the MSBuild command
+              line option "/property:EagleEmbeddedLibrary=true").
+    -->
+    <file src="bin\Eagle.dll" target="lib\netstandard2.0" />
+    <file src="bin\Eagle.Eye.dll" target="lib\netstandard2.0" />
+    <file src="bin\EagleShell.dll" target="content\netstandard2.0" />
+    <file src="bin\EagleShell.runtimeconfig.json" target="content\netstandard2.0" />
+  </files>
+</package>

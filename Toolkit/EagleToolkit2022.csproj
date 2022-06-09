@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <EagleDir>$(MSBuildProjectDirectory)\..</EagleDir>
+  </PropertyGroup>
+  <Import Project="$(EagleDir)\Targets\Eagle.Presets.targets" />
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{BAAD37DD-A5D3-41AF-8301-7589669B3EA9}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>EagleToolkit</RootNamespace>
+    <AssemblyName>EagleToolkit</AssemblyName>
+    <BaseAddress>1636827136</BaseAddress>
+    <EagleProjectName>Eagle Toolkit Shell</EagleProjectName>
+  </PropertyGroup>
+  <Import Project="$(EagleDir)\Targets\Eagle.Builds.targets" />
+  <Import Project="$(EagleDir)\Targets\Eagle.Settings.targets" />
+  <PropertyGroup Condition="'$(EagleOnlyNetFx20)' != 'false'">
+    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleBinaryOutputPath)' != ''">
+    <OutputPath>$(EagleBinaryOutputPath)</OutputPath>
+    <DocumentationFile Condition="'$(EagleDocumentationFile)' != 'false'">$(EagleBinaryOutputPath)$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Commands\Button.cs" />
+    <Compile Include="Commands\Toplevel.cs" />
+    <Compile Include="Components\Private\DefineConstants.cs" />
+    <Compile Include="Components\Private\Shell.cs" />
+    <Compile Include="Containers\Private\ToplevelDictionary.cs" />
+    <Compile Include="Forms\Toplevel.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\Toplevel.designer.cs">
+      <DependentUpon>Toplevel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Plugins\Toolkit.cs" />
+    <Compile Include="Hosts\Graphical.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Forms\Toplevel.resx">
+      <DependentUpon>Toplevel.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Resources\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <PropertyGroup Condition="'$(EagleOnlyNetFx20)' != 'false'">
+    <DefineConstants>$(DefineConstants);NET_20_ONLY</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleShell)' != 'false'">
+    <DefineConstants>$(DefineConstants);SHELL</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleMonoBuild)' != 'false'">
+    <DefineConstants>$(DefineConstants);MONO_BUILD</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleThrowOnDisposed)' != 'false'">
+    <DefineConstants>$(DefineConstants);THROW_ON_DISPOSED</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleConsole)' != 'false'">
+    <DefineConstants>$(DefineConstants);CONSOLE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleDeadCode)' != 'false'">
+    <DefineConstants>$(DefineConstants);DEAD_CODE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleNative)' != 'false'">
+    <DefineConstants>$(DefineConstants);NATIVE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleTcl)' != 'false'">
+    <DefineConstants>$(DefineConstants);TCL</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleDebugger)' != 'false'">
+    <DefineConstants>$(DefineConstants);DEBUGGER</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleDebuggerArguments)' != 'false'">
+    <DefineConstants>$(DefineConstants);DEBUGGER_ARGUMENTS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(EagleSolution)' != 'false'">
+    <ProjectReference Include="..\Library\Eagle2022.csproj">
+      <Project>{2D4021DA-415C-4FAD-95FF-6ACA0974A677}</Project>
+      <Name>Eagle2022</Name>
+      <Private>False</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleSolution)' == 'false'">
+    <Reference Include="Eagle">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>$(EagleLkgDir)\bin\Eagle.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(EagleDir)\Targets\Eagle.targets" />
+  <PropertyGroup>
+    <BuildDependsOn>
+      EagleDetectUserBuilds;
+      EagleDetectUserSettings;
+      EagleDetectBuildTool;
+      EagleDetectOperatingSystem;
+      $(BuildDependsOn);
+      EagleDetectVs2022;
+      EagleDetectVcTools2022;
+      EagleSetStack2022;
+      EagleSetStackExternals;
+      EagleSetIcon;
+      EagleStripPdbPath;
+      EagleStrongNameSign;
+      FixCopyFilesToOutputDirectory;
+      GetDoneFiles;
+      UpdateDoneFiles;
+    </BuildDependsOn>
+    <CleanDependsOn>
+      $(CleanDependsOn);
+      CleanDoneFiles;
+    </CleanDependsOn>
+  </PropertyGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

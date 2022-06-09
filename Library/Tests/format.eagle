@@ -1,0 +1,289 @@
+###############################################################################
+#
+# format.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=472845
+###############################################################################
+
+#
+# NOTE: We are going to run the tests from the Tcl test suite verbatim.
+#
+# \
+runTest ; # fake out runAllTests proc.
+
+###############################################################################
+
+if {[isEagle]} then {
+  unset -nocomplain skipNames skipName
+
+  if {![info exists no(skipSomeTests)] && \
+      ![info exists no(skipSomeFormatTests)]} then {
+    set skipNames [list]
+
+    lappend skipNames format-1.12; # NOTE: Needs BigNum.
+    lappend skipNames format-20.1; # NOTE: Needs [dict].
+    lappend skipNames managed-format-1.12; # NOTE: Needs BigNum.
+    lappend skipNames managed-format-20.1; # NOTE: Needs [dict].
+    lappend skipNames native-format-1.12; # NOTE: Needs BigNum.
+    lappend skipNames native-format-20.1; # NOTE: Needs [dict].
+
+    #
+    # NOTE: All of these tests require the floating point formatting provided
+    #       by the native snprintf function (i.e. from the C runtime library).
+    #       Apparently, Mono cannot handle using the "undocumented" __arglist
+    #       keyword supported by C#.  It produces the following error:
+    #
+    #       System.InvalidProgramException: Invalid IL code in
+    #           Eagle._Components.Private.NativeOps:PrintDouble (
+    #               System.Text.StringBuilder,string,double,int&,
+    #               Eagle._Components.Public.Result&):
+    #       IL_0019: call 0x0a0009ae
+    #
+    #       See: https://bugzilla.novell.com/show_bug.cgi?id=472845
+    #
+    foreach skipName $skipNames {
+      if {[lsearch -exact $eagle_tests(SkipNames) $skipName] == -1} then {
+        lappend eagle_tests(SkipNames) $skipName
+      }
+    }
+
+    unset -nocomplain skipName
+  }
+} else {
+  #
+  # NOTE: Save the "cleanupTests" procedure now and create a stub as we do not
+  #       want the "format.test" file to actually "cleanup" after itself, that
+  #       will be done at the very end.
+  #
+  rename ::tcltest::cleanupTests ::tcltest::savedCleanupTests
+  proc ::tcltest::cleanupTests { args } {}
+}
+
+###############################################################################
+
+if {[isEagle]} then {
+  set savedInterpreterFlags [object invoke \
+      -flags +NonPublic Interpreter.GetActive InterpreterFlags]
+
+  set savedHaveConstraint [haveConstraint eformat]
+
+  if {[info exists test_name_prefix]} then {
+    set savedTestNamePrefix $test_name_prefix
+  } else {
+    unset -nocomplain savedTestNamePrefix
+  }
+
+  try {
+    object invoke -flags +NonPublic Interpreter.GetActive InterpreterFlags \
+        [combineFlags $savedInterpreterFlags -UsePrintfForDouble]
+
+    if {![info exists no(eformat)]} then {
+      removeConstraint eformat
+      checkForEFormat $test_channel
+    }
+
+    set test_name_prefix managed-
+    tsource [file join $test_path tcl format.test] false false
+
+    if {[haveConstraint native]} then {
+      object invoke -flags +NonPublic Interpreter.GetActive InterpreterFlags \
+          [combineFlags $savedInterpreterFlags +UsePrintfForDouble]
+
+      if {![info exists no(eformat)]} then {
+        removeConstraint eformat
+        checkForEFormat $test_channel
+      }
+
+      set test_name_prefix native-
+      tsource [file join $test_path tcl format.test] false false
+    }
+  } finally {
+    if {[info exists savedTestNamePrefix]} then {
+      set test_name_prefix $savedTestNamePrefix
+    } else {
+      unset -nocomplain test_name_prefix
+    }
+
+    unset -nocomplain savedTestNamePrefix
+
+    if {$savedHaveConstraint} then {
+      addConstraint eformat
+    } else {
+      removeConstraint eformat
+    }
+
+    unset -nocomplain savedHaveConstraint
+
+    object invoke -flags +NonPublic Interpreter.GetActive InterpreterFlags \
+        $savedInterpreterFlags
+
+    unset -nocomplain savedInterpreterFlags
+  }
+} else {
+  tsource [file join $test_path tcl format.test] false false
+}
+
+###############################################################################
+
+if {[isEagle]} then {
+  if {[info exists skipNames]} then {
+    #
+    # NOTE: Remove the test names to be skipped that were added above.
+    #
+    foreach skipName $skipNames {
+      set skipIndex [lsearch -exact $eagle_tests(SkipNames) $skipName]
+
+      if {$skipIndex != -1} then {
+        set eagle_tests(SkipNames) [lreplace $eagle_tests(SkipNames) \
+            $skipIndex $skipIndex]
+      }
+    }
+
+    unset -nocomplain skipNames skipName skipIndex
+  }
+} else {
+  #
+  # NOTE: Restore the original "cleanupTests" procedure now.
+  #
+  rename ::tcltest::cleanupTests ""
+  rename ::tcltest::savedCleanupTests ::tcltest::cleanupTests
+}
+
+###############################################################################
+
+unset -nocomplain i msg result x; # HACK: Cleanup leftovers.
+
+###############################################################################
+
+runTest {test format-90.1 {hexadecimal byte formatting} -body {
+  list [format %yx 0x78] [format %yx 0x5678] [format %yx 0x345678] \
+      [format %yx 0x12345678]
+} -constraints {eagle} -result {78 78 78 78}}
+
+###############################################################################
+
+runTest {test format-91.1 {decimal byte formatting} -body {
+  list [format %yd 0x78] [format %yd 0x5678] [format %yd 0x345678] \
+      [format %yd 0x12345678]
+} -constraints {eagle} -result {120 120 120 120}}
+
+###############################################################################
+
+runTest {test format-101.1 {unsigned integer boundary} -body {
+  list [format %ld 0] [format %lu 0] [format %lx 0]
+} -result {0 0 0}}
+
+###############################################################################
+
+runTest {test format-101.2 {unsigned integer boundary} -body {
+  list [format %ld -9223372036854775808] [format %lu -9223372036854775808] \
+      [format %lx -9223372036854775808]
+} -result {-9223372036854775808 9223372036854775808 8000000000000000}}
+
+###############################################################################
+
+runTest {test format-101.3 {unsigned integer boundary} -body {
+  list [format %ld 9223372036854775807] [format %lu 9223372036854775807] \
+      [format %lx 9223372036854775807]
+} -result {9223372036854775807 9223372036854775807 7fffffffffffffff}}
+
+###############################################################################
+
+runTest {test format-101.4 {unsigned integer boundary} -body {
+  list [format %ld 18446744073709551615] [format %lu 18446744073709551615] \
+      [format %lx 18446744073709551615]
+} -result {-1 18446744073709551615 ffffffffffffffff}}
+
+###############################################################################
+
+runTest {test format-101.5 {unsigned integer boundary} -body {
+  list [format %ld 18446744073709551614] [format %lu 18446744073709551614] \
+      [format %lx 18446744073709551614]
+} -result {-2 18446744073709551614 fffffffffffffffe}}
+
+###############################################################################
+
+runTest {test format-101.6 {unsigned integer boundary} -body {
+  list [format %ld 18446744073709551613] [format %lu 18446744073709551613] \
+      [format %lx 18446744073709551613]
+} -result {-3 18446744073709551613 fffffffffffffffd}}
+
+###############################################################################
+
+runTest {test format-101.7 {various %g variations} -body {
+  list [format %.10g 0.000004] [format %#.10g 0.000004]
+} -constraints {eformat} -result {4e-06 4.000000000e-06}}
+
+###############################################################################
+
+#
+# HACK: This test does not work when using the native snprintf() function
+#       in order to implement the [format] command.  One superfluous zero
+#       is appended to the result in that case.
+#
+runTest {test format-101.8 {various %g variations} -body {
+  list [format %.10g 0] [format %#.10g 0] [format %10g 41263.4]
+} -constraints {knownBug} -result {0 0.000000000 {   41263.4}}}
+
+###############################################################################
+
+#
+# HACK: The "eformat" test constraint is not required for this test because
+#       the "G" format string for the .NET Framework apparently always uses
+#       two digits for the exponent, not three.  This happens to conform to
+#       what is necessary for the Tcl [format] command.
+#
+runTest {test format-101.9 {various %g variations} -setup {
+  set i [interp create]
+
+  interp eval $i {
+    object invoke -flags +NonPublic -objectflags +AutoFlagsEnum \
+        Interpreter.GetActive interpreterFlags -UsePrintfForDouble
+  }
+} -body {
+  interp eval $i {
+    list [format %.10g 0.000004] [format %#.10g 0.000004]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle} -result {4e-06 4.000000000e-06}}
+
+###############################################################################
+
+runTest {test format-101.10 {various %g variations} -setup {
+  set i [interp create]
+
+  interp eval $i {
+    object invoke -flags +NonPublic -objectflags +AutoFlagsEnum \
+        Interpreter.GetActive interpreterFlags -UsePrintfForDouble
+  }
+} -body {
+  interp eval $i {
+    list [format %.10g 0] [format %#.10g 0] [format %10g 41263.4]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle} -result {0 0.000000000 {   41263.4}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

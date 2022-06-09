@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <metadata>
+    <id>Eagle.CLRv4</id>
+    <title>The Eagle Project (CLRv4)</title>
+    <version>1.0.8192.54321</version>
+    <authors>Eagle Development Team</authors>
+    <description>An implementation of the Tcl scripting language.</description>
+    <language>en-US</language>
+    <projectUrl>https://eagle.to/</projectUrl>
+    <iconUrl>https://eagle.to/images/eagle128.png</iconUrl>
+    <licenseUrl>https://eagle.to/enterprise/license.html</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <tags>automation console database dynamic extensibility functional integration interop interpreter mono msbuild parser plugin powershell reflection scripting sockets tcl/tk winforms wix wpf</tags>
+    <copyright>Copyright &#x00A9; 2007-2012 by Joe Mistachkin.  All rights reserved.</copyright>
+    <dependencies>
+      <group targetFramework="net40">
+        <dependency id="Eagle.CLRv4.Core" version="[1.0.8192.54321]" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="bin\x86\Spilornis.dll" target="build\net40\x86" />
+    <file src="bin\x64\Spilornis.dll" target="build\net40\x64" />
+    <file src="build\Eagle.NuGet.targets" target="build\net40\Eagle.targets" />
+  </files>
+</package>

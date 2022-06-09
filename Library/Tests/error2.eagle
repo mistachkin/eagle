@@ -1,0 +1,141 @@
+###############################################################################
+#
+# error2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test error-2.1.1 {error inside proc} -setup {
+  proc foo { a } {error "this is a critical error"}
+  proc bar { b } {foo $b}
+} -body {
+  list [catch {bar 3} msg] $msg [string map [list \r\n \n] $errorInfo]
+} -cleanup {
+  unset -nocomplain msg
+
+  rename bar ""
+  rename foo ""
+} -constraints {tcl} -result \
+{1 {this is a critical error} {this is a critical error
+    while executing
+"error "this is a critical error""
+    (procedure "foo" line 1)
+    invoked from within
+"foo $b"
+    (procedure "bar" line 1)
+    invoked from within
+"bar 3"}}}
+
+###############################################################################
+
+runTest {test error-2.1.2 {error inside proc} -setup {
+  proc foo { a } {error "this is a critical error"}
+  proc bar { b } {foo $b}
+} -body {
+  list [catch {bar 3} msg] $msg [string map [list \r\n \n] $errorInfo]
+} -cleanup {
+  unset -nocomplain msg
+
+  rename bar ""
+  rename foo ""
+} -constraints {eagle} -result \
+{1 {this is a critical error} {this is a critical error
+    while executing
+"error "this is a critical error""
+    (procedure "foo" line 1)
+    invoked from within
+"foo $b"
+    (procedure "bar" line 1)
+    invoked from within
+"bar 3"
+    ("catch" body line 1)}}}
+
+###############################################################################
+
+runTest {test error-2.2.1 {catch with options variable} -body {
+  list [catch badProc msg opts] $msg [string map [list \r\n \n] $opts]
+} -cleanup {
+  unset -nocomplain msg opts
+} -constraints {tcl tcl85} -result \
+{1 {invalid command name "badProc"} {-code 1 -level 0 -errorcode NONE\
+-errorinfo {invalid command name "badProc"
+    while executing
+"badProc"} -errorline 1}}}
+
+###############################################################################
+
+runTest {test error-2.2.2 {catch with options variable} -body {
+  list [catch badProc msg opts] $msg [string map [list \r\n \n] $opts]
+} -cleanup {
+  unset -nocomplain msg opts
+} -constraints {tcl tcl86} -result {1 {invalid command name "badProc"}\
+{-errorcode {TCL LOOKUP COMMAND badProc} -code 1 -level 0 -errorstack {INNER\
+{invokeStk1 badProc} UP 1} -errorinfo {invalid command name\
+"badProc"
+    while executing
+"badProc"} -errorline 1}}}
+
+###############################################################################
+
+runTest {test error-2.2.3 {catch with options variable} -body {
+  list [catch badProc msg opts] $msg [string map [list \r\n \n] $opts]
+} -cleanup {
+  unset -nocomplain msg opts
+} -constraints {eagle} -result \
+{1 {invalid command name "badProc"} {-code 1 -level 0 -errorcode NONE\
+-errorinfo {invalid command name "badProc"
+    while executing
+"badProc"
+    ("catch" body line 1)} -errorline 1}}}
+
+###############################################################################
+
+runTest {test error-2.3.1 {[catch] with options and "return" code} -body {
+  list [catch {return -code return result} msg opts] \
+      $msg [string map [list \r\n \n] $opts]
+} -cleanup {
+  unset -nocomplain msg opts
+} -constraints {tcl tcl85OrHigher} -result {2 result {-code 0 -level 2}}}
+
+###############################################################################
+
+runTest {test error-2.3.2 {[catch] with options and "return" code} -body {
+  list [catch {return -code return result} msg opts] \
+      $msg [string map [list \r\n \n] $opts]
+} -cleanup {
+  unset -nocomplain msg opts
+} -constraints {eagle} -result {2 result {-code 2 -level 0}}}
+
+###############################################################################
+
+runTest {test error-2.4 {[catch] with options and [proc]} -setup {
+  proc testProc1 {} {
+    catch {
+      return "some result"
+    } msg opts
+    return [list $msg $opts]
+  }
+} -body {
+  list [catch {testProc1} msg opts] $msg [string map [list \r\n \n] $opts]
+} -cleanup {
+  rename testProc1 ""
+
+  unset -nocomplain msg opts
+} -constraints {tcl85Feature} -result {0 {{some result} {-code 0 -level 1}}\
+{-code 0 -level 0}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

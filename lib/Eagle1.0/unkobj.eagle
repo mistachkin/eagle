@@ -1,0 +1,106 @@
+###############################################################################
+#
+# unkobj.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Unknown Object Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This is an [unknown] procedure that attempts to lookup the name
+  #       as a CLR type and then attempts to use [object invoke] with it,
+  #       merging options and arguments as necessary.
+  #
+  proc unknownObjectInvoke { level name args } {
+    set typeName $name; set extraName ""
+
+    if {[llength [info commands object]] > 0 && \
+       ([isManagedType $typeName] || \
+        [canGetManagedType $typeName true typeName extraName])} then {
+      #
+      # NOTE: Get possible options for the [object invoke] sub-command.
+      #
+      set options [object invoke Utility GetInvokeOptions Invoke]
+
+      #
+      # NOTE: Create argument list for the artificial [object invoke]
+      #       alias.  This always has two arguments.
+      #
+      set arguments1 [object create ArgumentList object invoke]
+
+      #
+      # NOTE: Create argument list for the entire command being handled.
+      #       There may be options right after the command name itself.
+      #
+      if {[string length $extraName] > 0} then {
+        #
+        # HACK: Construct a new type name with the NUL character between
+        #       it and the extra parts that must be moved into the member
+        #       name by the core marshaller.
+        #
+        set arguments2 [eval \
+            object create ArgumentList [concat [list [appendArgs \
+            $typeName \x00 [string map [list . \x00] $extraName]]] \
+            $args]]
+      } else {
+        set arguments2 [eval \
+            object create ArgumentList [concat [list $typeName] \
+            $args]]
+      }
+
+      #
+      # NOTE: Setup output arguments needed for the MergeArguments method.
+      #
+      set arguments3 null; set error null
+
+      #
+      # NOTE: Attempt to merge the option and non-option arguments into a
+      #       single list of arguments.
+      #
+      set code [object invoke -alias \
+          Interpreter.GetActive MergeArguments $options $arguments1 \
+          $arguments2 2 1 false false false arguments3 error]
+
+      #
+      # NOTE: Was the argument merging process successful?
+      #
+      if {$code eq "Ok"} then {
+        #
+        # NOTE: Jump up from our call frame (and optionally that of our
+        #       caller) and attempt to invoke the specified static object
+        #       method with the final list of merged arguments.
+        #
+        return [uplevel [expr {$level + 1}] \
+            [getStringFromObjectHandle $arguments3]]
+      } else {
+        #
+        # NOTE: Failed to merge the arguments, raise an error.
+        #
+        error [getStringFromObjectHandle $error]
+      }
+    }
+
+    continue; # NOTE: Not handled.
+  }
+
+  #
+  # NOTE: Provide the Eagle "unknown object" package to the interpreter.
+  #
+  package provide Eagle.Unknown.Object \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

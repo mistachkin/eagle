@@ -1,0 +1,50 @@
+###############################################################################
+#
+# set-nested.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test setNested-1.1 {set variable value} -setup {
+  unset -nocomplain a b
+} -body {
+  set a 1
+  set b [set a]
+  list $a $b
+} -cleanup {
+  unset a b
+} -result {1 1}}
+
+###############################################################################
+
+runTest {test setNested-1.2 {set variable value} -setup {
+  unset -nocomplain a b
+} -body {
+  set a [set b(foo bar) 1]
+} -returnCodes 1 -result {wrong # args: should be "set varName ?newValue?"}}
+
+###############################################################################
+
+runTest {test setNested-1.3 {set variable value} -setup {
+  unset -nocomplain a b
+} -body {
+  list [set a [set {b(foo bar)} 1]] [array names b] $a ${b(foo bar)}
+} -cleanup {
+  unset a b
+} -result {1 {{foo bar}} 1 1}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

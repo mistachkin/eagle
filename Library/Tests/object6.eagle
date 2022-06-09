@@ -1,0 +1,58 @@
+###############################################################################
+#
+# object6.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono crashing bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=478473
+###############################################################################
+# MONO: *BUG* As of Mono 2.8, the "object-6.1" test fails on Mono due to an
+#       apparent lack of support for resolving assemblies based on a partial
+#       name.  This test was passing as recently as Mono 2.6.7.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=645189
+###############################################################################
+
+#
+# NOTE: This test will fail if the Eagle core library and/or sample plugin
+#       is not strong named signed somehow (i.e. either delay signed or real
+#       signed) with the official key.
+#
+runTest {test object-6.1 {loading based on assembly name/file name} -body {
+  set fileName [file join $core_bin_path Sample.exe]
+
+  list [set o1 [object load Microsoft.Build.Engine]] \
+      [set o2 [object load -loadtype file $fileName]] \
+      [object invoke -flags +NonPublic Sample.Class1 sharedState] \
+      [llength [info objects]] \
+      [unset o2] \
+      [llength [info objects]] \
+      [unset o1] \
+      [llength [info objects]]
+} -cleanup {
+  unset -nocomplain o2 o1 fileName
+} -constraints {eagle command.object referenceCounts Microsoft.Build.Engine\
+file_Sample.exe monoCrash22 monoBug28 monoMatchFramework strongName.official} \
+-match regexp -result {^\{\{Microsoft\.Build\.Engine,\
+Version=\d+\.\d+\.\d+\.\d+, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a\}\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+\d+\} \{\{Sample, Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+\d+\} 42 3 \{\} 2 \{\} 1$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

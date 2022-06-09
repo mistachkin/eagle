@@ -1,0 +1,96 @@
+###############################################################################
+#
+# upvar-reverse.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test upvar-99.1 {reverse upvar} -setup {
+  proc buildRow1 { varName id } {
+    upvar 1 $varName rows
+
+    if {[array exists rows]} then {
+      if {[string is integer -strict $id]} then {
+        uplevel 1 [list upvar [appendArgs ## [info levelid]] \
+            row row]; # global
+
+        foreach pair $rows($id) {
+          set name [lindex $pair 0]
+          set value [lindex $pair 1]
+          set row(1,$name) $value
+        }
+      } else {
+        error "invalid row id `` $id ''"
+      }
+    } else {
+      error "invalid data `` $varName ''"
+    }
+  }
+
+  proc buildRow2 { varName id } {
+    upvar 1 $varName rows
+
+    if {[array exists rows]} then {
+      if {[string is integer -strict $id]} then {
+        foreach pair $rows($id) {
+          set name [lindex $pair 0]
+          set value [lindex $pair 1]
+
+          uplevel 1 {
+            set row(2,[downlevel set name]) [downlevel set value]
+          }
+        }
+      } else {
+        error "invalid row id `` $id ''"
+      }
+    } else {
+      error "invalid data `` $varName ''"
+    }
+  }
+} -body {
+  #
+  # NOTE: Initialize connection handle to empty.
+  #
+  set connection ""
+
+  try {
+    #
+    # NOTE: Attempt to open a connection to the database.
+    #
+    set connection [sql open -type $test_database_type $test_database]
+
+    set sql {
+      SELECT name FROM sys.tables
+    }
+
+    sql execute -execute reader $connection [subst $sql]
+
+    buildRow1 rows 1; buildRow2 rows 1
+  } finally {
+    if {[string length $connection] > 0} then {
+      sql close $connection; unset connection
+    }
+  }
+} -cleanup {
+  rename buildRow2 ""
+  rename buildRow1 ""
+
+  unset -nocomplain connection sql rows row
+} -constraints {eagle database database.sql command.sql compile.DATA} -result \
+{}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

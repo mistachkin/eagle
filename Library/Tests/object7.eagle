@@ -1,0 +1,408 @@
+###############################################################################
+#
+# object7.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono crashing bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=471259
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=490932
+###############################################################################
+
+runTest {test object-7.1 {objects with array and nullable arguments} -body {
+  list [set x [object create Eagle._Tests.Default]] [llength [info objects]] \
+      [set y 0] [object invoke $x TestByRefValueTypeMethod y] $y \
+      [object invoke $x TestNullableValueTypeMethod $null] \
+      [object invoke $x TestByRefNullableValueTypeMethod y] $y \
+      [object invoke $x TestIntArrayReturnValue] \
+      [object invoke $x TestStringArrayReturnValue] \
+      [object invoke $x TestStringListReturnValue] \
+      [object invoke $x TestStringListArrayReturnValue] \
+      [set z(0) foo] [object invoke -marshalflags StringList $x \
+      TestByRefStringListArray z] [testArrayGet z true] [unset z] [unset y] \
+      [object dispose $x] [unset x] [llength [info objects]]
+} -cleanup {
+  unset -nocomplain x y z
+} -constraints {eagle command.object compile.TEST referenceCounts monoCrash20\
+monoBug24 Eagle._Tests.Default.TestByRefValueTypeMethod\
+Eagle._Tests.Default.TestNullableValueTypeMethod\
+Eagle._Tests.Default.TestByRefNullableValueTypeMethod\
+Eagle._Tests.Default.TestIntArrayReturnValue\
+Eagle._Tests.Default.TestStringArrayReturnValue\
+Eagle._Tests.Default.TestStringListReturnValue\
+Eagle._Tests.Default.TestStringListArrayReturnValue\
+Eagle._Tests.Default.TestByRefStringListArray} -match regexp \
+-result {^Default#\d+ 2 0 \{\} 1 \{\} \{\} 2 \{1 2 3 4 5\} \{1 2 joe jim tom\}\
+\{1 2 joe jim tom\} \{\{1 2 joe jim tom\} \{\{hello world\}\} \{\{;\}\}\
+\{\\\\\} \{\\\{\}\} foo \{\} \{0 \{1 2 joe jim tom\} 1 \{\{hello world\}\} 2\
+\{\{;\}\} 3 \{\\\\\} 4 \{\\\{\}\} \{\} \{\} \{disposed removed\} \{\} 1$}}
+
+###############################################################################
+
+runTest {test object-7.2 {scalar variable marshal of array types} -setup {
+  unset -nocomplain array1 array2 array3
+} -body {
+  array set array1 {0 1 1 2 2 3}
+  array set array2 {}
+  set array3 null
+
+  list [object invoke Eagle._Tests.Default TestNullArray null] \
+      [object invoke Eagle._Tests.Default TestNullArray array1] \
+      [testArrayGet array1 true] \
+      [object invoke Eagle._Tests.Default TestNullArray array2] \
+      [testArrayGet array2 true] \
+      [object invoke Eagle._Tests.Default TestNullArray array3] \
+      [testArrayGet array3 true] \
+      [object invoke Eagle._Tests.Default TestOutArray true array1] \
+      [testArrayGet array1 true] \
+      [object invoke Eagle._Tests.Default TestOutArray true array2] \
+      [testArrayGet array2 true] \
+      [object invoke Eagle._Tests.Default TestOutArray true array3] \
+      [testArrayGet array3 true]
+} -cleanup {
+  unset -nocomplain array1 array2 array3
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestNullArray Eagle._Tests.Default.TestOutArray} -match \
+regexp -result {^-1 6 \{0 1 1 2 2 3\} 0 \{\} -1 \{\} True \{0 (?:1|one) 1\
+(?:2|two) 2 (?:3|three)\} True \{0 (?:1|one) 1 (?:2|two) 2 (?:3|three)\} True\
+\{0 (?:1|one) 1 (?:2|two) 2 (?:3|three)\}$}}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test is disabled on Mono due to internal implementation
+#       details regarding how objects are serialized.
+#
+runTest {test object-7.3.1 {scalar variable null object to array} -setup {
+  unset -nocomplain int32 bytes result error
+} -body {
+  set int32 [object create Int32]
+
+  set bytes null
+  set error null
+
+  list [object invoke Eagle._Components.Private.XmlOps Serialize $int32 Int32 \
+      null bytes error] [catch {testArrayGet bytes true} result] $result \
+      $error [object invoke Eagle._Components.Private.XmlOps Serialize $int32 \
+      Int32 null bytes error] [catch {testArrayGet bytes true} result] $result \
+      [catch {getStringFromObjectHandle $error} result] $result
+} -cleanup {
+  unset -nocomplain int32 bytes result error
+} -constraints [fixConstraints {eagle windows command.object dotNetOrDotNetCore\
+!dotNetCore60 compile.XML}] -result {Ok 0 {0 60 1 63 2 120 3 109 4 108 5 32 6\
+118 7 101 8 114 9 115 10 105 11 111 12 110 13 61 14 34 15 49 16 46 17 48 18 34\
+19 63 20 62 21 13 22 10 23 60 24 105 25 110 26 116 27 62 28 48 29 60 30 47 31\
+105 32 110 33 116 34 62} {} Error 0 {0 60 1 63 2 120 3 109 4 108 5 32 6 118 7\
+101 8 114 9 115 10 105 11 111 12 110 13 61 14 34 15 49 16 46 17 48 18 34 19 63\
+20 62 21 13 22 10 23 60 24 105 25 110 26 116 27 62 28 48 29 60 30 47 31 105 32\
+110 33 116 34 62} 0 {cannot overwrite valid byte array}}}
+
+###############################################################################
+
+runTest {test object-7.3.2 {scalar variable null object to array} -setup {
+  unset -nocomplain int32 bytes result error
+} -body {
+  set int32 [object create Int32]
+
+  set bytes null
+  set error null
+
+  list [object invoke Eagle._Components.Private.XmlOps Serialize $int32 Int32 \
+      null bytes error] [catch {testArrayGet bytes true} result] $result \
+      $error [object invoke Eagle._Components.Private.XmlOps Serialize $int32 \
+      Int32 null bytes error] [catch {testArrayGet bytes true} result] $result \
+      [catch {getStringFromObjectHandle $error} result] $result
+} -cleanup {
+  unset -nocomplain int32 bytes result error
+} -constraints {eagle windows command.object dotNetCore60 compile.XML} -result \
+{Ok 0 {0 239 1 187 2 191 3 60 4 63 5 120 6 109 7 108 8 32 9 118 10 101 11 114\
+12 115 13 105 14 111 15 110 16 61 17 34 18 49 19 46 20 48 21 34 22 32 23 101 24\
+110 25 99 26 111 27 100 28 105 29 110 30 103 31 61 32 34 33 117 34 116 35 102\
+36 45 37 56 38 34 39 63 40 62 41 60 42 105 43 110 44 116 45 62 46 48 47 60 48\
+47 49 105 50 110 51 116 52 62} {} Error 0 {0 239 1 187 2 191 3 60 4 63 5 120 6\
+109 7 108 8 32 9 118 10 101 11 114 12 115 13 105 14 111 15 110 16 61 17 34 18\
+49 19 46 20 48 21 34 22 32 23 101 24 110 25 99 26 111 27 100 28 105 29 110 30\
+103 31 61 32 34 33 117 34 116 35 102 36 45 37 56 38 34 39 63 40 62 41 60 42 105\
+43 110 44 116 45 62 46 48 47 60 48 47 49 105 50 110 51 116 52 62} 0 {cannot\
+overwrite valid byte array}}}
+
+###############################################################################
+
+runTest {test object-7.4 {scalar variable marshal of input array} -setup {
+  unset -nocomplain int32 array1 array2 array3 error
+} -body {
+  set int32 [object invoke -create Int32 Parse 123]
+
+  set array1 null
+  set array2 [object create -alias Int32\[\] 0]
+  set array3 [object create -alias Int32\[\] 3]
+
+  $array3 SetValue $int32 0
+  $array3 SetValue $int32 1
+  $array3 SetValue $int32 2
+
+  list [object invoke Eagle._Tests.Default TestNullArray null] \
+      [object invoke Eagle._Tests.Default TestNullArray array1] \
+      [object invoke Eagle._Tests.Default TestNullArray array2] \
+      [object invoke Eagle._Tests.Default TestNullArray array3] \
+      [catch {object invoke Eagle._Tests.Default TestOutArray true array1} \
+      error] [testArrayGet array1 true] $error [catch {object invoke \
+      Eagle._Tests.Default TestOutArray true array2} error] $error \
+      [catch {object invoke Eagle._Tests.Default TestOutArray true array3} \
+      error] $error
+} -cleanup {
+  unset -nocomplain int32 array1 array2 array3 error
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestNullArray Eagle._Tests.Default.TestOutArray} -match \
+regexp -result {^-1 -1 0 369 0 \{0 (?:1|one) 1 (?:2|two) 2 (?:3|three)\} True 0\
+True 0 True$}}
+
+###############################################################################
+
+runTest {test object-7.5 {Enum, ByRef, and Nullable} -setup {
+  unset -nocomplain w x y z script msg
+} -body {
+  set script {
+    set w null
+    set x Ok
+    set y Break
+    set z Error
+    list $w $x $y $z
+  }; eval $script
+
+  list [catch {object invoke Eagle._Tests.Default TestEnum $w} msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestEnum $x} msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestEnum $y} msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestEnum $z} msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestByRefEnum w} msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestByRefEnum x} msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestByRefEnum y} msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestByRefEnum z} msg] $msg \
+      [eval $script] \
+      [catch {object invoke Eagle._Tests.Default TestNullableEnum $w} msg] \
+      $msg \
+      [catch {object invoke Eagle._Tests.Default TestNullableEnum $x} msg] \
+      $msg \
+      [catch {object invoke Eagle._Tests.Default TestNullableEnum $y} msg] \
+      $msg \
+      [catch {object invoke Eagle._Tests.Default TestNullableEnum $z} msg] \
+      $msg \
+      [catch {object invoke Eagle._Tests.Default TestByRefNullableEnum w} \
+          msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestByRefNullableEnum x} \
+          msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestByRefNullableEnum y} \
+          msg] $msg \
+      [catch {object invoke Eagle._Tests.Default TestByRefNullableEnum z} \
+          msg] $msg [eval $script]
+} -cleanup {
+  unset -nocomplain w x y z script msg
+} -constraints {eagle command.object monoBug22 compile.TEST\
+Eagle._Tests.Default.TestEnum Eagle._Tests.Default.TestByRefEnum\
+Eagle._Tests.Default.TestNullableEnum\
+Eagle._Tests.Default.TestByRefNullableEnum} -match regexp -result \
+{^1 \{could not convert method #\d+ "Eagle\._Tests\.Default\.TestEnum" argument\
+#0 "x" with value "null" to type "Eagle\._Components\.Public\.ReturnCode":\
+argument of value type "Eagle\._Components\.Public\.ReturnCode" cannot be\
+null\} 0 True 0 False 0 False 0 True 0 True 0 False 0 False \{null Ok Break\
+Error\} 0 False 0 True 0 True 0 True 0 False 0 True 0 True 0 True \{null Ok\
+Break Error\}$}}
+
+###############################################################################
+
+runTest {test object-7.6 {match output arguments to method overload} -setup {
+  unset -nocomplain result array1
+} -body {
+  set result [list]
+  array set array1 {0 4 1 5 2 6}
+
+  object invoke -limit 0 -index 0 -argumentflags +Strict \
+      Eagle._Tests.Default TestByRefArray true array1
+
+  lappend result [testArrayGet array1]
+  array set array1 {0 7 1 8 2 9}
+
+  object invoke -limit 0 -index 1 -argumentflags +Strict \
+      Eagle._Tests.Default TestByRefArray true array1
+
+  lappend result [testArrayGet array1]
+
+  set result
+} -cleanup {
+  unset -nocomplain result array1
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestByRefArray} \
+-match regexp -result {^\{0 1 1 2 2 3\} \{0 one 1 two 2 three\}|\{0 one 1 two 2\
+three\} \{0 1 1 2 2 3\}$}}
+
+###############################################################################
+
+runTest {test object-7.7 {match output arguments to method overload} -setup {
+  unset -nocomplain result array1
+} -body {
+  set result [list]
+  array set array1 {0 6 1 5 2 4}
+
+  object invoke -limit 0 -index 1 -argumentflags +Strict \
+      Eagle._Tests.Default TestByRefArray true array1
+
+  lappend result [testArrayGet array1]
+  array set array1 {0 9 1 8 2 7}
+
+  object invoke -limit 0 -index 0 -argumentflags +Strict \
+      Eagle._Tests.Default TestByRefArray true array1
+
+  lappend result [testArrayGet array1]
+
+  set result
+} -cleanup {
+  unset -nocomplain result array1
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestByRefArray} \
+-match regexp -result {^\{0 1 1 2 2 3\} \{0 one 1 two 2 three\}|\{0 one 1 two 2\
+three\} \{0 1 1 2 2 3\}$}}
+
+###############################################################################
+
+runTest {test object-7.8 {method overload reordering} -setup {
+  unset -nocomplain result array1
+} -body {
+  set result [list]
+  array set array1 {0 4 1 5 2 6}
+
+  object invoke -limit 0 -marshalflags +ReorderMatches \
+      -argumentflags +Strict Eagle._Tests.Default TestByRefArray \
+      true array1
+
+  lappend result [testArrayGet array1]
+
+  set result
+} -cleanup {
+  unset -nocomplain result array1
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestByRefArray} \
+-result {{0 one 1 two 2 three}}}
+
+###############################################################################
+
+runTest {test object-7.9 {method overload reordering} -setup {
+  unset -nocomplain result array1
+} -body {
+  set result [list]
+  array set array1 {0 6 1 5 2 4}
+
+  object invoke -limit 0 -marshalflags +ReorderMatches \
+      -argumentflags +Strict Eagle._Tests.Default TestByRefArray \
+      true array1
+
+  lappend result [testArrayGet array1]
+
+  set result
+} -cleanup {
+  unset -nocomplain result array1
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestByRefArray} \
+-result {{0 one 1 two 2 three}}}
+
+###############################################################################
+
+runTest {test object-7.10 {method overload reordering} -setup {
+  unset -nocomplain result array1
+} -body {
+  set result [list]
+  array set array1 {0 4 1 5 2 6}
+
+  object invoke -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags ":ShallowestTypesFirst ValueTypeDepths" \
+      -argumentflags +Strict Eagle._Tests.Default TestByRefArray \
+      true array1
+
+  lappend result [testArrayGet array1]
+
+  set result
+} -cleanup {
+  unset -nocomplain result array1
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestByRefArray} -result {{0 1 1 2 2 3}}}
+
+###############################################################################
+
+runTest {test object-7.11 {method overload reordering} -setup {
+  unset -nocomplain result array1
+} -body {
+  set result [list]
+  array set array1 {0 6 1 5 2 4}
+
+  object invoke -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags ":ShallowestTypesFirst ValueTypeDepths" \
+      -argumentflags +Strict Eagle._Tests.Default TestByRefArray \
+      true array1
+
+  lappend result [testArrayGet array1]
+
+  set result
+} -cleanup {
+  unset -nocomplain result array1
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestByRefArray} -result {{0 1 1 2 2 3}}}
+
+###############################################################################
+
+runTest {test object-7.12 {null handle array for input/output} -setup {
+  unset -nocomplain array1
+} -body {
+  set array1 null
+
+  list [object invoke Eagle._Tests.Default TestByRefArray false array1] \
+      [testArrayGet array1]
+} -cleanup {
+  unset -nocomplain array1
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestByRefArray} -result {True {}}}
+
+###############################################################################
+
+runTest {test object-7.13 {null value array for input/output} -setup {
+  unset -nocomplain array1
+} -body {
+  set array1 null
+
+  list [object invoke Eagle._Tests.Default TestByRefArray false array1] \
+      [testArrayGet array1] \
+      [object invoke Eagle._Tests.Default TestByRefArray false array1] \
+      [testArrayGet array1]
+} -cleanup {
+  unset -nocomplain array1
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestByRefArray} -result {True {} True {}}}
+
+###############################################################################
+
+runTest {test object-7.14 {null array for input/output with mods} -setup {
+  unset -nocomplain array1
+} -body {
+  set array1 null
+
+  list [object invoke Eagle._Tests.Default TestByRefArray "" None array1 \
+      1 test false array1] [testArrayGet array1]
+} -cleanup {
+  unset -nocomplain array1
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestByRefArray} -returnCodes 1 -result \
+{can't set "array1": variable is array}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

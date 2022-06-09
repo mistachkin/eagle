@@ -1,0 +1,361 @@
+###############################################################################
+#
+# array.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test array-1.1 {array set} -setup {
+  catch {unset x}
+} -body {
+  array set x [list a 1 b 2 c 3 aa 11 bb 22 cc 33 abc 123 bca 231 cab 312]
+} -result {}}
+
+###############################################################################
+
+runTest {test array-1.2 {array get} -body {
+  testArrayGet x
+} -constraints {eagle} -result \
+{a 1 aa 11 abc 123 b 2 bb 22 bca 231 c 3 cab 312 cc 33}}
+
+###############################################################################
+
+runTest {test array-1.3 {array get glob mode} -body {
+  testArrayGet2 x b*
+} -constraints {eagle} -result {b 2 bb 22 bca 231}}
+
+###############################################################################
+
+runTest {test array-1.4 {array names exact mode} -body {
+  lsort [array names x -exact a]
+} -result {a}}
+
+###############################################################################
+
+runTest {test array-1.5 {array names glob mode} -body {
+  lsort [array names x -glob a*]
+} -constraints {eagle} -result {a aa abc}}
+
+###############################################################################
+
+runTest {test array-1.6 {array names regexp mode} -body {
+  lsort [array names x -regexp a.*]
+} -constraints {eagle} -result {a aa abc bca cab}}
+
+###############################################################################
+
+runTest {test array-1.7 {array names with env array} -body {
+  expr {int([llength [array names env]] > 0)}
+} -constraints {eagle} -result {1}}
+
+###############################################################################
+
+runTest {test array-1.8 {array get with env array} -body {
+  expr {int([llength [array get env]] > 0)}
+} -constraints {eagle} -result {1}}
+
+###############################################################################
+
+runTest {test array-1.9 {info exists with env array} -body {
+  info exists env(windir)
+} -constraints {eagle windows} -result {1}}
+
+###############################################################################
+
+runTest {test array-1.10 {info exists with env array} -body {
+  info exists env(this_var_will_not_exist_[clock seconds])
+} -constraints {eagle} -result {0}}
+
+###############################################################################
+
+runTest {test array-1.11 {normal array searches} -setup {
+  unset -nocomplain y
+  array set y [list 1 one 2 two 3 three]
+  set s [array startsearch y]
+} -body {
+  set result [list]
+
+  while {[array anymore y $s]} {
+    lappend result [array nextelement y $s]
+  }
+
+  lsort -integer $result
+} -cleanup {
+  array donesearch y $s
+  unset -nocomplain result y s
+} -result {1 2 3}}
+
+###############################################################################
+
+#
+# NOTE: Some versions of Tcl cannot pass this test, see SF bug #2889257.
+#
+runTest {test array-1.12 {env array searches} -setup {
+  set s [array startsearch env]
+} -body {
+  set result [list]
+
+  while {[array anymore env $s]} {
+    if {[array nextelement env $s] eq "windir"} then {
+      lappend result windir
+    }
+  }
+
+  set result
+} -cleanup {
+  array donesearch env $s
+  unset -nocomplain result s
+} -constraints {tclBug windows} -result {windir}}
+
+###############################################################################
+
+#
+# NOTE: Some versions of Tcl cannot pass this test due to the isEagle proc
+#       (which is used extensively by the test suite) attempting to check
+#       for the tcl_platform(engine) array element, see SF bug #2889293.
+#
+runTest {test array-1.13 {tcl_platform array searches} -setup {
+  set s [array startsearch tcl_platform]
+} -body {
+  set result [list]
+
+  while {[array anymore tcl_platform $s]} {
+    if {[array nextelement tcl_platform $s] eq "user"} then {
+      lappend result user
+    }
+  }
+
+  set result
+} -cleanup {
+  array donesearch tcl_platform $s
+  unset -nocomplain result s
+} -constraints {tclBug} -result {user}}
+
+###############################################################################
+
+runTest {test array-1.14 {eagle_tests array searches} -setup {
+  set s [array startsearch eagle_tests]
+} -body {
+  set result [list]
+
+  while {[array anymore eagle_tests $s]} {
+    set name [array nextelement eagle_tests $s]
+    lappend result [list $name [info exists eagle_tests($name)]]
+  }
+
+  lappend result [list foo [info exists eagle_tests(foo)]]
+
+  lsort $result
+} -cleanup {
+  array donesearch eagle_tests $s
+  unset -nocomplain name result s
+} -constraints {eagle} -match regexp -result \
+{^(?:\{Breakpoints 1\} )?\{Constraints 1\} \{Counts 1\} \{CurrentName 1\}\
+\{Disabled 1\} \{DisabledBug 1\} \{Failed 1\} \{FailedBug 1\} \{FailedNames 1\}\
+\{Interpreter 1\} \{KnownBugs 1\} \{Level 1\} \{MatchNames 1\} \{Passed 1\}\
+\{PassedBug 1\} \{RepeatCount 1\} \{SkipNames 1\} \{Skipped 1\} \{SkippedBug\
+1\} \{SkippedNames 1\} \{Total 1\} \{Verbose 1\} \{foo 0\}$}}
+
+###############################################################################
+
+runTest {test array-1.15 {array exists with upvar to element} -setup {
+  proc arrayUpvarTest {} {
+    upvar tcl_platform(foo) array
+    upvar tcl_platform(byteOrder) array2
+
+    return [list [expr {int([array exists array])}] \
+                 [expr {int([array exists array2])}]]
+  }
+} -body {
+  arrayUpvarTest
+} -cleanup {
+  rename arrayUpvarTest ""
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test array-1.16 {unset -nocomplain env array element} -body {
+  unset -nocomplain env(array-1.16)
+} -constraints {eagle} -result {}}
+
+###############################################################################
+
+runTest {test array-1.17 {array foreach eagle_platform} -setup {
+  unset -nocomplain x
+} -body {
+  set x(names) [array names eagle_platform]
+  array foreach x(current) eagle_platform {
+    lappend x(foreach) $x(current)
+  }
+  string equal [lsort $x(names)] [lsort $x(foreach)]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle} -result {True}}
+
+###############################################################################
+
+runTest {test array-1.18 {array foreach env} -setup {
+  unset -nocomplain x
+} -body {
+  set x(names) [array names env]
+  array foreach x(current) env {
+    lappend x(foreach) $x(current)
+  }
+  string equal [lsort $x(names)] [lsort $x(foreach)]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle} -result {True}}
+
+###############################################################################
+
+runTest {test array-1.19 {array foreach eagle_tests} -setup {
+  unset -nocomplain x
+} -body {
+  set x(names) [array names eagle_tests]
+  array foreach x(current) eagle_tests {
+    lappend x(foreach) $x(current)
+  }
+  string equal [lsort $x(names)] [lsort $x(foreach)]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle} -result {True}}
+
+###############################################################################
+
+runTest {test array-1.20 {array foreach tcl_platform/eagle_platform} -setup {
+  unset -nocomplain x
+} -body {
+  set x(names1) [array names tcl_platform]
+  set x(names2) [array names eagle_platform]
+  array foreach x(current1) tcl_platform x(current2) eagle_platform {
+    lappend x(foreach1) $x(current1)
+    lappend x(foreach2) $x(current2)
+  }
+  while {[llength $x(names1)] < [llength $x(foreach1)]} {
+    lappend x(names1) ""
+  }
+  list [string equal [lsort $x(names1)] [lsort $x(foreach1)]] \
+      [string equal [lsort $x(names2)] [lsort $x(foreach2)]]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle} -result {True True}}
+
+###############################################################################
+
+runTest {test array-1.21 {array random} -setup {
+  unset -nocomplain x y
+} -body {
+  array set x {}
+  list [catch {array random x} y] $y [catch {array random -strict x} y] $y
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle} -result {0 {} 1 {no elements in array}}}
+
+###############################################################################
+
+runTest {test array-1.22 {array random} -setup {
+  unset -nocomplain x y
+} -body {
+  set y [list {1 one} {2 two} {3 three} {4 four}]
+  array set x [eval concat $y]
+  list [expr {[array random x] in [array names x]}] \
+      [expr {[array random -valueonly x] in [array values x]}] \
+      [expr {[array random -pair x] in $y}]
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle} -result {True True True}}
+
+###############################################################################
+
+runTest {test array-1.23 {array random env} -body {
+  list [expr {[array random env] in [array names env]}] \
+      [expr {[array random -valueonly env] in [array values env]}] \
+      [expr {[lindex [array random -pair env] 0] in [array names env]}] \
+      [expr {[lindex [array random -pair env] 1] in [array values env]}]
+} -constraints {eagle} -result {True True True True}}
+
+###############################################################################
+
+runTest {test array-1.24 {array random eagle_tests} -body {
+  list [expr {[array random eagle_tests] in [array names eagle_tests]}] \
+      [expr {[array random -valueonly eagle_tests] in \
+          [array values eagle_tests]}] \
+      [expr {[lindex [array random -pair eagle_tests] 0] in \
+          [array names eagle_tests]}] \
+      [expr {[lindex [array random -pair eagle_tests] 1] in \
+          [array values eagle_tests]}]
+} -constraints {eagle} -result {True True True True}}
+
+###############################################################################
+
+#
+# NOTE: In Eagle beta 31, this causes a NullReferenceException in the method
+#       "Interpreter.FireArraySetTraces".
+#
+runTest {test array-1.25 {array set reuse of undefined scalar} -setup {
+  proc procOne { interp } {
+    set arr 0; unset arr
+    procTwo $interp
+  }
+
+  proc procTwo { interp } {
+    uplevel 1 [list variable arr]
+
+    uplevel 1 [list array set arr \
+        [interp eval $interp [list array get arr]]]
+  }
+
+  set interp [interp create]
+
+  interp eval $interp {
+    variable arr; set arr(1) 1
+  }
+} -body {
+  procOne $interp
+} -cleanup {
+  catch {interp delete $interp}
+
+  rename procTwo ""
+  rename procOne ""
+
+  unset -nocomplain arr interp
+} -result {}}
+
+###############################################################################
+
+runTest {test array-1.26 {no recycled array elements} -setup {
+  proc myProc1 {} {
+    variable foo; array set foo [list]
+
+    lappend foo(1) one
+    lappend foo(2) two
+
+    return [array get foo]
+  }
+} -body {
+  list [myProc1] [unset foo] [myProc1]
+} -cleanup {
+  rename myProc1 ""
+
+  unset -nocomplain foo
+} -result {{1 one 2 two} {} {1 one 2 two}}}
+
+###############################################################################
+
+unset -nocomplain x
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,1261 @@
+###############################################################################
+#
+# csharp.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle CSharp Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure is used to log various stages of the C# compilation
+  #       lifecycle.  Under normal circumstances, this procedure will not do
+  #       anything.
+  #
+  proc csharpLog { string {object ""} } {
+    #
+    # NOTE: If the "enableCSharpLog" runtime option is enabled, this routine
+    #       will emit log output somewhere; otherwise, it will do nothing.
+    #
+    if {![info exists ::no(csharpLog)] && \
+        [llength [info commands hasRuntimeOption]] > 0 && \
+        [hasRuntimeOption enableCSharpLog]} then {
+      #
+      # NOTE: If the caller passed a valid opaque object handle, query its
+      #       list of properties and emit them with the log output.
+      #
+      if {[llength [info commands object]] > 0 && \
+          [isNonNullObjectHandle $object]} then {
+        #
+        # HACK: Attempt to dynamically query all public properties of the
+        #       specified object -AND- add them to the log output.
+        #
+        set list null; set error null
+
+        set code [object invoke -create -alias -flags +NonPublic \
+            Eagle._Components.Private.MarshalOps ListProperties \
+            "" $object null null true list error]
+
+        #
+        # HACK: Since -create was used above in the [object invoke] call,
+        #       the "code" variable must be converted to a string before
+        #       we can check it for success.
+        #
+        set code [getStringFromObjectHandle $code]
+
+        if {$code eq "Ok"} then {
+          #
+          # HACK: In theory, at this point, the "list" variable must be
+          #       a valid opaque object handle; however, to prevent any
+          #       future issues with the ListProperties method check it
+          #       just in case.
+          #
+          if {[isNonNullObjectHandle $list]} then {
+            #
+            # HACK: The [formatListAsDict] procedure will almost always
+            #       be available at this point; however, we do not want
+            #       to require it.
+            #
+            if {[llength [info commands formatListAsDict]] > 0} then {
+              set suffix [formatListAsDict \
+                  [getStringFromObjectHandle $list]]
+            } else {
+              set suffix [getStringFromObjectHandle $list]
+            }
+          } else {
+            set suffix [appendArgs \
+                "invalid property list for object \"" $object \"]
+          }
+        } else {
+          set suffix [getStringFromObjectHandle $error]
+        }
+
+        set newString [appendArgs $string $suffix]
+      } else {
+        set newString $string
+      }
+
+      #
+      # NOTE: If the "testCSharpLog" runtime option is enabled, emit the
+      #       output to the test log.
+      #
+      if {[hasRuntimeOption testCSharpLog]} then {
+        #
+        # HACK: The [getTestChannelOrDefault] procedure will almost always
+        #       be available at this point; however, we can work around the
+        #       lack of it.
+        #
+        if {[llength [info commands getTestChannelOrDefault]] > 0} then {
+          set channel [getTestChannelOrDefault]
+        } else {
+          if {[info exists ::test_channel]} then {
+            set channel $::test_channel
+          } else {
+            set channel stdout
+          }
+        }
+
+        #
+        # HACK: The [tputs] procedure will almost always be available at
+        #       this point; however, we can work around the lack of it.
+        #
+        set newString [appendArgs "---- " $newString \n]
+
+        if {[llength [info commands tputs]] > 0} then {
+          tputs $channel $newString
+        } else {
+          tqputs $channel $newString
+        }
+      } else {
+        #
+        # TODO: Is there a better place to send this log output when the
+        #       test suite is not available?
+        #
+        tclLog $newString
+      }
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure is used to determine the fully qualified path to the
+  #       .NET Core SDK.  An empty string will be returned to indicate an
+  #       error.  This procedure should not raise script errors.
+  #
+  proc getDotNetCoreSdkPath {} {
+    if {[catch {exec -- dotnet --info} info] == 0} then {
+      csharpLog [appendArgs \
+          "getDotNetCoreSdkPath ok:\n\t" \
+          [string map [list \n \n\t] $info]]
+
+      set info [string map [list \r\n \n] $info]
+
+      if {[regexp -line -- \
+          {^\s*Base Path:\s+([^\n]+)$} $info dummy path]} then {
+        return [file normalize $path]
+      }
+    } else {
+      csharpLog [appendArgs \
+          "getDotNetCoreSdkPath error: " $info]
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure is used to determine the fully qualified path to the
+  #       directory containing the reference assemblies for the .NET Standard
+  #       2.x.  An empty string will be returned to indicate an error.  This
+  #       procedure should not raise script errors.
+  #
+  proc getDotNetStandardReferencePath {
+          {packageVersion ""} {standardVersion ""} {useSdkVersion false} } {
+    set path [getDotNetCoreSdkPath]
+
+    if {[string length $path] > 0} then {
+      if {[string length $standardVersion] == 0} then {
+        if {!$useSdkVersion && [isDotNetCore] && \
+            [info exists ::eagle_platform(runtimeVersion)]} then {
+          set targetVersion $::eagle_platform(runtimeVersion)
+        } else {
+          set targetVersion [file tail $path]
+        }
+
+        if {[string match 6.* $targetVersion] || \
+            [string match 5.* $targetVersion] || \
+            [string match 3.* $targetVersion]} then {
+          set standardVersion netstandard2.1
+        } elseif {[string match 2.* $targetVersion]} then {
+          set standardVersion netstandard2.0
+        }
+      }
+
+      switch -exact -- $standardVersion {
+        netstandard2.0 {
+          set libraryDirectory [file normalize [file join [file dirname \
+              $path] NuGetFallbackFolder netstandard.library]]
+
+          set buildReferenceSubDirectory [file join build $standardVersion \
+              ref]
+        }
+        netstandard2.1 {
+          set libraryDirectory [file normalize [file join [file dirname \
+              [file dirname $path]] packs NETStandard.Library.Ref]]
+
+          set buildReferenceSubDirectory [file join ref $standardVersion]
+        }
+        default {
+          #
+          # TODO: Do something else here?  The version of the standard is
+          #       not known.  Perhaps do some kind of search?
+          #
+          set libraryDirectory ""
+          set buildReferenceSubDirectory ""
+        }
+      }
+
+      if {[string length $libraryDirectory] > 0 && \
+          [string length $buildReferenceSubDirectory] > 0} then {
+        if {[string length $packageVersion] > 0} then {
+          set assemblyDirectory [file normalize [file join \
+              $libraryDirectory $packageVersion $buildReferenceSubDirectory]]
+
+          if {[file exists $assemblyDirectory]} then {
+            return $assemblyDirectory
+          }
+        } else {
+          set compareCommand [list package vsort]
+          set globPathPattern [file join $libraryDirectory *]
+
+          set maybeVersions [lsort -decreasing -command $compareCommand \
+              [lmap directory [glob -nocomplain -types {d} $globPathPattern] \
+              { file tail $directory }]]
+
+          catch {object removecallback $compareCommand}
+
+          foreach maybeVersion $maybeVersions {
+            set assemblyDirectory [file normalize [file join \
+                $libraryDirectory $maybeVersion $buildReferenceSubDirectory]]
+
+            if {[file exists $assemblyDirectory]} then {
+              return $assemblyDirectory
+            }
+          }
+        }
+      }
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure is used to obtain a test program for use with the
+  #       C# compiler.  Upon success, the return value will be a list with
+  #       two elements.  The first element will be the name of the C# class
+  #       to be compiled.  The second element will be the C# program text.
+  #       Upon failure, the return value will be an empty list.
+  #
+  proc getCSharpTestProgram { {name ""} } {
+    set prefix Test
+
+    if {[llength [info commands object]] > 0} then {
+      set id [object invoke Interpreter.GetActive NextId]
+
+      set className [appendArgs \
+          $prefix Namespace $id [object invoke Type Delimiter] \
+          $prefix Class $id]
+    } else {
+      set id [string trimleft [expr {random()}] -]
+
+      set className [appendArgs \
+          $prefix Namespace $id . $prefix Class $id]
+    }
+
+    return [list $className [subst {
+      using System;
+
+      namespace ${prefix}Namespace${id}
+      {
+        public static class ${prefix}Class${id}
+        {
+          public static Int32 Main(String\[\] args)
+          {
+            return 0;
+          }
+        }
+      }
+    }]]
+  }
+
+  #
+  # NOTE: This procedure is used to determine whether the C# compiler appears
+  #       to work when invoked via the interfaces defined in this script file.
+  #       Non-zero is returned to indicate success.  This procedure should not
+  #       raise script errors.
+  #
+  proc doesCompileCSharpWork { {name ""} {errorsVarName ""} } {
+    if {[string length $errorsVarName] > 0} then {
+      upvar 1 $errorsVarName errors
+    }
+
+    if {[catch {getCSharpTestProgram $name} program]} then {
+      set errors [list [appendArgs \
+          "caught error while getting \"" $name "\" test program: " \
+          $program]]
+
+      return false
+    }
+
+    if {[llength $program] < 2} then {
+      set errors [list [appendArgs \
+          "command \[getCSharpTestProgram\] returned malformed \"" \
+          $name "\" test program: " $program]]
+
+      return false
+    }
+
+    unset -nocomplain results local_errors
+
+    if {[catch {
+      compileCSharp [lindex $program 1] true false true results local_errors
+    } code]} then {
+      set errors [list [appendArgs \
+          "caught error while compiling \"" $name "\" test program: " \
+          $code]]
+
+      return false
+    }
+
+    if {$code ne "Ok"} then {
+      set errors [list [appendArgs \
+          "errors from compilation of \"" $name "\" test program: " \
+          [expr {[info exists local_errors] ? $local_errors : $code}]]]
+
+      return false
+    }
+
+    if {[llength [info commands object]] == 0} then {
+      set errors [list [appendArgs \
+          "cannot execute \"" $name \
+          "\" test program, missing \"object\" command"]]
+
+      return false
+    }
+
+    if {[catch {
+      object invoke [lindex $program 0] Main null
+    } exitCode]} then {
+      set errors [list [appendArgs \
+          "caught error while executing \"" $name "\" test program: " \
+          $exitCode]]
+
+      return false
+    }
+
+    if {$exitCode ne "0"} then {
+      set errors [list [appendArgs \
+          "bad exit code from \"" $name "\" test program: " \
+          $exitCode]]
+
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure is used to determine the command line arguments that
+  #       are required to invoke the .NET Core SDK compiler for C#.  An empty
+  #       list will be returned if the arguments cannot be determined for some
+  #       reason -OR- the C# compiler cannot be found.  This procedure should
+  #       not raise script errors.
+  #
+  proc getDotNetCoreCSharpCommandArgs {} {
+    set path [getDotNetCoreSdkPath]
+
+    if {[string length $path] > 0} then {
+      set compilerFileName [file normalize [file join \
+          $path Roslyn bincore csc.dll]]
+
+      if {[file exists $compilerFileName]} then {
+        return [list dotnet exec [appendArgs \
+            \" [file nativename $compilerFileName] \"]]; # EXEMPT
+      }
+    }
+
+    return [list]
+  }
+
+  #
+  # NOTE: This procedure is used to format an option to the C# compiler.  It
+  #       may have a name and/or a value.  This procedure should not raise
+  #       script errors.
+  #
+  proc formatCompilerArgument { name value } {
+    set wrap ""
+
+    if {[regexp -- {\s} $name] || [regexp -- {\s} $value]} then {
+      set wrap \"
+    }
+
+    if {[string length $name] > 0} then {
+      if {[string length $value] > 0} then {
+        return [appendArgs $wrap $name : $value $wrap]
+      } else {
+        return [appendArgs $wrap $name $wrap]
+      }
+    } else {
+      if {[string length $value] > 0} then {
+        return [appendArgs $wrap $value $wrap]
+      } else {
+        return ""
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure is used to translate a name/value pair into zero or
+  #       more options to the C# compiler.  This procedure should not raise
+  #       script errors.
+  #
+  proc compilerParameterToArguments {
+          name {value ""} {outputAssemblyVarName ""} } {
+    switch -exact -nocase -- $name {
+      WarningLevel {
+        set name -warn
+      }
+      TreatWarningsAsErrors {
+        set name -warnaserror
+      }
+      OutputAssembly {
+        if {[string length $outputAssemblyVarName] > 0} then {
+          #
+          # HACK: This compiler parameter is handled by our caller; however,
+          #       we want to honor the value specified via the OutputAssembly
+          #       property.  Therefore, reset the specified variable from the
+          #       caller to the new value.
+          #
+          upvar 1 $outputAssemblyVarName outputAssembly
+
+          #
+          # NOTE: Use the file name value specified by the caller verbatim.
+          #
+          set outputAssembly $value
+
+          #
+          # HACK: Also, make sure that we do not handle this parameter again,
+          #       below.
+          #
+          set name ""; set value ""
+        } else {
+          #
+          # BUGBUG: Translate the compiler parameter; however, this may not
+          #         actually work, depending on how our caller handles its
+          #         output assembly file name.  At the time this block was
+          #         originally written (2018-04-09), the only caller (i.e.
+          #         [compileViaDotNetCoreCSharp]) always passed the output
+          #         assembly variable name, making this a non-issue.  This
+          #         convention should also be followed by future callers of
+          #         this procedure.
+          #
+          set name -out
+        }
+      }
+      ReferencedAssemblies.Add {
+        set name -reference
+
+        if {[file pathtype $value] ne "absolute"} then {
+          set value [file nativename [file normalize \
+              [file join [getDotNetStandardReferencePath] \
+              $value]]]
+        }
+      }
+    }
+
+    set formatted [formatCompilerArgument $name $value]
+
+    if {[string length $formatted] > 0} then {
+      return [list $formatted]
+    } else {
+      return [list]
+    }
+  }
+
+  #
+  # NOTE: This procedure is used to obtain the base command line options for
+  #       the C# compiler, including those that may be enabled by default.
+  #       An empty string may be returned.  This procedure should not raise
+  #       script errors.
+  #
+  proc getCSharpCompilerOptions { parameters library csharp prefix } {
+    #
+    # NOTE: Make sure that the "standard" preprocessor defines match those
+    #       for the platform (i.e. the ones used to compile the Eagle core
+    #       library assembly).  This caller may disable this handling.
+    #
+    if {$library} then {
+      set libraryOptions [expr { \
+          [info exists ::eagle_platform(compileOptions)] ? \
+          $::eagle_platform(compileOptions) : [list] \
+      }]
+    } else {
+      set libraryOptions [list]
+    }
+
+    #
+    # NOTE: Permit extra C# compiler options to be passed via the global
+    #       array element "csharpOptions", if it exists.  This caller may
+    #       disable this handling.
+    #
+    if {$csharp} then {
+      set csharpOptions [expr { \
+          [info exists ::eagle_platform(csharpOptions)] ? \
+          $::eagle_platform(csharpOptions) : [list] \
+      }]
+    } else {
+      set csharpOptions [list]
+    }
+
+    #
+    # NOTE: Start out with no compiler options.
+    #
+    set result ""
+
+    #
+    # NOTE: Grab the existing compiler options, if any.  This caller may
+    #       disable this handling (e.g. by specifying an invalid opaque
+    #       object handle for the "parameters" argument).
+    #
+    if {[isNonNullObjectHandle $parameters]} then {
+      if {[string length $result] > 0} then {
+        append result " "
+      }
+
+      append result [$parameters CompilerOptions]
+    }
+
+    #
+    # NOTE: Are there any Eagle core library options to check?
+    #
+    if {[llength $libraryOptions] > 0} then {
+      #
+      # NOTE: Was the Eagle core library built in the Debug configuration?
+      #
+      if {"DEBUG" in $libraryOptions} then {
+        if {[string length $result] > 0} then {
+          append result " "
+        }
+
+        append result $prefix define:DEBUG
+      }
+
+      #
+      # NOTE: Was the Eagle core library built with tracing enabled (i.e.
+      #       this allows for use of System.Diagnostics.Trace, etc)?
+      #
+      if {"TRACE" in $libraryOptions} then {
+        if {[string length $result] > 0} then {
+          append result " "
+        }
+
+        append result $prefix define:TRACE
+      }
+    }
+
+    #
+    # NOTE: Are there any extra C# compiler options to add?
+    #
+    if {[llength $csharpOptions] > 0} then {
+      #
+      # NOTE: Append the configured extra C# compiler options configured
+      #       via the global array element "csharpOptions", if any.
+      #
+      foreach csharpOption $csharpOptions {
+        if {[string length $result] > 0} then {
+          append result " "
+        }
+
+        append result $prefix $csharpOption
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure is used to escape all characters in the specified
+  #       string for use inside of a regular expression.  An empty string
+  #       may be returned.  This procedure should not raise script errors.
+  #
+  proc regexpEscapeAll { value } {
+    set result ""
+
+    foreach char [split $value ""] {
+      append result \\u [format %04X [string ordinal $char 0]]
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure is used to execute the C# compiler and returns its
+  #       platform normalized results.
+  #
+  proc runDotNetCSharpCommand { command } {
+    #
+    # NOTE: Evaluate the [exec] command constructed by our caller, in their
+    #       context, and return the results, with line-endings normalized.
+    #
+    csharpLog [appendArgs "running C# command: " $command]
+    return [string map [list \r\n \n] [uplevel 1 $command]]
+  }
+
+  #
+  # NOTE: This procedure is used to extract the C# compiler error messages
+  #       from its results.  An empty list will be returned if the errors
+  #       cannot be determined for some reason.  This procedure should not
+  #       raise script errors.
+  #
+  proc extractCSharpErrors { fileName results } {
+    set list [list]
+
+    foreach {dummy match} [regexp -all -line -inline -- \
+        [appendArgs (^(?: [regexpEscapeAll $fileName] \
+        {\(\d+,\d+\): )?error CS\d{4}: [^\n]+$)}] $results] {
+      lappend list $match
+    }
+
+    return $list
+  }
+
+  #
+  # NOTE: This procedure is used to extract the C# compiler warning messages
+  #       from its results.  An empty list will be returned if the warnings
+  #       cannot be determined for some reason.  This procedure should not
+  #       raise script errors.
+  #
+  proc extractCSharpWarnings { fileName results } {
+    set list [list]
+
+    foreach {dummy match} [regexp -all -line -inline -- \
+        [appendArgs (^(?: [regexpEscapeAll $fileName] \
+        {\(\d+,\d+\): )?warning CS\d{4}: [^\n]+$)}] $results] {
+      lappend list $match
+    }
+
+    return $list
+  }
+
+  #
+  # NOTE: This procedure is used to dynamically compile arbitrary C# code
+  #       from within a script using the CSharpCodeProvider class present
+  #       in the desktop .NET Framework.  It may work on some versions of
+  #       Mono as well.  This procedure was originally designed to be used
+  #       by the test suite; however, it can be quite useful in non-test
+  #       scripts as well.
+  #
+  proc compileViaCSharpCodeProvider {
+          string memory symbols strict resultsVarName errorsVarName args } {
+    #
+    # NOTE: The [object] command is required by this procedure.  If it
+    #       is not available, bail out now.
+    #
+    if {[llength [info commands object]] == 0} then {
+      #
+      # NOTE: We cannot even attempt to compile anything, fail.
+      #
+      set code Error
+
+      #
+      # NOTE: Prepare to transfer error messages to the caller.
+      #
+      if {[string length $errorsVarName] > 0} then {
+        upvar 1 $errorsVarName local_errors
+      }
+
+      #
+      # NOTE: Append to the list of errors.
+      #
+      lappend local_errors "cannot compile, missing \"object\" command"
+
+      #
+      # NOTE: Return the overall result to the caller.
+      #
+      return [list $code]
+    }
+
+    #
+    # NOTE: Create the C# code provider object (i.e. the compiler).
+    #
+    set provider [object create -alias Microsoft.CSharp.CSharpCodeProvider]
+
+    #
+    # NOTE: Create the object that provides various parameters to the C#
+    #       code provider (i.e. the compiler options).
+    #
+    set parameters [object create -alias \
+        System.CodeDom.Compiler.CompilerParameters]
+
+    #
+    # NOTE: Do we not want to persist the generated assembly to disk?
+    #       Either way, we must make sure the temporary file names used
+    #       are determinstic (i.e. from our perspective, so that we can
+    #       delete them later).
+    #
+    $parameters OutputAssembly [set outputFileName [appendArgs [set \
+        tempName(1) [file tempname]] .dll]]
+
+    if {$memory} then {
+      $parameters GenerateInMemory true
+    }
+
+    #
+    # NOTE: Use a try/finally block to cleanup temporary files.
+    #
+    try {
+      #
+      # NOTE: Do we want symbols to be generated for the generated assembly?
+      #
+      if {$symbols} then {
+        $parameters IncludeDebugInformation true
+      }
+
+      #
+      # NOTE: Start out the compiler options with the pre-existing defaults
+      #       for the compiler followed by those necessary for the platform.
+      #
+      $parameters CompilerOptions \
+          [getCSharpCompilerOptions $parameters true true /]
+
+      #
+      # NOTE: Process extra compiler settings the caller may have provided.
+      #
+      foreach {name value} $args {
+        $parameters -nocase $name $value
+      }
+
+      #
+      # NOTE: Prepare to transfer the object reference to the caller.  We
+      #       must use [upvar] here because otherwise the object is lost
+      #       when the procedure call frame is cleaned up.
+      #
+      if {[string length $resultsVarName] > 0} then {
+        upvar 1 $resultsVarName results
+      }
+
+      #
+      # NOTE: Attempt to compile the specified string as C# and capture the
+      #       results into the variable provided by the caller.
+      #
+      csharpLog "compileViaCSharpCodeProvider parameters: " $parameters
+
+      try {
+        if {[info exists ::compileCSharp(preProcess)]} then {
+          eval $::compileCSharp(preProcess); # pre-compilation HOOK
+        }
+
+        set results [$provider \
+            -alias CompileAssemblyFromSource $parameters $string]
+      } finally {
+        if {[info exists ::compileCSharp(postProcess)]} then {
+          eval $::compileCSharp(postProcess); # post-compilation HOOK
+        }
+      }
+
+      #
+      # NOTE: We no longer need the C# code provider object (i.e. the
+      #       compiler); therefore, dispose it now.
+      #
+      unset provider; # dispose
+
+      #
+      # NOTE: Fetch the collection of compiler errors (which may be empty).
+      #
+      set errors [$results -alias Errors]
+
+      #
+      # NOTE: It is assumed that no assembly was generated if there were
+      #       any compiler errors.  Ignore all compiler warnings unless
+      #       we are in strict mode.
+      #
+      if {[$errors HasErrors] || \
+          ($strict && [$errors HasWarnings])} then {
+        #
+        # NOTE: Compilation of the assembly failed.
+        #
+        set code Error
+
+        #
+        # NOTE: Prepare to transfer error messages to the caller.
+        #
+        if {[string length $errorsVarName] > 0} then {
+          upvar 1 $errorsVarName local_errors
+        }
+
+        #
+        # NOTE: Grab each error object and append the string itself to
+        #       the overall list of errors.
+        #
+        for {set index 0} {$index < [$errors Count]} {incr index} {
+          #
+          # NOTE: Get the compiler error object at this index.
+          #
+          set error [$errors -alias Item $index]
+
+          #
+          # NOTE: Convert it to a string and append it to the list of
+          #       errors.
+          #
+          lappend local_errors [getStringFromObjectHandle $error]
+
+          #
+          # NOTE: Since the error itself is actually an object, we must
+          #       dispose it.
+          #
+          unset error; # dispose
+        }
+      } else {
+        #
+        # NOTE: Compilation of the assembly succeeded.
+        #
+        set code Ok
+      }
+
+      #
+      # NOTE: We no longer need the compiler errors collection; therefore,
+      #       dispose it now.
+      #
+      unset errors; # dispose
+
+      #
+      # HACK: *BREAKING CHANGE* If there is an output file name, return it
+      #       as well; otherwise, just return success.
+      #
+      if {!$memory && [string length $outputFileName] > 0} then {
+        #
+        # NOTE: Return a two element list: the first element is the overall
+        #       result and the second element is the output file name.
+        #
+        return [list $code $outputFileName]
+      } else {
+        #
+        # NOTE: Return the overall result to the caller.
+        #
+        return [list $code]
+      }
+    } finally {
+      #
+      # NOTE: Make sure the created temporary files are cleaned up unless we
+      #       are forbidden from doing so.
+      #
+      if {![info exists ::no(deleteCompileCSharpFiles)]} then {
+        #
+        # NOTE: Make sure the dummy temporary files are cleaned up.
+        #
+        if {[array exists tempName]} then {
+          foreach tempFileName [array values tempName] {
+            if {[string length $tempFileName] > 0} then {
+              if {$memory} then {
+                #
+                # NOTE: When operating in in-memory generation mode, delete
+                #       all the temporary files associated with the original
+                #       allocated temporary name.  This includes the ".dll",
+                #       the ".pdb" (if any), and the empty "dummy" file that
+                #       contains nothing.
+                #
+                foreach deleteFileName [glob -nocomplain \
+                    [appendArgs [file normalize $tempFileName] *]] {
+                  if {[file exists $deleteFileName]} then {
+                    catch {file delete $deleteFileName}
+                  }
+                }
+              } else {
+                #
+                # NOTE: Delete the empty "dummy" file that contains nothing.
+                #       The actual compiled assembly has a ".dll" suffix and
+                #       its symbols, if any, have a ".pdb" suffix.
+                #
+                catch {file delete $tempFileName}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure is used to dynamically compile arbitrary C# code
+  #       from within a script using the command line C# compiler provided
+  #       by the .NET Core SDK.  This procedure was originally designed to
+  #       be used by the test suite; however, it can be quite useful in
+  #       non-test scripts as well.
+  #
+  proc compileViaDotNetCoreCSharp {
+          string memory symbols strict resultsVarName errorsVarName args } {
+    #
+    # NOTE: Get the initial command line arguments needed to invoke the C#
+    #       compiler on .NET Core.  If this ends up being invalid, nothing
+    #       else can be done.
+    #
+    set command [getDotNetCoreCSharpCommandArgs]
+
+    if {[llength $command] == 0} then {
+      #
+      # NOTE: We cannot even attempt to compile anything, fail.
+      #
+      set code Error
+
+      #
+      # NOTE: Prepare to transfer error messages to the caller.
+      #
+      if {[string length $errorsVarName] > 0} then {
+        upvar 1 $errorsVarName local_errors
+      }
+
+      #
+      # NOTE: Append to the list of errors.
+      #
+      lappend local_errors "cannot compile, C# compiler was not found"
+
+      #
+      # NOTE: Return the overall result to the caller.
+      #
+      return [list $code]
+    }
+
+    #
+    # NOTE: Insert the [exec] command before the command line arguments.
+    #       The -success option is not used here because we want to handle
+    #       errors (only) by processing the compiler output.
+    #
+    set command [linsert $command 0 exec --]
+
+    #
+    # NOTE: Start out the compiler options with the pre-existing defaults
+    #       for the compiler followed by those necessary for the platform.
+    #
+    append command " " [getCSharpCompilerOptions "" true true -]
+
+    #
+    # NOTE: Allocate a couple temporary file names, one to hold the source
+    #       code to compile and one to hold the generated assembly.
+    #
+    set sourceFileName [appendArgs [set tempName(1) [file tempname]] .cs]
+    set outputFileName [appendArgs [set tempName(2) [file tempname]] .dll]
+
+    #
+    # NOTE: Use a try/finally block to cleanup temporary files.
+    #
+    try {
+      #
+      # NOTE: Process extra compiler settings the caller may have provided.
+      #
+      foreach {name value} $args {
+        set nameValueArguments \
+            [compilerParameterToArguments $name $value outputFileName]
+
+        if {[llength $nameValueArguments] > 0} then {
+          eval lappend command $nameValueArguments
+        }
+      }
+
+      #
+      # NOTE: Make the compiler output a little quieter.  This is needed
+      #       to maintain compatibility with the results generated by the
+      #       [compileViaCSharpCodeProvider] procedure.
+      #
+      lappend command -nologo
+
+      #
+      # NOTE: Always build as a library so that we do not require a static
+      #       Main method.
+      #
+      lappend command -target:library
+
+      #
+      # NOTE: If symbols are enabled, add the necessary command line
+      #       argument.
+      #
+      if {$symbols} then {lappend command -debug}
+
+      #
+      # NOTE: As of this writing (2019-10-26), the current versions of the
+      #       .NET Core SDK (2.x / 3.x) use the "netstandard.dll" assembly
+      #       to enable use of the .NET Standard 2.x reference library.
+      #
+      lappend command [formatCompilerArgument -reference [file nativename \
+          [file normalize [file join [getDotNetStandardReferencePath] \
+          netstandard.dll]]]]
+
+      #
+      # NOTE: Set the output assembly file name to the temporary output
+      #       file name we obtained from [file tempname] above.
+      #
+      lappend command [formatCompilerArgument -out [file nativename [file \
+          normalize $outputFileName]]]
+
+      #
+      # NOTE: Set the source code file name to the temporary source code
+      #       file name we obtained from [file tempname] above.
+      #
+      lappend command [formatCompilerArgument "" [file nativename [file \
+          normalize $sourceFileName]]]
+
+      #
+      # NOTE: First, write the specified string (containing C# code) to
+      #       the temporary source code file.
+      #
+      writeFile $sourceFileName $string
+
+      #
+      # NOTE: Attempt to compile the temporary file as C# and capture the
+      #       results into the variable provided by the caller.  Since the
+      #       results are text, normalize line endings before extracting
+      #       the compiler errors and/or warnings.
+      #
+      try {
+        if {[info exists ::compileCSharp(preProcess)]} then {
+          eval $::compileCSharp(preProcess); # pre-compilation HOOK
+        }
+
+        set local_results [runDotNetCSharpCommand $command]
+      } finally {
+        if {[info exists ::compileCSharp(postProcess)]} then {
+          eval $::compileCSharp(postProcess); # post-compilation HOOK
+        }
+      }
+
+      #
+      # NOTE: Extract the compiler errors (which may be empty).
+      #
+      set errors [extractCSharpErrors $sourceFileName $local_results]
+
+      #
+      # NOTE: Extract the compiler warnings (which may be empty).
+      #
+      set warnings [extractCSharpWarnings $sourceFileName $local_results]
+
+      #
+      # NOTE: Prepare to transfer the "results" to the caller.
+      #
+      if {[string length $resultsVarName] > 0} then {
+        upvar 1 $resultsVarName results
+      }
+
+      #
+      # HACK: For backward compatibility with the results generated by
+      #       the [compileViaCSharpCodeProvider] procedure, we must now
+      #       set the results to an obviously fake opaque object handle
+      #       that still matches the normal pattern.
+      #
+      set results System#CodeDom#Compiler#CompilerResults#0
+
+      #
+      # NOTE: It is assumed that no assembly was generated if there were
+      #       any compiler errors.  Ignore all compiler warnings unless
+      #       we are in strict mode.
+      #
+      if {[llength $errors] > 0 || \
+          ($strict && [llength $warnings] > 0)} then {
+        #
+        # NOTE: Compilation of the assembly failed.
+        #
+        set code Error
+
+        #
+        # NOTE: Prepare to transfer error messages to the caller.
+        #
+        if {[string length $errorsVarName] > 0} then {
+          upvar 1 $errorsVarName local_errors
+        }
+
+        #
+        # NOTE: If there are compiler errors, add them to the list now.
+        #
+        if {[llength $errors] > 0} then {
+          eval lappend local_errors $errors
+        }
+
+        #
+        # NOTE: If there are compiler warnings, add them to the list now.
+        #
+        if {[llength $warnings] > 0} then {
+          eval lappend local_errors $warnings
+        }
+      } else {
+        #
+        # NOTE: If the generated assembly was supposed to be loaded into
+        #       memory, try to do that now.
+        #
+        if {$memory} then {
+          #
+          # HACK: In order to load the newly compiled assembly into memory,
+          #       the [object] command is required.  Generally, this is not
+          #       an issue; however, if the [object] command is not present
+          #       in the current interpreter (i.e. because it was explicitly
+          #       removed, etc), we cannot succeed.
+          #
+          if {[llength [info commands object]] > 0} then {
+            #
+            # NOTE: At this point, the output file must exist.  If not,
+            #       something is very wrong (i.e. C# compilation failed
+            #       and we somehow did not detect it).
+            #
+            if {[string length $outputFileName] > 0 && \
+                [file exists $outputFileName]} then {
+              try {
+                set stream [object create \
+                    System.IO.FileStream $outputFileName Open Read None]
+
+                object load -loadtype Stream $stream
+              } finally {
+                if {[info exists stream]} then {
+                  unset -nocomplain stream
+                }
+              }
+
+              #
+              # NOTE: Compilation and loading of the assembly succeeded.
+              #
+              set code Ok
+            } else {
+              #
+              # NOTE: Compilation of the assembly may not have succeeded
+              #       because the output file is missing.
+              #
+              set code Error
+
+              #
+              # NOTE: Prepare to transfer error messages to the caller.
+              #
+              if {[string length $errorsVarName] > 0} then {
+                upvar 1 $errorsVarName local_errors
+              }
+
+              #
+              # NOTE: Inform caller why we could not load the compiled
+              #       assembly into memory.
+              #
+              lappend local_errors [appendArgs \
+                  "cannot load compiled assembly \"" $outputFileName \
+                  "\" into memory, compiled assembly file is missing"]
+            }
+          } else {
+            #
+            # NOTE: Compilation of the assembly succeeded; however, it
+            #       cannot be loaded, due to the [object] command being
+            #       missing.
+            #
+            set code Error
+
+            #
+            # NOTE: Prepare to transfer error messages to the caller.
+            #
+            if {[string length $errorsVarName] > 0} then {
+              upvar 1 $errorsVarName local_errors
+            }
+
+            #
+            # NOTE: Inform caller why we could not load the compiled
+            #       assembly into memory.
+            #
+            lappend local_errors [appendArgs \
+                "cannot load compiled assembly \"" $outputFileName \
+                "\" into memory, missing \"object\" command"]
+          }
+        } else {
+          #
+          # NOTE: Compilation of the assembly succeeded -AND- there is
+          #       no need to load it into memory.
+          #
+          set code Ok
+        }
+      }
+    } finally {
+      #
+      # NOTE: Make sure the created temporary files are cleaned up unless we
+      #       are forbidden from doing so.
+      #
+      if {![info exists ::no(deleteCompileCSharpFiles)]} then {
+        #
+        # NOTE: Delete the temporary file name used to hold the source code.
+        #
+        if {[string length $sourceFileName] > 0 && \
+            [file exists $sourceFileName]} then {
+          catch {file delete $sourceFileName}
+        }
+
+        #
+        # NOTE: Make sure the dummy temporary files are cleaned up.  This is
+        #       done only if the caller requested in-memory generation.
+        #
+        if {[array exists tempName]} then {
+          foreach tempFileName [array values tempName] {
+            if {[string length $tempFileName] > 0} then {
+              if {$memory} then {
+                #
+                # NOTE: When operating in in-memory generation mode, delete
+                #       all the temporary files associated with the original
+                #       allocated temporary name.  This includes the ".dll",
+                #       the ".pdb" (if any), and the empty "dummy" file that
+                #       contains nothing.
+                #
+                foreach deleteFileName [glob -nocomplain \
+                    [appendArgs [file normalize $tempFileName] *]] {
+                  if {[file exists $deleteFileName]} then {
+                    catch {file delete $deleteFileName}
+                  }
+                }
+              } else {
+                #
+                # NOTE: Delete the empty "dummy" file that contains nothing.
+                #       The actual compiled assembly has a ".dll" suffix and
+                #       its symbols, if any, have a ".pdb" suffix.
+                #
+                catch {file delete $tempFileName}
+              }
+            }
+          }
+        }
+      }
+    }
+
+    #
+    # HACK: *BREAKING CHANGE* If there is an output file name, return it
+    #       as well; otherwise, just return success.
+    #
+    if {!$memory && [string length $outputFileName] > 0} then {
+      #
+      # NOTE: Return a two element list: the first element is the overall
+      #       result and the second element is the output file name.
+      #
+      return [list $code $outputFileName]
+    } else {
+      #
+      # NOTE: Return the overall result to the caller.
+      #
+      return [list $code]
+    }
+  }
+
+  #
+  # NOTE: This procedure is used to dynamically compile arbitrary C# code
+  #       from within a script.  This procedure was originally designed to
+  #       be used by the test suite; however, it can be quite useful in
+  #       non-test scripts as well.
+  #
+  proc compileCSharp {
+          string memory symbols strict resultsVarName errorsVarName args } {
+    if {[isDotNetCore]} then {
+      return [uplevel 1 [list \
+          compileViaDotNetCoreCSharp $string $memory $symbols $strict \
+          $resultsVarName $errorsVarName] $args]
+    } else {
+      return [uplevel 1 [list \
+          compileViaCSharpCodeProvider $string $memory $symbols $strict \
+          $resultsVarName $errorsVarName] $args]
+    }
+  }
+
+  #
+  # NOTE: Provide the Eagle "C#" package to the interpreter.
+  #
+  package provide Eagle.CSharp \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

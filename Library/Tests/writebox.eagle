@@ -1,0 +1,177 @@
+###############################################################################
+#
+# writebox.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc maybeEnableHostPositioning { interp enable } {
+  #
+  # HACK: When running on .NET Core 3.0 (and later?), it can
+  #       attempt to read from standard input when querying
+  #       the cursor position.  Therefore, disable use of
+  #       cursor position for the specified interpreter host.
+  #
+  if {[isDotNetCore] && ([haveConstraint dotNetCore30] || \
+      [haveConstraint dotNetCore50] || \
+      [haveConstraint dotNetCore60])} then {
+    interp eval $interp [string map [list %enable% $enable] {
+      object invoke -flags +NonPublic \
+          Interpreter.GetActive.Host hostFlags \
+          [appendArgs [object invoke -flags +NonPublic \
+          Interpreter.GetActive.Host hostFlags] \
+          [appendArgs " " [expr {%enable% ? "+" : "-"}] \
+          Positioning]]
+    }]
+
+    tputs $::test_channel [appendArgs \
+        "---- host write cursor positioning now " \
+        [expr {$enable ? "enabled" : "disabled"}] \
+        " for interpreter \"" $interp \"\n]
+  }
+}
+
+###############################################################################
+#
+# NOTE: Most of the tests in this file are marked with the "interactive" test
+#       constraint.  However, the reasons why may not be immediately obvious.
+#       In theory, the tests themselves could run without any user present;
+#       however, there is no simple way to verify their output (i.e. boxes on
+#       screen containing the specified text) other than via visual inspection
+#       of the resulting output.  The "interactive" test constraint is used in
+#       an attempt to explicitly express this intent.
+#
+###############################################################################
+# MONO: These tests used to malfunction due to limitations of console driver
+#       used by Mono on Unix; however, sometime in Mono 4.x / 5.x timeframe,
+#       they started working.
+###############################################################################
+
+runTest {test debug-5.1 {truncated information display} -setup {
+  maybeEnableHostPositioning "" false
+
+  set interp [object invoke Interpreter GetActive]
+  set x [object invoke -create -parametertypes String Result op_Implicit ""]
+  set y null
+} -body {
+  list [object invoke Eagle._Tests.Default TestWriteBox $interp \
+      [string repeat x [lindex [getHostSize] 0]] true false false y] \
+      [getStringFromObjectHandle $x] \
+      [object invoke Interpreter.GetActive.Host WriteLine]
+} -cleanup {
+  unset -nocomplain x y interp
+
+  maybeEnableHostPositioning "" true
+} -constraints {eagle command.object monoBug40 compile.TEST interactive\
+Eagle._Tests.Default.TestWriteBox} -result {True {} True}}
+
+###############################################################################
+
+runTest {test debug-5.2 {basic single-line information display} -setup {
+  maybeEnableHostPositioning "" false
+
+  set interp [object invoke Interpreter GetActive]
+  set x [object invoke -create -parametertypes String Result op_Implicit ""]
+  set y null
+} -body {
+  list [object invoke Eagle._Tests.Default TestWriteBox $interp \
+      "this is a test." false false false y] [getStringFromObjectHandle $x] \
+      [object invoke Interpreter.GetActive.Host WriteLine]
+} -cleanup {
+  unset -nocomplain x y interp
+
+  maybeEnableHostPositioning "" true
+} -constraints {eagle command.object monoBug40 compile.TEST interactive\
+Eagle._Tests.Default.TestWriteBox} -result {True {} True}}
+
+###############################################################################
+
+runTest {test debug-5.3 {basic single-line information display} -setup {
+  maybeEnableHostPositioning "" false
+
+  set interp [object invoke Interpreter GetActive]
+  set x [object invoke -create -parametertypes String Result op_Implicit ""]
+  set y null
+} -body {
+  list [object invoke Eagle._Tests.Default TestWriteBox $interp \
+      "this is a test." false true false y] [getStringFromObjectHandle $x] \
+      [object invoke Interpreter.GetActive.Host WriteLine]
+} -cleanup {
+  unset -nocomplain x y interp
+
+  maybeEnableHostPositioning "" true
+} -constraints {eagle command.object monoBug40 compile.TEST interactive\
+Eagle._Tests.Default.TestWriteBox} -result {True {} True}}
+
+###############################################################################
+
+runTest {test debug-5.4 {basic multiple-line information display} -setup {
+  maybeEnableHostPositioning "" false
+
+  set interp [object invoke Interpreter GetActive]
+  set x [object invoke -create -parametertypes String Result op_Implicit ""]
+  set y null
+} -body {
+  list [object invoke Eagle._Tests.Default TestWriteBox $interp \
+      "this is a test." true false false y] [getStringFromObjectHandle $x] \
+      [object invoke Interpreter.GetActive.Host WriteLine]
+} -cleanup {
+  unset -nocomplain x y interp
+
+  maybeEnableHostPositioning "" true
+} -constraints {eagle command.object monoBug40 compile.TEST interactive\
+Eagle._Tests.Default.TestWriteBox} -result {True {} True}}
+
+###############################################################################
+
+runTest {test debug-5.5 {basic multiple-line information display} -setup {
+  maybeEnableHostPositioning "" false
+
+  set interp [object invoke Interpreter GetActive]
+  set x [object invoke -create -parametertypes String Result op_Implicit ""]
+  set y null
+} -body {
+  list [object invoke Eagle._Tests.Default TestWriteBox $interp \
+      "this is a test." true true false y] [getStringFromObjectHandle $x] \
+      [object invoke Interpreter.GetActive.Host WriteLine]
+} -cleanup {
+  unset -nocomplain x y interp
+
+  maybeEnableHostPositioning "" true
+} -constraints {eagle command.object monoBug40 compile.TEST interactive\
+Eagle._Tests.Default.TestWriteBox} -result {True {} True}}
+
+###############################################################################
+
+runTest {test debug-5.6 {[host writebox] argument count enforcement} -setup {
+  maybeEnableHostPositioning "" false
+
+  unset -nocomplain result
+} -body {
+  list [catch {host writebox "this is good." "this is bad."} result] $result
+} -cleanup {
+  unset -nocomplain result
+
+  maybeEnableHostPositioning "" true
+} -constraints {eagle} -result \
+{1 {wrong # args: should be "host writebox ?options? string"}}}
+
+###############################################################################
+
+rename maybeEnableHostPositioning ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

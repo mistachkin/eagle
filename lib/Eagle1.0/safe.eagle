@@ -1,0 +1,111 @@
+###############################################################################
+#
+# safe.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Safe Interpreter Initialization File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This is the procedure that detects whether or not we are
+  #       running in Eagle (otherwise, we are running in vanilla Tcl).
+  #       This procedure must function correctly in both Tcl and Eagle
+  #       and must return non-zero only when running in Eagle.  This
+  #       procedure must be defined in this script file because it is
+  #       needed while this script file is being evaluated.  The same
+  #       procedure is also defined in the "init.eagle" file.
+  #
+  # <bootstrap>
+  proc isEagle {} {
+    #
+    # NOTE: Nothing too fancy or expensive should be done in here.  In
+    #       theory, use of this routine should be rare; however, in
+    #       practice, this routine is actually used quite a bit (e.g.
+    #       by the test suite).
+    #
+    return [expr {[info exists ::tcl_platform(engine)] && \
+        [string compare -nocase eagle $::tcl_platform(engine)] == 0}]
+  }
+
+  if {[isEagle]} then {
+    ###########################################################################
+    ############################ BEGIN Eagle ONLY #############################
+    ###########################################################################
+
+    #
+    # NOTE: This is the [unknown] command for Eagle.  It will normally be
+    #       executed by the script engine when a command is not found.
+    #       It will simply raise a script error.
+    #
+    # <create>
+    proc unknown { name args } {
+      #
+      # NOTE: This is an [unknown] procedure that produces an appropriate
+      #       error message.
+      #
+      # TODO: Add support for auto-loading packages here in the future?
+      #
+      # NOTE: This command cannot use [appendArgs] because that procedure
+      #       is defined in another file that is never loaded into "safe"
+      #       interpreters.
+      #
+      return -code error "invalid command name \"$name\""
+    }
+
+    #
+    # NOTE: This namespace and the procedure defined within it are used for
+    #       compatibility with native Tcl.
+    #
+    namespace eval ::tcl::tm {
+      #
+      # NOTE: Ideally, this procedure should be created in the "::tcl::tm"
+      #       namespace.
+      #
+      # <create>
+      proc ::tcl::tm::UnknownHandler { original name args } {
+        #
+        # NOTE: Do nothing except call the original handler.
+        #
+        uplevel 1 $original [::linsert $args 0 $name]
+      }
+    }
+
+    #
+    # NOTE: This procedure is normally executed by the package management
+    #       subsystem of Eagle when a package is requested that cannot be
+    #       found.
+    #
+    # <create>
+    proc tclPkgUnknown { name args } {
+      #
+      # NOTE: Do nothing since this is probably a safe interpreter.
+      #
+      return
+    }
+
+    ###########################################################################
+    ############################# END Eagle ONLY ##############################
+    ###########################################################################
+  }
+
+  #
+  # NOTE: Provide the Eagle "safe" package to the interpreter.
+  #
+  package provide Eagle.Safe \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

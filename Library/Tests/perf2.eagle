@@ -1,0 +1,229 @@
+###############################################################################
+#
+# perf2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+if {![info exists iterations]} then {
+  set iterations 9500
+
+  #
+  # NOTE: Adjust the expected performance number based on the
+  #       relative performance of this machine, if available.
+  #
+  if {![info exists no(relativePerformance)]} then {
+    if {[llength [info commands calculateRelativePerformance]] > 0} then {
+      set iterations [calculateRelativePerformance iterations $iterations]
+      set iterations [expr {round($iterations)}]
+    }
+  }
+}
+
+###############################################################################
+
+runTest {test perf-2.1 {var increments per second} -setup {
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled via the value of the $quiet variable that was magically
+  #       "transferred" from the parent interpreter to this isolated test
+  #       interpreter via the enclosing [subst] invocation.  If so, enable
+  #       quiet mode and disable the default background error handler for
+  #       this isolated test interpreter to prevent superfluous console
+  #       output.
+  #
+  if {[haveConstraint quiet]} then {
+    set savedQuiet [object invoke Eagle._Tests.Default TestGetQuiet ""]
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+
+  set savedFlags [after flags]
+  after flags =Immediate
+} -body {
+  catch {
+    after 1000 [list interp cancel]
+    set x 0; while {1} {incr x}
+  }
+
+  tputs $test_channel [appendArgs "---- expected iterations: " $iterations \n]
+  tputs $test_channel [appendArgs "---- actual iterations: " $x \n]
+
+  set x
+} -cleanup {
+  after flags [appendArgs = $savedFlags]
+  unset -nocomplain savedFlags
+
+  if {[info exists savedQuiet]} then {
+    if {[string is boolean -strict $savedQuiet]} then {
+      object invoke Eagle._Tests.Default TestSetQuiet "" $savedQuiet
+    }
+
+    unset -nocomplain savedQuiet
+  }
+} -constraints [fixTimingConstraints {eagle performance tip285\
+Eagle._Tests.Default.TestSetQuiet}] -match expression -result \
+{$x >= $iterations}}
+
+###############################################################################
+
+#
+# HACK: We need to set an actual variable with the value of the quiet
+#       constraint so that the [subst] invocation for the setup script for
+#       the next test can use it to set the quiet mode for the isolated
+#       interpreter created by that test.
+#
+unset -nocomplain quiet
+set quiet [haveConstraint quiet]
+
+###############################################################################
+
+unset -nocomplain test_log_if
+set test_log_if [expr {[info exists test_log] ? $test_log : ""}]
+
+###############################################################################
+
+#
+# HACK: *MONO* Apparently, intermittently Mono (2.8.X, 2.10.X, 2.11.X) cannot
+#       handle something about the per-thread data being used in an isolated
+#       interpreter.  The following error is sometimes seen when this test is
+#       run under Mono (the per-thread engine context or the ScriptLocations
+#       property of that context for the new interpreter ends up being null,
+#       causing the exception seen here):
+#
+#       NullReferenceException: Object reference not set to an instance of an
+#                               object
+#         at Interpreter.PushScriptLocation (IScriptLocation location)
+#         at Interpreter.PushScriptLocation (String fileName, Int32 startLine,
+#             Int32 endLine, Boolean viaSource)
+#         at Interpreter.PushScriptLocation (String fileName, Boolean viaSource)
+#         at Engine.EvaluateFile (Interpreter interpreter, Encoding encoding,
+#             String fileName, EngineFlags engineFlags, SubstitutionFlags
+#             substitutionFlags, EventFlags eventFlags, ExpressionFlags
+#             expressionFlags, Result& result, Int32& errorLine)
+#         at Engine.EvaluateFile (Interpreter interpreter, String fileName,
+#             EngineFlags engineFlags, SubstitutionFlags substitutionFlags,
+#             EventFlags eventFlags, ExpressionFlags expresionFlags, Result&
+#             result, Int32& errorLine)
+#         at Interpreter.EvaluateFile (String fileName, Result& result, Int32&
+#             errorLine)
+#         at Interpreter.EvaluateScript (Interpreter interpreter, String name,
+#             ScriptFlags& flags, String& text, Result& result, Int32&
+#             errorLine)
+#
+#       This test does not always fail when running on Mono.  It appears to
+#       fail mostly (?) when run as part of the entire test suite rather than
+#       individually.
+#
+# NOTE: *UPDATE* Further research reveals that this test always fails when
+#       run after running the tests object-10.19 and object-10.20.  However,
+#       simply running only one of these tests will NOT cause the failure of
+#       this test.  This seems to point to an obscure resource leak in Mono
+#       2.10.x and 2.11.x involving thread-local data that only occurs when
+#       tests object-10.19 and object-10.20 are run.  Also, subsequent uses
+#       of the [interp create] command will fail with the exception mentioned
+#       above.  Right before the beta 26 release (see check-in [88dae4e77b]),
+#       a workaround for this issue was implemented in the ContextManager and
+#       related classes; however, the exact cause of the actual test failure
+#       when running on Mono has not been precisely determined and the errant
+#       behavior in question was never seen when running on the .NET Framework.
+#
+unset -nocomplain x
+
+runTest {test perf-2.2 {isolated var increments per second} -setup [subst \
+    -nocommands -nobackslashes {
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled via the value of the $quiet variable that was magically
+  #       "transferred" from the parent interpreter to this isolated test
+  #       interpreter via the enclosing [subst] invocation.  If so, enable
+  #       quiet mode and disable the default background error handler for
+  #       this isolated test interpreter to prevent superfluous console
+  #       output.
+  #
+  if {$quiet} then {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+
+  #
+  # NOTE: Set the expected iterations variable to the value "transferred" from
+  #       the parent interpreter to this isolated interpreter (via the enclosing
+  #       [subst] invocation).  We need this value to calculate the result of
+  #       this test, which uses the "expression" match type.
+  #
+  set iterations {$iterations}
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {[catch {package present Eagle.Test}]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {![info exists test_channel]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {![info exists test_log]} then {
+    set test_log {$test_log_if}
+  }
+
+  set savedFlags [after flags]
+  after flags =Immediate
+}] -body {
+  catch {
+    after 1000 [list interp cancel]
+    set x 0; while {1} {incr x}
+  }
+
+  tputs $test_channel [appendArgs "---- expected iterations: " $iterations \n]
+  tputs $test_channel [appendArgs "---- actual iterations: " $x \n]
+
+  set x
+} -cleanup {
+  after flags [appendArgs = $savedFlags]
+  unset -nocomplain savedFlags iterations
+  unset -nocomplain test_log test_channel
+} -constraints \
+[fixTimingConstraints {eagle command.object performance tip285\
+Eagle._Tests.Default.TestSetQuiet}] -isolationLevel Interpreter -match \
+expression -result "\$x >= $iterations"}
+
+###############################################################################
+
+unset -nocomplain test_log_if
+unset -nocomplain quiet iterations
+
+###############################################################################
+
+runTest {test perf-2.3 {previous test isolation} -body {
+  #
+  # NOTE: Verify the "perf-2.2" test ran in isolation (i.e.
+  #       there should be no global "x" variable because it
+  #       was cleaned up prior to the "perf-2.2" test).
+  #
+  info exists x
+} -cleanup {
+  unset -nocomplain x
+} -constraints [fixTimingConstraints {eagle performance tip285}] -result {0}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

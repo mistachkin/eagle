@@ -1,0 +1,152 @@
+###############################################################################
+#
+# object12.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test object-12.1.1 {object non-method introspection} -body {
+  testObjectMembers -membertypes {+All -Method} -flags {+Static} System.Console
+} -constraints \
+[fixConstraints {eagle command.object framework20 !guru.enabled}] -result \
+{{memberType Event memberName CancelKeyPress} {memberType Property memberName\
+BackgroundColor} {memberType Property memberName BufferHeight} {memberType\
+Property memberName BufferWidth} {memberType Property memberName CapsLock}\
+{memberType Property memberName CursorLeft} {memberType Property memberName\
+CursorSize} {memberType Property memberName CursorTop} {memberType Property\
+memberName CursorVisible} {memberType Property memberName Error} {memberType\
+Property memberName ForegroundColor} {memberType Property memberName In}\
+{memberType Property memberName InputEncoding} {memberType Property memberName\
+KeyAvailable} {memberType Property memberName LargestWindowHeight} {memberType\
+Property memberName LargestWindowWidth} {memberType Property memberName\
+NumberLock} {memberType Property memberName Out} {memberType Property\
+memberName OutputEncoding} {memberType Property memberName Title} {memberType\
+Property memberName TreatControlCAsInput} {memberType Property memberName\
+WindowHeight} {memberType Property memberName WindowLeft} {memberType Property\
+memberName WindowTop} {memberType Property memberName WindowWidth}}}
+
+###############################################################################
+
+runTest {test object-12.1.2 {object non-method introspection} -body {
+  testObjectMembers -membertypes {+All -Method} -flags {+Static} System.Console
+} -constraints [fixConstraints {eagle command.object framework40 dotNet\
+!dotNet45OrHigher !guru.enabled}] -result {{memberType Event memberName\
+CancelKeyPress} {memberType Property memberName BackgroundColor} {memberType\
+Property memberName BufferHeight} {memberType Property memberName BufferWidth}\
+{memberType Property memberName CapsLock} {memberType Property memberName\
+CursorLeft} {memberType Property memberName CursorSize} {memberType Property\
+memberName CursorTop} {memberType Property memberName CursorVisible}\
+{memberType Property memberName Error} {memberType Property memberName\
+ForegroundColor} {memberType Property memberName In} {memberType Property\
+memberName InputEncoding} {memberType Property memberName KeyAvailable}\
+{memberType Property memberName LargestWindowHeight} {memberType Property\
+memberName LargestWindowWidth} {memberType Property memberName NumberLock}\
+{memberType Property memberName Out} {memberType Property memberName\
+OutputEncoding} {memberType Property memberName Title} {memberType Property\
+memberName TreatControlCAsInput} {memberType Property memberName WindowHeight}\
+{memberType Property memberName WindowLeft} {memberType Property memberName\
+WindowTop} {memberType Property memberName WindowWidth}}}
+
+###############################################################################
+
+runTest {test object-12.1.3 {object non-method introspection} -body {
+  testObjectMembers -membertypes {+All -Method} -flags {+Static} System.Console
+} -constraints \
+[fixConstraints {eagle command.object framework40 !guru.enabled}] \
+-constraintExpression {[haveConstraint dotNetCore] || ([haveConstraint dotNet] \
+&& [haveConstraint dotNet45OrHigher])} -result {{memberType Event memberName\
+CancelKeyPress} {memberType Property memberName BackgroundColor} {memberType\
+Property memberName BufferHeight} {memberType Property memberName BufferWidth}\
+{memberType Property memberName CapsLock} {memberType Property memberName\
+CursorLeft} {memberType Property memberName CursorSize} {memberType Property\
+memberName CursorTop} {memberType Property memberName CursorVisible}\
+{memberType Property memberName Error} {memberType Property memberName\
+ForegroundColor} {memberType Property memberName In} {memberType Property\
+memberName InputEncoding} {memberType Property memberName IsErrorRedirected}\
+{memberType Property memberName IsInputRedirected} {memberType Property\
+memberName IsOutputRedirected} {memberType Property memberName KeyAvailable}\
+{memberType Property memberName LargestWindowHeight} {memberType Property\
+memberName LargestWindowWidth} {memberType Property memberName NumberLock}\
+{memberType Property memberName Out} {memberType Property memberName\
+OutputEncoding} {memberType Property memberName Title} {memberType Property\
+memberName TreatControlCAsInput} {memberType Property memberName WindowHeight}\
+{memberType Property memberName WindowLeft} {memberType Property memberName\
+WindowTop} {memberType Property memberName WindowWidth}}}
+
+###############################################################################
+
+runTest {test object-12.1.4 {object non-method introspection} -body {
+  testObjectMembers -membertypes {+All -Method} -flags {+Static} System.Console
+} -constraints [fixConstraints {eagle command.object mono30OrHigher framework40\
+!guru.enabled}] -result {{memberType Event memberName CancelKeyPress}\
+{memberType Property memberName BackgroundColor} {memberType Property\
+memberName BufferHeight} {memberType Property memberName BufferWidth}\
+{memberType Property memberName CapsLock} {memberType Property memberName\
+CursorLeft} {memberType Property memberName CursorSize} {memberType Property\
+memberName CursorTop} {memberType Property memberName CursorVisible}\
+{memberType Property memberName Error} {memberType Property memberName\
+ForegroundColor} {memberType Property memberName In} {memberType Property\
+memberName InputEncoding} {memberType Property memberName IsErrorRedirected}\
+{memberType Property memberName IsInputRedirected} {memberType Property\
+memberName IsOutputRedirected} {memberType Property memberName KeyAvailable}\
+{memberType Property memberName LargestWindowHeight} {memberType Property\
+memberName LargestWindowWidth} {memberType Property memberName NumberLock}\
+{memberType Property memberName Out} {memberType Property memberName\
+OutputEncoding} {memberType Property memberName Title} {memberType Property\
+memberName TreatControlCAsInput} {memberType Property memberName WindowHeight}\
+{memberType Property memberName WindowLeft} {memberType Property memberName\
+WindowTop} {memberType Property memberName WindowWidth}}}
+
+###############################################################################
+
+runTest {test object-12.2 {object method introspection} -body {
+  testObjectMembers -signatures -qualified -membertypes {+Method} -flags \
+      {-Static} System.Console
+} -constraints [fixConstraints {eagle command.object !guru.enabled}] -result \
+[appendArgs "{memberType Method memberName Equals methodType Method methodName\
+Equals callingConvention {Standard, HasThis} returnType {{System.Boolean, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.Object, " \
+[getRuntimeAssemblyName] "}}} {memberType Method memberName GetHashCode\
+methodType Method methodName GetHashCode callingConvention {Standard, HasThis}\
+returnType {{System.Int32, " [getRuntimeAssemblyName] "}} parameterTypes {}}\
+{memberType Method memberName GetType methodType Method methodName GetType\
+callingConvention {Standard, HasThis} returnType {{System.Type, " \
+[getRuntimeAssemblyName] "}} parameterTypes {}} {memberType Method memberName\
+ToString methodType Method methodName ToString callingConvention {Standard,\
+HasThis} returnType {{System.String, " [getRuntimeAssemblyName] "}}\
+parameterTypes {}}"]}
+
+###############################################################################
+
+runTest {test object-12.3 {object method introspection, base} -body {
+  testObjectMembers -signatures -qualified -membertypes {+Method} -flags \
+      {-Static} System.Console
+} -constraints [fixConstraints {eagle command.object !guru.enabled}] -match \
+glob -result [appendArgs "{memberType Method memberName Equals methodType\
+Method methodName Equals callingConvention {Standard, HasThis} returnType\
+{{System.Boolean, " [getRuntimeAssemblyName] "}} parameterTypes\
+{{System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method memberName\
+GetHashCode methodType Method methodName GetHashCode callingConvention\
+{Standard, HasThis} returnType {{System.Int32, " [getRuntimeAssemblyName] "}}\
+parameterTypes {}} {memberType Method memberName GetType methodType Method\
+methodName GetType callingConvention {Standard, HasThis} returnType\
+{{System.Type, " [getRuntimeAssemblyName] "}} parameterTypes {}} {memberType\
+Method memberName ToString methodType Method methodName ToString\
+callingConvention {Standard, HasThis} returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {}}"]}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

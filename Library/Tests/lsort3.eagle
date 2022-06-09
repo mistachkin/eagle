@@ -1,0 +1,68 @@
+###############################################################################
+#
+# lsort3.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test lsort-9.1 {sort unique ascii case-sensitive} -body {
+  lsort -ascii -unique [list a b c 1 2 3 3 a a 1 B]
+} -result {1 2 3 B a b c}}
+
+###############################################################################
+
+runTest {test lsort-9.2 {sort unique integer #1} -body {
+  lsort -integer -unique [list 0xa 0xb 0xc 1 2 3 0x3 0xa 0xa 1 0xB]
+} -constraints {eagle} -match regexp -result \
+{^1 2 (?:3|0x3) 0xa (?:0xB|0xb) 0xc$}}
+
+###############################################################################
+
+runTest {test lsort-9.3 {sort unique integer #2} -body {
+  lsort -integer -unique [list 0xa 0xb 0xc 1 2 3 0x3 0xa 0xa 1 0xB 16 0x10]
+} -constraints {eagle} -match regexp -result \
+{^1 2 (?:3|0x3) 0xa (?:0xB|0xb) 0xc (?:16|0x10)$}}
+
+###############################################################################
+
+runTest {test lsort-9.4 {sort unique integer #3} -body {
+  lsort -integer -unique [list 0xa 0xb 0xc 1 2 3 0x3 0xa 0xa 1 0xB]
+} -constraints {eagle} -match regexp -result \
+{^1 2 (?:3|0x3) 0xa (?:0xB|0xb) 0xc$}}
+
+###############################################################################
+
+runTest {test lsort-9.5 {sort unique ascii case-insensitive} -body {
+  lsort -ascii -unique -nocase [list a b c A b B C CC]
+} -constraints {tip241} -match regexp -result {^(?:A|a) (?:B|b) (?:C|c) CC$}}
+
+###############################################################################
+
+runTest {test lsort-9.6 {sort unique dictionary case-insensitive} -body {
+  lsort -dictionary -unique -nocase [list a b c A b B C CC]
+} -constraints {tip241} -result {A a B b C c CC}}
+
+###############################################################################
+
+runTest {test lsort-9.7 {sort unique real #1} -body {
+  lsort -real -unique \
+      [list 0.0 0 0.33 0.33333333333333333 1 2 3 1.0 2.3 9.99 10 0x10 16]
+} -constraints {eagle} -match regexp -result \
+{^(?:0|0\.0) 0\.33 0\.33333333333333333 (?:1|1\.0) 2 2\.3 3 9\.99 10\
+(?:16|0x10)$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

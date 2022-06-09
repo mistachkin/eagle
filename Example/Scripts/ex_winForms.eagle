@@ -1,0 +1,39 @@
+
+proc handleClickEvent { sender e } {
+  puts stdout "I have been clicked!"
+}
+
+proc centerButton {} {
+  set size [$::form -alias ClientSize]
+
+  $::button AutoSize true
+  $::button Left [expr {([$size Width] - [$::button Width]) / 2}]
+  $::button Top [expr {([$size Height] - [$::button Height]) / 2}]
+}
+
+object load -import System.Windows.Forms
+set form [object create -alias Form]
+
+$form Text "[info engine] Test Form Title"
+$form TopMost true
+$form Show
+
+set button [object create -alias System.Windows.Forms.Button]
+set size [$form -alias ClientSize]
+
+$button Left [expr {([$size Width] - [$button Width]) / 2}]
+$button Top [expr {([$size Height] - [$button Height]) / 2}]
+
+$button Text "Click Here"
+$button add_Click handleClickEvent
+
+object invoke $form.Controls Add $button
+
+interp sleeptime {} 200
+after 100 [list centerButton]
+
+set x [list]
+set mouseEventArgs [object create -alias MouseEventArgs Left 1 12 34 0]
+after 1000 [list $button -flags +NonPublic OnClick $mouseEventArgs]
+
+vwait forever

@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ *
+ * library.resx -
+ *
+ * Embedded core script library (neutral).
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<root>
+  <!--
+    Microsoft ResX Schema
+
+    Version 2.0
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
+    associated with the data types.
+
+    Example:
+
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+
+    There are any number of "resheader" rows that contain simple
+    name/value pairs.
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
+    mimetype set.
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
+    extensible. For a given mimetype the value must be set accordingly:
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
+    read any of the formats listed below.
+
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <!--
+      NOTE: This resource string is a placeholder for diagnostic and testing
+            use only.
+  -->
+  <data name="empty" xml:space="preserve">
+    <value></value>
+  </data>
+  <!--
+      NOTE: These resource strings are used to enable and disable the security
+            policies and certificates provided by the Harpy and Badge plugins.
+
+      WARNING: If the "enableSecurity" string is modified, it may not work
+               because the signed script verification for it will fail.  You
+               should not change it unless you can also re-sign it.
+
+      WARNING: If the "disableSecurity" string is modified, it will not work
+               because the signed script verification for it will fail.  You
+               should not change it unless you can also re-sign it.
+  -->
+  <data name="enableSecurity" xml:space="preserve">
+    <value>package require Security.Core; security true; keyring bootstrap; package require Security.Certificates</value>
+  </data>
+  <data name="enableSecurity.harpy" xml:space="preserve">
+    <value><![CDATA[
+      <Certificate xmlns="https://eagle.to/2011/harpy"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Protocol>None</Protocol>
+        <Vendor>Mistachkin Systems</Vendor>
+        <Id>51592f60-2f1d-491d-88a4-577d7f2ed592</Id>
+        <HashAlgorithm>SHA512</HashAlgorithm>
+        <EntityType>Script</EntityType>
+        <TimeStamp>2016-06-09T18:03:08.1757812Z</TimeStamp>
+        <Duration>-1.00:00:00</Duration>
+        <Key>0x9559f6017247e3e2</Key>
+        <Signature>
+          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
+        </Signature>
+      </Certificate>
+    ]]></value>
+  </data>
+  <data name="disableSecurity" xml:space="preserve">
+    <value>keyring clear; security false</value>
+  </data>
+  <data name="disableSecurity.harpy" xml:space="preserve">
+    <value><![CDATA[
+      <Certificate xmlns="https://eagle.to/2011/harpy"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Protocol>None</Protocol>
+        <Vendor>Mistachkin Systems</Vendor>
+        <Id>596dfef8-3d2a-4ba4-8cde-2b965db0bc69</Id>
+        <HashAlgorithm>SHA512</HashAlgorithm>
+        <EntityType>Script</EntityType>
+        <TimeStamp>2016-06-09T17:40:36.5683593Z</TimeStamp>
+        <Duration>-1.00:00:00</Duration>
+        <Key>0x9559f6017247e3e2</Key>
+        <Signature>
+          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
+        </Signature>
+      </Certificate>
+    ]]></value>
+  </data>
+  <!--
+      NOTE: This resource string is used to remove all commands and procedures
+            from the interpreter except those listed.
+
+      WARNING: If the "removeCommands" string is modified, it may not work
+               because the signed script verification for it will fail.  You
+               should not change it unless you can also re-sign it.
+
+      WARNING: This resource string is signed with the Eagle Enterprise Trust
+               Root key, which is embedded within the Harpy assembly itself.
+               This special handling is necessary because this resource string
+               is used during the trusted key ring loading process and at that
+               point the normal core library script signing key is unavailable
+               because it is always loaded from a trusted key ring.
+  -->
+  <data name="removeCommands" xml:space="preserve">
+    <value>apply [list [list keep] {foreach namespace [namespace children ::] {catch {namespace delete $namespace}}; set keepIf [expr {"if" in $keep}]; set keepRename [expr {"rename" in $keep}]; lappend keep if rename; set keep [lsort -dictionary -unique $keep]; foreach command [info commands] {if {$command ni $keep} then {rename $command ""}}; if {!$keepIf} then {if {!$keepRename} then {rename if ""; rename rename ""} else {rename if ""}} elseif {!$keepRename} then {rename rename ""}}] [list set]</value>
+  </data>
+  <data name="removeCommands.harpy" xml:space="preserve">
+    <value><![CDATA[
+      <Certificate xmlns="https://eagle.to/2011/harpy"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Protocol>None</Protocol>
+        <Vendor>Mistachkin Systems</Vendor>
+        <Id>89a19f05-6fee-4a00-9052-ec1797f28031</Id>
+        <HashAlgorithm>SHA512</HashAlgorithm>
+        <EntityType>Script</EntityType>
+        <TimeStamp>2017-10-28T07:36:53.1160823Z</TimeStamp>
+        <Duration>-1.00:00:00</Duration>
+        <Key>0x26f17c3a1a544324</Key>
+        <Signature>
+          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
+        </Signature>
+      </Certificate>
+    ]]></value>
+  </data>
+  <!--
+      NOTE: This resource string is used to remove all variables from the
+            interpreter.
+
+      WARNING: If the "removeVariables" string is modified, it may not work
+               because the signed script verification for it will fail.  You
+               should not change it unless you can also re-sign it.
+
+      WARNING: This resource string is signed with the Eagle Enterprise Trust
+               Root key, which is embedded within the Harpy assembly itself.
+               This special handling is necessary because this resource string
+               is used during the trusted key ring loading process and at that
+               point the normal core library script signing key is unavailable
+               because it is always loaded from a trusted key ring.
+  -->
+  <data name="removeVariables" xml:space="preserve">
+    <value>apply [list [list] {foreach namespace [namespace children ::] {catch {namespace delete $namespace}}; foreach varName [info globals] {catch {uplevel #0 [list unset -nocomplain $varName]}}; unset -nocomplain ::errorCode ::errorInfo}]</value>
+  </data>
+  <data name="removeVariables.harpy" xml:space="preserve">
+    <value><![CDATA[
+      <Certificate xmlns="https://eagle.to/2011/harpy"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Protocol>None</Protocol>
+        <Vendor>Mistachkin Systems</Vendor>
+        <Id>7537c769-0b42-41de-b6af-7ae5061f7b96</Id>
+        <HashAlgorithm>SHA512</HashAlgorithm>
+        <EntityType>Script</EntityType>
+        <TimeStamp>2018-09-16T05:31:32.4064941Z</TimeStamp>
+        <Duration>-1.00:00:00</Duration>
+        <Key>0x26f17c3a1a544324</Key>
+        <Signature>
+          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
+        </Signature>
+      </Certificate>
+    ]]></value>
+  </data>
+  <!--
+      NOTE: *WARNING* Be sure to update the the list of files here if any files
+            are added to the core script library.
+  -->
+  <data name="lib/Eagle1.0/auxiliary.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\auxiliary.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/compat.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\compat.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/csharp.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\csharp.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/database.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\database.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/exec.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\exec.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/file1.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\file1.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/file2.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\file2.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/file3.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\file3.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/info.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\info.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/list.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\list.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/object.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\object.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/pkgt.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\pkgt.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/platform.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\platform.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/process.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\process.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/runopt.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\runopt.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/shim.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\shim.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/testlog.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\testlog.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/unkobj.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\unkobj.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/unzip.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\unzip.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/update.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\update.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/init.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\init.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/embed.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\embed.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/safe.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\safe.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/shell.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\shell.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/test.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\test.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/vendor.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\vendor.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/word.tcl" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\word.tcl;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="lib/Eagle1.0/pkgIndex.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\pkgIndex.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+</root>

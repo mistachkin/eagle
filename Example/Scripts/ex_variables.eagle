@@ -1,0 +1,12 @@
+
+set x 1
+
+puts $x; # 1
+
+incr x
+
+puts $x; # 2
+
+lappend x 2
+
+puts $x; # 2 2

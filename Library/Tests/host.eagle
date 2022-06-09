@@ -1,0 +1,263 @@
+###############################################################################
+#
+# host.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Make this test work on Mono.  Currently, [host close] relies on
+#       framework internals that may not be present in Mono.  Also, various
+#       custom hosts may not support the Open and Close methods; therefore,
+#       only perform this test if the interpreter host is the default console
+#       host.
+###############################################################################
+
+runTest {test host-1.1 {close and re-open console host} -setup {
+  proc hostReset { x } {
+    #
+    # HACK: For the .NET Framework 4.5.x on Windows 8.x (only?), we need to
+    #       reset the host interface and the standard channels in order to
+    #       restore normal functioning for the default console host.  This
+    #       only seems to be strictly required when running in the debugger;
+    #       however, it should be harmless in any case.
+    #
+    # HACK: This also appears to be necessary if a native Tcl library was
+    #       pre-loaded.
+    #
+    if {([tcl ready] || \
+         [haveConstraint osVersion.WindowsNT_6.2] || \
+         [haveConstraint osVersion.WindowsNT_6.3] ||
+         [haveConstraint osVersion.WindowsNT_10.0]) && \
+        [haveConstraint dotNet45OrHigher]} then {
+      if {[catch {host reset -interface -channels} error]} then {
+        tlog [appendArgs \
+            "---- could not reset host interface and channels (" $x \
+            "): " $error \n]
+      }
+    }
+  }
+} -body {
+  set i1 [host isopen]
+  host close
+  set i2 [host isopen]
+
+  after 1000 {
+    #
+    # NOTE: Attempt to reset the host interface and standard channels now.
+    #       This is necessary on some operating system versions in order
+    #       for us to be able to fully succeed at re-opening the console
+    #       window; specifically, the _Hosts.Console.Open() method cannot
+    #       fully succeed unless at least the standard input channel for
+    #       the System.Console class is open and valid, due to the check
+    #       in the _Hosts.Console.SetupTitle() method.
+    #
+    hostReset before
+
+    if {[catch {host open} error]} then {
+      tlog [appendArgs \
+          "---- could not re-open host: " $error \n]
+    }
+
+    set i3 [host isopen]
+
+    #
+    # NOTE: Attempt to reset the host interface and standard channels now.
+    #       This is necessary on some operating system versions in order
+    #       to allow us to read/write from/to the standard channels using
+    #       the System.Console class after re-opening the console window.
+    #
+    hostReset after
+  }
+  after 2000 [list set forever true]
+
+  list [catch {vwait forever} msg] $msg $i1 $i2 $i3
+} -cleanup {
+  rename hostReset ""
+
+  unset -nocomplain error i1 i2 i3 msg forever
+} -constraints [fixConstraints {eagle dotNetCoreOrShell native windows\
+dotNetOrDotNetCore interactive hostIsOpen compile.NATIVE compile.WINDOWS\
+!windowsTerminal}] -constraintExpression {[haveConstraint \
+hostType.Eagle__Hosts_Console] || [haveConstraint hostType.Demo_Hosts_Demo]} \
+-result {0 {} True False True}}
+
+###############################################################################
+
+#
+# HACK: This test is disabled on non-Windows platforms because we have no idea
+#       if the Console.Title property will actually work there (e.g. Mono has
+#       several console "drivers" on Unix that may or may not support the Title
+#       property).  Also, this test relies on the interpreter host being the
+#       standard console host; therefore, enforce this assumption in the test
+#       constraints.
+#
+runTest {test host-1.2 {get/set host title} -body {
+  set savedTitle [host title]
+  host title "Tu ne cede malis sed contra audentior ito"; \
+      after 2000; list [object invoke -type \
+      Eagle._Interfaces.Public.IInteractiveHost \
+      Interpreter.GetActive.Host Title] \
+      [object invoke Console Title]
+} -cleanup {
+  catch {host title $savedTitle}
+  unset -nocomplain savedTitle
+} -constraints {eagle command.object windows interactive hostIsOpen\
+compile.CONSOLE} -constraintExpression {([haveConstraint \
+hostType.Eagle__Hosts_Console] || [haveConstraint hostType.Demo_Hosts_Demo]) &&\
+([haveConstraint dotNetCore] || [haveConstraint shell])} -match regexp -result \
+[appendArgs {^\{Tu ne cede malis sed contra audentior ito\} \{(?:Administrator:\
+)?Eagle v1\.0 (?:(?:(?:alpha|beta|rc|final)\
+\d{4}\.\d{2}\.\d{2}\.\d{1,5})|(?:(?:Pre-|Post-)?(?:Alpha|Beta|RC|Final|Release)\
+\d+(?:\.\d+)?)) \((?:} [join [getKnownBuildTypes] |] {)?(?:(?: -\
+)?(?:CLRv\d|Core\d|NET\d))?(?:(?: - )?(?:Debug|Release))\) Tu ne cede malis sed\
+contra audentior ito(?: - Mistachkin Systems)?\}$}]}
+
+###############################################################################
+
+#
+# HACK: We need to set an actual variable with the value of the quiet
+#       constraint so that the [subst] invocation for the setup script for
+#       the next test can use it to set the quiet mode for the isolated
+#       interpreter created by that test.
+#
+unset -nocomplain quiet
+set quiet [haveConstraint quiet]
+
+###############################################################################
+
+unset -nocomplain test_log_if
+set test_log_if [expr {[info exists test_log] ? $test_log : ""}]
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test host-1.3 {breaking infinite sleep} -setup [subst \
+    -nocommands -nobackslashes {
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled via the value of the $quiet variable that was magically
+  #       "transferred" from the parent interpreter to this isolated test
+  #       interpreter via the enclosing [subst] invocation.  If so, enable
+  #       quiet mode and disable the default background error handler for
+  #       this isolated test interpreter to prevent superfluous console
+  #       output.
+  #
+  if {$quiet} then {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {[catch {package present Eagle.Test}]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {![info exists test_channel]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {![info exists test_log]} then {
+    set test_log {$test_log_if}
+  }
+
+  #
+  # NOTE: Define the starting procedure for the new thread.
+  #
+  proc threadStart { args } {
+    catch {
+      object invoke -parametertypes [list Int32] \
+          System.Threading.Thread Sleep -1
+    } ::result; # sleep forever
+  }
+}] -body {
+  set t [createThread threadStart]
+  object callbackflags threadStart +CatchInterrupt
+
+  set ::result [list]
+  startThread $t; syncThread $t; $t Interrupt
+  if {[joinThread $t]} then {unset t}
+
+  if {[string first ThreadInterruptedException $::result] != -1} then {
+    return True
+  } else {
+    return [appendArgs "unexpected result: \"" $::result \"]
+  }
+} -cleanup {
+  if {[info exists t]} then {cleanupThread $t}
+
+  unset -nocomplain t result
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+
+  unset -nocomplain test_log test_channel
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+compile.THREADING !monoDebugger Eagle._Tests.Default.TestSetQuiet}] \
+-isolationLevel Interpreter -result {True}}
+
+###############################################################################
+
+unset -nocomplain test_log_if
+unset -nocomplain quiet
+
+###############################################################################
+
+#
+# WARNING: This particular test must use [puts], not [tputs].
+#          Please do not change it.  Also, this test does not
+#          produce a result.  If no exception is thrown, the
+#          test passes.
+#
+runTest {test host-1.4 {oversize host write to console} -body {
+  puts stdout [string repeat * 100000]
+} -constraints {eagle dotNetCoreOrShell windows hostIsOpen compile.CONSOLE} \
+-constraintExpression {[haveConstraint hostType.Eagle__Hosts_Console] || \
+[haveConstraint hostType.Demo_Hosts_Demo]} -result {}}
+
+###############################################################################
+
+runTest {test host-1.5 {WriteHeader with disposed interpreter} -body {
+  object invoke Eagle._Tests.Default TestDisposedWriteHeader ""
+} -constraints {eagle command.object hostIsOpen compile.TEST\
+Eagle._Tests.Default.TestDisposedWriteHeader} -result {True}}
+
+###############################################################################
+
+#
+# WARNING: This particular test must use [puts], not [tputs].
+#          Please do not change it.  Also, this test does not
+#          produce a result.  If no exception is thrown, the
+#          test passes.
+#
+runTest {test host-1.6 {oversize host write to console with ending} -body {
+  puts stdout [string repeat * 25000]\n
+} -constraints {eagle dotNetCoreOrShell windows hostIsOpen compile.CONSOLE} \
+-constraintExpression {[haveConstraint hostType.Eagle__Hosts_Console] || \
+[haveConstraint hostType.Demo_Hosts_Demo]} -result {}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

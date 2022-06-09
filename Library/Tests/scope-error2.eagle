@@ -1,0 +1,30 @@
+###############################################################################
+#
+# scope-error2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test scope-4.1 {error with open scope outside proc} -body {
+  set ::scope [scope create -open -clone]
+  error [list "this is a test error." [llength [scope list]]]
+} -cleanup {
+  catch {scope destroy $::scope}
+  unset -nocomplain ::scope
+} -constraints {eagle} -returnCodes 1 -result {{this is a test error.} 1}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

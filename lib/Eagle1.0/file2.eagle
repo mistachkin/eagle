@@ -1,0 +1,203 @@
+###############################################################################
+#
+# file2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle File 2 Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure reconfigures the specified channel to full ASCII
+  #       mode.
+  #
+  proc makeAsciiChannel { channel } {
+    fconfigure $channel -encoding ascii -translation auto; # ASCII TEXT
+  }
+
+  #
+  # NOTE: This procedure reads all data from the specified ASCII file and
+  #       returns it.
+  #
+  proc readAsciiFile { fileName } {
+    set channel [open $fileName RDONLY]
+    makeAsciiChannel $channel
+    set result [read $channel]
+    close $channel
+    return $result
+  }
+
+  #
+  # NOTE: This procedure writes all data to the specified ASCII file and
+  #       returns an empty string.  Previous data contained in the file,
+  #       if any, is lost.
+  #
+  proc writeAsciiFile { fileName data } {
+    set channel [open $fileName {WRONLY CREAT TRUNC}]
+    makeAsciiChannel $channel
+    puts -nonewline $channel $data
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: This procedure reconfigures the specified channel to full Unicode
+  #       mode.
+  #
+  proc makeUnicodeChannel { channel } {
+    fconfigure $channel -encoding unicode -translation auto; # UNICODE TEXT
+  }
+
+  #
+  # NOTE: This procedure reads all data from the specified Unicode file and
+  #       returns it.
+  #
+  proc readUnicodeFile { fileName } {
+    set channel [open $fileName RDONLY]
+    makeUnicodeChannel $channel
+    set result [read $channel]
+    close $channel
+    return $result
+  }
+
+  #
+  # NOTE: This procedure writes all data to the specified Unicode file and
+  #       returns an empty string.  Previous data contained in the file,
+  #       if any, is lost.
+  #
+  proc writeUnicodeFile { fileName data } {
+    set channel [open $fileName {WRONLY CREAT TRUNC}]
+    makeUnicodeChannel $channel
+    puts -nonewline $channel $data
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: This procedure reconfigures the specified channel for use by the
+  #       logging subsystem.
+  #
+  proc makeLogChannel { channel } {
+    set translation [expr {[isEagle] ? "protocol" : "auto"}]
+    fconfigure $channel -encoding binary -translation $translation; # LOG DATA
+  }
+
+  #
+  # NOTE: This procedure appends data to the specified log data file and
+  #       returns an empty string.  Previous data contained in the file,
+  #       if any, is preserved.
+  #
+  proc appendLogFile { fileName data } {
+    set channel [open $fileName {WRONLY CREAT APPEND}]
+    makeLogChannel $channel
+    puts -nonewline $channel $data
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: This procedure appends data to the specified shared log data
+  #       file and returns an empty string.  Previous data contained in
+  #       the file, if any, is preserved.
+  #
+  proc appendSharedLogFile { fileName data } {
+    set command [list open $fileName {WRONLY CREAT APPEND}]
+
+    #
+    # HACK: Tcl appears to do this by default; however Eagle does not and
+    #       will not.  Therefore, manually add the -share option to the
+    #       command if running in Eagle.
+    #
+    if {[isEagle]} then {
+      lappend command 0 file -share readWrite
+    }
+
+    #
+    # NOTE: Open the file using the command constructed above, configure
+    #       the channel for binary data, and output the data to it.
+    #
+    set channel [eval $command]
+    makeLogChannel $channel
+    puts -nonewline $channel $data; flush $channel
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: This procedure reads all data from the specified shared binary
+  #       file and returns it.
+  #
+  proc readSharedFile { fileName } {
+    set command [list open $fileName RDONLY]
+
+    #
+    # HACK: Tcl appears to do this by default; however Eagle does not and
+    #       will not.  Therefore, manually add the -share option to the
+    #       command if running in Eagle.
+    #
+    if {[isEagle]} then {
+      lappend command 0 file -share readWrite
+    }
+
+    #
+    # NOTE: Open the file using the command constructed above, configure
+    #       the channel for binary data, and output the data to it.
+    #
+    set channel [eval $command]
+    makeBinaryChannel $channel
+    set result [read $channel]
+    close $channel
+    return $result
+  }
+
+  #
+  # NOTE: This procedure appends data to the specified shared binary file
+  #       and returns an empty string.  Previous data contained in the
+  #       file, if any, is preserved.
+  #
+  proc appendSharedFile { fileName data } {
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #
+    set command [list open $fileName {WRONLY CREAT APPEND}]
+
+    #
+    # HACK: Tcl appears to do this by default; however Eagle does not and
+    #       will not.  Therefore, manually add the -share option to the
+    #       command if running in Eagle.
+    #
+    if {[isEagle]} then {
+      lappend command 0 file -share readWrite
+    }
+
+    #
+    # NOTE: Open the file using the command constructed above, configure
+    #       the channel for binary data, and output the data to it.
+    #
+    set channel [eval $command]
+    makeBinaryChannel $channel
+    puts -nonewline $channel $data; flush $channel
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: Provide the Eagle "file types" package to the interpreter.
+  #
+  package provide Eagle.File.Types \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

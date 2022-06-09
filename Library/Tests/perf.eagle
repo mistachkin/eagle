@@ -1,0 +1,168 @@
+###############################################################################
+#
+# perf.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+if {![info exists iterations]} then {
+  set iterations 9500
+
+  #
+  # NOTE: Adjust the expected performance number based on the
+  #       relative performance of this machine, if available.
+  #
+  if {![info exists no(relativePerformance)]} then {
+    if {[llength [info commands calculateRelativePerformance]] > 0} then {
+      set iterations [calculateRelativePerformance iterations $iterations]
+      set iterations [expr {round($iterations)}]
+    }
+  }
+}
+
+###############################################################################
+
+runTest {test perf-1.1 {isolated variable increments per second} -body {
+  set x [string trim [lindex [split [execTestShell \
+      [list -eventflags Wait -success Success] \
+      -noArgumentsFileName -noAppSettings \
+      -preInitialize [appendArgs \" "set env(NoAutoRecord) true" \"] \
+      -preInitialize [appendArgs \" [expr {[haveConstraint quiet] ? \
+      "catch {object invoke Eagle._Tests.Default TestSetQuiet}" : ""}] \"] \
+      -evaluate [appendArgs \" {after flags =Immediate; \
+      catch {after 1000 [list interp cancel]; set x 0; \
+      while {1} {incr x}}; puts stdout $x} \"]] \n] end-1]]
+
+  waitForProcesses [list [info previouspid]] 5000
+
+  tputs $test_channel [appendArgs "---- expected iterations: " $iterations \n]
+  tputs $test_channel [appendArgs "---- actual iterations: " $x \n]
+
+  set x
+} -cleanup {
+  catch {info previouspid true}
+} -constraints [fixTimingConstraints {eagle dotNetCoreOrShell testExec\
+performance tip285 Eagle._Tests.Default.TestSetQuiet}] -match expression \
+-result {$x >= $iterations}}
+
+###############################################################################
+
+unset -nocomplain x iterations
+
+###############################################################################
+
+unset -nocomplain s; set s 30; # NOTE: Seconds for next test...
+
+###############################################################################
+
+runTest {test perf-101.0 {event subsystem performance} -setup {
+  tputs $test_channel \
+      "---- doing test perf-101.0 which can take a minute to run\n"
+
+  set interp [interp create]
+
+  interp bgerror $interp ""
+} -body {
+  evalAsync [list interp set $interp a 1] {
+    after [expr {$s * 1000}]; interp cancel -global -unwind -- $interp
+    set ::forever 1
+  }
+
+  catch {
+    interp resetcancel $interp -global
+    interp eval $interp {
+      evalAsync {set b 1} {
+        for {set i 0; set z 0} {$i < 1000000} {incr i} {
+          after 0 [list incr z]
+        }
+      }
+    }
+  }
+
+  after 0 nop; vwait ::forever; # NOTE: Wait for async [interp cancel].
+
+  tputs $test_channel [appendArgs \
+      "---- queued " [interp set $interp i] " events in ~" $s " seconds\n"]
+
+  evalAsync [list interp set $interp c 1] {
+    after [expr {$s * 1000}]; interp cancel -global -unwind -- $interp
+    set ::forever 1
+  }
+
+  evalAsync [list set d 1] {
+    interp resetcancel $interp -global
+    interp eval $interp {
+      vwait -eventwaitflags +StopOnAny ::forever
+    }
+  }
+
+  after 0 nop; vwait d; # NOTE: Wait for [evalAsync] done script.
+
+  tputs $test_channel [appendArgs \
+      "---- handled " [interp set $interp z] " events in ~" $s " seconds\n"]
+
+  catch {
+    interp resetcancel $interp -global
+    interp eval $interp {after clear}
+  }
+
+  #
+  # NOTE: Adjust the expected performance numbers based on the
+  #       relative performance of this machine, if available.
+  #
+  set minimum_z [expr {[isMono] ? 20000 : 30000}]
+  set minimum_i [expr {[isMono] ? 20000 : 30000}]
+
+  if {![info exists no(relativePerformance)]} then {
+    if {[llength [info commands calculateRelativePerformance]] > 0} then {
+      set minimum_z [calculateRelativePerformance iterations $minimum_z]
+      set minimum_z [expr {round($minimum_z)}]
+
+      set minimum_i [calculateRelativePerformance iterations $minimum_i]
+      set minimum_i [expr {round($minimum_i)}]
+    }
+  }
+
+  tputs $test_channel [appendArgs \
+      "---- must queue at least " $minimum_i " events in ~" $s " seconds\n"]
+
+  tputs $test_channel [appendArgs \
+      "---- must handle at least " $minimum_z " events in ~" $s " seconds\n"]
+
+  list [catch {
+        interp resetcancel $interp -global
+        interp eval $interp {llength [after info]}
+      } result] $result \
+      [catch {interp set $interp a} result] $result \
+      [catch {interp set $interp b} result] $result \
+      [catch {interp set $interp c} result] $result \
+      [catch {set d} result] $result \
+      [expr {[interp set $interp z] > $minimum_z}] \
+      [expr {[interp set $interp i] > $minimum_i}]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain forever d result minimum_z minimum_i interp
+} -constraints [fixTimingConstraints {eagle performance processorIntensive\
+compile.EMIT compile.THREADING globalTip285}] -result {0 0 0 1 0 1 0 1 0 1 True\
+True}}
+
+###############################################################################
+
+unset -nocomplain s
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

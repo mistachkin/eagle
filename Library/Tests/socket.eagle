@@ -1,0 +1,309 @@
+###############################################################################
+#
+# socket.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+#
+# NOTE: *MONO* Tests in this file can crash Mono 2.11 on Linux.  Including
+#       "socket-1.*" in the "-skip" test suite option is recommended when
+#       running on Mono 2.11.  However, it may also be necessary for other
+#       versions.  For future reference, the crash information seen should
+#       be similar to the following:
+#
+#       Stacktrace:
+#
+#       at <unknown> <0xffffffff>
+#       at (wrapper managed-to-native)
+#           System.Reflection.MonoMethod.InternalInvoke
+#           (System.Reflection.MonoMethod,object,object[],System.Exception&)
+#           <0xffffffff>
+#       at System.Reflection.MonoMethod.Invoke
+#           (object,System.Reflection.BindingFlags,System.Reflection.Binder
+#           object[],System.Globalization.CultureInfo) <0x0019b>
+#       at System.MonoType.InvokeMember (string,System.Reflection.BindingFlags
+#           System.Reflection.Binder,object,object[]
+#           System.Reflection.ParameterModifier[]
+#           System.Globalization.CultureInfo,string[]) <0x00567>
+#       at System.Type.InvokeMember (string,System.Reflection.BindingFlags,
+#           System.Reflection.Binder,object,object[]) <0x00073>
+#       at Eagle._Shell.DynamicCommandLine.Main (string[]) <0x000bf>
+#       at (wrapper runtime-invoke) <Module>.runtime_invoke_int_object (object,
+#           intptr,intptr,intptr) <0xffffffff>
+#
+#       Native stacktrace:
+#
+#       * 1    process 932 "mono" 0xb6f14eac in waitpid () from
+#                  /lib/libpthread.so.0
+#
+###############################################################################
+
+runTest {test socket-1.1 {open/puts/gets/eof/close socket} -setup {
+  unset -nocomplain s t z
+} -body {
+  if {[isEagle]} then {
+    set s [socket -sendtimeout $test_timeout $test_host 80]
+  } else {
+    set s [socket $test_host 80]
+  }
+
+  fconfigure $s -translation binary
+
+  set t [time {
+    puts -nonewline $s [appendArgs "GET / HTTP/1.1\r\nHOST: " \
+        $test_host \r\n\r\n]
+
+    flush $s
+  }]
+
+  tputs $test_channel [appendArgs "---- done sending to \"" \
+      $test_host "\" in " $t \n]
+
+  fconfigure $s -translation crlf
+
+  set t [time {
+    #
+    # NOTE: It seems this read can return zero bytes in some cases (i.e. deep
+    #       down, the ReadByte method on the NetworkStream object returns -1,
+    #       meaning end-of-stream, immediately).  This only seems to happen
+    #       in the .NET Framework 2.0 RTM on Windows 2000.  There may be some
+    #       underlying bug that prevents the data from being sent or received
+    #       properly via a NetworkStream.
+    #
+    while {![eof $s]} {append z [gets $s]\r\n}
+  }]
+
+  tputs $test_channel [appendArgs "---- done receiving from \"" \
+      $test_host "\" in " $t \n]
+
+  close $s; unset s
+
+  set z
+} -cleanup {
+  if {[info exists s]} then {catch {close $s}}
+  unset -nocomplain s t z
+} -constraints {command.socket compile.NETWORK internet_eagle.to} -match \
+regexp -result {(?s)<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4\.01\
+Transitional//EN" "http://www\.w3\.org/TR/html4/loose\.dtd">.*</html>}}
+
+###############################################################################
+
+#
+# BUGBUG: This test, in combination with the next one (socket-1.3) does not
+#         work with recent builds of Tcl 8.4 (hangs on exit) and 8.6 (hangs)
+#         for some reason.
+#
+# NOTE: As of .NET Core 2.2, the -noexclusive option to [socket] does not yet
+#       work.  It may be fixed in .NET Core 3.0.  On Unix, a SocketException
+#       will be thrown with the message "Address already in use".
+#
+runTest {test socket-1.2 {server sockets} -setup {
+  proc serverAccept { channel ip port } {
+    set ::sock(server) $channel
+
+    fconfigure $::sock(server) -encoding binary -translation binary
+
+    set data [gets $::sock(server)]
+
+    if {[lindex $data 0] eq "CLIENT" && [lindex $data 1] eq "HELLO"} then {
+      puts $::sock(server) [list SERVER HELLO $ip [info patchlevel]]
+      flush $::sock(server)
+    }
+
+    close $::sock(server)
+
+    set ::y $data
+  }
+} -body {
+  set command [list socket]
+  if {[isDotNetCore]} then {lappend command -noexclusive}
+  lappend command -server serverAccept $test_port
+
+  set sock(listen) [eval $command]
+
+  #
+  # NOTE: To better permit manual debugging, skip starting the isolated
+  #       [socket] client via [exec]?
+  #
+  if {![info exists no(execSocketClient)]} then {
+    #
+    # NOTE: Indicate in log file where the isolated client test started.
+    #
+    tputs $test_channel "---- start isolated socket client test\n"
+
+    if {[isEagle]} then {
+      #
+      # HACK: The "-success" option is not that useful here because the
+      #       child process is being executed asynchronously.
+      #
+      execTestShell [list -eventflags Wait -success Success] \
+          -noArgumentsFileName -noAppSettings \
+          -preInitialize [appendArgs \" "set env(NoAutoRecord) true" \"] \
+          -preInitialize [appendArgs \" [expr {[haveConstraint quiet] ? \
+          "catch {object invoke Eagle._Tests.Default TestSetQuiet}" : ""}] \"] \
+          -preInitialize [appendArgs \" "set no(logFileName) 1" \"] \
+          -preInitialize [appendArgs \" "set no(checkLogStartSentry) 1" \"] \
+          -preInitialize [appendArgs \" "set no(failLogStartSentry) 1" \"] \
+          -preInitialize [appendArgs \" "set test_run_id " [getTestRunId] \"] \
+          -file [appendArgs \" [file join $test_data_path client.tcl] \"] \
+          -logFile [appendArgs \" [getTestLog] \"] &
+    } else {
+      execTestShell [list] [file join $test_data_path client.tcl] -logFile \
+          [getTestLog] -no [list logFileName 1 checkLogStartSentry 1 \
+          failLogStartSentry 1] &
+    }
+  }
+
+  if {![isEagle]} then {
+    #
+    # HACK: Attempt to delay long enough for the server thread to start
+    #       its main processing loop.
+    #
+    after $test_timeout
+  }
+
+  #
+  # NOTE: Wait for the server to complete its processing.  When not using
+  #       native Tcl, forcibly wait, because there are no pending events
+  #       and the server thread may not be fully ready yet.
+  #
+  if {[isEagle]} then {
+    vwait -force ::y
+  } else {
+    vwait ::y
+  }
+
+  #
+  # NOTE: Try to indicate in the log file where the isolated client test
+  #       ended; this is not 100% accurate due to subtle output ordering
+  #       issues between the client and server processes and the semantics
+  #       of the shared log file.
+  #
+  tputs $test_channel "---- end isolated socket client test\n"
+
+  close $sock(listen); unset sock(listen)
+
+  #
+  # NOTE: *EAGLE* Wait for the child process to exit.
+  #
+  if {[isEagle]} then {
+    waitForProcesses [list [info previouspid]] 5000
+  }
+
+  set ::y
+} -cleanup {
+  if {[info exists sock(server)]} then {catch {close $sock(server)}}
+  if {[info exists sock(listen)]} then {catch {close $sock(listen)}}
+
+  rename serverAccept ""
+
+  if {[catch {kill -force [info previouspid]}] == 0} then {
+    tputs $test_channel [appendArgs \
+        "==== WARNING: killed isolated socket client process " \
+        [info previouspid] \n]
+  }
+
+  catch {info previouspid true}
+
+  unset -nocomplain sock y command
+} -constraints [fixConstraints {testExec command.socket compile.NETWORK\
+!client !monoDebugger file_client.tcl tclBug84 tclBug86 dotNetCoreOrShell\
+Eagle._Tests.Default.TestSetQuiet}] -constraintExpression \
+{[haveConstraint windows] || [haveConstraint dotNetCoreBug22]} -match regexp \
+-result [appendArgs "^CLIENT HELLO (?:localhost|127\\.0\\.0\\.1) " [string map \
+[list . \\.] [info patchlevel]] "\$"]}
+
+###############################################################################
+
+#
+# BUGBUG: This test, in combination with the previous one (socket-1.2) does
+#         not work with recent builds of Tcl 8.6 (hangs) for some reason.
+#
+runTest {test socket-1.3 {client sockets} -setup {
+  proc clientSend { ip port } {
+    set ::sock(client) [socket $ip $port]
+
+    fconfigure $::sock(client) -encoding binary -translation binary
+
+    puts $::sock(client) [list CLIENT HELLO $ip [info patchlevel]]
+    flush $::sock(client)
+
+    set data [gets $::sock(client)]
+
+    close $::sock(client)
+
+    set ::x $data
+  }
+
+  #
+  # HACK: Always force use of IPv4 when running on Tcl 8.6 or higher
+  #       because of issues with hanging when this is not specified.
+  #
+  if {![isEagle] && $::tcl_version >= 8.6} then {
+    if {[info exists ::tcl::unsupported::socketAF]} then {
+      set savedSocketAF $::tcl::unsupported::socketAF
+    } else {
+      unset -nocomplain savedSocketAF
+    }
+    set ::tcl::unsupported::socketAF inet
+  }
+} -body {
+  clientSend localhost $test_port
+
+  set ::x
+} -cleanup {
+  #
+  # HACK: Restore the saved socket address family when running on Tcl
+  #       8.6 or higher.  This is needed because we manually overrode
+  #       the previous setting in the test setup (above).
+  #
+  if {![isEagle] && $::tcl_version >= 8.6} then {
+    if {[info exists savedSocketAF]} then {
+      set ::tcl::unsupported::socketAF $savedSocketAF
+    } else {
+      unset -nocomplain ::tcl::unsupported::socketAF
+    }
+    unset -nocomplain savedSocketAF
+  }
+
+  if {[info exists sock(client)]} then {catch {close $sock(client)}}
+
+  rename clientSend ""
+
+  unset -nocomplain sock x
+} -constraints {command.socket compile.NETWORK client} -match regexp -result \
+[appendArgs "^SERVER HELLO (?:localhost|127\\.0\\.0\\.1) " [string map \
+[list . \\.] [info patchlevel]] "\$"]}
+
+###############################################################################
+
+#
+# NOTE: Check if we are running the isolated socket client test inside
+#       Eagle.
+#
+if {[isEagle] && [haveConstraint client]} then {
+  #
+  # NOTE: Reset the log file, if necessary, so that we do not have a
+  #       race condition with the other (i.e. the "parent") process
+  #       trying to write to it.
+  #
+  if {[info exists test_log]} then {
+    set test_log ""
+  }
+}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

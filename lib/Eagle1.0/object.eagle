@@ -1,0 +1,418 @@
+###############################################################################
+#
+# object.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Object Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure accepts two arguments containing the flag string
+  #       that are based on an enumerated CLR type.  Flag values that are
+  #       contained in these two arguments are combined and returned as
+  #       the result.  The third flag string argument contains the flags
+  #       to exclude from the result.
+  #
+  proc combineFlags { flags1 flags2 {flags3 ""} {noCase false} } {
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #
+    set result [list]
+    set notFlags [list]
+
+    if {[string length $flags3] > 0} then {
+      foreach flag [split $flags3 ", "] {
+        set flag [string trim $flag]
+
+        if {[string length $flag] > 0} then {
+          lappend notFlags $flag
+        }
+      }
+    }
+
+    foreach flags [list $flags1 $flags2] {
+      foreach flag [split $flags ", "] {
+        set flag [string trim $flag]
+
+        if {[string length $flag] > 0} then {
+          set addFlag false
+
+          if {[llength $notFlags] > 0} then {
+            set command [list lsearch -exact]
+
+            if {$noCase} then {
+              lappend command -nocase
+            }
+
+            lappend command -- $notFlags $flag
+
+            if {[eval $command] == -1} then {
+              set addFlag true
+            }
+          } else {
+            set addFlag true
+          }
+
+          if {$addFlag} then {
+            lappend result $flag
+          }
+        }
+      }
+    }
+
+    return [join $result ,]
+  }
+
+  #
+  # NOTE: This procedure returns the type name of the return type for the
+  #       specified CLR member.
+  #
+  proc getReturnType { object member } {
+    if {[string length $object] == 0} then {
+      return ""
+    }
+
+    if {[string length $member] == 0} then {
+      return ""
+    }
+
+    set code [catch {
+      object foreach -alias memberInfo \
+          [object invoke -noinvoke $object $member] {
+        #
+        # NOTE: Use the member type to determine which property contains
+        #       the type information we want to return.
+        #
+        switch -exact -- [$memberInfo MemberType] {
+          Field {
+            return [$memberInfo FieldType.AssemblyQualifiedName]
+          }
+          Method {
+            return [$memberInfo ReturnType.AssemblyQualifiedName]
+          }
+          Property {
+            return [$memberInfo PropertyType.AssemblyQualifiedName]
+          }
+          default {
+            return ""
+          }
+        }
+      }
+    } result]
+
+    #
+    # NOTE: If no error was raised above, return the result; otherwise,
+    #       return an empty string to indicate a general failure.
+    #
+    return [expr {$code == 2 ? $result : ""}]
+  }
+
+  #
+  # NOTE: This procedure returns the default value for the specified CLR type.
+  #
+  proc getDefaultValue { typeName } {
+    if {[llength [info commands object]] == 0} then {
+      return ""
+    }
+
+    if {[string length $typeName] == 0} then {
+      return ""
+    }
+
+    set type [object invoke -create -alias Utility GetType $typeName]
+
+    if {[string length $type] == 0} then {
+      return ""
+    }
+
+    return [expr {[$type IsValueType] ? 0 : "null"}]
+  }
+
+  #
+  # NOTE: This procedure returns a string obtained by using the specified
+  #       value as an opaque object handle -OR- a default value (e.g. an
+  #       empty string) if the value is not a valid opaque object handle.
+  #
+  proc getStringFromObjectHandle { value {default ""} } {
+    if {[isNonNullObjectHandle $value]} then {
+      return [object invoke $value ToString]
+    }
+
+    if {[string length $default] > 0} then {
+      return $default
+    }
+
+    return $value
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified value can be used
+  #       as an opaque object handle.
+  #
+  proc isObjectHandle { value } {
+    if {[catch {object exists $value} result] == 0 && $result} then {
+      return true
+    }
+
+    set pattern [string map \
+        [list \\ \\\\ * \\* - \\- ? \\? \[ \\\[ \] \\\]] $value]
+
+    set objects [info objects $pattern]
+
+    if {[llength $objects] == 1 && [lindex $objects 0] eq $value} then {
+      return true
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified value can be used
+  #       as an opaque object handle -AND- the value does not represent a null
+  #       object value.
+  #
+  proc isNonNullObjectHandle { value } {
+    if {![isObjectHandle $value]} then {
+      return false
+    }
+
+    global null
+
+    if {$value eq $null} then {
+      return false
+    }
+
+    if {[catch {object isnull $value} result] == 0 && $result} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified name represents
+  #       a valid CLR type name.
+  #
+  proc isManagedType { name } {
+    if {[llength [info commands object]] > 0} then {
+      if {![isObjectHandle $name]} then {
+        if {[catch {
+          object members -matchnameonly -nameonly -pattern Equals $name
+        } result] == 0 && $result eq "Equals"} then {
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified name is usable
+  #       as a CLR type name.
+  #
+  proc canGetManagedType {
+          name allowExtra {typeVarName ""} {extraVarName ""} } {
+    if {[llength [info commands object]] > 0} then {
+      if {![isObjectHandle $name]} then {
+        set cultureInfo [object invoke Interpreter.GetActive CultureInfo]
+        set type null
+
+        set code [object invoke -create -alias -flags +NonPublic \
+            Value GetAnyType "" $name null null None $cultureInfo \
+            type]
+
+        if {[getStringFromObjectHandle $code] eq "Ok"} then {
+          if {[string length $typeVarName] > 0} then {
+            upvar 1 $typeVarName typeName
+          }
+
+          set typeName [$type AssemblyQualifiedName]
+
+          if {[string length $extraVarName] > 0} then {
+            upvar 1 $extraVarName extraName
+          }
+
+          set extraName ""; # NOTE: Entire name was used.
+
+          if {[isManagedType $typeName]} then {
+            return true
+          }
+        } elseif {$allowExtra && [string first . $name] != -1} then {
+          set typeParts [split $name .]
+          set startIndex [expr {[llength $typeParts] - 2}]
+
+          for {set index $startIndex} {$index >= 0} {incr index -1} {
+            set rangeName [lrange $typeParts 0 $index]
+
+            if {![isObjectHandle $rangeName]} then {
+              set type null
+
+              set code [object invoke -create -alias -flags +NonPublic \
+                  Value GetAnyType "" $rangeName null null None \
+                  $cultureInfo type]
+
+              if {[getStringFromObjectHandle $code] eq "Ok"} then {
+                if {[string length $typeVarName] > 0} then {
+                  upvar 1 $typeVarName typeName
+                }
+
+                set typeName $rangeName
+
+                if {[string length $extraVarName] > 0} then {
+                  upvar 1 $extraVarName extraName
+                }
+
+                set extraName [join [lrange $typeParts $index+1 end] .]
+
+                if {[isManagedType $typeName]} then {
+                  return true
+                } else {
+                  break
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure evaluates a script asynchronously and optionally
+  #       notifies another script upon its completion.  The first argument
+  #       is the notification script; if an empty string, there will be no
+  #       notification when asynchronous script evaluation is completed.
+  #       If there is exactly one more argument, it is evaluated verbatim;
+  #       otherwise, all remaining arguments are concatenated via [concat]
+  #       and evaluated asynchronously.  If the script cannot be submitted
+  #       for asynchronous evaluation, a script error will be raised.
+  #
+  proc evalAsync { doneScript args } {
+    #
+    # NOTE: This procedure requires the [object] command in order to work.
+    #       If it is not available, bail out now.
+    #
+    if {[llength [info commands object]] == 0} then {
+      error "cannot eval async: missing \[object\] command"
+    }
+
+    #
+    # NOTE: Grab the current compilation options for the core library.
+    #
+    if {[info exists ::eagle_platform(compileOptions)]} then {
+      set options $::eagle_platform(compileOptions)
+    } else {
+      set options [list]
+    }
+
+    #
+    # NOTE: If the core library was not compiled with thread-safety enabled,
+    #       this procedure cannot be used because it could corrupt the state
+    #       of the interpreter.
+    #
+    if {[lsearch -exact -- $options THREADING] == -1} then {
+      error "cannot eval async: library missing THREADING compile-option"
+    }
+
+    #
+    # NOTE: If there is more than one script optional argument, use [concat]
+    #       to build up the final script; otherwise, use the single argument
+    #       verbatim.  This mirrors the behavior of [eval].
+    #
+    if {[llength $args] > 1} then {
+      set asyncScript [concat $args]
+    } else {
+      set asyncScript [lindex $args 0]
+    }
+
+    #
+    # NOTE: Is there a script to be evaluated when the asynchronous script
+    #       evaluation is complete?  If so, build an anonymous procedure
+    #       that wraps it; otherwise, set the callback argument to null, so
+    #       the core marshaller will handle the lack of a callback correctly.
+    #       The context argument will be added to this script prior to it
+    #       being evaluated; however, it is not actually used by this script.
+    #       The -identifier option is NOT actually processed by the library;
+    #       however, it is necessary here to avoid having multiple calls to
+    #       this procedure collide with each other when attempting to remove
+    #       their callbacks during cleanup.
+    #
+    if {[string length $doneScript] > 0} then {
+      #
+      # NOTE: If the core library was compiled without dynamic delegates,
+      #       this procedure cannot be used when there is a callback, due
+      #       to the AsynchronousCallback delegate type being unsupported.
+      #
+      if {[lsearch -exact -- $options EMIT] == -1} then {
+        error "cannot eval async: library missing EMIT compile-option"
+      }
+
+      set callback [list -identifier [expr {random()}] -callbackflags \
+          {+ResetCancel MustResetCancel FireAndForget} -- apply [list \
+          [list script context] {uplevel 1 $script}] $doneScript]
+    } else {
+      set callback null
+    }
+
+    #
+    # NOTE: Initialize the local variable that will be used to receive the
+    #       script error, if any.
+    #
+    set error null
+
+    #
+    # NOTE: Attempt to submit the script for asynchonous evaluation.  Use
+    #       the dynamic callback mechanism with the anonymous procedure we
+    #       constructed above.
+    #
+    set interp [object invoke \
+        -objectflags +NoDispose Interpreter GetActive]; # TODO: 10x speed?
+
+    set parameterTypes [list \
+        String Eagle._Components.Public.Delegates.AsynchronousCallback \
+        Eagle._Interfaces.Public.IClientData Result&]; # TODO: Speed?
+
+    set code [object invoke -verbose \
+        -marshalflags +DynamicCallback -parametertypes $parameterTypes \
+        -- $interp EvaluateScript $asyncScript $callback null error]
+
+    #
+    # NOTE: Check the return code, which only indicates if the script was
+    #       actually submitted for asynchronous evaluation, to make sure
+    #       it was successful.  If not, raise a script error.
+    #
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    #
+    # NOTE: Upon success, return an empty string.  The actual script result
+    #       will be sent to the callback script, if any.
+    #
+    return ""
+  }
+
+  #
+  # NOTE: Provide the Eagle "object" package to the interpreter.
+  #
+  package provide Eagle.Object \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

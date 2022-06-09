@@ -1,0 +1,1241 @@
+###############################################################################
+#
+# object2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=471252
+###############################################################################
+
+runTest {test object-2.1 {arguments, ref, out, nested, multi array, etc} -body {
+  catch {unset t1}; # input/output param
+  set t1() "this is not an integer; however, it does not matter"
+  set t1(0) 0x1234
+
+  catch {unset t2}; # input/output param
+  set t2() "this is not an integer; however, it does not matter"
+  set t2(-1,-2) 0x999
+  set t2(0,0) 0x01
+  set t2(0,1) 0x02
+  set t2(1,0) 0x04
+  set t2(1,1) 0x08
+  set t2(2,1) 0x10
+
+  catch {unset t3}; # input/output param
+  set t3() "this element will not be changed"
+  set t3(0) "this element will be changed"
+
+  catch {unset t4}; # output only param
+  catch {unset t5}; # output only param
+  catch {unset t6}; # output only param
+
+  list [set o1 [object create Eagle._Tests.Default]] [set o2 [object invoke \
+      $o1 TestComplexMethod 127 909 yes [expr pi()] t1 t2 t3 t4 t5 t6]] \
+      [testArrayGet t1] [testArrayGet t2] [testArrayGet t3] $t4 [testArrayGet \
+      t5 true] [testArrayGet t6 true] [unset o2] [object dispose $o1] [unset \
+      o1] [llength [info objects]] [set o3 [object create System.Int32]] \
+      [object invoke -membertypes {-Method -Property} -flags {+NonPublic \
+      -Public -Static -InvokeMethod} $o3 m_value 9999] [set o4 [object invoke \
+      -create System.Int32 Parse 10101]] [set o5 [object create -nocase \
+      system.int32]] [object invoke -membertypes {-Method -Property} -flags \
+      {+NonPublic -Public -Static -InvokeMethod} $o5 m_value 9999] [object \
+      invoke System.String Format "{0} {1} {2}" $o3 $o4 $o5] [object dispose \
+      $o5] [object dispose $o4] [object dispose $o3] [llength [info objects]]
+} -cleanup {
+  unset -nocomplain o1 o2 o3 o4 o5 t1 t2 t3 t4 t5 t6 t6_0 t6_1 t6_2 w x y z
+} -constraints {eagle command.object compile.TEST referenceCounts monoBug22\
+Eagle._Tests.Default.TestComplexMethod} -match regexp -result {^Default#\d+\
+Default#\d+ \{\{\} \{this is not an integer; however, it does not matter\} 0\
+4661\} \{\{\} \{this is not an integer; however, it does not matter\} -1,-1 0\
+-1,-2 (?:2457|2477) -1,0 0 -1,1 0 0,-1 0 0,-2 0 0,0 2 0,1 4 1,-1 0 1,-2 0 1,0 3\
+1,1 4 2,-1 0 2,-2 0 2,0 0 2,1 37\} \{\{\} \{this element will not be changed\}\
+0 \d+\} \{\d{4}\.\d{2}\.\d{2}T\d{2}:\d{2}:\d{2}\.\d{3} (?:\+|-)?\d{4}\} \{0 127\
+1 909 2 True 3 3\.14159265358979(?:3)?\} \{0 t6_0 1 t6_1 2 t6_2\} \{\}\
+\{disposed removed\} \{\} 1 System#Int32#\d+ \{\} System#Int32#\d+\
+System#Int32#\d+ \{\} \{9999 10101 9999\} removed removed removed 1$}}
+
+###############################################################################
+
+runTest {test object-2.2 {member with char[] argument type} -body {
+  list [unset -nocomplain foo] [set a [object create System.String foo]] \
+      [set foo 2] [set b [object create System.String foo]]
+} -cleanup {
+  unset -nocomplain a b foo
+} -constraints {eagle command.object} -match regexp -result \
+{^\{\} System#String#\d+ 2 System#String#\d+$}}
+
+###############################################################################
+
+runTest {test object-2.3 {conversion of list to one-dimensional array} -setup {
+  unset -nocomplain error
+} -body {
+  array set error {0 "" 1 "" 2 "" 3 ""}
+
+  list [catch {object invoke -flags +NonPublic -parametertypes [list Byte\[\]] \
+      Eagle._Tests.Default TestToHexadecimalString [list 1 2 3]} \
+      error(0)] $error(0) [catch {object invoke Eagle._Tests.Default \
+      TestMulti2Array [list 1 2 3]} error(1)] $error(1) [catch {object invoke \
+      Eagle._Tests.Default TestMulti3Array [list 1 2 3]} error(2)] $error(2) \
+      [catch {object invoke Eagle._Tests.Default TestNestedArray [list 1 2 3]} \
+      error(3)] $error(3)
+} -cleanup {
+  unset -nocomplain error
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestToHexadecimalString\
+Eagle._Tests.Default.TestMulti2Array\
+Eagle._Tests.Default.TestMulti3Array\
+Eagle._Tests.Default.TestNestedArray} -match regexp -result \
+{^0 010203 1 \{could not convert method #\d+\
+"Eagle\._Tests\.Default\.TestMulti2Array" argument #0 "array" with value "1 2\
+3" to type "System\.Int32\[,\]": cannot convert list to an array of rank 2\}\
+1 \{could not convert method #\d+ "Eagle\._Tests\.Default\.TestMulti3Array"\
+argument #0 "array" with value "1 2 3" to type "System\.Int32\[,,\]": cannot\
+convert list to an array of rank 3\} 1 \{could not convert method #\d+\
+"Eagle\._Tests\.Default\.TestNestedArray" argument #0 "array" with value "1 2\
+3" to type "System\.Int32\[\]\[\]": variable not found in call frame\}$}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  set vflags [object invoke Enum Parse VariableFlags GlobalOnly]
+
+  if {[string first , $vflags] != -1} then {
+    set vflags [appendArgs \{ $vflags \}]
+  }
+} else {
+  set vflags ""
+}
+
+###############################################################################
+
+runTest {test object-2.4 {enumerated type output parameters} -body {
+  set flags GlobalOnly; set variable null; set error null
+  list [object invoke -flags +NonPublic Interpreter.GetActive GetVariable \
+      null eagle_platform null null flags variable error] $flags $variable \
+      $error
+} -cleanup {
+  unset -nocomplain flags variable error
+} -constraints {eagle command.object} -match regexp -result [string map [list \
+<flags> $vflags] {^Ok <flags> Variable#\d+ \{\}$}]}
+
+###############################################################################
+
+unset -nocomplain vflags
+
+###############################################################################
+
+runTest {test object-2.5 {honor the -type option} -body {
+  #
+  # NOTE: This call will raise an error unless the -type option is honored
+  #       because the console host does not have a get_Title method; however,
+  #       the IInteractiveHost interface does.
+  #
+  object invoke -type Eagle._Interfaces.Public.IInteractiveHost \
+      Interpreter.GetActive.Host Title; return success
+} -constraints {eagle command.object} -result {success}}
+
+###############################################################################
+
+runTest {test object-2.6 {honor the -objectname/-alias options} -body {
+  set x [object invoke -alias Interpreter GetActive]
+  set y [object invoke -objectname interp2 -alias Interpreter GetActive]
+
+  list [object invoke $x Id] [$x Id] [object invoke interp2 Id] [interp2 Id] \
+      [expr {[object invoke $x Id] == [$x Id]}] \
+      [expr {[object invoke interp2 Id] == [interp2 Id]}] \
+      [expr {[object invoke $x Id] == [object invoke interp2 Id]}]
+} -cleanup {
+  unset -nocomplain y x
+} -constraints {eagle command.object} -match regexp -result \
+{^\d+ \d+ \d+ \d+ True True True$}}
+
+###############################################################################
+
+runTest {test object-2.7 {no referenceCount on undefined vars} -setup {
+  unset -nocomplain result id; set id 0
+} -body {
+  set yyy [object invoke -alias Interpreter GetActive]
+
+  lappend result [set nextId [regexp -inline -- {\d+} $yyy]]
+  lappend result $yyy
+
+  lappend result [catch {set id [$yyy Id]} msg] $msg
+  unset yyy; # remove variable/object (now undefined)
+
+  #
+  # HACK: We need to make sure the internal NextId() method call used for
+  #       constructing the opaque object handle results in the exact same
+  #       value as the above one.  Otherwise, this test will not be testing
+  #       the right thing.
+  #
+  incr nextId -1
+  object invoke -flags +NonPublic Interpreter.GetActive nextId $nextId
+  incr nextId
+
+  set yyy [object invoke -alias Interpreter GetActive]
+
+  lappend result $yyy
+  lappend result [catch {$yyy Id} msg] $msg
+
+  regexp -- [appendArgs ^ $nextId " " \
+      [string trim [string repeat "Interpreter#$nextId 0 $id " 2]] \
+      \$] $result
+} -cleanup {
+  unset -nocomplain msg nextId yyy result id
+} -constraints {eagle command.object referenceCounts} -result {1}}
+
+###############################################################################
+
+runTest {test object-2.8 {honor NoDispose flag during interp disposal} -body {
+  set object [object create Eagle._Tests.Default+Disposable]
+
+  set result null
+  set interp [object invoke -alias Interpreter Create result]
+
+  set result null
+  set parameters [list \
+      -flags +NonPublic $interp AddObject foo null NoDispose null 0]
+
+  if {[haveConstraint compile.NATIVE] && \
+      [haveConstraint compile.TCL]} then {
+    lappend parameters null
+  }
+
+  if {[haveConstraint compile.DEBUGGER] && \
+      [haveConstraint compile.DEBUGGER_ARGUMENTS]} then {
+    lappend parameters null
+  }
+
+  lappend parameters $object result
+  set code [eval object invoke $parameters]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set results [list]
+  lappend results [getStringFromObjectHandle $object]
+
+  object dispose $interp
+  lappend results [getStringFromObjectHandle $object]
+
+  object invoke $object Dispose
+  lappend results [getStringFromObjectHandle $object]
+
+  set results
+} -cleanup {
+  unset -nocomplain parameters result code interp object results
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.Disposable.ToString} -match regexp -result \
+{^\{id = \d+, disposing = False, disposed = False\} \{id = \d+, disposing =\
+False, disposed = False\} \{id = \d+, disposing = True, disposed = True\}$}}
+
+###############################################################################
+
+runTest {test object-2.9 {invoke with custom named object} -setup {
+  set interp [object invoke Interpreter GetActive]
+  set name [appendArgs customObj # [object invoke $interp NextId]]
+  set options [object invoke Utility GetInvokeOptions Default]
+
+  set result null
+  set code [object invoke Utility FixupReturnValue "" null null null None \
+      $options Default $name null $interp true false true false false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  object addreference $name; # protect POPPED [getStringFromObjectHandle].
+} -body {
+  list [getStringFromObjectHandle $name] \
+      [object invoke Interpreter IsPendingCleanup $name]
+} -cleanup {
+  catch {object removereference $name}; # remove extra added reference.
+
+  unset -nocomplain code result options name interp
+} -constraints {eagle command.object} -match regexp -result {^\d+ False$}}
+
+###############################################################################
+
+runTest {test object-2.10 {non-primitive ScriptBinder return types} -setup {
+  unset -nocomplain type1 version2 version1 uri2 uri1 list1 timeSpan1 \
+      dateTime2 dateTime1 guid1
+
+  catch {
+    #
+    # NOTE: The DateTimeFormat property of the interpreter is available
+    #       starting with the Beta 28 release.
+    #
+    set savedDateTimeFormat [object invoke Interpreter.GetActive \
+        DateTimeFormat]
+
+    object invoke Interpreter.GetActive DateTimeFormat "M/d/yyyy h:mm:ss tt"
+  }
+} -body {
+  list [set guid1 [object invoke Guid Empty]] \
+      [set dateTime1 [object invoke -create -alias DateTime Parse \
+          2063-04-04T11:23:42.1221996]] \
+      [set dateTime2 [object invoke DateTime Parse \
+          2063-04-04T11:23:42.1221996]] \
+      [set timeSpan1 [$dateTime1 Subtract 1]] \
+      [set list1 [object invoke StringList FromString "a b c"]] \
+      [set uri1 [object create -alias Uri http://localhost/]] \
+      [set uri2 [$uri1 MakeRelativeUri http://localhost/]] \
+      [set version1 [object create -alias Version 1.0.0.0]] \
+      [set version2 [$version1 Clone]] \
+      [set type1 [$uri1 GetType.ToString]]
+} -cleanup {
+  catch {
+    #
+    # NOTE: The DateTimeFormat property of the interpreter is available
+    #       starting with the Beta 28 release.
+    #
+    if {[string length $savedDateTimeFormat] > 0} then {
+      object invoke Interpreter.GetActive DateTimeFormat \
+          $savedDateTimeFormat
+    } else {
+      #
+      # HACK: Yikes.  Using an emtpy string instead of null here caused
+      #       a failure of test "string-99.211"; so, avoid doing that.
+      #
+      object invoke Interpreter.GetActive DateTimeFormat null
+    }
+
+    unset -nocomplain savedDateTimeFormat
+  }
+
+  unset -nocomplain type1 version2 version1 uri2 uri1 list1 timeSpan1 \
+      dateTime2 dateTime1 guid1
+} -constraints {eagle command.object monoMatchFramework} -match regexp -result \
+{^00000000-0000-0000-0000-000000000000 System#DateTime#\d+ \{4/4/2063 11:23:42\
+AM\} 753223\.11:23:42\.1221995 \{a b c\} System#Uri#\d+ \{\} System#Version#\d+\
+1\.0\.0\.0 System\.Uri$}}
+
+###############################################################################
+
+runTest {test object-2.11 {scalar variable to array within object} -setup {
+  unset -nocomplain input output
+} -body {
+  array set output {1 1.3 2 3 3 test 4 True}
+
+  list [object invoke Eagle._Tests.Default TestObjectAsArray null output] \
+      [testArrayGet output true] [testArrayGet output_1 true] [object invoke \
+      Eagle._Tests.Default TestObjectAsArray valid output] [testArrayGet \
+      output true] [testArrayGet output_1 true]
+} -cleanup {
+  unset -nocomplain input output output_1
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestObjectAsArray} -result {False {1 output_1 2 3 3 test 4\
+True} {1 1.3 2 3 3 test 4 True} True {0 valid 1 output_1 2 3 3 test 4 True} {1\
+output_1 2 3 3 test 4 True}}}
+
+###############################################################################
+
+runTest {test object-2.12 {negative array lower and upper bounds} -setup {
+  set o1 [object create Eagle._Tests.Default]
+} -body {
+  catch {unset t7}; # input/output param
+  set t7() "this is not an integer; however, it does not matter"
+
+  list [set rt7_1 [object invoke $o1 TestMoreComplexMethod true t7]] \
+      [testArrayGet t7] [set rt7_2 [object invoke $o1 TestMoreComplexMethod \
+      false t7]] [testArrayGet t7]
+} -cleanup {
+  unset -nocomplain rt7_2 rt7_1 t7 o1
+} -constraints {eagle command.object compile.TEST monoBug22\
+Eagle._Tests.Default.TestMoreComplexMethod} -match regexp -result \
+{^\{System#Int32\[,\]#\d+\} \{\{\} \{this is not an integer; however, it does\
+not matter\} -3,10 0 -3,6 0 -3,7 0 -3,8 0 -3,9 0 -4,10 0 -4,6 0 -4,7 0 -4,8 0\
+-4,9 0 -5,10 0 -5,6 0 -5,7 0 -5,8 0 -5,9 0 -6,10 0 -6,6 0 -6,7 0 -6,8 0 -6,9\
+0\} \{System#Int32\[,\]#\d+\} \{\{\} \{this is not an integer; however, it does\
+not matter\} -3,10 -30 -3,6 -18 -3,7 -21 -3,8 -24 -3,9 -27 -4,10 -40 -4,6 -24\
+-4,7 -28 -4,8 -32 -4,9 -36 -5,10 -50 -5,6 -30 -5,7 -35 -5,8 -40 -5,9 -45 -6,10\
+-60 -6,6 -36 -6,7 -42 -6,8 -48 -6,9 -54\}$}}
+
+###############################################################################
+
+runTest {test object-2.13 {negative array lower and upper bounds} -setup {
+  catch {unset t7}; # input/output param
+  set t7() "this is not an integer; however, it does not matter"
+  set t7(-6,6) [expr {-6 * 6}]
+  set t7(-6,7) [expr {-6 * 7}]
+  set t7(-6,8) [expr {-6 * 8}]
+  set t7(-6,9) [expr {-6 * 9}]
+  set t7(-6,10) [expr {-6 * 10}]
+  set t7(-5,6) [expr {-5 * 6}]
+  set t7(-5,7) [expr {-5 * 7}]
+  set t7(-5,8) [expr {-5 * 8}]
+  set t7(-5,9) [expr {-5 * 9}]
+  set t7(-5,10) [expr {-5 * 10}]
+  set t7(-4,6) [expr {-4 * 6}]
+  set t7(-4,7) [expr {-4 * 7}]
+  set t7(-4,8) [expr {-4 * 8}]
+  set t7(-4,9) [expr {-4 * 9}]
+  set t7(-4,10) [expr {-4 * 10}]
+  set t7(-3,6) [expr {-3 * 6}]
+  set t7(-3,7) [expr {-3 * 7}]
+  set t7(-3,8) [expr {-3 * 8}]
+  set t7(-3,9) [expr {-3 * 9}]
+  set t7(-3,10) [expr {-3 * 10}]
+} -body {
+  list [object invoke Eagle._Tests.Default TestMulti2Array t7] \
+      [testArrayGet t7]
+} -cleanup {
+  unset -nocomplain t7
+} -constraints {eagle command.object compile.TEST monoBug22\
+Eagle._Tests.Default.TestMulti2Array} -result {True {{} {this is not an\
+integer; however, it does not matter} -3,10 -30 -3,6 -18 -3,7 -21 -3,8 -24 -3,9\
+-27 -4,10 -40 -4,6 -24 -4,7 -28 -4,8 -32 -4,9 -36 -5,10 -50 -5,6 -30 -5,7 -35\
+-5,8 -40 -5,9 -45 -6,10 -60 -6,6 -36 -6,7 -42 -6,8 -48 -6,9 -54}}}
+
+###############################################################################
+
+runTest {test object-2.14 {multi-dimensional array return} -setup {
+  set array [object invoke -create \
+      Array CreateInstance Int32 [list 2 3] [list -4 -5]]
+} -body {
+  set return [object invoke \
+      -flags +NonPublic Eagle._Components.Private.HandleOps \
+      Identity $array]
+} -cleanup {
+  unset -nocomplain return array
+} -constraints {eagle command.object} -match regexp -result \
+{^System#Int32\[,\]#\d+$}}
+
+###############################################################################
+
+runTest {test object-2.15 {forced loose matched parameter types} -setup {
+  set t2(-1) 1234
+} -body {
+  object invoke -flags +NonPublic \
+      -marshalflags {-StrictMatchType +ForceParameterType} \
+      -parametertypes [list Int32\[\]] \
+      Eagle._Components.Private.HandleOps Identity t2
+} -cleanup {
+  unset -nocomplain t2
+} -constraints {eagle command.object monoBug22} -result 1234}
+
+###############################################################################
+
+runTest {test object-2.81a {optional parameters, part 1a} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -marshalflags +SortMembers -alias TestOptionalParameter0 y] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias -limit 0 -index 1 \
+          TestOptionalParameter0 y] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias TestOptionalParameter0 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias -limit 0 -index 1 \
+          TestOptionalParameter0 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter0 y 1 2] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter0} -result {Ok\
+{TestOptionalParameter0_1 {}} Ok {TestOptionalParameter0_2 {} 0} Ok\
+{TestOptionalParameter0_1 1} Ok {TestOptionalParameter0_2 1 0} Ok\
+{TestOptionalParameter0_2 1 2}}}
+
+###############################################################################
+
+runTest {test object-2.81b {optional parameters, part 1b} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -marshalflags {+SortMembers ReverseOrder} -alias \
+          TestOptionalParameter0 y] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias -limit 0 -index 1 \
+          TestOptionalParameter0 y] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias \
+          TestOptionalParameter0 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias -limit 0 -index 1 \
+          TestOptionalParameter0 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter0 y 1 2] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter0} -result {Ok\
+{TestOptionalParameter0_2 {} 0} Ok {TestOptionalParameter0_1 {}} Ok\
+{TestOptionalParameter0_2 1 0} Ok {TestOptionalParameter0_1 1} Ok\
+{TestOptionalParameter0_2 1 2}}}
+
+###############################################################################
+
+runTest {test object-2.81c {optional parameters, part 1c} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -marshalflags +MinimumOptionalCount \
+          -alias -limit 0 TestOptionalParameter0 y] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SelectMethodIndex MinimumOptionalCount} \
+          -alias -limit 0 -index 1 TestOptionalParameter0 y] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +MinimumOptionalCount \
+          -alias -limit 0 TestOptionalParameter0 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SelectMethodIndex MinimumOptionalCount} \
+          -alias -limit 0 -index 1 TestOptionalParameter0 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter0 y 1 2] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter0} -result {Ok\
+{TestOptionalParameter0_1 {}} Ok {TestOptionalParameter0_1 {}} Ok\
+{TestOptionalParameter0_1 1} Ok {TestOptionalParameter0_1 1} Ok\
+{TestOptionalParameter0_2 1 2}}}
+
+###############################################################################
+
+runTest {test object-2.82a {optional parameters, part 2a} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -marshalflags +SortMembers -alias TestOptionalParameter1 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias -limit 0 -index 1 \
+          TestOptionalParameter1 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias TestOptionalParameter1 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias -limit 0 -index 1 \
+          TestOptionalParameter1 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter1 y 1 2 3] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter1} -result {Ok\
+{TestOptionalParameter1_1 1 {}} Ok {TestOptionalParameter1_2 1 {} 0} Ok\
+{TestOptionalParameter1_1 1 2} Ok {TestOptionalParameter1_2 1 2 0} Ok\
+{TestOptionalParameter1_2 1 2 3}}}
+
+###############################################################################
+
+runTest {test object-2.82b {optional parameters, part 2b} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -marshalflags {+SortMembers ReverseOrder} -alias \
+          TestOptionalParameter1 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias -limit 0 -index 1 \
+          TestOptionalParameter1 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias \
+          TestOptionalParameter1 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias -limit 0 -index 1 \
+          TestOptionalParameter1 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter1 y 1 2 3] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter1} -result {Ok\
+{TestOptionalParameter1_2 1 {} 0} Ok {TestOptionalParameter1_1 1 {}} Ok\
+{TestOptionalParameter1_2 1 2 0} Ok {TestOptionalParameter1_1 1 2} Ok\
+{TestOptionalParameter1_2 1 2 3}}}
+
+###############################################################################
+
+runTest {test object-2.82c {optional parameters, part 2c} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -marshalflags +MinimumOptionalCount \
+          -alias -limit 0 TestOptionalParameter1 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SelectMethodIndex MinimumOptionalCount} \
+          -alias -limit 0 -index 1 TestOptionalParameter1 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +MinimumOptionalCount \
+          -alias -limit 0 TestOptionalParameter1 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SelectMethodIndex MinimumOptionalCount} \
+          -alias -limit 0 -index 1 TestOptionalParameter1 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter1 y 1 2 3] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter1} -result {Ok\
+{TestOptionalParameter1_1 1 {}} Ok {TestOptionalParameter1_1 1 {}} Ok\
+{TestOptionalParameter1_1 1 2} Ok {TestOptionalParameter1_1 1 2} Ok\
+{TestOptionalParameter1_2 1 2 3}}}
+
+###############################################################################
+
+#
+# HACK: This test was buggy because it assumed the TestOptionalParameter2
+#       method overloads returned by GetMethods would be ordered based on
+#       their total number of (optional) parameters (i.e. those with more
+#       optional parameters will be ordered later).  The method overload
+#       resolution engine stops collecting matches when it hits the first
+#       method overload where the number of arguments *specified* happens
+#       to fit within the minimum and maximum number of parameters (i.e.
+#       without the "-limit 0" option, there is not even an opportunity
+#       for its caller to select from more than one method overload when
+#       there are multiple matches due to overlapping optional parameter
+#       count ranges).
+#
+runTest {test object-2.83a {optional parameters, part 3a} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -marshalflags +SortMembers -alias TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias -limit 0 -index 1 \
+          TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias -limit 0 -index 2 \
+          TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias -limit 0 -index 1 \
+          TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias -limit 0 -index 2 \
+          TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias TestOptionalParameter2 y 1 2 3] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +SortMembers -alias -limit 0 -index 1 \
+          TestOptionalParameter2 y 1 2 3] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter2 y 1 2 3 4] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter2 y 1 2 3 4 5] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter2} -result {Ok\
+{TestOptionalParameter2_1 1 two1} Ok {TestOptionalParameter2_2 1 two2\
+2147483647} Ok {TestOptionalParameter2_3 1 two3 2147483646} Ok\
+{TestOptionalParameter2_1 1 2} Ok {TestOptionalParameter2_2 1 2 2147483647} Ok\
+{TestOptionalParameter2_3 1 2 2147483646} Ok {TestOptionalParameter2_2 1 2 3}\
+Ok {TestOptionalParameter2_3 1 2 3} Ok {TestOptionalParameter2_3 1 2 3 4} Ok\
+{TestOptionalParameter2_3 1 2 3 4 5}}}
+
+###############################################################################
+
+runTest {test object-2.83b {optional parameters, part 3b} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -marshalflags {+SortMembers ReverseOrder} -alias \
+          TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias -limit 0 -index 1 \
+          TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias -limit 0 -index 2 \
+          TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias \
+          TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias -limit 0 -index 1 \
+          TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias -limit 0 -index 2 \
+          TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias \
+          TestOptionalParameter2 y 1 2 3] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SortMembers ReverseOrder} -alias -limit 0 -index 1 \
+          TestOptionalParameter2 y 1 2 3] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter2 y 1 2 3 4] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter2 y 1 2 3 4 5] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter2} -result {Ok\
+{TestOptionalParameter2_3 1 two3 2147483646} Ok {TestOptionalParameter2_2 1\
+two2 2147483647} Ok {TestOptionalParameter2_1 1 two1} Ok\
+{TestOptionalParameter2_3 1 2 2147483646} Ok {TestOptionalParameter2_2 1 2\
+2147483647} Ok {TestOptionalParameter2_1 1 2} Ok {TestOptionalParameter2_3 1 2\
+3} Ok {TestOptionalParameter2_2 1 2 3} Ok {TestOptionalParameter2_3 1 2 3 4} Ok\
+{TestOptionalParameter2_3 1 2 3 4 5}}}
+
+###############################################################################
+
+runTest {test object-2.83c {optional parameters, part 3c} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -marshalflags +MinimumOptionalCount \
+          -alias -limit 0 TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SelectMethodIndex MinimumOptionalCount} \
+          -alias -limit 0 -index 1 TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SelectMethodIndex MinimumOptionalCount} \
+          -alias -limit 0 -index 2 TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +MinimumOptionalCount \
+          -alias -limit 0 TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SelectMethodIndex MinimumOptionalCount} \
+          -alias -limit 0 -index 1 TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SelectMethodIndex MinimumOptionalCount} \
+          -alias -limit 0 -index 2 TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags +MinimumOptionalCount \
+          -alias -limit 0 TestOptionalParameter2 y 1 2 3] \
+      [getStringFromObjectHandle $y] \
+      [$x -marshalflags {+SelectMethodIndex MinimumOptionalCount} \
+          -alias -limit 0 -index 1 TestOptionalParameter2 y 1 2 3] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter2 y 1 2 3 4] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameter2 y 1 2 3 4 5] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter2} -result {Ok\
+{TestOptionalParameter2_1 1 two1} Ok {TestOptionalParameter2_1 1 two1} Ok\
+{TestOptionalParameter2_1 1 two1} Ok {TestOptionalParameter2_1 1 2} Ok\
+{TestOptionalParameter2_1 1 2} Ok {TestOptionalParameter2_1 1 2} Ok\
+{TestOptionalParameter2_2 1 2 3} Ok {TestOptionalParameter2_2 1 2 3} Ok\
+{TestOptionalParameter2_3 1 2 3 4} Ok {TestOptionalParameter2_3 1 2 3 4 5}}}
+
+###############################################################################
+
+runTest {test object-2.84a {optional parameters, part 4a} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+  set g 8ae18668-ab82-4849-9ed0-ba56619e3aa2
+
+  list [$x -alias TestOptionalParameterZ y] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias TestOptionalParameterZ y $g] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain g z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameterZ} -result {Ok\
+{TestOptionalParameterZ 00000000-0000-0000-0000-000000000000} Ok\
+{TestOptionalParameterZ 8ae18668-ab82-4849-9ed0-ba56619e3aa2}}}
+
+###############################################################################
+
+runTest {test object-2.85 {optional parameters, part 5} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter0 y] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -index 1 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter0 y] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter0 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -index 1 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter0 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter0 y 1 2] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter0} -result {Ok\
+{TestOptionalParameter0_2 {} 0} Ok {TestOptionalParameter0_1 {}} Ok\
+{TestOptionalParameter0_2 1 0} Ok {TestOptionalParameter0_1 1} Ok\
+{TestOptionalParameter0_2 1 2}}}
+
+###############################################################################
+
+runTest {test object-2.86 {optional parameters, part 6} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter1 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -index 1 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter1 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter1 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -index 1 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter1 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter1 y 1 2 3] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter1} -result {Ok\
+{TestOptionalParameter1_2 1 {} 0} Ok {TestOptionalParameter1_1 1 {}} Ok\
+{TestOptionalParameter1_2 1 2 0} Ok {TestOptionalParameter1_1 1 2} Ok\
+{TestOptionalParameter1_2 1 2 3}}}
+
+###############################################################################
+
+runTest {test object-2.87 {optional parameters, part 7} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+
+  list [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -index 1 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -index 2 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -index 1 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -index 2 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1 2] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1 2 3] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -index 1 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1 2 3] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1 2 3 4] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameter2 y 1 2 3 4 5] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameter2} -result {Ok\
+{TestOptionalParameter2_3 1 two3 2147483646} Ok {TestOptionalParameter2_2 1\
+two2 2147483647} Ok {TestOptionalParameter2_1 1 two1} Ok\
+{TestOptionalParameter2_3 1 2 2147483646} Ok {TestOptionalParameter2_2 1 2\
+2147483647} Ok {TestOptionalParameter2_1 1 2} Ok {TestOptionalParameter2_3 1 2\
+3} Ok {TestOptionalParameter2_2 1 2 3} Ok {TestOptionalParameter2_3 1 2 3 4} Ok\
+{TestOptionalParameter2_3 1 2 3 4 5}}}
+
+###############################################################################
+
+runTest {test object-2.88 {optional parameters, part 8} -setup {
+  set x [object create -alias Eagle._Tests.Default]
+} -body {
+  set y null
+  set g 8ae18668-ab82-4849-9ed0-ba56619e3aa2
+
+  list [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameterZ y] \
+      [getStringFromObjectHandle $y] \
+      [$x -alias -limit 0 -marshalflags +ReorderMatches \
+      -reorderflags MostParametersFirst TestOptionalParameterZ y $g] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain g z y x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestOptionalParameterZ} -result {Ok\
+{TestOptionalParameterZ 00000000-0000-0000-0000-000000000000} Ok\
+{TestOptionalParameterZ 8ae18668-ab82-4849-9ed0-ba56619e3aa2}}}
+
+###############################################################################
+
+runTest {test object-2.89 {ReorderMatches without UseArgumentCounts} -setup {
+  unset -nocomplain result method
+} -body {
+  set result [list]
+
+  set methods [object invoke -noinvoke -limit 0 -marshalflags \
+      +ReorderMatches -reorderflags +UseParameterTypes -- \
+      Console WriteLine abc]
+
+  object foreach -alias method $methods {
+    lappend result [string map \
+        [list (Char\[\] (System.Char\[\]] \
+        [getStringFromObjectHandle $method]]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result methods method
+} -constraints {eagle command.object} -result {{Void\
+WriteLine(System.Char[])} {Void WriteLine(System.String)} {Void\
+WriteLine(System.Object)} {Void WriteLine(System.String, System.Object[])}}}
+
+###############################################################################
+
+runTest {test object-2.90 {ReorderMatches with UseArgumentCounts} -setup {
+  unset -nocomplain result method
+} -body {
+  set result [list]
+
+  set methods [object invoke -noinvoke -limit 0 -marshalflags \
+      +ReorderMatches -reorderflags {-FewestParametersFirst\
+      +MostParametersFirst UseArgumentCounts UseParameterTypes} \
+      -- Console WriteLine abc]
+
+  object foreach -alias method $methods {
+    lappend result [string map \
+        [list (Char\[\] (System.Char\[\]] \
+        [getStringFromObjectHandle $method]]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result methods method
+} -constraints {eagle command.object} -result {{Void\
+WriteLine(System.String, System.Object[])} {Void WriteLine(System.Char[])}\
+{Void WriteLine(System.String)} {Void WriteLine(System.Object)}}}
+
+###############################################################################
+
+runTest {test object-2.101 {null handle wo/alias wo/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -nonamespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -flags +NonPublic \
+        Eagle._Components.Private.HandleOps Identity null] \
+        [info objects] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} \
+-result {{} null {}}}
+
+###############################################################################
+
+runTest {test object-2.102 {null handle wo/alias w/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -flags +NonPublic \
+        Eagle._Components.Private.HandleOps Identity null] \
+        [info objects] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} \
+-result {{} null {}}}
+
+###############################################################################
+
+runTest {test object-2.103 {null handle w/alias wo/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -nonamespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -alias -flags +NonPublic \
+        Eagle._Components.Private.HandleOps Identity null] \
+        [info objects] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} \
+-result {{} null {}}}
+
+###############################################################################
+
+runTest {test object-2.104 {null handle w/alias w/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -alias -flags +NonPublic \
+        Eagle._Components.Private.HandleOps Identity null] \
+        [info objects] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} \
+-result {{} null {}}}
+
+###############################################################################
+
+runTest {test object-2.105 {null handle wo/alias wo/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -nonamespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -flags +NonPublic -objectflags \
+        +ForceAutomaticName Eagle._Components.Private.HandleOps \
+        Identity null] [info objects] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} \
+-result {null null {}}}
+
+###############################################################################
+
+runTest {test object-2.106 {null handle wo/alias w/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -flags +NonPublic -objectflags \
+        +ForceAutomaticName Eagle._Components.Private.HandleOps \
+        Identity null] [info objects] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} \
+-result {null null {}}}
+
+###############################################################################
+
+runTest {test object-2.107 {null handle w/alias wo/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -nonamespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -alias -flags +NonPublic -objectflags \
+        +ForceAutomaticName Eagle._Components.Private.HandleOps \
+        Identity null] [info objects] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} \
+-result {null null {}}}
+
+###############################################################################
+
+runTest {test object-2.108 {null handle w/alias w/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -alias -flags +NonPublic -objectflags \
+        +ForceAutomaticName Eagle._Components.Private.HandleOps \
+        Identity null] [info objects] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} \
+-result {null null {}}}
+
+###############################################################################
+
+runTest {test object-2.109 {force null handle wo/alias wo/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -nonamespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -flags +NonPublic -objectflags \
+        "+ForceNew ForceAutomaticName" Eagle._Components.Private.HandleOps \
+        Identity null] [lsort [info objects]] [info commands System#Object#*]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} -match regexp \
+-result {^System#Object#\d+ \{System#Object#\d+ null\} \{\}$}}
+
+###############################################################################
+
+runTest {test object-2.110 {force null handle wo/alias w/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -flags +NonPublic -objectflags \
+        "+ForceNew ForceAutomaticName" Eagle._Components.Private.HandleOps \
+        Identity null] [lsort [info objects]] [info commands System#Object#*]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} -match regexp \
+-result {^System#Object#\d+ \{System#Object#\d+ null\} \{\}$}}
+
+###############################################################################
+
+runTest {test object-2.111 {force null handle w/alias wo/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -nonamespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -alias -flags +NonPublic -objectflags \
+        "+ForceNew ForceAutomaticName" Eagle._Components.Private.HandleOps \
+        Identity null] [lsort [info objects]] [info commands System#Object#*]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} -match regexp \
+-result {^System#Object#\d+ \{System#Object#\d+ null\} System#Object#\d+$}}
+
+###############################################################################
+
+runTest {test object-2.112 {force null handle w/alias w/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -alias -flags +NonPublic -objectflags \
+        "+ForceNew ForceAutomaticName" Eagle._Components.Private.HandleOps \
+        Identity null] [lsort [info objects]] [info commands System#Object#*]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} -match regexp \
+-result {^System#Object#\d+ \{System#Object#\d+ null\} System#Object#\d+$}}
+
+###############################################################################
+
+runTest {test object-2.113 {force null handle wo/alias wo/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -nonamespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -flags +NonPublic -objectflags \
+        "+ForceNew ForceAutomaticName" Eagle._Components.Private.HandleOps \
+        Identity null] [lsort [info objects]] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} -match regexp \
+-result {^System#Object#\d+ \{System#Object#\d+ null\} \{\}$}}
+
+###############################################################################
+
+runTest {test object-2.114 {force null handle wo/alias w/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -flags +NonPublic -objectflags \
+        "+ForceNew ForceAutomaticName" Eagle._Components.Private.HandleOps \
+        Identity null] [lsort [info objects]] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} -match regexp \
+-result {^System#Object#\d+ \{System#Object#\d+ null\} \{\}$}}
+
+###############################################################################
+
+runTest {test object-2.115 {force null handle w/alias wo/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -nonamespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -alias -flags +NonPublic -objectflags \
+        "+ForceNew ForceAutomaticName" Eagle._Components.Private.HandleOps \
+        Identity null] [lsort [info objects]] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} -match regexp \
+-result {^System#Object#\d+ \{System#Object#\d+ null\} \{\}$}}
+
+###############################################################################
+
+runTest {test object-2.116 {force null handle w/alias w/namespace} -setup {
+  unset -nocomplain i
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    list [object invoke -create -alias -flags +NonPublic -objectflags \
+        "+ForceNew ForceAutomaticName" Eagle._Components.Private.HandleOps \
+        Identity null] [lsort [info objects]] [info commands {}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle namespaces.available command.object} -match regexp \
+-result {^System#Object#\d+ \{System#Object#\d+ null\} \{\}$}}
+
+###############################################################################
+
+runTest {test object-2.201 {in/out byte array via handle} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+} -body {
+  set bytes [object invoke -create -alias \
+      Convert FromBase64String [base64 encode "this is a test."]]
+
+  $test TestByRefByteArray 10 bytes; # in 15 bytes ==> out 10 bytes
+
+  set list [list]
+
+  object foreach -alias x $bytes {
+    lappend list [getStringFromObjectHandle $x]
+  }
+
+  set list
+} -cleanup {
+  unset -nocomplain result code test bytes list x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestByRefByteArray} -result {0 1 2 3 4 5 6 7 8 9}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

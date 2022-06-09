@@ -1,0 +1,167 @@
+###############################################################################
+#
+# object14.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=471257
+###############################################################################
+
+runTest {test object-14.1 {nested static/non-static type resolution} -body {
+  object invoke System.Console.BackgroundColor ToString
+} -constraints {eagle command.object dotNetCoreOrShell} -match regexp -result \
+[appendArgs {^-1|Black|DarkBlue|DarkGreen|DarkCyan|DarkRed|DarkMagenta} \
+{|DarkYellow|Gray|DarkGray|Blue|Green|Cyan|Red|Magenta|Yellow|White$}]}
+
+###############################################################################
+
+runTest {test object-14.2 {nested static/non-static type resolution} -body {
+  list [catch {
+    object invoke -objectvalueflags +AllGetTypeErrors \
+        System.Console.GetType ToString
+  } msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object monoMatchFramework} -match regexp \
+-result {^1 \{\{System\.Reflection\.TargetException: Non-static method requires\
+a target\..*\} \{expected type value but got "System\.Console\.GetType"\}(?:\
+\{expected type value but got "System\.Console"\})?\}$}}
+
+###############################################################################
+
+runTest {test object-14.3 {nested static/non-static type resolution} -body {
+  list [catch {object invoke null ToString} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle command.object} -result \
+{1 {invalid object or type "null"}}}
+
+###############################################################################
+
+runTest {test object-14.4 {nested static/non-static type resolution} -body {
+  object invoke Eagle._Tests.Default StaticObjectProperty null
+  list [catch {object invoke Eagle._Tests.Default.StaticObjectProperty \
+      ToString} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.StaticObjectProperty} \
+-result \
+{1 {invalid object or type "Eagle._Tests.Default.StaticObjectProperty"}}}
+
+###############################################################################
+
+runTest {test object-14.5 {nested static/non-static type resolution} -body {
+  object invoke Eagle._Tests.Default StaticObjectProperty foo
+  object invoke Eagle._Tests.Default.StaticObjectProperty ToString
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.StaticObjectProperty} \
+-result {foo}}
+
+###############################################################################
+
+runTest {test object-14.6 {nested static/non-static type resolution} -setup {
+  set object [object create System.IO.StringReader "this is a test."]
+  set type [object invoke -create -alias $object GetType]
+  set baseType [object invoke -create -alias $type BaseType]
+  set test [object create -alias Eagle._Tests.Default]
+} -body {
+  $test TypeProperty $type
+  list [object invoke $test.TypeProperty ToString] [object invoke \
+      $test.TypeProperty.BaseType ToString] $object \
+      [getStringFromObjectHandle $type] \
+      [getStringFromObjectHandle $baseType]
+} -cleanup {
+  unset -nocomplain object type baseType test msg
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TypeProperty} \
+-match glob -result {System.IO.StringReader System.IO.TextReader\
+System#IO#StringReader#* System.IO.StringReader System.IO.TextReader}}
+
+###############################################################################
+
+runTest {test object-14.7 {constructor resolution with -strictmember} -body {
+  #
+  # NOTE: This constructor call is ambiguous between:
+  #
+  #       System.Threading.Thread(ThreadStart)
+  #       System.Threading.Thread(ParameterizedThreadStart)
+  #
+  object create -limit 0 -strictmember System.Threading.Thread nop; # error
+} -cleanup {
+  catch {object removecallback nop}
+} -constraints {eagle command.object} -returnCodes 1 -result \
+{matched 2 constructor overloads on type "System.Threading.Thread", need\
+exactly 1}}
+
+###############################################################################
+
+runTest {test object-14.8 {method resolution with -strictmember} -body {
+  #
+  # NOTE: This method call is ambiguous between:
+  #
+  #       System.Convert.ToInt16(Boolean)
+  #       System.Convert.ToInt16(Byte)
+  #       System.Convert.ToInt16(Char)
+  #       System.Convert.ToInt16(DateTime)
+  #       System.Convert.ToInt16(Decimal)
+  #       System.Convert.ToInt16(Double)
+  #       System.Convert.ToInt16(Int16)
+  #       System.Convert.ToInt16(Int32)
+  #       System.Convert.ToInt16(Int64)
+  #       System.Convert.ToInt16(Object)
+  #       System.Convert.ToInt16(SByte)
+  #       System.Convert.ToInt16(Single)
+  #       System.Convert.ToInt16(String)
+  #       System.Convert.ToInt16(UInt16)
+  #       System.Convert.ToInt16(UInt32)
+  #       System.Convert.ToInt16(UInt64)
+  #
+  object invoke -limit 0 -strictmember Convert ToInt16 1; # error
+} -constraints {eagle command.object} -returnCodes 1 -result \
+{matched 16 method overloads of "ToInt16" on type "Convert", need exactly 1}}
+
+###############################################################################
+
+runTest {test object-14.9 {method resolution with -strictmember} -body {
+  #
+  # NOTE: This method call is ambiguous between:
+  #
+  #       System.Convert.ToInt16(Boolean)
+  #       System.Convert.ToInt16(Byte)
+  #       System.Convert.ToInt16(Char)
+  #       System.Convert.ToInt16(DateTime)
+  #       System.Convert.ToInt16(Decimal)
+  #       System.Convert.ToInt16(Double)
+  #       System.Convert.ToInt16(Int16)
+  #       System.Convert.ToInt16(Int32)
+  #       System.Convert.ToInt16(Int64)
+  #       System.Convert.ToInt16(Object)
+  #       System.Convert.ToInt16(SByte)
+  #       System.Convert.ToInt16(Single)
+  #       System.Convert.ToInt16(String)
+  #       System.Convert.ToInt16(UInt16)
+  #       System.Convert.ToInt16(UInt32)
+  #       System.Convert.ToInt16(UInt64)
+  #
+  object invoke -limit 0 -strictmember -marshalflags +ReorderMatches \
+      -reorderflags DeepestTypesFirst Convert ToInt16 1; # error
+} -constraints {eagle command.object} -returnCodes 1 -result \
+{matched 16 method overloads of "ToInt16" on type "Convert", need exactly 1}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

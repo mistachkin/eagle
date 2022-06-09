@@ -1,0 +1,64 @@
+###############################################################################
+#
+# library2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: For some reason, Mono interprets the value "1" into our custom Boolean
+#       enum type as a "Yes" instead of "True" (they both have the same value).
+#       Technically, this is not a bug; it is an implementation oddity of Mono
+#       (i.e. "object invoke Enum Parse Boolean 1" returns "Yes" on Mono and
+#       "True" on .NET).
+###############################################################################
+
+runTest {test library-2.1 {declare and call function with buffer} -setup {
+  set m3 [library load advapi32.dll]
+
+  #
+  # NOTE: Now, for something completely different...
+  #
+  set z [library declare -functionname GetUserNameA -returntype Boolean \
+      -parametertypes [list intptr uint32&] -charset ansi -module \
+      $m3]
+} -body {
+  set size 260
+
+  set buf [object invoke -create -nocase \
+      System.Runtime.InteropServices.Marshal AllocCoTaskMem $size]
+
+  set zz [library call $z $buf size]
+
+  set user [object invoke -nocase System.Runtime.InteropServices.Marshal \
+      PtrToStringAnsi $buf $size]
+
+  object invoke -nocase System.Runtime.InteropServices.Marshal FreeCoTaskMem \
+      $buf
+
+  list $zz [string trim $user \0] [llength [info modules]] \
+      [llength [info delegates]] [library undeclare $z] \
+      [llength [info delegates]] [library unload $m3] \
+      [llength [info modules]]
+} -cleanup {
+  unset -nocomplain m3 z zz buf user size
+} -constraints \
+{eagle command.object native dynamic windows command.library compile.EMIT\
+compile.NATIVE compile.LIBRARY} -isolationLevel Maximum -match regexp -result \
+[appendArgs "^(?:Enable|Enabled|On|True|Yes) " \
+[string map [list \{ \\\{ \} \\\}] [list $tcl_platform(user)]] \
+" 1 1 \\{\\} 0 \\{\\} 0\$"]}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

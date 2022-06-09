@@ -1,0 +1,326 @@
+###############################################################################
+#
+# append.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc check {var size} {
+  set l [llength $var]
+  if {$l != $size} {
+    return "length mismatch: should have been $size, was $l"
+  }
+  for {set i 0} {$i < $size} {set i [expr $i+1]} {
+    set j [lindex $var $i]
+    if {$j ne "item $i"} {
+      return "element $i should have been \"item $i\", was \"$j\""
+    }
+  }
+  return ok
+}
+
+###############################################################################
+
+runTest {test append-1.1 {append command} {
+  catch {unset x}
+  list [append x 1 2 abc "long string"] $x
+} {{12abclong string} {12abclong string}}}
+
+###############################################################################
+
+runTest {test append-1.2 {append command} {
+  set x ""
+  list [append x first] [append x second] [append x third] $x
+} {first firstsecond firstsecondthird firstsecondthird}}
+
+###############################################################################
+
+runTest {test append-1.3 {append command} {
+  set x "abcd"
+  append x
+} abcd}
+
+###############################################################################
+
+runTest {test append-1.4 {append command} {
+  set x ""
+  list [append x first] [append x second] [append x third] $x
+  list [append x first] [append x second] [append x third] $x
+} {firstsecondthirdfirst firstsecondthirdfirstsecond\
+firstsecondthirdfirstsecondthird firstsecondthirdfirstsecondthird}}
+
+###############################################################################
+
+runTest {test append-2.1 {long appends} {
+  set x ""
+  for {set i 0} {$i < 1000} {set i [expr $i+1]} {
+    append x "foobar "
+  }
+  set y "foobar"
+  set y "$y $y $y $y $y $y $y $y $y $y"
+  set y "$y $y $y $y $y $y $y $y $y $y"
+  set y "$y $y $y $y $y $y $y $y $y $y "
+  expr {int($x == $y)}
+} 1}
+
+###############################################################################
+
+runTest {test append-3.1.1 {append errors} -body {
+  list [catch {append} msg] $msg
+} -constraints [fixConstraints {tcl !tcl86}] -result \
+{1 {wrong # args: should be "append varName ?value value ...?"}}}
+
+###############################################################################
+
+runTest {test append-3.1.2 {append errors} -body {
+  list [catch {append} msg] $msg
+} -constraints {tcl tcl86} -result \
+{1 {wrong # args: should be "append varName ?value ...?"}}}
+
+###############################################################################
+
+runTest {test append-3.1.3 {append errors} -body {
+  list [catch {append} msg] $msg
+} -constraints {eagle} -result \
+{1 {wrong # args: should be "append varName ?value ...?"}}}
+
+###############################################################################
+
+runTest {test append-3.2 {append errors} {
+  set x ""
+  list [catch {append x(0) 44} msg] $msg
+} {1 {can't set "x(0)": variable isn't array}}}
+
+###############################################################################
+
+runTest {test append-3.3 {append errors} {
+  catch {unset x}
+  list [catch {append x} msg] $msg
+} {1 {can't read "x": no such variable}}}
+
+###############################################################################
+
+runTest {test append-4.1 {lappend command} {
+  catch {unset x}
+  list [lappend x 1 2 abc "long string"] $x
+} {{1 2 abc {long string}} {1 2 abc {long string}}}}
+
+###############################################################################
+
+runTest {test append-4.2 {lappend command} {
+  set x ""
+  list [lappend x first] [lappend x second] [lappend x third] $x
+} {first {first second} {first second third} {first second third}}}
+
+###############################################################################
+
+runTest {test append-4.3 {lappend command} {
+  proc foo {} {
+    global x
+    set x old
+    unset x
+    lappend x new
+  }
+  set result [foo]
+  rename foo {}
+  set result
+} {new}}
+
+###############################################################################
+
+runTest {test append-4.4 {lappend command} {
+  set x {}
+  lappend x \{\ abc
+} {\{\ abc}}
+
+###############################################################################
+
+runTest {test append-4.5 {lappend command} {
+  set x {}
+  lappend x \{ abc
+} {\{ abc}}
+
+###############################################################################
+
+runTest {test append-4.6 {lappend command} {
+  set x {1 2 3}
+  lappend x
+} {1 2 3}}
+
+###############################################################################
+
+runTest {test append-4.7 {lappend command} {
+  set x "a\{"
+  lappend x abc
+} "a\\\{ abc"}
+
+###############################################################################
+
+runTest {test append-4.8 {lappend command} {
+  set x "\\\{"
+  lappend x abc
+} "\\\{ abc" }
+
+###############################################################################
+
+runTest {test append-4.9 {lappend command} {
+  set x " \{"
+  list [catch {lappend x abc} msg] $msg
+} {1 {unmatched open brace in list}}}
+
+###############################################################################
+
+runTest {test append-4.10 {lappend command} {
+  set x "	\{"
+  list [catch {lappend x abc} msg] $msg
+} {1 {unmatched open brace in list}}}
+
+###############################################################################
+
+runTest {test append-4.11 {lappend command} {
+  set x "\{\{\{"
+  list [catch {lappend x abc} msg] $msg
+} {1 {unmatched open brace in list}}}
+
+###############################################################################
+
+runTest {test append-4.12 {lappend command} {
+  set x "x \{\{\{"
+  list [catch {lappend x abc} msg] $msg
+} {1 {unmatched open brace in list}}}
+
+###############################################################################
+
+runTest {test append-4.13 {lappend command} {
+  set x "x\{\{\{"
+  lappend x abc
+} "x\\\{\\\{\\\{ abc"}
+
+###############################################################################
+
+runTest {test append-4.14 {lappend command} {
+  set x " "
+  lappend x abc
+} "abc"}
+
+###############################################################################
+
+runTest {test append-4.15 {lappend command} {
+  set x "\\ "
+  lappend x abc
+} "{ } abc"}
+
+###############################################################################
+
+runTest {test append-4.16 {lappend command} {
+  set x "x "
+  lappend x abc
+} "x abc"}
+
+###############################################################################
+
+runTest {test append-4.17 {lappend command} {
+  catch {unset x}
+  lappend x
+} {}}
+
+###############################################################################
+
+runTest {test append-4.18 {lappend command} {
+  catch {unset x}
+  lappend x {}
+} {{}}}
+
+###############################################################################
+
+runTest {test append-4.19 {lappend command} {
+  catch {unset x}
+  lappend x(0)
+} {}}
+
+###############################################################################
+
+runTest {test append-4.20 {lappend command} {
+  catch {unset x}
+  lappend x(0) abc
+} {abc}}
+
+###############################################################################
+
+catch {unset x}
+
+###############################################################################
+
+runTest {test append-4.21 {lappend command} {
+  set x \"
+  list [catch {lappend x} msg] $msg
+} {1 {unmatched open quote in list}}}
+
+###############################################################################
+
+runTest {test append-4.22 {lappend command} {
+  set x \"
+  list [catch {lappend x abc} msg] $msg
+} {1 {unmatched open quote in list}}}
+
+###############################################################################
+
+runTest {test append-5.1 {long lappends} {
+  catch {unset x}
+  set x ""
+  for {set i 0} {$i < 300} {set i [expr $i+1]} {
+    lappend x "item $i"
+  }
+  check $x 300
+} ok}
+
+###############################################################################
+
+runTest {test append-6.1.1 {lappend errors} -body {
+  list [catch {lappend} msg] $msg
+} -constraints [fixConstraints {tcl !tcl86}] -result \
+{1 {wrong # args: should be "lappend varName ?value value ...?"}}}
+
+###############################################################################
+
+runTest {test append-6.1.2 {lappend errors} -body {
+  list [catch {lappend} msg] $msg
+} -constraints {tcl tcl86} -result \
+{1 {wrong # args: should be "lappend varName ?value ...?"}}}
+
+###############################################################################
+
+runTest {test append-6.1.3 {lappend errors} -body {
+  list [catch {lappend} msg] $msg
+} -constraints {eagle} -result \
+{1 {wrong # args: should be "lappend varName ?value ...?"}}}
+
+###############################################################################
+
+runTest {test append-6.2 {lappend errors} {
+  set x ""
+  list [catch {lappend x(0) 44} msg] $msg
+} {1 {can't set "x(0)": variable isn't array}}}
+
+###############################################################################
+
+unset -nocomplain i x result y msg
+
+catch {rename foo ""}
+catch {rename check ""}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

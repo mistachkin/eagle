@@ -1,0 +1,187 @@
+###############################################################################
+#
+# xml.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=710567
+###############################################################################
+# MONO: Due to serialization differences, some tests are disabled on Mono.
+###############################################################################
+
+runTest {test xml-1.1.1 {serialize/deserialize} -body {
+  set x [object invoke -create Int32 Parse 123456789]
+  set xml [xml serialize Int32 $x]
+  set y [xml deserialize -alias Int32 $xml]
+  list [string map [list \r\n \n] $xml] [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain x xml y
+} -constraints {eagle command.object  command.xml compile.XML} \
+-constraintExpression {([haveConstraint dotNetOrDotNetCore] && \
+![haveConstraint dotNetCore60]) || [haveConstraint mono42OrHigher]} \
+-result [string map [list \r\n \n] {{<?xml version="1.0"?>
+<int>123456789</int>} 123456789}]}
+
+###############################################################################
+
+runTest {test xml-1.1.2 {serialize/deserialize} -body {
+  set x [object invoke -create Int32 Parse 123456789]
+  set xml [xml serialize Int32 $x]
+  set y [xml deserialize -alias Int32 $xml]
+  list [string map [list \r\n \n] $xml] [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain x xml y
+} -constraints {eagle command.object command.xml compile.XML} \
+-constraintExpression {[haveConstraint dotNetCore60] || \
+([haveConstraint mono] && ![haveConstraint mono42OrHigher])} -match regexp \
+-result {\{.?<\?xml version="1\.0" encoding=".*"\?>\n?<int>123456789</int>\}\
+123456789$}}
+
+###############################################################################
+
+runTest {test xml-1.2 {xml reader} -setup {
+  object import System.IO
+  set assembly [object load -import System.Xml]
+} -body {
+  set xml {<?xml version="1.0"?>
+           <People>
+             <Employees>
+               <Person id="1" name="Tom">since 2001</Person>
+             </Employees>
+             <Customers>
+               <Person id="2" name="Alice">since 2003</Person>
+               <Person id="3" name="Bob">since 1998</Person>
+             </Customers>
+           </People>}
+
+  set stringReader [object create System.IO.StringReader $xml]
+
+  if {[haveConstraint dotNetCore]} then {
+    #
+    # BUGBUG: Why does this have to be namespace qualified here?
+    #
+    set xmlSettings [object create -alias System.Xml.XmlReaderSettings]
+  } else {
+    set xmlSettings [object create -alias XmlReaderSettings]
+  }
+
+  $xmlSettings IgnoreWhitespace true
+  $xmlSettings IgnoreComments true
+  $xmlSettings IgnoreProcessingInstructions true
+  $xmlSettings ProhibitDtd true
+
+  set result [list]
+
+  if {[haveConstraint dotNetCore]} then {
+    #
+    # BUGBUG: Why does this have to be namespace qualified here?
+    #
+    set xmlReader [object invoke -alias System.Xml.XmlReader Create \
+        $stringReader $xmlSettings]
+  } else {
+    set xmlReader [object invoke -alias XmlReader Create \
+        $stringReader $xmlSettings]
+  }
+
+  while {[$xmlReader Read]} {
+    #
+    # NOTE: Pay attention to all element nodes
+    #       named "Person".
+    #
+    if {[$xmlReader NodeType] eq "Element" && \
+        [$xmlReader Name] eq "Person"} then {
+      #
+      # NOTE: Grab the "id" and "name" attributes
+      #       for the current element.
+      #
+      lappend result [appendArgs "Id: " \
+          [$xmlReader GetAttribute id] ", Name: " \
+          [$xmlReader GetAttribute name]]
+    }
+  }
+
+  $xmlReader Close
+
+  set result
+} -cleanup {
+  cleanupXml
+  object unimport -importpattern System.IO
+
+  unset -nocomplain result xmlReader xmlSettings stringReader assembly xml
+} -constraints {eagle command.object monoMatchFramework monoBug30} -result \
+{{Id: 1, Name: Tom} {Id: 2, Name: Alice} {Id: 3, Name: Bob}}}
+
+###############################################################################
+
+runTest {test xml-1.3 {xml schema validation} -setup {
+  unset -nocomplain stream error code reader xml output
+} -body {
+  set stream null; set error null
+
+  set code [object invoke -flags +NonPublic Eagle._Components.Private.XmlOps \
+      GetSchemaStream null null stream error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set reader [object create -alias System.IO.StreamReader $stream]
+  set xml [$reader ReadToEnd]
+
+  list \
+      [catch {xml validate $xml {<?xml version="1.0" encoding="utf-8" ?>
+        <!-- NOTE: The XML document should successfully validate. -->
+        <blocks xmlns="https://eagle.to/2009/schema">
+          <block id="19920c7c-5d11-41f2-a311-fca343bfa231"
+                 type="automatic"
+                 name="XML Schema Validation 'Good' Test"
+                 timeStamp="2013-04-03T21:15:05.8606250Z"
+                 publicKeyToken="29c6297630be05eb"
+                 signature="VGhpcyBpcyBub3QgYSBzaWduYXR1cmUu">
+            <![CDATA[
+              #
+              # NOTE: The Eagle script would go here.
+              #
+            ]]>
+          </block>
+        </blocks>
+      }} output] $output \
+      [catch {xml validate $xml {<?xml version="1.0" encoding="utf-8" ?>
+        <!-- NOTE: The block 'id' attribute should fail validation. -->
+        <blocks xmlns="https://eagle.to/2009/schema">
+          <block id="ZZZZZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZZZZZZZZZ"
+                 type="text"
+                 name="XML Schema Validation 'Bad' Test"
+                 timeStamp="2013-04-03T21:27:02.5510547Z"
+                 publicKeyToken="1e22ec67879739a2"
+                 signature="VGhpcyBpcyBhbHNvIG5vdCBhIHNpZ25hdHVyZS4=">
+            <![CDATA[
+              #
+              # NOTE: The Eagle script would go here.
+              #
+            ]]>
+          </block>
+        </blocks>
+      }} output] $output
+} -cleanup {
+  unset -nocomplain stream error code reader xml output
+} -constraints {eagle command.object monoBug30 command.xml compile.XML} -match \
+regexp -result \
+{^0 \{\} 1 \{System\.Xml\.Schema\.XmlSchemaValidationException: .*\}$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

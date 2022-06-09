@@ -1,0 +1,387 @@
+###############################################################################
+#
+# error.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc resetErrorCodeAndInfo {} {
+  set ::errorCode ""; set ::errorInfo ""
+}
+
+###############################################################################
+
+runTest {test error-1.1 {simple error} -body {
+  error "this is an error."
+} -returnCodes 1 -result {this is an error.}}
+
+###############################################################################
+
+runTest {test error-1.2 {error, errorInfo, and errorCode} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {error "this is an error message." info CODE} msg
+  list $msg $::errorInfo $::errorCode
+} -cleanup {
+  unset msg
+} -result {{this is an error message.} info CODE}}
+
+###############################################################################
+
+runTest {test error-1.3 {error, errorInfo, errorCode, and returnCode} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  set code [catch {
+    error "this is an error message." info CODE 123456789
+  } msg]
+  list $code $msg $::errorInfo $::errorCode
+} -cleanup {
+  unset msg code
+} -constraints {eagle} -result \
+{123456789 {this is an error message.} info CODE}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  set newLine [info newline]
+} elseif {[isWindows]} {
+  set newLine \r\n
+} else {
+  set newLine \n
+}
+
+###############################################################################
+
+runTest {test error-1.4 {error flags get properly reset} -setup {
+  set savedFlags [object invoke -flags +NonPublic Interpreter.GetActive \
+      interpreterFlags]
+  object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+      [appendArgs $savedFlags " -WriteTestData"]
+
+  set savedVerbose $eagle_tests(Verbose)
+  set eagle_tests(Verbose) Default
+} -body {
+  test error-1.4.1 {body and cleanup errors} -body \
+      {set body_error} -cleanup {set cleanup_error} \
+      -noStatistics true
+} -cleanup {
+  set eagle_tests(Verbose) $savedVerbose
+  unset -nocomplain savedVerbose
+
+  object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+      $savedFlags
+  unset -nocomplain savedFlags
+} -constraints {eagle command.object} -result \
+[string map [list \n $newLine] {
+==== error-1.4.1 body and cleanup errors FAILED
+==== Contents of test case:
+set body_error
+---- Test generated error; Return code was: Error
+---- Return code should have been one of: Ok Return
+---- errorInfo(body): can't read "body_error": no such variable
+    while executing
+"set body_error"
+---- errorCode(body): NONE
+---- Test cleanup failed:
+can't read "cleanup_error": no such variable
+---- errorInfo(cleanup): can't read "cleanup_error": no such variable
+    while executing
+"set cleanup_error"
+---- errorCode(cleanup): NONE
+==== error-1.4.1 FAILED
+}]}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  set fileName(0) [file join $test_data_path garbage.txt]
+
+  set fileName(1) [string map \
+      [list \\ \\\\] [object invoke -flags +NonPublic \
+      Eagle._Components.Private.FormatOps Ellipsis \
+      [file nativename $fileName(0)]]]
+} else {
+  set fileName(0) ""
+
+  set fileName(1) ""
+}
+
+###############################################################################
+
+runTest {test error-1.5 {errorInfo and errorLine} -setup {
+  #
+  # HACK: This string is the first "word" in the garbage file; therefore,
+  #       create a procedure by this name to avoid simply raising an error
+  #       on the first line.
+  #
+  proc asdf { args } {}
+} -body {
+  catch {
+    #
+    # NOTE: Treat the "garbage" text file as a script.  This should raise an
+    #       error on the second line.
+    #
+    source $fileName(0)
+  }
+
+  set ::errorInfo
+} -cleanup {
+  rename asdf ""
+} -constraints {eagle command.object file_garbage.txt} -result \
+[string map [list \n $newLine] \
+[subst [appendArgs {invalid command name "@\$%(&#@\$%\$*)%#\$@"
+    while executing
+"@\$%(&#@\$%\$*)%#\$@ %#@\$*)% &#@\$"*"
+    (file "} $fileName(1) {" line 2)
+    invoked from within
+"source \$fileName(0)"
+    ("catch" body line 6)}]]]}
+
+###############################################################################
+
+unset -nocomplain fileName newLine
+
+###############################################################################
+
+runTest {test error-1.6 {command, errorCode exception} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {throw "failed to do something"}; lrange $::errorCode 0 1
+} -constraints {eagle} -result \
+{EXCEPTION Eagle._Components.Public.ScriptException}}
+
+###############################################################################
+
+runTest {test error-1.7 {[object create], errorCode exception} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {object create String 1 2 3}; lrange $::errorCode 0 1
+} -constraints {eagle command.object} -result \
+{EXCEPTION System.ArgumentOutOfRangeException}}
+
+###############################################################################
+
+runTest {test error-1.8 {[object invoke], errorCode exception} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {object invoke Int32 Parse foo}; lrange $::errorCode 0 1
+} -constraints {eagle command.object} -result \
+{EXCEPTION System.FormatException}}
+
+###############################################################################
+
+runTest {test error-1.9.1 {[expr] operator, errorCode exception} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {expr {2 / 0}}; lrange $::errorCode 0 1
+} -constraints {eagle} -result {EXCEPTION System.DivideByZeroException}}
+
+###############################################################################
+
+runTest {test error-1.9.2 {[expr] operator, no errorCode} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  list [catch {expr {2 / 1}} r] $r [lrange $::errorCode 0 1]
+} -cleanup {
+  unset -nocomplain r
+} -result {0 2 {}}}
+
+###############################################################################
+
+runTest {test error-1.10.1 {[expr] function, errorCode exception} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {expr {pow(-1, 0.5)}}; lrange $::errorCode 0 1
+} -constraints {tcl} -result {ARITH DOMAIN}}
+
+###############################################################################
+
+runTest {test error-1.10.2 {[expr] function, errorCode exception} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {expr {round2(0.0, -1)}}; lrange $::errorCode 0 1
+} -constraints {eagle} -result {EXCEPTION System.ArgumentOutOfRangeException}}
+
+###############################################################################
+
+runTest {test error-1.10.3 {[expr] function, no errorCode} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  list [catch {expr {atan(0)}} r] $r [lrange $::errorCode 0 1]
+} -cleanup {
+  unset -nocomplain r
+} -match regexp -result {^0 (?:0|0\.0) \{\}$}}
+
+###############################################################################
+
+runTest {test error-1.11 {[eval], one argument} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {eval [list error test]}; string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {test
+    while executing
+"error test"
+    ("eval" body line 1)
+    invoked from within
+"eval [list error test]"
+    ("catch" body line 1)}}
+
+###############################################################################
+
+runTest {test error-1.12 {[eval], multiple argument} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {eval error test}; string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {test
+    while executing
+"error test"
+    ("eval" body line 1)
+    invoked from within
+"eval error test"
+    ("catch" body line 1)}}
+
+###############################################################################
+
+runTest {test error-1.13 {[uplevel], one argument} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {uplevel #0 [list error test]}; string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {test
+    while executing
+"error test"
+    ("uplevel" body line 1)
+    invoked from within
+"uplevel #0 [list error test]"
+    ("catch" body line 1)}}
+
+###############################################################################
+
+runTest {test error-1.14 {[uplevel], multiple argument} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {uplevel #0 error test}; string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {test
+    while executing
+"error test"
+    ("uplevel" body line 1)
+    invoked from within
+"uplevel #0 error test"
+    ("catch" body line 1)}}
+
+###############################################################################
+
+runTest {test error-1.15 {[eval], one argument, line 2} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {eval {
+    error test
+  }}; string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {test
+    while executing
+"error test"
+    ("eval" body line 2)
+    invoked from within
+"eval {
+    error test
+  }"
+    ("catch" body line 1)}}
+
+###############################################################################
+
+runTest {test error-1.16 {[eval], multiple argument, line 2} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {eval \n\
+    error test \
+  }; string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {test
+    while executing
+"error test"
+    ("eval" body line 1)
+    invoked from within
+"eval \n error test  "
+    ("catch" body line 1)}}
+
+###############################################################################
+
+runTest {test error-1.17 {[uplevel], one argument, line 2} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {uplevel #0 {
+    error test
+  }}; string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {test
+    while executing
+"error test"
+    ("uplevel" body line 2)
+    invoked from within
+"uplevel #0 {
+    error test
+  }"
+    ("catch" body line 1)}}
+
+###############################################################################
+
+runTest {test error-1.18 {[uplevel], multiple argument, line 2} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {uplevel #0 \n\
+    error test \
+  }; string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {test
+    while executing
+"error test"
+    ("uplevel" body line 1)
+    invoked from within
+"uplevel #0 \n error test  "
+    ("catch" body line 1)}}
+
+###############################################################################
+
+runTest {test error-1.19 {[error] with errorInfo} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {error foo bar baz}
+  list [string map [list \r\n \n] $::errorInfo] $::errorCode \
+      [object invoke Interpreter.GetActive ErrorLine]
+} -constraints {eagle command.object} -result {bar baz 1}}
+
+###############################################################################
+
+runTest {test error-1.20 {[eval] and [error] with errorInfo} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {eval {error foo bar baz}}
+  string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {bar
+    ("eval" body line 1)}}
+
+###############################################################################
+
+runTest {test error-1.21 {[namespace] and [error] with errorInfo} -setup {
+  resetErrorCodeAndInfo
+} -body {
+  catch {namespace eval :: {error foo bar baz}}
+  string map [list \r\n \n] $::errorInfo
+} -constraints {eagle} -result {bar
+    (in namespace eval "::" script line 1)}}
+
+###############################################################################
+
+rename resetErrorCodeAndInfo ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,1856 @@
+###############################################################################
+#
+# benchmark.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+#
+# NOTE: Do we need to add a compatibility shim for the [lrepeat] command
+#       used by this test file?  This command is available in Tcl 8.5 or
+#       higher (and Eagle).  For Tcl 8.4, a compatibility shim is needed.
+#
+if {![haveConstraint tcl85Feature]} then {
+  proc lrepeat { count value } {
+    set result [list]
+    for {set index 0} {$index < $count} {incr index} {
+      lappend result $value
+    }
+    return $result
+  }
+}
+
+###############################################################################
+
+proc time_length { list } {
+  set result 0
+  foreach element $list {
+    if {[string length $element] > 0} then {
+      incr result
+    }
+  }
+  return $result
+}
+
+###############################################################################
+
+proc time_join { list separator } {
+  set result [list]
+  foreach element $list {
+    if {[string length $element] > 0} then {
+      lappend result $element
+    }
+  }
+  return [join $result $separator]
+}
+
+###############################################################################
+
+proc time_x { name script count qty factor index } {
+  tputs $::test_channel [appendArgs \
+      "---- name: " $name ", script: " [string trim $script] \
+      ", count: " $count ", qty: " $qty ", factor: " $factor \
+      ", index: " $index \n]
+
+  #
+  # NOTE: Get the expected and original times from the global lists.
+  #
+  set expectedTime [lindex $::times $index]; # NOTE: Adjusted time.
+  set originalTime [lindex $::originalTimes $index]
+
+  #
+  # NOTE: Evaluate the benchmark script in the calling context and
+  #       record the elapsed time.  Extract the actual microseconds
+  #       from the recorded results.
+  #
+  set actualTime [lindex [uplevel 1 [list time $script $qty]] 0]
+
+  #
+  # NOTE: Calculate how long we expected the benchmark script to
+  #       take based on the specified adjustment factor.
+  #
+  if {$factor != 0} then {
+    set expectedTime [expr {double($expectedTime) / $factor}]
+  }
+
+  #
+  # NOTE: Keep track of the names and actual times of the benchmark
+  #       tests that actually run.
+  #
+  lset ::names $index $name
+  lset ::timeline $index $actualTime
+
+  tputs $::test_channel [appendArgs \
+      "---- actual: " [formatDecimal $actualTime 2] \
+      " microseconds per iteration\n"]
+
+  tputs $::test_channel [appendArgs \
+      "---- expected: " [formatDecimal $expectedTime 2] \
+      " microseconds per iteration\n"]
+
+  tputs $::test_channel [appendArgs \
+      "---- original: " [formatDecimal $originalTime 2] \
+      " microseconds per iteration\n"]
+
+  #
+  # NOTE: Calculate the percentage faster or slower we were.
+  #
+  set percent 0; # TODO: Good default if we cannot calculate?
+
+  if {$actualTime <= $expectedTime} then {
+    if {$actualTime != 0} then {
+      set percent [expr {($expectedTime / $actualTime * 100) - 100}]
+    }
+  } else {
+    if {$expectedTime != 0} then {
+      set percent [expr {($actualTime / $expectedTime * 100) - 100}]
+    }
+  }
+
+  #
+  # NOTE: Truncate the excess digits of the percentage.
+  #
+  set percent [formatDecimal $percent 2 true]
+
+  #
+  # NOTE: Keep track of the percentage faster or slower for the summary.
+  #
+  lset ::comparisons $index [appendArgs \
+      [expr {$actualTime <= $expectedTime ? $percent : -$percent}] %]
+
+  tputs $::test_channel [appendArgs \
+      "---- comparison: " $percent "% " \
+      [expr {$actualTime <= $expectedTime ? "faster" : "slower"}] \n]
+
+  #
+  # NOTE: Return non-zero for "success" (faster) or zero for "failure"
+  #       (slower).
+  #
+  return [expr {int($actualTime <= double($expectedTime))}]
+}
+
+###############################################################################
+
+proc buildOutputList {} {
+  upvar 1 names names
+  upvar 1 times times
+  upvar 1 timeline timeline
+  upvar 1 expectedTimes expectedTimes
+  upvar 1 originalTimes originalTimes
+  upvar 1 comparisons comparisons
+
+  if {[time_length $timeline] == 0} then {
+    return [list]
+  }
+
+  set max(name) [string length "  Name"]
+  set max(actual) [string length "  Actual"]
+  set max(expected) [string length "  Expected"]
+  set max(original) [string length "  Original"]
+  set max(comparison) [string length "  Comparison"]
+
+  foreach name [list name actual expected original comparison] {
+    set hdr($name) $max($name)
+  }
+
+  for {set index 0} {$index < [llength $times]} {incr index} {
+    set length [string length [lindex $names $index]]
+
+    if {$length > $max(name)} then {
+      set max(name) $length
+    }
+
+    set length [string length \
+        [formatDecimal [lindex $timeline $index] 2 true]]
+
+    if {$length > $max(actual)} then {
+      set max(actual) $length
+    }
+
+    set length [string length \
+        [formatDecimal [lindex $expectedTimes $index] 2 true]]
+
+    if {$length > $max(expected)} then {
+      set max(expected) $length
+    }
+
+    set length [string length \
+        [formatDecimal [lindex $originalTimes $index] 2 true]]
+
+    if {$length > $max(original)} then {
+      set max(original) $length
+    }
+
+    set length [string length [lindex $comparisons $index]]
+
+    if {$length > $max(comparison)} then {
+      set max(comparison) $length
+    }
+  }
+
+  #
+  # NOTE: The header for the "Name" column is [much] shorter than the
+  #       actual values; however, the same check should be done for all
+  #       headers.
+  #
+  foreach name [list name actual expected original comparison] {
+    if {$max($name) >= $hdr($name)} then {
+      incr max($name) 2; # HACK: Give a bit of extra space.
+    }
+  }
+
+  set format(name) [appendArgs %- $max(name) s]
+  set format(actual) [appendArgs % $max(actual) s]
+  set format(expected) [appendArgs % $max(expected) s]
+  set format(original) [appendArgs % $max(original) s]
+  set format(comparison) [appendArgs % $max(comparison) s]
+
+  set result [list \
+      [format $format(name) Name] \
+      [format $format(actual) Actual] \
+      [format $format(expected) Expected] \
+      [format $format(original) Original] \
+      [format $format(comparison) Comparison] \
+      [format $format(name) [string repeat - $max(name)]] \
+      [format $format(actual) [string repeat - $max(actual)]] \
+      [format $format(expected) [string repeat - $max(expected)]] \
+      [format $format(original) [string repeat - $max(original)]] \
+      [format $format(comparison) [string repeat - $max(comparison)]]]
+
+  foreach v $names w $timeline x $expectedTimes \
+      y $originalTimes z $comparisons {
+    #
+    # NOTE: Skip all tests that were not actually run.
+    #
+    if {[string length $v] == 0} then {
+      continue
+    }
+
+    #
+    # NOTE: Add details for each test to the overall list.
+    #
+    lappend result \
+        [format $format(name) $v] \
+        [format $format(actual) [formatDecimal $w 2 true]] \
+        [format $format(expected) [formatDecimal $x 2 true]] \
+        [format $format(original) [formatDecimal $y 2 true]] \
+        [format $format(comparison) $z]
+  }
+
+  return $result
+}
+
+###############################################################################
+
+proc fudgeTimes { times factor } {
+  set result [list]
+
+  foreach time $times {
+    lappend result [expr {$factor != 0 ? $time / $factor : $time}]
+  }
+
+  return $result
+}
+
+###############################################################################
+
+proc checkMemoryLoad {} {
+  #
+  # NOTE: Since the entire purpose of this lambda is to (possibly)
+  #       generate a test log warning, skip it in "quiet" mode.
+  #
+  if {[isEagle] && [llength [info commands object]] > 0 && \
+      ![info exists ::no(checkMemoryLoad)]} then {
+    #
+    # NOTE: Attempt to query the cache configuration to determine if it
+    #       thinks memory is overloaded.
+    #
+    if {[catch {
+      object invoke -flags +NonPublic \
+          Eagle._Components.Private.CacheConfiguration \
+          IsMemoryLoadOk
+    } result] == 0} then {
+      #
+      # NOTE: If the IsMemoryLoadOk method returns zero, we can safely
+      #       assume there is a high memory load (i.e. it will return
+      #       non-zero if the memory load could not be measured).  If
+      #       we are allowed to emit memory load warnings -AND- we have
+      #       not displayed the associated warning message since we last
+      #       hit the current "memory load ok/not ok" state, then emit a
+      #       warning now.
+      #
+      if {!$result} then {
+        unset -nocomplain ::warnings(memoryLoadOk)
+
+        if {![info exists ::no(warningForMemoryLoad)] && \
+            ![haveConstraint quiet] && \
+            ![info exists ::warnings(memoryLoadNotOk)]} then {
+          #
+          # NOTE: This grammar is sub-optimal on purpose.
+          #
+          tputs $::test_channel [appendArgs \
+              "==== WARNING: cache is now impaired, due to memory load, " \
+              "performance WILL very likely be reduced\n"]
+
+          set ::warnings(memoryLoadNotOk) 1; # NOTE: Warning was issued.
+        }
+      } else {
+        unset -nocomplain ::warnings(memoryLoadNotOk)
+
+        if {![info exists ::no(warningForMemoryLoad)] && \
+            ![haveConstraint quiet] && \
+            ![info exists ::warnings(memoryLoadOk)]} then {
+          #
+          # NOTE: This grammar is sub-optimal on purpose.
+          #
+          tputs $::test_channel [appendArgs \
+              "==== WARNING: cache is now normal, due to memory load, " \
+              "performance WILL very likely be increased\n"]
+
+          set ::warnings(memoryLoadOk) 1; # NOTE: Warning was issued.
+        }
+      }
+
+      #
+      # NOTE: The memory load was checked successfully.
+      #
+      return true
+    } else {
+      tputs $::test_channel \
+          "---- memory load checking is unavailable\n"
+    }
+  }
+
+  #
+  # NOTE: The memory load was not checked -OR- the check failed.
+  #
+  return false
+}
+
+###############################################################################
+
+proc haveCaches { toString } {
+  if {[isEagle]} then {
+    if {$toString} then {
+      if {[haveConstraint compile.CACHE_STATISTICS] && \
+          ([haveConstraint compile.CACHE_ARGUMENTLIST_TOSTRING] || \
+           [haveConstraint compile.CACHE_STRINGLIST_TOSTRING])} then {
+        return true
+      }
+    } else {
+      if {[haveConstraint compile.ARGUMENT_CACHE] || \
+          [haveConstraint compile.LIST_CACHE] || \
+          [haveConstraint compile.PARSE_CACHE] || \
+          [haveConstraint compile.EXECUTE_CACHE] || \
+          [haveConstraint compile.TYPE_CACHE] || \
+          [haveConstraint compile.COM_TYPE_CACHE]} then {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+###############################################################################
+
+proc resetCaches { {enable true} } {
+  if {[isEagle] && [haveCaches false] && \
+      [llength [info commands object]] > 0 && \
+      ![info exists ::no(resetCaches)]} then {
+    set cacheFlags [list \
+        ObjectMask Reset Clear MaybeSetProperties]
+
+    if {$enable} then {
+      lappend cacheFlags Lock
+    } else {
+      lappend cacheFlags Unlock
+    }
+
+    set results [list]
+
+    set result [object invoke \
+        Interpreter.GetActive ControlCaches \
+        $cacheFlags $enable]
+
+    if {$result ne "None"} then {
+      lappend results $result
+    }
+
+    set result [object invoke \
+        Interpreter.GetActive EnableCaches \
+        ObjectMask true]
+
+    if {$result ne "None"} then {
+      lappend results $result
+    }
+
+    tputs $::test_channel [appendArgs \
+        "---- reset caches: " $results \n]
+  }
+}
+
+###############################################################################
+
+proc reportCaches {} {
+  if {[isEagle] && [haveCaches false] && \
+      [llength [info commands object]] > 0 && \
+      ![info exists ::no(reportCaches)]} then {
+    set list null
+    set cacheFlags EmptyContent
+
+    if {[hasRuntimeOption verboseReportCaches]} then {
+      lappend cacheFlags CacheConfigurationMemoryLoad \
+          CacheConfiguration
+    }
+
+    set list [object create StringPairList]
+
+    object invoke -create -alias -flags +NonPublic \
+        Interpreter.GetActive GetHostOtherCacheInfo \
+        list $cacheFlags
+
+    if {[haveCaches true]} then {
+      object invoke -create -alias -flags +NonPublic \
+          Interpreter.GetActive GetHostStringCacheInfo \
+          list $cacheFlags
+    }
+
+    set pairs [list]
+
+    object foreach -alias element $list {
+      if {![isNonNullObjectHandle $element]} then {
+        continue
+      }
+
+      set value [$element Y]
+
+      if {[string length $value] == 0} then {
+        continue
+      }
+
+      set name [$element X]
+
+      if {[string length $name] == 0} then {
+        continue
+      }
+
+      lappend pairs $name $value
+    }
+
+    tputs $::test_channel [appendArgs "---- cache status: " \
+        [formatListAsDict $pairs <none>] \n]
+  }
+}
+
+###############################################################################
+
+proc maybeMakeHighPriority { highPriority } {
+  if {[isEagle] && [llength [info commands object]] > 0 && \
+      ![info exists ::no(maybeMakeHighPriority)]} then {
+    if {[catch {
+      set maybe [object invoke -flags +NonPublic \
+          Interpreter.GetActive MaybeMakeHighPriority \
+          $highPriority]
+
+      if {[string is boolean -strict $maybe]} then {
+        resetCaches $highPriority
+      }
+
+      set maybe; # null / false / true
+    } result] == 0} then {
+      if {[string is boolean -strict $result]} then {
+        tputs $::test_channel [appendArgs \
+            "---- high-priority mode has now been " \
+            [expr {$result ? "enabled" : "disabled"}] ", " \
+            [expr {$result ? "locked" : "unlocked"}] \
+            ", and cleared\n"]
+      } else {
+        tputs $::test_channel \
+            "---- high-priority mode is unchanged\n"
+      }
+    } else {
+      tputs $::test_channel [appendArgs \
+          "---- high-priority mode is unavailable: " \
+          $result \n]
+    }
+  }
+
+  return false
+}
+
+###############################################################################
+
+proc proc_nop {} {}
+proc proc_nop_args { args } {}
+proc proc_nop_return {} { return }
+proc proc_global {} { global auto_path; return $auto_path }
+proc proc_recurse {} { proc_recurse }
+
+###############################################################################
+
+proc proc_get_png { data } {
+  set data [string map [list \r\n \n] $data]
+  set list [list]
+
+  set lines [split $data \n]
+  set pattern {  ((?:[0-9a-f]{2}  ){1,16})}
+
+  foreach line $lines {
+    if {[regexp -- $pattern $line dummy subList]} then {
+      eval lappend list $subList
+    }
+  }
+
+  set bytes ""
+
+  foreach byte $list {
+    append bytes [format %c [appendArgs 0x $byte]]
+  }
+
+  if {[isEagle]} then {
+    set hash [hash normal sha1 $bytes]
+  } else {
+    package require sha1
+    set hash [sha1::sha1 -hex $bytes]
+  }
+
+  set wanted 467c58c0ad89c6d3d716227b7ccf96e06354bf56
+
+  if {[string tolower $hash] ne $wanted} then {
+    error [appendArgs "png data hash mismatch, wanted " $wanted]
+  }
+
+  return [string length $bytes]
+}
+
+###############################################################################
+
+proc proc_create_list {length} {
+  set result [list]
+  for {set i 0} {$i < $length} {incr i} {
+    lappend result $i
+  }
+  return $result
+}
+
+###############################################################################
+
+proc proc_randomize_list {list} {
+  set length [llength $list]
+  for {set i 0} {$i < $length} {incr i} {
+    set array($i) [lindex $list $i]
+  }
+  for {set i 0} {$i < $length} {incr i} {
+    set n [expr {int($length * rand())}]
+    set element $array($i)
+    set array($i) $array($n)
+    set array($n) $element
+  }
+  set result [list]
+  for {set i 0} {$i < $length} {incr i} {
+    lappend result $array($i)
+  }
+  return $result
+}
+
+###############################################################################
+
+proc proc_lshuffle {varName} {
+  upvar 1 $varName result
+  for {set length [llength $result]} \
+      {$length > 1} {lset result $index $element} {
+    set index [expr {int(rand() * $length)}]
+    set element [lget result [incr length -1]]
+    lset result $length [lget result $index]
+  }
+}
+
+###############################################################################
+
+proc proc_element {name i} {
+  upvar 1 $name array
+  if {![info exists array($i)]} then {
+    set array($i) $i
+  }
+  return $array($i)
+}
+
+###############################################################################
+
+proc proc_lbuild {} {
+  uplevel 1 {
+    set test_items [list \
+        Alpha Bravo Charlie Delta Echo Foxtrot Golf Hotel \
+        India Juliet Kilo Lima Mike November Oscar Papa \
+        Quebec Romeo Sierra Tango Uniform Victor Whiskey X-ray \
+        Yankee Zulu]
+
+    set data [list]
+
+    for {set i 0} {$i < $count} {incr i} {
+      lappend data [lindex $test_items \
+          [expr {int(rand() * [llength $test_items])}]]
+    }
+
+    unset i
+  }
+}
+
+###############################################################################
+
+proc proc_lcount { list } {
+  foreach x $list {lappend arr($x) {}}
+
+  set res {}
+
+  foreach name [array names arr] {
+    lappend res [list $name [llength $arr($name)]]
+  }
+
+  return $res
+}
+
+###############################################################################
+
+#
+# NOTE: *WARNING* Cannot use [runTest] to do this because of the extra
+#       handling that runs before and after each test.
+#
+# \
+runTest ; # fake out runAllTests proc.
+
+proc runPerfTest { script } {
+  if {[isEagle]} then {
+    resetCaches; set oldPassed $::eagle_tests(Passed)
+  }
+
+  set result [uplevel 1 [list runTest $script]]
+
+  if {[isEagle]} then {
+    set newPassed $::eagle_tests(Passed)
+
+    if {$newPassed > $oldPassed} then {
+      reportCaches
+    }
+  }
+
+  return $result
+}
+
+###############################################################################
+
+if {[isEagle]} then {
+  proc memoryThreadSetup {} {
+    #
+    # NOTE: Initially, make sure to indicate (for the test log)
+    #       that we were not able to obtain peak memory usage.
+    #
+    set ::memory(peak) unavailable; # NOTE: Bytes.
+
+    #
+    # NOTE: The benchmarks themselves do not require the [object]
+    #       command; however, it is required for measuring peak
+    #       memory usage.
+    #
+    if {[llength [info commands object]] > 0} then {
+      #
+      # HACK: For now, constrain this test to run only in the
+      #       Eagle Shell (i.e. where we can guarantee a minimum
+      #       stack size for created threads).  Also, this will
+      #       only work correctly if the Eagle core library was
+      #       compiled with threading enabled.  Finally, threads
+      #       are known not to work correctly inside the Mono
+      #       debugger (i.e. MonoDevelop).
+      #
+      if {[haveConstraint dotNetCoreOrShell] && \
+          [haveConstraint compile.THREADING] && \
+          ![haveConstraint monoDebugger]} then {
+        #
+        # NOTE: Initialize the various intervals, in milliseconds,
+        #       used to wait for and/or schedule events for the
+        #       peak memory usage tracking thread.
+        #
+        if {![info exists ::memory(interval0)]} then {
+          set ::memory(interval0) 1000
+        }
+
+        if {![info exists ::memory(interval1)]} then {
+          set ::memory(interval1) 1000
+        }
+
+        if {![info exists ::memory(interval2)]} then {
+          set ::memory(interval2) 30000
+        }
+
+        #
+        # NOTE: Initialize the peak memory usage bytes to zero.
+        #
+        set ::memory(peak) 0
+
+        #
+        # NOTE: Create and start the peak memory usage tracking
+        #       thread.  The default stack size is used and no
+        #       argument is passed to the ThreadStart method.
+        #
+        set ::memory(thread) [createThread memoryThreadStart]
+        startThread $::memory(thread)
+
+        #
+        # HACK: Avoid race condition here that happens when the
+        #       variable being waited on is flagged as "dirty"
+        #       prior to encountering the [vwait] command that
+        #       refers to it (i.e. because the [vwait] command
+        #       always initially clears the "dirty" flag for
+        #       the variable or array element being waited on,
+        #       per its design).
+        #
+        after $::memory(interval0)
+      }
+    }
+  }
+
+  #############################################################################
+
+  proc memoryThreadStart {} {
+    #
+    # NOTE: The [object] command is required to setup the peak memory
+    #       usage tracking thread.
+    #
+    if {[llength [info commands object]] > 0} then {
+      #
+      # NOTE: Copy cached constraints into this test thread context.
+      #
+      useCachedConstraints
+
+      #
+      # HACK: *MONO* Performance counters seem to always return zero
+      #       when running on Mono.
+      #
+      # NOTE: Setup lambdas (i.e. anonymous procedures) that will
+      #       track peak memory usage and check current memory load.
+      #
+      #       The first anonymous procedure does the following:
+      #
+      #       1.  Checks the current peak memory usage against the
+      #           maximum peak memory usage seen thus far, resetting
+      #           the maximum peak memory usage if necessary.
+      #
+      #       2.  Creates a command (i.e. must be a well-formed list)
+      #           and then uses that command to reschedule itself for
+      #           evaluation after an interval has elapsed.
+      #
+      #       The second anonymous procedure does the following:
+      #
+      #       1.  Checks the current memory load to check if the cache
+      #           has writes disabled.
+      #
+      set lambda1 [expr {![isMono] && ![isDotNetCore]}]
+
+      if {$lambda1} then {
+        #
+        # NOTE: Create the Windows performance counter instance for
+        #       this process that tracks the "Working Set Peak" value.
+        #
+        set ::memory(counter) [object create -alias \
+            System.Diagnostics.PerformanceCounter Process \
+            "Working Set Peak" [file rootname [file tail $::bin_file]]]
+
+        set ::memory(lambda1) [list [list counter varName interval lambda] {
+          set value [expr {wide([$counter NextValue])}]
+          upvar 1 $varName peak; if {$value > $peak} then {set peak $value}
+          set command [list apply $lambda $counter $varName $interval $lambda]
+          after $interval $command
+        }]
+      }
+
+      set lambda2 [expr {![info exists ::no(checkMemoryLoad)]}]
+
+      if {$lambda2} then {
+        set ::memory(lambda2) [list [list interval lambda] {
+          #
+          # NOTE: Only reschedule ourself if the (native) memory load
+          #       detection is actually available and working.
+          #
+          if {[checkMemoryLoad]} then {
+            set command [list apply $lambda $interval $lambda]
+            after $interval $command
+          }
+        }]
+      }
+
+      #
+      # NOTE: Schedule the initial evaluations of the anonymous procedures
+      #       defined above.  Subsequent evaluations will only occur if the
+      #       anonymous procedures reschedule themselves (which they always
+      #       do unless they encounter errors).
+      #
+      if {$lambda1} then {
+        after $::memory(interval1) [list apply $::memory(lambda1) \
+            $::memory(counter) ::memory(peak) $::memory(interval1) \
+            $::memory(lambda1)]
+      }
+
+      if {$lambda2} then {
+        after $::memory(interval2) [list apply $::memory(lambda2) \
+            $::memory(interval2) $::memory(lambda2)]
+      }
+
+      #
+      # NOTE: Keep waiting (and processing events) until our global
+      #       "thread-stop" indicator (script variable) is changed.
+      #
+      if {$lambda1 || $lambda2} then {
+        vwait ::memory(wait)
+      }
+    }
+  }
+
+  #############################################################################
+
+  proc memoryThreadCleanup {} {
+    #
+    # NOTE: Cause the [vwait] inside the peak memory usage tracking
+    #       thread to return now.
+    #
+    set ::memory(wait) 1
+
+    #
+    # HACK: Avoid race condition here that happens when trying to
+    #       cleanup the thread before it has a chance to notice.
+    #
+    if {[info exists ::memory(interval0)]} then {
+      after $::memory(interval0)
+    }
+
+    #
+    # NOTE: Cleanup the peak memory usage tracking thread itself.
+    #       This requires the [object] command.  This checks that
+    #       the necessary global variable is set.
+    #
+    if {[llength [info commands object]] > 0} then {
+      if {[info exists ::memory(thread)]} then {
+        joinThread $::memory(thread) 2000; # NOTE: Wait nicely for exit.
+        cleanupThread $::memory(thread); # NOTE: Forcibly cleanup.
+      }
+    }
+
+    #
+    # NOTE: Report the measured peak memory usage to the test log.
+    #       This checks that the necessary global variable is set.
+    #
+    if {[info exists ::memory(peak)]} then {
+      tputs $::test_channel [appendArgs \
+          "---- benchmark peak working set: " $::memory(peak) \
+          " bytes\n"]
+    }
+
+    #
+    # NOTE: Delete the ThreadStart "callback" (i.e. the wrapped
+    #       delegate) that was used when creating the peak memory
+    #       usage tracking thread.  Also, delete any stray [after]
+    #       events that may be leftover from the peak memory usage
+    #       tracking thread (or anything else?).
+    #
+    catch {object removecallback memoryThreadStart}
+    cleanupAfterEvents
+
+    #
+    # NOTE: Remove all the global state used by the peak memory
+    #       usage tracking thread.  This is 100% safe because the
+    #       thread is dead by this point -AND- this procedure has
+    #       already made use of its output prior to this point.
+    #
+    unset -nocomplain ::memory
+  }
+
+  #############################################################################
+
+  proc isEagleBeta29OrLater {} {
+    #
+    # NOTE: Check for the two classes that were introduced for
+    #       beta 29 to fix performance issues, as follows:
+    #
+    #       8f58d0af-017d-4234-bca7-fa7b58e26502; # StringObject
+    #       cc10a3eb-0433-4f1d-abdf-ea46ed7cccb0; # CommandBuilder
+    #
+    #       This check should be more precise and more reliable
+    #       than using the patch level or other similar metadata.
+    #
+    set objectIds [info engine ObjectIds]
+
+    if {[lsearch -glob -nocase -- $objectIds \
+            [list 8f58d0af-017d-4234-bca7-fa7b58e26502 *]] != -1 && \
+        [lsearch -glob -nocase -- $objectIds \
+            [list cc10a3eb-0433-4f1d-abdf-ea46ed7cccb0 *]] != -1} then {
+      return true
+    }
+
+    return false
+  }
+}
+
+###############################################################################
+
+if {![info exists tdp]} then {
+  set tdp $test_data_path
+}
+
+if {![info exists qty]} then {
+  if {[isEagle]} then {
+    set qty 10
+  } else {
+    set qty 1000
+  }
+}
+
+if {![info exists maxItem]} then {
+  #
+  # NOTE: *WARNING* Used for O(N!) complexity.
+  #
+  if {[isEagle]} then {
+    set maxItem 5; # (120)
+  } else {
+    set maxItem 6; # (720)
+  }
+}
+
+if {![info exists factor]} then {
+  if {[isEagle]} then {
+    set factor 1
+  } else {
+    set factor 100
+  }
+}
+
+if {![info exists count]} then {
+  set count 1000
+}
+
+if {![info exists times]} then {
+  set times [list 400 400 400 375 200 \
+                  400 425 400 500 500 \
+                  500 500 700 1500 420 \
+                  500 140000 645000 225000 125000 \
+                  110000 1500000 1600000 182000 3000 \
+                  35000 500 4000 500 500 \
+                  3100 3900 1600 500 11500 \
+                  310000 260000 310000 260000 600000 \
+                  260000 4000 150000 500 4000000 \
+                  3000000 87500000 1050000 2500000 850000]
+
+  set originalTimes $times
+
+  for {set i 0} {$i < [llength $times]} {incr i} {
+    #
+    # HACK: Hard-code the indexes of the tests we know have some
+    #       internal loops or repeat counts.
+    #
+    if {$i == 3 || ($i >= 16 && $i <= 19)} then {
+      lset times $i [expr {double([lindex $times $i]) / 1000 * $count}]
+    }
+
+    #
+    # HACK: The cd/pwd test is significantly (about 40x) slower
+    #       on the .NET Framework 4.0 when running under the IDE
+    #       debugger for some reason.  If necessary, adjust the
+    #       expected time accordingly.
+    #
+    if {$i == 13} then {
+      if {[isEagle] && [haveConstraint imageRuntime40] && \
+          [haveConstraint managedDebugger]} then {
+        lset times $i [expr {double([lindex $times $i]) * 40}]
+      }
+    }
+
+    #
+    # HACK: Adjust the expected performance of the stack overflow
+    #       tests in "Release" mode and/or when not running under
+    #       the managed debugger because each call "frame" takes
+    #       up less space in those cases (i.e. there are far more
+    #       "frames").
+    #
+    if {$i == 20 || $i == 21} then {
+      if {[isEagle]} then {
+        #
+        # NOTE: The managed debugger appears to make each call
+        #       "frame" bigger, thus reducing the amount of work
+        #       done by the stack overflow tests; therefore, if
+        #       the managed debugger is not present, adjust the
+        #       expected time accordingly.
+        #
+        if {![haveConstraint managedDebugger]} then {
+          lset times $i [expr {double([lindex $times $i]) * 2.5}]
+        }
+
+        #
+        # NOTE: For "Release" builds, it appears to make each call
+        #       "frame" smaller, thus increasing the amount of
+        #       work done by the stack overflow tests; therefore,
+        #       if this is a "Release" build, adjust the expected
+        #       time accordingly.
+        #
+        if {[info exists test_configuration] && \
+            [string match Release* $test_configuration]} then {
+          lset times $i [expr {double([lindex $times $i]) * 1.5}]
+        }
+      }
+    }
+
+    #
+    # NOTE: When running in Eagle, this test used to take far too
+    #       long; therefore, only a small portion of the total list
+    #       was used.  We accounted for this here by reducing the
+    #       expected runtime of this test in that case.  This is no
+    #       longer necessary as of beta 29.
+    #
+    if {$i == 44} then {
+      if {[isEagle]} then {
+        if {![isEagleBeta29OrLater]} then {
+          lset times $i [expr {double([lindex $times $i]) / 10}]
+        } elseif {[haveConstraint namespaces]} then {
+          #
+          # NOTE: This is a bit slower with namespaces enabled.
+          #
+          lset times $i [expr {double([lindex $times $i]) * 1.1}]
+        }
+      }
+    }
+
+    #
+    # NOTE: When running in Tcl, adjust the expected time by the
+    #       difference in the number of items compared to Eagle.
+    #
+    if {$i == 45} then {
+      if {![isEagle]} then {
+        lset times $i [expr {double([lindex $times $i]) * 7}]
+      }
+    }
+
+    #
+    # NOTE: Adjust the expected performance number based on the
+    #       relative performance of this machine, if available.
+    #
+    if {![info exists no(relativePerformance)]} then {
+      if {[llength [info commands calculateRelativePerformance]] > 0} then {
+        lset times $i [calculateRelativePerformance elapsed [lindex $times $i]]
+      }
+    }
+  }; unset i
+} else {
+  set originalTimes $times
+}
+
+###############################################################################
+
+#
+# NOTE: Keep track of the duration and percentage change for each test so
+#       they can be included in the summary at the end of this test file.
+#
+set names [lrepeat [llength $times] ""]
+set timeline [lrepeat [llength $times] ""]
+set comparisons [lrepeat [llength $times] ""]
+
+###############################################################################
+
+if {[isEagle] && ![info exists no(trackPeakMemory)]} then {
+  memoryThreadSetup
+}
+
+###############################################################################
+
+if {![info exists no(warningForBogoCops)] && \
+    ![haveConstraint quiet] && \
+    [info exists test_cops] && \
+    [info exists test_base_cops] && \
+    $test_cops < $test_base_cops} then {
+  tputs $test_channel [appendArgs \
+      "==== WARNING: current BogoCops (commands-per-second), " \
+      $test_cops " is less than baseline " $test_base_cops \n]
+}
+
+###############################################################################
+
+if {![info exists no(warningForNativeDebugger)] && \
+    ![haveConstraint quiet] && \
+    [haveConstraint nativeDebugger]} then {
+  tputs $test_channel [appendArgs \
+      "==== WARNING: native debugger is present, performance " \
+      "WILL be extremely reduced\n"]
+}
+
+###############################################################################
+
+if {![info exists no(warningForManagedDebugger)] && \
+    ![haveConstraint quiet] && \
+    [haveConstraint managedDebugger]} then {
+  tputs $test_channel [appendArgs \
+      "==== WARNING: managed debugger is attached, performance " \
+      "WILL be greatly reduced\n"]
+}
+
+###############################################################################
+
+catch {maybeMakeHighPriority true}
+
+###############################################################################
+
+catch {checkMemoryLoad}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.1 {set/unset} -body {
+  time_x setUnset {set x 0; unset x} 1 $qty $factor 0
+} -cleanup {
+  unset -nocomplain x
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.2.1 {simple expr} -body {
+  time_x simpleExpr {expr {2 + 2 ** 10}} 1 $qty $factor 1
+} -constraints [fixTimingConstraints {!tcl84 performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.2.2 {simple expr} -setup {
+  #
+  # BUGBUG: We need to cheat here because of the new first-time "penalty" of
+  #         using [expr] operators.  This issue may get resolved in a future
+  #         release.
+  #
+  expr {2 + 2}; expr {2 ** 2}; # cheat by pre-using needed operators.
+} -body {
+  time_x simpleExpr {expr {2 + 2 ** 10}} 1 $qty $factor 1
+} -constraints [fixTimingConstraints {eagle performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.3 {formatted clock time} -body {
+  time_x clockFormat {clock format [clock seconds]} 1 $qty $factor 2
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.4 {string repeat} -body {
+  time_x stringRepeat {string repeat test $count} $count $qty $factor 3
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.5 {raw command} -body {
+  time_x nopCmd0 {nop} 1 $qty $factor 4
+} -constraints [fixTimingConstraints {eagle performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.6 {command with simple arguments} -body {
+  time_x nopCmd4 {nop 1 2 3 4} 1 $qty $factor 5
+} -constraints [fixTimingConstraints {eagle performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.7 {raw proc} -body {
+  time_x nopProc0 {proc_nop} 1 $qty $factor 6
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.8 {args-capable proc} -body {
+  time_x nopProcArgs0 {proc_nop_args} 1 $qty $factor 7
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.9 {proc with simple arguments} -body {
+  time_x procNopArgs4 {proc_nop_args 1 2 3 4} 1 $qty $factor 8
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.10 {proc with simple arguments via eval} -body {
+  time_x evalProcNopArgs4 {eval proc_nop_args 1 2 3 4} 1 $qty $factor 9
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.11 {proc/return} -body {
+  time_x procNopReturn {proc_nop_return} 1 $qty $factor 10
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.12 {proc/return with global variable} -body {
+  time_x procGlobalVar {proc_global} 1 $qty $factor 11
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.13 {caught error} -body {
+  time_x catchError {catch {error test} x} 1 $qty $factor 12
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.14 {cd/dirname/pwd} -setup {
+  set savedPwd [pwd]; # save current directory
+} -body {
+  time_x cdPwd {cd ~; cd [file dirname [pwd]]} 1 $qty $factor 13
+} -cleanup {
+  cd $savedPwd; # restore current directory
+  unset -nocomplain savedPwd
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.15 {info exists with array element} -body {
+  time_x infoExistsTrue {info exists tcl_platform(engine)} 1 $qty $factor 14
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.16 {info exists} -body {
+  time_x infoExistsFalse {info exists foo} 1 $qty $factor 15
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.17 {while/incr loop} -body {
+  time_x whileIncr \
+      {set x 0; while {$x < $count} {incr x}} $count $qty $factor 16
+} -cleanup {
+  unset -nocomplain x
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.18 {while/lappend/incr loop} -setup {
+  proc makeLappendVarsFast {} {
+    uplevel 1 {
+      catch {unset y}; set x 0; set y [list]
+
+      #
+      # BUGBUG: The traces, watchpoints, and other processing on this
+      #         test slow things down significantly (i.e. by about 4x);
+      #         therefore, cheat by skipping all that handling for the
+      #         two variables used by this test.  This issue may get
+      #         resolved in a future release.
+      #
+      if {[isEagle]} then {
+        makeVariableFast x true
+        makeVariableFast y true
+      }
+    }
+  }
+} -body {
+  time_x whileLappendIncr {
+    makeLappendVarsFast; while {$x < $count} {lappend y $x; incr x}
+  } $count $qty $factor 17
+} -cleanup {
+  if {[isEagle]} then {
+    makeVariableFast y false
+    makeVariableFast x false
+  }
+
+  rename makeLappendVarsFast ""
+
+  unset -nocomplain x y
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.19 {for/incr loop} -body {
+  time_x forIncr {set x 0; for {set i 0} {$i < $count} {incr i} {incr x $i}} \
+      $count $qty $factor 18
+} -cleanup {
+  unset -nocomplain i x
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.20 {while/if/incr loop} -body {
+  time_x whileIfIncr {
+    set x 0; while {$x < $count} {if {!$x} then {incr x} else {incr x 2}}
+  } $count $qty $factor 19
+} -cleanup {
+  unset -nocomplain x
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+if {[isEagle] && ![info exists no(showStartingLevels)]} then {
+  set levels(0) [catch {debug levels} levels(1)]
+
+  tputs $test_channel [appendArgs "---- starting levels: " \
+      [formatListAsDict [expr {$levels(0) == 0 ? $levels(1) : ""}] \
+      <none>] \n]
+
+  unset levels
+}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.21 {infinite recursion detection} -body {
+  time_x infiniteRecursion {catch {proc_recurse}} [interp recursionlimit {}] \
+      $qty $factor 20
+} -constraints [fixTimingConstraints {performance tclCrash85 stackIntensive}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.22 {stack overflow detection} -setup {
+  set savedRecursionLimit [interp recursionlimit {}]
+  interp recursionlimit {} 9999999
+} -body {
+  time_x stackOverflow {catch {proc_recurse}} [interp recursionlimit {}] $qty \
+      $factor 21
+} -cleanup {
+  interp recursionlimit {} $savedRecursionLimit
+  unset -nocomplain savedRecursionLimit
+} -constraints [fixTimingConstraints {native windows performance compile.NATIVE\
+compile.WINDOWS tclCrash85 tclCrash86 stackIntensive}] -result 1}
+
+###############################################################################
+
+if {[isEagle] && ![info exists no(showEndingLevels)]} then {
+  set levels(0) [catch {debug levels} levels(1)]
+
+  tputs $test_channel [appendArgs "---- ending levels: " \
+      [formatListAsDict [expr {$levels(0) == 0 ? $levels(1) : ""}] \
+      <none>] \n]
+
+  unset levels
+}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.23 {build large random list} -body {
+  time_x buildRandList {proc_lbuild} $count $qty $factor 22
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.24 {count unique list items using array} -body {
+  time_x countRandList {proc_lcount $::data} [llength $::data] $qty $factor 23
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.25 {sort large random list} -body {
+  time_x sortRandList {lsort $::data} [llength $::data] $qty $factor 24
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.26 {sort large random list with -unique} -body {
+  time_x uniqueSortRandList {lsort -unique $::data} [llength $::data] $qty \
+      $factor 25
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.27 {simple static method invoke} -body {
+  time_x simpleInvokeStatic {object invoke System.String Format {{0}} test1} \
+      1 $qty $factor 26
+} -constraints [fixTimingConstraints {eagle command.object performance}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.28 {complex static method invoke} -body {
+  time_x complexInvokeStatic {
+    object invoke System.String.Empty ToString.Format {{0}} test1
+  } 1 $qty $factor 27
+} -constraints [fixTimingConstraints {eagle command.object performance}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.29 {simple instance method invoke} -setup {
+  set obj [object create System.String test1]
+} -body {
+  time_x simpleInvokeInstance {
+    object invoke $obj Format {{0}} test2
+  } 1 $qty $factor 28
+} -cleanup {
+  unset -nocomplain obj; # dispose
+} -constraints [fixTimingConstraints {eagle command.object performance}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.30 {complex instance method invoke} -setup {
+  set obj [object create System.String test1]
+} -body {
+  time_x complexInvokeInstance {
+    object invoke $obj ToString.Format {{0}} test2
+  } 1 $qty $factor 29
+} -cleanup {
+  unset -nocomplain obj; # dispose
+} -constraints [fixTimingConstraints {eagle command.object performance}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.31 {raw list parsing} -setup {
+  for {set x 0} {$x < $count} {incr x} {
+    lappend y [expr {int(rand() * $count)}]
+  }
+} -body {
+  time_x randListLindex {
+    lindex $y 0; lindex $y 1; lindex $y [expr {[llength $y] - 1}]
+  } $count $qty $factor 30
+} -cleanup {
+  unset -nocomplain x y
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.32 {cached list parsing} -setup {
+  for {set x 0} {$x < $count} {incr x} {
+    lappend y $x
+  }
+} -body {
+  time_x simpleListIndex {
+    lindex $y 0; lindex $y 1; lindex $y [expr {[llength $y] - 1}]
+  } $count $qty $factor 31
+} -cleanup {
+  unset -nocomplain x y
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.33 {string match} -setup {
+  set x [string repeat ABCDEFGHIJKLMNOPQRSTUVWXYZ $count]
+} -body {
+  time_x stringMatch {
+    string match B* $x; string match *MN* $x; string match *Y $x
+  } $count $qty $factor 32
+} -cleanup {
+  unset -nocomplain x
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.34 {array element get/set/unset} -setup {
+  unset -nocomplain x y zz
+  set y [expr {rand()}]
+} -body {
+  time_x arrayElementAccess {
+    set x(y) $y; set zz(y) $x(y); unset zz(y); unset x(y)
+  } 1 $qty $factor 33
+} -cleanup {
+  unset -nocomplain x y zz
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.35 {array element get/set/unset} -setup {
+  unset -nocomplain i x y z
+
+  for {set i 0} {$i < $count} {incr i} {
+    lappend z $i [expr {int(rand() * $i)}]
+  }
+} -body {
+  time_x arrayGetSet {
+    array set x $z; array set y [array get x]
+  } $count $qty $factor 34
+} -cleanup {
+  unset -nocomplain i x y z
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.36 {array elements exists/get/set/unset} -setup {
+  unset -nocomplain i x y z
+} -body {
+  list \
+  [time_x arrayElementExistsFalse {
+    for {set i 0} {$i < $count} {incr i} {set y [info exists x($i)]}
+  } $count $qty $factor 35] \
+  [time_x arrayElementSet {
+    for {set i 0} {$i < $count} {incr i} {set x($i) $i}
+  } $count $qty $factor 36] \
+  [time_x arrayElementExistsTrue {
+    for {set i 0} {$i < $count} {incr i} {set y [info exists x($i)]}
+  } $count $qty $factor 37] \
+  [time_x arrayElementGet {
+    for {set i 0} {$i < $count} {incr i} {set y $x($i)}
+  } $count $qty $factor 38] \
+  [time_x arrayElementProcess {
+    for {set i 0} {$i < $count} {incr i} {proc_element z $i}
+  } $count $qty $factor 39] \
+  [time_x arrayElementUnset {
+    for {set i 0} {$i < $count} {incr i} {unset x($i)}
+  } $count 1 $factor 40]
+} -cleanup {
+  unset -nocomplain i x y z
+} -constraints [fixTimingConstraints {performance}] -result {1 1 1 1 1 1}}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.37 {list element access} -setup {
+  for {set x 0} {$x < $count} {incr x} {
+    lappend y [expr {int(rand() * $count)}]
+  }
+} -body {
+  time_x multipleListLindex {
+    lindex $y 0; lindex $y 1; lindex $y end-1; lindex $y end
+  } $count $qty $factor 41
+} -cleanup {
+  unset -nocomplain x y
+} -constraints [fixTimingConstraints {performance}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.38 {read and split big text chunk} -setup {
+  unset -nocomplain y
+} -body {
+  time_x readAndSplitBigText {
+    llength [set y [split [readFile [file join $tdp benchmark.txt]] \n]]
+  } 1 $qty $factor 42
+} -cleanup {
+  unset -nocomplain y
+} -constraints [fixTimingConstraints {performance file_benchmark.txt}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.39 {list element random access stress} -setup {
+  set y [split [readFile [file join $tdp benchmark.txt]] \n]
+} -body {
+  time_x lindexRandomStress {
+    lindex $y 0; lindex $y 1; lindex $y end-1; lindex $y end
+  } [llength $y] $qty $factor 43
+} -cleanup {
+  unset -nocomplain y
+} -constraints [fixTimingConstraints {performance file_benchmark.txt}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.40 {list element sequential access stress} -setup {
+  set i 0; set y [split [readFile [file join $tdp benchmark.txt]] \n]
+
+  if {[isEagle]} then {
+    #
+    # BUGBUG: The traces, watchpoints, and other processing on this
+    #         test slow things down significantly (i.e. by about 4x);
+    #         therefore, cheat by skipping all that handling for the
+    #         two variables used by this test.  This issue may get
+    #         resolved in a future release.
+    #
+    makeVariableFast i true; makeVariableFast y true
+
+    #
+    # BUGBUG: This test is far too slow in older releases of Eagle to run to
+    #         completion; therefore, we only use a portion of the total list
+    #         when running there.  The underlying performance issue in Eagle
+    #         is resolved as of beta 29.
+    #
+    if {![isEagleBeta29OrLater] && \
+        ![info exists no(adjustLindexSequentialStress)]} then {
+      set y [lrange $y 0 [expr {[llength $y] / 10}]]
+    }
+  }
+} -body {
+  time_x lindexSequentialStress {
+    for {set i 0} {$i < [llength $y]} {incr i} {lindex $y $i}
+  } [llength $y] $qty $factor 44
+} -cleanup {
+  if {[isEagle]} then {
+    makeVariableFast i false; makeVariableFast y false
+  }
+
+  unset -nocomplain i y
+} -constraints [fixTimingConstraints {performance processorIntensive\
+file_benchmark.txt}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.41 {list range stress} -setup {
+  proc_lbuild
+} -body {
+  time_x lrangeStress {
+    lpermute [lrange $test_items 0 $maxItem]
+  } [expr {$maxItem + 1}] $qty $factor 45
+} -cleanup {
+  unset -nocomplain y
+} -constraints [fixTimingConstraints {performance processorIntensive}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.42 {extract PNG data from dump} -setup {
+  set y [readFile [file join $tdp pngDump.txt]]
+
+  if {[isEagle]} then {
+    makeProcedureFast proc_get_png true
+  }
+} -body {
+  time_x extractPngDataFromDump {
+    proc_get_png $y
+  } [string length $y] [expr {$qty / 10}] $factor 46
+} -cleanup {
+  if {[isEagle]} then {
+    makeProcedureFast proc_get_png false
+  }
+
+  unset -nocomplain y
+} -constraints [fixTimingConstraints {performance timeIntensive\
+processorIntensive file_pngDump.txt}] -result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.43 {create and randomize list} -setup {
+  set y_count $count; set y [list]
+
+  if {[isEagle]} then {
+    makeVariableFast y true
+    makeProcedureFast proc_create_list true
+    makeProcedureFast proc_randomize_list true
+
+    #
+    # BUGBUG: This test is far too slow in older releases of Eagle to run to
+    #         completion; therefore, we only use a portion of the total list
+    #         when running there.  The underlying performance issue in Eagle
+    #         is resolved as of beta 29.
+    #
+    if {![isEagleBeta29OrLater] && \
+        ![info exists no(adjustCreateAndRandomizeList)]} then {
+      set y_count [expr {$y_count / 10}]
+    }
+  }
+} -body {
+  time_x createAndRandomizeList {
+    set y [proc_create_list $y_count]; set y [proc_randomize_list $y]
+  } $y_count $qty $factor 47
+} -cleanup {
+  if {[isEagle]} then {
+    makeProcedureFast proc_randomize_list false
+    makeProcedureFast proc_create_list false
+    makeVariableFast y false
+  }
+
+  unset -nocomplain y y_count
+} -constraints [fixTimingConstraints {performance processorIntensive}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.44 {create and shuffle list with lindex} -setup {
+  set y_count $count; set y [list]
+
+  if {[isEagle]} then {
+    makeVariableFast y true
+    makeProcedureFast proc_create_list true
+    makeProcedureFast lshuffle true
+
+    #
+    # BUGBUG: This test is far too slow in older releases of Eagle to run to
+    #         completion; therefore, we only use a portion of the total list
+    #         when running there.  The underlying performance issue in Eagle
+    #         is resolved as of beta 29.
+    #
+    if {![isEagleBeta29OrLater] && \
+        ![info exists no(adjustCreateAndLindexShuffleList)]} then {
+      set y_count [expr {$y_count / 10}]
+    }
+  }
+} -body {
+  time_x createAndLindexShuffleList {
+    set y [proc_create_list $y_count]; set y [lshuffle $y]
+  } $y_count $qty $factor 48
+} -cleanup {
+  if {[isEagle]} then {
+    makeProcedureFast lshuffle false
+    makeProcedureFast proc_create_list false
+    makeVariableFast y false
+  }
+
+  unset -nocomplain y y_count
+} -constraints [fixTimingConstraints {performance processorIntensive}] \
+-result 1}
+
+###############################################################################
+
+runPerfTest {test benchmark-1.45 {create and shuffle list with lget} -setup {
+  set y_count $count; set y [list]
+
+  if {[isEagle]} then {
+    makeVariableFast y true
+    makeProcedureFast proc_create_list true
+    makeProcedureFast proc_lshuffle true
+
+    #
+    # BUGBUG: This test is far too slow in older releases of Eagle to run to
+    #         completion; therefore, we only use a portion of the total list
+    #         when running there.  The underlying performance issue in Eagle
+    #         is resolved as of beta 29.
+    #
+    if {![isEagleBeta29OrLater] && \
+        ![info exists no(adjustCreateAndLgetShuffleList)]} then {
+      set y_count [expr {$y_count / 10}]
+    }
+  }
+} -body {
+  time_x createAndLgetShuffleList {
+    set y [proc_create_list $y_count]; proc_lshuffle y
+  } $y_count $qty $factor 49
+} -cleanup {
+  if {[isEagle]} then {
+    makeProcedureFast proc_lshuffle false
+    makeProcedureFast proc_create_list false
+    makeVariableFast y false
+  }
+
+  unset -nocomplain y y_count
+} -constraints [fixTimingConstraints {performance command.lget\
+processorIntensive}] -result 1}
+
+###############################################################################
+
+if {[isEagle] && ![info exists no(trackPeakMemory)]} then {
+  memoryThreadCleanup
+}
+
+###############################################################################
+
+catch {maybeMakeHighPriority false}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename isEagleBeta29OrLater ""
+  rename memoryThreadCleanup ""
+  rename memoryThreadStart ""
+  rename memoryThreadSetup ""
+}
+
+###############################################################################
+
+rename runPerfTest ""
+rename proc_lcount ""
+rename proc_lbuild ""
+rename proc_element ""
+rename proc_lshuffle ""
+rename proc_randomize_list ""
+rename proc_create_list ""
+rename proc_get_png ""
+rename proc_recurse ""
+rename proc_global ""
+rename proc_nop_return ""
+rename proc_nop_args ""
+rename proc_nop ""
+
+###############################################################################
+
+set legacy [expr {[isEagle] && [hasRuntimeOption eagleLegacyBenchmark]}]
+
+###############################################################################
+
+if {[time_length $timeline] > 0} then {
+  if {$legacy} then {
+    tputs $test_channel [appendArgs \
+        "---- benchmark actual timeline: " $timeline \n]
+  }
+  tputs $test_channel [appendArgs \
+      "---- benchmark actual mean average: " [expr \
+      int(([time_join $timeline +]) / [time_length $timeline])] \n]
+}
+
+###############################################################################
+
+if {[time_length $times] > 0} then {
+  #
+  # NOTE: Calculate all the expected times based on the "fudge" factor,
+  #       if any.
+  #
+  set expectedTimes [fudgeTimes $times $factor]
+
+  if {$legacy} then {
+    tputs $test_channel [appendArgs \
+        "---- benchmark expected timeline: " $expectedTimes \n]
+  }
+  tputs $test_channel [appendArgs \
+      "---- benchmark expected mean average: " [expr \
+      int(([time_join $expectedTimes +]) / [time_length $times])] \n]
+} else {
+  #
+  # NOTE: There are no times available?  Ok, just "fill" the expected
+  #       times list with empty entries.
+  #
+  set expectedTimes [lrepeat [llength $times] ""]
+}
+
+###############################################################################
+
+if {[time_length $originalTimes] > 0} then {
+  if {$legacy} then {
+    tputs $test_channel [appendArgs \
+        "---- benchmark original timeline: " $originalTimes \n]
+  }
+  tputs $test_channel [appendArgs \
+      "---- benchmark original mean average: " [expr \
+      int(([time_join $originalTimes +]) / [time_length $originalTimes])] \n]
+}
+
+###############################################################################
+
+if {[time_length $comparisons] > 0} then {
+  if {$legacy} then {
+    tputs $test_channel [appendArgs \
+        "---- benchmark comparisons: " $comparisons \n]
+  }
+}
+
+###############################################################################
+
+if {!$legacy} then {
+  tputs $test_channel [appendArgs \
+      "---- benchmark table: " [formatList [buildOutputList] <none> 5] \n]
+}
+
+###############################################################################
+
+rename maybeMakeHighPriority ""
+rename reportCaches ""
+rename resetCaches ""
+rename haveCaches ""
+rename checkMemoryLoad ""
+rename fudgeTimes ""
+rename buildOutputList ""
+rename time_join ""
+rename time_length ""
+rename time_x ""
+
+###############################################################################
+
+#
+# NOTE: Did we add the [lrepeat] compatibility shim (i.e. are we running
+#       in native Tcl 8.4)?
+#
+if {[llength [info procs lrepeat]] > 0} then {
+  rename lrepeat ""
+}
+
+###############################################################################
+
+unset -nocomplain expectedTimes legacy test_items data originalTimes times \
+    factor maxItem qty tdp count names timeline comparisons warnings
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

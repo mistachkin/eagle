@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <EagleDir>$(ProjectDir)..\..</EagleDir>
+  </PropertyGroup>
+  <ImportGroup Label="Eagle">
+    <Import Project="$(EagleDir)\Targets\Eagle.Presets.targets" />
+  </ImportGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="DebugDll|Win32">
+      <Configuration>DebugDll</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DebugDll|ARM">
+      <Configuration>DebugDll</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DebugDll|x64">
+      <Configuration>DebugDll</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseDll|Win32">
+      <Configuration>ReleaseDll</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseDll|ARM">
+      <Configuration>ReleaseDll</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseDll|x64">
+      <Configuration>ReleaseDll</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectName>Garuda</ProjectName>
+    <ProjectGuid>{FA589B06-D939-4258-ACAC-4583E9F64F6D}</ProjectGuid>
+    <RootNamespace>Garuda</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|ARM'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+    <WindowsSDKDesktopARMSupport>true</WindowsSDKDesktopARMSupport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|ARM'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v110</PlatformToolset>
+    <WindowsSDKDesktopARMSupport>true</WindowsSDKDesktopARMSupport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="Eagle">
+    <Import Project="$(EagleDir)\Targets\Eagle.Builds.targets" />
+    <Import Project="$(EagleDir)\Targets\Eagle.Settings.targets" />
+  </ImportGroup>
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)..\..\bin\$(Platform)\$(Configuration)$(EagleConfigurationSuffix)\</OutDir>
+    <IntDir>$(ProjectDir)..\..\obj\$(ProjectFileName)\$(Platform)\$(Configuration)$(EagleConfigurationSuffix)\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="props\Garuda.props" />
+  </ImportGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_TRACE;_DEBUG;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);$(DEBUG_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>StackFrameRuntimeCheck</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <BrowseInformation>true</BrowseInformation>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+      <DisableSpecificWarnings>$(WIN32_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <Version>$(LINKER_VERSION)</Version>
+      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+      <BaseAddress>$(BASE_ADDRESS_X86)</BaseAddress>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+    <Manifest>
+      <VerboseOutput>true</VerboseOutput>
+      <AssemblyIdentity>$(ProjectName), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <UpdateFileHashes>true</UpdateFileHashes>
+    </Manifest>
+    <Bscmake>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+    </Bscmake>
+    <PreBuildEvent>
+      <Command>$(TAG_BUILD_COMMAND)</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>$(COPY_LIBRARY_COMMAND)
+$(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
+    </PostBuildEvent>
+    <BuildLog>
+      <Path>$(LOG_FILE)</Path>
+    </BuildLog>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|ARM'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_TRACE;_DEBUG;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);$(DEBUG_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>StackFrameRuntimeCheck</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <BrowseInformation>true</BrowseInformation>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+      <DisableSpecificWarnings>$(WIN32_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <Version>$(LINKER_VERSION)</Version>
+      <AdditionalLibraryDirectories>$(LIBRARY_ARM_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineARM</TargetMachine>
+      <BaseAddress>$(BASE_ADDRESS_ARM)</BaseAddress>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+    <Manifest>
+      <VerboseOutput>true</VerboseOutput>
+      <AssemblyIdentity>$(ProjectName), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <UpdateFileHashes>true</UpdateFileHashes>
+    </Manifest>
+    <Bscmake>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+    </Bscmake>
+    <PreBuildEvent>
+      <Command>$(TAG_BUILD_COMMAND)</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>$(COPY_LIBRARY_COMMAND)
+$(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
+    </PostBuildEvent>
+    <BuildLog>
+      <Path>$(LOG_FILE)</Path>
+    </BuildLog>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|x64'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;x64;_TRACE;_DEBUG;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);$(DEBUG_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>StackFrameRuntimeCheck</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <BrowseInformation>true</BrowseInformation>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+      <DisableSpecificWarnings>$(WIN32_WARNINGS);$(X64_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <Version>$(LINKER_VERSION)</Version>
+      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX64</TargetMachine>
+      <BaseAddress>$(BASE_ADDRESS_X64)</BaseAddress>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+    <Manifest>
+      <VerboseOutput>true</VerboseOutput>
+      <AssemblyIdentity>$(ProjectName), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <UpdateFileHashes>true</UpdateFileHashes>
+    </Manifest>
+    <Bscmake>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+    </Bscmake>
+    <PreBuildEvent>
+      <Command>$(TAG_BUILD_COMMAND)</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>$(COPY_LIBRARY_COMMAND)
+$(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
+    </PostBuildEvent>
+    <BuildLog>
+      <Path>$(LOG_FILE)</Path>
+    </BuildLog>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_TRACE;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <BrowseInformation>true</BrowseInformation>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+      <DisableSpecificWarnings>$(WIN32_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <Version>$(LINKER_VERSION)</Version>
+      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+      <BaseAddress>$(BASE_ADDRESS_X86)</BaseAddress>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+    <Manifest>
+      <VerboseOutput>true</VerboseOutput>
+      <AssemblyIdentity>$(ProjectName), processorArchitecture=x86, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <UpdateFileHashes>true</UpdateFileHashes>
+    </Manifest>
+    <Bscmake>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+    </Bscmake>
+    <PreBuildEvent>
+      <Command>$(TAG_BUILD_COMMAND)</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>$(COPY_LIBRARY_COMMAND)
+$(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
+    </PostBuildEvent>
+    <BuildLog>
+      <Path>$(LOG_FILE)</Path>
+    </BuildLog>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|ARM'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_TRACE;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <BrowseInformation>true</BrowseInformation>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+      <DisableSpecificWarnings>$(WIN32_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <Version>$(LINKER_VERSION)</Version>
+      <AdditionalLibraryDirectories>$(LIBRARY_ARM_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineARM</TargetMachine>
+      <BaseAddress>$(BASE_ADDRESS_ARM)</BaseAddress>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+    <Manifest>
+      <VerboseOutput>true</VerboseOutput>
+      <AssemblyIdentity>$(ProjectName), processorArchitecture=arm, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <UpdateFileHashes>true</UpdateFileHashes>
+    </Manifest>
+    <Bscmake>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+    </Bscmake>
+    <PreBuildEvent>
+      <Command>$(TAG_BUILD_COMMAND)</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>$(COPY_LIBRARY_COMMAND)
+$(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
+    </PostBuildEvent>
+    <BuildLog>
+      <Path>$(LOG_FILE)</Path>
+    </BuildLog>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|x64'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;x64;NDEBUG;_TRACE;_WINDOWS;_USRDLL;$(COMMON_DEFINES);$(TCL_DEFINES);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <BrowseInformation>true</BrowseInformation>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+      <DisableSpecificWarnings>$(WIN32_WARNINGS);$(X64_WARNINGS);%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>MSCorEE.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).dll</OutputFile>
+      <Version>$(LINKER_VERSION)</Version>
+      <AdditionalLibraryDirectories>$(LIBRARY_DIRECTORIES);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ModuleDefinitionFile>$(ProjectDir)src\win\$(ProjectName).def</ModuleDefinitionFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX64</TargetMachine>
+      <BaseAddress>$(BASE_ADDRESS_X64)</BaseAddress>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+    <Manifest>
+      <VerboseOutput>true</VerboseOutput>
+      <AssemblyIdentity>$(ProjectName), processorArchitecture=amd64, version=$(MANIFEST_VERSION), type=win32</AssemblyIdentity>
+      <UpdateFileHashes>true</UpdateFileHashes>
+    </Manifest>
+    <Bscmake>
+      <OutputFile>$(OutDir)$(OUTPUT_FILE).bsc</OutputFile>
+    </Bscmake>
+    <PreBuildEvent>
+      <Command>$(TAG_BUILD_COMMAND)</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>$(COPY_LIBRARY_COMMAND)
+$(SIGN_BUILD_COMMAND) "$(TargetPath)" "Eagle Package for Tcl (Garuda)"</Command>
+    </PostBuildEvent>
+    <BuildLog>
+      <Path>$(LOG_FILE)</Path>
+    </BuildLog>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="src\generic\Garuda.c" />
+    <ClCompile Include="src\win\DllMain.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="lib\dotnet.tcl" />
+    <None Include="lib\helper.tcl" />
+    <None Include="lib\pkgIndex.tcl" />
+    <None Include="props\Garuda.props" />
+    <None Include="Scripts\ex_winForms.tcl" />
+    <None Include="src\win\Garuda.def" />
+    <None Include="Tests\all.tcl" />
+    <None Include="Tools\bake.bat" />
+    <None Include="..\Common\Tools\common.tcl">
+      <Link>Tools\common.tcl</Link>
+    </None>
+    <None Include="..\Common\Tools\getEagle.tcl">
+      <Link>Tools\getEagle.tcl</Link>
+    </None>
+    <None Include="..\Common\Tools\pkgIndex.tcl">
+      <Link>Tools\pkgIndex.tcl</Link>
+    </None>
+    <None Include="Tools\release.bat" />
+    <None Include="Tools\signViaBuild.bat" />
+    <None Include="..\Common\Tools\tagViaBuild.tcl">
+      <Link>Tools\tagViaBuild.tcl</Link>
+    </None>
+    <None Include="Tools\update.bat" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\generic\Garuda.h" />
+    <ClInclude Include="src\generic\GarudaInt.h" />
+    <ClInclude Include="src\generic\GarudaPre.h" />
+    <ClInclude Include="src\generic\pkgVersion.h" />
+    <ClInclude Include="src\generic\rcVersion.h" />
+    <ClInclude Include="src\win\fakeSal.h" />
+    <ClInclude Include="src\win\stubs.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Tcl\include\tcl.h" />
+    <None Include="Tcl\include\tclDecls.h" />
+    <None Include="Tcl\include\tclInt.h" />
+    <None Include="Tcl\include\tclIntDecls.h" />
+    <None Include="Tcl\include\tclIntPlatDecls.h" />
+    <None Include="Tcl\include\tclPlatDecls.h" />
+    <None Include="Tcl\include\tclPort.h" />
+    <None Include="Tcl\include\tclTomMath.h" />
+    <None Include="Tcl\include\tclTomMathDecls.h" />
+    <None Include="Tcl\include\tclWinPort.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Tcl\lib\ARM\v110\tclstub86.lib" />
+    <None Include="Tcl\lib\ARM\v120\tclstub86.lib" />
+    <None Include="Tcl\lib\ARM\v140\tclstub86.lib" />
+    <None Include="Tcl\lib\ARM\v141\tclstub86.lib" />
+    <None Include="Tcl\lib\ARM\v142\tclstub86.lib" />
+    <None Include="Tcl\lib\ARM\v143\tclstub86.lib" />
+    <None Include="Tcl\lib\Win32\tclstub86.lib" />
+    <None Include="Tcl\lib\x64\tclstub86.lib" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\win\tea\coffbase.txt" />
+    <None Include="src\win\tea\makefile.vc" />
+    <None Include="src\win\tea\nmakehlp.c" />
+    <None Include="src\win\tea\pkg.vc" />
+    <None Include="src\win\tea\pkgIndex.tcl.in" />
+    <None Include="src\win\tea\rules.vc" />
+    <None Include="src\win\tea\trimspace.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="images\logo.png" />
+    <None Include="images\logoSfx.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="rc\Garuda.rc">
+      <PreprocessorDefinitions>RESOURCE_INCLUDED;WIN32;_UNICODE;UNICODE;RC_MSC_VER=1700;$(COMMON_DEFINES);$(TCL_DEFINES);OUTPUT_FILE=$(OUTPUT_FILE);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(INCLUDE_DIRECTORIES);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

@@ -1,0 +1,74 @@
+###############################################################################
+#
+# tcl-reset-cancel4.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test tclResetCancel-4.1 {Tcl TIP #285, substitution} -setup {
+  unset -nocomplain interp
+  tclLoadForTest tcl_loaded
+  set interp [tcl create]
+} -body {
+  tcl eval $interp {after 1000 [list interp cancel -unwind]}
+  tcl subst $interp {[while 1 update]}
+} -cleanup {
+  if {[info exists interp]} then {tcl delete $interp}
+  tclUnloadForTest false tcl_loaded
+  unset -nocomplain interp
+} -constraints {eagle native dynamic tclLibrary86 command.tcl compile.NATIVE\
+compile.TCL primaryThread} -returnCodes 1 -result {eval unwound}}
+
+###############################################################################
+
+runTest {test tclResetCancel-4.2 {Tcl TIP #285, nested interp reset} -setup {
+  unset -nocomplain interp
+  tclLoadForTest tcl_loaded
+  set interp [tcl create]
+  set interp2 [tcl eval $interp {interp create}]
+} -body {
+  tcl eval $interp {after 1000 [list interp cancel -unwind]}
+  catch {tcl eval $interp {while 1 update}}
+  tcl resetcancel $interp
+  tcl eval $interp [list interp eval $interp2 {clock seconds}]
+} -cleanup {
+  if {[info exists interp]} then {tcl delete $interp}
+  tclUnloadForTest false tcl_loaded
+  unset -nocomplain interp interp2
+} -constraints {eagle native dynamic tclLibrary86 command.tcl compile.NATIVE\
+compile.TCL primaryThread} -returnCodes 1 -result {eval unwound}}
+
+###############################################################################
+
+runTest {test tclResetCancel-4.3 {Tcl TIP #285, nested interp reset} -setup {
+  unset -nocomplain interp
+  tclLoadForTest tcl_loaded
+  set interp [tcl create]
+  set interp2 [tcl eval $interp {interp create}]
+} -body {
+  tcl eval $interp {after 1000 [list interp cancel -unwind]}
+  catch {tcl eval $interp {while 1 update}}
+  tcl resetcancel -children $interp
+  tcl eval $interp [list interp eval $interp2 {clock seconds}]
+} -cleanup {
+  if {[info exists interp]} then {tcl delete $interp}
+  tclUnloadForTest false tcl_loaded
+  unset -nocomplain interp interp2
+} -constraints {eagle native dynamic tclLibrary86 command.tcl compile.NATIVE\
+compile.TCL primaryThread} -match regexp -result {^\d+$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

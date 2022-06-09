@@ -1,0 +1,26 @@
+###############################################################################
+#
+# unicode.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test unicode-1.1 {unicode characters} -body {
+  list \xFFFF \xFF\xFF \xFFFFFFFF "{\xFFFF}FFFF"
+} -constraints {tcl85OrLower} -result {ÿ ÿÿ ÿ {{ÿ}FFFF}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

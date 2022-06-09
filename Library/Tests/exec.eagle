@@ -1,0 +1,233 @@
+###############################################################################
+#
+# exec.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+unset -nocomplain test_log_if
+set test_log_if [expr {[info exists test_log] ? $test_log : ""}]
+
+###############################################################################
+
+unset -nocomplain comSpec
+set comSpec [expr {[info exists env(ComSpec)] ? $env(ComSpec) : ""}]
+
+###############################################################################
+
+runTest {test exec-1.1 {cancel exec with events, kill process} -setup  [subst \
+    -nocommands -nobackslashes {
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {![info exists test_channel]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {[catch {package present Eagle.Test}]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {![info exists test_log]} then {
+    set test_log {$test_log_if}
+  }
+
+  #
+  # NOTE: Set the operating system command shell to use for the test.
+  #
+  if {![info exists comSpec]} then {
+    set comSpec {$comSpec}
+  }
+
+  set savedFlags [after flags]
+  after flags =Immediate
+}] -body {
+  set pid 0
+  set code [catch {
+    after 1000 [list interp cancel]
+    testExec $comSpec [list -nocapture -processid pid]
+  } msg]
+
+  set y [list $code $msg [expr {$pid != 0 && $pid == [info previouspid] ? \
+      [kill -force $pid] : "cannot kill process, wrong pid"}]]
+} -cleanup {
+  catch {kill -force [info previouspid]}
+  catch {info previouspid true}
+
+  after flags [appendArgs = $savedFlags]
+  unset -nocomplain y code pid msg savedFlags comSpec
+  unset -nocomplain test_log test_channel
+} -constraints {eagle windows testExec interactive tip285} -isolationLevel \
+Interpreter -match regexp -result [string map [list cmd.exe [appendArgs \
+.*\\\\ [file tail $comSpec]]] {^1 \{eval canceled\} \{(killed \{\d+\
+\{cmd.exe\}\})|(killed \d+)\}$}]}
+
+###############################################################################
+
+unset -nocomplain comSpec
+
+###############################################################################
+
+runTest {test exec-1.2 {-debug option} -setup {
+  unset -nocomplain output pid
+} -body {
+  set pid 0
+  list [catch {
+    testExec fossil [list -debug -processid pid] version
+  } output] $pid [string trim $output]
+} -cleanup {
+  catch {info previouspid true}
+
+  unset -nocomplain output pid
+} -constraints {eagle testExec fossil_version} -match regexp -result \
+{^0 \d+ \{This is fossil version \d+\.\d+ \[[0-9a-f]{10}\] \d{4}-\d{2}-\d{2}\
+\d{2}:\d{2}:\d{2} UTC\}$}}
+
+###############################################################################
+
+runTest {test exec-1.3 {-nocapture with -success} -setup {
+  unset -nocomplain output
+} -body {
+  list [catch {
+    testExec $env(ComSpec) [list -nocapture -success Success] /c exit 1
+  } output] $output
+} -cleanup {
+  catch {info previouspid true}
+
+  unset -nocomplain output
+} -constraints {eagle windows testExec comSpec_cmd.exe} -result \
+{1 {child process exited abnormally}}}
+
+###############################################################################
+
+runTest {test exec-2.1 {output capture stress test} -setup {
+  unset -nocomplain expected output count i code
+} -body {
+  tputs $test_channel \
+      "---- doing test exec-2.1 which can take several minutes to run\n"
+
+  set expected [readFile [file join $test_data_path big_exec.txt]]
+
+  if {[info exists test_stress_count]} then {
+    set count $test_stress_count; # NOTE: Beta 45+.
+  } else {
+    set count 1000; # NOTE: Beta 44-.
+  }
+
+  for {set i 0} {$i < $count} {incr i} {
+    unset -nocomplain output code
+
+    set code [catch {
+      #
+      # HACK: Use the "--chdir" option here in an attempt to make sure
+      #       we are reading from the Eagle repository.
+      #
+      testExec fossil [list] artifact \
+          --chdir [appendArgs \" $test_data_path \"] \
+          88cf0da6bc3fe69201d328495c3711f0f8b23177
+    } output]
+
+    if {$code != 0} then {
+      error [appendArgs \
+          "bad return code " $code " at iteration #" [expr {$i + 1}] \
+          ": " $output]
+    }
+
+    set output [string map [list \r\n \n] $output]; # normalize line-endings
+
+    set output [join [split [regexp -all -line -inline -skip 1  -- \
+        {^F .* ([0-9a-f]{40})$} $output] " "] \n]; # extract all UUIDs
+
+    if {$output ne $expected} then {
+      if {0} then {
+        writeFile [file join [getTemporaryPath] exec-2.1.out] $output
+      }
+
+      error [appendArgs \
+          "bad output at iteration #" [expr {$i + 1}] ": " $output]
+    }
+  }
+} -cleanup {
+  catch {info previouspid true}
+
+  unset -nocomplain expected output count i code
+} -constraints \
+{eagle testExec fossil_version fossil_repository_file file_big_exec.txt} \
+-time true -result {}}
+
+###############################################################################
+
+if {[isEagle] && [haveConstraint file_isolated.eagle]} then {
+  set isolationTemplate [readFile [file join $test_data_path isolated.eagle]]
+} else {
+  set isolationTemplate ""
+}
+
+###############################################################################
+
+if {[isEagle] && [haveConstraint testExec]} then {
+  tputs $test_channel [appendArgs \
+      "---- running isolation tests (this may take a while)...\n"]
+}
+
+###############################################################################
+
+tputs $test_channel "---- start of process isolation tests\n"
+
+###############################################################################
+
+#
+# NOTE: This test is special.  It always runs in a child process.  It requires
+#       an Eagle release of Beta 34 or later.  It is likely that this will not
+#       work correctly on Mono.  That being said, at the time this was written
+#       (June 2015), it was run on Mono 2.0.x and worked correctly.  However,
+#       it does NOT appear to work on Mono 2.8, 2.10, 2.11, 3.0, 3.2, or 4.x,
+#       at least not on Windows.  As of Mono 4.6.2 on Windows, it does appear
+#       to work.
+#
+runTest {test processIsolation-1.1 {test with process isolation} -body {
+  info pid
+} -constraints {eagle testExec} -time true -match regexp -isolationLevel \
+Process -isolationTemplate $isolationTemplate -isolationPathType Library \
+-isolationFileName [file join $test_path temporary-isolated.eagle] \
+-isolationOtherArguments [list -preInitialize [list set test_run_id \
+[getTestRunId]]] -isolationFailDetail Highest -isolationLogFile \
+$test_log_if -noProcessId true -constraintExpression \
+{[haveConstraint dotNetOrDotNetCore] || ![haveConstraint windows] || \
+[haveConstraint mono20] || [haveConstraint mono22] || \
+[haveConstraint mono24] || [haveConstraint mono26] || \
+[haveConstraint mono46]} -result {^\d+$}}
+
+###############################################################################
+
+tputs $test_channel "---- end of process isolation tests\n"
+
+###############################################################################
+
+unset -nocomplain isolationTemplate
+
+###############################################################################
+
+unset -nocomplain test_log_if
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

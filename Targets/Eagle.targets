@@ -1,0 +1,2888 @@
+<!--
+ *
+ * Eagle.targets -
+ *
+ * WARNING: Contains more evil MSBuild hacks than your doctor recommended.
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+  ******************************************************************************
+  **                          Load Per-User Settings                          **
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: If the per-user settings file exists, import it now.  The contained
+            settings, if any, will override the default ones provided below.
+  -->
+  <Import Condition="'$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Targets\Eagle.targets.user')"
+          Project="$(EagleDir)\Targets\Eagle.targets.user" />
+
+  <!--
+  ******************************************************************************
+  **                               Hack Targets                               **
+  ******************************************************************************
+  -->
+
+  <Target Name="FixCopyFilesToOutputDirectory"
+          Condition="'$(BuildTool)' == 'MSBuild'"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).FixCopyFilesToOutputDirectory.done">
+    <!--
+        HACK: No "Inputs" or "Outputs" were specified on the built-in
+              CopyFilesToOutputDirectory target?
+
+        RANT: This hack totally sucks and should not be required, period.  The
+              built-in MSBuild task CopyFilesToOutputDirectory is fundamentally
+              broken for any non-trivial builds (especially those that need to
+              post-process the target assembly for digital signatures, etc).
+    -->
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFiles="@(IntermediateAssembly)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="$(OutDir)$(TargetName).pdb"
+          DestinationFiles="$(IntermediateOutputPath)$(TargetName).pdb"
+          SkipUnchangedFiles="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).FixCopyFilesToOutputDirectory.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  **                           Housekeeping Targets                           **
+  ******************************************************************************
+  -->
+
+  <Target Name="CleanDoneFiles"
+          Condition="'$(OutDir)' != '' And
+                     '$(TargetFileName)' != ''">
+    <CreateItem Include="$(OutDir)$(TargetFileName).*.done">
+      <Output ItemName="CleanDoneFilesItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Delete Condition="'@(CleanDoneFilesItem)' != ''"
+            Files="@(CleanDoneFilesItem)" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="GetDoneFiles"
+          Condition="'$(OutDir)' != '' And
+                     '$(TargetFileName)' != ''">
+    <CreateItem Include="$(OutDir)$(TargetFileName).*.done">
+      <Output ItemName="GetDoneFilesItem" TaskParameter="Include" />
+    </CreateItem>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="UpdateDoneFiles"
+          Inputs="$(TargetPath)"
+          Outputs="@(GetDoneFilesItem)">
+    <!--
+        NOTE: We know that we performed all the tasks if they were necessary.
+              However, since we have multiple tasks that all potentially update
+              the target path, we need to resync the "*.done" files to the final
+              time-stamp of the target path so that we do not accidentally
+              trigger any of the tasks that rely upon them during a later build.
+    -->
+    <Touch Condition="'@(GetDoneFilesItem)' != ''"
+           Files="@(GetDoneFilesItem)" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CleanConfigurations"
+          Condition="'$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')">
+    <CreateItem Include="$(OutputPath)*.config">
+      <Output ItemName="CleanConfigurationsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Delete Condition="'@(CleanConfigurationsItem)' != ''"
+            Files="@(CleanConfigurationsItem)"
+            ContinueOnError="true" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CleanWixOutputFiles"
+          Condition="'$(MSBuildProjectDirectory)' != '' And
+                     !HasTrailingSlash('$(MSBuildProjectDirectory)')">
+    <CreateItem Include="$(MSBuildProjectDirectory)\Tests\*.msi;$(MSBuildProjectDirectory)\Tests\*.wixobj;$(MSBuildProjectDirectory)\Tests\*.wixpdb">
+      <Output ItemName="CleanWixOutputFilesItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Delete Condition="'@(CleanWixOutputFilesItem)' != ''"
+            Files="@(CleanWixOutputFilesItem)" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  **                         [Fairly] Generic Targets                         **
+  ******************************************************************************
+  -->
+
+  <Target Name="StrongNameSign"
+          Condition="'$(SignAssembly)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     Exists('$(AssemblyOriginatorKeyFile)') And
+                     Exists('$(AssemblyPrivateKeyFile)') And
+                     '$(TargetPath)' != '' And
+                     !HasTrailingSlash('$(TargetPath)') And
+                     Exists('$(TargetPath)') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)') And
+                     '$(TargetName)' != '' And
+                     '$(TargetExt)' != ''"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).StrongNameSign.done">
+    <!--
+        HACK: *BROKEN* The GetFrameworkSDKPath MSBuild task was broken by the
+              Visual Studio 2012 / .NET Framework 4.5 RTM release.  It now
+              incorrectly returns the Windows SDK path, not the .NET Framework
+              SDK path.  When Visual Studio 2012 is installed, it also breaks
+              the Visual Studio 2010 / .NET Framework 4.0 build environment as
+              well.  The "supported", yet sub-optimal, alternative appears to
+              be using the TargetFrameworkSDKToolsDirectory variable.
+    -->
+    <GetFrameworkSDKPath Condition="('$(StrongNameWithoutSdk)' == '' Or
+                                     '$(StrongNameWithoutSdk)' == 'false') And
+                                    '$(TargetFrameworkSDKToolsDirectory)' == ''">
+      <Output TaskParameter="Path"
+              PropertyName="DirForStrongName" />
+    </GetFrameworkSDKPath>
+
+    <Exec Condition="'$(StrongNameWithoutSdk)' != '' And
+                     '$(StrongNameWithoutSdk)' != 'false'"
+          Command="sn.exe -Ra &quot;$(TargetPath)&quot; &quot;$(AssemblyPrivateKeyFile)&quot;" />
+
+    <Exec Condition="'$(StrongNameWithoutSdk)' != '' And
+                     '$(StrongNameWithoutSdk)' != 'false' And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="sn.exe -Ra &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot; &quot;$(AssemblyPrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(DirForStrongName)' != '' And
+                     HasTrailingSlash('$(DirForStrongName)') And
+                     Exists('$(DirForStrongName)bin\sn.exe')"
+          Command="&quot;$(DirForStrongName)bin\sn.exe&quot; -Ra &quot;$(TargetPath)&quot; &quot;$(AssemblyPrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(DirForStrongName)' != '' And
+                     HasTrailingSlash('$(DirForStrongName)') And
+                     Exists('$(DirForStrongName)bin\sn.exe') And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(DirForStrongName)bin\sn.exe&quot; -Ra &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot; &quot;$(AssemblyPrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(DirForStrongName)' == '' And
+                     HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
+                     Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe')"
+          Command="&quot;$(TargetFrameworkSDKToolsDirectory)sn.exe&quot; -Ra &quot;$(TargetPath)&quot; &quot;$(AssemblyPrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(DirForStrongName)' == '' And
+                     HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
+                     Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe') And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(TargetFrameworkSDKToolsDirectory)sn.exe&quot; -Ra &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot; &quot;$(AssemblyPrivateKeyFile)&quot;" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).StrongNameSign.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="Mark32BitOnly"
+          Condition="'$(Mark32BitOnly)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(BuildTool)' == 'MSBuild' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(TargetPath)' != '' And
+                     !HasTrailingSlash('$(TargetPath)') And
+                     Exists('$(TargetPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).Mark32BitOnly.done">
+    <!--
+        HACK: *BROKEN* The GetFrameworkSDKPath MSBuild task was broken by the
+              Visual Studio 2012 / .NET Framework 4.5 RTM release.  It now
+              incorrectly returns the Windows SDK path, not the .NET Framework
+              SDK path.  When Visual Studio 2012 is installed, it also breaks
+              the Visual Studio 2010 / .NET Framework 4.0 build environment as
+              well.  The "supported", yet sub-optimal, alternative appears to
+              be using the TargetFrameworkSDKToolsDirectory variable.
+    -->
+    <GetFrameworkSDKPath Condition="'$(TargetFrameworkSDKToolsDirectory)' == ''">
+      <Output TaskParameter="Path"
+              PropertyName="DirForMark32BitOnly" />
+    </GetFrameworkSDKPath>
+
+    <Exec Condition="'$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(DirForMark32BitOnly)' != '' And
+                     HasTrailingSlash('$(DirForMark32BitOnly)') And
+                     Exists('$(DirForMark32BitOnly)bin\CorFlags.exe')"
+          Command="&quot;$(DirForMark32BitOnly)bin\CorFlags.exe&quot; &quot;$(TargetPath)&quot; /32BIT+ /Force 1&gt;NUL" />
+
+    <Exec Condition="'$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(DirForMark32BitOnly)' == '' And
+                     HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
+                     Exists('$(TargetFrameworkSDKToolsDirectory)CorFlags.exe')"
+          Command="&quot;$(TargetFrameworkSDKToolsDirectory)CorFlags.exe&quot; &quot;$(TargetPath)&quot; /32BIT+ /Force 1&gt;NUL" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).Mark32BitOnly.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CopyPkgIndex"
+          Condition="'$(CopyPkgIndex)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyPkgIndex.done">
+    <CreateItem Include="lib\pkgIndex.*">
+      <Output ItemName="CopyPkgIndexItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(CopyPkgIndexItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyPkgIndex.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CopyTools"
+          Condition="'$(CopyTools)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyTools.done">
+    <CreateItem Include="Tools\*">
+      <Output ItemName="CopyToolsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(CopyToolsItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyTools.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CopyLibrary"
+          Condition="'$(CopyLibrary)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyLibrary.done">
+    <CreateItem Include="lib\**">
+      <Output ItemName="CopyLibraryItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(CopyLibraryItem)"
+          DestinationFiles="@(CopyLibraryItem -> '$(OutputPath)%(RecursiveDir)%(Filename)%(Extension)')" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyLibrary.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CopyExternals"
+          Condition="'$(CopyExternals)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyExternals.done">
+    <CreateItem Include="Externals\*" Exclude="Externals\no_*">
+      <Output ItemName="CopyExternalsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(CopyExternalsItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyExternals.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CopyArchitectureExternals"
+          Condition="'$(CopyArchitectureExternals)' != 'false' And
+                     '$(Architecture)' != '' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyArchitectureExternals.done">
+    <CreateItem Include="Externals\$(Architecture)\*"
+                Exclude="Externals\$(Architecture)\no_*">
+      <Output ItemName="CopyArchitectureExternalsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(CopyArchitectureExternalsItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyArchitectureExternals.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CopyAllArchitectureExternals"
+          Condition="'$(CopyAllArchitectureExternals)' != 'false' And
+                     '$(Architecture)' != '' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyAllArchitectureExternals.done">
+    <CreateItem Include="Externals\**\$(Architecture)\*"
+                Exclude="Externals\**\$(Architecture)\no_*">
+      <Output ItemName="CopyAllArchitectureExternalsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(CopyAllArchitectureExternalsItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyAllArchitectureExternals.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="CopyConfigurations"
+          Condition="'$(CopyConfigurations)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyConfigurations.done">
+    <CreateItem Include="Configurations\*.config" Exclude="Configurations\no_*">
+      <Output ItemName="CopyConfigurationsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(CopyConfigurationsItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyConfigurations.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  **                          Eagle Specific Targets                          **
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectBuildTool"
+          Condition="'$(EagleDetectBuildTool)' != 'false' And
+                     '$(MSBuildBinPath)' != '' And
+                     !HasTrailingSlash('$(MSBuildBinPath)')">
+    <CreateProperty Condition="Exists('$(MSBuildBinPath)\MSBuild.exe')"
+                    Value="MSBuild">
+      <Output TaskParameter="Value" PropertyName="BuildTool" />
+    </CreateProperty>
+
+    <CreateProperty Condition="Exists('$(MSBuildBinPath)\xbuild.exe')"
+                    Value="XBuild">
+      <Output TaskParameter="Value" PropertyName="BuildTool" />
+    </CreateProperty>
+
+    <CreateProperty Condition="Exists('$(MSBuildBinPath)\MSBuild.dll') Or
+                               '$(TargetFramework)' == 'netstandard2.0' Or
+                               '$(TargetFramework)' == 'netstandard2.1' Or
+                               '$(TargetFramework)' == 'netcoreapp2.0' Or
+                               '$(TargetFramework)' == 'netcoreapp2.1' Or
+                               '$(TargetFramework)' == 'netcoreapp2.2' Or
+                               '$(TargetFramework)' == 'netcoreapp3.0' Or
+                               '$(TargetFramework)' == 'netcoreapp3.1'"
+                    Value="DotNetCore">
+      <Output TaskParameter="Value" PropertyName="BuildTool" />
+    </CreateProperty>
+
+    <CreateProperty Condition="!Exists('$(MSBuildBinPath)\MSBuild.exe') And
+                               !Exists('$(MSBuildBinPath)\xbuild.exe') And
+                               !Exists('$(MSBuildBinPath)\MSBuild.dll')"
+                    Value="Unknown">
+      <Output TaskParameter="Value" PropertyName="BuildTool" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectOperatingSystem"
+          Condition="'$(EagleDetectOperatingSystem)' != 'false'">
+    <CreateProperty Condition="'$(OS)' == 'Windows_NT'" Value="Windows">
+      <Output TaskParameter="Value" PropertyName="OperatingSystem" />
+    </CreateProperty>
+
+    <CreateProperty Condition="'$(OS)' == 'Unix'" Value="Unix">
+      <Output TaskParameter="Value" PropertyName="OperatingSystem" />
+    </CreateProperty>
+
+    <CreateProperty Condition="'$(OS)' == 'OSX'" Value="MacOSX">
+      <Output TaskParameter="Value" PropertyName="OperatingSystem" />
+    </CreateProperty>
+
+    <CreateProperty Condition="'$(OS)' != 'Windows_NT' And
+                               '$(OS)' != 'Unix' And
+                               '$(OS)' != 'OSX'"
+                    Value="Unknown">
+      <Output TaskParameter="Value" PropertyName="OperatingSystem" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectArchitecture"
+          Condition="'$(EagleDetectArchitecture)' != 'false'">
+    <CreateProperty Condition="'$(PROCESSOR_ARCHITECTURE)' == 'AMD64' Or
+                               '$(PROCESSOR_ARCHITEW6432)' == 'AMD64'"
+                    Value="x64">
+      <Output TaskParameter="Value" PropertyName="Architecture" />
+    </CreateProperty>
+
+    <CreateProperty Condition="'$(PROCESSOR_ARCHITECTURE)' == 'IA64' Or
+                               '$(PROCESSOR_ARCHITEW6432)' == 'IA64'"
+                    Value="ia64">
+      <Output TaskParameter="Value" PropertyName="Architecture" />
+    </CreateProperty>
+
+    <CreateProperty Condition="'$(PROCESSOR_ARCHITECTURE)' == 'x86' And
+                               '$(PROCESSOR_ARCHITEW6432)' == ''"
+                    Value="x86">
+      <Output TaskParameter="Value" PropertyName="Architecture" />
+    </CreateProperty>
+
+    <CreateProperty Condition="'$(PROCESSOR_ARCHITECTURE)' == 'ARM' And
+                               '$(PROCESSOR_ARCHITEW6432)' == ''"
+                    Value="arm">
+      <Output TaskParameter="Value" PropertyName="Architecture" />
+    </CreateProperty>
+
+    <CreateProperty Condition="'$(PROCESSOR_ARCHITECTURE)' != 'AMD64' And
+                               '$(PROCESSOR_ARCHITECTURE)' != 'IA64' And
+                               '$(PROCESSOR_ARCHITECTURE)' != 'x86' And
+                               '$(PROCESSOR_ARCHITECTURE)' != 'ARM'"
+                    Value="Unknown">
+      <Output TaskParameter="Value" PropertyName="Architecture" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx20Sp"
+          Condition="'$(EagleDetectNetFx20Sp)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)SetErrorLevel.exe') And
+                     Exists('$(EagleLibraryToolsDir)netFx20Sp.bat')">
+    <Exec Command="&quot;$(EagleLibraryToolsDir)netFx20Sp.bat&quot;"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="EagleNetFx20Sp" />
+    </Exec>
+
+    <CreateProperty Condition="$(EagleNetFx20Sp) &gt;= 0x201"
+                    Value="$(DefineConstants);NET_20_SP1">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+
+    <CreateProperty Condition="$(EagleNetFx20Sp) &gt;= 0x202"
+                    Value="$(DefineConstants);NET_20_SP2">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetCore20"
+          Condition="'$(EagleDetectNetCore20)' != 'false'">
+    <CreateProperty Condition="'$(EagleNetCore20)' != 'false' And
+                               ('$(TargetFramework)' == 'netstandard2.0' Or
+                                '$(TargetFramework)' == 'netstandard2.1' Or
+                                '$(TargetFramework)' == 'netcoreapp2.0' Or
+                                '$(TargetFramework)' == 'netcoreapp2.1' Or
+                                '$(TargetFramework)' == 'netcoreapp2.2' Or
+                                '$(TargetFramework)' == 'netcoreapp3.0' Or
+                                '$(TargetFramework)' == 'netcoreapp3.1')"
+                    Value="$(DefineConstants);NET_CORE_20">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetCore30"
+          Condition="'$(EagleDetectNetCore30)' != 'false'">
+    <CreateProperty Condition="'$(EagleNetCore30)' != 'false' And
+                               ('$(TargetFramework)' == 'netstandard2.1' Or
+                                '$(TargetFramework)' == 'netcoreapp3.0' Or
+                                '$(TargetFramework)' == 'netcoreapp3.1')"
+                    Value="$(DefineConstants);NET_CORE_30">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx20"
+          Condition="'$(EagleDetectNetFx20)' != 'false'">
+    <CreateProperty Condition="((('$(MSBuildToolsVersion)' == '' Or
+                                  '$(MSBuildToolsVersion)' == '2.0' Or
+                                  '$(MSBuildToolsVersion)' == '3.5') And
+                                 '$(TargetFrameworkVersion)' == '') Or
+                                '$(TargetFrameworkVersion)' == 'v2.0') And
+                               '$(TargetFramework)' != 'netstandard2.0' And
+                               '$(TargetFramework)' != 'netstandard2.1' And
+                               '$(TargetFramework)' != 'netcoreapp2.0' And
+                               '$(TargetFramework)' != 'netcoreapp2.1' And
+                               '$(TargetFramework)' != 'netcoreapp2.2' And
+                               '$(TargetFramework)' != 'netcoreapp3.0' And
+                               '$(TargetFramework)' != 'netcoreapp3.1'"
+                    Value="$(DefineConstants);NET_20">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+
+    <CreateProperty Condition="((('$(MSBuildToolsVersion)' != '' And
+                                  '$(MSBuildToolsVersion)' != '2.0' And
+                                  '$(MSBuildToolsVersion)' != '3.5') Or
+                                 '$(TargetFrameworkVersion)' != '') And
+                                '$(TargetFrameworkVersion)' != 'v2.0') And
+                               '$(TargetFramework)' != 'netstandard2.0' And
+                               '$(TargetFramework)' != 'netstandard2.1' And
+                               '$(TargetFramework)' != 'netcoreapp2.0' And
+                               '$(TargetFramework)' != 'netcoreapp2.1' And
+                               '$(TargetFramework)' != 'netcoreapp2.2' And
+                               '$(TargetFramework)' != 'netcoreapp3.0' And
+                               '$(TargetFramework)' != 'netcoreapp3.1'"
+                    Value="false">
+      <Output TaskParameter="Value" PropertyName="EagleDetectNetFx20Sp" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx30"
+          Condition="'$(EagleDetectNetFx30)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v3.0'"
+                    Value="$(DefineConstants);NET_30">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx35"
+          Condition="'$(EagleDetectNetFx35)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v3.5'"
+                    Value="$(DefineConstants);NET_35">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx40"
+          Condition="'$(EagleDetectNetFx40)' != 'false'">
+    <CreateProperty Condition="(('$(MSBuildToolsVersion)' == '4.0' Or
+                                 '$(MSBuildToolsVersion)' == '12.0' Or
+                                 '$(MSBuildToolsVersion)' == '14.0' Or
+                                 '$(MSBuildToolsVersion)' == '15.0' Or
+                                 '$(MSBuildToolsVersion)' == 'Current') And
+                                '$(TargetFrameworkVersion)' == '') Or
+                               '$(TargetFrameworkVersion)' == 'v4.0' Or
+                               '$(TargetFrameworkVersion)' == 'v4.5' Or
+                               '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                               '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                               '$(TargetFrameworkVersion)' == 'v4.6' Or
+                               '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                               '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                               '$(TargetFrameworkVersion)' == 'v4.7' Or
+                               '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                               '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                               '$(TargetFrameworkVersion)' == 'v4.8'"
+                    Value="$(DefineConstants);NET_40">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx45"
+          Condition="'$(EagleDetectNetFx45)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.5'"
+                    Value="$(DefineConstants);NET_45">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx451"
+          Condition="'$(EagleDetectNetFx451)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.5.1'"
+                    Value="$(DefineConstants);NET_451">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx452"
+          Condition="'$(EagleDetectNetFx452)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.5.2'"
+                    Value="$(DefineConstants);NET_452">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx46"
+          Condition="'$(EagleDetectNetFx46)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.6'"
+                    Value="$(DefineConstants);NET_46">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx461"
+          Condition="'$(EagleDetectNetFx461)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.6.1'"
+                    Value="$(DefineConstants);NET_461">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx462"
+          Condition="'$(EagleDetectNetFx462)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.6.2'"
+                    Value="$(DefineConstants);NET_462">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx47"
+          Condition="'$(EagleDetectNetFx47)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.7'"
+                    Value="$(DefineConstants);NET_47">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx471"
+          Condition="'$(EagleDetectNetFx471)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.7.1'"
+                    Value="$(DefineConstants);NET_471">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx472"
+          Condition="'$(EagleDetectNetFx472)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.7.2'"
+                    Value="$(DefineConstants);NET_472">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx48"
+          Condition="'$(EagleDetectNetFx48)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.8'"
+                    Value="$(DefineConstants);NET_48">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectVs2017"
+          Condition="'$(EagleDetectVs2017)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)vswhere.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).DetectVs.done">
+    <!--
+        HACK: Use a couple undocumented properties of the Exec task in order
+              to capture the console output of the "vswhere" command.  This
+              is needed to locate the "EditBin" executable for Visual Studio
+              2017.  For more information, see:
+
+              https://stackoverflow.com/questions/8938679
+    -->
+    <Exec ConsoleToMSBuild="true" Command="&quot;$(EagleLibraryToolsDir)vswhere.exe&quot; -version 15.0 -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -latest"
+          WorkingDirectory="$(EagleLibraryToolsDir)"
+          IgnoreStandardErrorWarningFormat="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="VsWhereExitCode" />
+      <Output TaskParameter="ConsoleOutput" PropertyName="VS150INSTALLATIONPATH" />
+    </Exec>
+
+    <!--
+        HACK: Interestingly, the "vswhere" tool will generate an error when
+              the -version command line option is used on a machine without
+              Visual Studio 2017 installed.  This seems to defeat the purpose
+              of a "detection" tool (i.e. it should simply return no matches
+              instead of raising an error), we must work around it since this
+              decision appears to be by design.
+    -->
+    <CreateProperty Condition="'$(VsWhereExitCode)' != '0'" Value="">
+      <Output TaskParameter="Value" PropertyName="VS150INSTALLATIONPATH" />
+    </CreateProperty>
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).DetectVs.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectVs2019"
+          Condition="'$(EagleDetectVs2019)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)vswhere.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).DetectVs.done">
+    <!--
+        HACK: Use a couple undocumented properties of the Exec task in order
+              to capture the console output of the "vswhere" command.  This
+              is needed to locate the "EditBin" executable for Visual Studio
+              2019.  For more information, see:
+
+              https://stackoverflow.com/questions/8938679
+    -->
+    <Exec ConsoleToMSBuild="true" Command="&quot;$(EagleLibraryToolsDir)vswhere.exe&quot; -version 16.0 -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -latest"
+          WorkingDirectory="$(EagleLibraryToolsDir)"
+          IgnoreStandardErrorWarningFormat="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="VsWhereExitCode" />
+      <Output TaskParameter="ConsoleOutput" PropertyName="VS160INSTALLATIONPATH" />
+    </Exec>
+
+    <!--
+        HACK: Interestingly, the "vswhere" tool will generate an error when
+              the -version command line option is used on a machine without
+              Visual Studio 2019 installed.  This seems to defeat the purpose
+              of a "detection" tool (i.e. it should simply return no matches
+              instead of raising an error), we must work around it since this
+              decision appears to be by design.
+    -->
+    <CreateProperty Condition="'$(VsWhereExitCode)' != '0'" Value="">
+      <Output TaskParameter="Value" PropertyName="VS160INSTALLATIONPATH" />
+    </CreateProperty>
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).DetectVs.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectVs2022"
+          Condition="'$(EagleDetectVs2022)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)vswhere.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).DetectVs.done">
+    <!--
+        HACK: Use a couple undocumented properties of the Exec task in order
+              to capture the console output of the "vswhere" command.  This
+              is needed to locate the "EditBin" executable for Visual Studio
+              2022.  For more information, see:
+
+              https://stackoverflow.com/questions/8938679
+    -->
+    <Exec ConsoleToMSBuild="true" Command="&quot;$(EagleLibraryToolsDir)vswhere.exe&quot; -version 17.0 -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -latest"
+          WorkingDirectory="$(EagleLibraryToolsDir)"
+          IgnoreStandardErrorWarningFormat="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="VsWhereExitCode" />
+      <Output TaskParameter="ConsoleOutput" PropertyName="VS170INSTALLATIONPATH" />
+    </Exec>
+
+    <!--
+        HACK: Interestingly, the "vswhere" tool will generate an error when
+              the -version command line option is used on a machine without
+              Visual Studio 2022 installed.  This seems to defeat the purpose
+              of a "detection" tool (i.e. it should simply return no matches
+              instead of raising an error), we must work around it since this
+              decision appears to be by design.
+    -->
+    <CreateProperty Condition="'$(VsWhereExitCode)' != '0'" Value="">
+      <Output TaskParameter="Value" PropertyName="VS170INSTALLATIONPATH" />
+    </CreateProperty>
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).DetectVs.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectVcTools2017"
+          Condition="'$(EagleDetectVcTools2017)' != 'false' And
+                     '$(VS150INSTALLATIONPATH)' != '' And
+                     !HasTrailingSlash('$(VS150INSTALLATIONPATH)') And
+                     Exists('$(VS150INSTALLATIONPATH)\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).DetectVcTools.done">
+    <ReadLinesFromFile File="$(VS150INSTALLATIONPATH)\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt">
+      <Output TaskParameter="Lines" PropertyName="VCToolsVersion" />
+    </ReadLinesFromFile>
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).DetectVcTools.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectVcTools2019"
+          Condition="'$(EagleDetectVcTools2019)' != 'false' And
+                     '$(VS160INSTALLATIONPATH)' != '' And
+                     !HasTrailingSlash('$(VS160INSTALLATIONPATH)') And
+                     Exists('$(VS160INSTALLATIONPATH)\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).DetectVcTools.done">
+    <ReadLinesFromFile File="$(VS160INSTALLATIONPATH)\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt">
+      <Output TaskParameter="Lines" PropertyName="VCToolsVersion" />
+    </ReadLinesFromFile>
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).DetectVcTools.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectVcTools2022"
+          Condition="'$(EagleDetectVcTools2022)' != 'false' And
+                     '$(VS170INSTALLATIONPATH)' != '' And
+                     !HasTrailingSlash('$(VS170INSTALLATIONPATH)') And
+                     Exists('$(VS170INSTALLATIONPATH)\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).DetectVcTools.done">
+    <ReadLinesFromFile File="$(VS170INSTALLATIONPATH)\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt">
+      <Output TaskParameter="Lines" PropertyName="VCToolsVersion" />
+    </ReadLinesFromFile>
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).DetectVcTools.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectWix30"
+          Condition="'$(EagleDetectWix30)' != 'false'">
+    <CreateProperty Condition="'$(EagleWixVersion)' == '3.0'"
+                    Value="$(DefineConstants);WIX_30">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectWix35"
+          Condition="'$(EagleDetectWix35)' != 'false'">
+    <CreateProperty Condition="'$(EagleWixVersion)' == '3.5'"
+                    Value="$(DefineConstants);WIX_35">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectWix36"
+          Condition="'$(EagleDetectWix36)' != 'false'">
+    <CreateProperty Condition="'$(EagleWixVersion)' == '3.6'"
+                    Value="$(DefineConstants);WIX_36">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectWix37"
+          Condition="'$(EagleDetectWix37)' != 'false'">
+    <CreateProperty Condition="'$(EagleWixVersion)' == '3.7'"
+                    Value="$(DefineConstants);WIX_37">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectWix38"
+          Condition="'$(EagleDetectWix38)' != 'false'">
+    <CreateProperty Condition="'$(EagleWixVersion)' == '3.8'"
+                    Value="$(DefineConstants);WIX_38">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectWix39"
+          Condition="'$(EagleDetectWix39)' != 'false'">
+    <CreateProperty Condition="'$(EagleWixVersion)' == '3.9'"
+                    Value="$(DefineConstants);WIX_39">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectWix310"
+          Condition="'$(EagleDetectWix310)' != 'false'">
+    <CreateProperty Condition="'$(EagleWixVersion)' == '3.10'"
+                    Value="$(DefineConstants);WIX_310">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectWix311"
+          Condition="'$(EagleDetectWix311)' != 'false'">
+    <CreateProperty Condition="'$(EagleWixVersion)' == '3.11'"
+                    Value="$(DefineConstants);WIX_311">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStackExternals"
+          Condition="'$(EagleSetStackExternals)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Externals\MSVCPP\Tools\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(EagleDir)\Externals\MSVCPP\Tools\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(EagleDir)\Externals\MSVCPP\Tools" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStack2005"
+          Condition="'$(EagleSetStack)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(VS80COMNTOOLS)' != '' And
+                     HasTrailingSlash('$(VS80COMNTOOLS)') And
+                     Exists('$(VS80COMNTOOLS)..\..\VC\bin\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(VS80COMNTOOLS)..\..\VC\bin\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(VS80COMNTOOLS)..\..\Common7\IDE" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStack2008"
+          Condition="'$(EagleSetStack)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(VS90COMNTOOLS)' != '' And
+                     HasTrailingSlash('$(VS90COMNTOOLS)') And
+                     Exists('$(VS90COMNTOOLS)..\..\VC\bin\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(VS90COMNTOOLS)..\..\VC\bin\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(VS90COMNTOOLS)..\..\Common7\IDE" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStack2010"
+          Condition="'$(EagleSetStack)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(VS100COMNTOOLS)' != '' And
+                     HasTrailingSlash('$(VS100COMNTOOLS)') And
+                     Exists('$(VS100COMNTOOLS)..\..\VC\bin\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(VS100COMNTOOLS)..\..\VC\bin\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(VS100COMNTOOLS)..\..\Common7\IDE" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStack2012"
+          Condition="'$(EagleSetStack)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(VS110COMNTOOLS)' != '' And
+                     HasTrailingSlash('$(VS110COMNTOOLS)') And
+                     Exists('$(VS110COMNTOOLS)..\..\VC\bin\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(VS110COMNTOOLS)..\..\VC\bin\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(VS110COMNTOOLS)..\..\Common7\IDE" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStack2013"
+          Condition="'$(EagleSetStack)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(VS120COMNTOOLS)' != '' And
+                     HasTrailingSlash('$(VS120COMNTOOLS)') And
+                     Exists('$(VS120COMNTOOLS)..\..\VC\bin\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(VS120COMNTOOLS)..\..\VC\bin\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(VS120COMNTOOLS)..\..\Common7\IDE" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStack2015"
+          Condition="'$(EagleSetStack)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(VS140COMNTOOLS)' != '' And
+                     HasTrailingSlash('$(VS140COMNTOOLS)') And
+                     Exists('$(VS140COMNTOOLS)..\..\VC\bin\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(VS140COMNTOOLS)..\..\VC\bin\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(VS140COMNTOOLS)..\..\Common7\IDE" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStack2017"
+          Condition="'$(EagleSetStack)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(VS150INSTALLATIONPATH)' != '' And
+                     !HasTrailingSlash('$(VS150INSTALLATIONPATH)') And
+                     '$(VCToolsVersion)' != '' And
+                     Exists('$(VS150INSTALLATIONPATH)\VC\Tools\MSVC\$(VCToolsVersion)\bin\HostX86\x86\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(VS150INSTALLATIONPATH)\VC\Tools\MSVC\$(VCToolsVersion)\bin\HostX86\x86\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(VS150INSTALLATIONPATH)\Common7\IDE" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStack2019"
+          Condition="'$(EagleSetStack)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(VS160INSTALLATIONPATH)' != '' And
+                     !HasTrailingSlash('$(VS160INSTALLATIONPATH)') And
+                     '$(VCToolsVersion)' != '' And
+                     Exists('$(VS160INSTALLATIONPATH)\VC\Tools\MSVC\$(VCToolsVersion)\bin\HostX86\x86\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(VS160INSTALLATIONPATH)\VC\Tools\MSVC\$(VCToolsVersion)\bin\HostX86\x86\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(VS160INSTALLATIONPATH)\Common7\IDE" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetStack2022"
+          Condition="'$(EagleSetStack)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleStackSize)' != '' And
+                     '$(VS170INSTALLATIONPATH)' != '' And
+                     !HasTrailingSlash('$(VS170INSTALLATIONPATH)') And
+                     '$(VCToolsVersion)' != '' And
+                     Exists('$(VS170INSTALLATIONPATH)\VC\Tools\MSVC\$(VCToolsVersion)\bin\HostX86\x86\EditBin.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetStack.done">
+    <Exec Command="&quot;$(VS170INSTALLATIONPATH)\VC\Tools\MSVC\$(VCToolsVersion)\bin\HostX86\x86\EditBin.exe&quot; &quot;/stack:$(EagleStackSize)&quot; &quot;$(TargetPath)&quot;"
+          WorkingDirectory="$(VS170INSTALLATIONPATH)\Common7\IDE" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetStack.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleSetIcon"
+          Condition="'$(EagleSetIcon)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleLibraryDir)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryDir)') And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)SetIcon.exe') And
+                     Exists('$(EagleLibraryDir)Resources\Eagle.ico')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).SetIcon.done">
+    <Exec Command="&quot;$(EagleLibraryToolsDir)SetIcon.exe&quot; &quot;$(TargetPath)&quot; &quot;$(EagleLibraryDir)Resources\Eagle.ico&quot;" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).SetIcon.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleStripPdbPath"
+          Condition="'$(EagleStripPdbPath)' != 'false' And
+                     ('$(BuildTool)' == 'MSBuild' Or
+                      '$(BuildTool)' == 'DotNetCore') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleLibraryDir)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryDir)') And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)BinaryEditor.exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).StripPdbPath.done">
+    <!--
+        HACK: *WARNING* This is really evil.  Basically, we [attempt to] modify
+              the built executable image to remove the directory information for
+              the PDB file name in the "Debug Directory" header.  There seems to
+              be no other [easy] way to accomplish this, official or otherwise.
+    -->
+    <Exec Command="&quot;$(EagleLibraryToolsDir)BinaryEditor.exe&quot; -noCase -paths -verbose -- &quot;$(TargetPath)&quot; &quot;$(TargetPath)&quot; &quot;$(IntermediateOutputPath)$(TargetName).pdb&quot; &quot;$(TargetName).pdb&quot;" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).StripPdbPath.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleEmbedExeManifest"
+          Condition="'$(EagleEmbedExeManifest)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(BuildTool)' == 'MSBuild' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(MSBuildProjectDirectory)' != '' And
+                     !HasTrailingSlash('$(MSBuildProjectDirectory)') And
+                     Exists('$(MSBuildProjectDirectory)\Resources\manifest.xml')"
+          Inputs="$(TargetPath);$(MSBuildProjectDirectory)\Resources\manifest.xml"
+          Outputs="$(TargetPath).EmbedExeManifest.done">
+    <!--
+        HACK: *BROKEN* The GetFrameworkSDKPath MSBuild task was broken by the
+              Visual Studio 2012 / .NET Framework 4.5 RTM release.  It now
+              incorrectly returns the Windows SDK path, not the .NET Framework
+              SDK path.  When Visual Studio 2012 is installed, it also breaks
+              the Visual Studio 2010 / .NET Framework 4.0 build environment as
+              well.  The "supported", yet sub-optimal, alternative appears to
+              be using the TargetFrameworkSDKToolsDirectory variable.
+    -->
+    <GetFrameworkSDKPath Condition="'$(SDK35ToolsPath)' == '' And
+                                    '$(WindowsSDK80Path)' == ''">
+      <Output TaskParameter="Path"
+              PropertyName="DirForManifestTool" />
+    </GetFrameworkSDKPath>
+
+    <Exec Condition="'$(SDK35ToolsPath)' != '' And
+                     HasTrailingSlash('$(SDK35ToolsPath)') And
+                     Exists('$(SDK35ToolsPath)mt.exe')"
+          Command="&quot;$(SDK35ToolsPath)mt.exe&quot; -manifest &quot;$(MSBuildProjectDirectory)\Resources\manifest.xml&quot; -outputresource:&quot;$(TargetPath)&quot;;1" />
+
+    <Exec Condition="('$(SDK35ToolsPath)' == '' Or
+                      !HasTrailingSlash('$(SDK35ToolsPath)') Or
+                      !Exists('$(SDK35ToolsPath)mt.exe')) And
+                     '$(WindowsSDK80Path)' == '' And
+                     '$(DirForManifestTool)' != '' And
+                     HasTrailingSlash('$(DirForManifestTool)') And
+                     Exists('$(DirForManifestTool)bin\mt.exe')"
+          Command="&quot;$(DirForManifestTool)bin\mt.exe&quot; -manifest &quot;$(MSBuildProjectDirectory)\Resources\manifest.xml&quot; -outputresource:&quot;$(TargetPath)&quot;;1" />
+
+    <Exec Condition="('$(SDK35ToolsPath)' == '' Or
+                      !HasTrailingSlash('$(SDK35ToolsPath)') Or
+                      !Exists('$(SDK35ToolsPath)mt.exe')) And
+                     '$(WindowsSDK80Path)' != '' And
+                     '$(DirForManifestTool)' == '' And
+                     '$(Architecture)' != '' And
+                     Exists('$(WindowsSDK80Path)bin\$(Architecture)\mt.exe')"
+          Command="&quot;$(WindowsSDK80Path)bin\$(Architecture)\mt.exe&quot; -manifest &quot;$(MSBuildProjectDirectory)\Resources\manifest.xml&quot; -outputresource:&quot;$(TargetPath)&quot;;1" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).EmbedExeManifest.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleMake32BitOnly"
+          Condition="'$(EagleMake32BitOnly)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(BuildTool)' == 'MSBuild' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(TargetPath)' != '' And
+                     !HasTrailingSlash('$(TargetPath)') And
+                     Exists('$(TargetPath)') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)') And
+                     '$(TargetName)' != '' And
+                     Exists('$(OutputPath)$(TargetName).exe')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).EagleMake32BitOnly.done">
+    <!--
+        HACK: *BROKEN* The GetFrameworkSDKPath MSBuild task was broken by the
+              Visual Studio 2012 / .NET Framework 4.5 RTM release.  It now
+              incorrectly returns the Windows SDK path, not the .NET Framework
+              SDK path.  When Visual Studio 2012 is installed, it also breaks
+              the Visual Studio 2010 / .NET Framework 4.0 build environment as
+              well.  The "supported", yet sub-optimal, alternative appears to
+              be using the TargetFrameworkSDKToolsDirectory variable.
+    -->
+    <GetFrameworkSDKPath Condition="'$(TargetFrameworkSDKToolsDirectory)' == ''">
+      <Output TaskParameter="Path"
+              PropertyName="DirForEagleMake32BitOnly" />
+    </GetFrameworkSDKPath>
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).exe"
+          DestinationFiles="$(OutputPath)$(TargetName)32.exe" />
+
+    <Exec Condition="'$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(DirForEagleMake32BitOnly)' != '' And
+                     HasTrailingSlash('$(DirForEagleMake32BitOnly)') And
+                     Exists('$(DirForEagleMake32BitOnly)bin\CorFlags.exe')"
+          Command="&quot;$(DirForEagleMake32BitOnly)bin\CorFlags.exe&quot; &quot;$(OutputPath)$(TargetName)32.exe&quot; /32BIT+ /Force 1&gt;NUL" />
+
+    <Exec Condition="'$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(DirForEagleMake32BitOnly)' == '' And
+                     HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
+                     Exists('$(TargetFrameworkSDKToolsDirectory)CorFlags.exe')"
+          Command="&quot;$(TargetFrameworkSDKToolsDirectory)CorFlags.exe&quot; &quot;$(OutputPath)$(TargetName)32.exe&quot; /32BIT+ /Force 1&gt;NUL" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).EagleMake32BitOnly.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleStrongNameSign"
+          Condition="'$(EagleStrongNameSign)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SignAssembly)' != 'false' And
+                     Exists('$(AssemblyOriginatorKeyFile)') And
+                     Exists('$(EaglePrivateKeyFile)') And
+                     '$(TargetPath)' != '' And
+                     !HasTrailingSlash('$(TargetPath)') And
+                     Exists('$(TargetPath)') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)') And
+                     '$(TargetName)' != '' And
+                     '$(TargetExt)' != ''"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).StrongNameSign.done">
+    <!--
+        HACK: *BROKEN* The GetFrameworkSDKPath MSBuild task was broken by the
+              Visual Studio 2012 / .NET Framework 4.5 RTM release.  It now
+              incorrectly returns the Windows SDK path, not the .NET Framework
+              SDK path.  When Visual Studio 2012 is installed, it also breaks
+              the Visual Studio 2010 / .NET Framework 4.0 build environment as
+              well.  The "supported", yet sub-optimal, alternative appears to
+              be using the TargetFrameworkSDKToolsDirectory variable.
+    -->
+    <GetFrameworkSDKPath Condition="('$(StrongNameWithoutSdk)' == '' Or
+                                     '$(StrongNameWithoutSdk)' == 'false') And
+                                    '$(TargetFrameworkSDKToolsDirectory)' == ''">
+      <Output TaskParameter="Path"
+              PropertyName="DirForStrongName" />
+    </GetFrameworkSDKPath>
+
+    <Exec Condition="'$(StrongNameWithoutSdk)' != '' And
+                     '$(StrongNameWithoutSdk)' != 'false'"
+          Command="sn.exe -Ra &quot;$(TargetPath)&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="'$(StrongNameWithoutSdk)' != '' And
+                     '$(StrongNameWithoutSdk)' != 'false' And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="sn.exe -Ra &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(DirForStrongName)' != '' And
+                     HasTrailingSlash('$(DirForStrongName)') And
+                     Exists('$(DirForStrongName)bin\sn.exe')"
+          Command="&quot;$(DirForStrongName)bin\sn.exe&quot; -Ra &quot;$(TargetPath)&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(DirForStrongName)' != '' And
+                     HasTrailingSlash('$(DirForStrongName)') And
+                     Exists('$(DirForStrongName)bin\sn.exe') And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(DirForStrongName)bin\sn.exe&quot; -Ra &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(DirForStrongName)' == '' And
+                     HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
+                     Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe')"
+          Command="&quot;$(TargetFrameworkSDKToolsDirectory)sn.exe&quot; -Ra &quot;$(TargetPath)&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(DirForStrongName)' == '' And
+                     HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
+                     Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe') And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(TargetFrameworkSDKToolsDirectory)sn.exe&quot; -Ra &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).StrongNameSign.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleAuthenticodeSign"
+          Condition="'$(EagleAuthenticodeSign)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(TargetPath)' != '' And
+                     !HasTrailingSlash('$(TargetPath)') And
+                     Exists('$(TargetPath)') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)') And
+                     '$(TargetName)' != '' And
+                     '$(TargetExt)' != ''"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).AuthenticodeSign.done">
+    <Exec Condition="'$(EagleAuthenticodeSign1)' != 'false' And
+                     '$(EagleSignCodeDir)' != '' And
+                     HasTrailingSlash('$(EagleSignCodeDir)') And
+                     Exists('$(EagleSignCodeDir)SignCode.exe') And
+                     Exists('$(SPC_FILE)') And
+                     Exists('$(PVK_FILE)')"
+          Command="&quot;$(EagleSignCodeDir)SignCode.exe&quot; -spc &quot;$(SPC_FILE)&quot; -v &quot;$(PVK_FILE)&quot; -n &quot;$(EagleProjectName)&quot; -i &quot;$(EagleProjectUrl)&quot; -a sha1 -t &quot;$(EagleTimeStampUrl)&quot; -tr &quot;$(EagleTimeStampRetries)&quot; -tw &quot;$(EagleTimeStampWait)&quot; &quot;$(TargetPath)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign1)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     Exists('$(SPC_FILE)') And
+                     Exists('$(PVK_FILE)') And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != ''"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign1)' != 'false' And
+                     '$(EagleSignCodeDir)' != '' And
+                     HasTrailingSlash('$(EagleSignCodeDir)') And
+                     Exists('$(EagleSignCodeDir)SignCode.exe') And
+                     Exists('$(SPC_FILE)') And
+                     Exists('$(PVK_FILE)') And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(EagleSignCodeDir)SignCode.exe&quot; -spc &quot;$(SPC_FILE)&quot; -v &quot;$(PVK_FILE)&quot; -n &quot;$(EagleProjectName)&quot; -i &quot;$(EagleProjectUrl)&quot; -a sha1 -t &quot;$(EagleTimeStampUrl)&quot; -tr &quot;$(EagleTimeStampRetries)&quot; -tw &quot;$(EagleTimeStampWait)&quot; &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign1)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     Exists('$(SPC_FILE)') And
+                     Exists('$(PVK_FILE)') And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != '' And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign2)' != 'false' And
+                     '$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     Exists('$(PFX_FILE)') And
+                     '$(PFX_PASSWORD)' != ''"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; sign /as /v /f &quot;$(PFX_FILE)&quot; /p &quot;$(PFX_PASSWORD)&quot; /d &quot;$(EagleProjectName)&quot; /du &quot;$(EagleProjectUrl)&quot; /fd sha512 /tr &quot;$(EagleRfcTimeStampUrl1)&quot; /td &quot;$(EagleRfcTimeStampAlgorithm1)&quot; &quot;$(TargetPath)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign2)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     Exists('$(PFX_FILE)') And
+                     '$(PFX_PASSWORD)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != ''"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign2)' != 'false' And
+                     '$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     Exists('$(PFX_FILE)') And
+                     '$(PFX_PASSWORD)' != '' And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; sign /as /v /f &quot;$(PFX_FILE)&quot; /p &quot;$(PFX_PASSWORD)&quot; /d &quot;$(EagleProjectName)&quot; /du &quot;$(EagleProjectUrl)&quot; /fd sha512 /tr &quot;$(EagleRfcTimeStampUrl1)&quot; /td &quot;$(EagleRfcTimeStampAlgorithm1)&quot; &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign2)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     Exists('$(PFX_FILE)') And
+                     '$(PFX_PASSWORD)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != '' And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign3)' != 'false' And
+                     '$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     '$(SUBJECT_NAME)' != ''"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; sign /as /v /n &quot;$(SUBJECT_NAME)&quot; /d &quot;$(EagleProjectName)&quot; /du &quot;$(EagleProjectUrl)&quot; /fd sha1 /tr &quot;$(EagleRfcTimeStampUrl2)&quot; /td &quot;$(EagleRfcTimeStampAlgorithm2)&quot; &quot;$(TargetPath)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign3)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SUBJECT_NAME)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != ''"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign3)' != 'false' And
+                     '$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     '$(SUBJECT_NAME)' != '' And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; sign /as /v /n &quot;$(SUBJECT_NAME)&quot; /d &quot;$(EagleProjectName)&quot; /du &quot;$(EagleProjectUrl)&quot; /fd sha1 /tr &quot;$(EagleRfcTimeStampUrl2)&quot; /td &quot;$(EagleRfcTimeStampAlgorithm2)&quot; &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign3)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SUBJECT_NAME)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != '' And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign4)' != 'false' And
+                     '$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     '$(SUBJECT_NAME)' != ''"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; sign /as /v /n &quot;$(SUBJECT_NAME)&quot; /d &quot;$(EagleProjectName)&quot; /du &quot;$(EagleProjectUrl)&quot; /fd sha512 /tr &quot;$(EagleRfcTimeStampUrl3)&quot; /td &quot;$(EagleRfcTimeStampAlgorithm3)&quot; &quot;$(TargetPath)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign4)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SUBJECT_NAME)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != ''"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign4)' != 'false' And
+                     '$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     '$(SUBJECT_NAME)' != '' And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; sign /as /v /n &quot;$(SUBJECT_NAME)&quot; /d &quot;$(EagleProjectName)&quot; /du &quot;$(EagleProjectUrl)&quot; /fd sha512 /tr &quot;$(EagleRfcTimeStampUrl3)&quot; /td &quot;$(EagleRfcTimeStampAlgorithm3)&quot; &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign4)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SUBJECT_NAME)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != '' And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe')"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; verify /pa /all /v &quot;$(TargetPath)&quot;" />
+
+    <Exec Condition="'$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; verify /pa /all /v &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot;" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).AuthenticodeSign.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleStrongNameSign32BitOnly"
+          Condition="'$(EagleStrongNameSign32BitOnly)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(BuildTool)' == 'MSBuild' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SignAssembly)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)') And
+                     Exists('$(OutputPath)$(TargetName)32.exe') And
+                     Exists('$(AssemblyOriginatorKeyFile)') And
+                     Exists('$(EaglePrivateKeyFile)')"
+          Inputs="$(OutputPath)$(TargetName)32.exe"
+          Outputs="$(OutputPath)$(TargetName)32.exe.StrongNameSign32BitOnly.done">
+    <!--
+        HACK: *BROKEN* The GetFrameworkSDKPath MSBuild task was broken by the
+              Visual Studio 2012 / .NET Framework 4.5 RTM release.  It now
+              incorrectly returns the Windows SDK path, not the .NET Framework
+              SDK path.  When Visual Studio 2012 is installed, it also breaks
+              the Visual Studio 2010 / .NET Framework 4.0 build environment as
+              well.  The "supported", yet sub-optimal, alternative appears to
+              be using the TargetFrameworkSDKToolsDirectory variable.
+    -->
+    <GetFrameworkSDKPath Condition="('$(StrongNameWithoutSdk)' == '' Or
+                                     '$(StrongNameWithoutSdk)' == 'false') And
+                                    '$(TargetFrameworkSDKToolsDirectory)' == ''">
+      <Output TaskParameter="Path"
+              PropertyName="DirForStrongName" />
+    </GetFrameworkSDKPath>
+
+    <Exec Condition="'$(StrongNameWithoutSdk)' != '' And
+                     '$(StrongNameWithoutSdk)' != 'false'"
+          Command="sn.exe -Ra &quot;$(OutputPath)$(TargetName)32.exe&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(DirForStrongName)' != '' And
+                     HasTrailingSlash('$(DirForStrongName)') And
+                     Exists('$(DirForStrongName)bin\sn.exe')"
+          Command="&quot;$(DirForStrongName)bin\sn.exe&quot; -Ra &quot;$(OutputPath)$(TargetName)32.exe&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(DirForStrongName)' == '' And
+                     HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
+                     Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe')"
+          Command="&quot;$(TargetFrameworkSDKToolsDirectory)sn.exe&quot; -Ra &quot;$(OutputPath)$(TargetName)32.exe&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(OutputPath)$(TargetName)32.exe.StrongNameSign32BitOnly.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleAuthenticodeSign32BitOnly"
+          Condition="'$(EagleAuthenticodeSign32BitOnly)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)') And
+                     Exists('$(OutputPath)$(TargetName)32.exe')"
+          Inputs="$(OutputPath)$(TargetName)32.exe"
+          Outputs="$(OutputPath)$(TargetName)32.exe.AuthenticodeSign32BitOnly.done">
+    <Exec Condition="'$(EagleAuthenticodeSign1)' != 'false' And
+                     '$(EagleSignCodeDir)' != '' And
+                     HasTrailingSlash('$(EagleSignCodeDir)') And
+                     Exists('$(EagleSignCodeDir)SignCode.exe') And
+                     Exists('$(SPC_FILE)') And
+                     Exists('$(PVK_FILE)')"
+          Command="&quot;$(EagleSignCodeDir)SignCode.exe&quot; -spc &quot;$(SPC_FILE)&quot; -v &quot;$(PVK_FILE)&quot; -n &quot;$(EagleProjectName)&quot; -i &quot;$(EagleProjectUrl)&quot; -a sha1 -t &quot;$(EagleTimeStampUrl)&quot; -tr &quot;$(EagleTimeStampRetries)&quot; -tw &quot;$(EagleTimeStampWait)&quot; &quot;$(OutputPath)$(TargetName)32.exe&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign1)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     Exists('$(SPC_FILE)') And
+                     Exists('$(PVK_FILE)') And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != ''"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign2)' != 'false' And
+                     '$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     Exists('$(PFX_FILE)') And
+                     '$(PFX_PASSWORD)' != ''"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; sign /as /v /f &quot;$(PFX_FILE)&quot; /p &quot;$(PFX_PASSWORD)&quot; /d &quot;$(EagleProjectName)&quot; /du &quot;$(EagleProjectUrl)&quot; /fd sha512 /tr &quot;$(EagleRfcTimeStampUrl1)&quot; /td &quot;$(EagleRfcTimeStampAlgorithm1)&quot; &quot;$(OutputPath)$(TargetName)32.exe&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign2)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     Exists('$(PFX_FILE)') And
+                     '$(PFX_PASSWORD)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != ''"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign3)' != 'false' And
+                     '$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     '$(SUBJECT_NAME)' != ''"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; sign /as /v /n &quot;$(SUBJECT_NAME)&quot; /d &quot;$(EagleProjectName)&quot; /du &quot;$(EagleProjectUrl)&quot; /fd sha1 /tr &quot;$(EagleRfcTimeStampUrl2)&quot; /td &quot;$(EagleRfcTimeStampAlgorithm2)&quot; &quot;$(OutputPath)$(TargetName)32.exe&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign3)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SUBJECT_NAME)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != ''"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign4)' != 'false' And
+                     '$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe') And
+                     '$(SUBJECT_NAME)' != ''"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; sign /as /v /n &quot;$(SUBJECT_NAME)&quot; /d &quot;$(EagleProjectName)&quot; /du &quot;$(EagleProjectUrl)&quot; /fd sha512 /tr &quot;$(EagleRfcTimeStampUrl3)&quot; /td &quot;$(EagleRfcTimeStampAlgorithm3)&quot; &quot;$(OutputPath)$(TargetName)32.exe&quot;" />
+
+    <Exec Condition="'$(EagleAuthenticodeSign4)' != 'false' And
+                     '$(EaglePauseForServer)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SUBJECT_NAME)' != '' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)JustWait.exe') And
+                     '$(EaglePauseForServerMilliseconds)' != ''"
+          Command="&quot;$(EagleLibraryToolsDir)JustWait.exe&quot; &quot;$(EaglePauseForServerMilliseconds)&quot;" />
+
+    <Exec Condition="'$(EagleSignToolDir)' != '' And
+                     HasTrailingSlash('$(EagleSignToolDir)') And
+                     Exists('$(EagleSignToolDir)SignTool.exe')"
+          Command="&quot;$(EagleSignToolDir)SignTool.exe&quot; verify /pa /all /v &quot;$(OutputPath)$(TargetName)32.exe&quot;" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(OutputPath)$(TargetName)32.exe.AuthenticodeSign32BitOnly.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCleanShellExe"
+          Condition="'$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)es.exe')">
+    <Delete Files="$(OutputPath)es.exe" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCleanPackage"
+          Condition="'$(EaglePackageOutputPath)' != '' And
+                     HasTrailingSlash('$(EaglePackageOutputPath)') And
+                     Exists('$(EaglePackageOutputPath)')">
+    <CreateItem Include="$(EaglePackageOutputPath)**">
+      <Output ItemName="EagleCleanPackageItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Delete Condition="'@(EagleCleanPackageItem)' != ''"
+            Files="@(EagleCleanPackageItem)" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCleanTasks"
+          Condition="'$(EagleBinaryOutputPath)' != '' And
+                     HasTrailingSlash('$(EagleBinaryOutputPath)') And
+                     Exists('$(EagleBinaryOutputPath)')">
+    <CreateItem Include="$(EagleBinaryOutputPath)*.tasks">
+      <Output ItemName="EagleCleanTasksItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Delete Condition="'@(EagleCleanTasksItem)' != ''"
+            Files="@(EagleCleanTasksItem)" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCleanWebConfigurations"
+          Condition="'$(MSBuildProjectDirectory)' != '' And
+                     !HasTrailingSlash('$(MSBuildProjectDirectory)')">
+    <CreateItem Include="$(MSBuildProjectDirectory)\*.config">
+      <Output ItemName="EagleCleanWebConfigurationsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Delete Condition="'@(EagleCleanWebConfigurationsItem)' != ''"
+            Files="@(EagleCleanWebConfigurationsItem)"
+            ContinueOnError="true" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCleanBuildTasks"
+          Condition="'$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)') And
+                     Exists('$(OutputPath)BuildTasks')">
+    <CreateItem Include="$(OutputPath)BuildTasks\$(TargetFileName);$(OutputPath)BuildTasks\*.tasks">
+      <Output ItemName="EagleCleanBuildTasksItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Delete Condition="'@(EagleCleanBuildTasksItem)' != ''"
+            Files="@(EagleCleanBuildTasksItem)"
+            ContinueOnError="true" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCopyBuildTasks"
+          Condition="'$(EagleCopyBuildTasks)' != 'false' And
+                     '$(EagleDir)' != '' And
+                     '$(OutputPath)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(EagleDir)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyBuildTasks.done">
+    <CreateItem Include="$(EagleDir)\Targets\*.tasks">
+      <Output ItemName="EagleCopyBuildTasksItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(EagleCopyBuildTasksItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Copy SourceFiles="@(EagleCopyBuildTasksItem)"
+          DestinationFolder="$(OutputPath)BuildTasks" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyBuildTasks.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCopyToBuildTasks"
+          Condition="'$(EagleCopyToBuildTasks)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToBuildTasks.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)BuildTasks"
+          ContinueOnError="true" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToBuildTasks.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp20"
+          Condition="'$(EagleCopyToNetCoreApp20)' != 'false' And
+                     ('$(TargetFramework)' == 'netstandard2.0' Or
+                      '$(TargetFramework)' == 'netcoreapp2.0' Or
+                      '$(TargetFramework)' == 'netcoreapp2.1' Or
+                      '$(TargetFramework)' == 'netcoreapp2.2') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp20.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\netcoreapp2.0"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\netcoreapp2.0\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp20.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp21"
+          Condition="'$(EagleCopyToNetCoreApp21)' != 'false' And
+                     ('$(TargetFramework)' == 'netstandard2.0' Or
+                      '$(TargetFramework)' == 'netcoreapp2.0' Or
+                      '$(TargetFramework)' == 'netcoreapp2.1' Or
+                      '$(TargetFramework)' == 'netcoreapp2.2') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp21.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\netcoreapp2.1"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\netcoreapp2.1\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp21.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp22"
+          Condition="'$(EagleCopyToNetCoreApp22)' != 'false' And
+                     ('$(TargetFramework)' == 'netstandard2.0' Or
+                      '$(TargetFramework)' == 'netcoreapp2.0' Or
+                      '$(TargetFramework)' == 'netcoreapp2.1' Or
+                      '$(TargetFramework)' == 'netcoreapp2.2') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp22.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\netcoreapp2.2"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\netcoreapp2.2\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp22.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp30"
+          Condition="'$(EagleCopyToNetCoreApp30)' != 'false' And
+                     ('$(TargetFramework)' == 'netstandard2.1' Or
+                      '$(TargetFramework)' == 'netcoreapp3.0' Or
+                      '$(TargetFramework)' == 'netcoreapp3.1') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp30.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\netcoreapp3.0"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\netcoreapp3.0\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp30.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      HACK: If we want to actually have the .NET Core shell executable be
+            runnable, the core library must be in its output directory as
+            well.
+  -->
+  <Target Name="EagleCopyToNetCoreApp31"
+          Condition="'$(EagleCopyToNetCoreApp31)' != 'false' And
+                     ('$(TargetFramework)' == 'netstandard2.1' Or
+                      '$(TargetFramework)' == 'netcoreapp3.0' Or
+                      '$(TargetFramework)' == 'netcoreapp3.1') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyToNetCoreApp31.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(OutputPath)..\netcoreapp3.1"
+          ContinueOnError="true" />
+
+    <Copy SourceFiles="$(OutputPath)$(TargetName).pdb"
+          DestinationFiles="$(OutputPath)..\netcoreapp3.1\$(TargetName).pdb"
+          ContinueOnError="true"
+          Condition="'$(_DebugSymbolsProduced)' == 'true'" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyToNetCoreApp31.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCopyResourcePngs"
+          Condition="'$(EagleCopyResourcePngs)' != 'false' And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyResourcePngs.done">
+    <CreateItem Include="Resources\*.png" Exclude="Resources\no_*">
+      <Output ItemName="EagleCopyResourcePngsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(EagleCopyResourcePngsItem)"
+          DestinationFolder="$(OutputPath)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyResourcePngs.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCopyShellExe"
+          Condition="'$(EagleCopyShellExe)' != 'false' And
+                     ('$(OutputType)' == 'Exe' Or
+                      '$(OutputType)' == 'WinExe') And
+                     '$(TargetPath)' != '' And
+                     !HasTrailingSlash('$(TargetPath)') And
+                     Exists('$(TargetPath)') And
+                     '$(OutputPath)' != '' And
+                     HasTrailingSlash('$(OutputPath)') And
+                     Exists('$(OutputPath)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyShellExe.done">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFiles="$(OutputPath)es.exe" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyShellExe.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCopySQLite3"
+          Condition="'$(EagleCopySQLite3)' != 'false' And
+                     '$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     '$(EagleBinaryOutputPath)' != '' And
+                     HasTrailingSlash('$(EagleBinaryOutputPath)') And
+                     Exists('$(EagleBinaryOutputPath)') And
+                     Exists('$(EagleDir)\Externals\sqlite3\x86') And
+                     Exists('$(EagleDir)\Externals\sqlite3\x64')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopySQLite3.done">
+    <CreateItem Include="$(EagleDir)\Externals\sqlite3\x86\*">
+      <Output ItemName="EagleCopySQLite3X86Item" TaskParameter="Include" />
+    </CreateItem>
+
+    <CreateItem Include="$(EagleDir)\Externals\sqlite3\x64\*">
+      <Output ItemName="EagleCopySQLite3X64Item" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy Condition="'$(BuildTool)' != 'DotNetCore'"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)x86" />
+
+    <Copy Condition="'$(BuildTool)' != 'DotNetCore'"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.0')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.0')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.1')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.1\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.1')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.1\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.2')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.2\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.2')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.2\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.0')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.0\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.0')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.0\x64" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.1')"
+          SourceFiles="@(EagleCopySQLite3X86Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.1\x86" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.1')"
+          SourceFiles="@(EagleCopySQLite3X64Item)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.1\x64" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopySQLite3.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCopySystemDataSQLite"
+          Condition="'$(EagleCopySystemDataSQLite)' != 'false' And
+                     '$(EagleBinaryOutputPath)' != '' And
+                     HasTrailingSlash('$(EagleBinaryOutputPath)') And
+                     Exists('$(EagleBinaryOutputPath)') And
+                     Exists('$(EagleDir)\Externals\System.Data.SQLite')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopySystemDataSQLite.done">
+    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\netFramework20\*">
+      <Output ItemName="EagleCopySystemDataSQLiteItem1" TaskParameter="Include" />
+    </CreateItem>
+
+    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\netFramework40\*">
+      <Output ItemName="EagleCopySystemDataSQLiteItem2" TaskParameter="Include" />
+    </CreateItem>
+
+    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\netStandard20\*">
+      <Output ItemName="EagleCopySystemDataSQLiteItem3" TaskParameter="Include" />
+    </CreateItem>
+
+    <CreateItem Include="$(EagleDir)\Externals\System.Data.SQLite\netStandard21\*">
+      <Output ItemName="EagleCopySystemDataSQLiteItem4" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy Condition="'$(BuildTool)' != 'DotNetCore' And
+                     ((('$(MSBuildToolsVersion)' == '' Or
+                        '$(MSBuildToolsVersion)' == '2.0' Or
+                        '$(MSBuildToolsVersion)' == '3.5') And
+                       '$(TargetFrameworkVersion)' == '') Or
+                      '$(TargetFrameworkVersion)' == 'v2.0' Or
+                      '$(TargetFrameworkVersion)' == 'v3.5')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem1)"
+          DestinationFolder="$(EagleBinaryOutputPath)" />
+
+    <Copy Condition="'$(BuildTool)' != 'DotNetCore' And
+                     ((('$(MSBuildToolsVersion)' == '4.0' Or
+                        '$(MSBuildToolsVersion)' == '12.0' Or
+                        '$(MSBuildToolsVersion)' == '14.0' Or
+                        '$(MSBuildToolsVersion)' == '15.0' Or
+                        '$(MSBuildToolsVersion)' == 'Current') And
+                       '$(TargetFrameworkVersion)' == '') Or
+                      '$(TargetFrameworkVersion)' == 'v4.0' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem2)"
+          DestinationFolder="$(EagleBinaryOutputPath)" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.0')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem3)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.1')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem3)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.1" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp2.2')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem3)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp2.2" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.0')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.0" />
+
+    <Copy Condition="'$(BuildTool)' == 'DotNetCore' And
+                     Exists('$(EagleBinaryOutputPath)netcoreapp3.1')"
+          SourceFiles="@(EagleCopySystemDataSQLiteItem4)"
+          DestinationFolder="$(EagleBinaryOutputPath)netcoreapp3.1" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopySystemDataSQLite.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleCopyWebConfigurations"
+          Condition="'$(EagleCopyWebConfigurations)' != 'false' And
+                     '$(MSBuildProjectDirectory)' != '' And
+                     !HasTrailingSlash('$(MSBuildProjectDirectory)')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).CopyWebConfigurations.done">
+    <!--
+        HACK: Apparently, Visual Studio cannot cope with the "Web.config" file
+              not being directly in the project directory; therefore, copy it
+              there now.
+    -->
+    <CreateItem Include="Configurations\*.config" Exclude="Configurations\no_*">
+      <Output ItemName="EagleCopyWebConfigurationsItem" TaskParameter="Include" />
+    </CreateItem>
+
+    <Copy SourceFiles="@(EagleCopyWebConfigurationsItem)"
+          DestinationFolder="$(MSBuildProjectDirectory)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).CopyWebConfigurations.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectUserBuilds"
+          Condition="'$(EagleDetectUserBuilds)' != 'false' And
+                     '$(EagleUserBuilds)' != ''">
+    <Warning Text="One or more user build overrides may be in effect." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectUserSettings"
+          Condition="'$(EagleDetectUserSettings)' != 'false' And
+                     '$(EagleUserSettings)' != ''">
+    <Warning Text="One or more user setting overrides may be in effect." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingShell"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="Shell support is disabled, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingConsole"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="Console support is disabled, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingXml"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="The &quot;System.Xml&quot; assembly is disabled, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingNativeCodeAndOrTclIntegration"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="Native code and/or Tcl integration are disabled, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingWinForms"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="WinForms support is disabled, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingSystemManagementAutomation"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="The &quot;System.Management.Automation&quot; assembly could not be located, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingWebApplicationProjects"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="The &quot;Microsoft.WebApplication.targets&quot; file could not be located, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingWix"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="The &quot;WiX&quot; and/or &quot;Microsoft.Deployment.WindowsInstaller&quot; assemblies could not be located, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingWox"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="The &quot;Wox&quot; assemblies could not be located, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  **                      Eagle Library Specific Targets                      **
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleMsgGenUnsetReadOnly"
+          Condition="'$(EagleMsgGen)' != 'false' And
+                     '$(EagleUnsetReadOnly)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SystemRoot)' != '' And
+                     !HasTrailingSlash('$(SystemRoot)') And
+                     Exists('$(SystemRoot)\System32\attrib.exe')"
+          Inputs="Messages\messages.xml"
+          Outputs="Generated\messages.cs;Generated\messages.resources">
+    <Exec Condition="Exists('Generated\messages.cs')"
+          Command="&quot;$(SystemRoot)\System32\attrib.exe&quot; -r Generated\messages.cs" />
+
+    <Exec Condition="Exists('Generated\messages.resources')"
+          Command="&quot;$(SystemRoot)\System32\attrib.exe&quot; -r Generated\messages.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleMessagesResGenUnsetReadOnly"
+          Condition="('$(EagleMessagesResGen)' != 'false' Or
+                      '$(EagleMessagesResGenExternals)' != 'false' Or
+                      '$(EagleMessagesResGenForNetStandard2X)' != 'false') And
+                     '$(EagleUnsetReadOnly)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SystemRoot)' != '' And
+                     !HasTrailingSlash('$(SystemRoot)') And
+                     Exists('$(SystemRoot)\System32\attrib.exe')"
+          Inputs="Resources\messages.resx"
+          Outputs="Resources\messages.resources">
+    <Exec Condition="Exists('Resources\messages.resources')"
+          Command="&quot;$(SystemRoot)\System32\attrib.exe&quot; -r Resources\messages.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: *WARNING* Be sure to update the "Inputs" attribute for the targets
+            EagleLibraryResGen* in this file and the list of files in the file
+            "Library\Resources\library.resx" if any files are added to the core
+            script library.
+  -->
+  <Target Name="EagleLibraryResourceFiles">
+    <CreateItem Include="..\lib\Eagle1.0\auxiliary.eagle;
+                         ..\lib\Eagle1.0\compat.eagle;
+                         ..\lib\Eagle1.0\csharp.eagle;
+                         ..\lib\Eagle1.0\database.eagle;
+                         ..\lib\Eagle1.0\exec.eagle;
+                         ..\lib\Eagle1.0\file1.eagle;
+                         ..\lib\Eagle1.0\file2.eagle;
+                         ..\lib\Eagle1.0\file3.eagle;
+                         ..\lib\Eagle1.0\info.eagle;
+                         ..\lib\Eagle1.0\list.eagle;
+                         ..\lib\Eagle1.0\object.eagle;
+                         ..\lib\Eagle1.0\pkgt.eagle;
+                         ..\lib\Eagle1.0\platform.eagle;
+                         ..\lib\Eagle1.0\process.eagle;
+                         ..\lib\Eagle1.0\runopt.eagle;
+                         ..\lib\Eagle1.0\shim.eagle;
+                         ..\lib\Eagle1.0\testlog.eagle;
+                         ..\lib\Eagle1.0\unkobj.eagle;
+                         ..\lib\Eagle1.0\unzip.eagle;
+                         ..\lib\Eagle1.0\update.eagle;
+                         ..\lib\Eagle1.0\init.eagle;
+                         ..\lib\Eagle1.0\embed.eagle;
+                         ..\lib\Eagle1.0\safe.eagle;
+                         ..\lib\Eagle1.0\shell.eagle;
+                         ..\lib\Eagle1.0\test.eagle;
+                         ..\lib\Eagle1.0\vendor.eagle;
+                         ..\lib\Eagle1.0\word.tcl;
+                         ..\lib\Eagle1.0\pkgIndex.eagle">
+      <Output ItemName="LibraryResourceFilesItem" TaskParameter="Include" />
+    </CreateItem>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleLibraryResGenUnsetReadOnly"
+          Condition="('$(EagleLibraryResGen)' != 'false' Or
+                      '$(EagleLibraryResGenExternals)' != 'false' Or
+                      '$(EagleLibraryResGenForNetStandard2X)' != 'false') And
+                     '$(EagleUnsetReadOnly)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleEmbeddedLibrary)' != 'false' And
+                     '$(SystemRoot)' != '' And
+                     !HasTrailingSlash('$(SystemRoot)') And
+                     Exists('$(SystemRoot)\System32\attrib.exe')"
+          Inputs="Resources\library.resx;@(LibraryResourceFilesItem)"
+          Outputs="Resources\library.resources">
+    <Exec Condition="Exists('Resources\library.resources')"
+          Command="&quot;$(SystemRoot)\System32\attrib.exe&quot; -r Resources\library.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: *WARNING* Be sure to update the "Inputs" attribute for the targets
+            EaglePackagesResGen* in this file and the list of files in the file
+            "Library\Resources\packages.resx" if any files are added to the core
+            script packages.
+  -->
+  <Target Name="EaglePackagesResourceFiles">
+    <CreateItem Include="..\lib\Test1.0\all.eagle;
+                         ..\lib\Test1.0\constraints.eagle;
+                         ..\lib\Test1.0\epilogue.eagle;
+                         ..\lib\Test1.0\pkgIndex.eagle;
+                         ..\lib\Test1.0\prologue.eagle">
+      <Output ItemName="PackagesResourceFilesItem" TaskParameter="Include" />
+    </CreateItem>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EaglePackagesResGenUnsetReadOnly"
+          Condition="('$(EaglePackagesResGen)' != 'false' Or
+                      '$(EaglePackagesResGenExternals)' != 'false' Or
+                      '$(EaglePackagesResGenForNetStandard2X)' != 'false') And
+                     '$(EagleUnsetReadOnly)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleEmbeddedLibrary)' != 'false' And
+                     '$(SystemRoot)' != '' And
+                     !HasTrailingSlash('$(SystemRoot)') And
+                     Exists('$(SystemRoot)\System32\attrib.exe')"
+          Inputs="Resources\packages.resx;@(PackagesResourceFilesItem)"
+          Outputs="Resources\packages.resources">
+    <Exec Condition="Exists('Resources\packages.resources')"
+          Command="&quot;$(SystemRoot)\System32\attrib.exe&quot; -r Resources\packages.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleMsgGen"
+          Condition="'$(EagleMsgGen)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleLibraryToolsDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryToolsDir)') And
+                     Exists('$(EagleLibraryToolsDir)MsgGen.exe')"
+          Inputs="Messages\messages.xml"
+          Outputs="Generated\messages.cs;Generated\messages.resources">
+    <MakeDir Directories="Generated" />
+
+    <Exec Command="&quot;$(EagleLibraryToolsDir)MsgGen.exe&quot; Messages\messages.xml Generated\messages.cs Generated\messages.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleMessagesResGen"
+          Condition="'$(EagleMessagesResGen)' != 'false'"
+          Inputs="Resources\messages.resx"
+          Outputs="Resources\messages.resources">
+    <GenerateResource Sources="Resources\messages.resx"
+                      OutputResources="Resources\messages.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleMessagesResGenExternals"
+          Condition="'$(EagleMessagesResGen)' == 'false' And
+                     '$(EagleMessagesResGenExternals)' != 'false' And
+                     ((('$(MSBuildToolsVersion)' == '4.0' Or
+                        '$(MSBuildToolsVersion)' == '12.0' Or
+                        '$(MSBuildToolsVersion)' == '14.0' Or
+                        '$(MSBuildToolsVersion)' == '15.0' Or
+                        '$(MSBuildToolsVersion)' == 'Current') And
+                       '$(TargetFrameworkVersion)' == '') Or
+                      '$(TargetFrameworkVersion)' == 'v4.0' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8') And
+                     '$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Externals\NETFX\Tools\v4.0\ResGen.exe')"
+          Inputs="Resources\messages.resx"
+          Outputs="Resources\messages.resources">
+    <GenerateResource Sources="Resources\messages.resx"
+                      OutputResources="Resources\messages.resources"
+                      SdkToolsPath="$(EagleDir)\Externals\NETFX\Tools\v4.0" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleLibraryResGen"
+          Condition="'$(EagleLibraryResGen)' != 'false' And
+                     '$(EagleEmbeddedLibrary)' != 'false'"
+          Inputs="Resources\library.resx;@(LibraryResourceFilesItem)"
+          Outputs="Resources\library.resources">
+    <GenerateResource Sources="Resources\library.resx"
+                      OutputResources="Resources\library.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleLibraryResGenExternals"
+          Condition="'$(EagleLibraryResGen)' == 'false' And
+                     '$(EagleLibraryResGenExternals)' != 'false' And
+                     '$(EagleEmbeddedLibrary)' != 'false' And
+                     ((('$(MSBuildToolsVersion)' == '4.0' Or
+                        '$(MSBuildToolsVersion)' == '12.0' Or
+                        '$(MSBuildToolsVersion)' == '14.0' Or
+                        '$(MSBuildToolsVersion)' == '15.0' Or
+                        '$(MSBuildToolsVersion)' == 'Current') And
+                       '$(TargetFrameworkVersion)' == '') Or
+                      '$(TargetFrameworkVersion)' == 'v4.0' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8') And
+                     '$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Externals\NETFX\Tools\v4.0\ResGen.exe')"
+          Inputs="Resources\library.resx;@(LibraryResourceFilesItem)"
+          Outputs="Resources\library.resources">
+    <GenerateResource Sources="Resources\library.resx"
+                      OutputResources="Resources\library.resources"
+                      SdkToolsPath="$(EagleDir)\Externals\NETFX\Tools\v4.0" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EaglePackagesResGen"
+          Condition="'$(EaglePackagesResGen)' != 'false' And
+                     '$(EagleEmbeddedLibrary)' != 'false'"
+          Inputs="Resources\packages.resx;@(PackagesResourceFilesItem)"
+          Outputs="Resources\packages.resources">
+    <GenerateResource Sources="Resources\packages.resx"
+                      OutputResources="Resources\packages.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EaglePackagesResGenExternals"
+          Condition="'$(EaglePackagesResGen)' == 'false' And
+                     '$(EaglePackagesResGenExternals)' != 'false' And
+                     '$(EagleEmbeddedLibrary)' != 'false' And
+                     ((('$(MSBuildToolsVersion)' == '4.0' Or
+                        '$(MSBuildToolsVersion)' == '12.0' Or
+                        '$(MSBuildToolsVersion)' == '14.0' Or
+                        '$(MSBuildToolsVersion)' == '15.0' Or
+                        '$(MSBuildToolsVersion)' == 'Current') And
+                       '$(TargetFrameworkVersion)' == '') Or
+                      '$(TargetFrameworkVersion)' == 'v4.0' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8') And
+                     '$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Externals\NETFX\Tools\v4.0\ResGen.exe')"
+          Inputs="Resources\packages.resx;@(PackagesResourceFilesItem)"
+          Outputs="Resources\packages.resources">
+    <GenerateResource Sources="Resources\packages.resx"
+                      OutputResources="Resources\packages.resources"
+                      SdkToolsPath="$(EagleDir)\Externals\NETFX\Tools\v4.0" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  **                       Eagle Test Specific Targets                        **
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleRunTests"
+          Condition="'$(EagleRunTests)' != 'false' And
+                     '$(BuildTool)' == 'MSBuild' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleLibraryDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryDir)') And
+                     Exists('$(EagleLibraryDir)') And
+                     Exists('$(EagleLibraryDir)Tests\all.eagle')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).RunTests.done">
+    <Exec Condition="'$(EagleRunCoverage)' == 'false' Or
+                     '$(EagleCoverageTool)' == '' Or
+                     !Exists('$(EagleCoverageTool)') Or
+                     '$(EagleCoverageOutputPath)' == '' Or
+                     '$(EagleCoverageArguments)' == ''"
+          Command="&quot;$(TargetPath)&quot; $(EagleCommonTestArguments) $(EagleTestArguments) -file &quot;$(EagleLibraryDir)Tests\all.eagle&quot; $(EagleTestFlags)" />
+
+    <Exec Condition="'$(EagleRunCoverage)' != 'false' And
+                     '$(EagleCoverageTool)' != '' And
+                     Exists('$(EagleCoverageTool)') And
+                     '$(EagleCoverageOutputPath)' != '' And
+                     '$(EagleCoverageArguments)' != ''"
+          Command="&quot;$(EagleCoverageTool)&quot; &quot;$(TargetPath)&quot; $(EagleCommonTestArguments) $(EagleTestArguments) -file &quot;$(EagleLibraryDir)Tests\all.eagle&quot; $(EagleTestFlags) $(EagleCoverageArguments)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).RunTests.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleRunTestsForNetStandard2X"
+          Condition="'$(EagleRunTests)' != 'false' And
+                     '$(EagleRunTestsForNetStandard2X)' != 'false' And
+                     '$(BuildTool)' == 'DotNetCore' And
+                     '$(EagleLibraryDir)' != '' And
+                     HasTrailingSlash('$(EagleLibraryDir)') And
+                     Exists('$(EagleLibraryDir)') And
+                     Exists('$(EagleLibraryDir)Tests\all.eagle')"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).RunTests.done">
+    <Exec Command="dotnet exec &quot;$(TargetPath)&quot; $(EagleCommonTestArguments) $(EagleTestArguments) -file &quot;$(EagleLibraryDir)Tests\all.eagle&quot; $(EagleTestFlags)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).RunTests.done" />
+  </Target>
+</Project>

@@ -1,0 +1,166 @@
+###############################################################################
+#
+# io.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test io-1.1 {write and append to file} -setup {
+  set file [file join [getTemporaryPath] io-1-1.txt]
+
+  set fd [open $file w]
+  fconfigure $fd -translation lf
+  puts $fd "1\n2\n3\n4\n5"
+  # puts $fd "1\r\n2\r\n3\r\n4\r\n5"
+  close $fd
+} -body {
+  set fd [open $file a+]
+  fconfigure $fd -translation lf
+  seek $fd -4 end
+  puts $fd "here"
+  close $fd
+
+  set fd [open $file r]
+  fconfigure $fd -translation lf
+  set data [read $fd]
+  close $fd
+
+  set data
+} -cleanup {
+  catch {close $fd}
+  catch {file delete $file}
+  unset data fd file
+} -result "1\n2\n3\nhere\n"}
+
+###############################################################################
+
+runTest {test io-1.2 {fcopy until end-of-file with newline} -setup {
+  set file1 [file join [getTemporaryPath] io-1-2-input.txt]
+  set file2 [file join [getTemporaryPath] io-1-2-output.txt]
+
+  set fd1 [open $file1 w]
+  fconfigure $fd1 -translation lf
+  puts $fd1 "0123456789"
+  close $fd1
+} -body {
+  set fd1 [open $file1 r]
+  fconfigure $fd1 -translation lf
+  set fd2 [open $file2 w]
+  fconfigure $fd2 -translation lf
+
+  fcopy $fd1 $fd2
+
+  close $fd2
+  close $fd1
+
+  readFile $file2
+} -cleanup {
+  catch {file delete $file1}
+  catch {file delete $file2}
+  unset fd1 fd2 file1 file2
+} -result "0123456789\n"}
+
+###############################################################################
+
+runTest {test io-1.3 {fcopy until end-of-file without newline} -setup {
+  set file1 [file join [getTemporaryPath] io-1-3-input.txt]
+  set file2 [file join [getTemporaryPath] io-1-3-output.txt]
+
+  set fd1 [open $file1 w]
+  puts -nonewline $fd1 "0123456789"
+  close $fd1
+} -body {
+  set fd1 [open $file1 r]
+  set fd2 [open $file2 w]
+
+  fcopy $fd1 $fd2
+
+  close $fd2
+  close $fd1
+
+  readFile $file2
+} -cleanup {
+  catch {file delete $file1}
+  catch {file delete $file2}
+  unset fd1 fd2 file1 file2
+} -result "0123456789"}
+
+###############################################################################
+
+runTest {test io-1.4 {fcopy 5 bytes with newline} -setup {
+  set file1 [file join [getTemporaryPath] io-1-4-input.txt]
+  set file2 [file join [getTemporaryPath] io-1-4-output.txt]
+
+  set fd1 [open $file1 w]
+  fconfigure $fd1 -translation lf
+  puts $fd1 "0123\n4567\n89"
+  close $fd1
+} -body {
+  set fd1 [open $file1 r]
+  fconfigure $fd1 -translation lf
+  set fd2 [open $file2 w]
+  fconfigure $fd2 -translation lf
+
+  fcopy $fd1 $fd2 -size 5
+
+  close $fd2
+  close $fd1
+
+  readFile $file2
+} -cleanup {
+  catch {file delete $file1}
+  catch {file delete $file2}
+  unset fd1 fd2 file1 file2
+} -result "0123\n"}
+
+###############################################################################
+
+runTest {test io-1.5 {fcopy 5 bytes without newline} -setup {
+  set file1 [file join [getTemporaryPath] io-1-5-input.txt]
+  set file2 [file join [getTemporaryPath] io-1-5-output.txt]
+
+  set fd1 [open $file1 w]
+  puts $fd1 "0123456789"
+  close $fd1
+} -body {
+  set fd1 [open $file1 r]
+  set fd2 [open $file2 w]
+
+  fcopy $fd1 $fd2 -size 5
+
+  close $fd2
+  close $fd1
+
+  readFile $file2
+} -cleanup {
+  catch {file delete $file1}
+  catch {file delete $file2}
+  unset fd1 fd2 file1 file2
+} -result {01234}}
+
+###############################################################################
+
+runTest {test io-1.6 {gets return values} -setup {
+  set fd1 [open [file join $test_data_path bad_subst.txt] r]
+} -body {
+  list [gets $fd1 a] $a [gets $fd1 a] [gets $fd1 a] $a
+} -cleanup {
+  catch {close $fd1}
+  unset -nocomplain a fd1
+} -constraints {file_bad_subst.txt} -result {0 {} 60 -1 {}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

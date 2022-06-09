@@ -1,0 +1,305 @@
+###############################################################################
+#
+# excel2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test excel-2.1 {advanced excel automation} -body {
+  set timeout 5000
+  set ids [getProcesses excel]
+
+  if {![info exists modify]} then {set modify true}
+
+  set assembly [object load -import -declare Microsoft.Office.Interop.Excel]
+
+  set application [object create -alias \
+    Microsoft.Office.Interop.Excel.ApplicationClass]
+
+  $application Visible true
+  $application DisplayAlerts false
+
+  if {[haveConstraint native] && [haveConstraint windows]} then {
+    tputs $test_channel [appendArgs "---- started: " \
+        [info hwnd [$application Hwnd]] \n]
+  }
+
+  set xls [file nativename [file join $test_data_path test.xls]]
+
+  set workbook [object invoke -alias $application.Workbooks Add $xls]
+  set worksheet [object invoke -alias $workbook.Sheets Item Sales]
+
+  set range [$worksheet -alias UsedRange]; # $range Select
+
+  set rows [object invoke $range.Rows Count]
+  set columns [object invoke $range.Columns Count]
+
+  set result [list]
+
+  for {set row 1} {$row <= $rows} {incr row} {
+    for {set column 1} {$column <= $columns} {incr column} {
+      #
+      # NOTE: Get the cell so that we can read/write the data.
+      #
+      set cell [$range -alias Item \
+        [set orow [object invoke -create System.Int32 Parse $row]] \
+        [set ocolumn [object invoke -create System.Int32 Parse $column]]]
+
+      # [$cell Text]
+      # [$cell Value]
+      # [$cell Formula]
+      lappend result [$cell Text]
+
+      if {$modify} then {
+        # $cell Value2 [appendArgs $row ", " $column]
+        $cell Formula [appendArgs $row ", " $column]
+      }
+
+      unset cell; # dispose
+      unset ocolumn; # dispose
+      unset orow; # dispose
+    }
+  }
+
+  #
+  # NOTE: If we are in modify mode, save the modified workbook
+  #       now; otherwise, just continue shutting down Excel.
+  #
+  if {$modify} then {
+    set newXls [file nativename [file join [getTemporaryPath] test2.xls]]
+
+    catch {file delete $newXls}
+    $workbook SaveAs $newXls
+  }
+
+  unset range; # dispose
+  unset worksheet; # dispose
+  unset workbook; # dispose
+
+  $application Quit
+
+  unset application; # dispose
+  unset assembly; # dispose
+
+  waitForProcesses [getProcesses excel] $timeout
+
+  list $result [llength [info objects]] \
+      [expr {[lsort $ids] eq [lsort [getProcesses excel]]}]
+} -cleanup {
+  if {[info exists application]} then {
+    catch {
+      $application DisplayAlerts false
+      $application Quit
+    }
+  }
+
+  cleanupExcel
+
+  unset -nocomplain cell ocolumn orow range worksheet \
+      workbook application assembly; # dispose
+
+  if {[info exists newXls]} then {
+    catch {file delete $newXls}
+  }
+
+  unset -nocomplain xls newXls result modify rows \
+      columns row column ids timeout
+} -constraints {eagle command.object windows interactive excel.usable\
+Microsoft.Office.Interop.Excel referenceCounts file_test.xls} -time true \
+-result [list [list Name Date Sales Bob [clock format [clock seconds] -format \
+M/d/yyyy] {$291.00} Jeff [clock format [clock seconds] -format M/d/yyyy] \
+{$455.00} Zach [clock format [clock seconds] -format M/d/yyyy] {$799.00} \
+{} {} {} {} Total {$0.00}] 1 True]}
+
+###############################################################################
+
+runTest {test excel-2.2 {advanced excel automation via Tcl} -setup {
+  tclLoadForTest tcl_loaded
+
+  unset -nocomplain interp
+  set interp [tcl create]
+
+  tcl command create object $interp object
+  tcl command create tputs $interp tputs
+  tcl command create getTemporaryPath $interp getTemporaryPath
+  tcl command create appendArgs $interp appendArgs
+
+  if {![info exists modify]} then {set modify true}
+
+  tcl set $interp interp $interp
+  tcl set $interp test_channel $test_channel
+  tcl set $interp test_data_path $test_data_path
+  tcl set $interp modify $modify
+} -body {
+  set timeout 5000
+  set ids [getProcesses excel]
+
+  tcl eval $interp {
+    set assembly [object load -import -declare \
+        Microsoft.Office.Interop.Excel]
+
+    set application [object create -alias -tcl $interp \
+        Microsoft.Office.Interop.Excel.ApplicationClass]
+
+    $application Visible true
+    $application DisplayAlerts false
+
+    if {[eagle haveConstraint native] && [eagle haveConstraint windows]} then {
+      tputs $test_channel [appendArgs "---- started: " \
+          [eagle info hwnd [$application Hwnd]] \n]
+    }
+
+    set xls [file nativename [file join $test_data_path test.xls]]
+
+    set workbook [object invoke -alias -tcl $interp \
+        $application.Workbooks Add $xls]
+
+    set worksheet [object invoke -alias -tcl $interp \
+        $workbook.Sheets Item Sales]
+
+    set range [$worksheet -alias -tcl $interp UsedRange]; # $range Select
+
+    set rows [object invoke $range.Rows Count]
+    set columns [object invoke $range.Columns Count]
+
+    set result [list]
+
+    for {set row 1} {$row <= $rows} {incr row} {
+      for {set column 1} {$column <= $columns} {incr column} {
+        #
+        # NOTE: Get the cell so that we can read/write the data.
+        #
+        set cell [$range -alias -tcl $interp Item \
+          [set orow [object invoke -create System.Int32 Parse $row]] \
+          [set ocolumn [object invoke -create System.Int32 Parse $column]]]
+
+        # [$cell Text]
+        # [$cell Value]
+        # [$cell Formula]
+        lappend result [$cell Text]
+
+        if {$modify} then {
+          # $cell Value2 [appendArgs $row ", " $column]
+          $cell Formula [appendArgs $row ", " $column]
+        }
+
+        object dispose $cell; unset cell; # dispose
+        object dispose $ocolumn; unset ocolumn; # dispose
+        object dispose $orow; unset orow; # dispose
+      }
+    }
+
+    #
+    # NOTE: If we are in modify mode, save the modified workbook
+    #       now; otherwise, just continue shutting down Excel.
+    #
+    if {$modify} then {
+      set newXls [file nativename [file join [getTemporaryPath] test2.xls]]
+
+      catch {file delete $newXls}
+      $workbook SaveAs $newXls
+    }
+
+    object dispose $range; unset range; # dispose
+    object dispose $worksheet; unset worksheet; # dispose
+    object dispose $workbook; unset workbook; # dispose
+
+    $application Quit
+
+    object dispose $application; unset application; # dispose
+    object dispose $assembly; unset assembly; # dispose
+
+    #
+    # NOTE: Transfer result back to Eagle.
+    #
+    eagle [list set result $result]
+  }
+
+  waitForProcesses [getProcesses excel] $timeout
+
+  list $result [llength [info objects]] \
+      [expr {[lsort $ids] eq [lsort [getProcesses excel]]}]
+} -cleanup {
+  tcl eval $interp {
+    if {[info exists application]} then {
+      catch {
+        $application DisplayAlerts false
+        $application Quit
+      }
+    }
+  }
+
+  cleanupExcel
+
+  #
+  # NOTE: Cleanup the Eagle objects we created in the Tcl
+  #       interpreter.  Also, cleanup the variables we
+  #       created in the Tcl interpreter.
+  #
+  tcl eval $interp {
+    catch {object dispose $cell}
+    catch {object dispose $ocolumn}
+    catch {object dispose $orow}
+
+    catch {object dispose $range}
+    catch {object dispose $worksheet}
+    catch {object dispose $workbook}
+
+    catch {object dispose $application}
+    catch {object dispose $assembly}
+
+    unset -nocomplain cell ocolumn orow range worksheet \
+        workbook application assembly
+
+    if {[info exists newXls]} then {
+      catch {file delete $newXls}
+    }
+
+    unset -nocomplain xls newXls result modify rows \
+        columns row column interp test_data_path test_channel
+  }
+
+  #
+  # NOTE: Delete the bridged Tcl commands that we created.
+  #
+  tcl command delete $interp appendArgs
+  tcl command delete $interp getTemporaryPath
+  tcl command delete $interp tputs
+  tcl command delete $interp object
+
+  #
+  # NOTE: Delete the Tcl interpreter and unload the Tcl
+  #       library, if necessary.
+  #
+  tcl delete $interp
+  tclUnloadForTest false tcl_loaded
+  unset -nocomplain interp
+
+  #
+  # NOTE: Remove the remaining variables that were actually
+  #       created in Eagle, not Tcl.
+  #
+  unset -nocomplain result ids timeout modify
+} -constraints {eagle command.object windows interactive excel.usable\
+native dynamic tclLibrary command.tcl compile.NATIVE compile.TCL\
+Microsoft.Office.Interop.Excel referenceCounts primaryThread file_test.xls} \
+-time true -result [list [list Name Date Sales Bob [clock format [clock \
+seconds] -format M/d/yyyy] {$291.00} Jeff [clock format [clock seconds] \
+-format M/d/yyyy] {$455.00} Zach [clock format [clock seconds] -format \
+M/d/yyyy] {$799.00} {} {} {} {} Total {$0.00}] 1 True]}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

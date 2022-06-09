@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Komodo Project File - DO NOT EDIT -->
+<project id="f845316b-2d71-4b7b-9389-d0bb427e669c" kpf_version="4" name="Eagle.kpf">
+<menu accesskey="g" id="3ced8182-f3e0-4bc1-a066-361336a9aa7c" idref="f845316b-2d71-4b7b-9389-d0bb427e669c" name="Eagle" priority="100" />
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../Resources/Eagle.ico" id="23c34820-dcd9-4553-a0de-74ee48d95a6c" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="Ctrl+E" name="Start Eagle Shell (debug)..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%p\..\..\..\bin\Debug\bin\EagleShell.exe"</command>
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../Resources/Eagle.ico" id="3c640412-f3ef-4843-97e8-33e2f4a0ad28" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate file with Eagle (debug)..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%p\..\..\..\bin\Debug\bin\EagleShell.exe" -file "%F"</command>
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../Resources/Eagle.ico" id="7ad54493-f2fc-4647-8dea-07486117de9f" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate string with Eagle (debug)..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%p\..\..\..\bin\Debug\bin\EagleShell.exe" -evaluate "%(ask:Script:)"</command>
+<URL icon="../../Resources/Eagle.ico" id="b491f1be-95b1-4a5a-aca3-1f346f80ce3a" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" keyboard_shortcut="" name="Visit Eagle website...">
+https://eagle.to/</URL>
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../Resources/Eagle.ico" id="f7cd8693-838e-4e33-b7b5-6c076a7b121f" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Start Eagle Shell (release)..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%p\..\..\..\bin\Release\bin\EagleShell.exe"</command>
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../Resources/Tcl.ico" id="c2db7527-0502-4e40-8c8f-e525597f1ff6" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate file with Tcl..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%(tclsh)" "%F"</command>
+<folder id="db8271ae-5fa3-4620-a2b9-854bc22a8b1f" idref="f845316b-2d71-4b7b-9389-d0bb427e669c" name="lib" />
+<folder id="6300c397-bb52-442f-bcdc-f6f56ed40e67" idref="db8271ae-5fa3-4620-a2b9-854bc22a8b1f" name="Eagle1.0" />
+<folder id="68173f93-1b5d-4fd8-967a-640769c0eed3" idref="db8271ae-5fa3-4620-a2b9-854bc22a8b1f" name="Test1.0" />
+<folder id="fad79260-cac0-4649-999e-3452fca0d533" idref="f845316b-2d71-4b7b-9389-d0bb427e669c" name="Tests" />
+<folder id="72843424-6633-4032-b941-e68f1d5281aa" idref="fad79260-cac0-4649-999e-3452fca0d533" name="data" />
+<folder id="0e81af6a-5100-45d4-8bd1-232b616a45c3" idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl" />
+
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="auxiliary.eagle" url="../../../lib/Eagle1.0/auxiliary.eagle" id="5674257b-5804-42b6-93af-1d51188cbd8a" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="compat.eagle" url="../../../lib/Eagle1.0/compat.eagle" id="5eaa16e3-bba1-4653-8e2f-80dfc9b07b7a" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="csharp.eagle" url="../../../lib/Eagle1.0/csharp.eagle" id="75631b41-005f-4d69-898e-1869501f023a" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="database.eagle" url="../../../lib/Eagle1.0/database.eagle" id="e7d54545-9863-43fa-8450-2984dcab96ca" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="embed.eagle" url="../../../lib/Eagle1.0/embed.eagle" id="8c1eb3d3-7fe5-4353-bbcc-cd30bc8c88fb" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="exec.eagle" url="../../../lib/Eagle1.0/exec.eagle" id="19c69b5d-9039-4bda-9e61-1e0bbf7efe23" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="file1.eagle" url="../../../lib/Eagle1.0/file1.eagle" id="cd3dd353-8d70-4ed6-84a6-a82bd6340146" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="file2.eagle" url="../../../lib/Eagle1.0/file2.eagle" id="290e2da3-93f2-45c6-bf13-101ac5cc40c3" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="file3.eagle" url="../../../lib/Eagle1.0/file3.eagle" id="0cc0610f-c962-4824-92bf-233730a67352" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="info.eagle" url="../../../lib/Eagle1.0/info.eagle" id="e06c1622-adff-4e79-b3ea-3818fbed8956" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="init.eagle" url="../../../lib/Eagle1.0/init.eagle" id="e3848b5c-fa0d-43b0-b3fe-930221048fab" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="list.eagle" url="../../../lib/Eagle1.0/list.eagle" id="fb9cc57f-b883-43dd-bb5a-3eada5a20042" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="object.eagle" url="../../../lib/Eagle1.0/object.eagle" id="9b205612-ea76-43b5-8c6b-938f0ac152d4" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="pkgIndex.eagle" url="../../../lib/Eagle1.0/pkgIndex.eagle" id="de9c90a4-80f9-4147-9f23-a818d43830cf" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="pkgIndex.tcl" url="../../../lib/Eagle1.0/pkgIndex.tcl" id="22add03e-7ecd-4fe8-8649-3bc17aa24741" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="pkgt.eagle" url="../../../lib/Eagle1.0/pkgt.eagle" id="21f3da46-7780-40ce-80d2-032a2b577c5c" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="platform.eagle" url="../../../lib/Eagle1.0/platform.eagle" id="eef9d702-5d42-41ec-86fb-1f212527026b" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="process.eagle" url="../../../lib/Eagle1.0/process.eagle" id="882ad383-af15-4a14-ba77-528ede792cdc" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="runopt.eagle" url="../../../lib/Eagle1.0/runopt.eagle" id="ccc251c2-213a-4579-ac31-da9b4b8de314" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="safe.eagle" url="../../../lib/Eagle1.0/safe.eagle" id="c954cbc1-5060-405c-8f74-65f02a9520e1" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="shell.eagle" url="../../../lib/Eagle1.0/shell.eagle" id="2edfd40f-2013-4849-92b8-90a44fffcaf6" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="shim.eagle" url="../../../lib/Eagle1.0/shim.eagle" id="1936cf4c-62c6-4923-bdee-d274d0406376" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="test.eagle" url="../../../lib/Eagle1.0/test.eagle" id="5b4222f9-8050-4f63-84d9-7bf0168962e6" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="testlog.eagle" url="../../../lib/Eagle1.0/testlog.eagle" id="c2d64b33-2639-4d18-8e21-2a1a18a3b90b" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="unkobj.eagle" url="../../../lib/Eagle1.0/unkobj.eagle" id="df8573c7-8fe4-4a9e-a79b-b0d26d7ee0a9" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="unzip.eagle" url="../../../lib/Eagle1.0/unzip.eagle" id="21850978-9e58-4eb5-893b-e4e17895b183" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="update.eagle" url="../../../lib/Eagle1.0/update.eagle" id="fcae70fd-4a78-43f0-b09f-e55a9362b89b" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="vendor.eagle" url="../../../lib/Eagle1.0/vendor.eagle" id="6c822564-163d-4096-83db-dbe17739dba1" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="word.tcl" url="../../../lib/Eagle1.0/word.tcl" id="c645bb4f-80ea-44aa-80c2-da6979f3ed08" />
+
+<file idref="68173f93-1b5d-4fd8-967a-640769c0eed3" name="all.eagle" url="../../../lib/Test1.0/all.eagle" id="d534584d-e530-49a3-ad05-46ec7b6bd18f" />
+<file idref="68173f93-1b5d-4fd8-967a-640769c0eed3" name="constraints.eagle" url="../../../lib/Test1.0/constraints.eagle" id="3cf69bf2-d2af-42d5-bf1b-6931ea887594" />
+<file idref="68173f93-1b5d-4fd8-967a-640769c0eed3" name="epilogue.eagle" url="../../../lib/Test1.0/epilogue.eagle" id="f96091e1-16c1-4893-ba36-6b29d915f73a" />
+<file idref="68173f93-1b5d-4fd8-967a-640769c0eed3" name="pkgIndex.eagle" url="../../../lib/Test1.0/pkgIndex.eagle" id="8b2a7d98-ef30-40ed-b39a-5b94d91c1b72" />
+<file idref="68173f93-1b5d-4fd8-967a-640769c0eed3" name="pkgIndex.tcl" url="../../../lib/Test1.0/pkgIndex.tcl" id="c843f121-e4ef-4c7c-b6a0-699b9be76b59" />
+<file idref="68173f93-1b5d-4fd8-967a-640769c0eed3" name="prologue.eagle" url="../../../lib/Test1.0/prologue.eagle" id="df49ccf2-833d-4900-9a35-b14d686a087f" />
+
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="all.eagle" url="../../Tests/all.eagle" id="4620825c-9208-4216-b533-416b2a034213" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="aplus.eagle" url="../../Tests/aplus.eagle" id="4220210c-35f4-4b78-a681-8aef5a41c52e" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="append.eagle" url="../../Tests/append.eagle" id="1cb55d1b-c055-49a9-a7d0-225cfec89e13" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="apply.eagle" url="../../Tests/apply.eagle" id="207c7732-a4b1-4738-9ba4-eccdc77d38cc" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="array.eagle" url="../../Tests/array.eagle" id="84e31fa9-b250-4586-ab4a-a23685b36626" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="array2.eagle" url="../../Tests/array2.eagle" id="fd514e63-85db-40be-9b3b-2970641ee336" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="bad-subst.eagle" url="../../Tests/bad-subst.eagle" id="d64e7b4a-8b5b-465f-a443-cfcb498917fb" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="base64.eagle" url="../../Tests/base64.eagle" id="a55537c2-51fd-4ac9-8956-fc212aa005ee" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="basic.eagle" url="../../Tests/basic.eagle" id="65d542f1-0437-44bc-9473-6d9a2e1eec28" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="benchmark.eagle" url="../../Tests/benchmark.eagle" id="6786d67e-e7ab-419f-b9d0-48e7927e22a5" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="big-dir.eagle" url="../../Tests/big-dir.eagle" id="23dfa4c8-a564-45b2-922e-b276ec732657" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="busy.eagle" url="../../Tests/busy.eagle" id="73c80486-9d26-423f-b775-ecfbe694d434" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="catch.eagle" url="../../Tests/catch.eagle" id="f10a06d5-abd9-4944-acfd-c42c5cf2830d" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="commands.eagle" url="../../Tests/commands.eagle" id="1624079f-2860-4c4b-af99-d3d396e291cd" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="continue.eagle" url="../../Tests/continue.eagle" id="fdbb3b06-acda-4f29-8f02-c18a275b923a" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="debug-try.eagle" url="../../Tests/debug-try.eagle" id="ab213c30-3f23-4ae0-9fe5-8894b6db0c19" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="debug.eagle" url="../../Tests/debug.eagle" id="93f845f8-bea8-4a2d-b48d-38e396be9a5c" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="debug2.eagle" url="../../Tests/debug2.eagle" id="3efc0b03-b390-4aad-9d92-d338abecc639" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="debug3.eagle" url="../../Tests/debug3.eagle" id="a5e59305-9587-4a2a-8219-fcbbbe65e122" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="debug-ops.eagle" url="../../Tests/debug-ops.eagle" id="0a8385c9-b947-4cf3-8958-1592e91d0aa6" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="delay-out.eagle" url="../../Tests/delay-out.eagle" id="6774f930-3086-416b-af81-32b2ce234344" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="empty.eagle" url="../../Tests/empty.eagle" id="26994d5e-d5aa-4d2a-83ab-274650c78d07" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="epilogue.eagle" url="../../Tests/epilogue.eagle" id="50145fc0-a55c-4a82-b24b-ebbe718ffb2b" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="error.eagle" url="../../Tests/error.eagle" id="e15e998e-dc3a-42e9-827d-556ce8d71925" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="error2.eagle" url="../../Tests/error2.eagle" id="26ea70a7-ad83-4c8f-b45a-943db1f743a4" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="excel.eagle" url="../../Tests/excel.eagle" id="9e6142e8-738c-427a-a61a-06600b905eb3" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="excel2.eagle" url="../../Tests/excel2.eagle" id="e89e04c3-f35b-4115-ad1b-93501fa69ca4" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="exec.eagle" url="../../Tests/exec.eagle" id="8e0fe968-786f-4e1b-afb6-adfd360860ca" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="expr.eagle" url="../../Tests/expr.eagle" id="9456f32f-66cb-4dec-a630-5241c95ef19f" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="expr2.eagle" url="../../Tests/expr2.eagle" id="e1ff1455-6e95-42a3-b5cf-96893d0046b5" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="expr3.eagle" url="../../Tests/expr3.eagle" id="d453c7ec-63fe-4661-b7ce-6c0620bc67a5" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="fib.eagle" url="../../Tests/fib.eagle" id="89303b5c-4547-4a0c-8432-f7c2b223fcec" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="file-io.eagle" url="../../Tests/file-io.eagle" id="f73ef1d4-a8ca-4f32-ac5b-c02eba9006dc" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="flush.eagle" url="../../Tests/flush.eagle" id="de073691-3f02-4fc1-a50b-c4f9ea24b23b" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="foreach.eagle" url="../../Tests/foreach.eagle" id="2813a84a-1a0f-422d-904b-d674065414f8" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="format.eagle" url="../../Tests/format.eagle" id="202358fd-a78c-45b7-841a-f0425fc33eee" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="function.eagle" url="../../Tests/function.eagle" id="0b24b223-8c3c-42a0-805a-de929ee61962" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="garbage.eagle" url="../../Tests/garbage.eagle" id="710f5a15-6531-44b4-8ea6-54b81ee7a845" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="global-upvar.eagle" url="../../Tests/global-upvar.eagle" id="f9384c2b-de65-4d53-aede-d5422a6b2341" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="host.eagle" url="../../Tests/host.eagle" id="e59a0a02-a454-439f-b21a-adcef75beaa9" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="info-level.eagle" url="../../Tests/info-level.eagle" id="b5ece709-731e-48e7-8437-2c9aa789c555" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="interp-exited.eagle" url="../../Tests/interp-exited.eagle" id="a21ac36b-c8af-4958-bc7c-fb1592e4a244" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="io.eagle" url="../../Tests/io.eagle" id="82d75f5b-6a1f-4804-8b52-24c82ffdf78e" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="library.eagle" url="../../Tests/library.eagle" id="31ec0d35-1708-4c0d-9ad8-c7a537fbd15d" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="library2.eagle" url="../../Tests/library2.eagle" id="b9ef9fe9-b50e-4040-96cf-e19d81852b40" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="library3.eagle" url="../../Tests/library3.eagle" id="dbfd1987-0a65-4b31-91b3-1be75beed5f4" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="library4.eagle" url="../../Tests/library4.eagle" id="22896a1b-46e2-4188-ad66-06f242393264" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="list.eagle" url="../../Tests/list.eagle" id="9c64b8da-851b-4896-a3b0-0bba9379b59a" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="lmap.eagle" url="../../Tests/lmap.eagle" id="d824df80-2974-445f-8187-f9e0e948cbd9" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="load.eagle" url="../../Tests/load.eagle" id="3669ace9-07e1-4d08-9ed1-1f3adc6f9089" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="lsearch.eagle" url="../../Tests/lsearch.eagle" id="57c86261-2016-4101-a6e6-cf093c3d1a0c" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="lsearch2.eagle" url="../../Tests/lsearch2.eagle" id="f829bb76-76e9-48c5-a313-ab6a70a79a4c" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="lset.eagle" url="../../Tests/lset.eagle" id="8d2dd317-e771-4f4a-819c-6d750fff76ac" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="lsort.eagle" url="../../Tests/lsort.eagle" id="57cf8c81-5dd8-4a6d-b994-355acd9f2d8a" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="lsort2.eagle" url="../../Tests/lsort2.eagle" id="34abac34-297d-4509-9565-b052d37c97e4" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="lsort3.eagle" url="../../Tests/lsort3.eagle" id="b0e813d2-8c5d-4c02-a84b-3d1dc42a4e1a" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="namespace.eagle" url="../../Tests/namespace.eagle" id="626141d0-1dee-4685-9de0-6c2033e02be7" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="namespace-delete.eagle" url="../../Tests/namespace-delete.eagle" id="945362e8-4bab-42eb-bc1d-a08cc0d41f3f" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="namespace-delete2.eagle" url="../../Tests/namespace-delete2.eagle" id="7115f026-6f89-41c2-a45b-1e3c03a00405" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="namespace-inscope.eagle" url="../../Tests/namespace-inscope.eagle" id="2bd270b4-58f7-4fab-9791-33952e423730" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="namespace-old.eagle" url="../../Tests/namespace-old.eagle" id="cbe449d9-718f-4177-890c-fd7c46472f39" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="nested.eagle" url="../../Tests/nested.eagle" id="30ecc1ce-a92a-4c4c-a5f8-efe810c5a4d7" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="null.eagle" url="../../Tests/null.eagle" id="ac0c435f-ec17-4332-82d5-c6fee17537f1" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object-create.eagle" url="../../Tests/object-create.eagle" id="26aeacfc-a508-4fd5-9de3-52195bbe94b1" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object-refcount.eagle" url="../../Tests/object-refcount.eagle" id="b2d3b7d9-d2c4-4df0-8f72-9ca93fbe807c" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object.eagle" url="../../Tests/object.eagle" id="739524f1-48ac-4470-aefc-06c9e48505ee" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object10.eagle" url="../../Tests/object10.eagle" id="5aade130-f3b9-484a-9ed6-efdc129fad07" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object11.eagle" url="../../Tests/object11.eagle" id="e64aa788-7d9c-43e1-9914-5682feff6fd2" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object12.eagle" url="../../Tests/object12.eagle" id="4eaddbcb-c6cf-4c1e-90c8-f39430c806fb" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object13.eagle" url="../../Tests/object13.eagle" id="0685a7df-f69f-4fc4-a14f-5daf7135ce82" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object14.eagle" url="../../Tests/object14.eagle" id="3ef40728-f90f-4d64-9cd6-2a45c5a6c565" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object15.eagle" url="../../Tests/object15.eagle" id="ae1d97d1-5064-4b99-9772-a9c0cc7aa007" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object2.eagle" url="../../Tests/object2.eagle" id="692e641c-b458-4ce7-9795-6613ade67ba6" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object3.eagle" url="../../Tests/object3.eagle" id="7ee28d6e-8a2e-4a31-96d1-736c4672206a" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object4.eagle" url="../../Tests/object4.eagle" id="426f4682-2249-4dd1-96b6-9d21d9ed1f1b" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object5.eagle" url="../../Tests/object5.eagle" id="0da7d22a-d67b-491e-95c8-cdf83b653178" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object6.eagle" url="../../Tests/object6.eagle" id="1fa9e711-b6d2-4b39-9a95-e32a6bcf2a74" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object7.eagle" url="../../Tests/object7.eagle" id="67d52560-4c26-4067-bce5-a17a36e46e84" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object8.eagle" url="../../Tests/object8.eagle" id="c263414e-58a8-44ff-adf8-aa68345a3739" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="object9.eagle" url="../../Tests/object9.eagle" id="a0a4e113-7feb-4bdf-84a9-431c3ab4b887" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="open.eagle" url="../../Tests/open.eagle" id="54abf205-c7d9-4859-a1d5-535522924843" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="package.eagle" url="../../Tests/package.eagle" id="8685a17a-3f4c-4b7e-bbfa-094309b08e15" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="parser.eagle" url="../../Tests/parser.eagle" id="8263736b-e0f4-4ecf-a612-376fce3772e1" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="parser2.eagle" url="../../Tests/parser2.eagle" id="d4dc7050-e171-4cf2-a202-5703c9123073" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="parser3.eagle" url="../../Tests/parser3.eagle" id="4e4111de-a2e8-46aa-88de-236dbff1901f" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="parser4.eagle" url="../../Tests/parser4.eagle" id="29a9ff8e-fbf5-4aa1-8674-a17fceba7aad" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="parser5.eagle" url="../../Tests/parser5.eagle" id="ae7ddc1a-9078-4385-ace0-616cfcf9594a" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="perf.eagle" url="../../Tests/perf.eagle" id="174b04fc-8bd0-4f4c-9801-71284a012dd1" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="perf2.eagle" url="../../Tests/perf2.eagle" id="c81e168b-047b-43a8-a6dc-26f7d8e94501" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="proc-uplevel.eagle" url="../../Tests/proc-uplevel.eagle" id="13d513ea-a683-4397-adb7-e25adace30b7" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="proc.eagle" url="../../Tests/proc.eagle" id="4180302f-cea4-4670-a82d-b30e9d79a120" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="prologue.eagle" url="../../Tests/prologue.eagle" id="a939ae30-ca35-4b2f-8f78-7947c7bb52a0" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="redefine.eagle" url="../../Tests/redefine.eagle" id="0c11c802-a042-476f-b4a3-e6f4bec4910e" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="regexp.eagle" url="../../Tests/regexp.eagle" id="b85a6ab9-4687-450a-a9ca-461c4014107b" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="regsub.eagle" url="../../Tests/regsub.eagle" id="2569b577-a761-43a9-9bc3-b42cf0ce984e" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="remoting-server.eagle" url="../../Tests/remoting-server.eagle" id="01156b8a-3a02-450a-a055-0eef9e54aa09" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="return.eagle" url="../../Tests/return.eagle" id="8f9ae3e7-db22-4384-938d-a6bdceafb567" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="return2.eagle" url="../../Tests/return2.eagle" id="2d0628ff-79da-4ecc-8564-c76d75809297" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="scope-array.eagle" url="../../Tests/scope-array.eagle" id="0672b245-0d99-49df-a1be-df5b1a5546b2" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="scope-array2.eagle" url="../../Tests/scope-array2.eagle" id="50dbf1b3-9514-4ea5-96b4-f3524c1c6b32" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="scope-error.eagle" url="../../Tests/scope-error.eagle" id="c25dcb3c-0d01-417b-95fa-ace92422a26e" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="scope-error2.eagle" url="../../Tests/scope-error2.eagle" id="4315e79d-e8ea-4ac2-ad76-8b7bad028e21" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="scope-error3.eagle" url="../../Tests/scope-error3.eagle" id="6848cdf2-116f-4466-9567-51bf68ef891f" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="scope.eagle" url="../../Tests/scope.eagle" id="518c73a6-255e-44e5-b251-24cabe2715d9" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="scope2.eagle" url="../../Tests/scope2.eagle" id="1d863fda-aae2-4744-ad1f-657682d9819c" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="scope3.eagle" url="../../Tests/scope3.eagle" id="edb78fcf-cd33-4af7-b918-056d84f0bfbc" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="set-element.eagle" url="../../Tests/set-element.eagle" id="41ae25fc-af46-4285-8a0c-d3c8971d3231" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="set-nested.eagle" url="../../Tests/set-nested.eagle" id="afe0476f-cea9-4967-8b46-3d8065f6ce29" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="set.eagle" url="../../Tests/set.eagle" id="4f2c700c-345c-473a-ae39-bcab15d1aa54" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="short-circuit.eagle" url="../../Tests/short-circuit.eagle" id="0d04bbe2-2ad7-43e0-9d34-1dabed56b8b0" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="socket.eagle" url="../../Tests/socket.eagle" id="b90ae340-8512-4c21-b4dc-efa630779939" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="socket2.eagle" url="../../Tests/socket2.eagle" id="1d9a99f8-e8c3-4530-a36c-115bf694f07b" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="socket3.eagle" url="../../Tests/socket3.eagle" id="5058c112-5f60-4e80-9320-2763582bed16" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="sql.eagle" url="../../Tests/sql.eagle" id="cdfdf5c2-9ab9-444e-845c-69d5d8071194" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="string-map.eagle" url="../../Tests/string-map.eagle" id="45523861-96b7-49e9-aaa8-1723f3d7c75a" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="subst.eagle" url="../../Tests/subst.eagle" id="36bd3387-2dcc-4344-b904-470eeb219892" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="switch.eagle" url="../../Tests/switch.eagle" id="c6de7e2e-4184-4b3f-a435-2cb6df1a1bf9" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-cancel.eagle" url="../../Tests/tcl-cancel.eagle" id="d111267d-0f74-48ca-a7de-c0315bfb68ef" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-encoding.eagle" url="../../Tests/tcl-encoding.eagle" id="dfa8aeea-5fb4-41f5-a53a-a531e7c39278" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-errorInfo.eagle" url="../../Tests/tcl-errorInfo.eagle" id="6520a872-e132-4a62-8e66-87762199f3c7" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-load.eagle" url="../../Tests/tcl-load.eagle" id="c3e61d24-9b1a-4155-b48b-eb64103a1d83" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-reset-cancel.eagle" url="../../Tests/tcl-reset-cancel.eagle" id="8433f147-cb52-429f-a741-5ca9e5ab153b" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-reset-cancel2.eagle" url="../../Tests/tcl-reset-cancel2.eagle" id="f4346982-e765-4302-a4d0-24c33487ea88" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-reset-cancel3.eagle" url="../../Tests/tcl-reset-cancel3.eagle" id="e0292445-1728-4a43-8fc7-7c20d9fec7c9" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-reset-cancel4.eagle" url="../../Tests/tcl-reset-cancel4.eagle" id="89ab2332-739b-4fa7-8fd7-0b021ffad27f" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-set.eagle" url="../../Tests/tcl-set.eagle" id="d877b398-a160-4998-84c6-6e42c21e92ce" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="tcl-subst.eagle" url="../../Tests/tcl-subst.eagle" id="f78a075c-1cb0-4b9b-b912-eaf9135876b1" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="try.eagle" url="../../Tests/try.eagle" id="110730fa-f4c3-49fb-a291-7267fd048dc4" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="try2.eagle" url="../../Tests/try2.eagle" id="f034104d-2e0f-440b-bfb7-aee1837685d6" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="try3.eagle" url="../../Tests/try3.eagle" id="f53d56ef-b5a1-43e6-afd3-b4cb203c6456" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="try4.eagle" url="../../Tests/try4.eagle" id="cbefe94c-fdae-4c36-9edd-c6e92fdd2f78" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="unicode.eagle" url="../../Tests/unicode.eagle" id="f1e0523e-fa3d-44cd-bda3-754c11bc00ed" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="unicode2.eagle" url="../../Tests/unicode2.eagle" id="f1b3de25-2947-4168-9820-348c4ed0fbd0" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="uplevel-tcl.eagle" url="../../Tests/uplevel-tcl.eagle" id="34d10979-c93c-4878-bf77-64c132343f4b" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="uplevel.eagle" url="../../Tests/uplevel.eagle" id="f8694c6b-6a9a-4f66-9039-f62e8280a2fe" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="uplevel2.eagle" url="../../Tests/uplevel2.eagle" id="3b3ddabe-b6a1-49e5-8ffd-76191bd0310d" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="uplevel3.eagle" url="../../Tests/uplevel3.eagle" id="74af57d0-d124-43e5-87c7-1d4a6a85eccd" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="uplevel3a.eagle" url="../../Tests/uplevel3a.eagle" id="2352d273-f959-4030-9265-ba6d0ac1642b" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="uplevel4.eagle" url="../../Tests/uplevel4.eagle" id="bd64fb38-db55-4ad8-a733-b3abfd73c6b8" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="uplevel5.eagle" url="../../Tests/uplevel5.eagle" id="6132f017-2336-4709-b805-4d6dd1d35ee2" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="upvar-reverse.eagle" url="../../Tests/upvar-reverse.eagle" id="a93c6b50-c322-4891-ac5c-f2e898dbee6a" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="upvar-tcl.eagle" url="../../Tests/upvar-tcl.eagle" id="3638e384-ca96-4279-a035-5e07aef8fc6c" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="version.eagle" url="../../Tests/version.eagle" id="d91c0d45-fb5e-4612-9668-35d378a7e451" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="vwait.eagle" url="../../Tests/vwait.eagle" id="0f51955a-a23c-42d7-a39a-28f5eb8fc526" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="watch-alias.eagle" url="../../Tests/watch-alias.eagle" id="04177f60-c729-418c-a3ad-6998d108b9b9" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="winforms.eagle" url="../../Tests/winforms.eagle" id="c543394c-9264-4452-baca-7f4b908b3ce0" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="winforms2.eagle" url="../../Tests/winforms2.eagle" id="10c26b93-dc6d-42c0-a191-f872a58e1188" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="winforms3.eagle" url="../../Tests/winforms3.eagle" id="c290df4b-406d-4509-96c8-d6f97b5a5939" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="winforms4.eagle" url="../../Tests/winforms4.eagle" id="5010cfb0-8ef4-4ec3-a4a2-eead83527f23" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="winforms5.eagle" url="../../Tests/winforms5.eagle" id="b45d0194-9dc0-47c8-b3d2-8f60138c5fea" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="winforms6.eagle" url="../../Tests/winforms6.eagle" id="bc610b3a-1d73-422c-99b9-4e5591d62e25" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="winforms7.eagle" url="../../Tests/winforms7.eagle" id="9498599a-06aa-4de1-8e61-77940a4049d0" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="winforms8.eagle" url="../../Tests/winforms8.eagle" id="eb9c1535-b4ce-4c08-a2d4-f101e6def664" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="writebox.eagle" url="../../Tests/writebox.eagle" id="58c6a85f-d73f-4c51-821d-c306a59dc71e" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="xaml.eagle" url="../../Tests/xaml.eagle" id="d3726552-13b7-42fd-bb86-90a0eb783659" />
+<file idref="fad79260-cac0-4649-999e-3452fca0d533" name="xml.eagle" url="../../Tests/xml.eagle" id="83ff01ee-bc43-4d16-971b-9dddbcdb9344" />
+
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="bad_subst.txt" url="../../Tests/data/bad_subst.txt" id="4a567d4a-3511-487d-8bf2-ffa828d6e36d" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="benchmark.txt" url="../../Tests/data/benchmark.txt" id="2e36205e-479a-432e-b6bd-f02cdfafa6ab" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="big_exec.txt" url="../../Tests/data/big_exec.txt" id="8d079f83-5dca-4295-9929-d9b763901126" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="callStack.eagle" url="../../Tests/data/callStack.eagle" id="80c10f79-a1a5-48b9-a691-fb944a6066be" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="client.tcl" url="../../Tests/data/client.tcl" id="9ea4f6c4-315f-4582-b9c9-523cdd0d90ee" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="evaluate.eagle" url="../../Tests/data/evaluate.eagle" id="316ce54d-20a8-4031-a621-e0f588c979fd" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="FakeInstances.reg" url="../../Tests/data/FakeInstances.reg" id="da17d8d1-3825-4883-ab20-8e7583b984d2" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="file.dat" url="../../Tests/data/file.dat" id="304aa1a9-74d7-406c-b421-3605be93db80" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="FontViewer.xaml" url="../../Tests/data/FontViewer.xaml" id="0ebb895c-c3a9-48d5-b8cc-c90fb90744dd" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="garbage.txt" url="../../Tests/data/garbage.txt" id="ac6fc947-47b6-4a9a-8fd7-a03fde5b316c" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="isolated.eagle" url="../../Tests/data/isolated.eagle" id="0db5843d-32df-423b-9a38-dceaf696f814" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="pngDump.txt" url="../../Tests/data/pngDump.txt" id="040a8851-a737-4e62-b090-7c1f8dfba8de" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="read.eagle" url="../../Tests/data/read.eagle" id="fec7836e-eb20-4337-8c10-94b6e7a1cd58" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="read2.eagle" url="../../Tests/data/read2.eagle" id="b189f5f4-4061-4c10-8604-8de3b1195225" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="read3.eagle" url="../../Tests/data/read3.eagle" id="30b2bd88-2111-443f-aae4-18735db4d8b5" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="read4.eagle" url="../../Tests/data/read4.eagle" id="8cf41845-ab0b-4c0c-b96c-3aa2c20b4df5" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="script.eagle" url="../../Tests/data/script.eagle" id="071bb374-1572-44e0-9a90-c24338af96cf" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="settings.ini" url="../../Tests/data/settings.ini" id="affb48d7-9b5e-4c0b-adba-538a6d40197a" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="settings.xml" url="../../Tests/data/settings.xml" id="730e9b55-1cf3-46b3-884f-e0e9d0ad088b" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="source.eagle" url="../../Tests/data/source.eagle" id="364f798a-4ff0-4069-9699-1d7eae98f13c" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="substitute.eagle" url="../../Tests/data/substitute.eagle" id="07109417-26d4-4f21-a5de-43b38e3e96be" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="tcl_unload.tcl" url="../../Tests/data/tcl_unload.tcl" id="0a76205c-af34-42e2-9ac1-0cd014fb352a" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="test.png" url="../../Tests/data/test.png" id="acc29d17-5c8d-41c1-b461-7507f17d425d" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="test.sqlite3" url="../../Tests/data/test.sqlite3" id="dea98550-e4e5-400d-a111-1c1febd00524" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="test.xls" url="../../Tests/data/test.xls" id="afb965d7-820d-41e2-8a8f-605ea2b5d3aa" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="testProcs.tcl" url="../../Tests/data/testProcs.tcl" id="6f8af8bb-a836-468b-b6dd-f91b464fc60c" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="unbalanced_brace.eagle" url="../../Tests/data/unbalanced_brace.eagle" id="b490ca0a-f9fc-4cc0-9b86-777866711576" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="unbalanced_brace2.eagle" url="../../Tests/data/unbalanced_brace2.eagle" id="f3ac6a06-0c2a-4254-8576-6463981b603f" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="unicode_bom.txt" url="../../Tests/data/unicode_bom.txt" id="842822d8-8e21-4236-aec0-489284c3c3d1" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="unicode_no_bom.txt" url="../../Tests/data/unicode_no_bom.txt" id="d38de0c7-e1c0-41a2-9809-4d7802b1f699" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="utf8.txt" url="../../Tests/data/utf8.txt" id="2774862a-d9ba-4c0e-9183-6853eb3c1755" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="xaml2.eagle" url="../../Tests/data/xaml2.eagle" id="2761debf-9a2a-459a-9890-d54e2083c844" />
+
+<file idref="0e81af6a-5100-45d4-8bd1-232b616a45c3" name="format.test" url="../../Tests/tcl/format.test" id="1ada1e1f-b370-4ea7-97ef-98f2b6f05e5f" />
+<file idref="0e81af6a-5100-45d4-8bd1-232b616a45c3" name="lmap.test" url="../../Tests/tcl/lmap.test" id="dca6163e-5632-4f3f-8dfa-6586da470e21" />
+<file idref="0e81af6a-5100-45d4-8bd1-232b616a45c3" name="namespace.test" url="../../Tests/tcl/namespace.test" id="2a6b391d-da70-43b2-88ff-4bbf5bced365" />
+<file idref="0e81af6a-5100-45d4-8bd1-232b616a45c3" name="namespace-old.test" url="../../Tests/tcl/namespace-old.test" id="0e43114a-12be-4411-a25b-17b8124b939b" />
+</project>

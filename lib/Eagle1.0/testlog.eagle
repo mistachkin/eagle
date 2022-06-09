@@ -1,0 +1,138 @@
+###############################################################################
+#
+# testlog.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Test Log Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure locks the specified variable in the call frame of
+  #       the caller while it evaluates the specified script, also in the
+  #       context of the caller.
+  #
+  proc vwaitLocked { varName isArray script } {
+    if {[isEagle]} then {
+      #
+      # HACK: The [info exists] sub-command may return false even if the
+      #       variable exists, *IF* that variable is currently locked by
+      #       another thread.
+      #
+      if {[string length $isArray] > 0 && \
+          ![uplevel 1 [list info exists $varName]]} then {
+        #
+        # BUGFIX: If another thread has the variable locked, this could
+        #         fail.  That would be bad because the caller wishes to
+        #         block until the variable is available.
+        #
+        if {$isArray} then {
+          catch {
+            #
+            # HACK: This will either create the array variable without
+            #       elements -OR- fail because the variable has been
+            #       locked by another thread; either way, that's fine.
+            #
+            uplevel 1 [list array set $varName [list]]
+          }
+        } else {
+          catch {
+            #
+            # HACK: This will either create the scalar variable with an
+            #       empty value -OR- fail because the variable has been
+            #       locked by another thread; either way, that's fine.
+            #
+            uplevel 1 [list set $varName ""]
+          }
+        }
+      }
+
+      uplevel 1 [list vwait -force -locked $script -- $varName]
+    } else {
+      uplevel 1 $script
+    }
+  }
+
+  #
+  # NOTE: This procedure emits a message to the specified channel and adds
+  #       it to the test log queue.
+  #
+  proc tqputs { channel string } {
+    #
+    # NOTE: If an output channel was provided, use it; otherwise, ignore
+    #       the message.
+    #
+    if {[string length $channel] > 0} then {
+      puts -nonewline $channel $string
+    }
+
+    tqlog $string
+  }
+
+  #
+  # NOTE: This procedure adds a message to the test log queue.  It will be
+  #       written to the test log file the next time the [tlog] procedure
+  #       is called.  If the [tlog] procedure is never called, then it will
+  #       never be written to the test log file.
+  #
+  proc tqlog { string } {
+    #
+    # NOTE: If an empty string is supplied by the caller, do nothing.
+    #
+    if {[string length $string] > 0} then {
+      #
+      # NOTE: *SPECIAL* The special global variable "test_log_queue" is used
+      #       by the [tlog] script library procedure from the test package to
+      #       enable it to emit "queued" data into the test log file prior to
+      #       emitting the string requested by its caller.  The only job for
+      #       this procedure is to populate the "test_log_queue" variable for
+      #       later use by the test package.
+      #
+      # BUGFIX: As of beta 47, use of the "test_log_queue" global variable is
+      #         thread-safe.
+      #
+      vwaitLocked ::test_log_queue true {
+        if {[info exists ::test_log_queue]} then {
+          #
+          # NOTE: Use the next queued test log entry.
+          #
+          set entry [expr {[array size ::test_log_queue] + 1}]
+        } else {
+          #
+          # NOTE: Use the first queued test log entry.
+          #
+          set entry 1
+        }
+
+        #
+        # NOTE: Add the new entry to the test log queue.  All entries will
+        #       be sent to the actual test log file the very next time the
+        #       [tlog] command from the test package is executed.
+        #
+        set ::test_log_queue($entry) $string
+      }
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: Provide the Eagle "test log" package to the interpreter.
+  #
+  package provide Eagle.Test.Log \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

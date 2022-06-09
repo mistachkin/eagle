@@ -1,0 +1,237 @@
+###############################################################################
+#
+# library.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test library-1.1 {declare/call} -setup {
+  set m1 [library load kernel32.dll]
+
+  set x [library declare -functionname GetConsoleWindow -returntype IntPtr \
+      -module $m1]
+
+  set m2 [library load kernel32.dll]
+
+  set y [library declare -functionname GetStdHandle -returntype IntPtr \
+      -parametertypes [list int32] -module $m2]
+} -body {
+  set hwnd [library call $x]
+
+  set STD_OUTPUT_HANDLE -11
+  set zz [library call $y $STD_OUTPUT_HANDLE]
+
+  list [expr {$hwnd != 0 || !$::tcl_interactive}] \
+      [expr {$zz != 0}] \
+      [llength [info modules]] \
+      [llength [info delegates]] \
+      [library undeclare $y] \
+      [library undeclare $x] \
+      [llength [info modules]] \
+      [llength [info delegates]] \
+      [library unload $m2] \
+      [library unload $m1] \
+      [llength [info modules]] \
+      [llength [info delegates]] \
+      [llength [info objects]]
+} -cleanup {
+  catch {library undeclare $y}
+  catch {library undeclare $x}
+  catch {library unload $m2}
+  catch {library unload $m1}
+
+  unset -nocomplain m1 m2 x y zz hwnd STD_OUTPUT_HANDLE
+} -constraints {eagle native dynamic windows referenceCounts command.library\
+compile.EMIT compile.NATIVE compile.LIBRARY} \
+-isolationLevel Maximum -result {True True 2 2 {} {} 2 0 {} {} 0 0 1}}
+
+###############################################################################
+
+runTest {test library-1.2 {declare/re-resolve/call} -setup {
+} -body {
+  list [set m1 [library load kernel32.dll]] \
+      [set x [library declare -functionname GetConsoleWindow -returntype \
+          IntPtr -module $m1]] \
+      [library resolve -functionname GetConsoleWindow -module $m1 $x] \
+      [expr {[library call $x] || !$::tcl_interactive}] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [llength [info delegates]] \
+      [library undeclare $x] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [llength [info delegates]] \
+      [library unload $m1] \
+      [llength [info modules]] \
+      [llength [info delegates]] \
+      [llength [info objects]]
+} -cleanup {
+  catch {library undeclare $x}
+  catch {library unload $m1}
+
+  unset -nocomplain m1 x
+} -constraints {eagle native dynamic windows referenceCounts command.library\
+compile.EMIT compile.NATIVE compile.LIBRARY} \
+-isolationLevel Maximum -match regexp -result {^IModule#\d+ IDelegate#\d+ \{\}\
+True 3 1 3 1 \{\} 1 2 0 \{\} 0 0 1$}}
+
+###############################################################################
+
+runTest {test library-1.3 {declare/re-resolve/call} -body {
+  list [set m1 [library load kernel32.dll]] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [set m2 [library load user32.dll]] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [set x [library declare -functionname GetConsoleWindow -returntype \
+          IntPtr -module $m1]] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [expr {[set hwnd1 [library call $x]] != 0 || !$::tcl_interactive}] \
+      [library resolve -functionname GetDesktopWindow -module $m2 $x] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [expr {[set hwnd2 [library call $x]] != 0 || !$::tcl_interactive}] \
+      [expr {$hwnd1 != $hwnd2 || !$::tcl_interactive}] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [llength [info delegates]] \
+      [library undeclare $x] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [llength [info delegates]] \
+      [library unload $m2] \
+      [library unload $m1] \
+      [llength [info modules]] \
+      [llength [info delegates]] \
+      [llength [info objects]]
+} -cleanup {
+  catch {library undeclare $x}
+  catch {library unload $m2}
+  catch {library unload $m1}
+
+  unset -nocomplain m1 m2 x hwnd1 hwnd2
+} -constraints {eagle native dynamic windows referenceCounts command.library\
+compile.EMIT compile.NATIVE compile.LIBRARY} \
+-isolationLevel Maximum -match regexp -result {^IModule#\d+ 1 1 IModule#\d+ 2 1\
+1 IDelegate#\d+ 2 2 1 True \{\} 2 2 2 True True 2 2 2 1 \{\} 2 2 1 0 \{\} \{\}\
+0 0 1$}}
+
+###############################################################################
+
+runTest {test library-1.4 {declare/re-resolve/undeclare} -body {
+  list [set m1 [library load kernel32.dll]] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [set m2 [library load user32.dll]] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [set x [library declare -functionname GetConsoleWindow -returntype \
+          IntPtr -module $m1]] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [expr {[set hwnd1 [library call $x]] != 0 || !$::tcl_interactive}] \
+      [library resolve -functionname GetDesktopWindow -module $m2 $x] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [expr {[set hwnd2 [library call $x]] != 0 || !$::tcl_interactive}] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [llength [info delegates]] \
+      [expr {$hwnd1 != $hwnd2 || !$::tcl_interactive}] \
+      [library unresolve $x] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m1] referenceCount] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [llength [info delegates]] \
+      [library unload $m1] \
+      [llength [info modules]] \
+      [getDictionaryValue [library info module $m2] referenceCount] \
+      [llength [info delegates]] \
+      [library undeclare $x] \
+      [llength [info modules]] \
+      [llength [info delegates]] \
+      [library unload $m2] \
+      [llength [info modules]] \
+      [llength [info delegates]] \
+      [llength [info modules]] \
+      [llength [info delegates]] \
+      [llength [info objects]]
+} -cleanup {
+  catch {library undeclare $x}
+  catch {library unload $m2}
+  catch {library unload $m1}
+
+  unset -nocomplain m1 m2 x hwnd1 hwnd2
+} -constraints {eagle native dynamic windows referenceCounts command.library\
+compile.EMIT compile.NATIVE compile.LIBRARY} \
+-isolationLevel Maximum -match regexp -result {^IModule#\d+ 1 1 IModule#\d+ 2 1\
+1 IDelegate#\d+ 2 2 1 True \{\} 2 2 2 True 2 2 2 1 True \{\} 2 2 2 1 \{\} 1 2 1\
+\{\} 1 0 \{\} 0 0 0 0 1$}}
+
+###############################################################################
+
+runTest {test library-1.5 {library info} -setup {
+  set m1 [library load kernel32.dll]
+
+  set x [library declare -functionname GetStdHandle -returntype IntPtr \
+      -parametertypes [list int32]]
+
+  set y [library declare -functionname GetStdHandle -returntype IntPtr \
+      -parametertypes [list int32] -module $m1]
+} -body {
+  list [library info module $m1] \
+      [library info delegate $x] \
+      [library info delegate $y]
+} -cleanup {
+  catch {library undeclare $y}
+  catch {library undeclare $x}
+  catch {library unload $m1}
+
+  unset -nocomplain m1 x y
+} -constraints {eagle native dynamic windows command.library compile.EMIT\
+compile.NATIVE compile.LIBRARY} -isolationLevel Maximum -match regexp -result \
+{^\{kind NativeModule id\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+name IModule#\d+ description \{\} flags None fileName kernel32\.dll module \d+\
+referenceCount 2\} \{kind NativeDelegate id\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+name IDelegate#\d+ description \{\} callingConvention Winapi returnType\
+System\.IntPtr parameterTypes System\.Int32 typeId\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+typeName Type#\d+ moduleFlags \{\} moduleName \{\} moduleFileName \{\}\
+moduleReferenceCount \{\} functionName GetStdHandle address 0\} \{kind\
+NativeDelegate id\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+name IDelegate#\d+ description \{\} callingConvention Winapi returnType\
+System\.IntPtr parameterTypes System\.Int32 typeId\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+typeName Type#\d+ moduleFlags None moduleName IModule#\d+ moduleFileName\
+kernel32\.dll moduleReferenceCount 2 functionName GetStdHandle address \d+\}$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

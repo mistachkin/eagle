@@ -1,0 +1,31 @@
+###############################################################################
+#
+# continue.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test continue-1.1 {simple continue} -body {
+  set ev {set x 12}
+  catch {eval $ev;continue} y
+  catch {eval {set x 13};continue} z
+  list $y $z
+} -cleanup {
+  unset ev x y z
+} -constraints {tcl84} -result {{} {}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

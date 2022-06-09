@@ -1,0 +1,25 @@
+###############################################################################
+#
+# vendor.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Vendor Initialization File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# STUB: This script file is a placeholder.  This file, when present, is always
+#       evaluated when an interpreter is initialized.  Vendors distributing
+#       Eagle can place custom application-specific, interpreter-specific
+#       initialization and/or customizations in here.  Additionally, this file
+#       may contain per-interpreter customizations required when porting to
+#       new platforms, operating systems, etc.
+#
+

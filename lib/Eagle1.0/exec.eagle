@@ -1,0 +1,201 @@
+###############################################################################
+#
+# exec.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Execute Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure returns the fully qualified file name for the shell
+  #       executable, which is a native executable -OR- a managed assembly.
+  #
+  proc getShellExecutableName {} {
+    #
+    # NOTE: Check for native Tcl, Mono, and .NET Core because this impacts
+    #       how the shell executable name is determined.
+    #
+    if {[isEagle]} then {
+      if {[isMono] || [isDotNetCore]} then {
+        return [lindex [info assembly true] 1]; # Mono -OR- .NET Core
+      } else {
+        return [info nameofexecutable]; # .NET Framework
+      }
+    } else {
+      return [info nameofexecutable]; # native Tcl
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a list with the command line arguments that
+  #       are necessary to run an executable using the current runtime, e.g.
+  #       native Tcl -OR- Eagle on the .NET Framework, Mono, or .NET Core.
+  #
+  proc getRuntimeCommandLine { fileName } {
+    #
+    # NOTE: Only the base portion of the command line arguments are returned
+    #       from this procedure, i.e. we do not return the [exec] command or
+    #       its options, nor are subsequent arguments for the target command
+    #       included.
+    #
+    set result [list]
+
+    if {[isEagle]} then {
+      #
+      # NOTE: Ok, running on Eagle, not native Tcl.  Check the runtime.
+      #
+      if {[isMono]} then {
+        #
+        # HACK: Assume that Mono is somewhere along the PATH.  Insert the
+        #       "mono" command line argument followed by our entry assembly
+        #       name.
+        #
+        lappend result mono \
+            [appendArgs \" [file nativename $fileName] \"]
+      } elseif {[isDotNetCore]} then {
+        #
+        # HACK: When running on .NET Core, we need to insert "dotnet exec"
+        #       command line arguments followed by our entry assembly name.
+        #
+        lappend result dotnet exec \
+            [appendArgs \" [file nativename $fileName] \"]
+      } else {
+        #
+        # NOTE: When running on the .NET Framework, just use the executable
+        #       name as this will be the same as the entry assembly name.
+        #
+        lappend result \
+            [appendArgs \" [file nativename $fileName] \"]
+      }
+    } else {
+      #
+      # NOTE: Assumes the native Tcl shell executable (e.g. "tclsh", etc)
+      #       is somewhere along the PATH -OR- the value returned is from
+      #       [info nameofexecutable] is fully qualified.
+      #
+      lappend result \
+          [appendArgs \" [file nativename $fileName] \"]
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure executes a native Tcl or Eagle sub-shell using the
+  #       specified arguments and returns the captured output, verbatim.
+  #
+  proc execShell { options args } {
+    #
+    # NOTE: Start out with just the base [exec] command.
+    #
+    set command [list exec]
+
+    #
+    # NOTE: Add options for the [exec] command, if any.
+    #
+    if {[llength $options] > 0} then {
+      eval lappend command $options
+    }
+
+    #
+    # NOTE: Always add the end-of-options marker.
+    #
+    lappend command --
+
+    #
+    # NOTE: Add the necessary command line arguments to run the target
+    #       file using the current runtime.
+    #
+    eval lappend command [getRuntimeCommandLine [getShellExecutableName]]
+
+    #
+    # NOTE: If possible, check if the current interpreter has security
+    #       enabled; if so, add the appropriate command line option for
+    #       the sub-process.
+    #
+    if {[isEagle] && [llength [info commands object]] > 0} then {
+      if {[catch {
+        object invoke -flags +NonPublic Interpreter.GetActive HasSecurity
+      } security] == 0 && $security} then {
+        lappend command -security true
+      }
+    }
+
+    #
+    # NOTE: Add command line arguments to the shell command, if any.
+    #
+    if {[llength $args] > 0} then {
+      #
+      # HACK: For reasons which are still unexplained, .NET Core seems
+      #       to have trouble with preserving an argument value if it
+      #       is an empty string (i.e. they are simply dropped).  Work
+      #       around this.  Nothing fancy should be done here.  Simply
+      #       using a single space instead seems to work around their
+      #       problem (whatever it actually is).  Please refer to the
+      #       following GitHub issue for more information:
+      #
+      #       https://github.com/dotnet/cli/issues/8892
+      #
+      if {[isEagle] && [isDotNetCore]} then {
+        foreach arg $args {
+          #
+          # HACK: For now, only handle the cases where the argument is
+          #       specified as something like {""}.
+          #
+          if {$arg eq "\"\""} then {
+            lappend command "\" \""
+          } else {
+            lappend command $arg
+          }
+        }
+      } else {
+        eval lappend command $args
+      }
+    }
+
+    #
+    # NOTE: Finally, execute the resulting [exec] command in the context
+    #       of the caller, returning its result.
+    #
+    return [uplevel 1 $command]
+  }
+
+  #
+  # NOTE: This procedure is designed to extract the exit code for a child
+  #       process run via [exec] using the value of $::errorCode.  It will
+  #       always return either a valid integer -OR- the specified default
+  #       value, which may be an empty string.
+  #
+  proc maybeGetExitCode { value {default ""} } {
+    if {[lindex $value 0] eq "CHILDSTATUS"} then {
+      set status [lindex $value 2]
+
+      if {[string is integer -strict $status]} then {
+        return $status
+      }
+    }
+
+    return $default
+  }
+
+  #
+  # NOTE: Provide the Eagle "execute" package to the interpreter.
+  #
+  package provide Eagle.Execute \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

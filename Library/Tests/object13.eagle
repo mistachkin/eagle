@@ -1,0 +1,88 @@
+###############################################################################
+#
+# object13.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test object-13.1.1 {loaded object members with signatures} -body {
+  set assembly [object load -import System.Windows.Forms]
+
+  testObjectMembers -mode glob -nameonly -pattern *DefaultCursor* -signatures \
+      -qualified -membertypes {-All +Method} -flags {+NonPublic +Static} Form
+} -cleanup {
+  cleanupWinForms
+
+  unset -nocomplain assembly
+} -constraints {eagle command.object dotNet20 winForms} -result \
+{{get_DefaultCursor methodType Method methodName get_DefaultCursor\
+callingConvention {Standard, HasThis} returnType {{System.Windows.Forms.Cursor,\
+System.Windows.Forms, Version=2.0.0.0, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089}} parameterTypes {}}}}
+
+###############################################################################
+
+runTest {test object-13.1.2 {loaded object members with signatures} -body {
+  set assembly [object load -import System.Windows.Forms]
+
+  testObjectMembers -mode glob -nameonly -pattern *DefaultCursor* -signatures \
+      -qualified -membertypes {-All +Method} -flags {+NonPublic +Static} Form
+} -cleanup {
+  cleanupWinForms
+
+  unset -nocomplain assembly
+} -constraints {eagle command.object dotNet40 winForms} -result \
+{{get_DefaultCursor methodType Method methodName get_DefaultCursor\
+callingConvention {Standard, HasThis} returnType {{System.Windows.Forms.Cursor,\
+System.Windows.Forms, Version=4.0.0.0, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089}} parameterTypes {}}}}
+
+###############################################################################
+
+runTest {test object-13.2.1 {loaded object members with signatures} -body {
+  set assembly [object load -import System.Windows.Forms]
+
+  testObjectMembers -mode glob -nameonly -pattern *DefaultCursor* -signatures \
+      -qualified -membertypes {-All +Method} -flags {+NonPublic +Static} Form
+} -cleanup {
+  cleanupWinForms
+
+  unset -nocomplain assembly
+} -constraints {eagle command.object dotNet20 winForms} -match glob -result \
+{{get_DefaultCursor methodType Method methodName get_DefaultCursor\
+callingConvention {Standard, HasThis} returnType {{System.Windows.Forms.Cursor,\
+System.Windows.Forms, Version=2.0.0.0, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089}} parameterTypes {}}}}
+
+###############################################################################
+
+runTest {test object-13.2.2 {loaded object members with signatures} -body {
+  set assembly [object load -import System.Windows.Forms]
+
+  testObjectMembers -mode glob -nameonly -pattern *DefaultCursor* -signatures \
+      -qualified -membertypes {-All +Method} -flags {+NonPublic +Static} Form
+} -cleanup {
+  cleanupWinForms
+
+  unset -nocomplain assembly
+} -constraints {eagle command.object dotNet40 winForms} -match glob -result \
+{{get_DefaultCursor methodType Method methodName get_DefaultCursor\
+callingConvention {Standard, HasThis} returnType {{System.Windows.Forms.Cursor,\
+System.Windows.Forms, Version=4.0.0.0, Culture=neutral,\
+PublicKeyToken=b77a5c561934e089}} parameterTypes {}}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

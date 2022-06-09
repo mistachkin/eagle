@@ -1,0 +1,127 @@
+###############################################################################
+#
+# lmap.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+#
+# NOTE: We are going to run the tests from the Tcl test suite verbatim.
+#
+# \
+runTest ; # fake out runAllTests proc.
+
+###############################################################################
+
+if {[haveConstraint tip405]} then {
+  if {[isEagle]} then {
+    if {![info exists no(skipSomeTests)] && \
+        ![info exists no(skipSomeLmapTests)]} then {
+      set skipNames [list]
+
+      lappend skipNames lmap-1.2a; # NOTE: Needs [return -level].
+      lappend skipNames lmap-1.4; # NOTE: Syntax error message.
+      lappend skipNames lmap-1.6; # NOTE: Syntax error message.
+      lappend skipNames lmap-1.8; # NOTE: Syntax error message.
+      lappend skipNames lmap-1.10; # NOTE: Syntax error message.
+      lappend skipNames lmap-1.15; # NOTE: Needs [catch] with 3 args.
+
+      if {![haveConstraint namespaces]} then {
+        lappend skipNames lmap-2.9; # NOTE: Needs [namespace].
+      }
+
+      lappend skipNames lmap-4.2a; # NOTE: Needs [return -level].
+      lappend skipNames lmap-4.4; # NOTE: Syntax error message.
+      lappend skipNames lmap-4.6; # NOTE: Syntax error message.
+      lappend skipNames lmap-4.8; # NOTE: Syntax error message.
+      lappend skipNames lmap-4.10; # NOTE: Syntax error message.
+      lappend skipNames lmap-4.15; # NOTE: Needs [catch] with 3 args.
+      lappend skipNames lmap-7.6; # NOTE: Needs [trace].
+
+      #
+      # HACK: These tests use a lot of memory and that appears to severely
+      #       negatively impact the native stack checking code in Eagle
+      #       when running with all MDAs enabled.
+      #
+      if {![haveConstraint bigLists] || ![haveConstraint stackIntensive]} then {
+        lappend skipNames lmap-7.7
+        lappend skipNames lmap-7.8
+      }
+
+      lappend skipNames lmap-8.1; # NOTE: Needs [coroutine].
+      lappend skipNames lmap-8.2; # NOTE: Needs [coroutine].
+
+      foreach skipName $skipNames {
+        if {[lsearch -exact $eagle_tests(SkipNames) $skipName] == -1} then {
+          lappend eagle_tests(SkipNames) $skipName
+        }
+      }
+
+      unset -nocomplain skipName
+    }
+  } else {
+    #
+    # NOTE: Save the "cleanupTests" procedure now and create a stub as we do not
+    #       want the "lmap.test" file to actually "cleanup" after itself, that
+    #       will be done at the very end.
+    #
+    rename ::tcltest::cleanupTests ::tcltest::savedCleanupTests
+    proc ::tcltest::cleanupTests { args } {}
+  }
+
+  #############################################################################
+
+  #
+  # NOTE: These tests should only run if the [lmap] command from TIP #405 is
+  #       present.
+  #
+  tsource [file join $test_path tcl lmap.test] false false
+
+  #############################################################################
+
+  if {[isEagle]} then {
+    if {[info exists skipNames]} then {
+      #
+      # NOTE: Remove the test names to be skipped that were added above.
+      #
+      foreach skipName $skipNames {
+        set skipIndex [lsearch -exact $eagle_tests(SkipNames) $skipName]
+
+        if {$skipIndex != -1} then {
+          set eagle_tests(SkipNames) [lreplace $eagle_tests(SkipNames) \
+              $skipIndex $skipIndex]
+        }
+      }
+
+      unset -nocomplain skipNames skipName skipIndex
+    }
+  } else {
+    #
+    # NOTE: Restore the original "cleanupTests" procedure now.
+    #
+    rename ::tcltest::cleanupTests ""
+    rename ::tcltest::savedCleanupTests ::tcltest::cleanupTests
+  }
+
+  #############################################################################
+
+  unset -nocomplain 12.0 b c d e g i msg o r rgb; # HACK: Cleanup leftovers.
+} else {
+  tputs $test_channel "---- TIP #405 not available, Tcl tests skipped\n"
+}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

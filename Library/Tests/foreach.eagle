@@ -1,0 +1,43 @@
+###############################################################################
+#
+# foreach.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test foreach-1.1 {complex foreach} -body {
+  set result [list]
+  foreach {i j} {a b c} {k l} {d e f g} {
+    lappend result $i $j $k $l
+  }
+  set result
+} -cleanup {
+  unset i j k l result
+} -result {a b d e c {} f g}}
+
+###############################################################################
+
+runTest {test foreach-1.2 {getDictionaryValue} -body {
+  list [getDictionaryValue [list a b c d] a] \
+      [getDictionaryValue [list a b c d] b] \
+      [getDictionaryValue [list a b c d] e] \
+      [getDictionaryValue [list b a c d] a] \
+      [getDictionaryValue [list b a c d] b] \
+      [getDictionaryValue [list b a c d] e]
+} -result {b {} {} {} a {}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,1252 @@
+###############################################################################
+#
+# debug.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc isHostReadEnabled { interp } {
+  return [expr {![interp eval $interp {
+    object invoke -flags +NonPublic Interpreter \
+        IsReadLineDisabled "" true
+  }]}]
+}
+
+###############################################################################
+
+proc enableHostRead { interp enable } {
+  interp eval $interp [string map [list %enable% $enable] {
+    object invoke -flags +NonPublic \
+        Interpreter.GetActive interpreterStateFlags \
+        [appendArgs [object invoke -flags +NonPublic \
+        Interpreter.GetActive interpreterStateFlags] \
+        [appendArgs " " [expr {%enable% ? "-" : "+"}] \
+        ReadLineDisabled]]
+  }]
+
+  #
+  # HACK: When running on .NET Core 3.0 (and later?), it can
+  #       attempt to read from standard input when querying
+  #       the cursor position.  Therefore, disable use of
+  #       cursor position for the specified interpreter host.
+  #
+  if {[isDotNetCore] && ([haveConstraint dotNetCore30] || \
+      [haveConstraint dotNetCore50] || \
+      [haveConstraint dotNetCore60])} then {
+    interp eval $interp [string map [list %enable% $enable] {
+      object invoke -flags +NonPublic \
+          Interpreter.GetActive.Host hostFlags \
+          [appendArgs [object invoke -flags +NonPublic \
+          Interpreter.GetActive.Host hostFlags] \
+          [appendArgs " " [expr {%enable% ? "+" : "-"}] \
+          Positioning]]
+    }]
+  }
+
+  tputs $::test_channel [appendArgs \
+      "---- interactive input via ReadLine now " \
+      [expr {$enable ? "enabled" : "disabled"}] \
+      " for interpreter \"" $interp \"\n]
+}
+
+###############################################################################
+
+runTest {test debug-1.1 {non-interactive loop entry} -setup {
+  set interp [object invoke Interpreter GetActive]
+  set interactive [object invoke $interp Interactive]
+
+  object invoke $interp Interactive false
+
+  proc foo {} { global x; set x 1; incr x; testDebugBreak; return $x }
+} -body {
+  foo
+} -cleanup {
+  if {[llength [info procs foo]] == 1} then {rename foo ""}
+
+  object invoke $interp Interactive $interactive
+
+  unset -nocomplain x interactive interp
+} -constraints {eagle command.object compile.DEBUGGER scriptDebugger} \
+-returnCodes 1 -result {cannot break into interactive loop}}
+
+###############################################################################
+
+runTest {test debug-1.2 {debug halt} -body {
+  debug halt
+} -constraints {eagle} -noHalt true -returnCodes 1 -result {halted}}
+
+###############################################################################
+
+runTest {test debug-1.3 {custom shell argument callback} -setup {
+  unset -nocomplain results
+  set i [interp create -debug]
+
+  if {[haveConstraint quiet]} then {
+    object invoke Eagle._Tests.Default TestSetQuiet $i true
+  }
+} -body {
+  set result null
+  set code [object invoke Eagle._Tests.Default TestShellMainCore $i \
+      [set args [object create StringList -noArgumentsFileName \
+      -noAppSettings -one -postInitialize foo]] true true result]
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  set result null
+  set code [object invoke Eagle._Tests.Default TestShellMainCore $i \
+      [set args [object create StringList -noArgumentsFileName \
+      -noAppSettings -one -postInitialize "set x {}" -two]] \
+      true true result]
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  set result null
+  set code [object invoke Eagle._Tests.Default TestShellMainCore $i \
+      [set args [object create StringList -noArgumentsFileName \
+      -noAppSettings -one -two test1 -three]] true true result]
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  set result null
+  set code [object invoke Eagle._Tests.Default TestShellMainCore $i \
+      [set args [object create StringList -noArgumentsFileName \
+      -noAppSettings -one -two test2 -foo]] true true result]
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  set result null
+  set code [object invoke Eagle._Tests.Default TestShellMainCore $i \
+      [set args [object create StringList -noArgumentsFileName \
+      -noAppSettings -postInitialize "debug icommand exit; set x 1"]] \
+      true true result]
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  set results
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain results args result code i
+} -constraints {eagle command.object compile.DEBUGGER\
+compile.TEST Eagle._Tests.Default.TestShellMainCore\
+Eagle._Tests.Default.TestSetQuiet} -result {Failure {invalid command name\
+"foo"} Failure {wrong # args: should be "-two <value>"|} Failure {argument one\
+OK|argument two "test1" OK|argument three ERROR|} Failure {argument one\
+OK|argument two "test2" OK|invalid test argument "foo"|} Success 1}}
+
+###############################################################################
+
+runTest {test debug-1.4.1 {debug text writer} -setup {
+  set savedDebugTextWriter \
+    [object invoke Interpreter.GetActive DebugTextWriter]
+
+  if {[string length $savedDebugTextWriter] == 0} then {
+    set savedDebugTextWriter null; # NOTE: Must be object.
+  }
+
+  object import System.IO; # StreamWriter
+} -body {
+  set fileName [file join [getTemporaryPath] [appendArgs [file tail \
+      [getShellExecutableName]] [getTestLogId] .complaint. [pid] .log]]
+
+  set textWriter [object create StreamWriter $fileName]
+  object invoke Interpreter.GetActive DebugTextWriter $textWriter
+
+  object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+      Complain "" Error "test of something bad happening."
+
+  string trim [readSharedFile $fileName]
+} -cleanup {
+  unset -nocomplain textWriter
+  catch {file delete $fileName}
+  unset -nocomplain fileName
+
+  catch {object invoke Interpreter.GetActive DebugTextWriter \
+      $savedDebugTextWriter}
+
+  unset -nocomplain savedDebugTextWriter
+
+  object unimport -importpattern System.IO
+} -constraints [fixConstraints {eagle command.object monoBug30 !quiet}] \
+-match regexp -result {^-?\d+ \(\d+\): Error: test of something bad\
+happening\.$}}
+
+###############################################################################
+
+unset -nocomplain test_log_if
+set test_log_if [expr {[info exists test_log] ? $test_log : ""}]
+
+###############################################################################
+
+runTest {test debug-1.4.2 {debug text writer isolated} -setup [subst \
+    -nocommands {
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {![info exists test_channel]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {[catch {package present Eagle.Test}]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {![info exists test_log]} then {
+    set test_log {$test_log_if}
+  }
+
+  set savedDebugTextWriter \
+    [object invoke Interpreter.GetActive DebugTextWriter]
+
+  if {[string length \$savedDebugTextWriter] == 0} then {
+    set savedDebugTextWriter null; # NOTE: Must be object.
+  }
+
+  object import System.IO; # StreamWriter
+}] -body {
+  set fileName [file join [getTemporaryPath] [appendArgs [file tail \
+      [getShellExecutableName]] [getTestLogId] .complaint. [pid] .log]]
+
+  set textWriter [object create StreamWriter $fileName]
+  object invoke Interpreter.GetActive DebugTextWriter $textWriter
+
+  object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+      SkipCurrentForComplainViaTest true
+
+  object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+      Complain "" Error "another test of something bad happening."
+
+  object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+      SkipCurrentForComplainViaTest false
+
+  string trim [readSharedFile $fileName]
+} -cleanup {
+  unset -nocomplain textWriter
+  catch {file delete $fileName}
+  unset -nocomplain fileName
+
+  catch {object invoke Interpreter.GetActive DebugTextWriter \
+      $savedDebugTextWriter}
+
+  unset -nocomplain savedDebugTextWriter
+
+  object unimport -importpattern System.IO
+} -constraints [fixConstraints {eagle command.object monoBug30 !quiet}] \
+-isolationLevel Interpreter -match regexp -result \
+{^-?\d+ \(\d+\): Error: another test of something bad happening\.$}}
+
+###############################################################################
+
+unset -nocomplain test_log_if
+
+###############################################################################
+
+runTest {test debug-1.5 {refresh cached host after argument} -setup {
+  set i [interp create]
+} -body {
+  set script {
+    #
+    # NOTE: Dispose and reset the host for the created interpreter.
+    #
+    object invoke Interpreter.GetActive.Host Dispose
+    object invoke Interpreter.GetActive Host null
+
+    #
+    # NOTE: Raise some other error, so that needs to be report
+    #       something via the host.
+    #
+    error "fake post-initialize error"
+  }
+
+  set result null
+  set code [object invoke Interpreter ShellMainCore $i null null \
+      [set args [object create StringList -postInitialize $script]] \
+      true true result]
+
+  #
+  # NOTE: The result should contain the fake error message, not an
+  #       ObjectDisposedException error message (which would mean
+  #       that the host was not refreshed after processing the
+  #       post-initialize argument).
+  #
+  list $code [getStringFromObjectHandle $result]
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain code result args script i
+} -constraints {eagle compile.SHELL command.object} -result \
+{Failure {fake post-initialize error}}}
+
+###############################################################################
+
+runTest {test debug-1.6.1 {debug shell sub-command w/reconfigure XML} -setup {
+  set i [interp create -debug]
+  enableHostRead $i false
+} -body {
+  interp eval $i [list set fileName [file join $test_data_path settings.xml]]
+  interp eval $i {
+    debug shell -loop true -- -reconfigure $fileName --postInitialize \
+        "debug icommand exit"
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle compile.DEBUGGER compile.SHELL compile.XML\
+compile.SERIALIZATION file_settings.xml} -returnCodes 1 -result \
+{interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+runTest {test debug-1.6.2 {debug shell sub-command w/reconfigure INI} -setup {
+  set i [interp create -debug]
+  enableHostRead $i false
+} -body {
+  interp eval $i [list set fileName [file join $test_data_path settings.ini]]
+  interp eval $i {
+    debug shell -loop true -- -reconfigure $fileName --postInitialize \
+        "debug icommand exit"
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle compile.DEBUGGER compile.SHELL file_settings.ini} \
+-returnCodes 1 -result {interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+runTest {test debug-1.7.1 {debug shell sub-command w/reconfigure XML} -setup {
+  set i [interp create -debug]
+  enableHostRead $i false
+} -body {
+  interp eval $i [list set fileName [file join $test_data_path settings.xml]]
+  interp eval $i {
+    debug shell -loop true -- -reconfigure $fileName --postInitialize \
+        "debug icommand exit"; list true
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle compile.DEBUGGER compile.SHELL compile.XML\
+compile.SERIALIZATION file_settings.xml} -returnCodes 1 -result \
+{interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+runTest {test debug-1.7.2 {debug shell sub-command w/reconfigure INI} -setup {
+  set i [interp create -debug]
+  enableHostRead $i false
+} -body {
+  interp eval $i [list set fileName [file join $test_data_path settings.ini]]
+  interp eval $i {
+    debug shell -loop true -- -reconfigure $fileName --postInitialize \
+        "debug icommand exit"; list true
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle compile.DEBUGGER compile.SHELL file_settings.ini} \
+-returnCodes 1 -result {interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+runTest {test debug-1.8 {per-thread TraceInfo object w/watchpoint} -setup {
+  set i [interp create -debug]
+  enableHostRead $i false
+
+  interp alias $i setp {} set
+  interp set $i test_channel $test_channel
+
+  interp eval $i {
+    package require Eagle.Test
+  }
+
+  interp eval $i {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+    object invoke Interpreter.GetActive Interactive true
+  }
+} -body {
+  set x 0; catch {interp eval $i {
+    set x 123
+    debug watch x =BreakOnSet
+    after 200 {debug icommand #go}
+    after 400 {set x 456}
+    after 600 {setp x $x; set forever 1}
+    #
+    # HACK: In order to prevent hanging the entire test suite
+    #       from this test, dispose current interpreter as a
+    #       last resort.  This should always exit the [vwait].
+    #
+    after 30000 {object invoke Interpreter.GetActive Dispose}
+    vwait forever
+  }}; set x
+} -cleanup {
+  catch {interp eval $i {cleanupAfterEvents}}
+  catch {interp delete $i}
+
+  unset -nocomplain i x
+} -constraints {eagle command.object compile.DEBUGGER compile.DEBUGGER_VARIABLE\
+interactiveCommand.go Eagle._Tests.Default.TestSetQuiet} -result {456}}
+
+###############################################################################
+
+runTest {test debug-1.9 {per-thread TraceInfo object w/watchpoint} -setup {
+  set i [interp create -debug]
+  enableHostRead $i false
+
+  interp alias $i setp {} set
+  interp set $i test_channel $test_channel
+
+  interp eval $i {
+    package require Eagle.Test
+  }
+
+  interp eval $i {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+    object invoke Interpreter.GetActive Interactive true
+  }
+} -body {
+  set x 0; catch {interp eval $i {
+    set x 123
+    debug watch x =BreakOnSet
+    after 200 {debug icommand {#done Error failed}}
+    after 400 {set x 456}
+    after 600 {setp x $x; set forever 1}
+    #
+    # HACK: In order to prevent hanging the entire test suite
+    #       from this test, dispose current interpreter as a
+    #       last resort.  This should always exit the [vwait].
+    #
+    after 30000 {object invoke Interpreter.GetActive Dispose}
+    vwait forever
+  }}; set x
+} -cleanup {
+  catch {interp eval $i {cleanupAfterEvents}}
+  catch {interp delete $i}
+
+  unset -nocomplain i x
+} -constraints {eagle command.object compile.DEBUGGER compile.DEBUGGER_VARIABLE\
+interactiveCommand.done Eagle._Tests.Default.TestSetQuiet} -result {123}}
+
+###############################################################################
+
+runTest {test debug-1.10 {interactive commands via command queue} -setup {
+  set i [interp create -debug]
+  enableHostRead $i false
+
+  interp alias $i setp {} set
+  interp set $i test_channel $test_channel
+
+  interp eval $i {
+    package require Eagle.Test
+  }
+
+  interp eval $i {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+    object invoke Interpreter.GetActive Interactive true
+  }
+} -body {
+  set x 0; catch {interp eval $i {
+    set x 123
+    debug watch x =BreakOnSet
+    after 200 {debug iqueue #go}
+    after 400 {set x 456}
+    after 600 {setp x $x; set forever 1}
+    #
+    # HACK: In order to prevent hanging the entire test suite
+    #       from this test, dispose current interpreter as a
+    #       last resort.  This should always exit the [vwait].
+    #
+    after 30000 {object invoke Interpreter.GetActive Dispose}
+    vwait forever
+  }}; set x
+} -cleanup {
+  catch {interp eval $i {cleanupAfterEvents}}
+  catch {interp delete $i}
+
+  unset -nocomplain i x
+} -constraints {eagle command.object compile.DEBUGGER compile.DEBUGGER_VARIABLE\
+interactiveCommand.go Eagle._Tests.Default.TestSetQuiet} -result {456}}
+
+###############################################################################
+
+runTest {test debug-1.80 {host read cancellation} -setup {
+  set savedReadValue(0) [object invoke \
+      -flags +NonPublic Interpreter readValue.GetValue 0]
+
+  if {[string length $savedReadValue(0)] == 0} then {
+    set savedReadValue(0) null
+  }
+
+  set savedReadValue(1) [object invoke \
+      -flags +NonPublic Interpreter readValue.GetValue 1]
+
+  if {[string length $savedReadValue(1)] == 0} then {
+    set savedReadValue(1) null
+  }
+
+  set cancelCount(1) [object invoke \
+      -flags +NonPublic Interpreter.GetActive cancelViaConsole.GetValue 1]
+
+  set i [interp create]
+
+  interp alias $i setp {} set
+
+  interp eval $i {
+    object invoke Interpreter.GetActive Interactive true
+
+    proc threadStart {} {
+      after 2000; host cancel; after 2000
+
+      setp cancelCount(2) [object invoke \
+          -flags +NonPublic Interpreter.GetActive cancelViaConsole.GetValue 1]
+
+      after 2000; set done false
+
+      object invoke -flags +NonPublic \
+          Interpreter SetInteractiveLoopDone "" done
+
+      host cancel; # NOTE: Again, so we can exit loop.
+    }
+  }
+} -body {
+  object invoke -flags +NonPublic \
+      Interpreter.readValue SetValue debug-1.80 0
+
+  interp eval $i {
+    package require Eagle.Test
+    set t [createThread threadStart]; startThread $t
+    debug shell -initialize true -loop true
+    if {[joinThread $t]} then {unset t}
+  }
+
+  set readValue [object invoke -flags +NonPublic \
+      Interpreter readValue.GetValue 1]
+
+  if {[string length $readValue] == 0} then {
+    set readValue null
+  }
+
+  list $readValue [expr {$cancelCount(2) - $cancelCount(1)}]
+} -cleanup {
+  catch {interp eval $i {if {[info exists t]} then {cleanupThread $t}}}
+  catch {interp delete $i}
+
+  catch {
+    object invoke -flags +NonPublic \
+        Interpreter readValue.SetValue $savedReadValue(1) 1
+
+    object invoke -flags +NonPublic \
+        Interpreter readValue.SetValue $savedReadValue(0) 0
+  }
+
+  unset -nocomplain readValue savedReadValue cancelCount i x
+} -constraints {eagle command.object dotNetCoreOrShell native windows\
+dotNetOrDotNetCore interactive hostIsOpen compile.THREADING compile.SHELL\
+compile.NATIVE compile.WINDOWS} -constraintExpression {[haveConstraint \
+hostType.Eagle__Hosts_Console] || [haveConstraint hostType.Demo_Hosts_Demo]} \
+-result {debug-1.80 0}}
+
+###############################################################################
+
+runTest {test debug-1.98 {complain callback with exception} -setup {
+  object invoke -flags +NonPublic Interpreter.GetActive Complaint null
+  object invoke Eagle._Tests.Default TestSetComplainCallback "" true true
+} -body {
+  object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+      Complain "" Error "this is test complaint #1."
+
+  list $test_complain_throw \
+      [object invoke -flags +NonPublic Interpreter.GetActive Complaint]
+} -cleanup {
+  unset -nocomplain test_complain_throw
+
+  catch {
+    object invoke Eagle._Tests.Default TestSetComplainCallback "" false true
+  }
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetComplainCallback\
+Eagle._Tests.Default.TestComplainCallbackThrow} -match regexp -result {\{retry\
+0 levels 1 formatted \{(?:-)?\d+ \((?:-)?\d+\): Error: this is test complaint\
+#1\.\}\} \{\}}}
+
+###############################################################################
+
+runTest {test debug-1.99 {complain callback without exception} -setup {
+  object invoke -flags +NonPublic Interpreter.GetActive Complaint null
+  object invoke Eagle._Tests.Default TestSetComplainCallback "" true false
+} -body {
+  object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+      Complain "" Error "this is test complaint #2."
+
+  list $test_complain_no_throw \
+      [object invoke -flags +NonPublic Interpreter.GetActive Complaint]
+} -cleanup {
+  unset -nocomplain test_complain_no_throw
+
+  catch {
+    object invoke Eagle._Tests.Default TestSetComplainCallback "" false false
+  }
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetComplainCallback\
+Eagle._Tests.Default.TestComplainCallbackNoThrow} -match regexp -result \
+{\{retry 0 levels 1 formatted \{(?:-)?\d+ \((?:-)?\d+\): Error: this is test\
+complaint #2.\}\} \{(?:-)?\d+ \(\d+\): Error: this is test complaint #2\.\}}}
+
+###############################################################################
+
+runTest {test debug-6.1 {locked script evaluation (advanced)} -setup {
+  proc threadStart {} {
+    set syncRoot [$::o SyncRoot]
+    object invoke System.Threading.Monitor Enter $syncRoot
+    after 0 nop; vwait ::forever; # NOTE: Wait with lock held.
+    object invoke System.Threading.Monitor Exit $syncRoot
+  }
+} -body {
+  set i [interp create]
+  set o null; set error null
+
+  set code [object invoke -alias Value \
+      GetInterpreter "" $i Default o error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set t [createThread threadStart]
+  startThread $t; after 1000
+
+  set code [catch {
+    debug secureeval -- $i {set x 1}
+  } result(1)]
+
+  lappend result(0) $code $result(1)
+  set ::forever 1; # NOTE: Exit [vwait] in lock thread.
+  if {[joinThread $t]} then {unset t}; # NOTE: Wait for lock thread exit.
+
+  set code [catch {
+    debug secureeval -- $i {set y 1}
+  } result(2)]
+
+  lappend result(0) [interp eval $i {info exists x}]
+  lappend result(0) [interp eval $i {info exists y}]
+  lappend result(0) $code $result(2)
+} -cleanup {
+  if {[info exists t]} then {cleanupThread $t}
+  unset -nocomplain t
+
+  catch {object removecallback threadStart}
+  rename threadStart ""
+
+  catch {interp delete $i}
+
+  unset -nocomplain forever result error code o i
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+compile.THREADING !monoDebugger}] -result {1 {could not lock interpreter} 0 1 0\
+1}}
+
+###############################################################################
+
+runTest {test debug-6.2 {locked script evaluation (simple)} -setup {
+  set i [interp create]
+} -body {
+  set code [catch {
+    debug secureeval -- $i {set x 1}
+  } result(1)]
+
+  lappend result(0) [interp eval $i {info exists x}]
+  lappend result(0) $code $result(1)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code o i
+} -constraints {eagle} -result {1 0 1}}
+
+###############################################################################
+
+runTest {test debug-6.3 {trusted script evaluation ("unsafe")} -setup {
+  set i [interp create]
+} -body {
+  set code [catch {
+    debug secureeval -- $i {interp issafe}
+  } result(1)]
+
+  lappend result(0) $code $result(1)
+
+  set code [catch {
+    debug secureeval -trusted true -- $i {interp issafe}
+  } result(2)]
+
+  lappend result(0) $code $result(2)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle} -result {0 False 0 False}}
+
+###############################################################################
+
+runTest {test debug-6.4 {trusted script evaluation ("safe")} -setup {
+  set i [interp create -safe]
+} -body {
+  set code [catch {
+    debug secureeval -- $i {interp issafe}
+  } result(1)]
+
+  lappend result(0) $code $result(1)
+
+  set code [catch {
+    debug secureeval -trusted true -- $i {interp issafe}
+  } result(2)]
+
+  lappend result(0) $code $result(2)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle} -result {0 True 0 False}}
+
+###############################################################################
+
+runTest {test debug-6.5 {trusted script evaluation [after] ("safe")} -setup {
+  set i [interp create -safe]
+
+  interp eval $i \
+      [list proc cleanupAfterEvents \
+      [info args cleanupAfterEvents true] \
+      [info body cleanupAfterEvents]]
+} -body {
+  set q {
+    after -3 {lappend ::result %id% [interp issafe]}
+    after -2 {lappend ::result %id% [interp issafe]}
+    after -1 {lappend ::result %id% [interp issafe]}
+    after  0 {after 10; set ::done 1; lappend ::result %id% done}
+    after  1 {lappend ::result %id% [interp issafe]}
+    after  2 {lappend ::result %id% [interp issafe]}
+    after  3 {lappend ::result %id% [interp issafe]}
+  }
+
+  interp eval $i {set ::result [list]}
+  interp eval $i {set ::done 0; lappend ::result start}
+  interp eval $i [string map [list %id% 1] $q]; # NOTE: Fill queue.
+
+  set code [catch {
+    debug secureeval -- $i {interp issafe}
+  } result(1)]
+
+  lappend result(0) $code $result(1)
+
+  set code [catch {
+    debug secureeval -- $i {vwait ::done}
+  } result(2)]
+
+  lappend result(0) $code $result(2)
+
+  interp eval $i {cleanupAfterEvents true}
+  interp eval $i {set ::done 0; lappend ::result refill}
+  interp eval $i [string map [list %id% 2] $q]; # NOTE: Refill queue.
+
+  set code [catch {
+    debug secureeval -trusted true -- $i {vwait ::done}
+  } result(3)]
+
+  lappend result(0) $code $result(3)
+
+  set code [catch {
+    debug secureeval -trusted true -- $i {interp issafe}
+  } result(4)]
+
+  lappend result(0) $code $result(4)
+
+  set code [catch {
+    debug secureeval -- $i {list $::result $::done}
+  } result(5)]
+
+  lappend result(0) $code $result(5)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i q
+} -constraints {eagle} -result {0 True 0 {} 1 {can't wait for variable\
+"::done": would wait forever} 0 False 0 {{start 1 True 1 True 1 True 1 done 1\
+True 1 True 1 True refill} 0}}}
+
+###############################################################################
+
+runTest {test debug-6.6 {trusted events script evaluation ("safe")} -setup {
+  set i [interp create -safe]
+
+  interp eval $i \
+      [list proc cleanupAfterEvents \
+      [info args cleanupAfterEvents true] \
+      [info body cleanupAfterEvents]]
+} -body {
+  set q {
+    after -3 {lappend ::result %id% [interp issafe]}
+    after -2 {lappend ::result %id% [interp issafe]}
+    after -1 {lappend ::result %id% [interp issafe]}
+    after  0 {after 10; set ::done 1; lappend ::result %id% done}
+    after  1 {lappend ::result %id% [interp issafe]}
+    after  2 {lappend ::result %id% [interp issafe]}
+    after  3 {lappend ::result %id% [interp issafe]}
+  }
+
+  interp eval $i {set ::result [list]}
+  interp eval $i {set ::done 0; lappend ::result start}
+  interp eval $i [string map [list %id% 1] $q]; # NOTE: Fill queue.
+
+  set code [catch {
+    debug secureeval -- $i {interp issafe}
+  } result(1)]
+
+  lappend result(0) $code $result(1)
+
+  set code [catch {
+    debug secureeval -- $i {vwait ::done}
+  } result(2)]
+
+  lappend result(0) $code $result(2)
+
+  interp eval $i {cleanupAfterEvents true}
+  interp eval $i {set ::done 0; lappend ::result refill}
+  interp eval $i [string map [list %id% 2] $q]; # NOTE: Refill queue.
+
+  set code [catch {
+    debug secureeval -trusted true -events true -- $i {vwait ::done}
+  } result(3)]
+
+  lappend result(0) $code $result(3)
+
+  set code [catch {
+    debug secureeval -trusted true -- $i {interp issafe}
+  } result(4)]
+
+  lappend result(0) $code $result(4)
+
+  set code [catch {
+    debug secureeval -- $i {list $::result $::done}
+  } result(5)]
+
+  lappend result(0) $code $result(5)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i q
+} -constraints {eagle} -result {0 True 0 {} 0 {} 0 False 0 {{start 1 True 1\
+True 1 True 1 done 1 True 1 True 1 True refill 2 False 2 False 2 False 2 done 2\
+False 2 False 2 False} 1}}}
+
+###############################################################################
+
+runTest {test debug-6.7 {trusted events script evaluation ("safe")} -setup {
+  set i [interp create -safe]
+} -body {
+  set q {
+    after -3 {lappend ::result %id% [interp issafe]}
+    after -2 {lappend ::result %id% [interp issafe]}
+    after -1 {lappend ::result %id% [interp issafe]}
+    after  0 {after 10; set ::done 1; lappend ::result %id% done}
+    after  1 {lappend ::result %id% [interp issafe]}
+    after  2 {lappend ::result %id% [interp issafe]}
+    after  3 {lappend ::result %id% [interp issafe]}
+  }
+
+  interp eval $i {set ::result [list]}
+  interp eval $i {set ::done 0; lappend ::result start}
+
+  set code [catch {
+    debug secureeval -- $i {interp issafe}
+  } result(1)]
+
+  lappend result(0) $code $result(1)
+
+  set code [catch {
+    debug secureeval -trusted true -- $i [string map [list %id% 1] $q]
+  } result(2)]
+
+  lappend result(0) $code $result(2)
+
+  set code [catch {
+    debug secureeval -- $i {vwait ::done}
+  } result(3)]
+
+  lappend result(0) $code $result(3)
+
+  set code [catch {
+    debug secureeval -trusted true -- $i {interp issafe}
+  } result(4)]
+
+  lappend result(0) $code $result(4)
+
+  set code [catch {
+    debug secureeval -- $i {list $::result $::done}
+  } result(5)]
+
+  lappend result(0) $code $result(5)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i q
+} -constraints {eagle} -match regexp -result {^0 True 0 after#\d+ 0 \{\} 0\
+False 0 \{\{start 1 True 1 True 1 True 1 done 1 True 1 True 1 True\} 1\}$}}
+
+###############################################################################
+
+runTest {test debug-6.8 {trusted script evaluation [alias] ("safe")} -setup {
+  set i [interp create -safe]
+} -body {
+  set code [catch {
+    debug secureeval -- $i {interp issafe}
+  } result(1)]
+
+  lappend result(0) $code $result(1)
+
+  set code [catch {
+    debug secureeval -trusted true -- $i {
+      set resolve null; set error null
+
+      set code [object invoke -alias \
+          Interpreter.GetActive GetResolver None resolve error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      $resolve Equals null; # via [alias]
+    }
+  } result(2)]
+
+  lappend result(0) $code $result(2)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle command.object} -result {0 True 0 False}}
+
+###############################################################################
+
+set loops 0
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  catch {
+    set loops [object invoke \
+        -flags +NonPublic Interpreter.GetActive \
+        TotalInteractiveLoops]
+  }
+}
+
+###############################################################################
+
+runTest {test debug-7.1 {debug break} -setup {
+  set savedReadLine [isHostReadEnabled ""]
+  enableHostRead "" false
+} -body {
+  debug icommand #go
+  debug break
+
+  object invoke -flags +NonPublic Interpreter.GetActive TotalInteractiveLoops
+} -cleanup {
+  enableHostRead "" $savedReadLine
+  unset -nocomplain savedReadLine
+} -constraints \
+{eagle command.object interactive compile.DEBUGGER interactiveCommand.go} \
+-result [expr {$loops + 1}]}
+
+###############################################################################
+
+unset -nocomplain loops
+
+###############################################################################
+
+runTest {test debug-8.1 {interactive script evaluation} -setup {
+  set savedReadLine [isHostReadEnabled ""]
+  enableHostRead "" false
+} -body {
+  debug iqueue {set x 8.1}
+  debug iqueue #go
+  debug break
+
+  set x
+} -cleanup {
+  enableHostRead "" $savedReadLine
+  unset -nocomplain savedReadLine
+
+  unset -nocomplain x
+} -constraints {eagle interactive compile.DEBUGGER interactiveCommand.go} \
+-result {8.1}}
+
+###############################################################################
+
+runTest {test debug-9.1 {command, procedure, variable breakpoints} -setup {
+  proc interactiveLoopCallback { interpreter loopData result } {
+    lappend ::result [set a [$loopData BreakpointType]]
+
+    lappend ::result [getStringFromObjectHandle \
+        [set b [$loopData Arguments]]]
+
+    set c [object invoke -create Enum Parse ReturnCode Ok]
+    lappend ::values $c
+
+    return $c
+  }
+
+  set i [interp create -debug]
+  set o null; set error null
+
+  set code [object invoke -alias Value \
+      GetInterpreter "" $i Default o error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  object invoke -marshalflags +DynamicCallback $o \
+      InteractiveLoopCallback interactiveLoopCallback
+
+  interp eval $i {
+    object invoke Interpreter.GetActive Interactive true
+
+    proc foo {} {
+      upvar 1 x x; set x
+    }
+
+    set x 1
+  }
+} -body {
+  interp eval $i {
+    debug types {:BeforeProcedure BeforeCommand BeforeVariableGet}
+    debug watch x +BreakOnGet
+    debug step true
+  }
+
+  interp eval $i foo; set result
+} -cleanup {
+  catch {eval object dispose $values}
+
+  catch {object removecallback interactiveLoopCallback}
+  rename interactiveLoopCallback ""
+
+  catch {interp delete $i}
+
+  unset -nocomplain values result error code o i
+} -constraints {eagle command.object compile.DEBUGGER compile.DEBUGGER_VARIABLE\
+compile.EMIT} -result {{SingleStep, BeforeProcedure} foo {SingleStep,\
+BeforeCommand} {upvar 1 x x} {SingleStep, BeforeCommand} {set x}\
+BeforeVariableGet {}}}
+
+###############################################################################
+
+if {[haveConstraint windowsTerminal]} then {
+  #
+  # HACK: This is a Windows Terminal console window.  The first number
+  #       of total interactive inputs should be exactly two.  The final
+  #       number of total interactive inputs seems to vary between three
+  #       and five, due to spurious blank input lines being read.  This
+  #       is apparently caused by bad interaction with the [host cancel]
+  #       sub-command.
+  #
+  set firstTotalInteractiveInputs 2
+  set finalTotalInteractiveInputs (?:3|4|5)
+} elseif {[haveConstraint hostType.Featherlight_Hosts_Window]} then {
+  #
+  # NOTE: This is Featherlight host window.  The first number of total
+  #       interactive inputs should be exactly one or two and the final
+  #       total should be exactly two.
+  #
+  set firstTotalInteractiveInputs (?:1|2)
+  set finalTotalInteractiveInputs 2
+} else {
+  #
+  # NOTE: This is "normal" console window.  The first number of total
+  #       interactive inputs should be exactly two and the final total
+  #       should be exactly three.
+  #
+  set firstTotalInteractiveInputs 2
+  set finalTotalInteractiveInputs (?:3|4)
+}
+
+###############################################################################
+
+runTest {test debug-10.1 {pausing / unpausing interactive loop} -setup {
+  set i [interp create -debug]
+
+  interp eval $i {
+    set debugger [object invoke -alias -flags +NonPublic \
+        Interpreter.GetActive Debugger]; # used from other thread
+
+    set interactiveContext [object invoke -alias -flags +NonPublic \
+        Interpreter.GetActive GetInteractiveContext]; # used from other thread
+
+    object invoke Interpreter.GetActive Interactive true
+
+    set ::results [list]
+    set ::appDomainId [info appdomain]; set ::threadId [info tid]
+
+    proc getTotalInteractiveInputs { primary } {
+      if {$primary} then {
+        return [$::interactiveContext TotalInteractiveInputs]
+      } else {
+        return [object invoke -flags +NonPublic \
+            Interpreter.GetActive TotalInteractiveInputs]
+      }
+    }
+
+    proc listPausedInteractiveLoops {} {
+      set list null; set error null
+
+      set code [object invoke -flags +NonPublic \
+          Interpreter.GetActive ListPausedInteractiveLoops \
+          list error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      return [getStringFromObjectHandle $list]
+    }
+
+    proc isPausedInteractiveLoop {} {
+      set done false; set error null
+
+      set code [object invoke -flags +NonPublic \
+          Interpreter.GetActive IsPausedInteractiveLoop \
+          $::appDomainId $::threadId done error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      return $done
+    }
+
+    proc threadStart {} {
+      #
+      # NOTE: Initially, verify the pause status of the interpreter.
+      #
+      lappend ::results [isPausedInteractiveLoop]; # True
+      lappend ::results [getTotalInteractiveInputs true]; # 0
+      lappend ::results [listPausedInteractiveLoops]; # {}
+
+      #
+      # NOTE: Inject the interactive #pause command into the debugger
+      #       instance for the primary thread.  This should be picked
+      #       up and executed by the interactive loop on the primary
+      #       thread the next time it reads any interactive input.
+      #
+      lappend ::results [$::debugger Command [list \
+          #pause $::threadId $::appDomainId "" true]]; # {}
+
+      #
+      # HACK: Wait for the injected interactive input to be consumed
+      #       by the interactive loop on the primary thread.
+      #
+      while {[string length [$::debugger Command]] > 0} {after 1000}
+
+      #
+      # NOTE: Wait a bit for the interactive #pause command to be
+      #       fully processed and then check the pause status again.
+      #
+      lappend ::results [catch {host cancel} result] $result; # 0 {}
+      lappend ::results [after 3000]; # {}
+      lappend ::results [isPausedInteractiveLoop]; # False
+      lappend ::results [getTotalInteractiveInputs true]; # 1
+      lappend ::results [listPausedInteractiveLoops]; # {{d+/d+: 1 PAUSED}}
+
+      if {1} {
+        #
+        # HACK: *SPECIAL* At this point, the primary thread is busy
+        #       waiting for its interactive loop to be unpaused (in
+        #       a wait loop) and (by design) it cannot process any
+        #       interactive commands while in that state. Therefore,
+        #       to unpause it, the interactive #unpause command must
+        #       be executed (via an interactive loop) on a different
+        #       thread (i.e. this one).  Since this thread does not
+        #       start with the necessary debugger instance, create
+        #       one now.  Then, queue up the appropriate commands to
+        #       finish unpause the interactive loop on the primary
+        #       thread and then exit the interactive loop on this
+        #       thread.
+        #
+        debug setup
+        debug iqueue [list #unpause $::threadId $::appDomainId true]
+        debug iqueue [list #exit]
+
+        lappend ::results [getTotalInteractiveInputs false]; # 0
+        debug shell -initialize true -loop true
+        lappend ::results [getTotalInteractiveInputs false]; # 2
+      }
+
+      #
+      # NOTE: Wait a bit for the interactive #unpause command to be
+      #       fully processed and then check the pause status again.
+      #
+      lappend ::results [after 3000]; # {}
+      lappend ::results [isPausedInteractiveLoop]; # True
+      lappend ::results [getTotalInteractiveInputs true]; # 3
+      lappend ::results [listPausedInteractiveLoops]; # {}
+      lappend ::results [set done false]; # false
+
+      #
+      # NOTE: Signal the interactive loop on the primary thread to
+      #       exit now -AND- force that to take effect immediately
+      #       by canceling any reading of interactive input from
+      #       the (interactive) interpreter host.
+      #
+      lappend ::results [object invoke -flags +NonPublic \
+          Interpreter SetInteractiveLoopDone "" done]; # True
+
+      lappend ::results [catch {host cancel} result] $result; # 0 {}
+    }
+  }
+} -body {
+  interp eval $i {
+    package require Eagle.Test
+    set t [createThread threadStart]; startThread $t; after 1000
+    debug shell -initialize true -loop true
+    if {[joinThread $t]} then {unset t}
+  }
+
+  interp set $i results
+} -cleanup {
+  catch {interp eval $i {if {[info exists t]} then {cleanupThread $t}}}
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle compile.DEBUGGER compile.SHELL compile.THREADING\
+command.object dotNetCoreOrShell dotNetOrDotNetCore interactive native windows\
+interactiveCommand.pause interactiveCommand.unpause interactiveCommand.exit} \
+-match regexp -result [appendArgs {^True 0 \{\} \{\} 0 \{\} \{\} False 1\
+\{\{\d+/\d+: 1 PAUSED\}\} 0 } $firstTotalInteractiveInputs { \{\} True } \
+$finalTotalInteractiveInputs { \{\} false True 0 \{\}$}]}
+
+###############################################################################
+
+unset -nocomplain finalTotalInteractiveInputs firstTotalInteractiveInputs
+
+###############################################################################
+
+rename enableHostRead ""
+rename isHostReadEnabled ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

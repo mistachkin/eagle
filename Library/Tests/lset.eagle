@@ -1,0 +1,104 @@
+###############################################################################
+#
+# lset.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test lset-1.1 {simple lset} -setup {
+  set list [list a b c [list d e f [list g h i]]]
+} -body {
+  list [lset list end end end end 0 0000] [lset list end end end end 1111] \
+    [lset list end end end-2 2222] [lset list end end 3333] \
+    [lset list end 4444] [lset list 0 TEST]
+} -cleanup {
+  unset list
+} -result {{a b c {d e f {g h 0000}}} {a b c {d e f {g h 1111}}}\
+{a b c {d e f {2222 h 1111}}} {a b c {d e f 3333}} {a b c 4444}\
+{TEST b c 4444}}}
+
+###############################################################################
+
+runTest {test lset-2.1 {lset wholesale} -setup {
+  set list [list a b c [list d e f [list g h i]]]
+} -body {
+  list [lset list 0 ABC] [lset list {} [list A B C]]
+} -cleanup {
+  unset list
+} -result {{ABC b c {d e f {g h i}}} {A B C}}}
+
+###############################################################################
+
+runTest {test lset-2.2 {lset wholesale (Eagle)} -setup {
+  set list [list a b c [list d e f [list g h i]]]
+} -body {
+  list [lset list 1 [list g g g]] [lset list 1 {} [list g g g]]
+} -cleanup {
+  unset list
+} -constraints {eagle} -result \
+{{a {g g g} c {d e f {g h i}}} {a {g g g} c {d e f {g h i}}}}}
+
+###############################################################################
+
+runTest {test lset-2.3 {lset wholesale (Eagle)} -setup {
+  set list [list a b c [list d e f [list g h i]]]
+} -body {
+  list [lset list 0 [list g a g]] [lset list 0 {} [list g a g]]
+} -cleanup {
+  unset list
+} -constraints {eagle} -result \
+{{{g a g} b c {d e f {g h i}}} {{g a g} b c {d e f {g h i}}}}}
+
+###############################################################################
+
+runTest {test lset-2.4 {lset wholesale (Eagle)} -setup {
+  set list [list a b [list c d f]]
+} -body {
+  list [lset list end [list D E F]] [lset list end {} [list D E F]]
+} -cleanup {
+  unset list
+} -constraints {eagle} -result {{a b {D E F}} {a b {D E F}}}}
+
+###############################################################################
+
+runTest {test lset-2.5 {lset wholesale (Eagle)} -setup {
+  set list [list a b c [list d e f [list g h i]]]
+} -body {
+  list [lset list end [list D E F]] [lset list end {} [list G H I]]
+} -cleanup {
+  unset list
+} -constraints {eagle} -result {{a b c {D E F}} {a b c {G H I}}}}
+
+###############################################################################
+
+runTest {test lget-2.1 {lget wholesale} -setup {
+  set list [list a b c [list d e f [list g h i]]]
+} -body {
+  list [lget list] [lget list {}] \
+      [lget list 0] [lget list end] \
+      [lget list 0 {}] [lget list end {}] \
+      [lget list end {}] [lget list end {} end] \
+      [lget list end {} 0] [lget list end {} end 0] \
+      [lget list end {} {}] [lget list end {} end {}] \
+      [lget list end end end] [lget list end end end {}] \
+      [lget list end end 2] [lget list end end 2 {}]
+} -constraints {command.lget} -cleanup {
+  unset list
+} -result {{a b c {d e f {g h i}}} {a b c {d e f {g h i}}} a {d e f {g h i}} a\
+{d e f {g h i}} {d e f {g h i}} {g h i} d g {d e f {g h i}} {g h i} i i i i}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

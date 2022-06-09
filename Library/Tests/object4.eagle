@@ -1,0 +1,1135 @@
+###############################################################################
+#
+# object4.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test object-4.1 {using Eagle objects} -body {
+  unset -nocomplain w x y z u e
+  set u true; set e false
+  list [set x [object invoke -create Interpreter GetActive]] [set y [object \
+      invoke -create -parametertypes String Result op_Implicit ""]] [set z \
+      [object invoke Eagle._Tests.Default TestExpr $x "2/double(3)" u e y w]] \
+      [getStringFromObjectHandle $w] [getStringFromObjectHandle $x] \
+      [getStringFromObjectHandle $y] $z [object invoke System.Object \
+      ReferenceEquals $w $y] $u $e [object dispose $w] [object dispose $x] \
+      [object dispose $y]
+} -cleanup {
+  unset -nocomplain w x y z u e
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestExpr} -match \
+regexp -result {^Interpreter#\d+ Result#\d+ Ok 0\.66666666666666(?:66|7) \d+\
+0\.66666666666666(?:66|7) Ok False True False removed removed removed$}}
+
+###############################################################################
+
+#
+# HACK: *MONO* On Mono, as of version 2.11 alpha, this test fails for reasons
+#       that are presently unknown.  A "System.IO.FileNotFoundException" is
+#       thrown because the Mono C# compiler (mcs) cannot be executed from the
+#       location:
+#
+#               "%ProgramFiles%\Mono-2.11\lib\lib\build\mcs.exe"
+#
+runTest {test object-4.2 {using CSharp compiler, success} -body {
+  set id [object invoke Interpreter.GetActive NextId]
+
+  unset -nocomplain results errors
+
+  set code [compileCSharp [subst {
+    using System;
+
+    namespace _Dynamic${id}
+    {
+      public class Test${id}
+      {
+        public static string HelloWorld()
+        {
+          string helloWorld = "hello from C#";
+          Console.WriteLine(helloWorld);
+          return helloWorld;
+        }
+      }
+    }
+  }] true false true results errors]
+
+  list $code $results [expr {[info exists errors] ? $errors : ""}] \
+      [expr {$code eq "Ok" ? [object invoke _Dynamic${id}.Test${id} \
+      HelloWorld] : ""}]
+} -cleanup {
+  if {[isDotNetCore]} then {
+    catch {info previouspid true}
+  }
+
+  unset -nocomplain id code results errors
+} -constraints {eagle command.object monoMatchFramework monoBug211\
+compileCSharp} -match regexp -result {^Ok\
+System#CodeDom#Compiler#CompilerResults#\d+ \{\} \{hello from C#\}$}}
+
+###############################################################################
+
+#
+# HACK: *MONO* On Mono, as of version 2.11 alpha, this test fails for reasons
+#       that are presently unknown.  A "System.IO.FileNotFoundException" is
+#       thrown because the Mono C# compiler (mcs) cannot be executed from the
+#       location:
+#
+#               "%ProgramFiles%\Mono-2.11\lib\lib\build\mcs.exe"
+#
+runTest {test object-4.2.1 {using CSharp compiler with Eagle} -body {
+  set id [object invoke Interpreter.GetActive NextId]
+
+  unset -nocomplain results errors
+
+  set code [compileCSharp [subst {
+    using System;
+    using Eagle._Attributes;
+    using Eagle._Components.Public;
+    using Eagle._Containers.Public;
+    using Eagle._Interfaces.Public;
+    using _Commands = Eagle._Commands;
+
+    namespace _Dynamic${id}
+    {
+        \[ObjectId("[guid new]")\]
+        \[CommandFlags(CommandFlags.Unsafe)\]
+        internal sealed class Test${id} : _Commands.Default
+        {
+            public static string HelloWorld()
+            {
+                Interpreter interpreter = Interpreter.GetActive();
+
+                if (interpreter != null)
+                {
+                    ReturnCode code;
+                    Result result = null;
+                    int errorLine = 0;
+
+                    Test${id} test = new Test${id}(new CommandData(
+                        "test${id}", null, null, new ClientData(null),
+                        typeof(Test${id}).FullName, CommandFlags.None,
+                        null, 0));
+
+                    long token = 0;
+
+                    code = interpreter.AddCommand(
+                        test, null, ref token, ref result);
+
+                    if (code == ReturnCode.Ok)
+                    {
+                        try
+                        {
+                            code = Engine.EvaluateScript(
+                                interpreter,
+                                StringList.MakeList(
+                                    "test${id}",
+                                    "hello from C#"),
+                                EngineFlags.None,
+                                SubstitutionFlags.Default,
+                                EventFlags.Engine,
+                                ExpressionFlags.Default,
+                                ref result,
+                                ref errorLine);
+                        }
+                        catch (Exception e)
+                        {
+                            result = e;
+                            code = ReturnCode.Error;
+                        }
+                        finally
+                        {
+                            ReturnCode removeCode;
+                            Result removeResult = null;
+
+                            removeCode = interpreter.RemoveCommand(
+                                token, null, ref removeResult);
+
+                            if (removeCode != ReturnCode.Ok)
+                                Console.WriteLine(Utility.FormatResult(
+                                    removeCode, removeResult));
+                        }
+                    }
+
+                    return Utility.FormatResult(code, result, errorLine);
+                }
+
+                return null;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            public Test${id}(
+                ICommandData commandData
+                )
+                : base(commandData)
+            {
+                this.Flags |= Utility.GetCommandFlags(GetType().BaseType) |
+                    Utility.GetCommandFlags(this);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            public override ReturnCode Execute(
+                Interpreter interpreter,
+                IClientData clientData,
+                ArgumentList arguments,
+                ref Result result
+                )
+            {
+                if (interpreter == null)
+                {
+                    result = "invalid interpreter";
+                    return ReturnCode.Error;
+                }
+
+                if (arguments == null)
+                {
+                    result = "invalid argument list";
+                    return ReturnCode.Error;
+                }
+
+                if (arguments.Count != 2)
+                {
+                    result = String.Format(
+                        "wrong # args: should be \\"{0} string\\"",
+                        this.Name);
+
+                    return ReturnCode.Error;
+                }
+
+                result = arguments\[1\];
+                return ReturnCode.Ok;
+            }
+        }
+    }
+  }] true false true results errors ReferencedAssemblies.Add System.dll \
+      ReferencedAssemblies.Add [lindex [info assembly] end]]
+
+  list $code $results [expr {[info exists errors] ? $errors : ""}] \
+      [expr {$code eq "Ok" ? [object invoke _Dynamic${id}.Test${id} \
+      HelloWorld] : ""}]
+} -cleanup {
+  if {[isDotNetCore]} then {
+    catch {info previouspid true}
+  }
+
+  unset -nocomplain id code results errors
+} -constraints {eagle command.guid command.object dotNetCoreOrShell\
+monoMatchFramework monoBug211 compileCSharp} -match regexp -result {^Ok\
+System#CodeDom#Compiler#CompilerResults#\d+ \{\} \{hello from C#\}$}}
+
+###############################################################################
+
+if {[isDotNetCore]} then {
+  set expected {^Error System#CodeDom#Compiler#CompilerResults#\d+\
+\{\{.*\.cs\(10,19\): error CS0117: 'Console' does not contain a definition for\
+'WriteFoo'\}\}$}
+} else {
+  set expected {^Error System#CodeDom#Compiler#CompilerResults#\d+\
+\{\{.*\.cs\(10,19\) : error CS0117: 'System\.Console' does not contain a\
+definition for 'WriteFoo'\}\}$}
+}
+
+###############################################################################
+
+runTest {test object-4.3 {using CSharp compiler, failure} -body {
+  set id [object invoke Interpreter.GetActive NextId]
+
+  unset -nocomplain results errors
+
+  set code [compileCSharp [subst {
+    using System;
+
+    namespace _Dynamic${id}
+    {
+      public class Test${id}
+      {
+        public static void HelloWorld()
+        {
+          Console.WriteFoo("hello world"); /* Error CS0117. */
+        }
+      }
+    }
+  }] true false true results errors]
+
+  list $code $results $errors
+} -cleanup {
+  if {[isDotNetCore]} then {
+    catch {info previouspid true}
+  }
+
+  unset -nocomplain id code results errors
+} -constraints {eagle command.object dotNetOrDotNetCore compileCSharp} -match \
+regexp -result $expected}
+
+###############################################################################
+
+unset -nocomplain expected
+
+###############################################################################
+
+if {[isDotNetCore]} then {
+  set expected {^Error System#CodeDom#Compiler#CompilerResults#\d+\
+\{\{.*\.cs\(18,34\): warning CS0078: The 'l' suffix is easily confused with\
+the digit '1' -- use 'L' for clarity\} \{.*\.cs\(18,18\): warning CS0618:\
+'Test\d+\.HelloWorldImpl\(long\)' is obsolete: 'Do not use this method\.'\}\}$}
+} else {
+  set expected {^Error System#CodeDom#Compiler#CompilerResults#\d+\
+\{\{.*\.cs\(18,33\) : error CS0078: Warning as Error: The 'l' suffix is easily\
+confused with the digit '1' -- use 'L' for clarity\} \{.*\.cs\(18,18\) : error\
+CS0618: Warning as Error: '_Dynamic\d+\.Test\d+\.HelloWorldImpl\(long\)' is\
+obsolete: 'Do not use this method\.'\}\}$}
+}
+
+###############################################################################
+
+runTest {test object-4.4 {using CSharp compiler, warnings} -body {
+  set id [object invoke Interpreter.GetActive NextId]
+
+  unset -nocomplain results errors
+
+  set code [compileCSharp [subst {
+    using System;
+
+    namespace _Dynamic${id}
+    {
+      public class Test${id}
+      {
+        \[Obsolete("Do not use this method.")\] /* Warning CS0618. */
+        public static string HelloWorldImpl(long value)
+        {
+          string helloWorld = "hello from C#";
+          Console.WriteLine(helloWorld);
+          return helloWorld;
+        }
+
+        public static string HelloWorld()
+        {
+          return HelloWorldImpl(1l); /* Warning CS0078. */
+        }
+      }
+    }
+  }] true false true results errors warningLevel 4 treatWarningsAsErrors true]
+
+  list $code $results [expr {[info exists errors] ? $errors : ""}]
+} -cleanup {
+  if {[isDotNetCore]} then {
+    catch {info previouspid true}
+  }
+
+  unset -nocomplain id code results errors
+} -constraints {eagle command.object dotNetOrDotNetCore compileCSharp} -match \
+regexp -result $expected}
+
+###############################################################################
+
+unset -nocomplain expected
+
+###############################################################################
+
+runTest {test object-4.5 {using System.Speech} -setup {
+  #
+  # NOTE: This proc will handle the completion event fired by the speech
+  #       synthesizer object.  All we need to do is terminate our vwait.
+  #
+  proc speakCompleted { sender e } { set ::forever 1 }
+
+  #
+  # NOTE: Make sure a stale "forever" is not hanging around.
+  #
+  unset -nocomplain forever
+
+  #
+  # NOTE: Load the speech synthesizer assembly.
+  #
+  set assembly [object load System.Speech]
+} -body {
+  #
+  # NOTE: Create a speech synthesizer object.
+  #
+  set speech [object create -alias System.Speech.Synthesis.SpeechSynthesizer]
+
+  #
+  # NOTE: Add our proc as an event handler for the speech completion event.
+  #
+  $speech add_SpeakCompleted speakCompleted
+
+  #
+  # NOTE: Set the volume to the desired level (which may be totally silent).
+  #
+  if {[info exists test_volume]} then {
+    $speech Volume $test_volume
+  }
+
+  #
+  # NOTE: Speek the text asynchronously and capture the resulting object handle
+  #       into a variable for later disposal.
+  #
+  set prompt [$speech SpeakAsync "Welcome to Eagle, an implementation of the\
+Tcl scripting language for the Common Language Runtime."]
+
+  after 1 nop; vwait forever; set prompt
+} -cleanup {
+  rename speakCompleted ""
+
+  catch {object removecallback speakCompleted}
+
+  unset -nocomplain forever prompt speech assembly
+} -constraints {eagle command.object System.Speech} -match regexp -result \
+{^System#Speech#Synthesis#Prompt#\d+$}}
+
+###############################################################################
+
+runTest {test object-4.6 {simple WMI query} -setup {
+  #
+  # NOTE: What WMI processes are already active?
+  #
+  set ids(old) [getProcesses wmiprvse]
+} -body {
+  #
+  # NOTE: Load the managed assembly for WMI.
+  #
+  set assembly [object load System.Management]
+
+  #
+  # NOTE: Create a WMI query and execute it.
+  #
+  set searcher [object create -alias \
+      System.Management.ManagementObjectSearcher \
+      "SELECT * FROM Win32_LogicalDisk"]
+
+  set collection [$searcher -alias Get]
+
+  #
+  # NOTE: Return the number of results found.
+  #
+  $collection Count
+} -cleanup {
+  #
+  # NOTE: What WMI processes are still active?
+  #
+  set ids(new) [getProcesses wmiprvse]
+
+  #
+  # NOTE: We want to wait for the new processes only.
+  #
+  set ids(wait) [ldifference $ids(old) $ids(new)]
+
+  #
+  # NOTE: Wait for them to exit.
+  #
+  if {[llength $ids(wait)] > 0} then {
+    tputs $test_channel [appendArgs "---- waiting for WMI processes to exit: " \
+        $ids(wait) \n]
+
+    waitForProcesses $ids(wait) 5000
+  }
+
+  #
+  # NOTE: Do we have administrator rights?
+  #
+  if {[isTestAdministrator]} then {
+    #
+    # NOTE: Just in case there are leftover WMI processes, attempt to kill them
+    #       now (this will probably only work if we have administrator rights).
+    #
+    foreach id $ids(new) {
+      #
+      # NOTE: Make sure the WMI process did not exist before this test (i.e.
+      #       only kill WMI processes that we are responsible for starting).
+      #
+      if {[lsearch -exact $ids(old) $id] == -1} then {
+        #
+        # NOTE: Forcibly kill the stale WMI process.  Any errors are simply
+        #       caught and ignored.
+        #
+        tputs $test_channel [appendArgs "---- killing WMI process: " $id " " \
+            [expr {[catch {kill -force -- $id}] ? "error" : "ok"}] \n]
+      }
+    }
+  }
+
+  unset -nocomplain ids id
+  unset -nocomplain collection searcher assembly; # dispose
+} -constraints {eagle command.object windows dotNet administrator} -match \
+regexp -result {^\d+$}}
+
+###############################################################################
+
+if {[info exists bin_file]} then {
+  set x [list [file rootname [file tail $bin_file]]]
+} else {
+  set x [list [file rootname [file tail [getShellExecutableName]]]]
+}
+
+###############################################################################
+
+runTest {test object-4.7 {simple PowerShell functionality} -body {
+  set assembly [object load System.Management.Automation]
+
+  set runspaceInvoke [object create -alias \
+      System.Management.Automation.RunspaceInvoke]
+
+  set array [object create -alias {System.String[]} 2]
+
+  $array SetValue [file rootname [file tail $bin_file]] 0
+  $array SetValue NoSuchProcess 1
+
+  set collection [$runspaceInvoke -alias Invoke \
+      {$input | Get-Process -name {$_}} $array]
+
+  set result [list]
+
+  object foreach object $collection {
+    set property [object invoke -alias $object.Members get_Item ProcessName]
+    lappend result [$property Value]
+    unset property; # dispose
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result
+  unset -nocomplain object collection array runspaceInvoke assembly; # dispose
+} -constraints {eagle command.object dotNetCoreOrShell powerShell} -match \
+regexp -result [appendArgs ^ $x "( " $x )*\$]}
+
+###############################################################################
+
+unset -nocomplain x
+
+###############################################################################
+
+#
+# NOTE: This test is constrained to run only when the .NET Framework 2.0 is
+#       being used because the current versions of PowerShell (e.g. 1.0 and
+#       2.0) are not yet compatible with assemblies compiled for later
+#       versions of the .NET Framework (e.g. it cannot load snap-ins that
+#       were compiled against the .NET Framework 4.0).
+#
+runTest {test object-4.8 {simple PowerShell/Eagle functionality} -setup {
+  #
+  # NOTE: Load the PowerShell assembly now so that we can detect whether
+  #       or not the EagleCmdlets snap-in has been installed.
+  #
+  set assembly [object load System.Management.Automation]
+
+  #
+  # NOTE: Create the PowerShell object we need to execute scripts.
+  #
+  set runspaceInvoke [object create -alias \
+      System.Management.Automation.RunspaceInvoke]
+
+  #
+  # NOTE: Initially, assume that the EagleCmdlets snap-in is not installed.
+  #
+  set have false
+
+  #
+  # NOTE: Check if the EagleCmdlets snap-in has already been installed.
+  #       First, attempt to add the snap-in to the runspace.  Then,
+  #       query the list of loaded snap-ins to make sure it is present
+  #       (just in case the Add-PSSnapin cmdlet managed to fail without
+  #       raising an error, which it seems to do).  This method seems
+  #       to be reliable; however, I am open to suggestions on how to
+  #       make it better.
+  #
+  set code [catch {set collection [$runspaceInvoke -alias Invoke {
+      Add-PSSnapin EagleCmdlets # Why does this not fail when not installed?
+      Get-PSSnapin EagleCmdlets # Produces zero results when not installed.
+  }]}]
+
+  #
+  # NOTE: Make sure that the PowerShell detection script succeeded and
+  #       that it produced an actual result.
+  #
+  if {$code == 0 && [$collection Count] > 0} then {
+    set have true
+  }
+
+  #
+  # NOTE: Cleanup temporary variables used during the detection process.
+  #
+  unset -nocomplain collection code
+
+  #
+  # NOTE: *WINDOWS* This test assumes that the InstallUtil tool must be
+  #       present if the .NET Framework v2.0 is installed on the machine;
+  #       otherwise, installation of the PowerShell snap-in will silently
+  #       fail, thereby causing the test to fail.
+  #
+  set installUtil [file nativename [file join $env(windir) Microsoft.NET \
+      [expr {[haveConstraint 64bit] ? "Framework64" : "Framework"}] \
+      v2.0.50727 InstallUtil.exe]]
+
+  #
+  # NOTE: For the purposes of this test, we assume that the PowerShell
+  #       snap-in assembly is located in the same directory as the
+  #       application executable.  When running the test suite from
+  #       inside EagleShell, this will always be true.
+  #
+  set fileName [file nativename [file join $core_bin_path EagleCmdlets.dll]]
+
+  #
+  # NOTE: Make sure that the assembly file is available.
+  #
+  if {![file exists $fileName]} then {
+    error [appendArgs "Cannot setup test, assembly file \"" $fileName \
+        "\" missing."]
+  }
+
+  #
+  # NOTE: Try to install the EagleCmdlets assembly as a PowerShell
+  #       snap-in.  This may fail in a variety of ways, including if it
+  #       has already been installed.  In any case, if the return code
+  #       from above was non-zero, it means that WE are installing it;
+  #       therefore, WE must be the ones to uninstall it.
+  #
+  if {!$have} then {
+    set result [testExec $installUtil \
+        [list -eventflags Wait -success Success] \
+        /LogFile= [appendArgs \" $fileName \"]]
+
+    waitForProcesses [list [info previouspid]] 5000
+
+    #
+    # NOTE: Verify that the install succeeded.
+    #
+    if {[string match "*The transacted install has completed.*" $result]} then {
+      set ready true
+
+      tputs $test_channel \
+          "---- installed EagleCmdlets snap-in\n"
+    } else {
+      set ready false
+
+      tputs $test_channel \
+          "---- failed to install EagleCmdlets snap-in\n"
+    }
+  } else {
+    set ready true
+
+    tputs $test_channel \
+        "---- skipped installing EagleCmdlets snap-in\n"
+  }
+} -body {
+  if {$ready} then {
+    if {[haveConstraint compile.APPROVED_VERBS]} then {
+      set cmdlet(Evaluate) Invoke-EagleScript
+      set cmdlet(Substitute) Resolve-EagleText
+    } else {
+      set cmdlet(Evaluate) Evaluate-EagleScript
+      set cmdlet(Substitute) Substitute-EagleText
+    }
+
+    #
+    # TODO: *HACK* Leaving off the options "-unsafe -metacommand" on the final
+    #       PowerShell command in this block causes an exception to be thrown
+    #       when an attempt is made to write the resulting Eagle script error
+    #       via the System.Management.Automation.Cmdlet.WriteError method from
+    #       the overridden System.Management.Automation.Cmdlet.ProcessRecord
+    #       method.  The exact exception thrown is:
+    #
+    #       System.Reflection.TargetInvocationException: Exception has been
+    #              thrown by the target of an invocation. --->
+    #              System.Management.Automation.CmdletInvocationException:
+    #              The WriteObject and WriteError methods cannot be called
+    #              after the pipeline has been closed. Please contact
+    #              Microsoft Support Services. --->
+    #              System.Management.Automation.PipelineClosedException: The
+    #              WriteObject and WriteError methods cannot be called after
+    #              the pipeline has been closed. Please contact Microsoft
+    #              Support Services.
+    #          at System.Management.Automation.Internal.ObjectStream.Write(
+    #              Object obj, Boolean enumerateCollection)
+    #          at System.Management.Automation.Internal.ObjectStreamBase.Write(
+    #              Object value)
+    #          at System.Management.Automation.Internal.ObjectWriter.Write(
+    #              Object obj)
+    #          at System.Management.Automation.Internal.Pipe.Add(Object obj)
+    #          at System.Management.Automation.MshCommandRuntime.
+    #              _WriteErrorSkipAllowCheck(ErrorRecord errorRecord)
+    #          at System.Management.Automation.MshCommandRuntime.DoWriteError(
+    #              Object obj)
+    #          at System.Security.SecurityContext.Run(SecurityContext
+    #              securityContext, ContextCallback callback, Object state)
+    #          at System.Management.Automation.MshCommandRuntime.WriteError(
+    #              ErrorRecord errorRecord)
+    #          at System.Management.Automation.Cmdlet.WriteError(ErrorRecord
+    #              errorRecord)
+    #          at Eagle._Cmdlets.Script.WriteErrorRecord(ReturnCode code,
+    #              Result result) in Management\Cmdlets\Script.cs:line 1168
+    #          at Eagle._Cmdlets.EvaluateScript.ProcessRecord()
+    #              Management\Cmdlets\EvaluateScript.cs:line 59
+    #          at System.Management.Automation.Cmdlet.DoProcessRecord()
+    #          at System.Management.Automation.CommandProcessor.ProcessRecord()
+    #          --- End of inner exception stack trace ---
+    #          at System.Management.Automation.Internal.PipelineProcessor.
+    #              SynchronousExecuteEnumerate(Object input, Hashtable
+    #              errorResults, Boolean enumerate)
+    #          at System.Management.Automation.PipelineNode.Execute(Array
+    #              input, Pipe outputPipe, ArrayList& resultList,
+    #              ExecutionContext context)
+    #          at System.Management.Automation.StatementListNode.
+    #              ExecuteStatement(ParseTreeNode statement, Array input, Pipe
+    #              outputPipe, ArrayList& resultList, ExecutionContext context)
+    #          --- End of inner exception stack trace ---
+    #          at System.RuntimeMethodHandle._InvokeMethodFast(Object target,
+    #              Object[] arguments, SignatureStruct& sig, MethodAttributes
+    #              methodAttributes, RuntimeTypeHandle typeOwner)
+    #          at System.RuntimeMethodHandle.InvokeMethodFast(Object target,
+    #              Object[] arguments, Signature sig, MethodAttributes
+    #              methodAttributes, RuntimeTypeHandle typeOwner)
+    #          at System.Reflection.RuntimeMethodInfo.Invoke(Object obj,
+    #              BindingFlags invokeAttr, Binder binder, Object[] parameters,
+    #              CultureInfo culture, Boolean skipVisibilityChecks)
+    #          at System.Reflection.RuntimeMethodInfo.Invoke(Object obj,
+    #              BindingFlags invokeAttr, Binder binder, Object[] parameters,
+    #              CultureInfo culture)
+    #          at Eagle._Commands.Object.Execute(Interpreter interpreter,
+    #              IClientData clientData, ArgumentList arguments, Result&
+    #              result) in Library\Commands\Object.cs:line 1991
+    #
+    set collection [$runspaceInvoke -alias Invoke [subst -nocommands {
+      Add-PSSnapin EagleCmdlets # Why does this not fail when not installed?
+      Get-PSSnapin EagleCmdlets # Produces zero results when not installed.
+      Write-Output "set x 1" | $cmdlet(Evaluate) # [eval]
+      Write-Output "[set x 1]" | $cmdlet(Substitute) # [subst]
+      Write-Output "cmdlet invoke -add {Write-Output \$(\$host.InstanceId)}" `
+          | $cmdlet(Evaluate) -unsafe -metacommand
+      Write-Output "cmdlet status" | $cmdlet(Evaluate) -unsafe -metacommand
+    }]]
+
+    set result [list]
+
+    object foreach -alias object $collection {
+      lappend result [getStringFromObjectHandle $object]
+    }
+  } else {
+    set result "EagleCmdlets snap-in not available"
+  }
+
+  set result
+} -cleanup {
+  #
+  # NOTE: Were we responsible for installing the Eagle
+  #       cmdlet?  If so, we need to remove it now.
+  #
+  if {!$have} then {
+    set result [testExec $installUtil \
+        [list -eventflags Wait -success Success] \
+        /uninstall /LogFile= [appendArgs \" $fileName \"]]
+
+    waitForProcesses [list [info previouspid]] 5000
+
+    #
+    # NOTE: Verify that the uninstall succeeded.
+    #
+    if {[string match "*The uninstall has completed.*" $result]} then {
+      tputs $test_channel \
+          "---- uninstalled EagleCmdlets snap-in\n"
+    } else {
+      tputs $test_channel \
+          "---- failed to uninstall EagleCmdlets snap-in\n"
+    }
+  } else {
+    tputs $test_channel \
+        "---- skipped uninstalling EagleCmdlets snap-in\n"
+  }
+
+  catch {info previouspid true}
+
+  unset -nocomplain result fileName installUtil have cmdlet ready
+  unset -nocomplain object collection runspaceInvoke assembly; # dispose
+} -constraints {eagle command.object windows dotNetCoreOrShell testExec\
+powerShell dotNet20 file_EagleCmdlets.dll administrator} -match regexp \
+-result {^EagleCmdlets 1 1\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+\{Disposed False FlagsCallback Eagle\._Cmdlets\.Script\+WriteCallback\
+StateCallback Eagle\._Cmdlets\.Script\+WriteCallback ParameterCallback\
+Eagle\._Cmdlets\.Script\+WriteCallback Listener\
+System\.Diagnostics\.DefaultTraceListener PreInitialize \{\} CreateFlags\
+\{Verbose, EmbeddedUse\} EngineFlags None SubstitutionFlags Default EventFlags\
+Service ExpressionFlags Default Console False Unsafe True Standard False Force\
+False Exceptions False Policies False Deny False MetaCommand True Text \{cmdlet\
+status\} Interpreter \d+ Tokens \d+ CommandRuntime\
+(?:Invoke-EagleScript|Evaluate-EagleScript) Stopping False\}$}}
+
+###############################################################################
+
+runTest {test object-4.9 {really simple PowerShell functionality} -body {
+  set assembly [object load System.Management.Automation]
+
+  set runspaceInvoke [object create -alias \
+      System.Management.Automation.RunspaceInvoke]
+
+  set array [object create -alias {System.String[]} 2]
+
+  $array SetValue PID 0
+
+  set collection [$runspaceInvoke -alias Invoke \
+      {$input | Get-Variable -name {$_}} $array]
+
+  set result [list]
+
+  object foreach object $collection {
+    set property [object invoke -alias $object.Members get_Item Value]
+    lappend result [$property Value]
+    unset property; # dispose
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result
+  unset -nocomplain object collection array runspaceInvoke assembly; # dispose
+} -constraints {eagle command.object powerShell} -match regexp -result {^\d+$}}
+
+###############################################################################
+
+runTest {test object-4.10 {WiX functionality} -setup {
+  unset -nocomplain wix result noThrowOnDisposed
+} -body {
+  #
+  # NOTE: For the purposes of this test, we assume that the WiX
+  #       extension assembly is located in the same directory as the
+  #       application executable.  When running the test suite from
+  #       inside EagleShell, this will always be true.
+  #
+  set wix(ext) [file nativename [file join $core_bin_path \
+      EagleExtensions.dll]]
+
+  #
+  # NOTE: Set the WiX source file name.
+  #
+  set wix(src) [file nativename [file join $base_path \
+      Installer Tests test.wxs]]
+
+  #
+  # NOTE: Set the WiX object file name.
+  #
+  set wix(obj) [file nativename [file join $base_path \
+      Installer Tests test.wixobj]]
+
+  #
+  # NOTE: Set the the MSI output file name.
+  #
+  set wix(msi) [file nativename [file join $base_path \
+      Installer Tests test.msi]]
+
+  #
+  # NOTE: Set some environment variables that will prevent exceptions from
+  #       being thrown for disposed objects (just in case we are using WiX
+  #       version 3.0, which does not support orderly disposal of extensions)
+  #       and disable modal message boxes from being shown.
+  #
+  if {![info exists env(NoThrowOnDisposed)]} then {
+    set env(NoThrowOnDisposed) [set noThrowOnDisposed true]
+  }
+
+  if {![info exists env(Quiet)]} then {
+    set env(Quiet) [set quiet true]
+  }
+
+  #
+  # NOTE: Launch the WiX "candle" tool to compile the test files.  We need to
+  #       disable warning "CNDL1125" here in case this test is run using WiX
+  #       version 3.5 or later against an Eagle built for WiX version 3.0.
+  #
+  set result(candle) [testExec [file nativename [file join $test_wix \
+      candle.exe]] [list -eventflags Wait -success Success] -nologo -sw1125 \
+      -ext [appendArgs \" $wix(ext) \"] -out [appendArgs \" $wix(obj) \"] \
+      [appendArgs \" $wix(src) \"]]
+
+  #
+  # NOTE: Launch the WiX "light" tool to link the test files.
+  #
+  set result(light) [testExec [file nativename [file join $test_wix \
+      light.exe]] [list -eventflags Wait -success Success] \
+      -nologo -out [appendArgs \" $wix(msi) \"] [appendArgs \" $wix(obj) \"]]
+
+  #
+  # NOTE: If necessary, remove the environment variables [we set above] that
+  #       prevents exceptions from being thrown for disposed objects and modal
+  #       message boxes from being shown.
+  #
+  if {[info exists quiet]} then {
+    unset env(Quiet) quiet
+  }
+
+  if {[info exists noThrowOnDisposed]} then {
+    unset env(NoThrowOnDisposed) noThrowOnDisposed
+  }
+
+  #
+  # NOTE: Return the results of the compile and link steps.
+  #
+  list [string trim $result(candle)] $result(light)
+} -cleanup {
+  catch {info previouspid true}
+
+  unset -nocomplain wix result quiet noThrowOnDisposed
+} -constraints [fixConstraints {eagle command.object compile.EMIT !dotNetCore\
+testExec dotNet20 wix file_EagleExtensions.dll file_test.wxs file_Plugin.dll}] \
+-result {test.wxs {}}}
+
+###############################################################################
+
+runTest {test object-4.11 {lightweight code generation (LCG)} -setup {
+  object import System.Reflection.Emit
+} -body {
+  #
+  # NOTE: Pre-get all the op-codes we need.
+  #
+  foreach name [list Ldarg_0 Ldarg_1 Add Ret] {
+    set op($name) [object invoke OpCodes $name]
+  }
+
+  #
+  # NOTE: Create a new dynamic method named "Add" that accepts two
+  #       integers and returns an integer.
+  #
+  set method [object create -alias DynamicMethod Add Int32 \
+      [list Int32 Int32] Eagle._Tests.Default]
+
+  #
+  # NOTE: Get the MSIL generator class for the new dynamic method.
+  #
+  set generator [$method -alias GetILGenerator]
+
+  #
+  # NOTE: Emit the necessary op-codes to do the task.  In this case,
+  #       we are going to push two integers onto the evaluation stack,
+  #       add them together, and return the resulting integer.
+  #
+  $generator Emit $op(Ldarg_0); # 1
+  $generator Emit $op(Ldarg_1); # 2
+  $generator Emit $op(Add);     # Add
+  $generator Emit $op(Ret);     # ... done
+
+  #
+  # NOTE: Create two Int32 objects to use with the newly created
+  #       dynamic method.
+  #
+  set int0 [object invoke -create -alias Int32 Parse 1]
+  set int1 [object invoke -create -alias Int32 Parse 2]
+
+  #
+  # NOTE: This will mark the dynamic method as "complete" and invoke
+  #       it with the arguments.
+  #
+  list $method $generator [$method Invoke null [list $int0 $int1]]
+} -cleanup {
+  unset -nocomplain int1 int0 generator method op name; # dispose
+
+  object unimport -importpattern System.Reflection.Emit
+} -constraints {eagle command.object monoBug30 compile.EMIT compile.TEST} \
+-match regexp -result {^System#Reflection#Emit#DynamicMethod#\d+\
+System#Reflection#Emit#(?:ILGenerator|DynamicILGenerator)#\d+ 3$}}
+
+###############################################################################
+
+runTest {test object-4.12 {DynamicMethod and EvaluateScript} -setup {
+  object import System.Reflection.Emit
+} -body {
+  #
+  # NOTE: Pre-get all the op-codes we need.
+  #
+  foreach name [list Call Ldarg_0 Ldc_I8 Ldc_I4 Ldarg_1 Ret] {
+    set op($name) [object invoke OpCodes $name]
+  }
+
+  #
+  # NOTE: Get the special Type value to denote a method with no
+  #       arguments.
+  #
+  set emptyTypes [object invoke Type EmptyTypes]
+
+  #
+  # NOTE: Grab the Type object for the Interpreter class.
+  #
+  set interpreterType [object invoke -create Utility GetType \
+      Eagle._Components.Public.Interpreter]
+
+  #
+  # NOTE: Grab the MethodInfo object for the Interpreter.GetActive
+  #       method (it takes no arguments).
+  #
+  set getActiveMethod [object invoke $interpreterType \
+      GetMethod GetActive $emptyTypes]
+
+  #
+  # NOTE: Grab the Type object for the Engine class.
+  #
+  set engineType [object invoke -create Utility GetType \
+      Eagle._Components.Public.Engine]
+
+  #
+  # NOTE: Grab the MethodInfo object for the Engine.EvaluateScript
+  #       method overload that takes six arguments.
+  #
+  set evaluateMethod [object invoke $engineType GetMethod EvaluateScript \
+      [list Interpreter String EngineFlags SubstitutionFlags EventFlags \
+      ExpressionFlags Result&]]
+
+  #
+  # NOTE: Create a new dynamic method named "TestEvaluate" that
+  #       accepts a string and a by-ref result and returns a
+  #       standard return code.
+  #
+  set method [object create -alias DynamicMethod TestEvaluate \
+      ReturnCode [list String Result&] Eagle._Tests.Default]
+
+  #
+  # NOTE: Get the MSIL generator class for the new dynamic method.
+  #
+  set generator [$method -alias GetILGenerator]
+
+  #
+  # NOTE: Emit the necessary op-codes to do the task.  In this case,
+  #       we are going to call the Engine.EvaluateScript method after
+  #       pushing the necessary arguments onto the evaluation stack.
+  #
+  $generator Emit $op(Call) $getActiveMethod
+  $generator Emit $op(Ldarg_0)
+
+  $generator -parametertypes [list OpCode Int64] Emit $op(Ldc_I8) \
+      0x0; # EngineFlags.None
+
+  #
+  # BUGBUG: There seems to be a bug here in the .NET Framework (version
+  #         2.0, 3.5, and 4.0).  Originally, this command was using the
+  #         Ldc_I8/Int64 construct (i.e. it was very similar to the
+  #         instruction emitted above); however, that should never have
+  #         succeeded (during Invoke) since the underlying value type
+  #         for this enumeration is actually Int32 (the default).  Mono
+  #         handles this correctly (i.e. it verifies the IL emitted for
+  #         the dynamic method and raises an InvalidProgramException
+  #         exception during Invoke).
+  #
+  #         Please see Microsoft Connect FeedbackID 332363.
+  #
+  $generator -parametertypes [list OpCode Int32] Emit $op(Ldc_I4) \
+      0xE; # SubstitutionFlags.Default
+
+  $generator -parametertypes [list OpCode Int32] Emit $op(Ldc_I4) \
+      0x200; # EventFlags.Engine
+
+  $generator -parametertypes [list OpCode Int32] Emit $op(Ldc_I4) \
+      0x3E; # ExpressionFlags.Default
+
+  $generator Emit $op(Ldarg_1)
+  $generator Emit $op(Call) $evaluateMethod
+  $generator Emit $op(Ret)
+
+  #
+  # NOTE: This will be the first argument to the dynamic method.
+  #       It contains the test script to evaluate.
+  #
+  set text {
+    #
+    # NOTE: This will be evaluated from inside the dynamic method.
+    #
+    return [expr {1 + 2}]
+  }
+
+  #
+  # NOTE: This will be the second argument to the dynamic method.
+  #       It will contain the result of the script.
+  #
+  set result(in) \
+      [object invoke -create -parametertypes String Result op_Implicit ""]
+
+  #
+  # NOTE: Create an object array with two elements to hold the
+  #       arguments to the dynamic method.
+  #
+  set array [object invoke -alias Array CreateInstance Object 2]
+
+  #
+  # NOTE: Place the arguments to the dynamic method into the array.
+  #
+  $array SetValue $text 0
+  $array SetValue $result(in) 1
+
+  #
+  # NOTE: This will mark the dynamic method as "complete" and invoke
+  #       it with the arguments.
+  #
+  list $method $generator [$method Invoke null $array] \
+      [set result(out) [$array -alias GetValue 1]] \
+      [getStringFromObjectHandle $result(out)]
+} -cleanup {
+  unset -nocomplain array result text generator op name method evaluateMethod \
+      engineType getActiveMethod interpreterType emptyTypes; # dispose
+
+  object unimport -importpattern System.Reflection.Emit
+} -constraints {eagle command.object monoBug30 compile.EMIT compile.TEST} \
+-match regexp -result {^System#Reflection#Emit#DynamicMethod#\d+\
+System#Reflection#Emit#(?:ILGenerator|DynamicILGenerator)#\d+ Return Result#\d+\
+3$}}
+
+###############################################################################
+
+runTest {test object-4.13 {clean object resolve} -setup {
+  set appDomain [object invoke AppDomain CurrentDomain]
+  set name Microsoft.Build.Framework
+} -body {
+  set assemblies [object invoke $appDomain GetAssemblies]
+
+  object foreach assembly $assemblies {
+    if {[string match "\{$name, *" $assembly]} then {
+      return "precondition: $name assembly is already loaded"
+    }
+  }
+
+  object resolve $name
+  set assemblies [object invoke $appDomain GetAssemblies]
+
+  object foreach assembly $assemblies {
+    if {[string match "\{$name, *" $assembly]} then {
+      return "failure: $name was loaded during resolve"
+    }
+  }
+
+  return success
+} -cleanup {
+  unset -nocomplain assemblies assembly name appDomain; # dispose
+} -constraints [fixConstraints {eagle command.object dotNet !compile.MONO\
+Microsoft.Build.Framework}] -result {success}}
+
+###############################################################################
+
+runTest {test object-4.14 {object foreach/lmap} -setup {
+  unset -nocomplain assemblies assembly result
+  set assemblies [object invoke Utility GetAssemblies]
+} -body {
+  set result(1) [list]
+
+  object foreach -alias assembly $assemblies {
+    lappend result(1) [$assembly FullName]
+  }
+
+  set result(2) [object lmap -alias assembly $assemblies {
+    $assembly FullName
+  }]
+
+  string equal $result(1) $result(2)
+} -cleanup {
+  unset -nocomplain assemblies assembly result; # dispose
+} -constraints {eagle command.object monoBug22} -result {True}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

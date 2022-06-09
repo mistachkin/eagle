@@ -1,0 +1,44 @@
+###############################################################################
+#
+# debug-try.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test try-1.1 {try/catch/throw/finally} -setup {
+  proc foo { a } {
+    try {
+      set ::x $a
+
+      catch {
+        incr ::x
+        throw "this is an error"
+        unset ::x
+      }
+    } finally {
+      set ::y $a
+    }
+  }
+} -body {
+  foo 2
+  list $::x $::y
+} -cleanup {
+  unset x y
+  rename foo ""
+} -constraints {eagle} -result {3 2}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

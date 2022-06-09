@@ -1,0 +1,44 @@
+###############################################################################
+#
+# subst.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test subst-2.1 {subst with break} -body {
+  subst {[set x 1][break]}
+} -cleanup {
+  unset -nocomplain x
+} -result 1}
+
+###############################################################################
+
+runTest {test subst-2.2 {subst evaluation order} -body {
+  subst {[set x 1][incr x]}
+} -cleanup {
+  unset -nocomplain x
+} -result 12}
+
+###############################################################################
+
+runTest {test subst-2.3 {subst with continue} -body {
+  subst {[set x 1; continue; incr x][set y $x]}
+} -cleanup {
+  unset -nocomplain x y
+} -result 1}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

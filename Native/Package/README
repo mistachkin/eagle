@@ -1,0 +1,71 @@
+README:  Garuda
+
+    This is the Garuda 1.0 beta distribution.
+
+RCS: @(#) $Id: $
+
+Contents
+--------
+
+    1. Introduction
+    2. Documentation
+    3. Compiling and Installing Garuda
+    4. Loading and Using Garuda
+
+1. Introduction
+---------------
+
+Eagle (Extensible Adaptable Generalized Logic Engine) is an implementation of
+the Tcl scripting language for the Common Language Runtime (CLR).
+
+Garuda (Eagle Package for Tcl) is a stubs-enabled native package for Tcl that
+provides any application using Tcl full access to components written for the
+Common Language Runtime (CLR).
+
+Garuda is maintained, enhanced, and distributed freely by the Eagle community
+(which may have some degree of cross-membership with the Tcl community).  The
+home for the Eagle sources and the bug/patch database is:
+
+    https://eagle.to/cgi-bin/eagle
+
+with the Eagle web site hosted at:
+
+    https://eagle.to/
+
+Garuda is a freely available open source package.  You can do virtually
+anything you like with it, such as modifying it, redistributing it, and selling
+it either in whole or in part.  See the file "license.terms" for complete
+information.
+
+2. Documentation
+----------------
+
+Documentation is a work in progress.
+
+3. Compiling and Installing Garuda
+----------------------------------
+
+The sources may be built from inside the Microsoft Visual Studio 2005 (or
+higher) integrated development environment.  Alternatively, they may be built
+using the corresponding command line build environment.
+
+Installing this package requires Tcl 8.4 or higher.  To install Garuda, copy
+the distribution files to a directory and make sure that directory is listed in
+the Tcl "auto_path" variable.
+
+4. Loading and Using Garuda
+---------------------------
+
+Loading and using this package requires Tcl 8.4 or higher and the latest
+release of Eagle.  To load Garuda, execute the following Tcl command:
+
+    package require Garuda
+
+By default, this will load and startup the CLR, setup the bridge to Eagle, and
+provide the package to the Tcl interpreter.
+
+After the package has been loaded, the [garuda] command can be used to query
+and control various aspects of the bridge between Eagle and Tcl.
+
+After the bridge between Eagle and Tcl has been setup, the [eagle] command can
+be used to evaluate Eagle scripts.

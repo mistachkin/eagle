@@ -1,0 +1,96 @@
+###############################################################################
+#
+# short-circuit.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc x {} { lappend ::z "X($::x)"; return $::x }
+proc y {} { lappend ::z "Y($::y)"; return $::y }
+
+###############################################################################
+
+runTest {test shortCircuit-1.1 {short-circuiting of logical AND(1,0)} -setup {
+  unset -nocomplain ::z
+} -body {
+  set x 1; set y 0
+  list [expr {int([x] && [y])}] $::z
+} -cleanup {
+  unset -nocomplain x y ::z
+} -result {0 {X(1) Y(0)}}}
+
+###############################################################################
+
+runTest {test shortCircuit-1.2 {short-circuiting of logical OR(1,0)} -setup {
+  unset -nocomplain ::z
+} -body {
+  set x 1; set y 0
+  list [expr {int([x] || [y])}] $::z
+} -cleanup {
+  unset -nocomplain x y ::z
+} -result {1 X(1)}}
+
+###############################################################################
+
+runTest {test shortCircuit-1.3 {short-circuiting of logical IMP(1,0)} -setup {
+  unset -nocomplain ::z
+} -body {
+  set x 1; set y 0
+  list [expr {int([x] => [y])}] $::z
+} -cleanup {
+  unset -nocomplain x y ::z
+} -constraints {eagle} -result {0 {X(1) Y(0)}}}
+
+###############################################################################
+
+runTest {test shortCircuit-1.4 {short-circuiting of logical AND(0,1)} -setup {
+  unset -nocomplain ::z
+} -body {
+  set x 0; set y 1
+  list [expr {int([x] && [y])}] $::z
+} -cleanup {
+  unset -nocomplain x y ::z
+} -result {0 X(0)}}
+
+###############################################################################
+
+runTest {test shortCircuit-1.5 {short-circuiting of logical OR(0,1)} -setup {
+  unset -nocomplain ::z
+} -body {
+  set x 0; set y 1
+  list [expr {int([x] || [y])}] $::z
+} -cleanup {
+  unset -nocomplain x y ::z
+} -result {1 {X(0) Y(1)}}}
+
+###############################################################################
+
+runTest {test shortCircuit-1.6 {short-circuiting of logical IMP(0,1)} -setup {
+  unset -nocomplain ::z
+} -body {
+  set x 0; set y 1
+  list [expr {int([x] => [y])}] $::z
+} -cleanup {
+  unset -nocomplain x y ::z
+} -constraints {eagle} -result {1 X(0)}}
+
+###############################################################################
+
+rename x ""
+rename y ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

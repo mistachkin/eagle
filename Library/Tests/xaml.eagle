@@ -1,0 +1,339 @@
+###############################################################################
+#
+# xaml.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to lack of full support for WPF, some tests are disabled on Mono.
+###############################################################################
+
+#
+# NOTE: This test cannot pass with all the .NET Framework MDAs enabled.  It
+#       ends up with a StackOverflowException deep inside WPF.  I suspect
+#       the underlying issue is with WPF.
+#
+runTest {test xaml-1.1 {create/use/destroy Xaml window} -setup {
+  object import System.IO; # StringReader
+
+  set assembly1 [object load System.Xml]
+  object import System.Xml; # XmlReader
+
+  set assembly2 [object load PresentationFramework]
+  set assembly3 [object load PresentationCore]
+
+  object import System.Windows; # Application
+  object import System.Windows.Markup; # XamlReader
+
+  set xaml {
+    <Window
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="[info engine] Test Xaml Window Title"
+        Width="358"
+        Height="536">
+      <Window.Background>
+        <ImageBrush ImageSource="[file join $test_data_path test.png]"
+                    Stretch="Fill" />
+      </Window.Background>
+    </Window>
+  }
+
+  proc handleXamlEvent { sender e } {
+    append ::x [list [getStringFromObjectHandle $sender] \
+        [getStringFromObjectHandle $e]]
+
+    $::xamlObject Close
+  }
+
+  unset -nocomplain xamlObject application xmlReader strReader x
+} -body {
+  set strReader [object create StringReader [subst $xaml]]
+  set xmlReader [object invoke XmlReader Create $strReader]
+  set xamlObject [object invoke -alias XamlReader Load $xmlReader]
+
+  #
+  # NOTE: Make sure the console user knows that we are waiting for input.
+  #
+  tputs $test_channel [appendArgs \
+      "please double-click the window marked \"" [info engine] \
+      " Test Xaml Window Title\" to continue.\n"]
+
+  $xamlObject add_MouseDoubleClick handleXamlEvent
+  $xamlObject Topmost true
+
+  set application [object invoke Application Current]
+
+  if {[string length $application] > 0} then {
+    tputs $test_channel "---- application was already present\n"
+
+    #
+    # NOTE: Apparently, this class does not currently implement
+    #       IDisposable; therefore, this is not required.  This
+    #       is here primarily to express our intent (i.e. that
+    #       we do not actually own this object and should not
+    #       dispose it).
+    #
+    object flags $application +NoDispose
+  } else {
+    tputs $test_channel "---- application not present, creating...\n"
+
+    set application [object create Application]
+  }
+
+  set x [list]
+
+  if {[object invoke $application CheckAccess]} then {
+    tputs $test_channel "---- showing window via application...\n"
+
+    #
+    # NOTE: Technically, we do not need to use the dispatcher object
+    #       here; however, it helps us to test the ability of the core
+    #       marshaller to deal with the generic "System.Delegate" type.
+    #
+    set dispatcherCallback [list apply [list [list application xamlObject] {
+      object invoke $application Run $xamlObject
+    }] $application $xamlObject]
+
+    object invoke $application Dispatcher.Invoke $dispatcherCallback
+  } else {
+    tputs $test_channel "---- showing window as a dialog...\n"
+
+    $xamlObject ShowDialog
+  }
+
+  set x
+} -cleanup {
+  object unimport -importpattern System.IO
+  object unimport -importpattern System.Xml
+  object unimport -importpattern System.Windows
+  object unimport -importpattern System.Windows.Markup
+
+  unset -nocomplain xamlObject application xmlReader strReader xaml x \
+      assembly3 assembly2 assembly1
+
+  catch {object removecallback handleXamlEvent}
+
+  rename handleXamlEvent ""
+
+  if {[info exists dispatcherCallback]} then {
+    catch {object removecallback $dispatcherCallback}
+    unset -nocomplain dispatcherCallback
+  }
+} -constraints [fixConstraints {eagle command.object interactive\
+userInteraction staThread wpf file_test.png !mda}] -once true -result \
+{System.Windows.Window System.Windows.Input.MouseButtonEventArgs}}
+
+###############################################################################
+
+#
+# NOTE: This test cannot pass with all the .NET Framework MDAs enabled.  It
+#       ends up with a StackOverflowException deep inside WPF.  I suspect
+#       the underlying issue is with WPF.
+#
+runTest {test xaml-1.2 {isolated create/use/destroy Xaml window} -setup {
+  set appDomain [object invoke AppDomain CreateDomain xaml-1.2]
+
+  set interpreterSettings [object invoke -alias InterpreterSettings Create]
+
+  $interpreterSettings CreateFlags Default
+  $interpreterSettings HostCreateFlags Default
+  $interpreterSettings InitializeFlags Default
+  $interpreterSettings ScriptFlags Default
+  $interpreterSettings InterpreterFlags Default
+
+  set result null
+  set interpreterHelper [object invoke -alias -objectflags +AutoDispose \
+      InterpreterHelper Create $appDomain $interpreterSettings true result]
+
+  if {[string length $interpreterHelper] == 0} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set interpreter [$interpreterHelper -alias Interpreter]
+
+  tputs $test_channel [appendArgs "---- new isolated interpreter: \"" \
+      [getStringFromObjectHandle $interpreter] \"\n]
+
+  set result null
+  set code [$interpreter EvaluateScript [list set test_data_path \
+      $test_data_path] result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result null
+  set code [$interpreter EvaluateScript [list set test_channel \
+      $test_channel] result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result null
+  set code [$interpreter EvaluateScript {
+    package require Eagle.Test; # for [tputs]
+
+    object import System.IO; # StringReader
+
+    set assembly1 [object load System.Xml]
+    object import System.Xml; # XmlReader
+
+    set assembly2 [object load PresentationFramework]
+    set assembly3 [object load PresentationCore]
+
+    object import System.Windows; # Application
+    object import System.Windows.Markup; # XamlReader
+
+    set xaml {
+      <Window
+          xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          Title="[info engine] Test Xaml Window Title"
+          Width="358"
+          Height="536">
+        <Window.Background>
+          <ImageBrush ImageSource="[file join $test_data_path test.png]"
+                      Stretch="Fill" />
+        </Window.Background>
+      </Window>
+    }
+
+    proc handleXamlEvent { sender e } {
+      append ::x [list [getStringFromObjectHandle $sender] \
+          [getStringFromObjectHandle $e]]
+
+      $::xamlObject Close
+    }
+
+    unset -nocomplain xamlObject application xmlReader strReader x
+  } result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+} -body {
+  set result null
+  set code [$interpreter EvaluateScript {
+    set strReader [object create StringReader [subst $xaml]]
+    set xmlReader [object invoke XmlReader Create $strReader]
+    set xamlObject [object invoke -alias XamlReader Load $xmlReader]
+
+    #
+    # NOTE: Make sure the console user knows that we are waiting for input.
+    #
+    tputs $test_channel [appendArgs \
+        "please double-click the window marked \"" [info engine] \
+        " Test Xaml Window Title\" to continue.\n"]
+
+    $xamlObject add_MouseDoubleClick handleXamlEvent
+    $xamlObject Topmost true
+
+    set application [object invoke Application Current]
+
+    if {[string length $application] > 0} then {
+      tputs $test_channel "---- application was already present\n"
+
+      #
+      # NOTE: Apparently, this class does not currently implement
+      #       IDisposable; therefore, this is not required.  This
+      #       is here primarily to express our intent (i.e. that
+      #       we do not actually own this object and should not
+      #       dispose it).
+      #
+      object flags $application +NoDispose
+    } else {
+      tputs $test_channel "---- application not present, creating...\n"
+
+      set application [object create Application]
+    }
+
+    set x [list]
+
+    if {[object invoke $application CheckAccess]} then {
+      tputs $test_channel "---- showing window via application...\n"
+
+      #
+      # NOTE: Technically, we do not need to use the dispatcher object
+      #       here; however, it helps us to test the ability of the core
+      #       marshaller to deal with the generic "System.Delegate" type.
+      #
+      set dispatcherCallback [list apply [list [list application xamlObject] {
+        object invoke $application Run $xamlObject
+      }] $application $xamlObject]
+
+      object invoke $application Dispatcher.Invoke $dispatcherCallback
+    } else {
+      tputs $test_channel "---- showing window as a dialog...\n"
+
+      $xamlObject ShowDialog
+    }
+
+    set x
+  } result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  getStringFromObjectHandle $result
+} -cleanup {
+  set result null
+  set code [$interpreter EvaluateScript {
+    object unimport -importpattern System.IO
+    object unimport -importpattern System.Xml
+    object unimport -importpattern System.Windows
+    object unimport -importpattern System.Windows.Markup
+
+    unset -nocomplain xamlObject application xmlReader strReader xaml x \
+        assembly3 assembly2 assembly1
+
+    catch {object removecallback handleXamlEvent}
+
+    rename handleXamlEvent ""
+
+    if {[info exists dispatcherCallback]} then {
+      catch {object removecallback $dispatcherCallback}
+      unset -nocomplain dispatcherCallback
+    }
+  } result]
+
+  if {$code ne "Ok"} then {
+    tputs $test_channel [appendArgs "---- test cleanup failed: " \
+        [getStringFromObjectHandle $result] \n]
+  }
+
+  unset -nocomplain interpreter; # dispose
+  unset -nocomplain interpreterHelper interpreterSettings; # dispose
+
+  set code [object invoke -flags +NonPublic \
+      Eagle._Components.Private.AppDomainOps Unload xaml-1.2 $appDomain \
+      null result]
+
+  if {$code ne "Ok"} then {
+    tputs $test_channel [appendArgs "---- test unload failed: " \
+        [getStringFromObjectHandle $result] \n]
+  }
+
+  unset -nocomplain code result
+  unset -nocomplain appDomain
+} -constraints [fixConstraints {eagle command.object interactive\
+userInteraction staThread wpf compile.ISOLATED_INTERPRETERS file_test.png\
+!mda}] -result \
+{System.Windows.Window System.Windows.Input.MouseButtonEventArgs}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

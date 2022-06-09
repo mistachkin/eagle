@@ -1,0 +1,514 @@
+<!--
+The MIT License
+
+Copyright (c) 2008 Blue Spire Consulting, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+-->
+<!--
+    NOTE: This file has been modified from the original to use "Window"
+          elements instead of "Page" elements.  The white-space has also
+          been cleaned up.
+
+    Joe Mistachkin <joe@mistachkin.com>
+-->
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2006"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Blue Spire's Font Viewer"
+    Width="680"
+    Height="540">
+  <Window.Resources>
+    <SolidColorBrush x:Key="bgPale"
+                     Color="#FFEFECCA" />
+    <SolidColorBrush x:Key="borderPale"
+                     Color="#FFA7A37E" />
+    <SolidColorBrush x:Key="bgBase"
+                     Color="#FFE6E2AF" />
+    <SolidColorBrush x:Key="bgDark1"
+                     Color="#FF002f2f" />
+    <SolidColorBrush x:Key="bgDark2"
+                     Color="#FF046380" />
+    <SolidColorBrush x:Key="bgInput"
+                     Color="#FFFFFFFF" />
+
+    <Style TargetType="{x:Type TextBlock}">
+      <Setter Property="FontFamily"
+              Value="Segoe UI" />
+    </Style>
+
+    <Style TargetType="{x:Type ScrollBar}">
+      <Setter Property="BorderThickness"
+              Value="0" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ScrollBar}">
+            <Grid x:Name="GridRoot"
+                  Width="{DynamicResource {x:Static SystemParameters.VerticalScrollBarWidthKey}}"
+                  Background="{TemplateBinding Background}">
+              <Grid.RowDefinitions>
+                <RowDefinition MaxHeight="18"/>
+                <RowDefinition Height="0.00001*"/>
+                <RowDefinition MaxHeight="18"/>
+              </Grid.RowDefinitions>
+
+              <RepeatButton x:Name="DecreaseRepeat"
+                            Command="ScrollBar.LineUpCommand">
+                <RepeatButton.Template>
+                  <ControlTemplate TargetType="{x:Type RepeatButton}">
+                    <Border CornerRadius="6"
+                            Background="{StaticResource borderPale}">
+                      <Path x:Name="DecreaseArrow"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Fill="{StaticResource bgBase}"
+                            Data="M 0 4 L 8 4 L 4 0 Z"/>
+                    </Border>
+                  </ControlTemplate>
+                </RepeatButton.Template>
+              </RepeatButton>
+
+              <Track Grid.Row="1"
+                     x:Name="PART_Track"
+                     Orientation="Vertical"
+                     IsDirectionReversed="True">
+                <Track.Thumb>
+                  <Thumb>
+                    <Thumb.Template>
+                      <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Grid>
+                          <Rectangle x:Name="Rectangle"
+                                     HorizontalAlignment="Stretch"
+                                     VerticalAlignment="Stretch"
+                                     Width="Auto"
+                                     Height="Auto"
+                                     RadiusX="3"
+                                     RadiusY="3"
+                                     Fill="{StaticResource borderPale}"/>
+                        </Grid>
+                      </ControlTemplate>
+                    </Thumb.Template>
+                  </Thumb>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                  <RepeatButton x:Name="PageUp"
+                                Command="ScrollBar.PageDownCommand">
+                    <RepeatButton.Template>
+                      <ControlTemplate TargetType="{x:Type RepeatButton}">
+                        <Rectangle Fill="{StaticResource bgPale}"
+                                   RadiusY="6"
+                                   RadiusX="4" />
+                      </ControlTemplate>
+                    </RepeatButton.Template>
+                  </RepeatButton>
+                </Track.IncreaseRepeatButton>
+                <Track.DecreaseRepeatButton>
+                  <RepeatButton x:Name="PageDown"
+                                Command="ScrollBar.PageUpCommand">
+                    <RepeatButton.Template>
+                      <ControlTemplate TargetType="{x:Type RepeatButton}">
+                        <Rectangle Fill="{StaticResource bgPale}"
+                                   RadiusY="6"
+                                   RadiusX="4" />
+                      </ControlTemplate>
+                    </RepeatButton.Template>
+                  </RepeatButton>
+                </Track.DecreaseRepeatButton>
+              </Track>
+
+              <RepeatButton Grid.Row="2" x:Name="IncreaseRepeat"
+                            Command="ScrollBar.LineDownCommand">
+                <RepeatButton.Template>
+                  <ControlTemplate TargetType="{x:Type RepeatButton}">
+                    <Border CornerRadius="6"
+                            Background="{StaticResource borderPale}">
+                      <Path x:Name="IncreaseArrow"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Fill="{StaticResource bgBase}"
+                            Data="M 0 0 L 4 4 L 8 0 Z"/>
+                    </Border>
+                  </ControlTemplate>
+                </RepeatButton.Template>
+              </RepeatButton>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="TutorialStep"
+           TargetType="{x:Type ContentControl}">
+      <Setter Property="Opacity"
+              Value="0" />
+      <Setter Property="TextBlock.Foreground"
+              Value="{StaticResource borderPale}" />
+      <Setter Property="TextBlock.FontSize"
+              Value="24" />
+      <Setter Property="TextBlock.FontFamily"
+              Value="Segoe UI" />
+      <Setter Property="TextBlock.TextAlignment"
+              Value="Center" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ContentControl}">
+            <Grid VerticalAlignment="Center"
+                  HorizontalAlignment="Center">
+              <Border Background="Black"
+                      Opacity="0.3"
+                      CornerRadius="6"
+                      Margin="3 3 0 0"/>
+              <Path x:Name="LeftArrow"
+                    d:LayoutOverrides="VerticalAlignment"
+                    Fill="{DynamicResource bgDark1}"
+                    Visibility="Hidden"
+                    Stretch="Fill" Stroke="#FF000000"
+                    HorizontalAlignment="Left" Margin="-19.495,65.847,0,0" VerticalAlignment="Top" Width="30" Height="18" Data="M10.005,66.346667 L-18.994999,67.801574 10.005,68.584332 z"/>
+              <Grid x:Name="DownArrow"
+                    Visibility="Hidden"
+                    HorizontalAlignment="Right" Margin="0,0,74.617,-12.929" VerticalAlignment="Bottom" Width="17.981" Height="23.72">
+                <Path Stretch="Fill" Stroke="#FF000000" StrokeThickness="0" Width="Auto" Height="Auto" Data="M166.56376,137.12676 L175.36299,159.69827 184.54521,135.97884 z" Opacity="0.3" Fill="#FF000000" Margin="3,3,0,0"/>
+                <Path Fill="{DynamicResource bgDark1}" Stretch="Fill" Stroke="#FF000000" StrokeThickness="0" Margin="0,0,3,3" Width="Auto" Height="Auto" Data="M166.56376,137.12676 L175.36299,159.69827 184.54521,135.97884 z"/>
+              </Grid>
+              <Border Background="{StaticResource bgDark1}"
+                      CornerRadius="6"
+                      Margin="0 0 3 3">
+                <ContentPresenter Margin="24" />
+              </Border>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="Tag"
+                       Value="Left">
+                <Setter TargetName="LeftArrow"
+                        Property="Visibility"
+                        Value="Visible" />
+              </Trigger>
+              <Trigger Property="Tag"
+                       Value="Down">
+                <Setter TargetName="DownArrow"
+                        Property="Visibility"
+                        Value="Visible" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Storyboard x:Key="Tutorial">
+      <DoubleAnimationUsingKeyFrames BeginTime="00:00:00" Storyboard.TargetName="Step1" Storyboard.TargetProperty="(UIElement.Opacity)">
+        <SplineDoubleKeyFrame KeyTime="00:00:00" Value="0"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:00.3000000" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:03" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:03.3000000" Value="0"/>
+      </DoubleAnimationUsingKeyFrames>
+      <DoubleAnimationUsingKeyFrames BeginTime="00:00:00" Storyboard.TargetName="Step2" Storyboard.TargetProperty="(UIElement.Opacity)">
+        <SplineDoubleKeyFrame KeyTime="00:00:03.3000000" Value="0"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:03.6000000" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:06" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:06.3000000" Value="0"/>
+      </DoubleAnimationUsingKeyFrames>
+      <DoubleAnimationUsingKeyFrames BeginTime="00:00:00" Storyboard.TargetName="Step3" Storyboard.TargetProperty="(UIElement.Opacity)">
+        <SplineDoubleKeyFrame KeyTime="00:00:06.3000000" Value="0"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:06.6000000" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:09" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:09.3000000" Value="0"/>
+      </DoubleAnimationUsingKeyFrames>
+      <DoubleAnimationUsingKeyFrames BeginTime="00:00:00" Storyboard.TargetName="Step4" Storyboard.TargetProperty="(UIElement.Opacity)">
+        <SplineDoubleKeyFrame KeyTime="00:00:09.3000000" Value="0"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:09.6000000" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:12" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:12.3000000" Value="0"/>
+      </DoubleAnimationUsingKeyFrames>
+      <DoubleAnimationUsingKeyFrames BeginTime="00:00:00" Storyboard.TargetName="Step5" Storyboard.TargetProperty="(UIElement.Opacity)">
+        <SplineDoubleKeyFrame KeyTime="00:00:12.3000000" Value="0"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:12.6000000" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:15" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:15.3000000" Value="0"/>
+      </DoubleAnimationUsingKeyFrames>
+      <DoubleAnimationUsingKeyFrames BeginTime="00:00:00" Storyboard.TargetName="Step6" Storyboard.TargetProperty="(UIElement.Opacity)">
+        <SplineDoubleKeyFrame KeyTime="00:00:15.3000000" Value="0"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:15.6000000" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:19" Value="1"/>
+        <SplineDoubleKeyFrame KeyTime="00:00:19.3000000" Value="0"/>
+      </DoubleAnimationUsingKeyFrames>
+      <ObjectAnimationUsingKeyFrames BeginTime="00:00:00" Storyboard.TargetName="TutorialSteps" Storyboard.TargetProperty="(UIElement.Visibility)">
+        <DiscreteObjectKeyFrame KeyTime="00:00:00" Value="{x:Static Visibility.Visible}"/>
+        <DiscreteObjectKeyFrame KeyTime="00:00:19.3000000" Value="{x:Static Visibility.Hidden}"/>
+      </ObjectAnimationUsingKeyFrames>
+    </Storyboard>
+  </Window.Resources>
+
+  <Window.Background>
+    <DrawingBrush>
+      <DrawingBrush.Drawing>
+        <DrawingGroup>
+          <GeometryDrawing Brush="{StaticResource bgDark2}">
+            <GeometryDrawing.Geometry>
+              <RectangleGeometry Rect="0,0,632,453"/>
+            </GeometryDrawing.Geometry>
+          </GeometryDrawing>
+          <DrawingGroup>
+            <DrawingGroup.Transform>
+              <MatrixTransform Matrix="1,0,0,1,0,160"/>
+            </DrawingGroup.Transform>
+            <GeometryDrawing Brush="{StaticResource bgDark1}"
+                             Geometry="M0,10.641166 C150.72087,-45.830601 324.56369,145.96031 632,40.475307 632,41.540812 632,293 632,293 L0,293 z"/>
+          </DrawingGroup>
+        </DrawingGroup>
+      </DrawingBrush.Drawing>
+    </DrawingBrush>
+  </Window.Background>
+
+  <Window.Triggers>
+    <EventTrigger RoutedEvent="UIElement.MouseLeftButtonDown"
+                  SourceName="TitleBar">
+      <BeginStoryboard Storyboard="{StaticResource Tutorial}" x:Name="Tutorial_BeginStoryboard"/>
+    </EventTrigger>
+  </Window.Triggers>
+
+  <Grid x:Name="LayoutRoot"
+        Margin="8">
+
+    <DockPanel x:Name="ApplicationRoot"
+               Height="480"
+               Width="640">
+      <Border x:Name="TitleBar"
+              DockPanel.Dock="Top"
+              CornerRadius="6"
+              BorderThickness="1"
+              BorderBrush="{StaticResource borderPale}"
+              Background="{StaticResource bgPale}"
+              Padding="8"
+              Margin="0 0 0 8">
+        <DockPanel>
+          <Border DockPanel.Dock="Left">
+            <Border.ToolTip>
+              <TextBlock>The Font Viewer by Blue Spire</TextBlock>
+            </Border.ToolTip>
+            <Viewbox Height="32">
+              <Canvas Width="54.866"
+                      Height="75.149"
+                      Canvas.Left="0.316"
+                      Canvas.Top="8.576">
+                <Path Fill="{StaticResource borderPale}"
+                      Stretch="Fill"
+                      Width="25.358"
+                      Height="75.149"
+                      Data="M19.535828,5.9178781E-08 C21.174595,5.9178781E-08 23.11524,0.25875735 25.357764,0.77627217 L25.357764,8.4527415 C24.092751,7.9927283 22.885238,7.7627217 21.735226,7.7627217 18.658944,7.7627217 16.524234,8.5821217 15.331097,10.220917 14.137959,11.859714 13.54139,14.777923 13.54139,18.975544 L13.54139,21.347487 20.613964,21.347487 20.613964,28.420189 13.54139,28.420189 C13.54139,39.288001 13.365466,48.373374 13.54139,61.023624 13.717315,73.673871 5.5203664,74.657269 1.0940139,75.149 7.1597562,69.411055 5.6843053,65.640434 5.6925591,61.023624 L5.6925591,28.420189 9.6994834E-10,28.420189 9.6994834E-10,21.347487 5.6925591,21.347487 5.6925591,18.975544 C5.6925591,12.59286 7.0510106,7.8345991 9.7679139,4.7007587 12.484817,1.56692 15.740788,5.9178781E-08 19.535828,5.9178781E-08 z" />
+                <Path Fill="{StaticResource borderPale}"
+                      Stretch="Fill"
+                      Width="38.123"
+                      Height="38.362"
+                      Data="M16.743104,30.22939 L25.325068,30.22939 36.063304,52.634649 46.370287,30.22939 54.866001,30.22939 37.357068,68.591356 34.68329,68.591356 z"
+                      Canvas.Left="16.743"
+                      Canvas.Top="30.229"/>
+              </Canvas>
+            </Viewbox>
+          </Border>
+          <StackPanel Margin="16 0 0 0">
+            <TextBlock FontSize="16"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource borderPale}">Blue Spire Consulting</TextBlock>
+            <TextBlock FontStyle="Italic" Foreground="{StaticResource bgDark2}">a utility for viewing fonts</TextBlock>
+          </StackPanel>
+          <Grid DockPanel.Dock="Right">
+            <Grid.ToolTip>
+              Click here for help
+            </Grid.ToolTip>
+            <Ellipse Fill="{StaticResource bgDark2}"
+                     Height="28"
+                     Width="28"
+                     Stroke="{StaticResource bgDark1}"/>
+            <TextBlock Text="?"
+                       FontFamily="Segoe UI"
+                       FontSize="24"
+                       FontWeight="Bold"
+                       Foreground="White"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+          </Grid>
+          <Grid />
+        </DockPanel>
+      </Border>
+
+      <Border x:Name="Copyright"
+              DockPanel.Dock="Bottom"
+              Margin="0 2 0 0 ">
+        <TextBlock Foreground="{StaticResource bgPale}"
+                   HorizontalAlignment="Center"
+                   FontSize="10">Blue Spire Consulting (c) 2008 v1.1</TextBlock>
+      </Border>
+
+      <ListBox x:Name="FontList"
+               DockPanel.Dock="Left"
+               ItemsSource="{x:Static Fonts.SystemFontFamilies}"
+               Width="160">
+        <ListBox.Template>
+          <ControlTemplate TargetType="{x:Type ListBox}">
+            <Border x:Name="Bd"
+                  Background="{StaticResource bgInput}"
+                  BorderThickness="0"
+                  Padding="3"
+                  CornerRadius="6">
+              <ScrollViewer Focusable="False">
+                <ItemsPresenter SnapsToDevicePixels="True" />
+              </ScrollViewer>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsEnabled"
+                       Value="false">
+                <Setter Property="Background"
+                        TargetName="Bd"
+                        Value="{StaticResource bgPale}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </ListBox.Template>
+        <ListBox.ItemContainerStyle>
+          <Style TargetType="{x:Type ListBoxItem}">
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                  <!-- HACK: Items that are too wide, cause the scroll to shorten -->
+                  <Border x:Name="Bd" Width="137"
+                          Padding="6 2"
+                          CornerRadius="6">
+                    <ContentPresenter />
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsSelected"
+                             Value="true">
+                      <Setter TargetName="Bd"
+                              Property="Background"
+                              Value="{StaticResource bgBase}" />
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+            <Setter Property="TextBlock.FontSize" Value="12" />
+            <Setter Property="TextBlock.FontFamily" Value="Segoe UI" />
+          </Style>
+        </ListBox.ItemContainerStyle>
+      </ListBox>
+
+      <Border x:Name="InputTextPanel"
+              DockPanel.Dock="Bottom"
+              CornerRadius="6"
+              Background="{StaticResource bgInput}"
+              Margin="8 0 0 0"
+              Padding="4">
+
+        <TextBox x:Name="SampleText"
+                 MinLines="4"
+                 TextWrapping="Wrap"
+                 BorderThickness="0"
+                 FontSize="14"
+                 FontFamily="Segoe UI"
+                 Background="Transparent">
+          <TextBox.ToolTip>
+            <TextBlock>
+              <Italic Foreground="Red">Instructions: </Italic> Type here to change the preview text.
+            </TextBlock>
+          </TextBox.ToolTip>
+          The quick brown fox jumps over the lazy dog.
+        </TextBox>
+      </Border>
+
+      <Border x:Name="PreviewPanel"
+              Margin="8 0 0 8"
+              CornerRadius="6"
+              Background="{StaticResource bgPale}">
+        <StackPanel Margin="8 8 8 8">
+          <TextBlock Text="{Binding ElementName=SampleText, Path=Text}"
+                     FontFamily="{Binding ElementName=FontList,Path=SelectedItem}"
+                     FontSize="10"
+                     TextWrapping="Wrap"
+                     Margin="0 0 0 4" />
+          <TextBlock Text="{Binding ElementName=SampleText, Path=Text}"
+                     FontFamily="{Binding ElementName=FontList,Path=SelectedItem}"
+                     FontSize="16"
+                     TextWrapping="Wrap"
+                     Margin="0 0 0 4" />
+          <TextBlock Text="{Binding ElementName=SampleText, Path=Text}"
+                     FontFamily="{Binding ElementName=FontList,Path=SelectedItem}"
+                     FontSize="24"
+                     TextWrapping="Wrap"
+                     Margin="0 0 0 4" />
+          <TextBlock Text="{Binding ElementName=SampleText, Path=Text}"
+                     FontFamily="{Binding ElementName=FontList,Path=SelectedItem}"
+                     FontSize="32"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+    </DockPanel>
+
+    <Grid x:Name="TutorialSteps"
+          Height="480"
+          Width="640"
+          Visibility="Hidden">
+      <ContentControl x:Name="Step1"
+                 Width="240"
+                 Style="{StaticResource TutorialStep}" HorizontalAlignment="Center" VerticalAlignment="Center" d:IsHidden="True">
+        <TextBlock TextWrapping="Wrap"
+                   xml:space="preserve">This is a tool for picking out the right font.</TextBlock>
+      </ContentControl>
+      <ContentControl x:Name="Step2"
+                 Tag="Left"
+                 Style="{StaticResource TutorialStep}" Margin="118,8,0,102" d:LayoutOverrides="HorizontalAlignment" HorizontalAlignment="Left" Width="260">
+        <TextBlock
+                   xml:space="preserve"
+                   TextWrapping="Wrap"
+                   Text="This list shows all of the fonts installed on your system."/>
+      </ContentControl>
+      <ContentControl x:Name="Step3"
+        Style="{StaticResource TutorialStep}" Margin="118,8,0,102" d:LayoutOverrides="HorizontalAlignment" HorizontalAlignment="Left" Width="260" d:IsHidden="True">
+        <TextBlock
+          xml:space="preserve"
+          TextWrapping="Wrap"
+          Text="To see what a font looks like, select it in the list."/>
+      </ContentControl>
+      <ContentControl x:Name="Step4"
+                 Tag="Down"
+        Style="{StaticResource TutorialStep}" d:LayoutOverrides="HorizontalAlignment" HorizontalAlignment="Left" Width="260" Margin="361,111,0,-111" d:IsHidden="True">
+        <TextBlock
+          xml:space="preserve"
+          TextWrapping="Wrap"
+          Text="You can change the copy with this text box."/>
+      </ContentControl>
+      <ContentControl x:Name="Step5"
+        Style="{StaticResource TutorialStep}" Margin="378,65,0,45" d:LayoutOverrides="HorizontalAlignment" HorizontalAlignment="Left" Width="260" d:IsHidden="True">
+        <TextBlock
+          xml:space="preserve"
+          TextWrapping="Wrap"
+          Text="The copy is always displayed in four different sizes."/>
+      </ContentControl>
+      <ContentControl x:Name="Step6"
+        Style="{StaticResource TutorialStep}" HorizontalAlignment="Center" Width="340" VerticalAlignment="Center" d:IsHidden="True">
+        <TextBlock
+          xml:space="preserve"
+          TextWrapping="Wrap">If you would like to know more, contact us: <Hyperlink Foreground="{StaticResource bgDark2}" NavigateUri="mailto:info@bluespire.com"><Run Foreground="{StaticResource bgInput}">info@bluespire.com</Run></Hyperlink>.</TextBlock>
+      </ContentControl>
+    </Grid>
+  </Grid>
+</Window>

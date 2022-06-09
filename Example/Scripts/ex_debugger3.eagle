@@ -1,0 +1,6 @@
+
+set x 9
+
+debug watch x +breakonany
+
+incr x; # 10

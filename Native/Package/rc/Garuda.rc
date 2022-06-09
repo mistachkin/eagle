@@ -1,0 +1,97 @@
+/*
+ * Garuda.rc -- Eagle Package for Tcl (Garuda)
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ */
+
+#include "GarudaPre.h"
+#include "tcl.h"
+#include "pkgVersion.h"
+#include "rcVersion.h"
+#include "winresrc.h"
+
+#if !defined(VS_FF_NONE)
+#  define VS_FF_NONE            0x00000000L
+#endif /* !defined(VS_FF_NONE) */
+
+/*
+ * English (U.S.) resources
+ */
+
+#if defined(_WIN32)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif /* defined(_WIN32) */
+
+/*
+ * Icon
+ */
+
+#define IDI_EAGLE 101
+
+#if defined(USE_TCL_TEA)
+IDI_EAGLE ICON "..\\..\\..\\Library\\Resources\\Eagle.ico"
+#else
+IDI_EAGLE ICON "..\\..\\Library\\Resources\\Eagle.ico"
+#endif /* defined(USE_TCL_TEA) */
+
+/*
+ * Version
+ */
+
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION RC_VERSION
+    PRODUCTVERSION RC_VERSION
+    FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+#if defined(_DEBUG)
+    FILEFLAGS VS_FF_DEBUG
+#else
+    FILEFLAGS VS_FF_NONE
+#endif /* defined(_DEBUG) */
+    FILEOS VOS__WINDOWS32
+    FILETYPE VFT_DLL
+    FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "Eagle Development Team"
+            VALUE "FileDescription", "Eagle Package for Tcl " PACKAGE_TCL_VERSION "+ (Garuda)"
+            VALUE "FileVersion", STRINGIFY(PACKAGE_PATCH_LEVEL)
+            VALUE "InternalName", STRINGIFY(OUTPUT_FILE)
+            VALUE "LegalCopyright", "Copyright © 2007-2012 by Joe Mistachkin.  All rights reserved."
+            VALUE "OriginalFilename", STRINGIFY(OUTPUT_FILE) ".dll"
+            VALUE "ProductName", "Eagle"
+            VALUE "ProductVersion", STRINGIFY(PACKAGE_PATCH_LEVEL)
+            VALUE "TclVersion", TCL_VERSION
+            VALUE "TclPatchLevel", TCL_PATCH_LEVEL
+            VALUE "SourceId", SOURCE_ID
+            VALUE "SourceTimestamp", SOURCE_TIMESTAMP
+#if defined(TCL_THREADS)
+            VALUE "TclThreads", "yes"
+#else
+            VALUE "TclThreads", "no"
+#endif /* defined(TCL_THREADS) */
+#if defined(USE_TCL_PRIVATE_STUBS)
+            VALUE "TclStubs", "private"
+#else
+            VALUE "TclStubs", "library"
+#endif /* defined(USE_TCL_PRIVATE_STUBS) */
+#if defined(USE_CLR_40)
+            VALUE "ClrVersion", CLR_VERSION_V4
+#else
+            VALUE "ClrVersion", CLR_VERSION_V2
+#endif /* defined(USE_CLR_40) */
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 0x4b0
+    END
+END

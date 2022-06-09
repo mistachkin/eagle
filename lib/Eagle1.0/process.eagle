@@ -1,0 +1,175 @@
+###############################################################################
+#
+# process.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Process Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure returns a list of process Ids matching the specified
+  #       name -OR- all process Ids if the specified name is an empty string.
+  #
+  proc getProcesses { name } {
+    #
+    # NOTE: Start with an empty list of process Ids.
+    #
+    set result [list]
+
+    #
+    # NOTE: Are we able to actually query the active processes?
+    #
+    if {[llength [info commands object]] > 0} then {
+      #
+      # NOTE: Does the caller want processes matching a specific name
+      #       or all processes on the local machine?
+      #
+      if {[string length $name] > 0} then {
+        #
+        # NOTE: Get the managed array of processes with matching names.
+        #
+        set array [object invoke -alias System.Diagnostics.Process \
+            GetProcessesByName $name]; # throw
+      } else {
+        #
+        # NOTE: Get the managed array of all processes on the local
+        #       machine.
+        #
+        set array [object invoke -alias System.Diagnostics.Process \
+            GetProcesses]; # throw
+      }
+    } else {
+      #
+      # NOTE: No, return nothing.
+      #
+      return $result
+    }
+
+    #
+    # NOTE: For each process in the resulting array, grab the Id.
+    #
+    for {set index 0} {$index < [$array Length]} {incr index} {
+      #
+      # NOTE: Grab the Nth process array element value using the
+      #       accessor method.
+      #
+      set process [$array -alias GetValue $index]
+
+      #
+      # NOTE: Add the Id of the process to the result list.  This
+      #       may fail on some versions of Mono.
+      #
+      # BUGFIX: Only do this if the process has not exited?
+      #
+      if {[catch {
+        $process Refresh; $process HasExited
+      } exited] == 0 && !$exited && [catch {
+        $process Id
+      } id] == 0} then {
+        lappend result $id
+      }
+
+      #
+      # NOTE: Get rid of the process object, we no longer need it.
+      #       Technically, it is not a requirement to explicitly
+      #       unset variables that contain object references;
+      #       however, it is useful in helping to document the
+      #       code.
+      #
+      unset process; # dispose
+    }
+
+    #
+    # NOTE: Get rid of the managed array of processes, we no longer
+    #       need it.
+    #
+    unset array; # dispose
+
+    #
+    # NOTE: Return the list of process Ids, which may be empty.
+    #
+    return $result
+  }
+
+  #
+  # NOTE: This procedure waits for the specified number of milliseconds for
+  #       processes with the specified Ids to exit (or be terminated).
+  #
+  proc waitForProcesses { ids timeout {collect true} {kill true} } {
+    #
+    # NOTE: Start with an empty list of process Ids.
+    #
+    set result [list]
+
+    #
+    # NOTE: If requested, run the garbage collector now.  This may be
+    #       necessary to successfully wait for processes that are being
+    #       kept alive via runtime callable wrappers for out-of-process
+    #       COM servers (e.g. Excel).
+    #
+    if {$collect} then {debug collect}
+
+    #
+    # NOTE: Wait for each process in the list to exit.
+    #
+    foreach id $ids {
+      #
+      # NOTE: Get the process object by its Id.  If it does not exist,
+      #       this will raise an error.
+      #
+      if {[catch {
+        object invoke -alias System.Diagnostics.Process \
+            GetProcessById $id
+      } process] == 0} then {
+        #
+        # NOTE: Wait a while for the process to exit.
+        #
+        if {[catch {
+          $process WaitForExit $timeout
+        } exited] == 0 && $exited} then {
+          #
+          # NOTE: Ok, process is now exited.
+          #
+          lappend result $id
+        } elseif {$kill} then {
+          #
+          # NOTE: Attempt to kill the process.
+          #
+          catch {
+            $process Refresh; $process Kill
+            lappend result $id
+          }
+        }
+      }
+
+      #
+      # NOTE: Get rid of the process (if we actually obtained it to
+      #       begin with).
+      #
+      unset -nocomplain process; # dispose
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: Provide the Eagle "process" package to the interpreter.
+  #
+  package provide Eagle.Process \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

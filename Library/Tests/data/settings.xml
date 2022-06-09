@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!--
+ *
+ * settings.xml -
+ *
+ * Extensible Adaptable Generalized Logic Engine (Eagle)
+ * Interpreter Settings File
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<InterpreterSettings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                     xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Culture>en-US</Culture>
+  <Profile>Color</Profile>
+  <Text>puts stdout "this is the pre-init script."</Text>
+  <LibraryPath>%EAGLE%\lib\Eagle1.0</LibraryPath>
+  <RuleSet>{1 Include Command Glob None o*} {2 Exclude Command Exact None open}</RuleSet>
+  <Args>a b c d</Args>
+  <CreateFlags>Default</CreateFlags>
+  <HostCreateFlags>Default</HostCreateFlags>
+  <InitializeFlags>Default, Test</InitializeFlags>
+  <ScriptFlags>Default</ScriptFlags>
+  <InterpreterFlags>Default</InterpreterFlags>
+  <PluginFlags>Default</PluginFlags>
+  <AutoPathList>{%EAGLE%\bin\Debug\lib} does_not_exist</AutoPathList>
+</InterpreterSettings>

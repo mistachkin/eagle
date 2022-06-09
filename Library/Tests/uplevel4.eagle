@@ -1,0 +1,80 @@
+###############################################################################
+#
+# uplevel4.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+set ::uplevel4 ""
+
+proc a { a } {
+  append ::uplevel4 [info level]; # 1
+  b $a
+}
+
+proc b { b } {
+  append ::uplevel4 [info level]; # 2
+  c $b
+}
+
+proc c { c } {
+  append ::uplevel4 [info level]; # 3
+  d $c
+}
+
+proc d { d } {
+  append ::uplevel4 [info level]; # 4
+
+  uplevel 1 {
+    append ::uplevel4 [info level]; # 3
+
+    uplevel 1 {
+      append ::uplevel4 [info level]; # 2
+    }
+
+    uplevel 1 {
+      uplevel 1 {
+        append ::uplevel4 [info level]; # 1
+      }
+    }
+
+    uplevel 1 {
+      uplevel 1 {
+        uplevel 1 {
+          append ::uplevel4 [info level]; # 0
+        }
+      }
+    }
+  }
+}
+
+###############################################################################
+
+runTest {test uplevel-14.1 {info level torture test} -body {
+  a 2; return $::uplevel4
+} -result {12343210}}
+
+###############################################################################
+
+rename a ""
+rename b ""
+rename c ""
+rename d ""
+
+unset -nocomplain ::uplevel4
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

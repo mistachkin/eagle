@@ -1,0 +1,1052 @@
+###############################################################################
+#
+# vwait.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test vwait-1.1 {vwait on new var with proc} -setup {
+  proc bar {} {lappend ::test yes}
+} -body {
+  after 1000 [list bar]
+  vwait ::test
+
+  set ::test
+} -cleanup {
+  unset ::test
+
+  rename bar ""
+} -result {yes}}
+
+###############################################################################
+
+runTest {test vwait-1.2 {vwait on changed var with proc} -setup {
+  proc bar {} {lappend ::test yes}
+} -body {
+  after 1000 [list bar]
+  vwait ::test
+
+  after 1000 [list bar]
+  vwait ::test
+
+  set ::test
+} -cleanup {
+  unset ::test
+
+  rename bar ""
+} -result {yes yes}}
+
+###############################################################################
+
+runTest {test vwait-1.3 {vwait on unset var with proc} -setup {
+  proc bar {} {unset ::test}
+} -body {
+  set ::test yes
+
+  after 1000 [list bar]
+  vwait ::test
+
+  expr {int([info exists ::test])}
+} -cleanup {
+  unset -nocomplain ::test
+
+  rename bar ""
+} -result {0}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test vwait-1.4 {vwait on new var with proc (threaded)} -setup {
+  proc bar {} {set ::t [createThread threadStart]; startThread $::t}
+  proc threadStart {} {lappend ::test yes}
+} -body {
+  after 1000 [list bar]
+  vwait ::test
+
+  set ::test
+} -cleanup {
+  if {[info exists ::t]} then {cleanupThread $::t}
+
+  unset -nocomplain ::t ::test
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+  rename bar ""
+} -constraints {eagle command.object dotNetCoreOrShell compile.THREADING} \
+-result {yes}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test vwait-1.5 {vwait on changed var with proc (threaded)} -setup {
+  proc bar {} {set ::t [createThread threadStart]; startThread $::t}
+  proc threadStart {} {lappend ::test yes}
+} -body {
+  after 1000 [list bar]
+  vwait ::test
+
+  after 1000 [list bar]
+  vwait ::test
+
+  set ::test
+} -cleanup {
+  if {[info exists ::t]} then {cleanupThread $::t}
+
+  unset -nocomplain ::t ::test
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+  rename bar ""
+} -constraints {eagle command.object dotNetCoreOrShell compile.THREADING} \
+-result {yes yes}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test vwait-1.6 {vwait on unset var with proc (threaded)} -setup {
+  proc bar {} {set ::t [createThread threadStart]; startThread $::t}
+  proc threadStart {} {unset ::test}
+} -body {
+  set ::test yes
+
+  after 1000 [list bar]
+  vwait ::test
+
+  expr {int([info exists ::test])}
+} -cleanup {
+  if {[info exists ::t]} then {cleanupThread $::t}
+
+  unset -nocomplain ::t ::test
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+  rename bar ""
+} -constraints {eagle command.object dotNetCoreOrShell compile.THREADING} \
+-result {0}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test vwait-1.7 {vwait on changes with proc (threaded)} -setup {
+  proc randomSign {} {return [expr {rand() >= 0.5 ? 1 : -1}]}
+  proc threadStart {} {lappend ::test yes}
+
+  proc bar { i } {
+    set ::t($i) [createThread threadStart]; startThread $::t($i)
+  }
+} -body {
+  set times [list]
+
+  for {set i 0} {$i < 20} {incr i} {
+    #
+    # NOTE: Calculate a time based on the event index with a slight
+    #       random jitter of up to 1 second.
+    #
+    set time [expr {int(($i * 1000) + \
+        ([randomSign] * rand() * 1000))}]
+
+    if {$time < 0} then {set time 0}
+
+    lappend times $time
+    after $time [list bar $i]
+  }
+
+  while {1} {
+    #
+    # NOTE: Due to various subtle timing issues (including the use of
+    #       random wait times for the events) this [vwait] can raise
+    #       the error: "can't wait for variable X: would wait forever".
+    #       In that case, we can simply break out of the loop.  This
+    #       may cause the test to fail.
+    #
+    if {[catch {vwait ::test}]} then {
+      break
+    }
+
+    #
+    # NOTE: As soon as we hit 10 elements in the test list, we break
+    #       out of the loop.
+    #
+    if {[llength $::test] >= 10} then {
+      break
+    }
+  }
+
+  concat [set ::test] [set times]
+} -cleanup {
+  cleanupAfterEvents
+
+  for {set i 0} {$i < 20} {incr i} {
+    if {[info exists ::t($i)] && [cleanupThread $::t($i)]} then {
+      unset ::t($i)
+    }
+  }
+
+  unset -nocomplain ::t ::test times time i
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+  rename bar ""
+  rename randomSign ""
+} -constraints {eagle command.object dotNetCoreOrShell timing\
+compile.THREADING} -match regexp -result {^(?:yes ){9,11}\d+ \d+ \d+ \d+ \d+\
+\d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+ \d+$}}
+
+###############################################################################
+
+runTest {test vwait-1.8 {after idle priority (mixed)} -setup {
+  proc idleEvent { value } {
+    lappend ::idleEvents [list idle $value]
+  }
+} -body {
+  set ::idle 0
+
+  foreach e [list 0000 1999 2000 2001 1000 1001 3000 3001 0002] {
+    after idle [list idleEvent [incr ::idle]]
+    after $e [list lappend ::events $e]
+    after idle [list idleEvent [incr ::idle]]
+  }
+
+  after 4000 [list set ::forever true]
+  vwait ::forever
+
+  list $::events $::idleEvents $::idle $::forever
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain ::events ::idleEvents ::idle ::forever e
+
+  rename idleEvent ""
+} -constraints [fixTimingConstraints {timing}] -result {{0000 0002 1000 1001\
+1999 2000 2001 3000 3001} {{idle 1} {idle 2} {idle 3} {idle 4} {idle 5} {idle\
+6} {idle 7} {idle 8} {idle 9} {idle 10} {idle 11} {idle 12} {idle 13} {idle 14}\
+{idle 15} {idle 16} {idle 17} {idle 18}} 18 true}}
+
+###############################################################################
+
+runTest {test vwait-1.9 {after idle priority (last)} -setup {
+  proc idleEvent { value } {
+    lappend ::events [list idle $value]
+  }
+
+  set interp [object invoke -alias Interpreter GetActive]
+  set waitEventFlags [$interp -flags +NonPublic waitEventFlags]
+  $interp -flags +NonPublic waitEventFlags {+Wait IdleIfEmpty}
+} -body {
+  set ::idle 0
+
+  foreach e [list 0000 1999 2000 2001 1000 1001 3000 3001 0002] {
+    after idle [list idleEvent [incr ::idle]]
+    after $e [list lappend ::events $e]
+    after idle [list idleEvent [incr ::idle]]
+  }
+
+  after 4000 [list set ::forever true]
+  vwait ::forever
+
+  list $::events $::idle $::forever
+} -cleanup {
+  cleanupAfterEvents
+  catch {$interp -flags +NonPublic waitEventFlags $waitEventFlags}
+
+  unset -nocomplain ::events ::idle ::forever
+  unset -nocomplain e waitEventFlags interp
+
+  rename idleEvent ""
+} -constraints {eagle command.object} -result {{0000 0002 1000 1001 1999 2000\
+2001 3000 3001 {idle 1} {idle 2} {idle 3} {idle 4} {idle 5} {idle 6} {idle 7}\
+{idle 8} {idle 9} {idle 10} {idle 11} {idle 12} {idle 13} {idle 14} {idle 15}\
+{idle 16} {idle 17} {idle 18}} 18 true}}
+
+###############################################################################
+
+runTest {test vwait-1.10 {[info level] from [after]} -setup {
+  proc proc1 {} {
+    lappend ::levels [info level]
+    proc2
+  }
+
+  proc proc2 {} {
+    lappend ::levels [info level]
+    proc3
+    vwait ::done
+  }
+
+  proc proc3 {} {
+    lappend ::levels [info level]
+    after 1000 [list proc4]
+  }
+
+  proc proc4 {} {
+    lappend ::levels [info level]
+    set ::done true
+  }
+} -body {
+  set ::done false; list [proc1] $::done $::levels
+} -cleanup {
+  unset -nocomplain ::levels ::done
+
+  rename proc4 ""
+  rename proc3 ""
+  rename proc2 ""
+  rename proc1 ""
+} -result {{} true {1 2 3 1}}}
+
+###############################################################################
+
+runTest {test vwait-1.11 {IEventManager NowCallback property} -setup {
+  unset -nocomplain ::dateTime
+
+  #
+  # NOTE: Calculate the UTC time "exactly" one hour from now and then report.
+  #
+  set ::dateTime(now) [clock format [expr {[clock seconds] + 3600}] \
+      -gmt true -iso]
+
+  tputs $test_channel [appendArgs "---- simulated time is: " \
+      $::dateTime(now) \n]
+
+  #
+  # NOTE: Set the event manager to use a fixed "virtual time" that is "exactly"
+  #       one hour from now as the current time.
+  #
+  object invoke Eagle._Tests.Default TestSetDateTimeNowCallback "" \
+      $::dateTime(now) 0 true
+} -body {
+  #
+  # NOTE: After "10 seconds", this script will be evaluated.  In reality, this
+  #       will happen almost immediately.
+  #
+  set ::dateTime(script) {
+    lappend ::dateTime(pulse) 10.0
+    set ::dateTime(after) [clock seconds]; # actual (i.e. "non-virtual") time.
+  }
+
+  #
+  # NOTE: Normally, it would take approximately 30 seconds for all these events
+  #       to be processed; however, we have changed the notion of the current
+  #       time in use by the event manager to be an hour ahead of now;
+  #       therefore, all these events will happen almost immediately (and in
+  #       precisely the same order as they were enqueued).
+  #
+  set ::dateTime(before) [clock seconds]; # actual (i.e. "non-virtual") time.
+  after 1000 [list lappend ::dateTime(pulse) 1.0]
+  after 2000 [list lappend ::dateTime(pulse) 2.1]
+  after 2000 [list lappend ::dateTime(pulse) 2.2]
+  after 3000 [list lappend ::dateTime(pulse) 3.0]
+  after 11000 [list lappend ::dateTime(pulse) 11.1]
+  after 30000 [list lappend ::dateTime(pulse) 30.1]
+  after 10000 $::dateTime(script)
+  after 11000 [list lappend ::dateTime(pulse) 11.2]
+  after 30000 [list lappend ::dateTime(pulse) 30.2]
+  vwait ::dateTime(after)
+
+  #
+  # NOTE: Calculate and report the number of seconds that elapsed while waiting
+  #       for all the enqueued events to be processed.  This should be either
+  #       zero or one.
+  #
+  set ::dateTime(elapsed) [expr {$::dateTime(after) - $::dateTime(before)}]
+
+  tputs $test_channel [appendArgs \
+      "---- elapsed seconds: " $::dateTime(elapsed) \n]
+
+  #
+  # NOTE: The result consists of the "event Ids" and the number of elapsed
+  #       seconds (in "non-virtual" time) taken to process them.
+  #
+  list $::dateTime(pulse) \
+      [expr {$::dateTime(elapsed) >= 0 && $::dateTime(elapsed) <= 1}]
+} -cleanup {
+  cleanupAfterEvents
+
+  #
+  # NOTE: Restore the default current time handling for the event manager.
+  #
+  object invoke Eagle._Tests.Default TestSetDateTimeNowCallback "" \
+      $::dateTime(now) 0 false
+
+  unset -nocomplain ::dateTime
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetDateTimeNowCallback} -result \
+{{1.0 2.1 2.2 3.0 10.0 11.1 11.2 30.1 30.2} True}}
+
+###############################################################################
+
+#
+# BUGBUG: As of beta 24, these tests (vwait-1.12 to vwait-1.15) could not
+#         pass in Eagle because it was treating all array elements as though
+#         they were sharing the same "dirty" flag (i.e. modifying one array
+#         element while waiting on another one would not work correctly
+#         because modifying any other element in that same array would cause
+#         the [vwait] to return).
+#
+# BUGBUG: As of beta 35, this test (vwait-1.12) could not pass when run more
+#         than once without purging the global call frame because the internal
+#         call to IsDirty was considering the "undefined" variable as "dirty"
+#         initially.
+#
+runTest {test vwait-1.12 {wait on set of array element} -setup {
+  unset -nocomplain varray
+
+  set varray(1) 1; unset varray
+} -body {
+  after 500 [list set varray(2) 2]
+  after 1000 [list set varray(1) 1]
+
+  vwait varray(1)
+
+  list [info exists varray(2)] [info exists varray(1)] [info exists varray]
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 1 1}}
+
+###############################################################################
+
+runTest {test vwait-1.13 {wait on unset of array element} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1
+  after 500 [list set varray(2) 2]
+  after 1000 [list unset varray(1)]
+
+  vwait varray(1)
+
+  list [info exists varray(2)] [info exists varray(1)] [info exists varray]
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 0 1}}
+
+###############################################################################
+
+runTest {test vwait-1.14 {wait on element, unset array} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1
+
+  after 500 [list set varray(2) 2]
+  after 1000 [list unset varray]
+
+  vwait varray(1)
+
+  list [info exists varray(2)] [info exists varray(1)] [info exists varray]
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {0 0 0}}
+
+###############################################################################
+
+runTest {test vwait-1.15 {wait on element, set array} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1
+
+  after 500 [list set varray(2) 2]
+  after 1000 [list array set varray [list 1 2 2 3]]
+
+  vwait varray(1)
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 2 2 3}}
+
+###############################################################################
+
+runTest {test vwait-1.16 {wait on array, set element} -setup {
+  unset -nocomplain varray
+} -body {
+  after 1000 [list set varray(1) 2]
+
+  vwait varray
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 2}}
+
+###############################################################################
+
+runTest {test vwait-1.17 {wait on array, unset element} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1
+
+  after 1000 [list unset varray(1)]
+
+  vwait varray
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {}}
+
+###############################################################################
+
+runTest {test vwait-1.18 {wait on array, change element} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1
+
+  after 1000 [list set varray(1) 2]
+
+  vwait varray
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 2}}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test does not really work correctly on Mono due to lack
+#       of a working performance counter implementation; however, it can run
+#       as long as the performance counter measurements themselves are simply
+#       skipped (i.e. just like Tcl).
+#
+# HACK: *MONO* Performance counters seem to always return zero when running
+#       on Mono.
+#
+runTest {test vwait-1.19 {wait on mixed existent/nonexistent} -setup {
+  set haveCounter [expr {
+    [isEagle] && ![isMono] && ![isDotNetCore] && \
+        [llength [info commands object]] > 0
+  }]
+
+  if {$haveCounter} then {
+    set threshold 10.00; # 10.00% Processor Time
+
+    set counter [object create -alias \
+        System.Diagnostics.PerformanceCounter Process \
+        "% Processor Time" [file rootname [file tail $bin_file]]]
+  }
+
+  proc workerProc {} {
+    after 1000 [list vwait $::varName1]
+    after 2000 [list set $::varName1 [clock seconds]]
+    after 3000 [list getPerformance]
+    after 4000 [list getPerformance]
+    after 5000 [list getPerformance]
+    after 6000 [list getPerformance]
+    after 7000 [list getPerformance]
+    after 8000 [list getPerformance]
+    after 9000 [list getPerformance]
+    after 10000 [list set $::varName2 [clock seconds]]
+  }
+
+  proc getPerformance {} {
+    if {$::haveCounter} then {
+      lappend ::times [expr {int([$::counter NextValue])}]
+    }
+  }
+
+  proc checkPerformance {} {
+    if {$::haveCounter} then {
+      #
+      # NOTE: Make sure the processor time values show up in the test
+      #       log file.
+      #
+      tputs $::test_channel [appendArgs \
+          "---- processor time values (percent): " $::times \n]
+
+      #
+      # NOTE: Check that none of the recorded processor time values
+      #       exceed the given threshold.
+      #
+      foreach time $::times {
+        if {$time > $::threshold} then {
+          return 0
+        }
+      }
+
+      return 1
+    } else {
+      #
+      # HACK: There is no nice way to access performance counters in
+      #       native Tcl.
+      #
+      return 1
+    }
+  }
+} -body {
+  #
+  # NOTE: Grab a fairly unique number to help construct the name of a
+  #       variable that we can be certain has never existed yet in this
+  #       interpreter.
+  #
+  set varId [string trim [clock seconds] -]
+
+  #
+  # NOTE: Construct the variable names used for this test.
+  #
+  set varName1 [appendArgs existent_ $varId]
+  set varName2 [appendArgs nonexistent_ $varId]
+
+  #
+  # NOTE: Make sure the "existent" variable exists now.
+  #
+  set $varName1 [clock seconds]
+
+  #
+  # NOTE: Show the constructed variable names in the log file.
+  #
+  tputs $test_channel [appendArgs "---- existent variable name is: " \
+      $varName1 \n]
+
+  tputs $test_channel [appendArgs "---- nonexistent variable name is: " \
+      $varName2 \n]
+
+  #
+  # NOTE: Schedule the worker procedure to start as soon as possible
+  #       once the [vwait] has started and then start it.
+  #
+  list [expr {int([info exists $varName1])}] \
+      [expr {int([info exists $varName2])}] \
+      [after 0 [list workerProc]] [vwait $varName2] [checkPerformance] \
+      [expr {int([info exists $varName1])}] \
+      [expr {int([info exists $varName2])}]
+} -cleanup {
+  rename checkPerformance ""
+  rename getPerformance ""
+  rename workerProc ""
+
+  if {[info exists varName1]} then {
+    unset -nocomplain $varName1
+  }
+
+  if {[info exists varName2]} then {
+    unset -nocomplain $varName2
+  }
+
+  unset -nocomplain varName2 varName1 varId
+
+  if {$haveCounter} then {
+    unset -nocomplain times counter threshold
+  }
+
+  unset -nocomplain haveCounter
+} -match regexp -result {^1 0 after#\d+ \{\} 1 1 1$}}
+
+###############################################################################
+
+runTest {test vwait-1.20 {wait on array, multiple elements} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1; set varray(3) 4
+
+  after 1000 [list incr varray(1)]
+  after 2000 [list incr varray(3)]
+
+  vwait varray
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 2 3 4}}
+
+###############################################################################
+
+runTest {test vwait-1.21 {wait on array, multiple elements} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1; set varray(3) 4
+
+  after 1000 [list incr varray(1)]
+  after 2000 [list incr varray(3)]
+
+  vwait varray(3)
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 2 3 5}}
+
+###############################################################################
+
+runTest {test vwait-1.22 {wait on array, multiple elements} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1; set varray(3) 4
+
+  after 1000 [list incr varray(1)]
+  after 2000 [list incr varray(3)]
+
+  vwait varray(1)
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 2 3 4}}
+
+###############################################################################
+
+runTest {test vwait-1.23 {wait on array, multiple elements} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1; set varray(3) 4
+
+  after 1000 [list incr varray(1)]
+  after 2000 [list incr varray(3)]
+
+  vwait varray(1)
+  vwait varray(3)
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 2 3 5}}
+
+###############################################################################
+
+runTest {test vwait-1.24 {wait on array, multiple elements} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1; set varray(3) 4
+
+  after 1000 [list incr varray(1)]
+  after 2000 [list incr varray(3)]
+  after 3000 [list unset varray]
+
+  vwait varray(1)
+  vwait varray(3)
+  vwait varray(2)
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {}}
+
+###############################################################################
+
+runTest {test vwait-1.25 {wait on array, multiple elements} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1; set varray(3) 4
+
+  after 1000 [list incr varray(1)]
+  after 2000 [list incr varray(3)]
+  after 3000 [list array set varray {2 -1}]
+
+  vwait varray(1)
+  vwait varray(3)
+  vwait varray(2)
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {1 2 2 -1 3 5}}
+
+###############################################################################
+
+runTest {test vwait-1.26 {wait on array, multiple elements} -setup {
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1; set varray(3) 4
+
+  after 1000 [list incr varray(1)]
+  after 2000 [list incr varray(3)]
+  after 3000 [list array unset varray]
+
+  vwait varray(1)
+  vwait varray(3)
+  vwait varray(2)
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+} -result {}}
+
+###############################################################################
+
+runTest {test vwait-1.27 {wait on array, multiple elements} -setup {
+  set savedEventWaitFlags [object invoke -flags +NonPublic \
+      Interpreter.GetActive eventWaitFlags]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      eventWaitFlags [appendArgs $savedEventWaitFlags " StopOnError"]
+
+  unset -nocomplain varray
+} -body {
+  set varray(1) 1; set varray(3) 4
+
+  after 1000 [list incr varray(1)]
+  after 2000 [list incr varray(3)]
+  after 4000 [list interp cancel]
+  after 6000 [list set varray(2) 6]
+
+  catch {vwait varray(2)}
+
+  testArrayGet varray true
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain varray
+
+  catch {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        eventWaitFlags $savedEventWaitFlags
+  }
+
+  unset -nocomplain savedEventWaitFlags
+} -constraints {eagle tip285 command.object} -result {1 2 3 5}}
+
+###############################################################################
+
+runTest {test vwait-1.28 {ProcessEvents with limit} -setup {
+  unset -nocomplain code error result varray
+} -body {
+  set varray(0) zero
+
+  after 1000 [list set varray(1) one]
+  after 1000 [list set varray(2) two]
+  after 1000 [list set varray(3) three]
+
+  set changed(1) false; set error null
+
+  set code [object invoke \
+      Interpreter.GetActive WaitVariable Default \
+      None varray 0 null 1 null changed(1) error]
+
+  set changed(2) false; set error null
+
+  set code [object invoke \
+      Interpreter.GetActive WaitVariable Default \
+      None varray 0 null 1 null changed(2) error]
+
+  list $changed(1) $changed(2) \
+      [testArrayGet varray true] [llength [after info]] \
+      [catch {after info [lindex [after info] 0]} result] \
+      $result
+} -cleanup {
+  cleanupAfterEvents
+
+  unset -nocomplain code changed error result varray
+} -constraints {eagle command.object} -result \
+{True True {0 zero 1 one 2 two} 1 0 {{set varray(3) three} timer}}}
+
+###############################################################################
+
+runTest {test vwait-1.29 {WaitVariable event count} -setup {
+  set i [interp create]
+
+  set waitScript {
+    after 0 nop; after 0 nop; after 0 nop; after 0 [list set forever 1]
+    vwait -limit 2 forever
+  }
+
+  set countScript {
+    object invoke -flags +NonPublic Interpreter.GetActive eventCount
+  }
+} -body {
+  for {set j 0; set k -1} {$j < 3} {incr j} {
+    set count([incr k]) [interp eval $i $countScript]
+    interp eval $i $waitScript
+    set count([incr k]) [interp eval $i $countScript]
+  }
+
+  testArrayGet count true
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain count countScript waitScript k j i
+} -constraints {eagle command.object} -result {0 0 1 4 2 4 3 8 4 8 5 12}}
+
+###############################################################################
+
+runTest {test vwait-1.30 {WaitVariable native Tcl event count} -setup {
+  set i [interp create]
+
+  interp eval $i {package require Eagle.Test}
+  interp set $i test_channel $test_channel
+
+  interp eval $i {
+    unset -nocomplain interp
+    tclLoadForTest tcl_loaded
+    set interp [tcl create]
+  }
+
+  set interp [interp set $i interp]
+
+  set waitScript {
+    after 0 list; after 1000 list; after 2000 list
+  }
+
+  set countScript {
+    object invoke -flags +NonPublic Interpreter.GetActive tclEventCount
+  }
+} -body {
+  for {set j 0; set k -1} {$j < 3} {incr j} {
+    set count([incr k]) [interp eval $i $countScript]
+
+    interp eval $i [list tcl eval $interp $waitScript]
+    interp eval $i [list after 3000 [list tcl eval $interp $waitScript]]
+    interp eval $i [list after 6000 [list set forever 1]]
+    interp eval $i [list vwait -eventwaitflags +TclDoOneEvent forever]
+
+    set count([incr k]) [interp eval $i $countScript]
+  }
+
+  testArrayGet count true
+} -cleanup {
+  interp eval $i {
+    if {[info exists interp]} then {tcl delete $interp}
+    tclUnloadForTest false tcl_loaded
+    unset -nocomplain interp
+  }
+
+  catch {interp delete $i}
+  unset -nocomplain i
+
+  unset -nocomplain count countScript waitScript interp k j
+} -constraints {eagle command.object native dynamic tclLibrary command.tcl\
+compile.NATIVE compile.TCL primaryThread} -result {0 0 1 6 2 6 3 12 4 12 5 18}}
+
+###############################################################################
+
+runTest {test vwait-1.31 {SleepWaitCallback} -setup {
+  set script(wait) {
+    after 2000 [list set forever 1]
+    vwait forever
+  }
+
+  set script(1) {
+    if {![info exists ::count]} then {
+      set ::count 0
+    }
+    incr ::count
+  }
+
+  set script(2) [appendArgs $script(1) \n {
+    if {$::count > 10} then {
+      error "too many to count"
+    }
+  }]
+
+  set test [object create -alias Eagle._Tests.Default]
+  set i [interp create]
+} -body {
+  set error null
+  set code [$test TestSetSleepWaitCallback $i $script(1) true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set results [list]
+  set callback null
+
+  set error null
+  set code [$test TestGetSleepWaitCallback $i callback error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  lappend results [object invoke $callback Method.ToString]
+
+  interp eval $i $script(wait)
+  lappend results [interp set $i count]
+  lappend results [interp set $i count 0]
+
+  set error null
+  set code [$test TestSetSleepWaitCallback $i $script(2) true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  if {[catch {interp eval $i $script(wait)} error] == 0} then {
+    error "sleep wait callback did not throw an error"
+  }
+
+  lappend results [interp set $i count]
+  lappend results $error
+} -cleanup {
+  if {[info exists test] && [isNonNullObjectHandle $test]} then {
+    set error null
+    set code [$test TestSetSleepWaitCallback $i null true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestSetSleepWaitCallback error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  catch {interp delete $i}
+  unset -nocomplain i
+
+  unset -nocomplain results error callback code script test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestGetSleepWaitCallback\
+Eagle._Tests.Default.TestSetSleepWaitCallback} -match regexp -result \
+{^\{Eagle\._Components\.Public\.ReturnCode\
+TestSleepWaitCallback\(Eagle\._Components\.Public\.Interpreter,\
+System\.Threading\.EventWaitHandle\[\], Int32,\
+Eagle\._Components\.Public\.EventWaitFlags, Eagle\._Components\.Public\.Result\
+ByRef\)\} \d+ 0 11 \{too many to count\}$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

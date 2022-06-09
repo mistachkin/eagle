@@ -1,0 +1,75 @@
+###############################################################################
+#
+# file1.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle File 1 Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure reconfigures the specified channel to full binary
+  #       mode.
+  #
+  proc makeBinaryChannel { channel } {
+    fconfigure $channel -encoding binary -translation binary; # BINARY DATA
+  }
+
+  #
+  # NOTE: This procedure reads all data from the specified binary file and
+  #       returns it.
+  #
+  proc readFile { fileName } {
+    set channel [open $fileName RDONLY]
+    makeBinaryChannel $channel
+    set result [read $channel]
+    close $channel
+    return $result
+  }
+
+  #
+  # NOTE: This procedure writes all data to the specified binary file and
+  #       returns an empty string.  Previous data contained in the file,
+  #       if any, is lost.
+  #
+  proc writeFile { fileName data } {
+    set channel [open $fileName {WRONLY CREAT TRUNC}]
+    makeBinaryChannel $channel
+    puts -nonewline $channel $data
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: This procedure appends data to the specified binary file and
+  #       returns an empty string.  Previous data contained in the file,
+  #       if any, is preserved.
+  #
+  proc appendFile { fileName data } {
+    set channel [open $fileName {WRONLY CREAT APPEND}]
+    makeBinaryChannel $channel
+    puts -nonewline $channel $data
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: Provide the Eagle "file" package to the interpreter.
+  #
+  package provide Eagle.File \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

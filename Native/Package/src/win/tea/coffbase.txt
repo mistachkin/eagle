@@ -1,0 +1,12 @@
+;
+; coffbase.txt --
+;
+; Copyright (c) 2012 by Joe Mistachkin.  All rights reserved.
+;
+; See the file "license.terms" for information on usage and redistribution of
+; this file, and for a DISCLAIMER OF ALL WARRANTIES.
+;
+; RCS: @(#) $Id: $
+;
+
+Garuda		0x5F000000	0x00060000

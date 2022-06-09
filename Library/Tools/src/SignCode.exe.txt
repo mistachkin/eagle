@@ -1,0 +1,11 @@
+
+The "SignCode.exe" tool is part of the:
+
+    Microsoft .NET Framework SDK Version 1.1
+
+As of October 2015 it can be obtained from the following URL:
+
+    https://www.microsoft.com/download/details.aspx?id=16217
+
+However, it cannot be redistributed and the source code is not
+available.

@@ -1,0 +1,46 @@
+###############################################################################
+#
+# debug3.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test debug-3.1 {non-interactive debug step} -setup {
+  set interp [object invoke Interpreter GetActive]
+  set interactive [object invoke $interp Interactive]
+
+  object invoke $interp Interactive false
+} -body {
+  debug step
+} -cleanup {
+  object invoke $interp Interactive $interactive
+
+  unset -nocomplain interactive interp
+} -constraints {eagle command.object compile.DEBUGGER scriptDebugger} \
+-returnCodes 1 -result {cannot enable single step}}
+
+###############################################################################
+
+runTest {test debug-3.2 {native stack information} -body {
+  debug stack
+} -constraints {eagle dotNetCoreOrShell native windows compile.NATIVE\
+compile.WINDOWS} -match regexp -result {^threadId (?:-)?\d+ used \d+ allocated\
+\d+ extra 0 margin (?:393216|786432) maximum\
+(?:1048576|1572864|2097152|16777216) reserve (?:0|1048576|2097152|16777216)\
+commit \d+$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

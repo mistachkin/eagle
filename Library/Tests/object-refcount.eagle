@@ -1,0 +1,604 @@
+###############################################################################
+#
+# object-refcount.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test object-98.1 {reference counts} -setup {
+  unset -nocomplain x y
+} -body {
+  list [set x [object create System.Object]] [llength [info objects]] \
+      [unset x] [llength [info objects]] [set x [object create System.Object]] \
+      [set y $x] [llength [info objects]] [unset x] [llength [info objects]] \
+      [unset y] [llength [info objects]]
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle command.object referenceCounts} -match regexp -result \
+{^System#Object#\d+ 2 \{\} 1 System#Object#\d+ System#Object#\d+ 2 \{\} 2 \{\}\
+1$}}
+
+###############################################################################
+
+runTest {test object-98.2 {reference counts, proc return} -setup {
+  unset -nocomplain r s t u v w x z error
+
+  proc foo1 {} {
+    return [object create System.String foo1]
+  }
+
+  proc foo2 {} {
+    return [object create -alias System.String foo2]
+  }
+
+  proc foo3 {} {
+    set result [object create System.String foo3]; return $result
+  }
+
+  proc foo4 {} {
+    set result [object create -alias System.String foo4]; return $result
+  }
+
+  proc foo5 {} {
+    set result [object create System.String foo5]; return ""
+  }
+
+  if {0} then {
+    foreach z [info objects] {
+      if {[regexp -- {^System#String#\d+$} $z]} then {
+        catch {object dispose $z}
+      }
+    }
+    unset z
+  }
+} -body {
+  foo1; set r [foo1]; # return without variable
+  foo2; set s [foo2]; # return with alias without variable
+  [getStringFromObjectHandle $s]; set t \
+      [[getStringFromObjectHandle $s]]; # return from alias without variable
+  foo3; set u [foo3]; # return with variable
+  foo4; set v [foo4]; # return with alias with variable
+  [getStringFromObjectHandle $v]; set w \
+      [[getStringFromObjectHandle $v]]; # return from alias with variable
+  foo5; set x [foo5]; # return nothing
+
+  list [lsort [info objects]] \
+      [object referencecount $r] [object referencecount $s] \
+      [object referencecount $t] [object referencecount $u] \
+      [object referencecount $v] [object referencecount $w] \
+      [catch {object referencecount $x} error] $error
+} -cleanup {
+  foreach z [info objects] {
+    if {[regexp -- {^System#String#\d+$} $z]} then {
+      catch {object dispose $z}
+    }
+  }
+  unset z
+
+  rename foo1 ""
+  rename foo2 ""
+  rename foo3 ""
+  rename foo4 ""
+  rename foo5 ""
+
+  unset -nocomplain r s t u v w x error
+} -constraints {eagle command.object referenceCounts} -match regexp -result \
+{^\{System#String#\d+ System#String#\d+ System#String#\d+\
+System#String#\d+ System#String#\d+ System#String#\d+\
+System#String#\d+ System#String#\d+ System#String#\d+\
+System#String#\d+ System#String#\d+ System#String#\d+ null\}\
+2 2 2 2 2 2 1\
+\{invalid object name <empty>\}$}}
+
+###############################################################################
+
+runTest {test object-98.3 {reference counts, env array element} -body {
+  list [set x [object create Int32]] [object referencecount $x] \
+      [set env(object-98.3) $x] [object referencecount $x] \
+      [unset env(object-98.3)] [object referencecount $x] \
+      [unset x] [llength [info objects]]
+} -cleanup {
+  catch {unset -nocomplain env(object-98.3)}
+  unset -nocomplain x
+} -constraints {eagle command.object referenceCounts} -match regexp -result \
+{^System#Int32#\d+ 1 System#Int32#\d+ 2 \{\} 1 \{\} 1$}}
+
+###############################################################################
+
+runTest {test object-98.4 {reference counts, unset env array} -body {
+  list [set env(object-98.4) [object create Int32]] \
+      [object referencecount $env(object-98.4)] [llength [info objects]] \
+      [unset env] [llength [info objects]]
+} -cleanup {
+  catch {unset -nocomplain env(object-98.4)}; # NOTE: Redundant (?).
+
+  #
+  # NOTE: Since unsetting the entire env array does not actually call
+  #       the SetEnvironmentVariable method on each of the variables
+  #       (i.e. because it is a per-process resource and that would
+  #       be somewhat destructive), we need to manually call the
+  #       SetEnvironmentVariable method for the environment variable
+  #       we added in this test to prevent future calls to set that
+  #       environment variable from thinking that it already existed.
+  #
+  object invoke Environment SetEnvironmentVariable object-98.4 null
+} -constraints {eagle command.object referenceCounts} -isolationLevel \
+Interpreter -match regexp -result {^System#Int32#\d+ 1 2 \{\} 1$}}
+
+###############################################################################
+
+runTest {test object-98.5 {reference counts, element index} -body {
+  list [set x([object create Int32]) foo] \
+      [object referencecount [array names x]] \
+      [llength [info objects]] [unset x] [llength [info objects]]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle command.object referenceCounts} -result {foo 1 2 {} 1}}
+
+###############################################################################
+
+runTest {test object-98.6 {reference counts, array set/unset (value)} -body {
+  #
+  # NOTE: The reference count for $y will be mismanaged if the test fails
+  #       because the [array set] does not add a reference to the contained
+  #       object.  Subsequently, when [unset y] is executed, the object will
+  #       be removed when it should not be (i.e. there should be a reference
+  #       to it via $x(3)).
+  #
+  list [set y [object create Int32]] [array set x \
+      [list 1 [object create Int32] 2 [object create Int32] 3 $y]] \
+      [llength [info objects]] [unset x(1)] [llength [info objects]] \
+      [unset y] [llength [info objects]] [array unset x] \
+      [llength [info objects]]
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle command.object referenceCounts} -match regexp -result \
+{^System#Int32#\d+ \{\} 4 \{\} 3 \{\} 3 \{\} 1$}}
+
+###############################################################################
+
+runTest {test object-98.7 {reference counts, array set/unset (index)} -body {
+  #
+  # NOTE: The reference count for $y will be mismanaged if the test fails
+  #       because the [array set] does not add a reference to the contained
+  #       object.  Subsequently, when [unset y] is executed, the object will
+  #       be removed when it should not be (i.e. there should be a reference
+  #       to it via the third array element name).
+  #
+  list [set y [object create Int32]] [array set x \
+      [list [object create Int32] 1 2 [object create Int32] $y 3]] \
+      [llength [info objects]] [unset x(2)] [llength [info objects]] \
+      [unset y] [llength [info objects]] [array unset x] \
+      [llength [info objects]]
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle command.object referenceCounts} -match regexp -result \
+{^System#Int32#\d+ \{\} 4 \{\} 3 \{\} 3 \{\} 1$}}
+
+###############################################################################
+
+runTest {test object-98.8 {alias with -aliasreference option} -setup {
+  unset -nocomplain x y
+} -body {
+  set x(1) [object create System.Int32]
+  set x(2) [object create -alias System.Int32]
+  set x(3) [object create -alias -aliasreference System.Int32]
+
+  #
+  # NOTE: We need to grab the string values for the opaque handles we just
+  #       created without adding any references to them.
+  #
+  append x(4) " " $x(1)
+  append x(5) " " $x(2)
+  append x(6) " " $x(3)
+
+  list [object referencecount $x(1)] [object referencecount $x(2)] \
+      [object referencecount $x(3)] [unset x(1)] [unset x(2)] [unset x(3)] \
+      [catch {object referencecount [string trim $x(4)]} y] $y \
+      [catch {object referencecount [string trim $x(5)]} y] $y \
+      [catch {object referencecount [string trim $x(6)]} y] $y \
+      [catch {rename [string trim $x(4)] ""}] \
+      [catch {rename [string trim $x(5)] ""}] \
+      [catch {rename [string trim $x(6)] ""}] \
+      [catch {object referencecount [string trim $x(4)]} y] $y \
+      [catch {object referencecount [string trim $x(5)]} y] $y \
+      [catch {object referencecount [string trim $x(6)]} y] $y
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle command.object referenceCounts} -match regexp -result \
+{^1 1 2 \{\} \{\} \{\} 1 \{invalid object name "System#Int32#\d+"\} 1 \{invalid\
+object name "System#Int32#\d+"\} 0 1 1 1 0 1 \{invalid object name\
+"System#Int32#\d+"\} 1 \{invalid object name "System#Int32#\d+"\} 1 \{invalid\
+object name "System#Int32#\d+"\}$}}
+
+###############################################################################
+
+runTest {test object-401.1 {track references present in varName} -setup {
+  proc getMyVar { {reference true} } {
+    #
+    # HACK: Abuse the known format of the opaque object handle values.
+    #
+    set vars [uplevel 1 [list info vars *#*]]
+
+    #
+    # NOTE: Do we want to add another reference to the opaque object
+    #       handle?  If not, some extra effort is required.
+    #
+    if {$reference} then {
+      return [expr {[llength $vars] > 0 ? [lindex $vars 0] : ""}]
+    } else {
+      return [expr {[llength $vars] > 0 ? \
+          [appendArgs [lindex $vars 0] " "] : ""}]
+    }
+  }
+
+  unset -nocomplain error myVar
+} -body {
+  list [catch {set [object create Int32] ""}] \
+      [catch {getMyVar false} myVar] $myVar \
+      [catch {llength [info objects [string trim $myVar]]} error] $error \
+      [catch {object referencecount [string trim $myVar]} error] $error \
+      [catch {unset [string trim $myVar]} error] $error \
+      [catch {llength [info objects [string trim $myVar]]} error] $error \
+      [catch {object referencecount [string trim $myVar]} error] $error
+} -cleanup {
+  catch {object cleanup}; # NOTE: Kill all transient objects.
+
+  rename getMyVar ""
+
+  unset -nocomplain error myVar
+} -constraints {eagle command.object referenceCounts} -match regexp -result {^0\
+0 \{System#Int32#\d+ \} 0 1 0 1 0 \{\} 0 0 1 \{invalid object name\
+"System#Int32#\d+"\}$}}
+
+###############################################################################
+
+runTest {test object-500.1 {addreference / removereference (null)} -body {
+  list [object referencecount null] [object addreference null] \
+      [object referencecount null] [object removereference null] \
+      [object referencecount null]
+} -constraints {eagle command.object referenceCounts} -result {0 {} 0 {} 0}}
+
+###############################################################################
+
+runTest {test object-500.2 {addreference / removereference (empty)} -setup {
+  unset -nocomplain error
+} -body {
+  list [catch {object referencecount ""} error] $error \
+      [object addreference ""] \
+      [catch {object referencecount ""} error] $error \
+      [object removereference ""] \
+      [catch {object referencecount ""} error] $error
+} -cleanup {
+  unset -nocomplain error
+} -constraints {eagle command.object referenceCounts} -result {1 {invalid\
+object name <empty>} {} 1 {invalid object name <empty>} {} 1 {invalid object\
+name <empty>}}}
+
+###############################################################################
+
+runTest {test object-500.3 {addreference / removereference (bad)} -setup {
+  unset -nocomplain error
+} -body {
+  list [catch {object referencecount bad} error] $error \
+      [object addreference bad] \
+      [catch {object referencecount bad} error] $error \
+      [object removereference bad] \
+      [catch {object referencecount bad} error] $error
+} -cleanup {
+  unset -nocomplain error
+} -constraints {eagle command.object referenceCounts} -result {1 {invalid\
+object name "bad"} {} 1 {invalid object name "bad"} {} 1 {invalid object name\
+"bad"}}}
+
+###############################################################################
+
+runTest {test object-500.4 {addreference / removereference (ok1)} -setup {
+  unset -nocomplain x error
+} -body {
+  set x [object create System.Object]
+
+  list [catch {object referencecount $x} error] $error \
+      [object addreference $x] \
+      [catch {object referencecount $x} error] $error \
+      [object addreference $x] \
+      [catch {object referencecount $x} error] $error \
+      [object removereference $x] \
+      [catch {object referencecount $x} error] $error \
+      [object removereference $x] \
+      [catch {object referencecount $x} error] $error \
+      [unset x]
+} -cleanup {
+  unset -nocomplain x error
+} -constraints {eagle command.object referenceCounts} -result \
+{0 1 {} 0 2 {} 0 3 {} 0 2 {} 0 1 {}}}
+
+###############################################################################
+
+runTest {test object-500.5 {addreference / removereference (ok2)} -setup {
+  unset -nocomplain x error
+} -body {
+  set x [object create System.Object]
+
+  list [catch {object referencecount $x} error] $error \
+      [object addreference $x] \
+      [catch {object referencecount $x} error] $error \
+      [object addreference $x] \
+      [catch {object referencecount $x} error] $error \
+      [object dispose $x] \
+      [object removereference $x] \
+      [catch {object referencecount $x} error] $error \
+      [unset x]
+} -cleanup {
+  unset -nocomplain x error
+} -constraints {eagle command.object referenceCounts} -match regexp -result {^0\
+1 \{\} 0 2 \{\} 0 3 removed \{\} 1 \{invalid object name "System#Object#\d+"\}\
+\{\}$}}
+
+###############################################################################
+
+runTest {test object-600.1 {return from procedure without variable} -setup {
+  proc one {} {
+    return [two]
+  }
+
+  proc two {} {
+    return [object create -alias System.Byte\[\] 2]
+  }
+
+  unset -nocomplain x error
+} -body {
+  set x [one]
+
+  list [catch {object referencecount $x} error] $error \
+      [catch {object dispose $x} error] $error
+} -cleanup {
+  unset -nocomplain x error
+
+  rename two ""
+  rename one ""
+} -constraints {eagle command.object referenceCounts} -result {0 3 0 removed}}
+
+###############################################################################
+
+runTest {test object-600.2 {return from procedure with variable} -setup {
+  proc one {} {
+    return [two]
+  }
+
+  proc two {} {
+    return [set result [object create -alias System.Byte\[\] 2]]
+  }
+
+  unset -nocomplain x error
+} -body {
+  set x [one]
+
+  list [catch {object referencecount $x} error] $error \
+      [catch {object dispose $x} error] $error
+} -cleanup {
+  unset -nocomplain x error
+
+  rename two ""
+  rename one ""
+} -constraints {eagle command.object referenceCounts} -result {0 3 0 removed}}
+
+###############################################################################
+
+runTest {test object-600.3 {NoReturnReference without variable} -setup {
+  proc one {} {
+    return [two]
+  }
+
+  proc two {} {
+    return [object create \
+        -objectflags +NoReturnReference -alias System.Byte\[\] 2]
+  }
+
+  unset -nocomplain x error
+} -body {
+  set x [one]
+
+  list [catch {object referencecount $x} error] $error \
+      [catch {object dispose $x} error] $error
+} -cleanup {
+  unset -nocomplain x error
+
+  rename two ""
+  rename one ""
+} -constraints {eagle command.object referenceCounts} -result {0 1 0 removed}}
+
+###############################################################################
+
+runTest {test object-600.4 {NoReturnReference with variable} -setup {
+  proc one {} {
+    return [two]
+  }
+
+  proc two {} {
+    return [set result [object create \
+        -objectflags +NoReturnReference -alias System.Byte\[\] 2]]
+  }
+
+  unset -nocomplain x error
+} -body {
+  set x [one]
+
+  list [catch {object referencecount $x} error] $error \
+      [catch {object dispose $x} error] $error
+} -cleanup {
+  unset -nocomplain x error
+
+  rename two ""
+  rename one ""
+} -constraints {eagle command.object referenceCounts} -match regexp -result \
+{^1 \{invalid object name "System#Byte\[\]#\d+"\} 1 \{invalid object name\
+"System#Byte\[\]#\d+"\}$}}
+
+###############################################################################
+
+runTest {test object-600.5 {TemporaryReturnReference without variable} -setup {
+  set interp [interp create]
+
+  interp eval $interp {
+    proc one {} {
+      return [two]
+    }
+
+    proc two {} {
+      return [object create \
+          -objectflags +TemporaryReturnReference -alias System.Byte\[\] 2]
+    }
+
+    unset -nocomplain x error
+  }
+} -body {
+  interp eval $interp {
+    set x [one]
+  }
+
+  interp eval $interp {
+    list [catch {object referencecount $x} error] $error \
+        [catch {object dispose $x} error] $error
+  }
+} -cleanup {
+  interp eval $interp {
+    unset -nocomplain x error
+
+    rename two ""
+    rename one ""
+  }
+
+  catch {interp delete $interp}
+
+  unset -nocomplain interp
+} -constraints {eagle command.object referenceCounts} -result {0 1 0 removed}}
+
+###############################################################################
+
+runTest {test object-600.6 {TemporaryReturnReference with variable} -setup {
+  set interp [interp create]
+
+  interp eval $interp {
+    proc one {} {
+      return [two]
+    }
+
+    proc two {} {
+      return [set result [object create \
+          -objectflags +TemporaryReturnReference -alias System.Byte\[\] 2]]
+    }
+
+    unset -nocomplain x error
+  }
+} -body {
+  interp eval $interp {
+    set x [one]
+  }
+
+  interp eval $interp {
+    list [catch {object referencecount $x} error] $error \
+        [catch {object dispose $x} error] $error
+  }
+} -cleanup {
+  interp eval $interp {
+    unset -nocomplain x error
+
+    rename two ""
+    rename one ""
+  }
+
+  catch {interp delete $interp}
+
+  unset -nocomplain interp
+} -constraints {eagle command.object referenceCounts} -result {0 1 0 removed}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  tputs $test_channel [appendArgs \
+      "---- objects before automatic \[runTest\] cleanup: " \
+      [testResultGet {info objects}] \n]
+}
+
+###############################################################################
+
+runTest {test object-700.1 {runTest cleanup references, part 1} -setup {
+  proc one {} {
+    return [two]
+  }
+
+  proc two {} {
+    return [set result [object create \
+        -objectflags +TemporaryReturnReference -alias System.Byte\[\] 2]]
+  }
+
+  unset -nocomplain x error
+} -body {
+  set x [one]
+
+  list [catch {object referencecount $x} error] $error
+} -cleanup {
+  unset -nocomplain x error
+
+  rename two ""
+  rename one ""
+} -constraints {eagle command.object referenceCounts} -result {0 3}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  tputs $test_channel [appendArgs \
+      "---- objects after automatic \[runTest\] cleanup: " \
+      [testResultGet {info objects}] \n]
+}
+
+###############################################################################
+
+runTest {test object-700.2 {runTest cleanup references, part 2} -body {
+  #
+  # NOTE: This test is quite fragile; however, it is the only reliable way of
+  #       knowing whether or not the previous [runTest] call actually cleaned
+  #       up its temporary object references.
+  #
+  llength [info objects]
+} -constraints {eagle command.object referenceCounts} -result {1}}
+
+###############################################################################
+
+runTest {test object-999.1 {cannot remove locked objects} -setup {
+  unset -nocomplain result
+
+  set interp [interp create]
+} -body {
+  set code(1) [catch {interp eval $interp {
+    object dispose null
+  }} result(1)]
+
+  set code(2) [catch {interp eval $interp {
+    object dispose -nodispose null
+  }} result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain interp code result
+} -constraints {eagle command.object} -result {1 {cannot dispose or remove a\
+locked object} 1 {cannot dispose or remove a locked object}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

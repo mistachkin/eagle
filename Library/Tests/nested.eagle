@@ -1,0 +1,77 @@
+###############################################################################
+#
+# nested.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test nested-1.1 {nested set} -body {
+  set b [set a [set a [set a [set a [set a 01234567890123]]]]]
+} -cleanup {
+  unset b a
+} -result {01234567890123}}
+
+###############################################################################
+
+runTest {test nested-2.1 {nested package index prevention} -setup {
+  set i [interp create]
+  set directory [file join [getTemporaryPath] [appendArgs nested-2.1- [pid]]]
+  set fileName(1) [file join $directory one pkgIndex.eagle]
+  set fileName(2) [file join $directory two pkgIndex.eagle]
+} -body {
+  file mkdir [file dirname $fileName(1)]
+  writeFile $fileName(1) {
+    set w 1
+    package ifneeded Package1 1.0 [list one]
+    package scan -normal -- [file join [file dirname $dir] two]
+    set x 1
+  }
+  file mkdir [file dirname $fileName(2)]
+  writeFile $fileName(2) {
+    set y 1
+    package ifneeded Package2 1.0 [list two]
+    set z 1
+  }
+  interp eval $i [list set directory $directory]
+  interp eval $i {
+    lappend auto_path [file join $directory one]
+  }
+  list [expr {[interp eval $i {
+    lsearch -exact $auto_path [file join $directory one]
+  }] != -1}] \
+  [expr {[interp eval $i {
+    lsearch -exact $auto_path [file join $directory two]
+  }] != -1}] \
+      [interp eval $i [list package names Package1]] \
+      [interp eval $i [list package names Package2]] \
+      [interp eval $i [list package ifneeded Package1 1.0]] \
+      [interp eval $i [list package ifneeded Package2 1.0]] \
+      [interp eval $i [list info exists w]] \
+      [interp eval $i [list info exists x]] \
+      [interp eval $i [list info exists y]] \
+      [interp eval $i [list info exists z]]
+} -cleanup {
+  catch {file delete $fileName(2)}
+  catch {file delete $fileName(1)}
+  catch {file delete -recursive $directory}
+  catch {interp delete $i}
+
+  unset -nocomplain fileName directory i
+} -constraints [fixConstraints {eagle !security.enabled}] -result \
+{True False Package1 {} one {} 1 1 0 0}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

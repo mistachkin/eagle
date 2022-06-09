@@ -1,0 +1,34 @@
+###############################################################################
+#
+# namespace-delete2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test namespace-98.1 {delete global namespace} -body {
+  namespace delete ::
+
+  if {[object invoke Interpreter IsPendingCleanup ""]} then {
+    object invoke -flags +NonPublic -default Interpreter.GetActive \
+        DeleteNamespace None "" true result
+  }
+
+  info exists dummy
+} -constraints {eagle command.object} -isolationLevel Interpreter -returnCodes \
+1 -result {invalid command name "info"}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

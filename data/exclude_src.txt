@@ -1,0 +1,17 @@
+*\BinaryEditor.exe
+*\BinaryEditor.exe.config
+*\GetRefs.exe
+*\GetRefs.exe.config
+*\innoextract.exe
+*\innounp.exe
+*\JustWait.exe
+*\Library\Tools\src\*
+*\MsgGen.exe
+*\ResGen.exe
+*\ResGen.exe.config
+*\SetErrorLevel.exe
+*\SetIcon.exe
+*\UnRAR.exe
+*\unzip.exe
+*\vswhere.exe
+*\zip.exe

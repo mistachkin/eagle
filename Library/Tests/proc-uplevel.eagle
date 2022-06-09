@@ -1,0 +1,399 @@
+###############################################################################
+#
+# proc-uplevel.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc compareVars { vars } {
+  return [expr {[info globals] eq $vars ? 1 : 0}]
+}
+
+proc proc1 { script } {
+  lappend ::procsVisited [lindex [info level [info level]] 0]
+  uplevel 1 [list proc2 $script]
+}
+
+proc proc2 { script } {
+  lappend ::procsVisited [lindex [info level [info level]] 0]
+  uplevel 1 $script
+}
+
+proc proc3 { script } {
+  lappend ::procsVisited [lindex [info level [info level]] 0]
+  uplevel #0 [list proc2 $script]
+}
+
+proc proc4 { script } {
+  lappend ::procsVisited [lindex [info level [info level]] 0]
+  uplevel #0 $script
+}
+
+proc proc5 { script } {
+  lappend ::procsVisited [lindex [info level [info level]] 0]
+  uplevel 1 [list proc4 $script]
+}
+
+proc proc6 { script } {
+  lappend ::procsVisited [lindex [info level [info level]] 0]
+  proc7 $script
+}
+
+proc proc7 { script } {
+  lappend ::procsVisited [lindex [info level [info level]] 0]
+  proc8 $script
+}
+
+proc proc8 { script } {
+  lappend ::procsVisited [lindex [info level [info level]] 0]
+  uplevel 1 [list uplevel 1 $script]
+}
+
+proc proc9 { script } {
+  lappend ::procsVisited [lindex [info level [info level]] 0]
+  eval $script
+}
+
+set ::procsVisited [list]
+
+###############################################################################
+
+runTest {test uplevel-6.1 {tcltest info-9.1 info level option} -body {
+    info level
+} -result {0}}
+
+###############################################################################
+
+runTest {test uplevel-6.2 {outer scope} -body {
+  list [info level] [compareVars [info vars]]
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.3 {proc1} -body {
+  proc1 {
+    list [info level] [compareVars [info vars]]
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.4 {proc2} -body {
+  proc2 {
+    list [info level] [compareVars [info vars]]
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.5 {proc3} -body {
+  proc3 {
+    list [info level] [compareVars [info vars]]
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.6 {proc4} -body {
+  proc4 {
+    list [info level] [compareVars [info vars]]
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.7 {proc5} -body {
+  proc5 {
+    list [info level] [compareVars [info vars]]
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.8 {proc6} -body {
+  proc6 {
+    list [info level] [compareVars [info vars]]
+  }
+} -result {1 0}}
+
+###############################################################################
+
+runTest {test uplevel-6.9 {proc6 uplevel #0} -body {
+  proc6 {
+    uplevel #0 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.10 {uplevel #1} -body {
+  uplevel #1 {
+    list [info level] [compareVars [info vars]]
+  }
+} -returnCodes 1 -result {bad level "#1"}}
+
+###############################################################################
+
+runTest {test uplevel-6.11 {uplevel #2} -body {
+  uplevel #2 {
+    list [info level] [compareVars [info vars]]
+  }
+} -returnCodes 1 -result {bad level "#2"}}
+
+###############################################################################
+
+runTest {test uplevel-6.12 {uplevel #3} -body {
+  uplevel #3 {
+    list [info level] [compareVars [info vars]]
+  }
+} -returnCodes 1 -result {bad level "#3"}}
+
+###############################################################################
+
+runTest {test uplevel-6.13 {uplevel #4} -body {
+  uplevel #4 {
+    list [info level] [compareVars [info vars]]
+  }
+} -returnCodes 1 -result {bad level "#4"}}
+
+###############################################################################
+
+runTest {test uplevel-6.14 {uplevel #0 uplevel #1} -body {
+  uplevel #0 {
+    uplevel #1 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -returnCodes 1 -result {bad level "#1"}}
+
+###############################################################################
+
+runTest {test uplevel-6.15 {uplevel #0 uplevel #2} -body {
+  uplevel #0 {
+    uplevel #2 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -returnCodes 1 -result {bad level "#2"}}
+
+###############################################################################
+
+runTest {test uplevel-6.16 {uplevel #0 uplevel #3} -body {
+  uplevel #0 {
+    uplevel #3 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -returnCodes 1 -result {bad level "#3"}}
+
+###############################################################################
+
+runTest {test uplevel-6.17 {uplevel #0 uplevel #4} -body {
+  uplevel #0 {
+    uplevel #4 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -returnCodes 1 -result {bad level "#4"}}
+
+###############################################################################
+
+runTest {test uplevel-6.18 {local proc9 outer scope} -body {
+  proc9 {
+    list [info level] [compareVars [info vars]]
+  }
+} -result {1 0}}
+
+###############################################################################
+
+runTest {test uplevel-6.19 {local proc9 proc1} -body {
+  proc9 {
+    proc1 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -result {1 0}}
+
+###############################################################################
+
+runTest {test uplevel-6.20 {local proc9 proc2} -body {
+  proc9 {
+    proc2 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -result {1 0}}
+
+###############################################################################
+
+runTest {test uplevel-6.21 {local proc9 proc3} -body {
+  proc9 {
+    proc3 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.22 {local proc9 proc4} -body {
+  proc9 {
+    proc4 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.23 {local proc9 proc5} -body {
+  proc9 {
+    proc5 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.24 {local proc9 proc6} -body {
+  proc9 {
+    proc6 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -result {2 0}}
+
+###############################################################################
+
+runTest {test uplevel-6.25 {local proc9 proc6 uplevel #0} -body {
+  proc9 {
+    proc6 {
+      uplevel #0 {
+        list [info level] [compareVars [info vars]]
+      }
+    }
+  }
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test uplevel-6.26 {local proc9 uplevel #1} -body {
+  proc9 {
+    uplevel #1 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -result {1 0}}
+
+###############################################################################
+
+runTest {test uplevel-6.27 {local proc9 uplevel #2} -body {
+  proc9 {
+    uplevel #2 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -returnCodes 1 -result {bad level "#2"}}
+
+###############################################################################
+
+runTest {test uplevel-6.28 {local proc9 uplevel #3} -body {
+  proc9 {
+    uplevel #3 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -returnCodes 1 -result {bad level "#3"}}
+
+###############################################################################
+
+runTest {test uplevel-6.29 {local proc9 uplevel #4} -body {
+  proc9 {
+    uplevel #4 {
+      list [info level] [compareVars [info vars]]
+    }
+  }
+} -returnCodes 1 -result {bad level "#4"}}
+
+###############################################################################
+
+runTest {test uplevel-6.30 {local proc9 uplevel #0 uplevel #1} -body {
+  proc9 {
+    uplevel #0 {
+      uplevel #1 {
+        list [info level] [compareVars [info vars]]
+      }
+    }
+  }
+} -returnCodes 1 -result {bad level "#1"}}
+
+###############################################################################
+
+runTest {test uplevel-6.31 {local proc9 uplevel #0 uplevel #2} -body {
+  proc9 {
+    uplevel #0 {
+      uplevel #2 {
+        list [info level] [compareVars [info vars]]
+      }
+    }
+  }
+} -returnCodes 1 -result {bad level "#2"}}
+
+###############################################################################
+
+runTest {test uplevel-6.32 {local proc9 uplevel #0 uplevel #3} -body {
+  proc9 {
+    uplevel #0 {
+      uplevel #3 {
+        list [info level] [compareVars [info vars]]
+      }
+    }
+  }
+} -returnCodes 1 -result {bad level "#3"}}
+
+###############################################################################
+
+runTest {test uplevel-6.33 {local proc9 uplevel #0 uplevel #4} -body {
+  proc9 {
+    uplevel #0 {
+      uplevel #4 {
+        list [info level] [compareVars [info vars]]
+      }
+    }
+  }
+} -returnCodes 1 -result {bad level "#4"}}
+
+###############################################################################
+
+rename proc1 ""
+rename proc2 ""
+rename proc3 ""
+rename proc4 ""
+rename proc5 ""
+rename proc6 ""
+rename proc7 ""
+rename proc8 ""
+rename proc9 ""
+
+rename compareVars ""
+
+unset ::procsVisited
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

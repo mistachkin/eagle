@@ -1,0 +1,87 @@
+###############################################################################
+#
+# delay-out.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+#
+# WARNING: This must be done outside the context of an active test to work
+#          properly because the test suite redefines the [puts] command
+#          while tests are active.
+#
+if {[isEagle]} then {debug vout stdout true}
+
+###############################################################################
+
+runTest {test delayOut-1.1 {synchronous after timing} -body {
+  #
+  # NOTE: This test, as it is currently designed, is expected
+  #       to fail on some slower systems and configurations
+  #       (i.e. the loop body will not actually execute 10
+  #       times in 10 seconds).
+  #
+  set x 0
+  set end_time [expr {[clock seconds] + 10}]
+
+  while {[clock seconds] < $end_time} {
+    after 1000; puts -nonewline stdout [incr x]
+  }
+
+  return -code ok $x
+} -cleanup {
+  unset x end_time
+} -constraints [fixTimingConstraints {preciseTiming}] -output {12345678910} \
+-result {10}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+runTest {test delayOut-1.2 {synchronous after timing} -body {
+  #
+  # NOTE: This test, as it is currently designed, is expected
+  #       to fail on some slower systems and configurations
+  #       (i.e. the loop body will not actually execute 10
+  #       times in 10 seconds).
+  #
+  set x 0
+  set start_time [clock seconds]
+
+  while {$x < 10} {
+    after 1000; puts -nonewline stdout [incr x]
+  }
+
+  expr {[clock seconds] - $start_time}
+} -cleanup {
+  unset x start_time
+} -constraints [fixTimingConstraints {preciseTiming}] -output {12345678910} \
+-result {10}}
+
+###############################################################################
+
+if {[isEagle]} then {debug vout stdout false}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

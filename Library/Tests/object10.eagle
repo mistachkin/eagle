@@ -1,0 +1,2319 @@
+###############################################################################
+#
+# object10.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono crashing bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=471302
+###############################################################################
+
+unset -nocomplain w
+
+###############################################################################
+
+runTest {test object-10.1.1 {introspection of loaded assemblies} -body {
+  set x [object invoke System.AppDomain CurrentDomain]
+  set y [object invoke $x GetAssemblies]
+
+  set z false
+  for {set i 0} {$i < [object invoke $y GetLength 0]} {incr i} {
+    if {[string match \
+        [appendArgs \{ [getTestAssemblyName] \
+        ", Version=*, Culture=neutral, PublicKeyToken=*\} * *"] \
+        [set w [object invoke $y GetValue $i]]]} then {
+      set z true; break
+    }
+    unset w
+  }
+
+  set z
+} -cleanup {
+  unset -nocomplain count i w x y z
+} -constraints [fixConstraints {eagle command.object monoCrash22 !dotNetCore}] \
+-result {true}}
+
+###############################################################################
+
+runTest {test object-10.1.2 {introspection of loaded assemblies} -body {
+  set y [object invoke Utility GetAssemblies]
+
+  set z false
+  for {set i 0} {$i < [object invoke $y GetLength 0]} {incr i} {
+    if {[string match \
+        [appendArgs \{ [getTestAssemblyName] \
+        ", Version=*, Culture=neutral, PublicKeyToken=*\} * *"] \
+        [set w [object invoke $y GetValue $i]]]} then {
+      set z true; break
+    }
+    unset w
+  }
+
+  set z
+} -cleanup {
+  unset -nocomplain count i w y z
+} -constraints {eagle command.object monoCrash22 dotNetCore} -result {true}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.2 {thread start delegate} -setup {
+  proc threadStart { args } {
+    set ::result [list [info tid] $args]
+  }
+} -body {
+  set t [createThread threadStart]
+
+  set ::result [list]
+  startThread $t
+  if {[joinThread $t]} then {unset t}
+  set ::result
+} -cleanup {
+  if {[info exists t]} then {cleanupThread $t}
+
+  unset -nocomplain t result
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+compile.THREADING !monoDebugger}] -match regexp -result {^-?\d+ \{\}$}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.3 {parameterized thread start delegate} -setup {
+  proc threadStart { args } {
+    set ::result [list [info tid] $args \
+        [getStringFromObjectHandle [lindex $args 0]]]
+  }
+} -body {
+  set t [createThread threadStart true]
+
+  set ::result [list]
+  startThread $t true foo
+  if {[joinThread $t]} then {unset t}
+  set ::result
+} -cleanup {
+  if {[info exists t]} then {cleanupThread $t}
+
+  unset -nocomplain t result
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+compile.THREADING !monoDebugger}] -match regexp -result \
+{^-?\d+ System#String#\d+ foo$}}
+
+###############################################################################
+
+proc normalizeCrLfRegexp { value } {
+  if {[isWindows]} then {
+    return $value
+  } else {
+    return [string map [list \\r\\n \\n] $value]
+  }
+}
+
+###############################################################################
+
+runTest {test object-10.4 {unsupported delegate type} -setup {
+  object import System.Threading
+} -body {
+  list [catch {object invoke ThreadPool RegisterWaitForSingleObject null foo \
+      null 0 false} error] $error
+} -cleanup {
+  object unimport -importpattern System.Threading
+  unset -nocomplain error
+} -constraints {eagle command.object dotNetOrDotNetCore symbols_assembly} \
+-match regexp -result [normalizeCrLfRegexp {^1 \{could not convert method #\d+\
+"ThreadPool\.RegisterWaitForSingleObject" argument #1 "callBack" with value\
+"foo" to type "System\.Threading\.WaitOrTimerCallback":\
+Eagle\._Components\.Public\.ScriptException: unsupported delegate type\
+"System\.Threading\.WaitOrTimerCallback": must be\
+Eagle\._Components\.Public\.Delegates\.GenericCallback, System\.AsyncCallback,\
+System\.Delegate, System\.EventHandler,\
+System\.Threading\.ParameterizedThreadStart, or\
+System\.Threading\.ThreadStart\r\n   at\
+Eagle\._Components\.Private\.ScriptBinder\.ChangeType\(Object value, Type type,\
+CultureInfo culture\) in .*[\\/]ScriptBinder\.cs:line \d+\r\n   at\
+Eagle\._Components\.Private\.MarshalOps\.FixupValue\(Interpreter interpreter,\
+IBinder binder, OptionDictionary options, CultureInfo cultureInfo, Type type,\
+ArgumentInfo argumentInfo, MarshalFlags marshalFlags, Boolean input, Boolean\
+output, Object& arg, Result& error\) in .*[\\/]MarshalOps\.cs:line \d+\}$}]}
+
+###############################################################################
+
+rename normalizeCrLfRegexp ""
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.5 {atomic incr command} -setup {
+  proc threadStart { args } {
+    while {[incr ::result] < 200} {}
+  }
+} -body {
+  set t [createThread threadStart]
+
+  set ::result 0
+  startThread $t; while {[incr ::result] < 200} {}
+  if {[joinThread $t]} then {unset t}
+  set ::result
+} -cleanup {
+  if {[info exists t]} then {cleanupThread $t}
+
+  unset -nocomplain t result
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+compile.THREADING !monoDebugger}] -match regexp -result {^200|201$}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.6 {atomic script evaluation} -setup {
+  proc haveLock { lock } {
+    set entered false
+
+    try {
+      set entered [object invoke \
+          System.Threading.Monitor TryEnter $lock]
+    } finally {
+      if {$entered} then {
+        object invoke \
+            System.Threading.Monitor Exit $lock
+      }
+    }
+
+    return $entered
+  }
+
+  proc evalWithLock { lock script } {
+    object invoke System.Threading.Monitor Enter $lock
+
+    try {
+      uplevel 1 $script
+    } finally {
+      object invoke System.Threading.Monitor Exit $lock
+    }
+  }
+
+  proc threadStart { args } {
+    while {[evalWithLock $::lock $::script] > 0} {}
+  }
+} -body {
+  set lock [object create Object]
+
+  set ::x 200; set ::y 0
+  set script { if {$::x > 0} then { incr ::y; incr ::x -1 }; return $::x }
+
+  set t [createThread threadStart]
+  startThread $t; while {[evalWithLock $::lock $::script] > 0} {}
+  if {[joinThread $t]} then {unset t}
+
+  if {[set refs [object referencecount $lock]] > 1} then {
+    tputs $test_channel [appendArgs \
+        "---- opaque object handle \"" $lock "\" has " \
+        $refs " references (and thread was apparently " \
+        [expr {[info exists t] ? "not joined" : "joined"}] \
+        "), waiting...\n"]
+
+    set start [clock seconds]
+    while {[object referencecount $lock] > 1} {
+      after 50; set now [clock seconds]
+
+      if {($now - $start) < 0 || ($now - $start) > 30} then {
+        set status timeout; break
+      }
+    }
+    set stop [clock seconds]
+    if {![info exists status]} then {set status done}
+
+    tputs $test_channel [appendArgs \
+        "---- " $status " after " [expr {$stop - $start}] \
+        " seconds\n"]
+  }
+
+  list $::x $::y [haveLock $lock]
+} -cleanup {
+  if {[info exists t]} then {cleanupThread $t}
+
+  if {[set refs [object referencecount $lock]] > 1} then {
+    #
+    # HACK: Somehow, there are outstanding references to the
+    #       "lock" opaque object handle.  This is caused by
+    #       a subtle race condition with the child thread.
+    #       In order to prevent the test suite from failing,
+    #       attempt to manually dispose of the opaque object
+    #       handle now.
+    #
+    tputs $test_channel [appendArgs \
+        "---- opaque object handle \"" $lock "\" has " $refs \
+        " references and should only have 1, disposing...\n"]
+
+    catch {object dispose $lock}
+
+    #
+    # HACK: At this point, the opaque object handle should be
+    #       totally gone.  Otherwise, something is seriously
+    #       wrong and must be reported.
+    #
+    if {![haveConstraint quiet] && \
+        [isNonNullObjectHandle $lock]} then {
+      if {[catch {object referencecount $lock} refs] == 0} then {
+        tputs $test_channel [appendArgs \
+            "==== WARNING: opaque object handle \"" $lock \
+            "\" still has " $refs " references\n"]
+      } else {
+        tputs $test_channel [appendArgs \
+            "==== WARNING: opaque object handle \"" $lock \
+            "\" was not successfully disposed\n"]
+      }
+    }
+  }
+
+  unset -nocomplain refs status now stop start t script y x lock
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+  rename evalWithLock ""
+  rename haveLock ""
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+compile.THREADING !monoDebugger}] -result {0 200 True}}
+
+###############################################################################
+
+#
+# NOTE: Setup the min, max, etc wait times to be used for testing the script
+#       threads, in milliseconds.  These values will be used by the rest of
+#       the tests in this file.
+#
+if {[info exists test_wait(0)]} then {
+  #
+  # NOTE: Use custom baseline millisecond values.
+  #
+  set w(0) $test_wait(0)
+} else {
+  #
+  # NOTE: Use default baseline millisecond values.
+  #
+  set w(0) [list 1150 4000 4000 16000 20000 60000]
+}
+
+for {set w(i) 0} {$w(i) < [llength $w(0)]} {incr w(i)} {
+  set w(j) [expr {$w(i) + 1}]
+
+  if {[info exists test_wait($w(j))]} then {
+    set w($w(j)) $test_wait($w(j))
+  } else {
+    set w(x) [lindex $w(0) $w(i)]; set w($w(j)) $w(x)
+
+    if {![info exists no(relativePerformance)]} then {
+      if {[llength [info commands calculateRelativePerformance]] > 0} then {
+        #
+        # NOTE: Adjust the baseline millisecond value relative to the
+        #       performance of this machine.
+        #
+        set w($w(j)) [expr {round([calculateRelativePerformance elapsed \
+            $w($w(j))])}]
+
+        if {$w($w(j)) < $w(x)} then {
+          set w($w(j)) $w(x)
+        }
+      }
+    }
+  }
+
+  tputs $test_channel [appendArgs "---- wait time (" $w(j) ") is " $w($w(j)) \
+      " milliseconds\n"]
+}
+
+#
+# HACK: Apparently, we must be quiet with v3.5 or higher of MSBuild because
+#       it sees any output to the standard error stream as an indication it
+#       should proceed to fail the entire build process.  There is supposed
+#       to be a workaround by setting the "IgnoreStandardErrorWarningFormat"
+#       property of the "Exec" task to true; however, some reports seem to
+#       indicate this is a flaky workaround, at best.  Also, it is not
+#       available with the .NET Framework 2.0 version of MSBuild; therefore,
+#       we cannot use it anyway.
+#
+if {![info exists extraFlags]} then {
+  set extraFlags [list]
+
+  if {[isEagle]} then {
+    lappend extraFlags NoAbort
+  }
+
+  if {[isEagle] && [haveConstraint quiet]} then {
+    lappend extraFlags Quiet NoBackgroundError
+  }
+}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  proc createScriptThread {
+          flags timeout {stackSize 0} {script null} {dispose false}
+          {varName error} } {
+    upvar 1 $varName error; set error null
+
+    if {$dispose || [isMono]} then {
+      return [object invoke -create \
+          -alias ScriptThread Create null $flags null null null null \
+          null null null $script foo $stackSize $timeout error]
+    } else {
+      return [object invoke \
+          -alias ScriptThread Create null $flags null null null null \
+          null null null $script foo $stackSize $timeout error]
+    }
+  }
+
+  proc attachThread {
+          interp flags timeout {stackSize 0} {script null} {dispose false}
+          {varName error} } {
+    upvar 1 $varName error; set error null
+
+    if {$dispose || [isMono]} then {
+      return [object invoke -create \
+          -alias ScriptThread Attach $interp null $flags $script foo \
+          $stackSize $timeout error]
+    } else {
+      return [object invoke \
+          -alias ScriptThread Attach $interp null $flags $script foo \
+          $stackSize $timeout error]
+    }
+  }
+
+  proc cleanupThreads { varName {quiet false} } {
+    upvar 1 $varName thread
+
+    if {[array exists thread]} then {
+      foreach name [array names thread] {
+        if {[string length $thread($name)] > 0} then {
+          if {[catch {
+            object dispose $thread($name)
+          } error]} then {
+            if {!$quiet} then {
+              tputs $::test_channel [appendArgs \
+                  "---- could not dispose thread \"" $thread($name) \
+                  "\" error: " \n $error \n]
+            }
+          }
+        }
+      }
+    } else {
+      if {[string length $thread] > 0} then {
+        if {[catch {
+          object dispose $thread
+        } error]} then {
+          if {!$quiet} then {
+            tputs $::test_channel [appendArgs \
+                "---- could not dispose thread \"" $thread \
+                "\" error: " \n $error \n]
+          }
+        }
+      }
+    }
+  }
+
+  proc stopThreads { varName {force true} {quiet false} } {
+    upvar 1 $varName thread
+
+    if {[array exists thread]} then {
+      foreach name [array names thread] {
+        if {[string length $thread($name)] > 0} then {
+          if {[catch {
+            if {$force} then {
+              object invoke $thread($name) Dispose
+            } else {
+              object invoke $thread($name) Signal stopThreads
+            }
+          } error]} then {
+            if {!$quiet} then {
+              tputs $::test_channel [appendArgs \
+                  "---- could not stop thread \"" $thread($name) \
+                  "\" error: " \n $error \n]
+            }
+          }
+        }
+      }
+    } else {
+      if {[string length $thread] > 0} then {
+        if {[catch {
+          if {$force} then {
+            object invoke $thread Dispose
+          } else {
+            object invoke $thread Signal stopThreads
+          }
+        } error]} then {
+          if {!$quiet} then {
+            tputs $::test_channel [appendArgs \
+                "---- could not stop thread \"" $thread \
+                "\" error: " \n $error \n]
+          }
+        }
+      }
+    }
+  }
+}
+
+###############################################################################
+
+#
+# NOTE: The following test(s) do not work reliably on Mono for OpenBSD (due to
+#       underlying problems with the pthreads library); however, they may work
+#       on one or more Linux platforms.
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.7 {script thread, identity, signal, dispose} -setup {
+  unset -nocomplain results thread error code
+} -body {
+  #
+  # NOTE: Attempt to create the first script thread now.
+  #
+  set error null
+  set thread(1) [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread(1)] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Attempt to create another script thread now.
+  #
+  set error null
+  set thread(2) [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread(2)] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Attempt to create another script thread now.
+  #
+  set error null
+  set thread(3) [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread(3)] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Attempt to create another script thread now.
+  #
+  set error null
+  set thread(4) [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread(4)] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Compare and return the identity of the created threads and then
+  #       dispose them both.
+  #
+  lappend results [expr {[$thread(1) Id] != [$thread(2) Id]}]
+  lappend results [expr {[$thread(1) Id] != [$thread(3) Id]}]
+  lappend results [expr {[$thread(1) Id] != [$thread(4) Id]}]
+  lappend results [$thread(1) Id] [$thread(1) Signal null]
+  lappend results [$thread(1) WaitForEnd] [$thread(1) Dispose]
+  lappend results [$thread(2) Id] [$thread(2) Dispose]
+  lappend results [$thread(3) Id] [$thread(3) Queue {while 1 {}}]
+  lappend results [after $w(2)] [$thread(3) Signal null]
+  lappend results [$thread(3) Cancel UnwindAndNotify] [$thread(3) WaitForEnd]
+  lappend results [$thread(3) Dispose]
+  lappend results [$thread(4) Id]; # NOTE: Purposely not disposed.
+
+  set results
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error code
+} -constraints {eagle command.object dotNetCoreOrShell} -match regexp -result \
+{^True True True \d+ True True \{\} \d+ \{\} \d+ True \{\} True True True \{\}\
+\d+$} -ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.8 {script thread, sent event, dispose} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  lappend results [$thread Queue {set a 1}]
+  lappend results [$thread Queue {set b 2; set c 3; set d 4}]
+  lappend results [$thread WaitForEmpty $w(3)]
+
+  set result null
+  set code [$thread Send [appendArgs "after " $w(2) {; list $a $b $c $d}] \
+      $w(4) false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result \
+{True True True Ok {1 2 3 4} False} -ignoreMatch glob -ignorePatterns \
+{*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.9 {script thread, engine, dispose} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  lappend results [$thread Queue {set a 1}]
+  lappend results [$thread Queue {set b 2; set c 3; set d 4}]
+
+  set result null
+  set code [$thread Send [appendArgs "after " $w(2) {; list $a $b $c $d}] \
+      $w(4) true result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result \
+{True True Ok {1 2 3 4} False} -ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.10 {script thread, sent event, wait} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  lappend results [$thread Queue {set a 1}]
+  lappend results [$thread Queue {set b 2; set c 3; set d 4}]
+  lappend results [$thread WaitForEmpty $w(3)]
+
+  set result null
+  set code [$thread Send [appendArgs "after " $w(2) {; list $a $b $c $d}] \
+      $w(4) false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Synchronously set the "foo" variable.  This should terminate the wait
+  #       operating keeping the script thread from exiting.  Therefore, the
+  #       script thread should terminate shortly after the script is evaluated.
+  #
+  set result null
+  set code [$thread Send {set foo 1} $w(3) false result]; # NOTE: Exit wait.
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result \
+{True True True Ok {1 2 3 4} Ok 1 True} -ignoreMatch glob -ignorePatterns \
+{*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.11 {script thread, engine, wait} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  lappend results [$thread Queue {set a 1}]
+  lappend results [$thread Queue {set b 2; set c 3; set d 4}]
+
+  set result null
+  set code [$thread Send [appendArgs "after " $w(2) {; list $a $b $c $d}] \
+      $w(4) true result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Synchronously set the "foo" variable.  This should terminate the wait
+  #       operating keeping the script thread from exiting.  Therefore, the
+  #       script thread should terminate shortly after the script is evaluated.
+  #
+  set result null
+  set code [$thread Send {set foo 1} $w(3) true result]; # NOTE: Exit wait.
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result \
+{True True Ok {1 2 3 4} Ok 1 True} -ignoreMatch glob -ignorePatterns \
+{*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.12 {script thread, sent event, cancel} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+
+  set thread [createScriptThread \
+      [eval list StandardUse NoCancel $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Set the "a" variable, wait ~20 seconds, and then set some more
+  #       variables.  The ~20 second wait will be canceled by the next command;
+  #       therefore, only the "a" variable will actually end up being set.
+  #
+  lappend results [$thread Queue [appendArgs {
+    set a 1; after } $w(5) {; set b 2; set c 3; set d 4
+  }]]
+
+  #
+  # NOTE: Break out of the ~20 second wait contained in the previously queued
+  #       script now via script cancellation.  Wait for the queue to be empty
+  #       prior to continuing.
+  #
+  after $w(2); lappend results [$thread Cancel UnwindAndNotify]; after $w(2)
+  lappend results [$thread WaitForEmpty $w(3)]
+  $thread ResetCancel ScriptThread
+
+  #
+  # NOTE: This should raise an error, only the "a" variable is actually set
+  #       because the queued script (above) was canceled during [after $w(5)].
+  #
+  set result null
+  set code [$thread Send [appendArgs "after " $w(2) {; list $a $b $c $d}] \
+      $w(4) false result]
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Synchronously set the "foo" variable.  This should terminate the wait
+  #       operating keeping the script thread from exiting.  Therefore, the
+  #       script thread should terminate shortly after the script is evaluated.
+  #
+  set result null
+  set code [$thread Send {set foo 1} $w(3) false result]; # NOTE: Exit wait.
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result \
+{True True True Error {can't read "b": no such variable} Ok 1 True} \
+-ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.13 {script thread, engine, cancel} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  # HACK: Disable throwing exceptions caused by the interpreter being disposed
+  #       due to various race conditions that exist when using three threads
+  #       instead of two (i.e. the transient engine script threads).  Also,
+  #       prevent the wait operating from returning in the event of a script
+  #       cancellation (the running script itself will still be canceled).
+  #
+  set error null
+
+  set thread [createScriptThread \
+      [eval list CommonUse NoCancel $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Set the "a" variable, wait ~20 seconds, and then set some more
+  #       variables.  The ~20 second wait will be canceled by the next command;
+  #       therefore, only the "a" variable will actually end up being set.
+  #
+  lappend results [$thread Queue [appendArgs {
+    set a 1; after } $w(5) {; set b 2; set c 3; set d 4
+  }]]
+
+  #
+  # NOTE: Break out of the ~20 second wait contained in the previously queued
+  #       script now via script cancellation.  For this test case only, we must
+  #       wait for ~2 seconds after we issue the script cancellation so that the
+  #       queued script above is actually canceled before continuing; otherwise,
+  #       the [after] call in the queued script above may get canceled and then
+  #       "uncanceled" all during the same time-slice (which in this case is ~1
+  #       second) because the script cancellation flags will be reset
+  #       automatically by the engine upon entry into the sent script (below)
+  #       due to it being evaluated at the outermost stack level (0).  In the
+  #       previous test case, this situation is impossible because the sent
+  #       script will block until the event queue is ready to handle it.
+  #
+  after $w(2); lappend results [$thread Cancel UnwindAndNotify]; after $w(2)
+  lappend results [$thread WaitForEmpty $w(3)]
+  $thread ResetCancel ScriptThread
+
+  #
+  # NOTE: This should raise an error, only the "a" variable is actually set
+  #       because the queued script (above) was canceled during [after $w(5)].
+  #
+  set result null
+  set code [$thread Send [appendArgs "after " $w(2) {; list $a $b $c $d}] \
+      $w(4) true result]
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Synchronously set the "foo" variable.  This should terminate the wait
+  #       operating keeping the script thread from exiting.  Therefore, the
+  #       script thread should terminate shortly after the script is evaluated.
+  #
+  set result null
+  set code [$thread Send {set foo 1} $w(3) true result]; # NOTE: Exit wait.
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result \
+{True True True Error {can't read "b": no such variable} Ok 1 True} \
+-ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.14 {script thread, queue, exit} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Exit the interpreter (i.e. not the process).
+  #
+  lappend results [$thread Queue {exit}]; # NOTE: Exit wait by force.
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result {True True} \
+-ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.15 {script thread, sent event, exit} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Exit the interpreter (i.e. not the process).
+  #
+  set result null
+  set code [$thread Send {exit} $w(3) false result]; # NOTE: Exit wait by force.
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result {Ok {} True} \
+-ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.16 {script thread, engine, exit} -setup {
+  unset -nocomplain results
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Exit the interpreter (i.e. not the process).
+  #
+  set result null
+  set code [$thread Send {exit} $w(3) true result]; # NOTE: Exit wait by force.
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result {Ok {} True} \
+-ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.17 {script thread, queue, nested vwait} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Enter and exit a nested wait operation.
+  #
+  lappend results [$thread Queue [appendArgs "after " $w(2) \
+      " \[list set bar 1\]; vwait bar"]]
+
+  #
+  # NOTE: Exit the outer wait operation.
+  #
+  lappend results [$thread Queue {set foo 1}]; # NOTE: Exit outer wait.
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(4)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result \
+{True True True} -ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.18 {script thread, queue, processing order} -setup {
+  unset -nocomplain i results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Create the "x" variable in the script thread.
+  #
+  for {set i 0} {$i < 10} {incr i} {
+    lappend results [$thread Queue [list lappend x $i]]
+  }
+
+  #
+  # NOTE: Grab the "x" variable from the script thread.
+  #
+  set result null
+  set code [$thread Send {set x} $w(3) false result]
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Exit the wait operation.
+  #
+  lappend results [$thread WaitForEmpty $w(3)]; # NOTE: Success, drained.
+  lappend results [$thread Queue {set foo 1}]; # NOTE: Exit wait.
+  lappend results [$thread WaitForEmpty $w(3)]; # NOTE: Fail (?), disposed (?).
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain i results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -match regexp -result \
+{^True True True True True True True True True True Ok \{0 1 2 3 4 5 6 7 8 9\}\
+True True (?:False|True) True$} -ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+# NOTE: *MONO* This test seems to have serious issues on some versions
+#       of Mono (e.g. 2.6.4 on OpenBSD).
+#
+runTest {test object-10.19 {script thread, queue, wait for empty} -setup {
+  unset -nocomplain i results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Temporarily disable all event processing in the script thread.
+  #
+  $thread Interpreter.EventManager.Enabled false
+
+  #
+  # NOTE: Create the "x" variable in the script thread.
+  #
+  $thread Queue [list after $w(4)]
+
+  for {set i 0} {$i < 2000} {incr i} {
+    $thread Queue [list lappend x $i]
+  }
+
+  #
+  # NOTE: Re-enable event processing in the script thread.
+  #
+  $thread Interpreter.EventManager.Enabled true
+
+  #
+  # NOTE: Wait for the event queue for the script thread to drain.  First, for
+  #       ~2 seconds, which should timeout, then for ~60 seconds, which should
+  #       complete (unless the current machine is really slow).
+  #
+  lappend results [$thread WaitForEmpty $w(3)]; # NOTE: Fail, timeout.
+  lappend results [$thread WaitForEmpty $w(6)]; # NOTE: Success, drained.
+
+  #
+  # NOTE: Grab the list length of the "x" variable from the script thread.
+  #
+  set result null
+  set code [$thread Send {llength $x} $w(3) false result]
+  lappend results $code [getStringFromObjectHandle $result]
+
+  #
+  # NOTE: Exit the wait operation.
+  #
+  lappend results [$thread WaitForEmpty $w(3)]; # NOTE: Success, drained.
+  lappend results [$thread Queue {set foo 1}]; # NOTE: Exit wait.
+  lappend results [$thread WaitForEmpty $w(3)]; # NOTE: Fail (?), disposed (?).
+
+  #
+  # NOTE: Wait ~4 seconds for the script thread to exit.  If it does not exit,
+  #       there is a problem.
+  #
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain i results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -match regexp -result \
+{^False True Ok 2000 True True (?:False|True) True$} -ignoreMatch glob \
+-ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.20 {script thread, queue, lots of threads} -setup {
+  unset -nocomplain s c i counts thread error result code
+} -body {
+  #
+  # NOTE: *WARNING* How many threads to create and test?  Setting this number
+  #       too high will result in an OutOfMemoryException because each new
+  #       thread requires a minimum of 1MB memory for stack space on Win32
+  #       (and probably a bunch more memory for CLR related overhead).
+  #
+  if {[haveConstraint isolated]} then {
+    set c 500;    # stress test...
+    set s 124750; # sum(0 .. 499)
+  } else {
+    set c 50;     # normal test...
+    set s 1225;   # sum(0 .. 49)
+  }
+
+  tputs $test_channel [appendArgs "---- attempting to create and test " $c \
+      " script threads (this may take a while)...\n"]
+
+  #
+  # NOTE: Create a whole bunch of script threads.
+  #
+  set counts(created) 0
+  set counts(errors) 0
+
+  for {set i 0} {$i < $c} {incr i} {
+    #
+    # NOTE: Attempt to create another script thread now.
+    #
+    # HACK: Override the default stack size (16MB) for new threads to 1MB so
+    #       that we are able to create more than 80 threads.
+    #
+    set error null
+
+    set thread($i) [createScriptThread \
+        [eval list StandardUse $extraFlags] $w(5) 1048576]
+
+    #
+    # NOTE: If we were unable to create the script thread, fail the test now.
+    #
+    if {[string length $thread($i)] > 0} then {
+      #
+      # NOTE: We successfully created another thread.
+      #
+      incr counts(created)
+    } elseif {[incr counts(errors)] == 1} then {
+      #
+      # NOTE: This is the first thread creation failure, report it.
+      #
+      tputs $test_channel [appendArgs "---- failed to create script thread #" \
+          [expr {$i + 1}] ": " \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  #
+  # NOTE: Create the "x" variable in each script thread.
+  #
+  set counts(queued) 0
+
+  for {set i 0} {$i < $c} {incr i} {
+    #
+    # NOTE: Skip over any threads we could not create.
+    #
+    if {[string length $thread($i)] == 0} then {
+      continue
+    }
+
+    #
+    # NOTE: Queue a script to the thread that sets the "x" variable.  This
+    #       method call should always return true.  Verify this fact for all
+    #       threads by keeping a sum total of all the returned values.
+    #
+    incr counts(queued) [expr {int([$thread($i) Queue [list set x $i]])}]
+  }
+
+  #
+  # NOTE: Wait for each script thread.
+  #
+  set counts(waited) 0
+
+  for {set i 0} {$i < $c} {incr i} {
+    #
+    # NOTE: Skip over any threads we could not create.
+    #
+    if {[string length $thread($i)] == 0} then {
+      continue
+    }
+
+    #
+    # NOTE: Wait for the thread to empty its event queue.  This method call
+    #       should always return true.  Verify this fact for all threads by
+    #       keeping a sum total of all the returned values.
+    #
+    incr counts(waited) [expr {int([$thread($i) WaitForEmpty $w(3)])}]
+  }
+
+  #
+  # NOTE: Calculate the total of "x" for all script threads.
+  #
+  set counts(total) 0
+
+  for {set i 0} {$i < $c} {incr i} {
+    #
+    # NOTE: Skip over any threads we could not create.
+    #
+    if {[string length $thread($i)] == 0} then {
+      continue
+    }
+
+    #
+    # NOTE: Synchronously fetch the value of the "x" variable from the thread.
+    #       This method call should always succeed.  Verify this fact for all
+    #       threads by keeping a sum total of all the returned "x" variable
+    #       values.
+    #
+    set result null
+    set code [$thread($i) Send {set x} $w(3) false result]
+
+    if {$code eq "Ok"} then {
+      #
+      # NOTE: Prior to beta 22, there was a subtle race condition in the Win32
+      #       event naming code that caused this result to be an empty string,
+      #       resulting in an "invalid command name" error right here.
+      #
+      incr counts(total) [getStringFromObjectHandle $result]
+    }
+  }
+
+  #
+  # NOTE: Finally, verify that we created the right number of threads and that
+  #       all the "x" variable values add up to what they should be, which is
+  #       the sum total of [0 .. ($c - 1)].
+  #
+  list $counts(created) $counts(errors) [expr {$counts(created) == $c}] \
+      [expr {$counts(queued) == $c}] [expr {$counts(waited) == $c}] \
+      [expr {$counts(total)== $s}]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain s c i counts thread error result code
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+stackIntensive !slowerBogoCopsBy2X}] -time true -match regexp -result \
+{^\d+ 0 True True True True$} -ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# MONO: On Mono 3.0.2 beta and the 3.3.0 release build, this test does not
+#       function properly due to a failure to load the System.Windows.Forms
+#       assembly, resulting from [apparently] incorrect DLL mappings in the
+#       "etc/mono/config" configuration file copied by the installer.  Any
+#       attempt to load and/or use Windows Forms functionality will result
+#       in a very complex looking exception, with the innermost exception
+#       being very similar to the following:
+#
+#       System.DllNotFoundException: /tmp/install/lib/libgdiplus.so
+#
+#       The workaround to "fix" this issue on Windows is to simply remove
+#       both the "gdiplus" related lines from the configuration file.
+#
+#       Alternatively, it may be possible to simply add the 'os="!windows"'
+#       attribute to those lines instead.
+#
+#       See: https://bugzilla.xamarin.com/show_bug.cgi?id=8309
+#
+#       Please note that even after fixing the above issue via manually
+#       editing the Mono configuration file, this test will still fail
+#       (i.e. as of Mono 3.3.0).
+#
+###############################################################################
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+# TODO: *HACK* Apparently, Mono cannot handle *any* usage of WinForms from
+#       "non-primary" threads.  Maybe this will change in the future?
+#
+runTest {test object-10.21 {script thread, queue, user interface} -setup {
+  unset -nocomplain results thread error result
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+
+  set thread [createScriptThread \
+      [eval list InterfaceUse UseSelf $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Queue a script to the thread that creates and hosts a WinForm.  Also,
+  #       attempt to prove that the thread can handle showing a modal dialog.
+  #
+  lappend results [$thread Queue {
+    proc handleClickEvent { sender e } {
+      set dialog [object create -alias OpenFileDialog]
+      $dialog Title "please click \"Open\" or \"Cancel\" to continue..."
+      set ::result [$dialog ShowDialog]
+    }
+
+    object load -import System.Windows.Forms
+
+    set form [object create -alias Form]
+    set button [object create -alias Button]
+
+    $button Left [expr {([$form ClientSize.Width] - [$button Width]) / 2}]
+    $button Top [expr {([$form ClientSize.Height] - [$button Height]) / 2}]
+
+    $button Text OK
+    $button add_Click handleClickEvent
+
+    object invoke $form.Controls Add $button
+
+    $form Text [appendArgs [info engine] " Test Form Title"]
+    $form TopMost true
+    $form Show
+
+    after 0 nop; vwait result; thread Result $result; set foo 1
+  }]
+
+  #
+  # NOTE: Make sure the console user knows that we are waiting for input.
+  #
+  tputs $test_channel [appendArgs \
+      "please find the window marked \"" [info engine] \
+      " Test Form Title\" and click \"OK\" to continue.\n"]
+
+  lappend results [$thread WaitForEnd $w(6)]; # NOTE: Wait for user.
+  set result [$thread Result]
+
+  lappend results [$thread ReturnCode] [getStringFromObjectHandle $result]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result
+} -constraints {eagle command.object dotNetCoreOrShell dotNet compile.WINFORMS\
+winForms interactive userInteraction} -match regexp -result \
+{^True True Ok (?:OK|Cancel)$} -ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.22 {script thread, sent event, pooled} -setup {
+  unset -nocomplain results thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+
+  set thread [createScriptThread \
+      [eval list StandardUse UsePool $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  lappend results [$thread Queue {set a 1}]
+  lappend results [$thread Queue {set b 2; set c 3; set d 4}]
+  lappend results [$thread WaitForEmpty $w(3)]
+
+  set result null
+  set code [$thread Send [appendArgs "after " $w(2) {; list $a $b $c $d}] \
+      $w(4) false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+  lappend results [$thread WaitForEnd $w(3) true]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code
+} -constraints {eagle command.object dotNetCoreOrShell} -result \
+{True True True Ok {1 2 3 4} False} -ignoreMatch glob -ignorePatterns \
+{*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.23 {script thread, startup script ok} -setup {
+  unset -nocomplain results thread error result code script
+} -body {
+  #
+  # NOTE: Create a startup script object for use by the script thread we are
+  #       about to create.
+  #
+  set script [object invoke Script Create {set y 1234}]
+
+  #
+  # NOTE: If we were unable to create the script, fail the test now.
+  #
+  if {[string length $script] == 0} then {
+    error "could not create script object"
+  }
+
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+
+  set thread [createScriptThread \
+      [eval list StandardUse $extraFlags] $w(5) 0 $script]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Grab the "y" variable from the script thread.  The correct result
+  #       here should prove that the startup script was evaluated successfully.
+  #
+  set result null
+  set code [$thread Send {set y} $w(4) false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  lappend results $code [getStringFromObjectHandle $result]
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code script
+} -constraints {eagle command.object dotNetCoreOrShell} -result \
+{Ok 1234 False} -ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.24 {script thread, startup script error} -setup {
+  unset -nocomplain results thread error result code script
+} -body {
+  #
+  # NOTE: Create a startup script object for use by the script thread we are
+  #       about to create.
+  #
+  set script [object invoke Script Create {error "startup error"}]
+
+  #
+  # NOTE: If we were unable to create the script, fail the test now.
+  #
+  if {[string length $script] == 0} then {
+    error "could not create script object"
+  }
+
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+
+  set thread [createScriptThread \
+      [eval list StandardUse $extraFlags] $w(5) 0 $script]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Send an empty script to the script thread.  This will always fail
+  #       because the startup script failed, which causes the script thread to
+  #       skip servicing the event loop altogether.  This command may throw an
+  #       exception if the interpreter for the script thread is disposed prior
+  #       to it executing; therefore, catch any potential error and handle it
+  #       as part of the test result.
+  #
+  set result null
+
+  if {[catch {set code [$thread Send {} $w(4) false result]} error] == 0} then {
+    lappend results $code [getStringFromObjectHandle $result]
+  } else {
+    lappend results Error $error
+  }
+
+  lappend results [$thread WaitForEnd $w(3)]
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain results thread error result code script
+} -constraints {eagle command.object dotNetCoreOrShell} -match regexp -result \
+[appendArgs "^Error \\\{(?:could not queue script to event thread|event " \
+"script timeout of " $w(4) " milliseconds|.* --->\
+Eagle\._Components\.Public\.InterpreterDisposedException: .*)\\\} True\$"] \
+-ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.25 {script thread, events per second} -setup {
+  unset -nocomplain c us thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set result null
+  set code [$thread Send {set x 0} $w(3) false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set us [lindex [time {
+    evalWithTimeout {
+      #
+      # NOTE: Queue events forever until we fail OR are canceled, which will be
+      #       in about ~8 seconds.
+      #
+      while {[$thread Queue {incr x}]} {}
+    } $w(4)
+  }] 0]
+
+  #
+  # NOTE: Make sure the "x" variable was created in the interpreter for the
+  #       script thread, not here.
+  #
+  if {[info exists x]} then {
+    error "variable \"x\" should not exist"
+  }
+
+  set us [expr {$us + [lindex [time {
+    #
+    # NOTE: Keep doing nothing until the event queue for the script thread has
+    #       been fully drained.
+    #
+    do {} while {![$thread WaitForEmpty $w(3)]}
+  }] 0]}]
+
+  #
+  # NOTE: Make sure the event queue for the script thread is really empty.
+  #
+  if {![$thread WaitForEmpty $w(4)]} then {
+    error "script thread event queue is not empty"
+  }
+
+  set result null
+  set code [$thread Send {set x} $w(3) false result]
+
+  if {$code eq "Ok"} then {
+    set c [getStringFromObjectHandle $result]
+  } else {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result [expr {int($c / ($us / 1000000))}]
+
+  tputs $test_channel [appendArgs "---- queued and evaluated " $c \
+      " scripts in " [formatDecimal $us] " microseconds (" $result \
+      " scripts per second)\n"]
+
+  set result
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain c us thread error result code
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+monoBug42 !slowerBogoCopsBy2X}] -noCancel true -match regexp -result {^\d+$} \
+-ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.26 {script thread, batch events per second} -setup {
+  unset -nocomplain c us thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set result null
+  set code [$thread Send {set x 0} $w(3) false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  #
+  # NOTE: Temporarily disable all event processing in the script thread.
+  #
+  $thread Interpreter.EventManager.Enabled false
+
+  set us [lindex [time {
+    evalWithTimeout {
+      #
+      # NOTE: Queue events forever until we fail OR are canceled, which will be
+      #       in about ~8 seconds.
+      #
+      while {[$thread Queue {incr x}]} {}
+    } $w(4)
+  }] 0]
+
+  #
+  # NOTE: Make sure the "x" variable was created in the interpreter for the
+  #       script thread, not here.
+  #
+  if {[info exists x]} then {
+    error "variable \"x\" should not exist"
+  }
+
+  #
+  # NOTE: Re-enable event processing in the script thread.
+  #
+  $thread Interpreter.EventManager.Enabled true
+
+  set us [expr {$us + [lindex [time {
+    #
+    # NOTE: Keep doing nothing until the event queue for the script thread has
+    #       been fully drained.
+    #
+    do {} while {![$thread WaitForEmpty $w(3)]}
+  }] 0]}]
+
+  #
+  # NOTE: Make sure the event queue for the script thread is really empty.
+  #
+  if {![$thread WaitForEmpty $w(3)]} then {
+    error "script thread event queue is not empty"
+  }
+
+  set result null
+  set code [$thread Send {set x} $w(3) false result]
+
+  if {$code eq "Ok"} then {
+    set c [getStringFromObjectHandle $result]
+  } else {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result [expr {int($c / ($us / 1000000))}]
+
+  tputs $test_channel [appendArgs "---- queued then evaluated " $c \
+      " scripts in " [formatDecimal $us] " microseconds (" $result \
+      " scripts per second)\n"]
+
+  set result
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain c us thread error result code
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+monoBug42 !slowerBogoCopsBy2X}] -noCancel true -match regexp -result {^\d+$} \
+-ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+# NOTE: *MONO* This test seems to have serious issues on some versions
+#       of Mono (e.g. 2.6.4 on OpenBSD).
+#
+runTest {test object-10.27 {script thread, sender/receiver} -setup {
+  unset -nocomplain y c thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+
+  set thread(sender) [createScriptThread \
+      [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the sending script thread, fail the test
+  #       now.
+  #
+  if {[string length $thread(sender)] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+
+  set thread(receiver) [createScriptThread \
+      [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the sending script thread, fail the test
+  #       now.
+  #
+  if {[string length $thread(receiver)] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set result null
+  set code [$thread(sender) Send {
+    proc send { x } {
+      receiver Queue [list receive $x]
+      set x [expr {$x + 1}]
+      after 1 [list send $x]
+    }
+
+    proc receive { x } {
+      set ::y $x
+    }
+  } $w(3) false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result null
+  set code [$thread(receiver) Send {
+    proc send { x } {
+      sender Queue [list receive $x]
+      set x [expr {$x + 1}]
+      after 1 [list send $x]
+    }
+
+    proc receive { x } {
+      set ::y $x
+    }
+  } $w(3) false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result null
+  set code [$thread(sender) AddObject Default receiver NoDispose \
+      $thread(receiver) true false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result null
+  set code [$thread(receiver) AddObject Default sender NoDispose \
+      $thread(sender) true false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  #
+  # NOTE: Kickoff the sender and receiver so that they send scripts back and
+  #       forth [forever until canceled or disposed].
+  #
+  set c $w(4)
+
+  $thread(sender) Queue {send 0}; $thread(receiver) Queue {send 0}; after $c
+
+  set result null
+  set code [$thread(sender) Send {set foo $y} $w(3) false result]
+
+  if {$code eq "Ok"} then {
+    set y(sender) [getStringFromObjectHandle $result]
+  } else {
+    error [getStringFromObjectHandle $result]
+  }
+
+  tputs $test_channel [appendArgs "---- sending thread received " \
+      $y(sender) " scripts in about " $c " milliseconds\n"]
+
+  set result null
+  set code [$thread(receiver) Send {set foo $y} $w(3) false result]
+
+  if {$code eq "Ok"} then {
+    set y(receiver) [getStringFromObjectHandle $result]
+  } else {
+    error [getStringFromObjectHandle $result]
+  }
+
+  tputs $test_channel [appendArgs "---- receiving thread received " \
+      $y(receiver) " scripts in about " $c " milliseconds\n"]
+
+  list $y(sender) $y(receiver)
+} -cleanup {
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain y c thread error result code
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+monoBug42 !slowerBogoCopsBy2X}] -match regexp -result {^\d+ \d+$} -ignoreMatch \
+glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+# HACK: This test, by its nature, is also fairly sensitive to various subtle
+#       timing issues (e.g. when running under the debugger).  Therefore, we
+#       constrain this test to run only when the "fairly precise" timing test
+#       from the test prologue has passed.  The rationale is that this test is
+#       not intended to verify any kind of precision timing gaurantees for the
+#       ScriptThread class; it is only intended to verify the semantics of the
+#       WaitForEvent method, both with and without the WaitForEmpty method.
+#
+# BUGFIX: This test requires thread safety due to use of global variables by
+#         alternate (i.e. non-primary) threads.
+#
+# HACK: This test seems to have trouble on .NET Core as well, probably due to
+#       subtle timing issues.
+#
+runTest {test object-10.28 {script thread, wait for event enqueued} -setup {
+  unset -nocomplain queued results thread t error
+
+  proc threadStart {} {
+    after $::w(1); lappend ::queued [$::thread Queue {set a 1}]
+    after $::w(1); lappend ::queued [$::thread Queue {set foo 1}]
+  }
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  lappend results [$thread WaitForStart $w(1)]; # true
+  lappend results [$thread WaitForEvent $w(1)]; # false
+  lappend results [$thread WaitForEmpty $w(3)]; # true
+
+  set t [createThread threadStart]; startThread $t
+
+  lappend results [$thread WaitForEvent $w(2)]; # true
+  lappend results [$thread WaitForEvent $w(2)]; # true
+  lappend results [$thread WaitForEmpty $w(3)]; # true
+
+  #
+  # BUGBUG: Why is this needed here?  Sometimes, when running this test
+  #         inside the Visual Studio debugger, it will fail due to the
+  #         next WaitForEvent method call returning true when it should
+  #         return false.
+  #
+  after $w(1)
+
+  lappend results [$thread WaitForEvent $w(1)]; # false
+
+  if {[joinThread $t]} then {unset t}
+
+  lappend results [$thread WaitForEvent $w(1)]; # false
+
+  list $queued $results
+} -cleanup {
+  if {[info exists t]} then {cleanupThread $t}
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+
+  stopThreads thread
+  cleanupThreads thread
+
+  unset -nocomplain queued results thread t error
+} -constraints [fixTimingConstraints {eagle command.object dotNetCoreOrShell\
+timing compile.THREADING !monoDebugger !slowerBogoCopsBy2X}] -result \
+{{True True} {True False True True True True False False}} -ignoreMatch glob \
+-ignorePatterns {*timeout*}}
+
+###############################################################################
+
+#
+# HACK: For now, constrain this test to run only in the Eagle Shell
+#       (i.e. where we can guarantee a minimum stack size for created
+#       threads).
+#
+runTest {test object-10.29 {script thread, restricted} -setup {
+  unset -nocomplain thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+
+  set thread [createScriptThread \
+      [eval list RestrictedTaskUse $extraFlags] $w(5) 0 null true]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Attempt to use the Send method.  This should be allowed.
+  #
+  set code(1) [catch {
+    set result(2) null
+    set code(2) [$thread Send {set x 2} $w(3) false result(2)]
+  } result(1)]
+
+  #
+  # NOTE: Attempt to use the Cancel method.  This should be denied.
+  #
+  set code(3) [catch {
+    $thread Cancel UnwindAndNotify
+  } result(3)]
+
+  #
+  # NOTE: Attempt to use the Send method again to verify that the first
+  #       call to the Send method was effective.  This should be allowed.
+  #
+  set code(4) [catch {
+    set result(5) null
+    set code(5) [$thread Send {set x} $w(3) false result(5)]
+  } result(4)]
+
+  list $code(1) $result(1) $code(2) \
+      [getStringFromObjectHandle $result(2)] \
+      $code(3) $result(3) $code(4) $result(4) $code(5) \
+      [getStringFromObjectHandle $result(5)]
+} -cleanup {
+  cleanupThreads thread
+
+  unset -nocomplain thread error result code
+} -constraints [fixConstraints {eagle command.object dotNetCoreOrShell\
+!slowerBogoCopsBy2X}] -match regexp -result \
+{^0 Ok Ok 2 1 \{.*?method access denied.*?\} 0 Ok Ok 2$} -ignoreMatch glob \
+-ignorePatterns {*timeout*}}
+
+###############################################################################
+
+runTest {test object-10.30 {continue return code from sent script} -setup {
+  unset -nocomplain thread error result code
+} -body {
+  #
+  # NOTE: Attempt to create the script thread now.
+  #
+  set error null
+  set thread [createScriptThread [eval list StandardUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create the script thread, fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: First, send a script that returns "continue".  This should not
+  #       cause the script thread to exit.
+  #
+  set code(1) [catch {
+    set result(2) null
+    set code(2) [$thread Send {continue} $w(3) false result(2)]
+  } result(1)]
+
+  #
+  # NOTE: Then, send another script.  This one should cause the script
+  #       thread to exit.
+  #
+  set code(3) [catch {
+    set result(4) null
+    set code(4) [$thread Send {set foo 1} $w(3) false result(4)]
+  } result(3)]
+
+  list $code(1) $result(1) $code(2) [getStringFromObjectHandle $result(2)] \
+      $code(3) $result(3) $code(4) [getStringFromObjectHandle $result(4)]
+} -cleanup {
+  cleanupThreads thread
+
+  unset -nocomplain thread error result code
+} -constraints {eagle command.object} -result \
+{0 Continue Continue {} 0 Ok Ok 1} -ignoreMatch glob -ignorePatterns \
+{*timeout*}}
+
+###############################################################################
+
+runTest {test object-10.31 {script thread, attach} -setup {
+  unset -nocomplain interp thread error result code id context
+
+  set interp [interp create]
+} -body {
+  #
+  # NOTE: Attempt to create and attach the script thread now.
+  #
+  set error null
+  set thread [attachThread $interp [eval list AttachUse $extraFlags] $w(5)]
+
+  #
+  # NOTE: If we were unable to create and/or attach the script thread,
+  #       fail the test now.
+  #
+  if {[string length $thread] == 0} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: First, send a script that checks if the interpreter for the
+  #       thread is the same as the one we attached (it should be) and
+  #       the execution context is different (it also should be).
+  #
+  set id [interp eval $interp {object invoke Interpreter.GetActive Id}]
+  set context [interp eval $interp {info context}]
+
+  set code(1) [catch {
+    set result(2) null
+    set code(2) [$thread Send [subst -nocommands -nobackslashes {
+      list [expr {[object invoke Interpreter.GetActive Id] eq $id}] \
+          [expr {[info context] ne $context}]
+    }] $w(3) false result(2)]
+  } result(1)]
+
+  #
+  # NOTE: Then, send another script.  This one should cause the script
+  #       thread to exit.
+  #
+  set code(3) [catch {
+    set result(4) null
+    set code(4) [$thread Send {set foo 1} $w(3) false result(4)]
+  } result(3)]
+
+  list $code(1) $result(1) $code(2) [getStringFromObjectHandle $result(2)] \
+      $code(3) $result(3) $code(4) [getStringFromObjectHandle $result(4)]
+} -cleanup {
+  cleanupThreads thread
+
+  catch {interp delete $interp}
+
+  unset -nocomplain interp thread error result code id context
+} -constraints {eagle command.object} -result {0 Ok Ok {True True} 0 Ok Ok 1} \
+-ignoreMatch glob -ignorePatterns {*timeout*}}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  rename createScriptThread ""
+  rename attachThread ""
+  rename cleanupThreads ""
+  rename stopThreads ""
+}
+
+###############################################################################
+
+unset -nocomplain extraFlags w
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

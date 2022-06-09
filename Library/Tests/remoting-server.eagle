@@ -1,0 +1,119 @@
+###############################################################################
+#
+# remoting-server.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to lack of full support for remoting, these tests are disabled on
+#       Mono.
+###############################################################################
+
+runTest {test remotingServer-1.1 {remoting server start/stop} -setup {
+  #
+  # HACK: Avoid server port reuse issues on Windows XP, et al,
+  #       by using a different port for each of these tests.
+  #
+  set port [expr {
+    [haveConstraint osVersion.WindowsNT_6.0_OrHigher] ? 6000 : 6001
+  }]
+
+  set uri remoteObject; set error null
+  set interp [object invoke Interpreter GetActive]
+
+  object invoke -alias Eagle._Tests.Default TestRemoting $interp $port \
+      $uri SingleCall true error
+
+  set uri [appendArgs tcp://localhost: $port /remoteObject]
+  set obj [object get -alias Eagle._Tests.Default+RemoteObject $uri]
+} -body {
+  list [object invoke Eagle._Tests.Default TestRemotingHaveChannel] [$obj \
+      Exit] [object invoke Eagle._Tests.Default TestRemotingHaveChannel]
+} -cleanup {
+  catch {$obj Exit}
+
+  catch {unset -nocomplain port uri error interp obj}
+} -constraints {eagle command.object compile.REMOTING compile.TEST\
+dotNetCoreOrShell monoToDo Eagle._Tests.Default.TestRemoting\
+Eagle._Tests.Default.TestRemotingHaveChannel} -result {True True False}}
+
+###############################################################################
+
+runTest {test remotingServer-1.2 {remoting server simple call} -setup {
+  #
+  # HACK: Avoid server port reuse issues on Windows XP, et al,
+  #       by using a different port for each of these tests.
+  #
+  set port [expr {
+    [haveConstraint osVersion.WindowsNT_6.0_OrHigher] ? 6000 : 6002
+  }]
+
+  set uri remoteObject; set error null
+  set interp [object invoke Interpreter GetActive]
+
+  object invoke -alias Eagle._Tests.Default TestRemoting $interp $port \
+      $uri SingleCall true error
+
+  set uri [appendArgs tcp://localhost: $port /remoteObject]
+  set obj [object get -alias Eagle._Tests.Default+RemoteObject $uri]
+} -body {
+  list [object invoke Eagle._Tests.Default TestRemotingHaveChannel] \
+      [set now [$obj -create Now]] [$obj Exit] [object invoke \
+      Eagle._Tests.Default TestRemotingHaveChannel]
+} -cleanup {
+  catch {$obj Exit}
+
+  catch {unset -nocomplain port uri error interp obj now}
+} -constraints {eagle command.object compile.REMOTING compile.TEST\
+dotNetCoreOrShell monoToDo Eagle._Tests.Default.TestRemoting\
+Eagle._Tests.Default.TestRemotingHaveChannel} -match regexp -result {^True\
+System#DateTime#\d+ True False$}}
+
+###############################################################################
+
+runTest {test remotingServer-1.3 {remoting server complex call} -setup {
+  #
+  # HACK: Avoid server port reuse issues on Windows XP, et al,
+  #       by using a different port for each of these tests.
+  #
+  set port [expr {
+    [haveConstraint osVersion.WindowsNT_6.0_OrHigher] ? 6000 : 6003
+  }]
+
+  set uri remoteObject; set error null
+  set interp [object invoke Interpreter GetActive]
+
+  object invoke -alias Eagle._Tests.Default TestRemoting $interp $port \
+      $uri SingleCall true error
+
+  set uri [appendArgs tcp://localhost: $port /remoteObject]
+  set obj [object get -alias Eagle._Tests.Default+RemoteObject $uri]
+} -body {
+  set result null
+
+  list [object invoke Eagle._Tests.Default TestRemotingHaveChannel] \
+      [$obj -alias Evaluate [list return 1] None All Engine All result] \
+      [getStringFromObjectHandle $result] [$obj Exit] [object invoke \
+      Eagle._Tests.Default TestRemotingHaveChannel]
+} -cleanup {
+  catch {$obj Exit}
+
+  catch {unset -nocomplain port uri error interp obj result}
+} -constraints {eagle command.object compile.REMOTING compile.TEST\
+compile.THREADING dotNetCoreOrShell monoToDo Eagle._Tests.Default.TestRemoting\
+Eagle._Tests.Default.TestRemotingHaveChannel} -result {True Ok 1 True False}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

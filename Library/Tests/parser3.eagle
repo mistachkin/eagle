@@ -1,0 +1,320 @@
+###############################################################################
+#
+# parser3.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=710537
+###############################################################################
+
+runTest {test parser-3.1 {parsing escape sequences} -body {
+  set f \{f\}; set g {f}; set h \"{}\"
+  list $f $g $h
+} -cleanup {
+  unset -nocomplain f g h
+} -result {{{f}} f {"{}"}}}
+
+###############################################################################
+
+runTest {test parser-3.2 {parsing simple options} -body {
+  set options {{null None -1 -1 -foo} \
+              {null MustHaveValue -1 -1 -bar DEFAULT} \
+              {null MustHaveIntegerValue 1 -1 -baz1} \
+              {OptionFlags MustHaveEnumValue 1 -1 -baz2} \
+              {null MustHaveValue 1 -1 -friz 12345}}
+
+  parse options -optionsvar options1 -indexes $options \
+      {-foo "this is a test." more testing here}
+
+  parse options -optionsvar options2 -indexes $options \
+      {-foo -bar "this is a test." more testing here}
+
+  parse options -optionsvar options3 -indexes $options \
+      {-foo -baz1 12345 "this is a test." more testing here}
+
+  parse options -optionsvar options4 -indexes $options \
+      {-foo -baz2 None "this is a test." more testing here}
+
+  parse options -optionsvar options5 -indexes $options \
+      {-foo -friz "this is a test." more testing here}
+
+  set result [list]
+
+  for {set i 1} {$i <= 5} {incr i} {
+    lappend result options$i
+
+    foreach name [lsort [array names options$i]] {
+      lappend result [list $name [set options$i\($name\)]]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain options5 options4 options3 options2 options1
+  unset -nocomplain result name i options
+} -constraints {eagle} -match regexp -result {^options1 \{--- False\} \{-bar\
+False\} \{-bar,value DEFAULT\} \{-baz1 False\} \{-baz2 False\} \{-foo True\}\
+\{-friz False\} \{-friz,value 12345\} \{endIndex -1\} \{nextIndex 1\} options2\
+\{--- False\} \{-bar True\} \{-bar,value \{this is a test\.\}\} \{-baz1 False\}\
+\{-baz2 False\} \{-foo True\} \{-friz False\} \{-friz,value 12345\} \{endIndex\
+-1\} \{nextIndex 3\} options3 \{--- False\} \{-bar False\} \{-bar,value\
+DEFAULT\} \{-baz1 True\} \{-baz1,value 12345\} \{-baz2 False\} \{-foo True\}\
+\{-friz False\} \{-friz,value 12345\} \{endIndex -1\} \{nextIndex 3\} options4\
+\{--- False\} \{-bar False\} \{-bar,value DEFAULT\} \{-baz1 False\} \{-baz2\
+True\} \{-baz2,value (?:0|None)\} \{-foo True\} \{-friz False\} \{-friz,value\
+12345\} \{endIndex -1\} \{nextIndex 3\} options5 \{--- False\} \{-bar False\}\
+\{-bar,value DEFAULT\} \{-baz1 False\} \{-baz2 False\} \{-foo True\} \{-friz\
+True\} \{-friz,value \{this is a test\.\}\} \{endIndex -1\} \{nextIndex 3\}$}}
+
+###############################################################################
+
+runTest {test parser-3.3 {parsing dictionary options} -body {
+  set options {{null MustHaveDictionaryValue -1 -1 -frob null}}
+
+  catch {
+    parse options -optionsvar options1 -indexes $options \
+        {-frob "" more testing here}
+  } result1
+
+  catch {
+    parse options -optionsvar options2 -indexes $options \
+        {-frob "\{a" more testing here}
+  } result2
+
+  catch {
+    parse options -optionsvar options3 -indexes $options \
+        {-frob "a b c" more testing here}
+  } result3
+
+  catch {
+    parse options -optionsvar options4 -indexes $options \
+        {-frob "a b c d" more testing here}
+  } result4
+
+  set result [list]
+
+  for {set i 1} {$i <= 4} {incr i} {
+    if {[info exists options$i]} then {
+      lappend result options$i
+
+      foreach name [lsort [array names options$i]] {
+        lappend result [list $name [set options$i\($name\)]]
+      }
+    } else {
+      lappend result result$i
+      lappend result [list [set result$i]]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result4 result3 result2 result1
+  unset -nocomplain options4 options3 options2 options1
+  unset -nocomplain result name i options
+} -constraints {eagle} -result {options1 {--- False} {-frob True} {-frob,value\
+{}} {endIndex -1} {nextIndex 2} result2 {{unmatched open brace in list}}\
+result3 {{dictionary list must have an even number of elements}} options4\
+{--- False} {-frob True} {-frob,value {a c}} {endIndex -1} {nextIndex 2}}}
+
+###############################################################################
+
+runTest {test parser-3.4 {parsing level options} -body {
+  set options {{null MustHaveLevelValue -1 -1 -frob null}}
+
+  catch {
+    parse options -optionsvar options1 -indexes $options \
+        {-frob 0 more testing here}
+  } result1
+
+  catch {
+    parse options -optionsvar options2 -indexes $options \
+        {-frob #0 more testing here}
+  } result2
+
+  catch {
+    parse options -optionsvar options3 -indexes $options \
+        {-frob 1 more testing here}
+  } result3
+
+  catch {
+    parse options -optionsvar options4 -indexes $options \
+        {-frob -1 more testing here}
+  } result4
+
+  catch {
+    parse options -optionsvar options5 -indexes $options \
+        {-frob 30 more testing here}
+  } result5
+
+  catch {
+    parse options -optionsvar options6 -indexes $options \
+        {-frob ##1 more testing here}
+  } result6
+
+  set result [list]
+
+  for {set i 1} {$i <= 6} {incr i} {
+    if {[info exists options$i]} then {
+      lappend result options$i
+
+      foreach name [lsort [array names options$i]] {
+        lappend result [list $name [set options$i\($name\)]]
+      }
+    } else {
+      lappend result result$i
+      lappend result [list [set result$i]]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result6 result5 result4 result3 result2 result1
+  unset -nocomplain options6 options5 options4 options3 options2 options1
+  unset -nocomplain result name i options
+} -constraints {eagle testCallStack} -match regexp -result {^options1 \{---\
+False\} \{-frob True\} \{-frob,value global\} \{endIndex -1\} \{nextIndex 2\}\
+options2 \{--- False\} \{-frob True\} \{-frob,value global\} \{endIndex -1\}\
+\{nextIndex 2\} result3 \{\{bad level "1"\}\} result4 \{\{bad level "-1"\}\}\
+result5 \{\{bad level "30"\}\} options6 \{--- False\} \{-frob True\}\
+\{-frob,value (?:runAllTests|runTest)\} \{endIndex -1\} \{nextIndex 2\}$}}
+
+###############################################################################
+
+runTest {test parser-3.5 {parsing encoding option} -body {
+  set options {{null MustHaveEncodingValue -1 -1 -enc}}
+
+  parse options -optionsvar options1 -indexes $options {-enc utf-16}
+
+  set result [list]
+
+  foreach name [lsort [array names options1]] {
+    lappend result [list $name [set options1\($name\)]]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain options1
+  unset -nocomplain result name options
+} -constraints {eagle} -result {{--- False} {-enc True} {-enc,value\
+System.Text.UnicodeEncoding} {endIndex -1} {nextIndex -1}}}
+
+###############################################################################
+
+runTest {test parser-3.6 {parsing simple options} -body {
+  set options {{None -foo} {MustHaveValue -bar} {None -baz} {None --}}
+
+  parse options -simple -optionsvar options1 -indexes $options {
+    -foo -bar "some value" -- -baz more stuff here
+  }
+
+  set result [list]
+
+  foreach name [lsort [array names options1]] {
+    lappend result [list $name [set options1\($name\)]]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain options1
+  unset -nocomplain result name options
+} -constraints {eagle} -result {{-- True} {--- False} {-bar True} {-bar,value\
+{some value}} {-baz False} {-foo True} {endIndex 3} {nextIndex 4}}}
+
+###############################################################################
+
+#
+# NOTE: This [combinations2] procedure was stolen from the Tcl wiki page
+#       "https://wiki.tcl.tk/2553" (Combinatorial mathematics functions).
+#
+proc combinations2 {myList size {prefix {}}} {
+  if {$size == 0} {return [list $prefix]}
+  if {$size == [llength $myList]} {return [list [concat $prefix $myList]]}
+
+  set first [lindex $myList 0]
+  set rest [lrange $myList 1 end]
+
+  set ans1 [combinations2 $rest [expr {$size - 1}] [concat $prefix $first]]
+  set ans2 [combinations2 $rest $size $prefix]
+
+  return [concat $ans1 $ans2]
+}
+
+###############################################################################
+
+#
+# NOTE: When in doubt, use brute force.
+#
+proc allPermutations2 { list } {
+  set result [list]
+
+  foreach permutation [lpermute $list] {
+    for {set size 1} {$size <= [llength $permutation]} {incr size} {
+      eval lappend result [combinations2 $permutation $size]
+    }
+  }
+
+  return [lsort -unique $result]
+}
+
+###############################################################################
+
+proc toRegExpFlags { list } {
+  set result ""
+
+  foreach element $list {
+    if {[string length $result] > 0} then {
+      append result |
+    }
+
+    append result [join $element ", "]
+  }
+
+  return $result
+}
+
+###############################################################################
+
+runTest {test parser-3.7 {parsing simple enum options} -body {
+  set options {{MustHaveEnumValue -foo TracePriority Debug}}
+
+  parse options -simple -optionsvar options1 -indexes $options {
+    -foo +Demand "more stuff here"
+  }
+
+  set result [list]
+
+  foreach name [lsort [array names options1]] {
+    lappend result [list $name [set options1\($name\)]]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain options1
+  unset -nocomplain result name options
+} -constraints {eagle} -match regexp -result [appendArgs {^\{--- False\}\
+\{-foo True\} \{-foo,value \{(?:} [toRegExpFlags [allPermutations2 [list None \
+MaybeDebug MaybeVerbose Debug]]] {), Demand\}\} \{endIndex -1\} \{nextIndex\
+2\}$}]}
+
+###############################################################################
+
+rename toRegExpFlags ""
+rename allPermutations2 ""
+rename combinations2 ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

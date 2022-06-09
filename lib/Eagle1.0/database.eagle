@@ -1,0 +1,97 @@
+###############################################################################
+#
+# database.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Database Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure returns the value of the specified database column
+  #       within the specified database row value, optionally wrapping the
+  #       returned value with another string -OR- returning the specified
+  #       default value when the specified database column is not found.
+  #
+  proc getColumnValue { row column {default ""} {wrap ""} } {
+    #
+    # NOTE: Start with the default value.
+    #
+    set result $default
+
+    #
+    # NOTE: Locate the index of the named column we are interested in.
+    #       This requires Tcl 8.5 (or higher) or Eagle.
+    #
+    set index [lsearch -exact -index 0 $row $column]
+
+    #
+    # NOTE: Did we find the column name in the row?
+    #
+    if {$index != -1} then {
+      #
+      # NOTE: Grab the column value.
+      #
+      set result [appendArgs $wrap [lindex [lindex $row $index] end] $wrap]
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure returns the value of the specified database column
+  #       within the specified array of database row values, optionally
+  #       wrapping the returned value with another string -OR- returning
+  #       the specified default value when the specified database column is
+  #       not found.
+  #
+  proc getRowColumnValue { varName id column {default ""} {wrap ""} } {
+    #
+    # NOTE: Start with the default value.
+    #
+    set result $default
+
+    #
+    # NOTE: We need acccess to the result array (from the context of the
+    #       caller).
+    #
+    upvar 1 $varName rows
+
+    #
+    # NOTE: Make sure we have the first result row.
+    #
+    if {[info exists rows($id)]} then {
+      #
+      # NOTE: Grab the entire row we are interested in.
+      #
+      set row $rows($id)
+
+      #
+      # NOTE: Grab the value at the specified column.
+      #
+      set result [getColumnValue $row $column $default $wrap]
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: Provide the Eagle "database" package to the interpreter.
+  #
+  package provide Eagle.Database \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

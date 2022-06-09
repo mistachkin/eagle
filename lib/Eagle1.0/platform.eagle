@@ -1,0 +1,299 @@
+###############################################################################
+#
+# platform.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Platform Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This is the procedure that detects whether or not we are running
+  #       in Eagle (otherwise, it is assumed that we are running in vanilla
+  #       Tcl).  This procedure must work correctly in both Tcl and Eagle
+  #       and must return non-zero only when running in Eagle.  The same
+  #       procedure is also defined in the "init.eagle" file.
+  #
+  proc isEagle {} {
+    #
+    # NOTE: Nothing too fancy or expensive should be done here.  In theory,
+    #       use of this procedure should be rare; however, in practice, this
+    #       procedure is actually used quite a bit (e.g. by the test suite).
+    #
+    return [expr {[info exists ::tcl_platform(engine)] && \
+        [string compare -nocase eagle $::tcl_platform(engine)] == 0}]
+  }
+
+  #
+  # NOTE: This is the procedure that detects whether or not we are running
+  #       in Eagle on Mono (i.e. otherwise, we are running in Tcl or in Eagle
+  #       on the .NET Framework or .NET Core).  This procedure must function
+  #       correctly in both Tcl and Eagle and must return non-zero only when
+  #       running in Eagle on Mono.
+  #
+  proc isMono {} {
+    #
+    # NOTE: Nothing too fancy or expensive should be done here.  In theory,
+    #       use of this procedure should be rare; however, in practice, this
+    #       procedure is actually used quite a bit (e.g. by the test suite).
+    #
+    return [expr {[info exists ::eagle_platform(runtime)] && \
+        [string compare -nocase mono $::eagle_platform(runtime)] == 0}]
+  }
+
+  #
+  # NOTE: This is the procedure that detects whether or not we are running
+  #       in Eagle on .NET Core (i.e. otherwise, we are running in Tcl or in
+  #       Eagle on the .NET Framework or Mono).  This procedure must function
+  #       correctly in both Tcl and Eagle and must return non-zero only when
+  #       running in Eagle on .NET Core.  For the purposes of this procedure,
+  #       the ".NET 5" and later runtimes are still treated as .NET Core.
+  #
+  proc isDotNetCore {} {
+    #
+    # NOTE: Nothing too fancy or expensive should be done here.  In theory,
+    #       use of this procedure should be rare; however, in practice, this
+    #       procedure is actually used quite a bit (e.g. by the test suite).
+    #
+    return [expr {[info exists ::eagle_platform(runtime)] && \
+        ([string compare -nocase ".net core" $::eagle_platform(runtime)] == 0 \
+      || [string compare -nocase ".net" $::eagle_platform(runtime)] == 0)}]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the logged on user has full
+  #       administrator rights on this machine.  Currently, this only works
+  #       in Eagle; however, it may work from native Tcl in the future.
+  #
+  proc isAdministrator {} {
+    return [expr {[info exists ::eagle_platform(administrator)] && \
+        [string is true -strict $::eagle_platform(administrator)]}]
+  }
+
+  #
+  # NOTE: This is the procedure that detects whether or not we are running
+  #       on Windows (otherwise, it is assumed that we are running on some
+  #       flavor of Unix).  This procedure must function correctly in both
+  #       Tcl and Eagle and must return non-zero only when on Windows.
+  #
+  proc isWindows {} {
+    #
+    # NOTE: Nothing too fancy or expensive should be done here.  In theory,
+    #       use of this procedure should be rare; however, in practice, this
+    #       procedure is actually used quite a bit (e.g. by the test suite).
+    #
+    return [expr {[info exists ::tcl_platform(platform)] && \
+        $::tcl_platform(platform) eq "windows"}]
+  }
+
+  #
+  # NOTE: This procedure should return non-zero if and only if only there
+  #       is currently an interactive user that can respond to prompts and
+  #       other requests for input.
+  #
+  proc isInteractive {} {
+    #
+    # TODO: Is something more complex required here?
+    #
+    return [expr {[info exists ::tcl_interactive] && \
+        [string is true -strict $::tcl_interactive]}]
+  }
+
+  #
+  # NOTE: This procedure adds the specified directory to the PATH.  It is
+  #       designed to work on the various flavors of Windows and Unix.
+  #
+  proc addToPath { dir } {
+    global env
+    global tcl_platform
+
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #       Normalize to an operating system native path.
+    #
+    set dir [file nativename $dir]
+
+    #
+    # NOTE: On Windows, use PATH; otherwise (i.e. Unix), use
+    #       LD_LIBRARY_PATH.
+    #
+    if {[isWindows]} then {
+      set name PATH
+    } else {
+      set name LD_LIBRARY_PATH
+    }
+
+    #
+    # NOTE: Make sure the directory is not already in the
+    #       loader search path.
+    #
+    if {[info exists tcl_platform(pathSeparator)]} then {
+      set separator $tcl_platform(pathSeparator)
+    } elseif {[isWindows]} then {
+      set separator \;
+    } else {
+      set separator :
+    }
+
+    #
+    # NOTE: Does the necessary environment variable exist?
+    #
+    if {[info exists env($name)]} then {
+      #
+      # NOTE: Grab the value of the environment variable.
+      #
+      set value $env($name)
+
+      #
+      # BUGBUG: Consider exact case only for now.
+      #
+      if {[lsearch -exact [split $value $separator] $dir] == -1} then {
+        #
+        # NOTE: Append the directory to the loader search path.
+        #       This allows us to subsequently load DLLs that
+        #       implicitly attempt to load other DLLs that are
+        #       not in the application directory.
+        #
+        set env($name) [join [list $value $dir] $separator]
+
+        #
+        # NOTE: Yes, we altered the search path.
+        #
+        return true
+      }
+    } else {
+      #
+      # NOTE: Create the loader search path with the directory.
+      #
+      set env($name) $dir
+
+      #
+      # NOTE: Yes, we created the search path.
+      #
+      return true
+    }
+
+    #
+    # NOTE: No, we did not alter the search path.
+    #
+    return false
+  }
+
+  #
+  # NOTE: This procedure removes the specified directory from the PATH.
+  #       It is designed to work on the various flavors of Windows and
+  #       Unix.
+  #
+  proc removeFromPath { dir } {
+    global env
+    global tcl_platform
+
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #       Normalize to an operating system native path.
+    #
+    set dir [file nativename $dir]
+
+    #
+    # NOTE: On Windows, use PATH; otherwise (i.e. Unix), use
+    #       LD_LIBRARY_PATH.
+    #
+    if {[isWindows]} then {
+      set name PATH
+    } else {
+      set name LD_LIBRARY_PATH
+    }
+
+    #
+    # NOTE: Make sure the directory is in the loader search
+    #       path.
+    #
+    if {[info exists tcl_platform(pathSeparator)]} then {
+      set separator $tcl_platform(pathSeparator)
+    } elseif {[isWindows]} then {
+      set separator \;
+    } else {
+      set separator :
+    }
+
+    #
+    # NOTE: Does the necessary environment variable exist?
+    #
+    if {[info exists env($name)]} then {
+      #
+      # NOTE: We need to separate the directories in the path
+      #       so that we can selectively remove the one we are
+      #       looking for.
+      #
+      set dirs [split $env($name) $separator]
+
+      #
+      # BUGBUG: Consider exact case only for now.
+      #
+      set index [lsearch -exact $dirs $dir]
+
+      #
+      # NOTE: Is the directory in the loader search path?
+      #
+      if {$index != -1} then {
+        #
+        # NOTE: Remove the directory from the loader search path.
+        #
+        set dirs [lreplace $dirs $index $index]
+
+        #
+        # NOTE: Replace the original loader search path with
+        #       our modified one.
+        #
+        set env($name) [join $dirs $separator]
+
+        #
+        # NOTE: Yes, we altered the search path.
+        #
+        return true
+      }
+    }
+
+    #
+    # NOTE: No, we did not alter the search path.
+    #
+    return false
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified file names refer
+  #       to the same file, using the most robust method available for the
+  #       script engine and platform.
+  #
+  proc isSameFileName { fileName1 fileName2 } {
+    if {[isEagle]} then {
+      return [file same $fileName1 $fileName2]
+    } else {
+      if {[isWindows]} then {
+        return [string equal -nocase $fileName1 $fileName2]
+      } else {
+        return [string equal $fileName1 $fileName2]
+      }
+    }
+  }
+
+  #
+  # NOTE: Provide the Eagle "platform" package to the interpreter.
+  #
+  package provide Eagle.Platform \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

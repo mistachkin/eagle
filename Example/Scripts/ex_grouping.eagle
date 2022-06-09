@@ -1,0 +1,10 @@
+
+set x 1
+
+puts "grouping with quotes, x = $x"
+
+puts {grouping with braces, x = $x}
+
+proc grouping { args } { return [info level [info level]] }
+
+puts [grouping with brackets, x = $x]

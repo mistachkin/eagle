@@ -1,0 +1,4597 @@
+###############################################################################
+#
+# interp-exited.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test exit-1.1 {eval in exited interpreter} -body {
+  exit 1; return "hello world"
+} -constraints {eagle} -noExit true -exitCode 1 -result {}}
+
+###############################################################################
+
+runTest {test interp-1.1 {create and use interpreter} -body {
+  set error ""
+
+  list [set i [interp create]] \
+      [expr {int([interp exists {}])}] \
+      [expr {int([interp exists $i])}] \
+      [expr {int([interp issafe {}])}] \
+      [expr {int([interp issafe $i])}] \
+      [llength [interp children]] \
+      [catch {interp eval $i {pwd; return OK}} error] \
+      $error \
+      [catch {expr {int([file exists [interp invokehidden $i pwd]])}} error] \
+      $error \
+      [interp delete $i] \
+      [expr {int([interp exists {}])}] \
+      [expr {int([interp exists $i])}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error i
+} -constraints {eagle} -match regexp -result {^(?:interp)?\d+ 1 1 0 0 1 0 OK 1\
+\{invalid hidden command name "pwd"\} \{\} 1 0$}}
+
+###############################################################################
+
+runTest {test interp-1.2.2 {create and use safe interpreter} -body {
+  set error ""
+
+  list [set i [interp create -safe]] \
+      [expr {int([interp exists {}])}] \
+      [expr {int([interp exists $i])}] \
+      [expr {int([interp issafe {}])}] \
+      [expr {int([interp issafe $i])}] \
+      [llength [interp children]] \
+      [catch {interp eval $i {pwd; return OK}} error] $error \
+      [catch {expr {int([file exists [interp invokehidden $i pwd]])}} error] \
+      $error \
+      [interp delete $i] \
+      [expr {int([interp exists {}])}] \
+      [expr {int([interp exists $i])}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error i
+} -constraints {eagle} -match regexp -result {^(?:interp)?\d+ 1 1 0 1 1 1\
+\{permission denied: safe interpreter cannot use command "pwd"\} 0 1 \{\} 1 0$}}
+
+###############################################################################
+
+runTest {test interp-1.3 {use of hide/invokehidden/expose} -body {
+  set error ""
+
+  list [set i [interp create -safe]] \
+      [catch {expr {int([file exists [interp invokehidden $i pwd]])}} error] \
+      $error \
+      [catch {interp expose $i pwd} error] $error \
+      [catch {interp expose $i pwd} error] $error \
+      [catch {expr {int([file exists [interp invokehidden $i pwd]])}} error] \
+      $error \
+      [catch {interp hide $i pwd} error] $error \
+      [catch {interp hide $i pwd} error] $error \
+      [catch {expr {int([file exists [interp invokehidden $i pwd]])}} error] \
+      $error \
+      [interp delete $i]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error i
+} -match regexp -result {^(?:interp)?\d+ 0 1 0 \{\} 1 \{unknown hidden command\
+"pwd"\} 1 \{invalid hidden command name "pwd"\} 0 \{\} 1 \{unknown command\
+"pwd"\} 0 1 \{\}$}}
+
+###############################################################################
+
+runTest {test interp-1.4.1 {create and use interpreter alias} -setup {
+  proc newPwd {} {
+    return [expr {int([file exists [pwd]])}]
+  }
+} -body {
+  set error ""
+
+  list [set i [interp create -safe]] \
+      [set token [interp alias $i safePwd {} newPwd]] \
+      [interp aliases] \
+      [interp aliases $i] \
+      [interp eval $i safePwd] \
+      [interp alias $i $token {}] \
+      [interp aliases] \
+      [interp aliases $i] \
+      [interp delete $i]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain token error i
+
+  rename newPwd ""
+} -constraints {tcl tcl84} -match regexp -result \
+{^(?:interp)?\d+ safePwd \{\} safePwd 1 \{\} \{\} \{\} \{\}$}}
+
+###############################################################################
+
+runTest {test interp-1.4.2 {create and use interpreter alias} -setup {
+  proc newPwd {} {
+    return [expr {int([file exists [pwd]])}]
+  }
+} -body {
+  set error ""
+
+  list [set i [interp create -safe]] \
+      [set token [interp alias $i safePwd {} newPwd]] \
+      [lsort [interp aliases]] \
+      [lsort [interp aliases $i]] \
+      [interp eval $i safePwd] \
+      [interp alias $i $token {}] \
+      [lsort [interp aliases]] \
+      [lsort [interp aliases $i]] \
+      [interp delete $i]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain token error i
+
+  rename newPwd ""
+} -constraints {eagle} -match regexp -result {^(?:interp)?\d+ safePwd\
+\{::tcltest::testConstraint testConstraint\} safePwd 1 \{\}\
+\{::tcltest::testConstraint testConstraint\} \{\} \{\}$}}
+
+###############################################################################
+
+runTest {test interp-1.5 {scripted policies} -setup {
+  proc nopPolicy {} {}
+
+  proc okPolicy {} {
+    return -code ok
+  }
+
+  proc errorPolicy {} {
+    error "test: error"
+  }
+
+  proc returnPolicy {} {
+    return -code return "test: return"
+  }
+
+  proc breakPolicy {} {
+    return -code break "test: break"
+  }
+
+  proc continuePolicy {} {
+    return -code continue "test: continue"
+  }
+
+  proc policyWithArgs { args } {
+    if {[llength $args] % 2 == 0} then {
+      return "allow: even number of args"
+    } else {
+      error "deny: odd number of args"
+    }
+  }
+
+  set i [interp create -safe]
+} -body {
+  set scripts [list "" \
+      nopPolicy okPolicy errorPolicy \
+      returnPolicy breakPolicy continuePolicy \
+      policyWithArgs [list policyWithArgs foo] \
+      "policyWithArgs \{ foo bar"]
+
+  set result [list]
+
+  foreach script $scripts {
+    #
+    # NOTE: Try the policy script with the [info] command.
+    #
+    set policy [interp policy -flags \
+        {+SplitList Arguments} -type \
+        Eagle._Commands.Info $i $script]
+
+    lappend result [catch {interp eval $i {
+      info level
+    }} error]
+    lappend result $error
+    lappend result [catch {interp eval $i {
+      proc foo { a b c d } {
+        return [info level 0]
+      }
+      foo 1 2 3 4
+    }} error]
+    lappend result $error
+
+    interp nopolicy $i $policy
+
+    #
+    # NOTE: Try the policy script with the [pwd] command.
+    #
+    set policy [interp policy \
+        -type Eagle._Commands.Pwd \
+        $i $script]
+
+    lappend result [catch {interp eval $i {
+      expr {[string length [pwd]] > 0}
+    }} error]
+    lappend result $error
+    lappend result [catch {interp eval $i {
+      expr {[string length [pwd 1]] > 0}
+    }} error]
+    lappend result $error
+
+    interp nopolicy $i $policy
+  }
+
+  set result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error policy script result scripts i
+
+  rename policyWithArgs ""
+  rename continuePolicy ""
+  rename breakPolicy ""
+  rename returnPolicy ""
+  rename errorPolicy ""
+  rename okPolicy ""
+  rename nopPolicy ""
+} -constraints {eagle} -result {0 0 1 {permission denied: safe interpreter\
+cannot use command "info level"} 0 True 1 {wrong # args: should be "pwd"} 1\
+{permission denied: safe interpreter cannot use command "info level"} 1\
+{permission denied: safe interpreter cannot use command "info level"} 0 True 1\
+{wrong # args: should be "pwd"} 1 {permission denied: safe interpreter cannot\
+use command "info level"} 1 {permission denied: safe interpreter cannot use\
+command "info level"} 0 True 1 {wrong # args: should be "pwd"} 1 {permission\
+denied: safe interpreter cannot use command "info level"} 1 {permission denied:\
+safe interpreter cannot use command "info level"} 1 {permission denied: safe\
+interpreter cannot use command "pwd"} 1 {permission denied: safe interpreter\
+cannot use command "pwd"} 1 {permission denied: safe interpreter cannot use\
+command "info level"} 1 {permission denied: safe interpreter cannot use command\
+"info level"} 1 {permission denied: safe interpreter cannot use command "pwd"}\
+1 {permission denied: safe interpreter cannot use command "pwd"} 1 {permission\
+denied: safe interpreter cannot use command "info level"} 1 {permission denied:\
+safe interpreter cannot use command "info level"} 1 {permission denied: safe\
+interpreter cannot use command "pwd"} 1 {permission denied: safe interpreter\
+cannot use command "pwd"} 1 {permission denied: safe interpreter cannot use\
+command "info level"} 1 {permission denied: safe interpreter cannot use command\
+"info level"} 1 {permission denied: safe interpreter cannot use command "pwd"}\
+1 {permission denied: safe interpreter cannot use command "pwd"} 0 0 1\
+{permission denied: safe interpreter cannot use command "info level"} 0 True 1\
+{wrong # args: should be "pwd"} 1 {permission denied: safe interpreter cannot\
+use command "info level"} 0 {foo 1 2 3 4} 1 {permission denied: safe\
+interpreter cannot use command "pwd"} 1 {permission denied: safe interpreter\
+cannot use command "pwd"} 1 {permission denied: safe interpreter cannot use\
+command "info level"} 1 {permission denied: safe interpreter cannot use command\
+"info level"} 1 {permission denied: safe interpreter cannot use command "pwd"}\
+1 {permission denied: safe interpreter cannot use command "pwd"}}}
+
+###############################################################################
+
+runTest {test interp-1.6 {default [object] policy} -setup {
+  #
+  # NOTE: Create an "unsafe" child interpreter.
+  #
+  set i [interp create]
+} -body {
+  #
+  # NOTE: Evaluate the test script in the new interpreter.
+  #
+  interp eval $i {
+    #
+    # NOTE: Create some objects and command aliases.
+    #
+    set safeVar [object invoke -create -alias Int32 Parse 12345]
+    set unsafeVar [object invoke -create -alias Int32 Parse 12345]
+
+    #
+    # NOTE: We need to flag the variables and command aliases for both the
+    #       "safe" and "unsafe" objects as "safe" so they will survive the
+    #       call to [interp makesafe].  This test is only really concerned
+    #       about the flags on the IObject itself (i.e. only the "safe"
+    #       IObject will be marked as "safe" prior to the test).
+    #
+    foreach varName [list safeVar unsafeVar] {
+      #
+      # NOTE: Grab the command alias we just created.
+      #
+      set execute null; set error null
+      set code [object invoke -alias -flags +NonPublic Interpreter.GetActive \
+          GetIExecuteViaResolvers UseAllMask [object invoke -flags +NonPublic \
+          Eagle._Components.Private.HandleOps Wrap "" [set $varName]] null \
+          Default execute error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      #
+      # NOTE: Make sure we do not dispose this object as we do not actually
+      #       own it.
+      #
+      object flags $execute +NoDispose
+
+      #
+      # NOTE: Flag the command as "safe".
+      #
+      set cmdFlags [$execute -type \
+          Eagle._Interfaces.Public.ICommandBaseData CommandFlags]
+
+      lappend cmdFlags Safe
+
+      $execute -type \
+          Eagle._Interfaces.Public.ICommandBaseData CommandFlags $cmdFlags
+
+      #
+      # NOTE: Grab the variable we just created.
+      #
+      set flags GlobalOnly; set variable null; set error null
+      set code [object invoke -alias -flags +NonPublic Interpreter.GetActive \
+          GetVariableViaResolversWithSplit $varName flags variable error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      #
+      # NOTE: Flag the variable as "safe".
+      #
+      set varFlags [$variable Flags]
+      lappend varFlags Safe
+      $variable Flags $varFlags
+    }
+
+    #
+    # NOTE: Grab the "safe" object we just created.
+    #
+    set object null; set error null
+    set code [object invoke -alias -flags +NonPublic Interpreter.GetActive \
+        GetObject [object invoke -flags +NonPublic \
+        Eagle._Components.Private.HandleOps Wrap "" $safeVar] Default object \
+        error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    #
+    # NOTE: Make sure we do not dispose this object as we do not actually
+    #       own it.
+    #
+    object flags $object +NoDispose
+
+    #
+    # NOTE: Flag the object as "safe".
+    #
+    set objFlags [$object ObjectFlags]
+    lappend objFlags Safe
+    $object ObjectFlags $objFlags
+
+    #
+    # NOTE: Make the interpreter "safe" now.  This will remove all "unsafe"
+    #       commands, procedures, and variables.
+    #
+    interp makesafe
+
+    #
+    # NOTE: Try to use [object invoke] on both "safe" and "unsafe" objects.
+    #
+    list [catch {$safeVar ToString} msg1] $msg1 \
+        [catch {$unsafeVar ToString} msg2] $msg2
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle command.object} -match regexp -result {^0 12345 1\
+\{permission denied: safe interpreter cannot use object from\
+"System#Int32#\d+"\}$}}
+
+###############################################################################
+
+runTest {test interp-1.7 {hidden command with non-hidden alias} -setup {
+  proc safeProc { interp name args body } {
+    if {[llength [interp eval $interp [list info commands $name]]] != 0} then {
+      error [appendArgs "can't add \"" $name "\": command already exists"]
+    }
+
+    return [interp invokehidden $interp proc $name $args $body]
+  }
+
+  set i [interp create -safe]
+  set error ""
+} -body {
+  interp hide $i proc
+  interp alias $i proc {} safeProc $i
+
+  set script {interp eval $i [list proc foo { a } { return test }]}
+
+  list [catch $script error] $error [catch $script error] $error \
+      [catch {interp eval $i foo 1}] $error
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain script error i
+
+  rename safeProc ""
+} -result {0 {} 1 {can't add "foo": command already exists} 0 {can't add "foo":\
+command already exists}}}
+
+###############################################################################
+
+runTest {test interp-1.8 {no disposal of child interpreters} -setup {
+  set i [interp create -safe]
+} -body {
+  set interps [object invoke -flags +NonPublic Interpreter.GetActive \
+      childInterpreters.Values]
+
+  object foreach interp $interps {
+    object dispose $interp
+  }
+
+  object foreach interp $interps {
+    object invoke $interp Id; # disposed?
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain interps interp i
+} -constraints {eagle command.object} -result {}}
+
+###############################################################################
+
+runTest {test interp-1.9 {WrapHandle returns input on not found} -body {
+  object invoke -flags +NonPublic Eagle._Components.Private.HandleOps \
+      Wrap "" some_value
+} -constraints {eagle command.object} -result {some_value}}
+
+###############################################################################
+
+runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
+  set fileName [file join [getTemporaryPath] settings.xml]
+} -body {
+  #
+  # NOTE: Load the known test settings.  These will later be compared with the
+  #       "live" settings created by this test.
+  #
+  set is(1) null
+  set error null
+  set code [object invoke -alias InterpreterSettings LoadFrom \
+      [file join $test_data_path settings.xml] null false false \
+      is(1) error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Create a simple ruleset to make sure it works right.
+  #
+  set ruleSet [object invoke RuleSet Create \
+      {{1 Include Command Glob None o*} {2 Exclude Command Exact None open}} \
+      null error]
+
+  if {![isNonNullObjectHandle $ruleSet]} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Create some "live" settings to be saved, loaded, and then compared
+  #       with the known test settings.
+  #
+  set is(2) [object invoke -alias InterpreterSettings Create]
+
+  $is(2) Args [set args [object create StringList a b c d]]
+  $is(2) RuleSet $ruleSet
+  $is(2) Culture en-US
+  $is(2) CreateFlags Default
+  $is(2) HostCreateFlags Default
+  $is(2) InitializeFlags "Default, Test"
+  $is(2) ScriptFlags Default
+  $is(2) InterpreterFlags Default
+  $is(2) PluginFlags Default
+  $is(2) AppDomain null; # ignored, not serialized.
+  $is(2) Host null; # ignored, not serialized.
+  $is(2) Profile Color
+  $is(2) Owner [set obj(1) [object create Object]]
+  $is(2) ApplicationObject [set obj(2) [object create Object]]
+
+  $is(2) PolicyObject [set obj(3) \
+      [object create String "this is a test."]]
+
+  $is(2) ResolverObject [set obj(4) \
+      [object invoke -create Int32 Parse -559038737]]
+
+  $is(2) UserObject [set obj(5) \
+      [object invoke -create System.Boolean Parse True]]
+
+  $is(2) Text {puts stdout "this is the pre-init script."}
+
+  $is(2) LibraryPath [appendArgs %EAGLE%\\lib\\ [info engine] \
+      [info engine Version]]
+
+  $is(2) AutoPathList [set list [object create StringList \
+      %EAGLE%\\bin\\Debug\\lib does_not_exist]]
+
+  #
+  # NOTE: Save the "live" settings we just created in the above step.
+  #
+  set error null
+  set code [object invoke InterpreterSettings SaveTo \
+      $fileName false $is(2) error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Load the "live" settings we just saved in the above step.
+  #
+  set is(3) null
+  set error null
+  set code [object invoke -alias InterpreterSettings LoadFrom \
+      $fileName null false false is(3) error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Make sure the round-tripping process resulted in matching properties
+  #       on both InterpreterSettings objects.  This also verifies that the
+  #       properties marked to be ignored were not serialized/deserialized.
+  #
+  list [string equal [$is(1) Culture] [$is(3) Culture]] \
+      [string equal [$is(1) Profile] [$is(3) Profile]] \
+      [string equal [$is(1) Owner] [$is(3) Owner]] \
+      [string equal [$is(1) ApplicationObject] [$is(3) ApplicationObject]] \
+      [string equal [$is(1) PolicyObject] [$is(3) PolicyObject]] \
+      [string equal [$is(1) ResolverObject] [$is(3) ResolverObject]] \
+      [string equal [$is(1) UserObject] [$is(3) UserObject]] \
+      [string equal [$is(1) Text] [$is(3) Text]] \
+      [string equal [$is(1) LibraryPath] [$is(3) LibraryPath]] \
+      [string equal [$is(1) Args] [$is(3) Args]] \
+      [string equal [getStringFromObjectHandle [$is(1) RuleSet]] \
+          [getStringFromObjectHandle [$is(3) RuleSet]]] \
+      [string equal [$is(1) CreateFlags] [$is(3) CreateFlags]] \
+      [string equal [$is(1) HostCreateFlags] [$is(3) HostCreateFlags]] \
+      [string equal [$is(1) InitializeFlags] [$is(3) InitializeFlags]] \
+      [string equal [$is(1) ScriptFlags] [$is(3) ScriptFlags]] \
+      [string equal [$is(1) InterpreterFlags] [$is(3) InterpreterFlags]] \
+      [string equal [$is(1) PluginFlags] [$is(3) PluginFlags]] \
+      [string equal [$is(1) AutoPathList] [$is(3) AutoPathList]]
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain error code obj args ruleSet is list fileName
+} -constraints \
+{eagle command.object compile.XML compile.SERIALIZATION file_settings.xml} \
+-result {True True True True True True True True True True True True True True\
+True True True True}}
+
+###############################################################################
+
+runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
+  set fileName [file join [getTemporaryPath] settings.ini]
+} -body {
+  #
+  # NOTE: Load the known test settings.  These will later be compared with the
+  #       "live" settings created by this test.
+  #
+  set is(1) null
+  set error null
+  set code [object invoke -alias InterpreterSettings LoadFrom \
+      [file join $test_data_path settings.ini] null false false \
+      is(1) error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Create a simple ruleset to make sure it works right.
+  #
+  set ruleSet [object invoke RuleSet Create \
+      {{1 Include Command Glob None o*} {2 Exclude Command Exact None open}} \
+      null error]
+
+  if {![isNonNullObjectHandle $ruleSet]} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Create some "live" settings to be saved, loaded, and then compared
+  #       with the known test settings.
+  #
+  set is(2) [object invoke -alias InterpreterSettings Create]
+
+  $is(2) Args [set args [object create StringList a b c d]]
+  $is(2) RuleSet $ruleSet
+  $is(2) Culture en-US
+  $is(2) CreateFlags Default
+  $is(2) HostCreateFlags Default
+  $is(2) InitializeFlags "Default, Test"
+  $is(2) ScriptFlags Default
+  $is(2) InterpreterFlags Default
+  $is(2) PluginFlags Default
+  $is(2) AppDomain null; # ignored, not serialized.
+  $is(2) Host null; # ignored, not serialized.
+  $is(2) Profile Color
+  $is(2) Owner [set obj(1) [object create Object]]
+  $is(2) ApplicationObject [set obj(2) [object create Object]]
+
+  $is(2) PolicyObject [set obj(3) \
+      [object create String "this is a test."]]
+
+  $is(2) ResolverObject [set obj(4) \
+      [object invoke -create Int32 Parse -559038737]]
+
+  $is(2) UserObject [set obj(5) \
+      [object invoke -create System.Boolean Parse True]]
+
+  $is(2) Text {puts stdout "this is the pre-init script."}
+
+  $is(2) LibraryPath [appendArgs %EAGLE%\\lib\\ [info engine] \
+      [info engine Version]]
+
+  $is(2) AutoPathList [set list [object create StringList \
+      %EAGLE%\\bin\\Debug\\lib does_not_exist]]
+
+  #
+  # NOTE: Save the "live" settings we just created in the above step.
+  #
+  set error null
+  set code [object invoke InterpreterSettings SaveTo \
+      $fileName false $is(2) error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Load the "live" settings we just saved in the above step.
+  #
+  set is(3) null
+  set error null
+  set code [object invoke -alias InterpreterSettings LoadFrom \
+      $fileName null false false is(3) error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # NOTE: Make sure the round-tripping process resulted in matching properties
+  #       on both InterpreterSettings objects.  This also verifies that the
+  #       properties marked to be ignored were not serialized/deserialized.
+  #
+  list [string equal [$is(1) Culture] [$is(3) Culture]] \
+      [string equal [$is(1) Profile] [$is(3) Profile]] \
+      [string equal [$is(1) Owner] [$is(3) Owner]] \
+      [string equal [$is(1) ApplicationObject] [$is(3) ApplicationObject]] \
+      [string equal [$is(1) PolicyObject] [$is(3) PolicyObject]] \
+      [string equal [$is(1) ResolverObject] [$is(3) ResolverObject]] \
+      [string equal [$is(1) UserObject] [$is(3) UserObject]] \
+      [string equal [$is(1) Text] [$is(3) Text]] \
+      [string equal [$is(1) LibraryPath] [$is(3) LibraryPath]] \
+      [string equal [$is(1) Args] [$is(3) Args]] \
+      [string equal [getStringFromObjectHandle [$is(1) RuleSet]] \
+          [getStringFromObjectHandle [$is(3) RuleSet]]] \
+      [string equal [$is(1) CreateFlags] [$is(3) CreateFlags]] \
+      [string equal [$is(1) HostCreateFlags] [$is(3) HostCreateFlags]] \
+      [string equal [$is(1) InitializeFlags] [$is(3) InitializeFlags]] \
+      [string equal [$is(1) ScriptFlags] [$is(3) ScriptFlags]] \
+      [string equal [$is(1) InterpreterFlags] [$is(3) InterpreterFlags]] \
+      [string equal [$is(1) PluginFlags] [$is(3) PluginFlags]] \
+      [string equal [$is(1) AutoPathList] [$is(3) AutoPathList]]
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain error code obj args ruleSet is list fileName
+} -constraints \
+{eagle command.object file_settings.ini} \
+-result {True True True True True True True True True True True True True True\
+True True True True}}
+
+###############################################################################
+
+runTest {test interp-1.11.1 {load/use interpreter settings XML} -body {
+  set settings null
+  set error null
+  set code [object invoke -alias InterpreterSettings LoadFrom \
+      [file join $test_data_path settings.xml] null false true \
+      settings error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set result null
+  set interp [object invoke -alias Interpreter Create $settings true result]
+
+  if {[string length $interp] == 0} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result null
+  set code [$interp EvaluateScript {set argv} result]
+
+  if {$code eq "Ok"} then {
+    set args [getStringFromObjectHandle $result]
+  } else {
+    error [getStringFromObjectHandle $result]
+  }
+
+  list [string equal [$settings Culture] [$interp CultureInfo.ToString]] \
+      [string equal [$settings Profile] [$interp Host.Profile]] \
+      [string equal [$settings Text] \
+          [$interp -flags +NonPublic preInitializeText]] \
+      [string equal [$settings LibraryPath] [$interp LibraryPath]] \
+      [string equal [$settings Args] $args] \
+      [string equal [$settings CreateFlags] \
+          [$interp -flags +NonPublic CreateFlags]] \
+      [string equal [$settings InitializeFlags] \
+          [$interp -flags +NonPublic InitializeFlags]] \
+      [string equal [$settings ScriptFlags] \
+          [$interp -flags +NonPublic ScriptFlags]] \
+      [string equal [$settings InterpreterFlags] \
+          [$interp -flags +NonPublic InterpreterFlags]] \
+      [string equal [$settings PluginFlags] \
+          [$interp -flags +NonPublic PluginFlags]] \
+      [string equal [$settings AutoPathList] [$interp AutoPathList]]
+} -cleanup {
+  catch {object dispose $interp}
+
+  unset -nocomplain args result interp error code settings
+} -constraints \
+{eagle command.object compile.XML compile.SERIALIZATION file_settings.xml} \
+-result {True True True True True True True True True True True}}
+
+###############################################################################
+
+runTest {test interp-1.11.2 {load/use interpreter settings INI} -body {
+  set settings null
+  set error null
+  set code [object invoke -alias InterpreterSettings LoadFrom \
+      [file join $test_data_path settings.ini] null false true \
+      settings error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set result null
+  set interp [object invoke -alias Interpreter Create $settings true result]
+
+  if {[string length $interp] == 0} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result null
+  set code [$interp EvaluateScript {set argv} result]
+
+  if {$code eq "Ok"} then {
+    set args [getStringFromObjectHandle $result]
+  } else {
+    error [getStringFromObjectHandle $result]
+  }
+
+  list [string equal [$settings Culture] [$interp CultureInfo.ToString]] \
+      [string equal [$settings Profile] [$interp Host.Profile]] \
+      [string equal [$settings Text] \
+          [$interp -flags +NonPublic preInitializeText]] \
+      [string equal [$settings LibraryPath] [$interp LibraryPath]] \
+      [string equal [$settings Args] $args] \
+      [string equal [$settings CreateFlags] \
+          [$interp -flags +NonPublic CreateFlags]] \
+      [string equal [$settings InitializeFlags] \
+          [$interp -flags +NonPublic InitializeFlags]] \
+      [string equal [$settings ScriptFlags] \
+          [$interp -flags +NonPublic ScriptFlags]] \
+      [string equal [$settings InterpreterFlags] \
+          [$interp -flags +NonPublic InterpreterFlags]] \
+      [string equal [$settings PluginFlags] \
+          [$interp -flags +NonPublic PluginFlags]] \
+      [string equal [$settings AutoPathList] [$interp AutoPathList]]
+} -cleanup {
+  catch {object dispose $interp}
+
+  unset -nocomplain args result interp error code settings
+} -constraints \
+{eagle command.object file_settings.ini} \
+-result {True True True True True True True True True True True}}
+
+###############################################################################
+
+#
+# HACK: Try to make sure that all garbage has been collected prior to running
+#       the next test.  This is (especially) important if there happen to be
+#       dead Interpreter objects that have not yet been disposed.
+#
+if {[isEagle]} then {
+  catch {purgeAndCleanup $test_channel pre-interp-1.12}
+}
+
+###############################################################################
+
+#
+# NOTE: This test will cause an unhandled exception in all Eagle builds from
+#       beta 19 to beta 21.
+#
+# NOTE: *MONO* This test intermittently fails on various builds of Mono 5.X
+#       running on Linux and Windows for reasons that are not entirely clear;
+#       however, adding retry logic seems to reduce the failure rate.
+#
+runTest {test interp-1.12 {interpreter disposal via destructor} -body {
+  #
+  # NOTE: Create a new interpreter that we can play with and then dispose.
+  #
+  set result null
+  set interp [object invoke Interpreter Create result]
+
+  if {[string length $interp] == 0} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  #
+  # NOTE: Prevent the message boxes from popping up when the inevitable object
+  #       already disposed exceptions occur later on.
+  #
+  object invoke Eagle._Tests.Default TestSetQuiet $interp true
+
+  #
+  # NOTE: First, remove the interpreter from the global list containing all
+  #       interpreters created in this application domain.
+  #
+  object invoke Eagle._Components.Private.GlobalState RemoveInterpreter $interp
+
+  #
+  # NOTE: Next, clear out any reference to the interpreter from the core host
+  #       (just in case the derived host class, if any, has external references
+  #       that may keep it alive, which would indirectly keep the interpreter
+  #       we are trying to dispose of via the GC alive as well).
+  #
+  # HACK: The type for this field was changed on November 7th, 2018.
+  #
+  if {[lindex [split $eagle_platform(patchLevel) .] 2] >= 6885} then {
+    catch {
+      #
+      # HACK: The virtual "Interpreter" property should be used here in order
+      #       to support custom hosts like Featherlight.
+      #
+      set host [object invoke $interp Host]; object invoke -flags +NonPublic \
+          -type Eagle._Hosts.File $host Interpreter null; object dispose \
+          -nodispose $host
+    }
+  } else {
+    catch {
+      set host [object invoke $interp Host]; object invoke -flags +NonPublic \
+          -type Eagle._Hosts.Core $host interpreter null; object dispose \
+          -nodispose $host
+    }
+  }
+
+  #
+  # NOTE: Next, if necessary, make sure that all thread-local data that refers
+  #       to the interpreter is disposed and/or cleared.
+  #
+  if {[haveConstraint compile.THREADING]} then {
+    object invoke -flags +NonPublic $interp contextManager.Dispose
+  }
+
+  #
+  # NOTE: Next, if necessary, make sure the associated EngineThread object, if
+  #       any, clears its reference to the interpreter.
+  #
+  catch {
+    object invoke -flags +NonPublic Eagle._Components.Private.EngineThread \
+        CleanupInterpreter $interp
+  }
+
+  #
+  # NOTE: Record how many times the Dispose(bool) method has been called, both
+  #       before and after garbage collection, so we can tell if this actually
+  #       does anything.
+  #
+  set count(tries) 0
+
+  set count(before) [object invoke \
+      -flags +NonPublic Interpreter globalDisposeCount]
+
+  #
+  # NOTE: Finally, remove interpreter from the internal object list without
+  #       actually disposing of it.  This may result in garbage collection
+  #       immediately (?) -OR- when the GC.GetTotalMemory method is called
+  #       (below).
+  #
+  object dispose -nodispose $interp
+
+  #
+  # HACK: *MONO* Attempt to get this test passing on Mono by retrying the
+  #       garbage collection.
+  #
+  if {[isMono] || [haveConstraint officialStableReleaseInProgress]} then {
+    set count(maximum) [expr {$test_timeout * 99 / 1000}]
+    set count(start) [clock seconds]
+
+    while {true} {
+      #
+      # NOTE: Next, attempt to force the previously removed interpreter to
+      #       be disposed via the finalizer, trigged by the GC.
+      #
+      set count(memory) [object invoke GC GetTotalMemory true]
+
+      set count(after) [object invoke \
+          -flags +NonPublic Interpreter globalDisposeCount]
+
+      incr count(tries)
+
+      if {$count(after) > $count(before)} then {
+        break
+      }
+
+      set count(elapsed) [expr {[clock seconds] - $count(start)}]
+
+      if {$count(elapsed) < 0 || \
+          $count(elapsed) >= $count(maximum)} then {
+        break
+      }
+
+      after $test_timeout
+    }
+  } else {
+    #
+    # NOTE: Next, attempt to force the previously removed interpreter to
+    #       be disposed via the finalizer, trigged by the GC.
+    #
+    set count(memory) [object invoke GC GetTotalMemory true]
+
+    set count(after) [object invoke \
+        -flags +NonPublic Interpreter globalDisposeCount]
+
+    incr count(tries); # 0 ==> 1
+  }
+
+  append count(tries) " " \
+      [expr {$count(tries) > 1 ? "tries" : "try"}]
+
+  if {[isMono]} then {
+    append count(tries) " on Mono"
+  } elseif {[isDotNetCore]} then {
+    append count(tries) " on .NET Core"
+  } else {
+    append count(tries) " on .NET Framework"
+  }
+
+  if {$count(after) > $count(before)} then {
+    tputs $test_channel [appendArgs \
+        "---- disposal success after " $count(tries) ", before " \
+        $count(before) ", after " $count(after) \n]
+  } else {
+    tputs $test_channel [appendArgs \
+        "---- disposal failure after " $count(tries) ", before " \
+        $count(before) ", after " $count(after) \n]
+  }
+
+  list $count(memory) [expr {$count(after) > $count(before)}]
+} -cleanup {
+  unset -nocomplain count newObjects host interp result
+} -constraints {eagle command.object Eagle._Tests.Default.TestSetQuiet} -match \
+regexp -result {^\d+ True$}}
+
+###############################################################################
+
+runTest {test interp-1.13 {sandbox variable context} -setup {
+  unset -nocomplain msg x i
+
+  proc setDataProc {} {
+    foreach d [list 1 7 3 4 6 7 3 2 1 4 7 6 C \
+                    3 2 7 8 9 7 7 7 6 4 3 T 7 \
+                    3 2 V 7 3 1 1 7 8 8 8 7 3 \
+                    2 4 7 6 7 8 9 7 6 4 3 7 6] {
+      append ::x $d
+    }
+  }
+
+  set i [interp create -safe]
+} -body {
+  list [interp alias $i setDataProc {} setDataProc] \
+      [interp eval $i setDataProc] \
+      [catch {interp eval $i [list set x]} msg] $msg \
+      [interp eval $i [list set x 1]] \
+      [expr {[info exists x] ? [string length $x] : -1}] \
+      [setDataProc] \
+      [expr {[info exists x] ? [string length $x] : -1}]
+} -cleanup {
+  catch {interp delete $i}
+
+  rename setDataProc ""
+
+  unset -nocomplain msg x i
+} -result {setDataProc {} 1 {can't read "x": no such variable} 1 52 {} 104}}
+
+###############################################################################
+
+runTest {test interp-1.14 {alias chaining with nested interps} -setup {
+  proc getLevel0 { args } {
+    return [info level [info level]]
+  }
+
+  set i(1) [interp create]
+  set i(2) [interp eval $i(1) [list interp create]]
+  set i(3) [interp eval [list $i(1) $i(2)] [list interp create]]
+} -body {
+  list [interp alias $i(1) getLevel1 {} getLevel0] \
+      [interp alias [list $i(1) $i(2)] getLevel2 $i(1) getLevel1] \
+      [interp alias [list $i(1) $i(2) $i(3)] getLevel3 \
+          [list $i(1) $i(2)] getLevel2] \
+      [interp eval $i(1) getLevel1] \
+      [interp eval [list $i(1) $i(2)] getLevel2] \
+      [interp eval [list $i(1) $i(2) $i(3)] getLevel3]
+} -cleanup {
+  catch {interp delete [list $i(1) $i(2) $i(3)]}
+  catch {interp delete [list $i(1) $i(2)]}
+  catch {interp delete $i(1)}
+
+  rename getLevel0 ""
+
+  unset -nocomplain i
+} -result {getLevel1 getLevel2 getLevel3 getLevel0 getLevel0 getLevel0}}
+
+###############################################################################
+
+#
+# HACK: Full test interpreter isolation is required for this test; otherwise,
+#       the interpreter running the test suite could be corrupted if the test
+#       fails.
+#
+runTest {test interp-1.15 {disposal during command execution} -setup {
+  set i [interp create]
+} -body {
+  interp eval $i {
+    object invoke Interpreter.GetActive Dispose
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object} -isolationLevel Interpreter -returnCodes \
+1 -result {interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+#
+# HACK: Full test interpreter isolation is required for this test; otherwise,
+#       the interpreter running the test suite could be corrupted if the test
+#       fails.
+#
+runTest {test interp-1.16 {disposal during procedure execution} -setup {
+  set i [interp create]
+} -body {
+  interp eval $i {
+    proc doDispose {} {
+      object invoke Interpreter.GetActive Dispose
+    }
+    doDispose
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object} -isolationLevel Interpreter -returnCodes \
+1 -result {interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+#
+# HACK: Full test interpreter isolation is required for this test; otherwise,
+#       the interpreter running the test suite could be corrupted if the test
+#       fails.
+#
+runTest {test interp-1.17 {disposal during lambda execution} -setup {
+  set i [interp create]
+} -body {
+  interp eval $i {
+    apply [list [list] { object invoke Interpreter.GetActive Dispose }]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object} -isolationLevel Interpreter -returnCodes \
+1 -result {interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+#
+# HACK: Full test interpreter isolation is required for this test; otherwise,
+#       the interpreter running the test suite could be corrupted if the test
+#       fails.
+#
+runTest {test interp-1.18 {disposal during function #1 execution} -setup {
+  set i [interp create]
+} -body {
+  interp eval $i {
+    set result null
+    set code [object invoke -alias Eagle._Tests.Default TestAddNamedFunction \
+        "" testFunc null result]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $result]
+    }
+
+    expr {testFunc("0 + \[object invoke Interpreter.GetActive Dispose\]")}
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddNamedFunction\
+Eagle._Tests.Default.TestRemoveNamedFunction} -isolationLevel Interpreter \
+-returnCodes 1 -result {interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+runTest {test interp-1.19 {disposal during function #2 execution} -setup {
+  set i [interp create]
+} -body {
+  set result null
+  set code [object invoke -alias Eagle._Tests.Default TestAddNamedFunction2 \
+      $i testFunc null result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  set result null
+  set code [object invoke -alias Engine EvaluateExpression $i \
+      {testFunc(1, "")} result]
+
+  list $code [getStringFromObjectHandle $result]
+} -cleanup {
+  catch {
+    set result null
+    set code [object invoke -alias Eagle._Tests.Default \
+        TestRemoveNamedFunction $i testFunc null result]
+
+    if {$code ne "Ok"} then {
+      tputs $test_channel [appendArgs \
+          "---- failed to remove math function \"testFunc\": " \
+          [getStringFromObjectHandle $result] \n]
+    }
+  }
+
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddNamedFunction\
+Eagle._Tests.Default.TestRemoveNamedFunction} -result \
+{Error {interpreter is unusable (it may have been disposed)}}}
+
+###############################################################################
+
+#
+# HACK: Full test interpreter isolation is required for this test; otherwise,
+#       the interpreter running the test suite could be corrupted if the test
+#       fails.
+#
+runTest {test interp-1.20 {disposal during subst} -setup {
+  set i [interp create]
+} -body {
+  interp eval $i {
+    subst {[object invoke Interpreter.GetActive Dispose]}
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object} -isolationLevel Interpreter -returnCodes \
+1 -result {interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+#
+# HACK: Full test interpreter isolation is required for this test; otherwise,
+#       the interpreter running the test suite could be corrupted if the test
+#       fails.
+#
+runTest {test interp-1.21 {disposal during expr} -setup {
+  set i [interp create]
+} -body {
+  interp eval $i {
+    expr {0 + [object invoke Interpreter.GetActive Dispose]}
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object} -isolationLevel Interpreter -returnCodes \
+1 -result {interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+runTest {test interp-1.22 {interp expr} -setup {
+  set i [interp create]
+} -body {
+  list [interp expr $i 2 + 2] [interp expr $i {2 + 2}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle} -result {4 4}}
+
+###############################################################################
+
+runTest {test interp-1.23 {interp subst} -setup {
+  set x {0\t1[set y 2]3${null}4\t\t5[incr y]\t6$y\t7[unset y]8$null\\}
+  set i [interp create]
+} -body {
+  set result ""
+
+  append result [catch {interp subst $i $x} r]
+  append result " " $r " -- "
+  append result [catch {interp subst -nobackslashes $i $x} r]
+  append result " " $r " -- "
+  append result [catch {interp subst -nocommands $i $x} r]
+  append result " " $r " -- "
+  append result [catch {interp subst -novariables $i $x} r]
+  append result " " $r " -- "
+  append result [catch {interp subst -nobackslashes -nocommands $i $x} r]
+  append result " " $r " -- "
+  append result [catch {interp subst -nobackslashes -novariables $i $x} r]
+  append result " " $r " -- "
+  append result [catch {interp subst -nobackslashes -nocommands -novariables \
+      $i $x} r]
+  append result " " $r
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain r result i x
+} -constraints {eagle} -result "0 0\t123null4\t\t53\t63\t78null\\ -- 0\
+0\\t123null4\\t\\t53\\t63\\t78null\\\\ -- 1 can't read \"y\": no such variable\
+-- 0 0\t123\${null}4\t\t53\t6\$y\t78\$null\\ -- 1 can't read \"y\": no such\
+variable -- 0 0\\t123\${null}4\\t\\t53\\t6\$y\\t78\$null\\\\ -- 0 0\\t1\[set y\
+2\]3\${null}4\\t\\t5\[incr y]\\t6\$y\\t7\[unset y\]8\$null\\\\"}
+
+###############################################################################
+
+runTest {test interp-1.24 {disposal during expression evaluation} -setup {
+  set i [interp create]
+} -body {
+  set result null
+  set code [object invoke -alias Engine EvaluateExpression $i \
+      {0 + [object invoke Interpreter.GetActive Dispose]} result]
+
+  list $code [getStringFromObjectHandle $result]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle command.object} -result \
+{Error {interpreter is unusable (it may have been disposed)}}}
+
+###############################################################################
+
+#
+# HACK: We need to set an actual variable with the value of the quiet
+#       constraint so that the [subst] invocation for the setup script for
+#       the next test can use it to set the quiet mode for the isolated
+#       interpreter created by that test.
+#
+unset -nocomplain quiet
+set quiet [haveConstraint quiet]
+
+###############################################################################
+
+unset -nocomplain test_log_if
+set test_log_if [expr {[info exists test_log] ? $test_log : ""}]
+
+###############################################################################
+
+unset -nocomplain test_have_winforms
+set test_have_winforms [haveConstraint compile.WINFORMS]
+
+###############################################################################
+
+#
+# HACK: Full test interpreter isolation is required for this test; otherwise,
+#       the interpreter running the test suite could be corrupted if the test
+#       fails.
+#
+runTest {test interp-1.25 {disposal during async event} -setup [subst \
+    -nocommands {
+  set i [interp create]
+
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled via the value of the $quiet variable that was magically
+  #       "transferred" from the parent interpreter to this isolated test
+  #       interpreter via the enclosing [subst] invocation.  If so, set
+  #       the quiet mode value.
+  #
+  unset -nocomplain savedQuiet
+
+  if {$quiet} then {
+    set savedQuiet [object invoke Eagle._Tests.Default TestGetQuiet \$i]
+    object invoke Eagle._Tests.Default TestSetQuiet \$i true
+  }
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {[catch {package present Eagle.Test}]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {![info exists test_channel]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {![info exists test_log]} then {
+    set test_log {$test_log_if}
+  }
+
+  #
+  # NOTE: Save the WinForms flag for use by the test body.
+  #
+  if {![info exists test_have_winforms]} then {
+    set test_have_winforms {$test_have_winforms}
+  }
+}] -body {
+  if {![info exists savedQuiet] && $test_have_winforms} then {
+    tputs $test_channel [appendArgs \
+        "please find the window marked \"" [info engine] \
+        "\" and click \"OK\" to continue.\n"]
+  }
+
+  interp eval $i {
+    after 1000 [list object invoke Interpreter.GetActive Dispose]
+    after 2000 [list set ::result true]
+    vwait ::result
+  }
+} -cleanup {
+  if {[info exists savedQuiet]} then {
+    if {[string is boolean -strict $savedQuiet]} then {
+      object invoke Eagle._Tests.Default TestSetQuiet $i $savedQuiet
+    }
+
+    unset -nocomplain savedQuiet
+  }
+
+  catch {interp delete $i}
+
+  unset -nocomplain i
+  unset -nocomplain test_have_winforms test_log test_channel
+} -constraints {eagle command.object Eagle._Tests.Default.TestSetQuiet} \
+-isolationLevel Interpreter -returnCodes 1 -result \
+{interpreter is unusable (it may have been disposed)}}
+
+###############################################################################
+
+unset -nocomplain test_have_winforms
+unset -nocomplain test_log_if
+
+###############################################################################
+
+runTest {test interp-1.26 {interp alias w/multiple nested interps} -setup {
+  set i(1) [interp create]
+  set i(2) [interp create]
+} -body {
+  interp alias $i(1) aCmd $i(2) eval
+  list [interp eval $i(1) aCmd set x 1] [interp delete $i(2)] \
+      [catch {interp eval $i(1) aCmd set x 1} msg] $msg
+} -cleanup {
+  catch {interp delete $i(2)}
+  catch {interp delete $i(1)}
+
+  unset -nocomplain i msg
+} -result {1 {} 1 {invalid command name "aCmd"}}}
+
+###############################################################################
+
+runTest {test interp-1.27 {isolated child interpreters} -setup {
+  set i(1) [interp create]
+  set i(2) [interp create test1]
+  set i(3) [interp create -safe]
+  set i(4) [interp create -isolated]
+  set i(5) [interp create -isolated -safe]
+  set i(6) [interp create -isolated test2]
+
+  interp alias $i(1) aCmd {} eval
+  interp alias $i(2) aCmd {} eval
+  interp alias $i(3) aCmd {} eval
+  interp alias $i(4) aCmd {} eval
+  interp alias $i(5) aCmd {} eval
+  interp alias $i(6) aCmd {} eval
+} -body {
+  set scripts(1) [list {info appdomain} {aCmd info appdomain}]
+  set scripts(2) [list {interp issafe} {string length [pwd]}]
+
+  foreach id [lsort -integer [array names i]] {
+    lappend result $id $i($id)
+    foreach script $scripts(1) {
+      if {[catch {interp eval $i($id) $script} msg] == 0} then {
+        lappend result 0 $msg [expr {$msg == [info appdomain]}]
+      } else {
+        lappend result 1 $msg False
+      }
+    }
+    foreach script $scripts(2) {
+      lappend result [catch {interp eval $i($id) $script} msg] $msg
+    }
+  }
+
+  set result
+} -cleanup {
+  catch {interp delete $i(6)}
+  catch {interp delete $i(5)}
+  catch {interp delete $i(4)}
+  catch {interp delete $i(3)}
+  catch {interp delete $i(2)}
+  catch {interp delete $i(1)}
+
+  unset -nocomplain msg result scripts script i id
+} -constraints {eagle compile.APPDOMAINS compile.ISOLATED_INTERPRETERS} -match \
+regexp -result {^1 \d+ 0 \d+ True 0 \d+ True 0 False 0 \d+ 2 test1 0 \d+ True 0\
+\d+ True 0 False 0 \d+ 3 \d+ 0 \d+ True 0 \d+ True 0 True 1 \{permission\
+denied: safe interpreter cannot use command "pwd"\} 4 \d+ 0 \d+ False 0 \d+\
+True 0 False 0 \d+ 5 \d+ 0 \d+ False 0 \d+ True 0 True 1 \{permission denied:\
+safe interpreter cannot use command "pwd"\} 6 test2 0 \d+ False 0 \d+ True 0\
+False 0 \d+$}}
+
+###############################################################################
+
+runTest {test interp-1.28 {EvaluateTrustedScript method} -setup {
+  set i [interp create -safe]
+} -body {
+  set interp [object invoke \
+      -alias -flags +NonPublic -objectflags +NoDispose \
+      Interpreter.GetActive.childInterpreters get_Item $i]
+
+  set result null
+
+  list [interp issafe $i] [$interp IsSafe] [object invoke $interp \
+      EvaluateScript "info pid" result] [getStringFromObjectHandle $result] \
+      [object invoke $interp EvaluateTrustedScript "info pid" Default result] \
+      [getStringFromObjectHandle $result]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result interp i
+} -constraints {eagle command.object} -match regexp -result {^True True Error\
+\{permission denied: safe interpreter cannot use command "info pid"\} Ok \d+$}}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test is disabled on Mono due to internal implementation
+#       details regarding how synchronization locks are handled.  Specifically,
+#       what type of exceptions are raised, if any, when Monitor.Exit is called
+#       on a lock not held by the calling thread.
+#
+runTest {test interp-1.29 {LockAndMarkTrusted / MarkSafeAndUnlock} -setup {
+  set i [interp create]
+} -body {
+  set interp [object invoke \
+      -alias -flags +NonPublic -objectflags +NoDispose \
+      Interpreter.GetActive.childInterpreters get_Item $i]
+
+  list [$interp IsSafe] [set error1 null] \
+    [catch {$interp LockAndMarkTrusted error1} error2] \
+    [getStringFromObjectHandle $error1] \
+    $error2 [$interp IsSafe] [set error1 null] \
+    [catch {$interp MarkSafeAndUnlock error1} error2] \
+    [getStringFromObjectHandle $error1] \
+    $error2 [$interp IsSafe] [set error1 null] \
+    [catch {$interp MarkSafeAndUnlock error1} error2] \
+    [getStringFromObjectHandle $error1] \
+    $error2 [$interp IsSafe]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error2 error1 interp i
+} -constraints {eagle command.object dotNetOrDotNetCore} -match regexp -result \
+{^False null 0 \{interpreter is already marked as trusted\} Error False null 1\
+null \{System\.Reflection\.TargetInvocationException: .*? --->\
+System\.Threading\.SynchronizationLockException: .*?\} True null 0\
+\{interpreter is already marked as safe\} Error True$}}
+
+###############################################################################
+
+runTest {test interp-1.30 {LockAndMarkTrusted / MarkSafeAndUnlock} -setup {
+  set i [interp create -safe]
+} -body {
+  set interp [object invoke \
+      -alias -flags +NonPublic -objectflags +NoDispose \
+      Interpreter.GetActive.childInterpreters get_Item $i]
+
+  list [$interp IsSafe] [set error null] \
+    [$interp LockAndMarkTrusted error] \
+    [getStringFromObjectHandle $error] \
+    [$interp IsSafe] [set error null] \
+    [$interp MarkSafeAndUnlock error] \
+    [getStringFromObjectHandle $error] \
+    [$interp IsSafe] [set error null] \
+    [$interp MarkSafeAndUnlock error] \
+    [getStringFromObjectHandle $error] \
+    [$interp IsSafe]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error interp i
+} -constraints {eagle command.object} -result {True null Ok {} False null Ok {}\
+True null Error {interpreter is already marked as safe} True}}
+
+###############################################################################
+
+runTest {test interp-1.31 {try/finally without Engine.ResetCancel} -setup {
+  set i [interp create]
+
+  interp eval $i {
+    catch {
+      #
+      # HACK: Just in case it is actually the default, force the necessary
+      #       interpreter flags to be disabled for the created interpreter.
+      #
+      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags] " -FinallyResetCancel FinallyRestoreCancel"]
+    }
+  }
+} -body {
+  catch {
+    interp eval $i {
+      catch {
+        try {
+          #
+          # NOTE: This script cancels itself.  Upon being canceled,
+          #       the value of "x" will be "1".
+          #
+          set x 1; interp cancel -unwind -- {}; set x 3
+        } finally {
+          #
+          # NOTE: This script block should never be evaluated.  Upon
+          #       completion, the value of "x" should be "1".  If the
+          #       value of "x" is "2" instead, that means this finally
+          #       script block was evaluated.
+          #
+          incr x
+        }
+      }
+      set x 5
+    }
+  }
+
+  interp set $i x
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object tip285} -result {1}}
+
+###############################################################################
+
+runTest {test interp-1.32 {try/finally with Engine.ResetCancel} -setup {
+  set i [interp create]
+
+  interp eval $i {
+    catch {
+      #
+      # HACK: Just in case it is not actually the default, force the
+      #       necessary interpreter flags to be enabled for the created
+      #       interpreter.
+      #
+      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags] " +FinallyResetCancel FinallyRestoreCancel"]
+    }
+  }
+} -body {
+  catch {
+    interp eval $i {
+      catch {
+        try {
+          #
+          # NOTE: This script cancels itself.  Upon being canceled,
+          #       the value of "x" will be "1".
+          #
+          set x 1; interp cancel -unwind -- {}; set x 3
+        } finally {
+          #
+          # NOTE: This script block should always be evaluated.  Upon
+          #       completion, the value of "x" should be "2".  If the
+          #       value of "x" is "1" instead, that means this finally
+          #       script block was not evaluated.
+          #
+          incr x
+        }
+      }
+      set x 5
+    }
+  }
+
+  interp set $i x
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object tip285} -result {2}}
+
+###############################################################################
+
+runTest {test interp-1.33 {visible/hidden command resolution} -setup {
+  unset -nocomplain error policy i
+
+  set i [interp create -safe]
+  interp recursionlimit $i 10
+} -body {
+  list [set policy [interp policy -type Eagle._Commands.Info $i {}]] \
+      [catch {interp eval $i {exec this_is_not_found &}} error] $error \
+      [interp nopolicy $i $policy]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error policy i
+} -constraints {eagle testExec} -result {{Eagle._Components.Public.ScriptPolicy\
+--> Eagle._Commands.Info} 1 {permission denied: safe interpreter cannot use\
+command "exec"} {}}}
+
+###############################################################################
+
+runTest {test interp-1.34 {finally block without timeout} -setup {
+  set i [interp create -safe]
+  # interp finallytimeout $i -1
+
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled.  If so, enable quiet mode and disable the default
+  #       background error handler for this isolated test interpreter to
+  #       prevent superfluous console output.
+  #
+  if {$quiet} then {
+    set interp [object invoke \
+        -alias -flags +NonPublic -objectflags +NoDispose \
+        Interpreter.GetActive.childInterpreters get_Item $i]
+
+    set error null
+    $interp LockAndMarkTrusted error
+
+    try {
+      interp expose $i object
+
+      try {
+        interp eval $i {
+          object invoke Eagle._Tests.Default TestSetQuiet "" true
+        }
+      } finally {
+        interp hide $i object
+      }
+    } finally {
+      set error null
+      $interp MarkSafeAndUnlock error
+    }
+
+    unset -nocomplain error interp
+  }
+} -body {
+  set code(1) [catch {interp eval $i {
+    try {
+      #
+      # NOTE: Simulate very long running try script being canceled.
+      #
+      after 4000 [list interp cancel -unwind]; vwait forever
+    } finally {
+      after 4000; # NOTE: Simulate very long running finally script.
+      set x done; # NOTE: We SHOULD get here.
+    }
+  }} result(1)]
+
+  set code(2) [catch {
+    interp set $i x
+  } result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle command.object tip285 Eagle._Tests.Default.TestSetQuiet} \
+-result {1 {eval unwound} 0 done}}
+
+###############################################################################
+
+runTest {test interp-1.35 {finally block with timeout} -setup {
+  set i [interp create -safe]
+  interp finallytimeout $i 2000
+
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled.  If so, enable quiet mode and disable the default
+  #       background error handler for this isolated test interpreter to
+  #       prevent superfluous console output.
+  #
+  if {$quiet} then {
+    set interp [object invoke \
+        -alias -flags +NonPublic -objectflags +NoDispose \
+        Interpreter.GetActive.childInterpreters get_Item $i]
+
+    set error null
+    $interp LockAndMarkTrusted error
+
+    try {
+      interp expose $i object
+
+      try {
+        interp eval $i {
+          object invoke Eagle._Tests.Default TestSetQuiet "" true
+        }
+      } finally {
+        interp hide $i object
+      }
+    } finally {
+      set error null
+      $interp MarkSafeAndUnlock error
+    }
+
+    unset -nocomplain error interp
+  }
+} -body {
+  set code(1) [catch {interp eval $i {
+    try {
+      #
+      # NOTE: Simulate very long running try script being canceled.
+      #
+      after 4000 [list interp cancel -unwind]; vwait forever
+    } finally {
+      after 4000; # NOTE: Simulate very long running finally script.
+      set x done; # NOTE: We SHOULD NOT get here.
+    }
+  }} result(1)]
+
+  set code(2) [catch {
+    interp set $i x
+  } result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle command.object tip285 Eagle._Tests.Default.TestSetQuiet} \
+-result {1 {runaway finally script unwound after 2000 milliseconds} 1 {can't\
+read "x": no such variable}}}
+
+###############################################################################
+
+unset -nocomplain quiet
+
+###############################################################################
+
+runTest {test interp-1.36 {interp enabled} -setup {
+  set i [interp create -safe]
+} -body {
+  list [interp enabled $i] \
+      [catch {interp eval $i {set x(1) 0}}] \
+      [interp enabled $i false] \
+      [interp enabled $i] \
+      [catch {interp eval $i {set x(2) 1}}] \
+      [interp enabled $i true] \
+      [interp enabled $i] \
+      [catch {interp eval $i {set x(3) 2}}] \
+      [interp enabled $i] \
+      [catch {interp eval $i {
+        set y [list]; foreach name [lsort -integer [array names x]] {
+          lappend y [list $name $x($name)]
+        }; set y
+      }} result] $result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result i
+} -constraints {eagle} -result \
+{True 0 False False 1 True True 0 True 0 {{1 0} {3 2}}}}
+
+###############################################################################
+
+runTest {test interp-1.37 {"unsafe" load settings via script} -setup {
+  unset -nocomplain fileName flags settings error code
+} -body {
+  set fileName [file join [getTemporaryPath] interp-1.37.eagle]
+
+  writeFile $fileName {
+    set a 1; set b [interp issafe]; set c 2; set d $a$c
+    set e(1) 3; set e(2) 4; set e(3,0) 5
+  }
+
+  set flags Minimum; set settings null; set error null
+  set code [object invoke -alias \
+      Utility LoadSettingsViaScriptFile "" null null $fileName \
+      flags settings error]
+
+  list $code \
+      [expr {[string length $settings] > 0 ? \
+          [$settings KeysAndValuesToString null false] : ""}] \
+      [getStringFromObjectHandle $error]
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName flags settings error code
+} -constraints {eagle command.object} -result \
+{Ok {a 1 b False c 2 d 12 e(1) 3 e(2) 4 e(3,0) 5} {}}}
+
+###############################################################################
+
+runTest {test interp-1.38 {"safe" load settings via script} -setup {
+  unset -nocomplain fileName flags settings error code
+} -body {
+  set fileName [file join [getTemporaryPath] interp-1.38.eagle]
+
+  writeFile $fileName {
+    set a 1; set b [interp issafe]; set c 2; set d $a$c
+    set e(1) 3; set e(2) 4; set e(3,0) 5
+  }
+
+  set flags Medium; set settings null; set error null
+  set code [object invoke -alias \
+      Utility LoadSettingsViaScriptFile "" null null $fileName \
+      flags settings error]
+
+  list $code \
+      [expr {[string length $settings] > 0 ? \
+          [$settings KeysAndValuesToString null false] : ""}] \
+      [getStringFromObjectHandle $error]
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName flags settings error code
+} -constraints {eagle command.object} -result \
+{Ok {a 1 b True c 2 d 12 e(1) 3 e(2) 4 e(3,0) 5} {}}}
+
+###############################################################################
+
+runTest {test interp-1.39 {try/finally without reset exit} -setup {
+  set i [interp create]
+
+  interp eval $i {
+    catch {
+      #
+      # HACK: Just in case it is actually the default, force the necessary
+      #       interpreter flags to be disabled for the created interpreter.
+      #
+      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags] " -FinallyResetExit FinallyRestoreExit"]
+    }
+  }
+} -body {
+  catch {
+    interp eval $i {
+      catch {
+        try {
+          #
+          # NOTE: This script exits.  Upon exiting, the value of "x"
+          #       will be "1".
+          #
+          set x 1; exit; set x 3
+        } finally {
+          #
+          # NOTE: This script block should never be evaluated.  Upon
+          #       completion, the value of "x" should be "1".  If the
+          #       value of "x" is "2" instead, that means this finally
+          #       script block was evaluated.
+          #
+          incr x
+        }
+      }
+      set x 5
+    }
+  }
+
+  interp set $i x
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object tip285} -result {1}}
+
+###############################################################################
+
+runTest {test interp-1.40 {try/finally with reset exit} -setup {
+  set i [interp create]
+
+  interp eval $i {
+    catch {
+      #
+      # HACK: Just in case it is not actually the default, force the
+      #       necessary interpreter flags to be enabled for the created
+      #       interpreter.
+      #
+      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags] " +FinallyResetExit FinallyRestoreExit"]
+    }
+  }
+} -body {
+  catch {
+    interp eval $i {
+      catch {
+        try {
+          #
+          # NOTE: This script exits.  Upon exiting, the value of "x"
+          #       will be "1".
+          #
+          set x 1; exit; set x 3
+        } finally {
+          #
+          # NOTE: This script block should always be evaluated.  Upon
+          #       completion, the value of "x" should be "2".  If the
+          #       value of "x" is "1" instead, that means this finally
+          #       script block was not evaluated.
+          #
+          incr x
+        }
+      }
+      set x 5
+    }
+  }
+
+  interp set $i x
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object tip285} -result {2}}
+
+###############################################################################
+
+runTest {test interp-1.41 {invoke hidden with -namespace} -setup {
+  set i [interp create -safe]
+
+  if {[isEagle]} then {
+    interp eval $i {namespace enable true}
+  }
+
+  interp eval $i {namespace eval foo {}}
+} -body {
+  interp alias $i getNs $i namespace current; interp hide $i getNs
+  list [catch {interp invokehidden $i -namespace foo getNs} error] $error
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error i
+} -constraints {tip207 namespaces.available} -result {0 ::foo}}
+
+###############################################################################
+
+runTest {test interp-1.42 {isolated [interp set]} -setup {
+  set i(1) [interp create -isolated]
+} -body {
+  list [interp set $i(1) x 1] [interp set $i(1) x] \
+      [interp eval $i(1) set x 2] [interp set $i(1) x]
+} -cleanup {
+  catch {interp delete $i(1)}
+
+  unset -nocomplain i
+} -constraints {eagle compile.APPDOMAINS compile.ISOLATED_INTERPRETERS} \
+-result {1 1 2 2}}
+
+###############################################################################
+
+runTest {test interp-1.43 {load/merge settings via script} -setup {
+  unset -nocomplain fileName flags settings error code
+} -body {
+  set fileName(1) [file join [getTemporaryPath] interp-1.43-1.eagle]
+  set flags(1) Minimum
+  set settings(1) null
+
+  writeFile $fileName(1) {
+    set a 1; set b [interp issafe]; set c 2; set d $a$c
+    set e(1) 3; set e(2) 4; set e(3,0) 5
+  }
+
+  set error(1) null
+  set code(1) [object invoke -alias \
+      Utility LoadSettingsViaScriptFile "" null null $fileName(1) \
+      flags(1) settings(1) error(1)]
+
+  set fileName(2) [file join [getTemporaryPath] interp-1.43-2.eagle]
+  set flags(2) Minimum
+  set settings(2) [object create StringDictionary $settings(1)]
+
+  writeFile $fileName(2) {
+    set a 2; set e(1) 4; set e(4) 6; set f 9; set g(1) 10
+  }
+
+  set error(2) null
+  set code(2) [object invoke -alias \
+      Utility LoadSettingsViaScriptFile "" null null $fileName(2) \
+      flags(2) settings(2) error(2)]
+
+  set fileName(3) [file join [getTemporaryPath] interp-1.43-3.eagle]
+  set flags(3) {Minimum -ExistingOnly}
+  set settings(3) [object create StringDictionary $settings(1)]
+
+  writeFile $fileName(3) {
+    set a 3; set e(1) 5; set e(4) 7; set f A; set g(1) 11
+  }
+
+  set error(3) null
+  set code(3) [object invoke -alias \
+      Utility LoadSettingsViaScriptFile "" null null $fileName(3) \
+      flags(3) settings(3) error(3)]
+
+  list $code(1) $code(2) $code(3) \
+      [expr {[string length $settings(1)] > 0 ? \
+          [$settings(1) KeysAndValuesToString null false] : ""}] \
+      [expr {[string length $settings(2)] > 0 ? \
+          [$settings(2) KeysAndValuesToString null false] : ""}] \
+      [expr {[string length $settings(3)] > 0 ? \
+          [$settings(3) KeysAndValuesToString null false] : ""}] \
+      [getStringFromObjectHandle $error(1)] \
+      [getStringFromObjectHandle $error(2)] \
+      [getStringFromObjectHandle $error(3)]
+} -cleanup {
+  catch {file delete $fileName(3)}
+  catch {file delete $fileName(2)}
+  catch {file delete $fileName(1)}
+
+  unset -nocomplain fileName flags settings error code
+} -constraints {eagle command.object} -result {Ok Ok Ok {a 1 b False c 2 d 12\
+e(1) 3 e(2) 4 e(3,0) 5} {a 2 b False c 2 d 12 e(1) 3 e(2) 4 e(3,0) 5} {a 3 b\
+False c 2 d 12 e(1) 5 e(2) 4 e(3,0) 5 e(4) 7 f A g(1) 11} {} {} {}}}
+
+###############################################################################
+
+runTest {test interp-1.44 {create/delete nested isolated interpreter} -setup {
+  set i(1) [interp create -isolated]
+
+  interp eval $i(1) {
+    object invoke -flags +NonPublic Interpreter.GetActive Complaint null
+    object invoke Eagle._Tests.Default TestSetComplainCallback "" true false
+  }
+} -body {
+  set i(2) [interp create -isolated [list $i(1) nested]]
+
+  list [catch {interp delete $i(2)}] [interp eval $i(1) {
+    expr {[info exists test_complain_no_throw] ? $test_complain_no_throw : ""}
+  }] [interp eval $i(1) {
+    object invoke -flags +NonPublic Interpreter.GetActive Complaint
+  }]
+} -cleanup {
+  unset -nocomplain test_complain_no_throw
+
+  catch {interp delete $i(1)}
+
+  unset -nocomplain i
+} -constraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS compile.TEST\
+Eagle._Tests.Default.TestSetComplainCallback\
+Eagle._Tests.Default.TestComplainCallbackThrow} -result {0 {} {}}}
+
+###############################################################################
+
+runTest {test interp-1.45 {custom interpreter library path} -body {
+  list [string match */lib/Eagle1.0 $tcl_library] $tcl_library
+} -constraints {eagle tcl_library_external} -isolationLevel Interpreter \
+-libraryPath $tcl_library -result [list True $tcl_library]}
+
+###############################################################################
+
+runTest {test interp-1.46 {custom interpreter library path / auto-path} -body {
+  list [string match */lib/Eagle1.0 $tcl_library] $tcl_library
+} -constraints {eagle tcl_library_external} -isolationLevel Interpreter \
+-libraryPath $tcl_library -autoPath {1 2 3} -result [list True $tcl_library]}
+
+###############################################################################
+
+runTest {test interp-1.60 {object sharing normal} -setup {
+  set o [object load Sample]
+  set i [interp create]
+} -body {
+  interp shareobject $i $o
+
+  list [interp set $i o $o; interp eval $i {
+    list [object invoke $o GetName.Name] [object dispose $o]
+  }] [info objects $o]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain o i
+} -constraints {eagle command.object file_Sample.exe strongName.official} \
+-match regexp -result {^\{Sample removed\} \{\{\{Sample,\
+Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+\d+\}\}$}}
+
+###############################################################################
+
+runTest {test interp-1.61 {object sharing "safe"} -setup {
+  set o [object load Sample]
+  set i [interp create -safe]
+} -body {
+  interp shareobject $i $o
+
+  list [interp set $i o $o; interp eval $i {
+    list [catch {object invoke $o GetName.Name} error] $error \
+        [object dispose $o]
+  }] [info objects $o]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain o i
+} -constraints {eagle command.object file_Sample.exe strongName.official} \
+-match regexp -result {^\{1 \{permission denied: safe interpreter cannot use\
+object from \"\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+\d+\"\} removed\} \{\{\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+\d+\}\}$}}
+
+###############################################################################
+
+runTest {test interp-1.62 {object sharing isolated} -setup {
+  set o [object load Sample]
+  set i [interp create -isolated]
+} -body {
+  interp shareobject $i $o
+
+  list [interp set $i o $o; interp eval $i {
+    list [object invoke $o GetName.Name] [object dispose $o]
+  }] [info objects $o]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain o i
+} -constraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS file_Sample.exe strongName.official} -match \
+regexp -result {^\{Sample removed\} \{\{\{Sample, Version=1\.0\.\d+\.\d+,\
+Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+\d+\}\}$}}
+
+###############################################################################
+
+runTest {test interp-1.63 {object sharing "safe" and isolated} -setup {
+  set o [object load Sample]
+  set i [interp create -safe -isolated]
+} -body {
+  interp shareobject $i $o
+
+  list [interp set $i o $o; interp eval $i {
+    list [catch {object invoke $o GetName.Name} error] $error \
+        [object dispose $o]
+  }] [info objects $o]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain o i
+} -constraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS file_Sample.exe strongName.official} -match \
+regexp -result {^\{1 \{permission denied: safe interpreter cannot use object\
+from \"\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+\d+\"\} removed\} \{\{\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+\d+\}\}$}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  set appDomain(0) [info appdomain]
+} else {
+  set appDomain(0) 0; # Tcl: N/A.
+}
+
+###############################################################################
+
+runTest {test interp-1.70 {instance cross-domain script evaluation} -setup {
+  set o [object invoke Interpreter GetActive]; # NoDispose
+  set i [interp create -isolated]
+} -body {
+  interp shareobject $i $o
+  interp set $i o $o
+
+  interp eval $i {
+    set appDomain(1) [info appdomain]
+
+    set result null
+    set code [object invoke -alias $o EvaluateScript {
+      info appdomain
+    } result]
+
+    set appDomain(2) [getStringFromObjectHandle $result]
+    list $appDomain(2) [expr {$appDomain(1) == $appDomain(2)}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain o i
+} -constraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS} -result [list $appDomain(0) False]}
+
+###############################################################################
+
+runTest {test interp-1.71 {static cross-domain script evaluation} -setup {
+  set o [object invoke Interpreter GetActive]; # NoDispose
+  set i [interp create -isolated]
+} -body {
+  interp shareobject $i $o
+  interp set $i o $o
+
+  interp eval $i {
+    set appDomain(1) [info appdomain]
+
+    set result null
+    set code [object invoke -alias Engine EvaluateScript $o {
+      info appdomain
+    } result]
+
+    set appDomain(2) [getStringFromObjectHandle $result]
+    list $appDomain(2) [expr {$appDomain(1) == $appDomain(2)}]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain o i
+} -constraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS} -result [list $appDomain(0) False]}
+
+###############################################################################
+
+runTest {test interp-1.72 {static cross-domain script stock error} -setup {
+  set o [object invoke Interpreter GetActive]; # NoDispose
+  set i [interp create -isolated]
+} -body {
+  interp shareobject $i $o
+  interp set $i o $o
+
+  interp eval $i {
+    set appDomain(1) [info appdomain]
+
+    set result null
+    set code [object invoke -alias Engine EvaluateScript $o {
+      # placeholder line 1...
+      # placeholder line 2...
+
+      error [appendArgs "something bad: " [info appdomain]] "" BIGBAD
+    } result]
+
+    set appDomain(2) 0
+    regexp -- {^something bad: (\d+)$} \
+        [getStringFromObjectHandle $result] \
+        dummy appDomain(2)
+
+    set result null
+    object invoke $o CopyErrorInformation None result
+
+    set error(line) [object invoke $o ErrorLine]
+    set error(code) [object invoke $result ErrorCode]
+    set error(info) [object invoke $result ErrorInfo]
+
+    list $appDomain(2) [expr {$appDomain(1) == $appDomain(2)}] \
+        $code $error(line) $error(code) [string map [list \r\n \n] \
+        $error(info)]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain o i
+} -constraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS} -match regexp -result [appendArgs ^ [string \
+map [list \[ \\\[ \] \\\] \{ \\\{ \} \\\}] [list $appDomain(0) False Error 5 \
+BIGBAD {something bad: \d+
+    while executing
+"error [appendArgs "something bad: " [info appdomain]] "" BIGBAD"}]] \$]}
+
+###############################################################################
+
+runTest {test interp-1.73 {static cross-domain script custom error} -setup {
+  set o [object invoke Interpreter GetActive]; # NoDispose
+  set i [interp create -isolated]
+} -body {
+  interp shareobject $i $o
+  interp set $i o $o
+
+  interp eval $i {
+    set appDomain(1) [info appdomain]
+
+    set result null
+    set code [object invoke -alias Engine EvaluateScript $o {
+      # placeholder line 1...
+      # placeholder line 2...
+
+      error [appendArgs "something bad: " [info appdomain]] {
+        original info
+      } MOREBAD
+    } result]
+
+    set appDomain(2) 0
+    regexp -- {^something bad: (\d+)$} \
+        [getStringFromObjectHandle $result] \
+        dummy appDomain(2)
+
+    set result null
+    object invoke $o CopyErrorInformation None result
+
+    set error(line) [object invoke $o ErrorLine]
+    set error(code) [object invoke $result ErrorCode]
+    set error(info) [object invoke $result ErrorInfo]
+
+    list $appDomain(2) [expr {$appDomain(1) == $appDomain(2)}] \
+        $code $error(line) $error(code) [string map [list \r\n \n] \
+        $error(info)]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain o i
+} -constraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS} -result [list $appDomain(0) False \
+Error 5 MOREBAD {
+        original info
+      }]}
+
+###############################################################################
+
+unset -nocomplain appDomain
+
+###############################################################################
+
+runTest {test interp-1.74 {clone interpreter settings} -setup {
+  proc maybeInvoke { object0 member1 member2 {default ""} } {
+    if {[isNonNullObjectHandle $object0]} then {
+      set object1 [object invoke -create -flags +NonPublic \
+          -objectflags +NoDispose $object0 $member1]
+
+      if {[isNonNullObjectHandle $object1]} then {
+        return [object invoke -flags +NonPublic $object1 $member2]
+      }
+    }
+
+    return $default
+  }
+
+  set interp [interp create -nonamespaces]
+} -body {
+  set obj(1) [object create Int32]
+  set obj(2) [object create Int32]
+  set obj(3) [object create Int32]
+  set obj(4) [object create Int32]
+  set obj(5) [object create Int32]
+
+  set obj(6) [interp eval $interp {
+    object invoke Interpreter.GetActive.Host Id
+  }]
+
+  set obj(7) [interp eval $interp {
+    object invoke -flags +NonPublic Interpreter.GetActive policies.Count
+  }]
+
+  set obj(8) [interp eval $interp {
+    object invoke -flags +NonPublic Interpreter.GetActive traces.Count
+  }]
+
+  set obj(9) [interp eval $interp {
+    object invoke -flags +NonPublic Interpreter.GetActive CreateFlags
+  }]
+
+  set obj(10) [interp eval $interp {
+    object invoke -flags +NonPublic Interpreter.GetActive InitializeFlags
+  }]
+
+  set obj(11) [interp eval $interp {
+    object invoke Interpreter.GetActive ScriptFlags
+  }]
+
+  set obj(12) [interp eval $interp {
+    object invoke -flags +NonPublic Interpreter.GetActive InterpreterFlags
+  }]
+
+  interp set $interp obj(1) $obj(1)
+  interp set $interp obj(2) $obj(2)
+  interp set $interp obj(3) $obj(3)
+  interp set $interp obj(4) $obj(4)
+  interp set $interp obj(5) $obj(5)
+
+  interp eval $interp {
+    set ::argv [list one two three]
+
+    set obj(culture) [object invoke \
+        System.Globalization.CultureInfo GetCultureInfo en-US]
+
+    object invoke Interpreter.GetActive CultureInfo $obj(culture)
+
+    object invoke Interpreter.GetActive.Host Profile interp-1.74
+    object invoke Interpreter.GetActive Owner $obj(1)
+    object invoke Interpreter.GetActive ApplicationObject $obj(2)
+    object invoke Interpreter.GetActive PolicyObject $obj(3)
+    object invoke Interpreter.GetActive ResolverObject $obj(4)
+    object invoke Interpreter.GetActive UserObject $obj(5)
+
+    object invoke -flags +NonPublic \
+        Interpreter.GetActive preInitializeText "# interp-1.74"
+
+    object invoke Interpreter.GetActive LibraryPath lib/interp-1.74
+
+    set obj(list) [object create StringList 4 5 6]
+    object invoke Interpreter.GetActive AutoPathList $obj(list)
+  }
+
+  set is(1) null
+  set error null
+  set code [object invoke -alias InterpreterSettings LoadFrom \
+      $interp false false false is(1) error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set is(2) null
+  set error null
+  set code [object invoke -alias InterpreterSettings LoadFrom \
+      $interp false false true is(2) error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  list [string equal [maybeInvoke $is(1) AppDomain Id] [info appdomain]] \
+      [string equal [maybeInvoke $is(1) Host Id] $obj(6)] \
+      [string equal [$is(1) Owner] $obj(1)] \
+      [string equal [$is(1) ApplicationObject] $obj(2)] \
+      [string equal [$is(1) PolicyObject] $obj(3)] \
+      [string equal [$is(1) ResolverObject] $obj(4)] \
+      [string equal [$is(1) UserObject] $obj(5)] \
+      [string equal [maybeInvoke $is(1) Policies Count 0] $obj(7)] \
+      [string equal [maybeInvoke $is(1) Traces Count 0] $obj(8)] \
+      [$is(1) Args] [$is(1) Culture] \
+      [string equal [$is(1) CreateFlags] $obj(9)] \
+      [string equal [$is(1) InitializeFlags] $obj(10)] \
+      [string equal [$is(1) ScriptFlags] $obj(11)] \
+      [string equal [$is(1) InterpreterFlags] $obj(12)] \
+      [$is(1) Profile] [$is(1) Text] [$is(1) LibraryPath] \
+      [$is(1) AutoPathList] \
+      [string equal [maybeInvoke $is(2) AppDomain Id] [info appdomain]] \
+      [string equal [maybeInvoke $is(2) Host Id] $obj(6)] \
+      [string equal [$is(2) Owner] $obj(1)] \
+      [string equal [$is(2) ApplicationObject] $obj(2)] \
+      [string equal [$is(2) PolicyObject] $obj(3)] \
+      [string equal [$is(2) ResolverObject] $obj(4)] \
+      [string equal [$is(2) UserObject] $obj(5)] \
+      [string equal [maybeInvoke $is(2) Policies Count 0] $obj(7)] \
+      [string equal [maybeInvoke $is(2) Traces Count 0] $obj(8)] \
+      [$is(2) Args] [$is(2) Culture] \
+      [string equal [$is(2) CreateFlags] $obj(9)] \
+      [string equal [$is(2) InitializeFlags] $obj(10)] \
+      [string equal [$is(2) ScriptFlags] $obj(11)] \
+      [string equal [$is(2) InterpreterFlags] $obj(12)] \
+      [$is(2) Profile] [$is(2) Text] [$is(2) LibraryPath] \
+      [$is(2) AutoPathList]
+} -cleanup {
+  catch {interp delete $interp}
+
+  rename maybeInvoke ""
+
+  unset -nocomplain error code is obj interp
+} -constraints {eagle command.object namespaces.available} -result {True True\
+True True True True True False False {one two three} en-US True True True True\
+interp-1.74 {# interp-1.74} lib/interp-1.74 {4 5 6} True True True True True\
+True True True True {one two three} en-US True True True True interp-1.74 {#\
+interp-1.74} lib/interp-1.74 {4 5 6}}}
+
+###############################################################################
+
+runTest {test interp-1.75 {shared interpreters} -setup {
+  set result(1) null
+
+  set interpreter [object invoke \
+      -alias Interpreter Create null result(1)]
+
+  if {![isNonNullObjectHandle $interpreter]} then {
+    set error [getStringFromObjectHandle $result(1)]
+
+    error [appendArgs \
+        "failed to create interpreter: " $error]
+  }
+} -body {
+  lappend result(2) [object flags $interpreter]
+  lappend result(2) [$interpreter Disposed]
+  lappend result(2) [$interpreter -flags +NonPublic IsShared]
+
+  set interp [interp shareinterp "" $interpreter]
+
+  lappend result(2) [object flags $interpreter]
+  lappend result(2) [$interpreter Disposed]
+  lappend result(2) [$interpreter -flags +NonPublic IsShared]
+
+  interp delete $interp
+
+  lappend result(2) [object flags $interpreter]
+  lappend result(2) [$interpreter Disposed]
+  lappend result(2) [$interpreter -flags +NonPublic IsShared]
+} -cleanup {
+  catch {object flags $interpreter -NoDispose}
+  catch {object dispose $interpreter}
+
+  unset -nocomplain interp error interpreter result
+} -constraints {eagle command.object} -result {{WellKnown, Runtime,\
+Interpreter, Alias, NoAutoDispose, Default} False False {WellKnown, Runtime,\
+Interpreter, Alias, NoDispose, NoAutoDispose, Default} False True {WellKnown,\
+Runtime, Interpreter, Alias, NoDispose, NoAutoDispose, Default} False True}}
+
+###############################################################################
+
+runTest {test interp-1.76 {not reset cancel on outermost catch} -setup {
+  set i [interp create]
+
+  if {[haveConstraint quiet]} then {
+    interp eval $i {
+      object invoke Eagle._Tests.Default TestSetQuiet "" true
+    }
+  }
+
+  interp eval $i {
+    catch {
+      #
+      # HACK: Just in case it is actually the default, force the necessary
+      #       interpreter flags to be disabled for the created interpreter.
+      #
+      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags] " -CatchResetCancel CatchResetGlobalCancel"]
+    }
+  }
+} -body {
+  list [catch {interp eval $i {
+    set x 0
+
+    after 1000 [list interp cancel -unwind]
+    catch {while 1 update}; incr x
+
+    after 1000 [list interp cancel -unwind]
+    catch {catch {while 1 update}}; incr x
+
+    after 1000 [list interp cancel -unwind]
+    catch {catch {catch {while 1 update}}}; incr x
+
+    incr x
+  }} result] $result [interp resetcancel $i -global] \
+      [catch {interp eval $i {set x}} result] $result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object globalTip285\
+Eagle._Tests.Default.TestSetQuiet} -result {1 {eval unwound} True 0 0}}
+
+###############################################################################
+
+runTest {test interp-1.77 {reset cancel on outermost catch} -setup {
+  set i [interp create]
+
+  if {[haveConstraint quiet]} then {
+    interp eval $i {
+      object invoke Eagle._Tests.Default TestSetQuiet "" true
+    }
+  }
+
+  interp eval $i {
+    catch {
+      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags] " +CatchResetCancel CatchResetGlobalCancel"]
+    }
+  }
+} -body {
+  list [catch {interp eval $i {
+    set x 0
+
+    after 1000 [list interp cancel -unwind]
+    catch {while 1 update}; incr x
+
+    after 1000 [list interp cancel -unwind]
+    catch {catch {while 1 update}}; incr x
+
+    after 1000 [list interp cancel -unwind]
+    catch {catch {catch {while 1 update}}}; incr x
+
+    incr x
+  }} result] $result [catch {interp eval $i {set x}} result] $result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result i
+} -constraints {eagle command.object Eagle._Tests.Default.TestSetQuiet} \
+-result {0 4 0 4}}
+
+###############################################################################
+
+runTest {test interp-1.78 {not reset exit on outermost catch} -setup {
+  set i [interp create]
+
+  if {[haveConstraint quiet]} then {
+    interp eval $i {
+      object invoke Eagle._Tests.Default TestSetQuiet "" true
+    }
+  }
+
+  interp eval $i {
+    catch {
+      #
+      # HACK: Just in case it is actually the default, force the necessary
+      #       interpreter flags to be disabled for the created interpreter.
+      #
+      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags] " -CatchResetExit"]
+    }
+  }
+} -body {
+  list [catch {interp eval $i {
+    set x 0
+
+    after 1000 [list exit]
+    catch {while 1 update}; incr x
+
+    after 1000 [list exit]
+    catch {catch {while 1 update}}; incr x
+
+    after 1000 [list exit]
+    catch {catch {catch {while 1 update}}}; incr x
+
+    incr x
+  }} result] $result [catch {interp eval $i {set x}} result] $result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object Eagle._Tests.Default.TestSetQuiet} \
+-result {0 1 1 {attempt to call eval in exited interpreter}}}
+
+###############################################################################
+
+runTest {test interp-1.79 {reset exit on outermost catch} -setup {
+  set i [interp create]
+
+  if {[haveConstraint quiet]} then {
+    interp eval $i {
+      object invoke Eagle._Tests.Default TestSetQuiet "" true
+    }
+  }
+
+  interp eval $i {
+    catch {
+      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags] " +CatchResetExit"]
+    }
+  }
+} -body {
+  list [catch {interp eval $i {
+    set x 0
+
+    after 1000 [list exit]
+    catch {while 1 update}; incr x
+
+    after 1000 [list exit]
+    catch {catch {while 1 update}}; incr x
+
+    after 1000 [list exit]
+    catch {catch {catch {while 1 update}}}; incr x
+
+    incr x
+  }} result] $result [catch {interp eval $i {set x}} result] $result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result i
+} -constraints {eagle command.object Eagle._Tests.Default.TestSetQuiet} \
+-result {0 4 0 4}}
+
+###############################################################################
+
+runTest {test interp-1.80 {info subcommands in "safe" interp} -setup {
+  set i [interp create -safe]
+} -body {
+  list [info subcommands after] \
+      [info subcommands clock] \
+      [info subcommands file] \
+      [info subcommands info] \
+      [info subcommands interp] \
+      [info subcommands object] \
+      [info subcommands package] \
+      [info subcommands set] \
+      [info subcommands source] \
+      [interp eval $i {info subcommands after}] \
+      [interp eval $i {info subcommands clock}] \
+      [interp eval $i {info subcommands file}] \
+      [interp eval $i {info subcommands info}] \
+      [interp eval $i {info subcommands interp}] \
+      [interp eval $i {info subcommands object}] \
+      [interp eval $i {info subcommands package}] \
+      [interp eval $i {info subcommands set}] \
+      [interp eval $i {info subcommands source}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle} -result {{active cancel clear counts dump enable flags\
+idle info} {buildnumber clicks days duration filetime format isvalid\
+microseconds milliseconds now scan seconds start stop} {atime attributes\
+channels cleanup copy ctime delete dirname drive executable exists extension\
+glob information isdirectory isfile join list lstat magic mkdir mtime\
+nativename normalize objectid owned pathtype readable rename rights rmdir\
+rootname rootpath same sddl separator size split stat system tail tempname\
+temppath touch type under validname version volumes writable} {active\
+administrator appdomain args assembly base binary bindertypes body callbacks\
+channels clr cmdcount cmdline cmdtype commands complete connections context\
+culture cultures default delegates engine ensembles exists externals frame\
+framework frameworkextra functions globals hostname hwnd identifier interactive\
+interps lastinput level levelid library linkedname loaded locals modules\
+nameofexecutable newline nprocs objects operands operators os patchlevel path\
+pid plugin pluginflags policies ppid previouspid processors procs\
+programextension ptid runtime runtimeversion script setup sharedlibextension\
+shelllibrary source subcommands syntax sysvars tclversion tid transactions user\
+varlinks vars whitespace windows windowtext} {addcommands alias aliases bgerror\
+callbacklimit cancel children create delete enabled eval eventlimit exists\
+expose exposed expr finallytimeout hide hidden immutable invokehidden isolated\
+issafe issdk isstandard makesafe makestandard marktrusted nopolicy parent\
+policy proclimit queue readonly readorgetscriptfile readylimit recursionlimit\
+rename resetcancel resultlimit service set shareinterp shareobject sleeptime\
+source stub subcommand subst target timeout unset varlimit watchdog}\
+{addreference alias aliasnamespaces assemblies callbackflags certificate\
+cleanup create declare dispose exists flags foreach fromvar get hash import\
+interfaces invoke invokeall invokeraw isnull isoftype list lmap load members\
+namespaces referencecount removecallback removereference resolve search\
+strongname type types unalias unaliasnamespace undeclare unimport untype\
+verifyall} {forget ifneeded indexes info loaded names pending present provide\
+relativefilename require reset scan unknown vcompare versions vloaded\
+vsatisfies vsort withdraw} {} {} {active cancel clear counts dump enable flags\
+idle info} {buildnumber days duration filetime format isvalid scan seconds}\
+{channels dirname join split validname} {appdomain args body commands complete\
+context default engine ensembles exists functions globals level library locals\
+nprocs objects operands operators patchlevel procs script subcommands\
+tclversion vars} {alias aliases cancel children exists issafe issdk rename}\
+{dispose exists invoke invokeall invokeraw isnull isoftype} {forget ifneeded\
+info loaded names pending present provide require unknown vcompare versions\
+vsatisfies vsort withdraw} {} {}}}
+
+###############################################################################
+
+runTest {test interp-1.85 {script policy with arguments} -setup {
+  proc infoCmdCount { interp args } {
+    if {[llength $args] != 2 || [lindex $args 0] ne "info" || \
+        [lindex $args 1] ne "cmdcount"} then {
+      error "only \[info cmdcount\] is supported"
+    }
+
+    set cmdCount [interp invokehidden $interp info cmdcount]
+
+    if {$cmdCount > 100} then {
+      error [appendArgs \
+          "access denied: too many commands, " $cmdCount]
+    }
+  }
+
+  set i [interp create -safe]
+} -body {
+  interp policy -flags +Arguments -type Eagle._Commands.Info \
+      $i "infoCmdCount [list $i]"
+
+  set code(1) [catch {
+    interp eval $i info cmdcount
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $i {set x 0; while {$x < 100} {incr x}}
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $i info cmdcount
+  } result(3)]
+
+  list $code(1) $result(1) $code(2) $result(2) $code(3) $result(3)
+} -cleanup {
+  catch {interp delete $i}
+
+  rename infoCmdCount ""
+
+  unset -nocomplain result code i
+} -constraints {eagle} -match regexp -result {^0 \d+ 0 \{\} 1 \{permission\
+denied: safe interpreter cannot use command "info cmdcount"\}$}}
+
+###############################################################################
+
+runTest {test interp-1.90 {info context sub-command values} -setup {
+  set i(1) [interp create]
+  set i(2) [interp create]
+  set i(3) [interp create -safe]
+  set i(4) [interp create -safe]
+} -body {
+  set ctx(0) [info context]
+  set ctx(1) [interp eval $i(1) {info context}]
+  set ctx(2) [interp eval $i(2) {info context}]
+  set ctx(3) [interp eval $i(3) {info context}]
+  set ctx(4) [interp eval $i(4) {info context}]
+
+  list $ctx(0) $ctx(1) $ctx(2) $ctx(3) $ctx(4) \
+      [expr {$ctx(0) == $ctx(1)}] [expr {$ctx(0) == $ctx(2)}] \
+      [expr {$ctx(0) == $ctx(3)}] [expr {$ctx(0) == $ctx(4)}] \
+      [expr {$ctx(1) == $ctx(2)}] [expr {$ctx(1) == $ctx(3)}] \
+      [expr {$ctx(1) == $ctx(4)}] [expr {$ctx(2) == $ctx(3)}] \
+      [expr {$ctx(2) == $ctx(4)}] [expr {$ctx(3) == $ctx(4)}]
+} -cleanup {
+  catch {interp delete $i(4)}
+  catch {interp delete $i(3)}
+  catch {interp delete $i(2)}
+  catch {interp delete $i(1)}
+
+  unset -nocomplain ctx i
+} -constraints {eagle} -match regexp -result {^\d+ \d+ \d+ \d+ \d+ False False\
+False False False False False False False False$}}
+
+###############################################################################
+
+runTest {test interp-1.91 {info context sub-command values} -setup {
+  set i(1) [interp create -isolated]
+  set i(2) [interp create -isolated]
+  set i(3) [interp create -safe -isolated]
+  set i(4) [interp create -safe -isolated]
+} -body {
+  set ctx(0) [info context]
+  set ctx(1) [interp eval $i(1) {info context}]
+  set ctx(2) [interp eval $i(2) {info context}]
+  set ctx(3) [interp eval $i(3) {info context}]
+  set ctx(4) [interp eval $i(4) {info context}]
+
+  list $ctx(0) $ctx(1) $ctx(2) $ctx(3) $ctx(4) \
+      [expr {$ctx(0) == $ctx(1)}] [expr {$ctx(0) == $ctx(2)}] \
+      [expr {$ctx(0) == $ctx(3)}] [expr {$ctx(0) == $ctx(4)}] \
+      [expr {$ctx(1) == $ctx(2)}] [expr {$ctx(1) == $ctx(3)}] \
+      [expr {$ctx(1) == $ctx(4)}] [expr {$ctx(2) == $ctx(3)}] \
+      [expr {$ctx(2) == $ctx(4)}] [expr {$ctx(3) == $ctx(4)}]
+} -cleanup {
+  catch {interp delete $i(4)}
+  catch {interp delete $i(3)}
+  catch {interp delete $i(2)}
+  catch {interp delete $i(1)}
+
+  unset -nocomplain ctx i
+} -constraints {eagle compile.APPDOMAINS compile.ISOLATED_INTERPRETERS} \
+-match regexp -result {^\d+ \d+ \d+ \d+ \d+ False False False False False False\
+False False False False$}}
+
+###############################################################################
+
+runTest {test interp-1.92 {info context sub-command syntax} -setup {
+  set i [interp create -safe]
+} -body {
+  set code(1) [catch {info context 1} result(1)]
+  set code(2) [catch {interp eval $i {info context 2}} result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle} -result {1 {wrong # args: should be "info context"} 1\
+{wrong # args: should be "info context"}}}
+
+###############################################################################
+
+runTest {test interp-1.101 {new interpreter callback success} -setup {
+  set x [object create Eagle._Tests.Default]
+
+  object invoke $x TestSetNewInterpreterCallback "" {
+    set y [list yes [interpreter Id]]
+  } true
+} -body {
+  set i [interp create]; set y
+} -cleanup {
+  catch {interp delete $i}
+
+  catch {
+    object invoke $x TestSetNewInterpreterCallback null null false
+  }
+
+  unset -nocomplain y i x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetNewInterpreterCallback\
+Eagle._Tests.Default.TestNewInterpreterCallback} -match regexp -result \
+{^yes \d+$}}
+
+###############################################################################
+
+runTest {test interp-1.102 {new interpreter callback failure} -setup {
+  set x [object create Eagle._Tests.Default]
+
+  object invoke $x TestSetNewInterpreterCallback "" {
+    error [appendArgs "interpreter " [interpreter Id] " is bad"]
+  } true
+} -body {
+  set i [interp create]
+} -cleanup {
+  catch {interp delete $i}
+
+  catch {
+    object invoke $x TestSetNewInterpreterCallback null null false
+  }
+
+  unset -nocomplain i x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetNewInterpreterCallback\
+Eagle._Tests.Default.TestNewInterpreterCallback} -returnCodes 1 -match regexp \
+-result {^interpreter \d+ is bad$}}
+
+###############################################################################
+
+#
+# NOTE: *HACK* If sub-commands are added or removed from the [info] command,
+#       this test may need to be updated.
+#
+runTest {test interp-1.103 {sub-command matching/filtering (safe)} -setup {
+  set i [interp create -safe]
+} -body {
+  set code(1) [catch {
+    interp eval $i {info z}
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $i {info b}
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $i {info a}
+  } result(3)]
+
+  set code(4) [catch {
+    interp eval $i {info co}
+  } result(4)]
+
+  set code(5) [catch {
+    interp eval $i {info m "" ""}
+  } result(5)]
+
+  set code(6) [catch {
+    interp eval $i {info w}
+  } result(6)]
+
+  set code(7) [catch {
+    interp eval $i {info fr}
+  } result(7)]
+
+  list $code(1) $result(1) $code(2) $result(2) \
+      $code(3) $result(3) $code(4) $result(4) \
+      $code(5) $result(5) $code(6) $result(6) \
+      $code(7) $result(7)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle} -result {1 {bad option "z": must be appdomain, args,\
+body, commands, complete, context, default, engine, ensembles, exists,\
+functions, globals, level, library, locals, nprocs, objects, operands,\
+operators, patchlevel, procs, script, subcommands, tclversion, or vars} 1\
+{wrong # args: should be "info body procName ?showLines? ?useLocation?"} 1\
+{ambiguous option "a": must be appdomain or args} 1 {ambiguous option "co":\
+must be commands, complete, or context} 1 {bad option "m": must be appdomain,\
+args, body, commands, complete, context, default, engine, ensembles, exists,\
+functions, globals, level, library, locals, nprocs, objects, operands,\
+operators, patchlevel, procs, script, subcommands, tclversion, or vars} 1 {bad\
+option "w": must be appdomain, args, body, commands, complete, context,\
+default, engine, ensembles, exists, functions, globals, level, library, locals,\
+nprocs, objects, operands, operators, patchlevel, procs, script, subcommands,\
+tclversion, or vars} 1 {bad option "fr": must be appdomain, args, body,\
+commands, complete, context, default, engine, ensembles, exists, functions,\
+globals, level, library, locals, nprocs, objects, operands, operators,\
+patchlevel, procs, script, subcommands, tclversion, or vars}}}
+
+###############################################################################
+
+#
+# NOTE: *HACK* If sub-commands are added or removed from the [info] command,
+#       this test may need to be updated.
+#
+runTest {test interp-1.104 {sub-command matching/filtering (unsafe)} -setup {
+  set i [interp create]
+} -body {
+  set code(1) [catch {
+    interp eval $i {info z}
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $i {info b}
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $i {info a}
+  } result(3)]
+
+  set code(4) [catch {
+    interp eval $i {info co}
+  } result(4)]
+
+  set code(5) [catch {
+    interp eval $i {info m "" ""}
+  } result(5)]
+
+  set code(6) [catch {
+    interp eval $i {info w}
+  } result(6)]
+
+  set code(7) [catch {
+    interp eval $i {info fr}
+  } result(7)]
+
+  list $code(1) $result(1) $code(2) $result(2) \
+      $code(3) $result(3) $code(4) $result(4) \
+      $code(5) $result(5) $code(6) $result(6) \
+      $code(7) $result(7)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result code i
+} -constraints {eagle} -result {1 {bad option "z": must be active,\
+administrator, appdomain, args, assembly, base, binary, bindertypes, body,\
+callbacks, channels, clr, cmdcount, cmdline, cmdtype, commands, complete,\
+connections, context, culture, cultures, default, delegates, engine, ensembles,\
+exists, externals, frame, framework, frameworkextra, functions, globals,\
+hostname, hwnd, identifier, interactive, interps, lastinput, level, levelid,\
+library, linkedname, loaded, locals, modules, nameofexecutable, newline,\
+nprocs, objects, operands, operators, os, patchlevel, path, pid, plugin,\
+pluginflags, policies, ppid, previouspid, processors, procs, programextension,\
+ptid, runtime, runtimeversion, script, setup, sharedlibextension, shelllibrary,\
+source, subcommands, syntax, sysvars, tclversion, tid, transactions, user,\
+varlinks, vars, whitespace, windows, or windowtext} 1 {ambiguous option "b":\
+must be base, binary, bindertypes, or body} 1 {ambiguous option "a": must be\
+active, administrator, appdomain, args, or assembly} 1 {ambiguous option "co":\
+must be commands, complete, connections, or context} 1 {wrong # args: should be\
+"info modules ?pattern?"} 1 {ambiguous option "w": must be whitespace, windows,\
+or windowtext} 1 {ambiguous option "fr": must be frame, framework, or\
+frameworkextra}}}
+
+###############################################################################
+
+runTest {test interp-1.200 {interp create -unsafeinitialize} -setup {
+  set i(1) [interp create]
+  set i(2) [interp create -safe]
+  set i(3) [interp create -unsafeinitialize]
+  set i(4) [interp create -safe -unsafeinitialize]
+} -body {
+  set result [list]
+
+  lappend result [interp eval $i(1) {interp issafe}]
+  lappend result [interp eval $i(2) {interp issafe}]
+  lappend result [interp eval $i(3) {interp issafe}]
+  lappend result [interp eval $i(4) {interp issafe}]
+
+  lappend result [interp eval $i(1) {info commands loadScripts}]
+  lappend result [interp eval $i(2) {info commands loadScripts}]
+  lappend result [interp eval $i(3) {info commands loadScripts}]
+  lappend result [interp eval $i(4) {info commands loadScripts}]
+
+  lappend result [interp eval $i(1) {info commands tclPkgUnknown}]
+  lappend result [interp eval $i(2) {info commands tclPkgUnknown}]
+  lappend result [interp eval $i(3) {info commands tclPkgUnknown}]
+  lappend result [interp eval $i(4) {info commands tclPkgUnknown}]
+
+  set result
+} -cleanup {
+  catch {interp delete $i(4)}
+  catch {interp delete $i(3)}
+  catch {interp delete $i(2)}
+  catch {interp delete $i(1)}
+
+  unset -nocomplain result i
+} -constraints {eagle} -result {False True False True loadScripts {}\
+loadScripts loadScripts tclPkgUnknown tclPkgUnknown tclPkgUnknown\
+tclPkgUnknown}}
+
+###############################################################################
+
+runTest {test interp-1.300 {out-of-band reset call stack & frames} -body {
+  set interp [interp create]
+  set o null; set error null
+
+  set code [object invoke -alias Value \
+      GetInterpreter "" $interp Default o error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set error null
+  set code [$o -flags +NonPublic ResetCallStackAndFrames error]
+
+  list $code $error [catch {interp eval $interp {info vars}}] \
+      [catch {interp eval $interp {info level}} error] $error
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain error code o interp
+} -constraints {eagle} -result {Ok {} 0 0 0}}
+
+###############################################################################
+
+#
+# TODO: This test *MUST* be updated when the list of embedded resources
+#       changes.
+#
+runTest {test interp-1.400 {embedded core script library} -setup {
+  unset -nocomplain results result string names name interp
+  unset -nocomplain error clientData scriptFlags
+
+  set interp [interp create -nosecurity]
+
+  set names [list \
+    empty \
+    enableSecurity \
+    enableSecurity.harpy \
+    disableSecurity \
+    disableSecurity.harpy \
+    removeCommands \
+    removeCommands.harpy \
+    removeVariables \
+    removeVariables.harpy \
+    lib/Eagle1.0/auxiliary.eagle \
+    lib/Eagle1.0/compat.eagle \
+    lib/Eagle1.0/csharp.eagle \
+    lib/Eagle1.0/database.eagle \
+    lib/Eagle1.0/exec.eagle \
+    lib/Eagle1.0/file1.eagle \
+    lib/Eagle1.0/file2.eagle \
+    lib/Eagle1.0/file3.eagle \
+    lib/Eagle1.0/info.eagle \
+    lib/Eagle1.0/list.eagle \
+    lib/Eagle1.0/object.eagle \
+    lib/Eagle1.0/pkgt.eagle \
+    lib/Eagle1.0/platform.eagle \
+    lib/Eagle1.0/process.eagle \
+    lib/Eagle1.0/runopt.eagle \
+    lib/Eagle1.0/shim.eagle \
+    lib/Eagle1.0/testlog.eagle \
+    lib/Eagle1.0/unkobj.eagle \
+    lib/Eagle1.0/unzip.eagle \
+    lib/Eagle1.0/update.eagle \
+    lib/Eagle1.0/init.eagle \
+    lib/Eagle1.0/embed.eagle \
+    lib/Eagle1.0/safe.eagle \
+    lib/Eagle1.0/shell.eagle \
+    lib/Eagle1.0/test.eagle \
+    lib/Eagle1.0/vendor.eagle \
+    lib/Eagle1.0/word.tcl \
+    lib/Eagle1.0/pkgIndex.eagle]
+} -body {
+  set results [list]
+
+  foreach name $names {
+    set scriptFlags None; set clientData null; set error null
+
+    set string [object invoke -create -alias Eagle._Tests.Default \
+        TestGetResourceString $interp $name scriptFlags clientData \
+        error]
+
+    if {[isNonNullObjectHandle $string]} then {
+      if {[$string Length] > 0} then {
+        lappend results Ok
+      } else {
+        lappend results Empty
+      }
+    } else {
+      lappend results Error $name \
+          [getStringFromObjectHandle $error]
+    }
+  }
+
+  set results
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain results result string names name interp
+  unset -nocomplain error clientData scriptFlags
+} -constraints {eagle command.object compile.EMBEDDED_LIBRARY compile.TEST\
+Eagle._Tests.Default.TestGetResourceString} -result {Empty Ok Ok Ok Ok Ok Ok Ok\
+Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok\
+Ok Ok Ok}}
+
+###############################################################################
+
+runTest {test interp-1.500 {execution result limit} -setup {
+  set interp [interp create]
+} -body {
+  set script {
+    set result [string repeat A 10000]
+    append result [string repeat A 50000]
+  }
+
+  list [interp resultlimit $interp] \
+      [interp resultlimit $interp 50000] \
+      [interp resultlimit $interp] \
+      [catch {interp eval $interp $script} result] $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle compile.RESULT_LIMITS} -result {{execute 0 nested 0}\
+{execute 50000 nested 50000} {execute 50000 nested 50000} 1 {maximum result\
+length of 50000 characters exceeded (60000)}}}
+
+###############################################################################
+
+runTest {test interp-1.501 {nested result limit} -setup {
+  set interp [interp create]
+} -body {
+  set script {
+    set x ABCD
+
+    while {[string length $x] < 100000} {
+      set x $x$x$x$x
+    }
+  }
+
+  list [interp resultlimit $interp] \
+      [interp resultlimit $interp 50000] \
+      [interp resultlimit $interp] \
+      [catch {interp eval $interp $script} result] $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle compile.RESULT_LIMITS} -result {{execute 0 nested 0}\
+{execute 50000 nested 50000} {execute 50000 nested 50000} 1 {maximum command\
+length of 50000 characters exceeded (65536)}}}
+
+###############################################################################
+
+runTest {test interp-1.502 {procedure limit} -setup {
+  set interp [interp create -noinitialize]
+} -body {
+  interp eval $interp {set x 0}
+  set script {proc myProc[incr x] {} {}}
+
+  list [interp proclimit $interp] \
+      [interp proclimit $interp -1] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp proclimit $interp 0] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp proclimit $interp 1] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp proclimit $interp 2] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp proclimit $interp]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle} -result {{procedure 0} {procedure -1} 1 {can't add\
+procedure "myProc1": limit exceeded} {procedure 0} 0 {} {procedure 1} 1 {can't\
+add procedure "myProc3": limit exceeded} {procedure 2} 0 {} {procedure 2}}}
+
+###############################################################################
+
+runTest {test interp-1.503 {variable limit} -setup {
+  set interp [interp create -novariables -noinitialize]
+} -body {
+  interp eval $interp {set x 0}
+
+  set script(1) {set y[incr x] 1}
+  set script(2) {set x 999}
+  set script(3) {unset x; set z 1010; unset z; set x 1999}
+  set script(4) {set x 9999}
+  set script(5) {unset z}
+
+  list [interp varlimit $interp] \
+      [interp varlimit $interp -1] \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp eval $interp {info vars}] \
+      [interp varlimit $interp 0] \
+      [catch {interp eval $interp $script(4)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp eval $interp {info vars}] \
+      [interp varlimit $interp 1] \
+      [catch {interp eval $interp $script(5)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp eval $interp {info vars}] \
+      [interp varlimit $interp 2] \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp eval $interp {info vars}] \
+      [interp varlimit $interp]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle} -result {{variable 0 arrayElement 0} {variable -1\
+arrayElement -1} 1 {can't set "y1": variable limit exceeded} 0 999 1 {can't set\
+"z": variable limit exceeded} {} {variable 0 arrayElement 0} 0 9999 0 1 0 999 0\
+1999 {x y10000} {variable 1 arrayElement 1} 1 {can't unset "z": no such\
+variable} 1 {can't set "y2000": variable limit exceeded} 0 999 0 1999 {x\
+y10000} {variable 2 arrayElement 2} 1 {can't set "y2000": variable limit\
+exceeded} 0 999 0 1999 {x y10000} {variable 2 arrayElement 2}}}
+
+###############################################################################
+
+runTest {test interp-1.504 {array element limit} -setup {
+  set interp [interp create -novariables]
+} -body {
+  interp eval $interp [list \
+      proc testArrayGet [info args testArrayGet true] \
+      [info body testArrayGet]]
+
+  interp eval $interp {set x 0}
+
+  set script(1) {set y([incr x]) 1}
+  set script(2) {set y(1) 999}
+  set script(3) {unset y(1); set y(2) 1010; unset y(2); set y(1) 1999}
+  set script(4) {set y(1) 9999}
+  set script(5) {unset y(2)}
+  set script(6) {object invoke Interpreter.GetActive VariableLimit 0}
+
+  list [interp varlimit $interp] \
+      [interp varlimit $interp -1] \
+      [catch {interp eval $interp $script(6)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp eval $interp {testArrayGet y}] \
+      [interp varlimit $interp 0] \
+      [catch {interp eval $interp $script(6)} result] $result \
+      [catch {interp eval $interp $script(4)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp eval $interp {testArrayGet y}] \
+      [interp varlimit $interp 1] \
+      [catch {interp eval $interp $script(6)} result] $result \
+      [catch {interp eval $interp $script(5)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp eval $interp {testArrayGet y}] \
+      [interp varlimit $interp 2] \
+      [catch {interp eval $interp $script(6)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp eval $interp {testArrayGet y}] \
+      [interp varlimit $interp]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle command.object} -result {{variable 0 arrayElement 0}\
+{variable -1 arrayElement -1} 0 {} 1 {can't set "y(1)": array element limit\
+exceeded} 1 {can't set "y(1)": array element limit exceeded} 1 {can't unset\
+"y(1)": no such variable} {} {variable 0 arrayElement 0} 0 {} 0 9999 0 1 0 999\
+0 1999 {1 1999} {variable 1 arrayElement 1} 0 {} 1 {can't unset "y(2)": no such\
+element in array} 1 {can't set "y(3)": array element limit exceeded} 0 999 0\
+1999 {1 1999} {variable 2 arrayElement 2} 0 {} 0 1 0 999 0 1999 {1 1999 4 1}\
+{variable 0 arrayElement 2}}}
+
+###############################################################################
+
+#
+# HACK: *MONO* Given how badly Mono seems to handle [exec] in its various
+#       versions, this test is disabled on Mono versions less than 5.4.
+#
+runTest {test interp-1.601 {populating installed updates} -setup {
+  set interp [interp create]
+
+  interp eval $interp \
+      [list proc cleanupAfterEvents \
+      [info args cleanupAfterEvents true] \
+      [info body cleanupAfterEvents]]
+
+  interp alias $interp my_tputs {} tputs $test_channel
+
+  interp eval $interp {
+    proc removePlatformOsExtraUpdateNames {} {
+      global tcl_platform
+
+      if {[info exists tcl_platform(osExtra)]} then {
+        set nameIndex [lsearch -exact -- $tcl_platform(osExtra) \
+            UpdateNames]
+
+        if {$nameIndex != -1} then {
+          set valueIndex [expr {$nameIndex + 1}]
+
+          if {$valueIndex < [llength $tcl_platform(osExtra)]} then {
+            set tcl_platform(osExtra) [lremove [lremove \
+                $tcl_platform(osExtra) $valueIndex] $nameIndex]
+          }
+        }
+      }
+    }
+
+    proc timeoutPlatformOsExtraUpdateNames { varName timeout } {
+      my_tputs [appendArgs \
+          "==== WARNING: timeout of " $timeout \
+          " milliseconds waiting on \"" $varName \"\n]
+
+      interp cancel -unwind -- {}; # NOTE: This cannot be caught.
+    }
+  }
+} -body {
+  #
+  # NOTE: This test has a minor race condition.  Technically, the list of
+  #       installed updates could be fully populated before the [vwait] in
+  #       the script block (below) is hit; however, given how slow WMI is,
+  #       that seems quite unlikely, even on fast systems with no updates
+  #       installed.
+  #
+  catch {
+    interp eval $interp {
+      #
+      # HACK: Remove the "UpdateNames" name and its associated value from
+      #       the "tcl_platform(osExtra)" array element, which is itself
+      #       a dictionary value.
+      #
+      removePlatformOsExtraUpdateNames
+
+      #
+      # HACK: Enable verbose mode for event processing in the current
+      #       interpreter.
+      #
+      object invoke -flags +NonPublic -objectflags +AutoFlagsEnum \
+          Interpreter.GetActive engineEventFlags +Debug
+
+      #
+      # HACK: Force the cached list of installed updates to be refreshed
+      #       when the GetInstalledUpdates method is called.
+      #
+      object invoke -flags +NonPublic \
+          Eagle._Components.Private.PlatformOps installedUpdates null
+
+      #
+      # NOTE: Initialize some variables used by the test, primarily for
+      #       the length of the "UpdateNames" section of the "osExtra"
+      #       element of "tcl_platform".
+      #
+      set varName ::tcl_platform(osExtra); set timeout 60000
+      set ::length(before) 0; set ::length(after) 0
+
+      #
+      # HACK: Since there is no (direct) way to modify the interpreter
+      #       flags used by [interp create], just call into the necessary
+      #       method directly.  It will asynchronously populate the data
+      #       into the specified array element.
+      #
+      object invoke -flags +NonPublic \
+          Eagle._Components.Private.PlatformOps \
+          PopulateOperatingSystemExtra "" true true true
+
+      after $timeout [list \
+          timeoutPlatformOsExtraUpdateNames $varName $timeout]
+
+      set time(before) [clock seconds]
+      vwait $varName
+      set time(after) [clock seconds]
+
+      cleanupAfterEvents true
+
+      my_tputs [appendArgs \
+          "---- done waiting on " $varName " after about " \
+          [expr {$time(after) - $time(before)}] " seconds\n"]
+
+      set ::length(after) [llength [getDictionaryValue \
+          $::tcl_platform(osExtra) UpdateNames]]
+    }
+  }
+
+  interp resetcancel $interp -force --
+  interp eval $interp {expr {$::length(after) > $::length(before)}}
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain interp
+} -constraints [fixTimingConstraints {eagle command.object windows monoBug52\
+!compile.NET_STANDARD_20 getInstalledUpdates}] -result {True}}
+
+###############################################################################
+
+runTest {test interp-1.700 {stop on per-thread complaint} -setup {
+  set interp [interp create]
+
+  interp eval $interp {
+    catch {
+      object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags [appendArgs [object invoke -flags \
+          +NonPublic Interpreter.GetActive interpreterFlags] \
+          " +IgnoreBgErrorFailure"]
+    }
+  }
+} -body {
+  set code [catch {
+    interp eval $interp {
+      after 8000 [list \
+          object invoke -flags +NonPublic \
+          Eagle._Components.Private.DebugOps Complain \
+          "" Error "some kind of error"]
+
+      after 16000 [list interp cancel -unwind -- {}]
+      vwait -force -eventwaitflags +StopOnComplain forever
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code interp
+} -constraints [fixConstraints {eagle command.object !quiet}] -match regexp \
+-result {^1 \{\{count of complaints increased from \d+ to \d+\} \{-?\d+\
+\(\d+\): Error: some kind of error\}\}$}}
+
+###############################################################################
+
+runTest {test interp-1.701 {stop on per-AppDomain complaint} -setup {
+  set interp [interp create]
+
+  interp eval $interp {
+    catch {
+      object invoke -flags +NonPublic Interpreter.GetActive \
+          interpreterFlags [appendArgs [object invoke -flags \
+          +NonPublic Interpreter.GetActive interpreterFlags] \
+          " +IgnoreBgErrorFailure"]
+    }
+  }
+} -body {
+  set code [catch {
+    interp eval $interp {
+      after 8000 [list evalAsync "" \
+          object invoke -flags +NonPublic \
+          Eagle._Components.Private.DebugOps Complain \
+          "" Error "some kind of global error"]
+
+      after 16000 [list interp cancel -unwind -- {}]
+      vwait -force -eventwaitflags +StopOnGlobalComplain forever
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code interp
+} -constraints [fixConstraints {eagle command.object !quiet compile.EMIT\
+compile.THREADING}] -match regexp -result {^1 \{\{count of global complaints\
+increased from \d+ to \d+\} \{-?\d+ \(\d+\): Error: some kind of global\
+error\}\}$}}
+
+###############################################################################
+
+#
+# HACK: *MONO* As of Mono 5.0 on Mac, this test hangs.  Also, even when running
+#       Mono on Windows, this test will cause some subsequent (unrelated) tests
+#       to fail (e.g. "object-10.9"), possibly due to an internal resource leak
+#       of some kind.
+#
+# NOTE: *MONO* This test passes on Mono 5.8.0.108 running on Linux.
+#
+runTest {test interp-1.801 {ScriptEventThread, et al} -setup {
+  set interp [interp create -safe]
+} -body {
+  set script(eventState) [object invoke -alias \
+      Eagle._Tests.Default+ScriptEventState Create \
+      null null null false]
+
+  set script(threadClientData) [object invoke \
+      Eagle._Tests.Default+ScriptThreadClientData Create \
+      null false]
+
+  set script(eventThread) [object invoke \
+      Eagle._Tests.Default+ScriptEventThread Create \
+      $script(eventState) $script(threadClientData)]
+
+  set script(scriptTimeout) [object invoke \
+      Utility GetThreadTimeout $interp null Script]
+
+  set script(eventTimeout) [object invoke \
+      Utility GetThreadTimeout $interp null Event]
+
+  set results [list]
+
+  foreach script(text) [list \
+      {set x} {set x 2} {while 1 nop} {incr x}] {
+    $script(eventState) PrepareForEvent \
+        $interp $script(text) $script(scriptTimeout) true
+
+    set code Ok; set result null; set errorLine 0
+    set myErrorCode null; set myErrorInfo null
+
+    $script(eventState) ResetCancel
+    $script(eventState) ClearResultAndErrorInformation
+    $script(eventState) UnSignalResult
+
+    if {[$script(eventState) SignalScriptAndWaitResult \
+        $script(eventTimeout)]} then {
+      $script(eventState) GetResult code result errorLine
+      $script(eventState) GetErrorInformation myErrorCode myErrorInfo
+    } else {
+      set code Timeout; set result "timeout waiting for result"
+    }
+
+    lappend results [list $script(text) $code \
+        [getStringFromObjectHandle $result] $errorLine \
+        [getStringFromObjectHandle $myErrorCode] \
+        [getFirstLineOfError [getStringFromObjectHandle \
+        $myErrorInfo]]]
+  }
+
+  $script(eventState) SignalDone
+  lappend results [$script(eventState) WaitExit 2000]
+
+  set results
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain myErrorCode myErrorInfo
+  unset -nocomplain results errorLine result code script interp
+} -constraints [fixTimingConstraints {eagle command.object monoBug54\
+compile.TEST member_Eagle._Tests.Default.ScriptEventState.ToString\
+member_Eagle._Tests.Default.ScriptEventThread.ToString\
+member_Eagle._Tests.Default.ScriptThreadClientData.ToString}] \
+-constraintExpression {![haveConstraint dotNetCore] || ![haveConstraint unix]} \
+-match regexp -result {^\{\{set x\} Error \{can't read "x": no such variable\}\
+1 NONE \{can't read "x": no such variable\}\} \{\{set x 2\} Ok 2 0 \{\} \{\}\}\
+\{\{while 1 nop\} Error \{runaway script unwound after \d+ milliseconds\} 1\
+NONE \{runaway script unwound after \d+ milliseconds\}\} \{\{incr x\} Ok 3 0\
+\{\} \{\}\} True$}}
+
+###############################################################################
+
+#
+# HACK: *MONO* As of Mono 5.0 on Mac, this test hangs.  Also, even when running
+#       Mono on Windows, this test will cause some subsequent (unrelated) tests
+#       to fail (e.g. "object-10.9"), possibly due to an internal resource leak
+#       of some kind.
+#
+runTest {test interp-1.802 {ScriptEventThread performance} -setup {
+  set interp [interp create -safe]
+} -body {
+  set script(eventState) [object invoke -alias \
+      Eagle._Tests.Default+ScriptEventState Create \
+      null null null false]
+
+  set script(threadClientData) [object invoke \
+      Eagle._Tests.Default+ScriptThreadClientData Create \
+      null false]
+
+  set script(eventThread) [object invoke \
+      Eagle._Tests.Default+ScriptEventThread Create \
+      $script(eventState) $script(threadClientData)]
+
+  set script(scriptTimeout) [object invoke \
+      Utility GetThreadTimeout $interp null Script]
+
+  set script(eventTimeout) [object invoke \
+      Utility GetThreadTimeout $interp null Event]
+
+  for {set i 0} {$i < 1000} {incr i} {
+    lappend y $i
+
+    set script(text) [subst {lappend y $i; set x $i}]
+
+    $script(eventState) PrepareForEvent \
+        $interp $script(text) $script(scriptTimeout) true
+
+    set code Ok; set result null; set errorLine 0
+
+    $script(eventState) ClearResult
+    $script(eventState) UnSignalResult
+
+    if {[$script(eventState) SignalScriptAndWaitResult \
+        $script(eventTimeout)]} then {
+      $script(eventState) GetResult code result errorLine
+
+      if {$code ne "Ok"} then {
+        error [appendArgs \
+            "return code \"" $code "\" not Ok for script " $i]
+      }
+
+      if {[getStringFromObjectHandle $result] ne $i} then {
+        error [appendArgs \
+            "result \"" [getStringFromObjectHandle $result] \
+            "\" mismatch for script " $i]
+      }
+    } else {
+      error [appendArgs "timeout waiting for result " $i]
+    }
+  }
+
+  set script(text) {set y}
+
+  $script(eventState) PrepareForEvent \
+      $interp $script(text) $script(scriptTimeout) true
+
+  set script(finalEventTimeout) [expr {$script(eventTimeout) * 10}]; # HACK
+
+  if {[$script(eventState) SignalScriptAndWaitResult \
+      $script(finalEventTimeout)]} then {
+    $script(eventState) GetResult code result errorLine
+
+    if {$code ne "Ok"} then {
+      error [appendArgs \
+          "return code \"" $code "\" not Ok final script"]
+    }
+
+    if {[getStringFromObjectHandle $result] ne $y} then {
+      error [appendArgs \
+          "result \"" [getStringFromObjectHandle $result] \
+          "\" mismatch for final script"]
+    }
+  } else {
+    error "timeout waiting for final result"
+  }
+
+  $script(eventState) SignalDone
+
+  if {![$script(eventState) WaitExit 2000]} then {
+    error "timeout waiting for exit"
+  }
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain y i errorLine result code script interp
+} -constraints [fixTimingConstraints {eagle command.object monoBug612\
+compile.TEST member_Eagle._Tests.Default.ScriptEventState.ToString\
+member_Eagle._Tests.Default.ScriptEventThread.ToString\
+member_Eagle._Tests.Default.ScriptThreadClientData.ToString}] \
+-constraintExpression {![haveConstraint dotNetCore] || ![haveConstraint unix]} \
+-result {}}
+
+###############################################################################
+
+runTest {test interp-1.901 {command limit without auto-reset} -setup {
+  set interp [interp create -safe]
+  interp set $interp x 0
+} -body {
+  set limiter [object invoke -alias \
+      Eagle._Tests.Default+ScriptLimiter Create]
+
+  $limiter CommandLimit 1000
+
+  set result(1) null
+  set code(1) [$limiter Install $interp true result(1)]
+
+  if {$code(1) ne "Ok"} then {
+    error [getStringFromObjectHandle $result(1)]
+  }
+
+  set code(1) [catch {
+    interp eval $interp {
+      while 1 {incr x}
+    }
+  } result(1)]
+
+  set count(1) [info cmdcount $interp]
+  set count(2) [interp set $interp x]
+
+  $limiter CommandLimit 900
+
+  set code(2) [catch {
+    interp eval $interp {
+      while 1 {incr x}
+    }
+  } result(2)]
+
+  set count(3) [info cmdcount $interp]
+  set count(4) [interp set $interp x]
+
+  list $count(1) [expr {$count(2) > 900 ? True : $count(2)}] $count(3) \
+      [expr {$count(4) > 900 ? True : $count(4)}] $code(1) $result(1) \
+      $code(2) $result(2)
+} -cleanup {
+  catch {
+    set result(1) null
+    set code(1) [$limiter Uninstall $interp true result(1)]
+
+    if {$code(1) ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- ScriptLimiter.Uninstall error: " \
+          \n [getStringFromObjectHandle $result(1)] \n]
+    }
+  }
+
+  catch {interp delete $interp}
+
+  unset -nocomplain result code count limiter interp
+} -constraints {eagle command.object\
+member_Eagle._Tests.Default.ScriptLimiter.ToString} -result {1001 True 1001\
+True 1 {command limit exceeded: 1000 versus 1000} 1 {command limit exceeded:\
+1001 versus 900}}}
+
+###############################################################################
+
+runTest {test interp-1.902 {command limit with auto-reset} -setup {
+  set interp [interp create -safe]
+  interp set $interp x 0
+} -body {
+  set limiter [object invoke -alias \
+      Eagle._Tests.Default+ScriptLimiter Create]
+
+  $limiter CommandLimit 1000
+  $limiter AutoReset true
+
+  set result(1) null
+  set code(1) [$limiter Install $interp true result(1)]
+
+  if {$code(1) ne "Ok"} then {
+    error [getStringFromObjectHandle $result(1)]
+  }
+
+  set code(1) [catch {
+    interp eval $interp {
+      while 1 {incr x}
+    }
+  } result(1)]
+
+  set count(1) [info cmdcount $interp]
+  set count(2) [interp set $interp x]
+
+  $limiter CommandLimit 900
+
+  set code(2) [catch {
+    interp eval $interp {
+      while 1 {incr x}
+    }
+  } result(2)]
+
+  set count(3) [info cmdcount $interp]
+  set count(4) [interp set $interp x]
+
+  list $count(1) [expr {$count(2) > 900 ? True : $count(2)}] $count(3) \
+      [expr {$count(4) > 1800 ? True : $count(4)}] $code(1) $result(1) \
+      $code(2) $result(2)
+} -cleanup {
+  catch {
+    set result(1) null
+    set code(1) [$limiter Uninstall $interp true result(1)]
+
+    if {$code(1) ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- ScriptLimiter.Uninstall error: " \
+          \n [getStringFromObjectHandle $result(1)] \n]
+    }
+  }
+
+  catch {interp delete $interp}
+
+  unset -nocomplain result code count limiter interp
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.ScriptLimiter.ToString} -result {1 True 1 True 1\
+{command limit exceeded: 1000 versus 1000} 1 {command limit exceeded: 900\
+versus 900}}}
+
+###############################################################################
+
+runTest {test interp-1.903 {operation limit without auto-reset} -setup {
+  set interp [interp create -safe]
+  interp set $interp x 0
+} -body {
+  set limiter [object invoke -alias \
+      Eagle._Tests.Default+ScriptLimiter Create]
+
+  $limiter OperationLimit 1000
+
+  set result(1) null
+  set code(1) [$limiter Install $interp true result(1)]
+
+  if {$code(1) ne "Ok"} then {
+    error [getStringFromObjectHandle $result(1)]
+  }
+
+  set code(1) [catch {
+    interp eval $interp {
+      while 1 {incr x}
+    }
+  } result(1)]
+
+  set count(1) [info cmdcount $interp]
+  set count(2) [interp set $interp x]
+
+  $limiter OperationLimit 900
+
+  set code(2) [catch {
+    interp eval $interp {
+      while 1 {incr x}
+    }
+  } result(2)]
+
+  set count(3) [info cmdcount $interp]
+  set count(4) [interp set $interp x]
+
+  list [expr {$count(1) > 900 ? True : $count(1)}] \
+      [expr {$count(2) > 900 ? True : $count(2)}] \
+      [expr {$count(3) > 900 ? True : $count(3)}] \
+      [expr {$count(4) > 900 ? True : $count(4)}] \
+      $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {
+    set result(1) null
+    set code(1) [$limiter Uninstall $interp true result(1)]
+
+    if {$code(1) ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- ScriptLimiter.Uninstall error: " \
+          \n [getStringFromObjectHandle $result(1)] \n]
+    }
+  }
+
+  catch {interp delete $interp}
+
+  unset -nocomplain result code count limiter interp
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.ScriptLimiter.ToString} -result {True True True\
+True 1 {operation limit exceeded: 1000 versus 1000} 1 {operation limit\
+exceeded: 1001 versus 900}}}
+
+###############################################################################
+
+runTest {test interp-1.904 {operation limit with auto-reset} -setup {
+  set interp [interp create -safe]
+  interp set $interp x 0
+} -body {
+  set limiter [object invoke -alias \
+      Eagle._Tests.Default+ScriptLimiter Create]
+
+  $limiter OperationLimit 1000
+  $limiter AutoReset true
+
+  set result(1) null
+  set code(1) [$limiter Install $interp true result(1)]
+
+  if {$code(1) ne "Ok"} then {
+    error [getStringFromObjectHandle $result(1)]
+  }
+
+  set code(1) [catch {
+    interp eval $interp {
+      while 1 {incr x}
+    }
+  } result(1)]
+
+  set count(1) [info cmdcount $interp]
+  set count(2) [interp set $interp x]
+
+  $limiter OperationLimit 900
+
+  set code(2) [catch {
+    interp eval $interp {
+      while 1 {incr x}
+    }
+  } result(2)]
+
+  set count(3) [info cmdcount $interp]
+  set count(4) [interp set $interp x]
+
+  list [expr {$count(1) > 900 ? True : $count(1)}] \
+      [expr {$count(2) > 900 ? True : $count(2)}] \
+      [expr {$count(3) > 1800 ? True : $count(3)}] \
+      [expr {$count(4) > 1800 ? True : $count(4)}] \
+      $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {
+    set result(1) null
+    set code(1) [$limiter Uninstall $interp true result(1)]
+
+    if {$code(1) ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- ScriptLimiter.Uninstall error: " \
+          \n [getStringFromObjectHandle $result(1)] \n]
+    }
+  }
+
+  catch {interp delete $interp}
+
+  unset -nocomplain result code count limiter interp
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.ScriptLimiter.ToString} -result {True True True\
+True 1 {operation limit exceeded: 1000 versus 1000} 1 {operation limit\
+exceeded: 900 versus 900}}}
+
+###############################################################################
+
+runTest {test interp-1.1001 {event limit} -setup {
+  set interp [interp create]
+} -body {
+  set script(0) {after clear}
+  set script(1) {after 0 list}
+  set script(2) {after idle list}
+
+  interp eval $interp $script(0)
+
+  list [interp eventlimit $interp] \
+      [interp eventlimit $interp -1] \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [interp eventlimit $interp 0] \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [interp eventlimit $interp 1] \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [interp eventlimit $interp 2] \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [interp eventlimit $interp]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle} -match regexp -result {^\{event 0\} \{event -1\} 0 \{\}\
+0 after#\d+ 0 after#\d+ 0 after#\d+ 0 after#\d+ \{event 0\} 0 \{\} 0 after#\d+\
+0 after#\d+ 0 after#\d+ 0 after#\d+ \{event 1\} 0 \{\} 0 after#\d+ 1 \{event\
+limit would be exceeded\} 0 after#\d+ 1 \{idle event limit would be exceeded\}\
+\{event 2\} 0 \{\} 0 after#\d+ 0 after#\d+ 1 \{event limit would be exceeded\}\
+0 after#\d+ 0 after#\d+ 1 \{idle event limit would be exceeded\} \{event 2\}$}}
+
+###############################################################################
+
+runTest {test interp-1.1002 {callback limit} -setup {
+  set interp [interp create]
+
+  if {[haveConstraint quiet]} then {
+    object invoke Eagle._Tests.Default TestSetQuiet $interp true
+  }
+} -body {
+  set script(disable) {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags [combineFlags [object invoke -flags \
+        +NonPublic Interpreter.GetActive SharedEngineFlags] \
+        +NoCallbackQueue]
+
+    expr {
+      "NoCallbackQueue" in [split [object invoke -flags +NonPublic \
+          Interpreter.GetActive SharedEngineFlags] ", "]
+    }
+  }
+
+  set script(enable) {
+    object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+        SafeUnsetComplaint ""
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags [combineFlags [object invoke -flags \
+        +NonPublic Interpreter.GetActive SharedEngineFlags] \
+        -NoCallbackQueue]
+
+    expr {
+      "NoCallbackQueue" in [split [object invoke -flags +NonPublic \
+          Interpreter.GetActive SharedEngineFlags] ", "]
+    }
+  }
+
+  set script(complaint) {
+    object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
+        SafeGetComplaint ""
+  }
+
+  set script(0) {callback clear; set x 0}
+  set script(1) {callback enqueue return [appendArgs "ok " [incr x]]}
+  set script(2) {callback enqueue error [appendArgs "error " $x]}
+  set script(3) {nop}
+
+  interp eval $interp $script(0)
+
+  list [interp callbacklimit $interp] \
+      [interp callbacklimit $interp -1] \
+      [catch {interp eval $interp $script(disable)} result] $result \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp callbacklimit $interp 0] \
+      [catch {interp eval $interp $script(disable)} result] $result \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp callbacklimit $interp 1] \
+      [catch {interp eval $interp $script(disable)} result] $result \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp callbacklimit $interp 2] \
+      [catch {interp eval $interp $script(disable)} result] $result \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp callbacklimit $interp -1] \
+      [catch {interp eval $interp $script(disable)} result] $result \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(enable)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [catch {interp eval $interp $script(complaint)} result] $result \
+      [interp callbacklimit $interp 0] \
+      [catch {interp eval $interp $script(disable)} result] $result \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(enable)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [catch {interp eval $interp $script(complaint)} result] $result \
+      [interp callbacklimit $interp 1] \
+      [catch {interp eval $interp $script(disable)} result] $result \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(enable)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [catch {interp eval $interp $script(complaint)} result] $result \
+      [interp callbacklimit $interp 0] \
+      [catch {interp eval $interp $script(disable)} result] $result \
+      [catch {interp eval $interp $script(0)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [interp callbacklimit $interp 2] \
+      [catch {interp eval $interp $script(enable)} result] $result \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [catch {interp eval $interp $script(complaint)} result] $result \
+      [interp callbacklimit $interp]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle command.object command.callback compile.CALLBACK_QUEUE\
+Eagle._Tests.Default.TestSetQuiet} -match regexp -result {^\{callback 0\}\
+\{callback -1\} 0 True 0 0 0 \{\} 0 \{\} 0 \{\} 0 \{\} 0 \{\} \{callback 0\} 0\
+True 0 0 0 \{\} 0 \{\} 0 \{\} 0 \{\} 0 \{\} \{callback 1\} 0 True 0 0 0 \{\} 1\
+\{callback queue limit would be exceeded\} 1 \{callback queue limit would be\
+exceeded\} 1 \{callback queue limit would be exceeded\} 0 \{\} \{callback 2\} 0\
+True 0 0 0 \{\} 0 \{\} 1 \{callback queue limit would be exceeded\} 1\
+\{callback queue limit would be exceeded\} 1 \{callback queue limit would be\
+exceeded\} 1 \{callback queue limit would be exceeded\} 0 \{\} \{callback -1\}\
+0 True 0 0 0 \{\} 0 \{\} 0 \{\} 0 \{\} 0 \{\} 0 \{\} 0 False 0 \{ok 1\} 0 \{ok\
+2\} \{callback 0\} 1 \{error 2\} 0 0 0 \{ok 1\} 0 \{ok 2\} 1 \{error 2\} 1\
+\{error 2\} 0 \{ok 3\} 0 \{ok 4\} 0 False 0 \{\} 0 \{\} \{callback 1\} 0 True 0\
+0 0 \{\} 1 \{callback queue limit would be exceeded\} 1 \{callback queue limit\
+would be exceeded\} 1 \{callback queue limit would be exceeded\} 1 \{callback\
+queue limit would be exceeded\} 1 \{callback queue limit would be exceeded\} 0\
+False 0 \{ok 1\} 0 \{\} \{callback 0\} 0 True 0 0 0 \{\} 0 \{\} 0 \{\} 0 \{\} 0\
+\{\} 0 \{\} 0 \{\} 0 \{\} 0 \{\} \{callback 2\} 0 False 0 \{ok 1\} 0 \{\d+\
+\(\d+\): Error: callback limit would be exceeded\} \{callback 2\}$}}
+
+###############################################################################
+
+runTest {test interp-1.2001 {info commands in "safe" interp} -setup {
+  set i [interp create -safe]
+} -body {
+  interp eval $i {
+    lsort [info commands -noprocedures]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle} -match regexp -result {^(?:Eagle_Nop )?after append\
+apply array base64 bgerror break (?:callback )?catch close concat continue do\
+downlevel encoding eof error eval exit expr fblocked fconfigure fcopy flush for\
+foreach format fpclassify gets global guid hash if incr invoke join lappend\
+lassign lget lindex linsert list llength lmap lrange lremove lrepeat lreplace\
+lreverse lsearch lset lsort namespace nop nproc parse proc puts read regexp\
+regsub rename return scope seek set split string subst switch tell test1 test2\
+throw time truncate try unset update uplevel upvar variable vwait while$}}
+
+###############################################################################
+
+runTest {test interp-1.3001 {interp parent} -setup {
+  set i(1) [interp create]
+  set i(2) [interp create -safe]
+} -body {
+  list \
+      [catch {interp eval "" [list interp parent]} result] $result \
+      [catch {interp eval $i(1) [list interp parent]} result] $result \
+      [catch {interp eval $i(2) [list interp parent]} result] $result \
+      [catch {interp parent} result] $result \
+      [catch {interp parent $i(1)} result] $result \
+      [catch {interp parent $i(2)} result] $result
+} -cleanup {
+  catch {interp delete $i(2)}
+  catch {interp delete $i(1)}
+
+  unset -nocomplain result i
+} -constraints {eagle} -match regexp -result {^0 \{\} 0 \d+ 1 \{permission\
+denied: safe interpreter cannot use command "interp parent"\} 0 \{\} 0 \d+ 0\
+\d+$}}
+
+###############################################################################
+
+runTest {test interp-1.9999 {try/finally thread affinity} -setup {
+  if {[haveConstraint quiet]} then {
+    set savedQuiet [object invoke Eagle._Tests.Default TestGetQuiet ""]
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+
+  proc threadStart1 {} {
+    try {
+      after 4000; # should be canceled...
+      lappend ::x 1_try
+    } finally {
+      after [expr {1000 + int(rand() * 3000)}]; # not canceled...
+      lappend ::x 1_finally
+    }
+  }
+
+  proc threadStart2 {} {
+    try {
+      after 4000; # should be canceled...
+      lappend ::x 2_try
+    } finally {
+      after [expr {1000 + int(rand() * 3000)}]; # not canceled...
+      lappend ::x 2_finally
+    }
+  }
+
+  set savedReadyFlags [object invoke \
+      -flags +NonPublic Interpreter.GetActive readyFlags]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      readyFlags [appendArgs $savedReadyFlags \
+      " NoGlobalResetCancel"]
+
+  set savedEngineFlags [object invoke \
+      -flags +NonPublic Interpreter.GetActive ContextEngineFlags]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      ContextEngineFlags [appendArgs $savedEngineFlags \
+      " NoGlobalCancel"]
+} -body {
+  set ::x [list]
+
+  set t(1) [createThread threadStart1]
+  set t(2) [createThread threadStart2]
+
+  startThread $t(1)
+  startThread $t(2)
+
+  after 2000 [list interp cancel -global -nolocal]
+
+  catch {after 1 nop; vwait -timeout 10000 ::x}
+  catch {after 2 nop; vwait -timeout 10000 ::x}
+
+  if {1} then {
+    joinThread $t(1); # these should be optional
+    joinThread $t(2)
+  }
+
+  set ::x
+} -cleanup {
+  cleanupThread $t(1)
+  cleanupThread $t(2)
+
+  catch {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        ContextEngineFlags $savedEngineFlags
+  }
+
+  catch {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        readyFlags $savedReadyFlags
+  }
+
+  unset -nocomplain t x savedEngineFlags savedReadyFlags
+
+  catch {object removecallback threadStart2}
+  catch {object removecallback threadStart1}
+
+  rename threadStart2 ""
+  rename threadStart1 ""
+
+  if {[info exists savedQuiet]} then {
+    if {[string is boolean -strict $savedQuiet]} then {
+      object invoke Eagle._Tests.Default TestSetQuiet "" $savedQuiet
+    }
+
+    unset -nocomplain savedQuiet
+  }
+} -constraints {eagle command.object compile.THREADING globalTip285\
+Eagle._Tests.Default.TestSetQuiet} -match regexp -noCancel true -globalCancel \
+true -result {^1_finally 2_finally|2_finally 1_finally$}}
+
+###############################################################################
+
+runTest {test interp-1.33333 {foreign InterpreterHelper} -body {
+  set error null
+
+  set appDomainSetup [object invoke -alias \
+      -flags +NonPublic Eagle._Components.Private.AppDomainOps \
+      CreateSetup "" "Test Other" null null false false error]
+
+  set temporaryPath [getTemporaryPath]
+  $appDomainSetup ApplicationBase $temporaryPath
+
+  set appDomain [object invoke -alias \
+      AppDomain CreateDomain "Test Other" null $appDomainSetup]
+
+  set location [object invoke Utility GetAssemblyLocation]
+  set args [object create Object\[\] 0]
+
+  set interpreterHelper [$appDomain -type AppDomain \
+      -alias CreateInstanceFromAndUnwrap $location \
+      Eagle._Components.Public.InterpreterHelper]
+
+  set interpreter [$interpreterHelper \
+      -type InterpreterHelper -alias Interpreter]
+
+  set error null
+
+  set code [$interpreter -type Interpreter SetVariableValue \
+      sharedBinaryPath [info binary] error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set result null
+
+  set code [$interpreter -type Interpreter EvaluateScript {
+    object invoke -flags +NonPublic \
+        Eagle._Components.Private.GlobalState \
+        sharedBinaryPath $sharedBinaryPath
+
+    list Id [object invoke AppDomain CurrentDomain.Id] \
+        BaseDirectory [object invoke AppDomain \
+        CurrentDomain.BaseDirectory] SharedBinaryPath \
+        [object invoke -flags +NonPublic \
+        Eagle._Components.Private.GlobalState \
+        sharedBinaryPath]
+  } result]
+
+  set result [string map [list [file nativename \
+      $temporaryPath] <temporaryPath> [info binary] \
+      <sharedBinaryPath>] [getStringFromObjectHandle \
+      $result]]
+
+  set result [string map [list \
+      \{<temporaryPath>\} <temporaryPath> \
+      \{<sharedBinaryPath>\} <sharedBinaryPath>] \
+      $result]
+
+  list $code $result
+} -cleanup {
+  unset -nocomplain error appDomainSetup
+  unset -nocomplain interpreterHelper interpreter; # dispose
+  unset -nocomplain temporaryPath location args
+
+  set code [object invoke -flags +NonPublic \
+      Eagle._Components.Private.AppDomainOps Unload interp-1.33334 \
+      $appDomain null result]
+
+  if {$code ne "Ok"} then {
+    tputs $test_channel [appendArgs "---- test unload failed: " \
+        [getStringFromObjectHandle $result] \n]
+  }
+
+  unset -nocomplain code result
+  unset -nocomplain appDomain
+} -constraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS} -match regexp -result {^Ok \{Id \d+\
+BaseDirectory <temporaryPath> SharedBinaryPath <sharedBinaryPath>\}$}}
+
+###############################################################################
+
+runTest {test interp-1.33334 {foreign TestCrossAppDomainHelper} -body {
+  set error null
+
+  set appDomainSetup [object invoke -alias \
+      -flags +NonPublic Eagle._Components.Private.AppDomainOps \
+      CreateSetup "" "Test Other" null null false false error]
+
+  set temporaryPath [getTemporaryPath]
+  $appDomainSetup ApplicationBase $temporaryPath
+
+  set appDomain [object invoke -alias \
+      AppDomain CreateDomain "Test Other" null $appDomainSetup]
+
+  set result null
+
+  set code [object invoke \
+      Eagle._Tests.Default TestEvaluateInAppDomain $appDomain \
+      [string map [list <sharedBinaryPath> [info binary]] {
+    object invoke -flags +NonPublic \
+        Eagle._Components.Private.GlobalState \
+        sharedBinaryPath {<sharedBinaryPath>}
+
+    list Id [object invoke AppDomain CurrentDomain.Id] \
+        BaseDirectory [object invoke AppDomain \
+        CurrentDomain.BaseDirectory] SharedBinaryPath \
+        [object invoke -flags +NonPublic \
+        Eagle._Components.Private.GlobalState \
+        sharedBinaryPath]
+  }] false result]
+
+  set result [string map [list [file nativename \
+      $temporaryPath] <temporaryPath> [info binary] \
+      <sharedBinaryPath>] [getStringFromObjectHandle \
+      $result]]
+
+  set result [string map [list \
+      \{<temporaryPath>\} <temporaryPath> \
+      \{<sharedBinaryPath>\} <sharedBinaryPath>] \
+      $result]
+
+  list $code $result
+} -cleanup {
+  unset -nocomplain error appDomainSetup temporaryPath
+
+  set code [object invoke -flags +NonPublic \
+      Eagle._Components.Private.AppDomainOps Unload interp-1.33334 \
+      $appDomain null result]
+
+  if {$code ne "Ok"} then {
+    tputs $test_channel [appendArgs "---- test unload failed: " \
+        [getStringFromObjectHandle $result] \n]
+  }
+
+  unset -nocomplain code result
+  unset -nocomplain appDomain
+} -constraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS compile.TEST} -match regexp -result {^Ok \{Id \d+\
+BaseDirectory <temporaryPath> SharedBinaryPath <sharedBinaryPath>\}$}}
+
+###############################################################################
+
+runTest {test interp-1.40000 {per-thread event queue processing} -setup {
+  unset -nocomplain count t forever
+
+  proc threadStart {} {
+    while {[incr ::count(cur0)] < $::count(max)} {
+      after [expr {int(1000 * rand())}] -thread [info ptid] {
+        incr ::count(cur1)
+
+        if {[info tid] == [info ptid]} then {
+          incr ::count(good1)
+        } else {
+          incr ::count(bad1)
+        }
+      }
+
+      after [expr {int(1000 * rand())}] -thread [info tid] {
+        incr ::count(cur2)
+
+        if {[info tid] != [info ptid]} then {
+          incr ::count(good2)
+        } else {
+          incr ::count(bad2)
+        }
+      }
+
+      vwait -force -timeout 1000 -thread [info tid] ::forever(2)
+      if {[info exists ::forever(2)]} then {break}
+    }
+
+    set ::forever(1) 1
+  }
+} -body {
+  set count(max)   10
+  set count(cur0)   0
+  set count(cur1)   0
+  set count(cur2)   0
+  set count(good1)  0
+  set count(good2)  0
+  set count(bad1)   0
+  set count(bad2)   0
+
+  set t [createThread threadStart]
+
+  startThread $t
+
+  after 38000 -thread [info tid] [list set ::forever(2) 1]
+  after 40000 -thread [info tid] [list set ::forever(1) 1]
+
+  vwait -force -thread [info tid] ::forever(1)
+
+  joinThread $t
+
+  tputs $test_channel [appendArgs \
+      "---- processed " $count(good1) " primary events, " \
+      $count(good2) " non-primary events\n"]
+
+  list $count(cur0) $count(cur1) $count(cur2) $count(bad1) $count(bad2) \
+      [expr {$count(good1) > 0}] [expr {$count(good2) > 0}]
+} -cleanup {
+  cleanupThread $t
+
+  cleanupAfterEvents
+
+  unset -nocomplain count t forever
+
+  catch {object removecallback threadStart}
+
+  rename threadStart ""
+} -constraints [fixTimingConstraints {eagle command.object compile.THREADING}] \
+-result {10 9 9 0 0 True True}}
+
+###############################################################################
+
+runTest {test interp-1.40001 {var token w/ResultList value} -setup {
+  unset -nocomplain -purge x
+} -body {
+  set x [object invokeall -keepresults String {Format "string \"one\""} \
+      {Format "string two"} {Format "string three"}]
+
+  llength $x
+} -cleanup {
+  unset -nocomplain -purge x
+} -constraints {eagle command.object} -result {6}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

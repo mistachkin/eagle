@@ -1,0 +1,247 @@
+###############################################################################
+#
+# namespace.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+#
+# NOTE: We are going to run the tests from the Tcl test suite verbatim.
+#
+# \
+runTest ; # fake out runAllTests proc.
+
+###############################################################################
+
+if {[haveConstraint namespaces]} then {
+  if {[isEagle]} then {
+    if {![info exists no(skipSomeTests)] && \
+        ![info exists no(skipSomeNamespaceTests)]} then {
+      set skipNames [list]
+
+      lappend skipNames namespace-2.2; # NOTE: Creative writing.
+      lappend skipNames namespace-7.3; # NOTE: Needs [trace].
+      lappend skipNames namespace-7.4; # NOTE: Needs [trace].
+      lappend skipNames namespace-7.5; # NOTE: Needs [trace].
+      lappend skipNames namespace-7.6; # NOTE: Needs [trace].
+      lappend skipNames namespace-7.7; # NOTE: Needs ensembles.
+      lappend skipNames namespace-8.5; # NOTE: Needs [trace].
+      lappend skipNames namespace-8.6; # NOTE: Needs [trace].
+      lappend skipNames namespace-8.7; # NOTE: Needs [trace].
+      lappend skipNames namespace-9.9; # NOTE: Syntax error message.
+      lappend skipNames namespace-14.2; # NOTE: Syntax error message.
+      lappend skipNames namespace-14.3; # NOTE: Creative reading.
+      lappend skipNames namespace-14.12; # NOTE: Creative writing.
+      lappend skipNames namespace-17.7; # NOTE: Creative reading.
+      lappend skipNames namespace-17.10; # NOTE: Creative reading.
+      lappend skipNames namespace-20.2; # NOTE: Syntax error message.
+      lappend skipNames namespace-22.1; # NOTE: Syntax error message.
+      lappend skipNames namespace-25.1; # NOTE: Syntax error message.
+      lappend skipNames namespace-25.2; # NOTE: Syntax error message.
+      lappend skipNames namespace-25.6; # NOTE: Stack trace message.
+      lappend skipNames namespace-25.7; # NOTE: Stack trace message.
+      lappend skipNames namespace-25.8; # NOTE: Stack trace message.
+      lappend skipNames namespace-34.2; # NOTE: Syntax error message.
+      lappend skipNames namespace-42.*; # NOTE: Needs ensembles.
+      lappend skipNames namespace-43.*; # NOTE: Needs ensembles.
+      lappend skipNames namespace-44.*; # NOTE: Needs ensembles.
+      lappend skipNames namespace-45.*; # NOTE: Needs ensembles.
+      lappend skipNames namespace-46.*; # NOTE: Needs ensembles.
+      lappend skipNames namespace-47.*; # NOTE: Needs ensembles.
+      lappend skipNames namespace-48.*; # NOTE: Needs ensembles.
+      lappend skipNames namespace-49.*; # NOTE: Needs ensembles.
+      lappend skipNames namespace-50.*; # NOTE: Needs ensembles.
+      lappend skipNames namespace-51.*; # NOTE: Needs [namespace path].
+      lappend skipNames namespace-52.12; # NOTE: Needs unknown to be list.
+      lappend skipNames namespace-53.*; # NOTE: Needs ensembles.
+
+      foreach skipName $skipNames {
+        if {[lsearch -exact $eagle_tests(SkipNames) $skipName] == -1} then {
+          lappend eagle_tests(SkipNames) $skipName
+        }
+      }
+
+      unset -nocomplain skipName
+    }
+  } else {
+    if {![info exists no(skipSomeTests)] && \
+        ![info exists no(skipSomeNamespaceTests)]} then {
+      set skipNames [list]
+
+      if {[haveConstraint tcl86OrHigher]} then {
+        #
+        # NOTE: Do nothing, all applicable tests should pass.
+        #
+      } elseif {[haveConstraint tcl85OrHigher]} then {
+        #
+        # NOTE: Running in Tcl 8.5, some test results differ.
+        #
+        lappend skipNames namespace-20.2; # NOTE: Syntax error message.
+        lappend skipNames namespace-25.2; # NOTE: Syntax error message.
+        lappend skipNames namespace-44.6; # NOTE: Some ensemble bug.
+        lappend skipNames namespace-45.1; # NOTE: Ensemble parameters.
+        lappend skipNames namespace-46.3; # NOTE: Syntax error message.
+        lappend skipNames namespace-47.5; # NOTE: Ensemble parameters.
+        lappend skipNames namespace-48.1; # NOTE: Ensemble parameters.
+        lappend skipNames namespace-48.2; # NOTE: [namespace import] bug.
+        lappend skipNames namespace-48.3; # NOTE: [namespace import] bug.
+        lappend skipNames namespace-50.1; # NOTE: Syntax error message.
+        lappend skipNames namespace-53.*; # NOTE: Ensemble parameters.
+      } else {
+        #
+        # NOTE: Running in Tcl 8.4, many test results differ.
+        #
+        lappend skipNames namespace-7.7; # NOTE: Needs ensembles.
+        lappend skipNames namespace-8.3; # NOTE: Syntax error message.
+        lappend skipNames namespace-14.2; # NOTE: Syntax error message.
+        lappend skipNames namespace-14.4; # NOTE: Syntax error message.
+        lappend skipNames namespace-14.6; # NOTE: Syntax error message.
+        lappend skipNames namespace-14.8; # NOTE: [namespace children] bug.
+        lappend skipNames namespace-19.3; # NOTE: Syntax error message.
+        lappend skipNames namespace-20.2; # NOTE: Syntax error message.
+        lappend skipNames namespace-22.3; # NOTE: [namespace code] bug.
+        lappend skipNames namespace-22.7; # NOTE: [namespace code] bug.
+        lappend skipNames namespace-25.2; # NOTE: Syntax error message.
+        lappend skipNames namespace-25.8; # NOTE: Stack trace message.
+        lappend skipNames namespace-28.1; # NOTE: Import introspection.
+        lappend skipNames namespace-29.3; # NOTE: Syntax error message.
+        lappend skipNames namespace-29.6; # NOTE: [namespace inscope] bug.
+        lappend skipNames namespace-31.4; # NOTE: Syntax error message.
+        lappend skipNames namespace-34.3; # NOTE: [namespace which] bug.
+        lappend skipNames namespace-37.2; # NOTE: Syntax error message.
+        lappend skipNames namespace-41.3; # NOTE: Bugs 231259 and 729692.
+        lappend skipNames namespace-42.*; # NOTE: Needs ensembles.
+        lappend skipNames namespace-43.*; # NOTE: Needs ensembles.
+        lappend skipNames namespace-44.*; # NOTE: Needs ensembles.
+        lappend skipNames namespace-45.*; # NOTE: Needs ensembles.
+        lappend skipNames namespace-46.*; # NOTE: Needs ensembles.
+        lappend skipNames namespace-47.*; # NOTE: Needs ensembles.
+        lappend skipNames namespace-48.*; # NOTE: Needs ensembles.
+        lappend skipNames namespace-49.*; # NOTE: Needs ensembles.
+        lappend skipNames namespace-50.*; # NOTE: Needs ensembles.
+        lappend skipNames namespace-51.*; # NOTE: Needs [namespace path].
+        lappend skipNames namespace-52.1; # NOTE: Needs [namespace unknown].
+        lappend skipNames namespace-52.4; # NOTE: Needs [namespace unknown].
+        lappend skipNames namespace-52.5; # NOTE: Needs [namespace unknown].
+        lappend skipNames namespace-52.6; # NOTE: Needs [namespace unknown].
+        lappend skipNames namespace-52.7; # NOTE: Needs [namespace unknown].
+        lappend skipNames namespace-52.9; # NOTE: Needs [namespace unknown].
+        lappend skipNames namespace-52.11; # NOTE: Needs [namespace unknown].
+        lappend skipNames namespace-52.12; # NOTE: Needs [namespace unknown].
+        lappend skipNames namespace-53.*; # NOTE: Needs ensembles.
+      }
+
+      #
+      # NOTE: Add any skipped test names for native Tcl now.
+      #
+      if {[llength $skipNames] > 0} then {
+        ::tcltest::configure -skip $skipNames
+      }
+    }
+
+    #
+    # NOTE: Save the "cleanupTests" procedure now and create a stub as we do not
+    #       want the "format.test" file to actually "cleanup" after itself, that
+    #       will be done at the very end.
+    #
+    rename ::tcltest::cleanupTests ::tcltest::savedCleanupTests
+    proc ::tcltest::cleanupTests { args } {}
+  }
+
+  #############################################################################
+
+  #
+  # HACK: All of the tests run by this file require full namespace support.  If
+  #       that is not present, skip the whole file.
+  #
+  tsource [file join $test_path tcl namespace.test] false false
+
+  #############################################################################
+
+  if {[isEagle]} then {
+    if {[info exists skipNames]} then {
+      #
+      # NOTE: Remove the test names to be skipped that were added above.
+      #
+      foreach skipName $skipNames {
+        set skipIndex [lsearch -exact $eagle_tests(SkipNames) $skipName]
+
+        if {$skipIndex != -1} then {
+          set eagle_tests(SkipNames) [lreplace $eagle_tests(SkipNames) \
+              $skipIndex $skipIndex]
+        }
+      }
+
+      unset -nocomplain skipNames skipName skipIndex
+    }
+  } else {
+    if {[info exists skipNames]} then {
+      #
+      # NOTE: Remove the test names to be skipped that were added above.
+      #
+      ::tcltest::configure -skip ""
+      unset -nocomplain skipNames
+    }
+
+    #
+    # NOTE: Restore the original "cleanupTests" procedure now.
+    #
+    rename ::tcltest::cleanupTests ""
+    rename ::tcltest::savedCleanupTests ::tcltest::cleanupTests
+  }
+
+  #############################################################################
+
+  #
+  # HACK: Cleanup leftovers.
+  #
+  if {[llength [info procs _unknown_orig]] > 0} then {
+    catch {rename unknown ""; rename _unknown_orig unknown}
+  }
+
+  unset -nocomplain SETUP dir g i handler log res result target x
+
+  catch {rename e ""}
+  catch {rename foo0 ""}
+  catch {rename fq ""}
+  catch {rename myunknown ""}
+  catch {rename pathtestC ""}
+  catch {rename test3 ""}
+  catch {namespace delete ::demo}
+  catch {namespace delete ::foo}
+  catch {namespace delete ::ns}
+
+  #############################################################################
+
+  #
+  # HACK: Resynchronize the unknown handler for the global namespace with the
+  #       global (fallback) one for the interpreter.
+  #
+  if {[isEagle]} then {
+    if {[llength [info commands object]] > 0} then {
+      object invoke Interpreter.GetActive NamespaceUnknown \
+          [object invoke Interpreter.GetActive GlobalUnknown]
+    } else {
+      tputs $test_channel \
+          "---- resynchronization of global namespace unknown skipped\n"
+    }
+  }
+} else {
+  tputs $test_channel "---- namespaces not available, Tcl tests skipped\n"
+}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

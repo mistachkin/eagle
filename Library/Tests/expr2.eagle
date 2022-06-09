@@ -1,0 +1,213 @@
+###############################################################################
+#
+# expr2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  catch {
+    set savedNewGlobalVariableFlags [object invoke \
+        -flags +NonPublic Interpreter.GetActive newGlobalVariableFlags]
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        newGlobalVariableFlags [appendArgs $savedNewGlobalVariableFlags \
+        " " +FastMask]
+  }
+
+  catch {
+    set savedNewLocalVariableFlags [object invoke \
+        -flags +NonPublic Interpreter.GetActive newLocalVariableFlags]
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        newLocalVariableFlags [appendArgs $savedNewLocalVariableFlags \
+        " " +FastMask]
+  }
+}
+
+###############################################################################
+
+#
+# NOTE: This test can now pass in Eagle.
+#
+#       1. The [scan] command is not implemented; however, a "stub" procedure
+#          has been provided (below).
+#
+proc 12days {a b c} {
+  global xxx
+
+  #
+  # NOTE: These strings look a lot like Perl...  ;)
+  #
+  set string(1) [appendArgs "@n'+,#'/*\{\}w+/w#cdnr/+,\{\}r/*de\}+,/*\{*+," \
+                            "/w\{%+,/w#q#n+,/#\{l+,/n\{n+,/+#n+,/#;#q#n+,/" \
+                            "+k#;*+,/'r :'d*'3,\}\{w+K w'K:'+\}e#';dq#'l q" \
+                            "#'+d'K#!/+k#;q#'r\}eKK#\}w'r\}eKK\{nl\]'/#;#q" \
+                            "#n')\{)#\}w')\{)\{nl\]'/+#n';d\}rw' i;# )\{nl" \
+                            "\]!/n\{n#'; r\{#w'r nc\{nl\]'/#\{l,+'K \{rw' " \
+                            "iK\{;\[\{nl\]'/w#q#n'wk nw' iwk\{KK\{nl\]!/w"  \
+                            "\{%'l##w#' i; :\{nl\]'/*\{q#'ld;r'\}\{nlwb!/*" \
+                            "de\}'c ;;\{nl'-\{\}rw\]'/+,\}##'*\}#nc,',#nw"  \
+                            "\]'/+kd'+e\}+;#'rdq#w! nr'/ ') \}+\}\{rl#'\{n" \
+                            "' ')# \}'+\}##(!!/"]
+
+  set string(2) [appendArgs "!ek;dc i@bK'(q)-\[w\]*%n+r3#l,\{\}:\nuwloca-O" \
+                            ";m .vpbks,fxntdCeghiry"]
+
+  #
+  # NOTE: This script looks just a bit less like Perl...  ;)
+  #
+  expr {1<$a?[expr {$a<3?[12days -79 -13 [string range $c [12days -87 [expr\
+      1-$b] [string range $c [12days -86 0 [string range $c 1 end]] end]]\
+      end]]:1};expr {$a<$b?[12days [expr $a+1] $b $c]:3};expr {[12days -94\
+      [expr $a-27] $c]&&$a==2?$b<13?[12days 2 [expr $b+1] "%s %d %d\n"]:9:\
+      16}]:$a<0?$a<-72?[12days $b $a $string(1)]:$a<-50?[string compare\
+      [format %c $b] [string index $c 0]]==0?[append xxx [string index $c\
+      31];scan [string index $c 31] %c x;set x]:[12days -65 $b [string range\
+      $c 1 end]]:[12days [expr ([string compare [string index $c 0] "/"]==0)+\
+      $a] $b [string range $c 1 end]]:0<$a?[12days 2 2 "%s"]:[string compare\
+      [string index $c 0] "/"]==0||[12days 0 [12days -61 [scan [string index\
+      $c 0] %c x; set x] $string(2)] [string range $c 1 end]]}
+}
+
+###############################################################################
+
+proc do_twelve_days {} {
+  global xxx
+  set xxx ""
+  12days 1 1 1
+  string length $xxx
+}
+
+###############################################################################
+
+#
+# HACK: For Eagle, fake the [scan] functionality required by the test.
+#
+if {[isEagle] && [llength [info commands scan]] == 0} then {
+  proc scan { string format {varName ""} } {
+    if {[string length $string] == 0} then {return -1}
+    if {$format ne "%c"} then {error "format not implemented"}
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName x
+      set x [string ordinal $string 0]
+      return 1
+    } else {
+      return [string ordinal $string 0]
+    }
+  }
+
+  set added_scan_proc true
+}
+
+###############################################################################
+
+runTest {test expr-3.8 {long arms & nested conds (Tcl)} -body {
+  tputs $test_channel \
+      "---- doing test expr-3.8 which can take several minutes to run\n"
+
+  do_twelve_days
+} -constraints {tcl stackIntensive timeIntensive processorIntensive} -result \
+{2358}}
+
+###############################################################################
+
+runTest {test expr-3.98 {nested conditional expressions} -body {
+  list [expr 0 ? 0 ? 2 : 3 : 4] [expr 0 ? 1 ? 2 : 3 : 4] \
+      [expr 1 ? 0 ? 2 : 3 : 4] [expr 1 ? 1 ? 2 : 3 : 4]
+} -result {4 4 3 2}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to stack size differences.
+#
+runTest {test expr-3.99 {long arms & nested conds (Eagle)} -body {
+  tputs $test_channel \
+      "---- doing test expr-3.99 which can take several minutes to run\n"
+
+  list [do_twelve_days] [hash normal sha1 $xxx]
+} -constraints {eagle dotNetCoreOrShell dotNetOrDotNetCore native windows\
+compile.NATIVE compile.WINDOWS stackIntensive stackSize.0x1000000 timeIntensive\
+processorIntensive} -time true -result \
+{2358 89F4D8878F988F8BD650BD9E12F220391C52F42F}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to stack size differences.
+#
+runTest {test expr-3.100 {long arms & nested conds (Eagle, no-ready)} -setup {
+  set savedEngineFlags [object invoke \
+      -flags +NonPublic Interpreter.GetActive ContextEngineFlags]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      ContextEngineFlags [appendArgs $savedEngineFlags " NoReady"]
+} -body {
+  tputs $test_channel [appendArgs \
+      "---- doing test expr-3.100 which can take several minutes to run" \
+      " and cannot be canceled\n"]
+
+  list [do_twelve_days] [hash normal sha1 $xxx]
+} -cleanup {
+  catch {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        ContextEngineFlags $savedEngineFlags
+  }
+
+  unset -nocomplain savedEngineFlags
+} -constraints {eagle command.object dotNetCoreOrShell dotNetOrDotNetCore\
+native windows compile.NATIVE compile.WINDOWS stackIntensive\
+stackSize.0x1000000 timeIntensive processorIntensive} -time true -result \
+{2358 89F4D8878F988F8BD650BD9E12F220391C52F42F}}
+
+###############################################################################
+
+catch {unset xxx}
+
+rename 12days ""
+rename do_twelve_days ""
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands scan]] == 1 && \
+    [info exists added_scan_proc]} then {
+  #
+  # NOTE: Remove the [scan] helper procedure that we added above.
+  #
+  rename scan ""; unset added_scan_proc
+}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  if {[info exists savedNewGlobalVariableFlags]} then {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        newGlobalVariableFlags $savedNewGlobalVariableFlags
+
+    unset -nocomplain savedNewGlobalVariableFlags
+  }
+
+  if {[info exists savedNewLocalVariableFlags]} then {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        newLocalVariableFlags $savedNewLocalVariableFlags
+
+    unset -nocomplain savedNewLocalVariableFlags
+  }
+}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,647 @@
+###############################################################################
+#
+# load.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+if {[isEagle]} then {
+  set load_count [llength [info load]]
+} else {
+  set load_count 0
+}
+
+###############################################################################
+
+runTest {test load-1.1.1 {load/unload isolated plugin assembly} -setup {
+  #
+  # HACK: Save the current plugin flags for the interpreter and then
+  #       temporarily set them to "Isolated".  The saved flags will
+  #       be restored during test cleanup.
+  #
+  set savedPluginFlags [object invoke -flags +NonPublic \
+      Interpreter.GetActive PluginFlags]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      PluginFlags [combineFlags $savedPluginFlags Isolated]
+} -body {
+  set file [file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]
+
+  list [llength [info loaded]] [load $file Sample.Class3 {}] \
+      [llength [info loaded]] [unload -match glob $file \
+      "Sample.Class3, *" {}] [llength [info loaded]]
+} -cleanup {
+  unset -nocomplain file
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      PluginFlags [appendArgs = $savedPluginFlags]
+
+  unset -nocomplain savedPluginFlags
+} -constraints [fixConstraints {eagle command.object compile.ISOLATED_PLUGINS\
+file_Plugin.dll}] -match glob -result [list $load_count {{Sample.Class3,\
+Plugin, *} *} [expr {$load_count + 1}] {{Sample.Class3, Plugin, *} *} \
+$load_count]}
+
+###############################################################################
+
+runTest {test load-1.1.2 {load/unload non-isolated plugin assembly} -body {
+  set file [file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]
+
+  list [llength [info loaded]] [load $file Sample.Class3 {}] \
+      [llength [info loaded]] [unload -match glob $file \
+      "Sample.Class3, *" {}] [llength [info loaded]]
+} -cleanup {
+  unset -nocomplain file
+} -constraints \
+[fixConstraints {eagle !compile.ISOLATED_PLUGINS file_Plugin.dll}] \
+-match glob -result [list $load_count {{Sample.Class3, Plugin, *} *} \
+[expr {$load_count + 1}] {{Sample.Class3, Plugin, *} *} $load_count]}
+
+###############################################################################
+
+if {[isEagle]} then {
+  unset -nocomplain error
+
+  if {[catch {set interp [interp create]} error] == 0} then {
+    set load_count [interp eval $interp {llength [info load]}]
+  } else {
+    set interp "interp create failed for load-1.2.*"
+
+    tputs $test_channel [appendArgs \
+        "---- \[interp create\] error: " \n \
+        [getStringFromObjectHandle $error] \n]
+
+    set load_count 0
+  }
+
+  unset -nocomplain error
+} else {
+  set load_count 0
+}
+
+###############################################################################
+
+runTest {test load-1.2.1 {load/unload isolated plugin assembly} -setup {
+  #
+  # HACK: Save the current plugin flags for the interpreter and then
+  #       temporarily set them to "Isolated".  The saved flags will
+  #       be restored during test cleanup.
+  #
+  interp eval $interp {
+    set savedPluginFlags [object invoke -flags +NonPublic \
+        Interpreter.GetActive PluginFlags]
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        PluginFlags [combineFlags $savedPluginFlags Isolated]
+  }
+} -body {
+  set file [file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]
+
+  list [interp eval $interp {llength [info loaded]}] \
+      [load $file Sample.Class3 $interp] \
+      [interp eval $interp {llength [info loaded]}] \
+      [unload -match glob $file "Sample.Class3, *" $interp] \
+      [interp eval $interp {llength [info loaded]}]
+} -cleanup {
+  unset -nocomplain file
+
+  interp eval $interp {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        PluginFlags [appendArgs = $savedPluginFlags]
+
+    unset -nocomplain savedPluginFlags
+  }
+} -constraints [fixConstraints {eagle command.object compile.ISOLATED_PLUGINS\
+file_Plugin.dll}] -match glob -result [list $load_count {{Sample.Class3,\
+Plugin, *} *} [expr {$load_count + 1}] {{Sample.Class3, Plugin, *} *} \
+$load_count]}
+
+###############################################################################
+
+runTest {test load-1.2.2 {load/unload non-isolated plugin assembly} -body {
+  set file [file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]
+
+  list [interp eval $interp {llength [info loaded]}] \
+      [load $file Sample.Class3 $interp] \
+      [interp eval $interp {llength [info loaded]}] \
+      [unload -match glob $file "Sample.Class3, *" $interp] \
+      [interp eval $interp {llength [info loaded]}]
+} -cleanup {
+  unset -nocomplain file
+} -constraints \
+[fixConstraints {eagle !compile.ISOLATED_PLUGINS file_Plugin.dll}] \
+-match glob -result [list $load_count {{Sample.Class3, Plugin, *} *} \
+[expr {$load_count + 1}] {{Sample.Class3, Plugin, *} *} $load_count]}
+
+###############################################################################
+
+unset -nocomplain load_count
+
+###############################################################################
+
+if {[isEagle]} then {
+  catch {interp delete $interp}
+  unset -nocomplain interp
+}
+
+###############################################################################
+
+runTest {test load-1.3 {plugin Execute method} -setup {
+  set type Eagle._Plugins.Test; package require $type
+
+  set pluginData [object invoke -alias -flags +NonPublic \
+      Interpreter.GetActive GetPluginData [lindex [lindex \
+      [info loaded "" [appendArgs *\{ $type ,*]] 0] end]]
+
+  set savedEnableExecute [$pluginData Object.EnableExecute]
+  $pluginData Object.EnableExecute true
+} -body {
+  list [set response null] [set error null] [$pluginData Execute "" null \
+      "one two" response error] [testArrayGet $response true] \
+      [getStringFromObjectHandle $error] [set response null] \
+      [set error null] [$pluginData Execute "" [set clientData \
+      [object create ClientData "three four"]] "five six" response \
+      error] [catch {testArrayGet response true} result] $result \
+      [getStringFromObjectHandle $error]
+} -cleanup {
+  catch {$pluginData Object.EnableExecute $savedEnableExecute}
+
+  unset -nocomplain result clientData error response code savedEnableExecute \
+      pluginData type
+} -constraints {eagle command.object configuration.Debug} -match regexp \
+-result {^null null Error \{\} \{invalid clientData\} null null Ok 0 \{0\
+Interpreter#\d+ 1 \{three four\} 2 \{five six\}\} \{\}$}}
+
+###############################################################################
+
+runTest {test load-1.4 {plugin GetStream method} -setup {
+  set type Eagle._Plugins.Test; package require $type
+
+  set pluginData [object invoke -alias -flags +NonPublic \
+      Interpreter.GetActive GetPluginData [lindex [lindex \
+      [info loaded "" [appendArgs *\{ $type ,*]] 0] end]]
+
+  set savedEnableGetStream [$pluginData Object.EnableGetStream]
+  $pluginData Object.EnableGetStream true
+} -body {
+  list [set error null] [set stream1 [$pluginData GetStream "" Eagle.xsd \
+      null error]] [getStringFromObjectHandle $error] [set error null] \
+      [set stream2 [$pluginData GetStream "" NotThere null error]] \
+      [getStringFromObjectHandle $error]
+} -cleanup {
+  catch {$pluginData Object.EnableGetStream $savedEnableGetStream}
+
+  unset -nocomplain error stream2 stream1 savedEnableGetStream pluginData type
+} -constraints {eagle command.object configuration.Debug} -match regexp \
+-result [appendArgs {^null (?:System#IO#UnmanagedMemoryStream#\d+|} \
+{System#Reflection#(?:Assembly|RuntimeAssembly)\+} \
+{(?:UnmanagedMemoryStreamForModule|ManifestResourceStream)#\d+)} { \{\} null\
+\{\} \{stream not found\}$}]}
+
+###############################################################################
+
+runTest {test load-1.5 {plugin GetString method} -setup {
+  set type Eagle._Plugins.Test; package require $type
+
+  set pluginData [object invoke -alias -flags +NonPublic \
+      Interpreter.GetActive GetPluginData [lindex [lindex \
+      [info loaded "" [appendArgs *\{ $type ,*]] 0] end]]
+
+  set savedEnableGetString [$pluginData Object.EnableGetString]
+  $pluginData Object.EnableGetString true
+} -body {
+  list [set error null] [$pluginData GetString "" null null error] \
+      [getStringFromObjectHandle $error] [set error null] [$pluginData \
+      GetString "" Test null error] [getStringFromObjectHandle $error]
+} -cleanup {
+  catch {$pluginData Object.EnableGetString $savedEnableGetString}
+
+  unset -nocomplain error savedEnableGetString pluginData type
+} -constraints {eagle command.object compile.TEST configuration.Debug} -match \
+regexp -result {^null \{\} \{\{type "Eagle\._Tests\.Default" has no string\
+named <null>\} \{invalid string name\}\} null \{interpreter: "\d+", name:\
+"Test", cultureInfo: <null>\} \{\}$}}
+
+###############################################################################
+
+runTest {test load-1.6 {load plugin via bytes (non-isolated)} -setup [subst {
+  unset -nocomplain code result token plugin fileName haveCasPolicy
+
+  set haveCasPolicy [haveConstraint compile.CAS_POLICY]
+
+  set fileName {[file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]}
+}] -body {
+  set plugin null; set token 0; set result null
+
+  if {$haveCasPolicy} then {
+    set code [object invoke -alias \
+        Eagle._Tests.Default TestLoadPluginViaBytes "" $fileName null \
+        Sample.Class3 null None plugin token result]
+  } else {
+    set code [object invoke -alias \
+        Eagle._Tests.Default TestLoadPluginViaBytes "" $fileName \
+        Sample.Class3 null None plugin token result]
+  }
+
+  list $code [expr {[string length $result] > 0 ? [$result ToString] : ""}] \
+      $plugin $token
+} -cleanup {
+  unset -nocomplain code result token plugin fileName haveCasPolicy
+} -constraints {eagle command.object monoCrash28 compile.TEST file_Plugin.dll\
+Eagle._Tests.Default.TestLoadPluginViaBytes strongName.official} \
+-isolationLevel Maximum -match regexp -result {^Ok \{\{Sample\.Class3, Plugin,\
+Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+1\.0\.\d+\.\d+\} Sample#Class3#\d+ \d+$}}
+
+###############################################################################
+
+runTest {test load-1.7 {load plugin via bytes (isolated)} -setup [subst {
+  unset -nocomplain code result token plugin fileName haveCasPolicy \
+      savedPluginFlags
+
+  set haveCasPolicy [haveConstraint compile.CAS_POLICY]
+
+  set fileName {[file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]}
+
+  #
+  # HACK: Save the current plugin flags for the interpreter and then
+  #       temporarily set them to "Isolated".  The saved flags will
+  #       be restored during test cleanup.
+  #
+  set savedPluginFlags \[object invoke -flags +NonPublic \
+      Interpreter.GetActive PluginFlags\]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      PluginFlags \[combineFlags \$savedPluginFlags Isolated\]
+}] -body {
+  set plugin null; set token 0; set result null
+
+  if {$haveCasPolicy} then {
+    set code [object invoke -alias \
+        Eagle._Tests.Default TestLoadPluginViaBytes "" $fileName null \
+        Sample.Class3 null None plugin token result]
+  } else {
+    set code [object invoke -alias \
+        Eagle._Tests.Default TestLoadPluginViaBytes "" $fileName \
+        Sample.Class3 null None plugin token result]
+  }
+
+  list $code [expr {[string length $result] > 0 ? [$result ToString] : ""}] \
+      $plugin $token
+} -cleanup {
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      PluginFlags [appendArgs = $savedPluginFlags]
+
+  unset -nocomplain code result token plugin fileName haveCasPolicy \
+      savedPluginFlags
+} -constraints {eagle command.object compile.ISOLATED_PLUGINS compile.TEST\
+file_Plugin.dll Eagle._Tests.Default.TestLoadPluginViaBytes\
+strongName.official} -isolationLevel Maximum -match regexp -result {^Ok\
+\{\{Sample\.Class3, Plugin, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+1\.0\.\d+\.\d+\} Sample#Class3#\d+ \d+$}}
+
+###############################################################################
+
+#
+# HACK: We need to set an actual variable with the value of the quiet
+#       constraint so that the [subst] invocation for the setup script for
+#       the next test can use it to set the quiet mode for the isolated
+#       interpreter created by that test.
+#
+unset -nocomplain quiet
+set quiet [haveConstraint quiet]
+
+###############################################################################
+
+unset -nocomplain test_log_if
+set test_log_if [expr {[info exists test_log] ? $test_log : ""}]
+
+###############################################################################
+
+runTest {test load-2.0 {load plugin denied by policy} -setup [subst {
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled via the value of the quiet variable that was magically
+  #       "transferred" from the parent interpreter to this isolated test
+  #       interpreter via the enclosing subst invocation.  If so, enable
+  #       quiet mode and disable the default background error handler for
+  #       this isolated test interpreter to prevent superfluous console
+  #       output.
+  #
+  if {$quiet} then {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {\[catch {package present Eagle.Test}\]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {!\[info exists test_channel\]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {!\[info exists test_log\]} then {
+    set test_log {$test_log_if}
+  }
+
+  unset -nocomplain code result token fileName
+
+  set fileName {[file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]}
+}] -body {
+  set token 0; set result null
+
+  set code [object invoke -alias Eagle._Tests.Default \
+      TestAddLoadPluginPolicy "" null token result]
+
+  if {$code ne "Ok"} then {
+    error [$result ToString]
+  }
+
+  load $fileName Sample.Class4
+} -cleanup {
+  catch {
+    set result null
+
+    set code [object invoke \
+        Interpreter.GetActive RemovePolicy $token null result]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- RemovePolicy error: " \n [$result ToString] \n]
+    }
+  }
+
+  unset -nocomplain code result token fileName
+  unset -nocomplain test_log test_channel
+} -constraints {eagle command.object compile.TEST file_Plugin.dll\
+Eagle._Tests.Default.TestSetQuiet Eagle._Tests.Default.TestAddLoadPluginPolicy\
+Eagle._Tests.Default.TestLoadPluginPolicy strongName.official} \
+-isolationLevel Maximum -returnCodes 1 -result \
+{access to plugin Class4 is denied}}
+
+###############################################################################
+
+runTest {test load-2.1 {load plugin approved by policy} -setup [subst {
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled via the value of the quiet variable that was magically
+  #       "transferred" from the parent interpreter to this isolated test
+  #       interpreter via the enclosing subst invocation.  If so, enable
+  #       quiet mode and disable the default background error handler for
+  #       this isolated test interpreter to prevent superfluous console
+  #       output.
+  #
+  if {$quiet} then {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {\[catch {package present Eagle.Test}\]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {!\[info exists test_channel\]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {!\[info exists test_log\]} then {
+    set test_log {$test_log_if}
+  }
+
+  unset -nocomplain code result token fileName
+
+  set fileName {[file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]}
+}] -body {
+  set token 0; set result null
+
+  set code [object invoke -alias Eagle._Tests.Default \
+      TestAddLoadPluginPolicy "" null token result]
+
+  if {$code ne "Ok"} then {
+    error [$result ToString]
+  }
+
+  load $fileName Sample.Class3
+} -cleanup {
+  catch {
+    set result null
+
+    set code [object invoke \
+        Interpreter.GetActive RemovePolicy $token null result]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- RemovePolicy error: " \n [$result ToString] \n]
+    }
+  }
+
+  unset -nocomplain code result token fileName
+  unset -nocomplain test_log test_channel
+} -constraints {eagle command.object compile.TEST file_Plugin.dll\
+Eagle._Tests.Default.TestSetQuiet Eagle._Tests.Default.TestAddLoadPluginPolicy\
+Eagle._Tests.Default.TestLoadPluginPolicy strongName.official} \
+-isolationLevel Maximum -match regexp -result \
+{^\{Sample\.Class3, Plugin, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+1\.0\.\d+\.\d+$}}
+
+###############################################################################
+
+runTest {test load-3.1 {two plugins from assembly} -setup [subst {
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled via the value of the quiet variable that was magically
+  #       "transferred" from the parent interpreter to this isolated test
+  #       interpreter via the enclosing subst invocation.  If so, enable
+  #       quiet mode and disable the default background error handler for
+  #       this isolated test interpreter to prevent superfluous console
+  #       output.
+  #
+  if {$quiet} then {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {\[catch {package present Eagle.Test}\]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {!\[info exists test_channel\]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {!\[info exists test_log\]} then {
+    set test_log {$test_log_if}
+  }
+
+  #
+  # NOTE: Set the plugin flags for the interpreter so that we can know for
+  #       certain we are NOT in isolated mode.
+  #
+  object invoke -flags +NonPublic Interpreter.GetActive PluginFlags None
+
+  unset -nocomplain code result results fileName
+
+  set fileName {[file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]}
+}] -body {
+  set results [list]
+
+  load $fileName Sample.Class3
+  set code [catch {class2 test1} result]
+  lappend results [list $code $result]
+
+  load $fileName Sample.Class4
+  set code [catch {class2 test2} result]
+  lappend results [list $code $result]
+
+  unload $fileName [getPluginName {Sample\.Class4, }]
+  set code [catch {class2 test3} result]
+  lappend results [list $code $result]
+
+  unload $fileName [getPluginName {Sample\.Class3, }]
+  set code [catch {class2 test4} result]
+  lappend results [list $code $result]
+
+  set results
+} -cleanup {
+  unset -nocomplain code result results fileName
+  unset -nocomplain test_log test_channel
+} -constraints {eagle command.object compile.ISOLATED_INTERPRETERS\
+Eagle._Tests.Default.TestSetQuiet file_Plugin.dll strongName.official} \
+-isolationLevel AppDomain -match regexp -result {^\{536871012 \{test1\
+(?:-)?\d+\}\} \{536871012 \{test2 (?:-)?\d+\}\} \{536871012 \{test3\
+(?:-)?\d+\}\} \{1 \{invalid command name "class2"\}\}$}}
+
+###############################################################################
+
+runTest {test load-3.2 {two isolated plugins from assembly} -setup [subst {
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled via the value of the quiet variable that was magically
+  #       "transferred" from the parent interpreter to this isolated test
+  #       interpreter via the enclosing subst invocation.  If so, enable
+  #       quiet mode and disable the default background error handler for
+  #       this isolated test interpreter to prevent superfluous console
+  #       output.
+  #
+  if {$quiet} then {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {\[catch {package present Eagle.Test}\]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {!\[info exists test_channel\]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {!\[info exists test_log\]} then {
+    set test_log {$test_log_if}
+  }
+
+  #
+  # NOTE: Set the plugin flags for the interpreter so that we can know for
+  #       certain we ARE in isolated mode.
+  #
+  object invoke -flags +NonPublic Interpreter.GetActive PluginFlags Isolated
+
+  unset -nocomplain code result results fileName
+
+  set fileName {[file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]}
+}] -body {
+  set results [list]
+
+  load $fileName Sample.Class3
+  set code [catch {class2 test1} result]
+  lappend results [list $code $result]
+
+  load $fileName Sample.Class4
+  set code [catch {class2 test2} result]
+  lappend results [list $code $result]
+
+  unload $fileName [getPluginName {Sample\.Class4, }]
+  set code [catch {class2 test3} result]
+  lappend results [list $code $result]
+
+  unload $fileName [getPluginName {Sample\.Class3, }]
+  set code [catch {class2 test4} result]
+  lappend results [list $code $result]
+
+  set results
+} -cleanup {
+  unset -nocomplain code result results fileName
+  unset -nocomplain test_log test_channel
+} -constraints [fixConstraints {eagle command.object\
+compile.ISOLATED_INTERPRETERS compile.ISOLATED_PLUGINS file_Plugin.dll\
+Eagle._Tests.Default.TestSetQuiet strongName.official}] -isolationLevel \
+AppDomain -match regexp -result {^\{536871012 \{test1 (?:-)?\d+\}\} \{536871012\
+\{test2 (?:-)?\d+\}\} \{536871012 \{test3 (?:-)?\d+\}\} \{1 \{invalid command\
+name "class2"\}\}$}}
+
+###############################################################################
+
+unset -nocomplain test_log_if
+unset -nocomplain quiet
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

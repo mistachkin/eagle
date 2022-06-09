@@ -1,0 +1,770 @@
+###############################################################################
+#
+# namespace-delete.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test namespace-97.1 {delete global namespace from proc} -setup {
+  proc foo {} {namespace delete ::}
+} -body {
+  foo
+
+  if {[object invoke Interpreter IsPendingCleanup ""]} then {
+    object invoke -flags +NonPublic -default Interpreter.GetActive \
+        DeleteNamespace None "" true result
+  }
+
+  info exists dummy
+} -constraints {eagle command.object} -isolationLevel Interpreter -returnCodes \
+1 -result {invalid command name "info"}}
+
+###############################################################################
+
+runTest {test namespace-97.2 {delete global namespace, vwait scalar} -body {
+  set x 1
+
+  after 1000 [list namespace delete ::]
+
+  after 2000 {
+    if {[object invoke Interpreter IsPendingCleanup ""]} then {
+      object invoke -flags +NonPublic -default Interpreter.GetActive \
+          DeleteNamespace None "" true result
+    }
+  }
+
+  vwait x
+} -constraints {eagle command.object} -isolationLevel Interpreter -result {}}
+
+###############################################################################
+
+runTest {test namespace-97.3 {delete global namespace, vwait element} -body {
+  set x(1) 1
+
+  after 1000 [list namespace delete ::]
+  after 2000 [list set x(2) 1]
+
+  after 3000 {
+    if {[object invoke Interpreter IsPendingCleanup ""]} then {
+      object invoke -flags +NonPublic -default Interpreter.GetActive \
+          DeleteNamespace None "" true result
+    }
+  }
+
+  vwait x(1); info exists x(1)
+} -constraints {eagle command.object} -isolationLevel Interpreter -returnCodes \
+1 -result {invalid command name "info"}}
+
+###############################################################################
+
+runTest {test namespace-97.4 {delete global namespace, references} -setup {
+  unset -nocomplain i x v error
+  set i [interp create]
+} -body {
+  set v null; set error null
+  list [set x [interp eval $i {set x [object create Int32]}]] \
+      [interp eval $i {namespace delete ::}] \
+      [object invoke -alias Value GetInterpreter "" $i Default v error] \
+      [$v DoesObjectExist $x]
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i x v error
+} -constraints {eagle command.object} -match regexp -result \
+{^System#Int32#\d+ \{\} Ok Error$}}
+
+###############################################################################
+
+runTest {test namespace-97.5 {delete child namespace w/recursion} -body {
+  namespace eval ::foo {}
+  namespace eval ::foo::bar {}
+  namespace eval ::foo::baz {}
+  namespace eval ::foo::bar::splog {}
+  namespace delete ::foo
+  namespace children :: foo
+} -cleanup {
+  catch {namespace delete ::foo}
+} -constraints {namespaces} -result {}}
+
+###############################################################################
+
+runTest {test namespace-97.6 {listing deleted children} -body {
+  namespace eval ::foo::bar {
+    namespace delete ::foo
+    namespace children :: foo
+  }
+} -cleanup {
+  catch {namespace delete ::foo}
+} -constraints {namespaces} -result {}}
+
+###############################################################################
+
+runTest {test namespace-97.7 {namespace enable/disable with procs} -setup {
+  unset -nocomplain result
+  set savedNamespaces [namespace enable]
+} -body {
+  lappend result(2) [namespace enable false]
+  catch {rename foo::bar ""}
+
+  lappend result(2) [catch {foo::bar} result(1)] $result(1)
+
+  proc foo::bar {} {
+    return [list [namespace current] [info level [info level]]]
+  }
+
+  lappend result(2) [catch {foo::bar} result(1)] $result(1)
+  lappend result(2) [namespace enable true]
+  lappend result(2) [catch {foo::bar} result(1)] $result(1)
+  lappend result(2) [namespace eval foo {}]
+  lappend result(2) [catch {foo::bar} result(1)] $result(1)
+  lappend result(2) [namespace enable false]
+  lappend result(2) [catch {foo::bar} result(1)] $result(1)
+  lappend result(2) [namespace enable true]
+  lappend result(2) [catch {foo::bar} result(1)] $result(1)
+} -cleanup {
+  catch {namespace enable false; rename foo::bar ""}
+  catch {namespace enable true; namespace delete ::foo}
+
+  namespace enable $savedNamespaces
+  unset -nocomplain savedNamespaces
+
+  unset -nocomplain result
+} -constraints {eagle namespaces.available} -result {False 1 {invalid command\
+name "foo::bar"} 0 {:: foo::bar} True 0 {:: foo::bar} {} 0 {::foo foo::bar}\
+False 0 {:: foo::bar} True 0 {::foo foo::bar}}}
+
+###############################################################################
+
+runTest {test namespace-97.8 {namespace enable/disable with vars} -setup {
+  unset -nocomplain result
+  set savedNamespaces [namespace enable]
+} -body {
+  lappend result(2) [namespace enable false]
+  catch {unset -nocomplain foo::bar}
+
+  lappend result(2) [catch {set foo::bar} result(1)] $result(1)
+
+  set foo::bar 1
+
+  lappend result(2) [catch {set foo::bar} result(1)] $result(1)
+  lappend result(2) [namespace enable true]
+  lappend result(2) [catch {set foo::bar} result(1)] $result(1)
+  lappend result(2) [namespace eval foo {}]
+  lappend result(2) [catch {set foo::bar} result(1)] $result(1)
+  lappend result(2) [namespace eval foo {set bar 2}]
+  lappend result(2) [catch {set foo::bar} result(1)] $result(1)
+  lappend result(2) [namespace enable false]
+  lappend result(2) [catch {set foo::bar} result(1)] $result(1)
+  lappend result(2) [namespace enable true]
+  lappend result(2) [catch {set foo::bar} result(1)] $result(1)
+} -cleanup {
+  catch {namespace enable false; unset -nocomplain foo::bar}
+  catch {namespace enable true; namespace delete ::foo}
+
+  namespace enable $savedNamespaces
+  unset -nocomplain savedNamespaces
+
+  unset -nocomplain result
+} -constraints {eagle namespaces.available} -result {False 1 {can't read\
+"foo::bar": no such variable} 0 1 True 1 {namespace "foo" not found in "::"} {}\
+1 {can't read "foo::bar": no such variable} 2 0 2 False 0 1 True 0 2}}
+
+###############################################################################
+
+runTest {test namespace-97.9 {object load -namespace} -setup {
+  #
+  # NOTE: This test is EXEMPT from using [getStringFromObjectHandle].
+  #
+  set i [interp create]
+
+  interp eval $i {
+    namespace enable true
+    namespace eval foo {}
+  }
+} -body {
+  if {[haveConstraint dotNetCore]} then {
+    interp eval $i {
+      set assembly [object load -namespace foo System.Private.CoreLib]
+    }
+  } else {
+    interp eval $i {
+      set assembly [object load -namespace foo mscorlib]
+    }
+  }
+
+  interp eval $i {
+    unset assembly
+
+    set x [object create -alias Int32]
+
+    #
+    # HACK: There is no opaque object handle here.  The [appendArgs]
+    #       procedure is building a command name, not an object name.
+    #
+    list [[appendArgs ::foo:: $x] ToString] \
+        [info commands foo::*] [info objects] [unset x] \
+        [info commands foo::*] [info objects]
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object namespaces.available} -match regexp \
+-result {^0 ::foo::System#Int32#\d+ \{null System#Int32#\d+\} \{\} \{\} null$}}
+
+###############################################################################
+
+runTest {test namespace-97.10 {namespace rename (no cmds/vars)} -setup {
+  set i [interp create -namespaces -noinitialize -novariables]
+
+  interp eval $i {
+    catch {namespace delete ::tcl}
+  }
+
+  interp eval $i {
+    variable g 0
+    proc g1 {} {}
+    namespace eval foo {
+      variable f 1
+      proc f1 {} {}
+      namespace eval bar {
+        variable b 2
+        proc b1 {} {}
+        namespace eval splog {
+          variable s 3
+          proc s1 {} {}
+        }
+      }
+    }
+  }
+} -body {
+  set result [list]
+
+  lappend result [interp eval $i {
+    set result ""
+    list [info procs] [info vars] \
+        [catch {namespace children} result] $result \
+        [catch {namespace children foo} result] $result \
+        [catch {namespace children foo::bar} result] $result \
+        [catch {namespace children foo::bar::splog} result] $result \
+        [catch {namespace children foo::x} result] $result \
+        [catch {namespace children foo::x::splog} result] $result
+  }]
+
+  set error null
+
+  set code [object invoke \
+      Eagle._Tests.Default TestRenameNamespace $i foo::bar x error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  lappend result [interp eval $i {
+    set result ""
+    list [info procs] [info vars] \
+        [catch {namespace children} result] $result \
+        [catch {namespace children foo} result] $result \
+        [catch {namespace children foo::bar} result] $result \
+        [catch {namespace children foo::bar::splog} result] $result \
+        [catch {namespace children foo::x} result] $result \
+        [catch {namespace children foo::x::splog} result] $result
+  }]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error result code i
+} -constraints {eagle command.object namespaces.available compile.TEST\
+Eagle._Tests.Default.TestRenameNamespace} -result {{g1 {g result} 0 ::foo 0\
+::foo::bar 0 ::foo::bar::splog 0 {} 1 {namespace "foo::x" not found in "::"} 1\
+{namespace "foo::x::splog" not found in "::"}} {g1 {g result errorInfo\
+errorCode} 0 ::foo 0 ::foo::x 1 {namespace "foo::bar" not found in "::"} 1\
+{namespace "foo::bar::splog" not found in "::"} 0 ::foo::x::splog 0 {}}}}
+
+###############################################################################
+
+runTest {test namespace-97.11 {namespace rename sub-command} -setup {
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    namespace eval foo {
+      variable x 1
+      proc fooProc {} {return [namespace current]}
+    }
+
+    namespace eval splog {
+      catch {namespace rename ::splog ::splog2}
+      variable y [namespace children ::]
+    }
+
+    set x [namespace children ::]
+
+    namespace rename tcl notTcl
+    namespace rename foo bar
+  }
+
+  list [interp eval $i {lsort [namespace children]}] \
+      [interp eval $i {namespace eval bar {set x}}] \
+      [interp eval $i {info commands foo::*}] \
+      [interp eval $i {info commands bar::*}] \
+      [catch {interp eval $i {
+        foo::fooProc
+      }} result] $result \
+      [catch {interp eval $i {
+        bar::fooProc
+      }} result] $result \
+      [catch {interp eval $i {
+        tcl::tm::UnknownHandler nop someCommand
+      }} result] $result \
+      [catch {interp eval $i {
+        notTcl::tm::UnknownHandler nop someCommand
+      }} result] $result \
+      [catch {interp eval $i {
+        set foo::x
+      }} result] $result \
+      [catch {interp eval $i {
+        set bar::x
+      }} result] $result \
+      [catch {interp eval $i {
+        set splog2::y
+      }} result] $result \
+      [catch {interp eval $i {
+        set ::x
+      }} result] $result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result i
+} -constraints {eagle namespaces.available} -result \
+{{::bar ::notTcl ::splog} 1 {} ::bar::fooProc 1 {invalid command name\
+"foo::fooProc"} 0 ::bar 1 {invalid command name "tcl::tm::UnknownHandler"} 0 {}\
+1 {namespace "foo" not found in "::"} 0 1 1 {namespace "splog2" not found in\
+"::"} 0 {::tcl ::foo ::splog}}}
+
+###############################################################################
+
+runTest {test namespace-97.12 {namespace rename sub-command} -setup {
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    namespace eval foo {
+      variable fv1 1
+      proc fp1 {} {}
+      namespace eval bar {
+        variable bv1 1
+        proc bp1 {} {}
+        namespace eval splog {
+          variable sv1 1
+          proc sp1 {} {}
+        }
+      }
+    }
+  }
+
+  interp eval $i {namespace rename foo::bar foo::bar::splog2}
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle namespaces.available} -returnCodes 1 -result \
+{can't rename "::foo::bar": new parent is descendant}}
+
+###############################################################################
+
+runTest {test namespace-97.13 {namespace rename sub-command} -setup {
+  set i [interp create -namespaces]
+
+  if {[haveConstraint quiet]} then {
+    interp eval $i {
+      object invoke Eagle._Tests.Default TestSetQuiet "" true
+    }
+  }
+} -body {
+  interp eval $i {
+    namespace eval foo {
+      variable fv1 1
+      proc fp1 {} {}
+      namespace eval bar {
+        variable bv1 1
+        proc bp1 {} {}
+        namespace eval splog {
+          variable sv1 1
+          proc sp1 {} {}
+        }
+      }
+    }
+  }
+
+  list [interp eval $i {namespace rename foo::bar::splog foo::bar2}] \
+      [catch {interp eval $i {
+        info commands foo::*
+      }} result] $result \
+      [catch {interp eval $i {
+        info commands foo::bar::*
+      }} result] $result \
+      [catch {interp eval $i {
+        info commands foo::bar::splog::*
+      }} result] $result \
+      [catch {interp eval $i {
+        info commands foo::bar2::*
+      }} result] $result \
+      [catch {interp eval $i {
+        info vars foo::*
+      }} result] $result \
+      [catch {interp eval $i {
+        info vars foo::bar::*
+      }} result] $result \
+      [catch {interp eval $i {
+        info vars foo::bar::splog::*
+      }} result] $result \
+      [catch {interp eval $i {
+        info vars foo::bar2::*
+      }} result] $result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result i
+} -constraints {eagle namespaces.available Eagle._Tests.Default.TestSetQuiet} \
+-result {{} 0 ::foo::fp1 0 ::foo::bar::bp1 0 {} 0 ::foo::bar2::sp1 0 ::foo::fv1\
+0 ::foo::bar::bv1 0 {} 0 ::foo::bar2::sv1}}
+
+###############################################################################
+
+runTest {test namespace-97.14 {namespace rename sub-command} -setup {
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    namespace eval foo {
+      variable fv1 1
+      proc fp1 {} {}
+      namespace eval bar {
+        variable bv1 1
+        proc bp1 {} {}
+        namespace eval splog {
+          variable sv1 1
+          proc sp1 {} {}
+          namespace eval dog {
+            variable dv1 1
+            proc dp1 {} {}
+          }
+        }
+      }
+    }
+  }
+
+  interp eval $i {namespace rename foo::bar foo::bar::splog::dog2}
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle namespaces.available} -returnCodes 1 -result \
+{can't rename "::foo::bar": new parent is descendant}}
+
+###############################################################################
+
+runTest {test namespace-97.15 {namespace rename sub-command} -setup {
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {
+    namespace eval foo {
+      variable fv1 1
+      proc fp1 {} {}
+      namespace export fp1
+      namespace eval bar {
+        variable bv1 1
+        proc bp1 {} {}
+        namespace import ::foo::fp1
+      }
+    }
+  }
+
+  list [interp eval $i {namespace eval foo::bar {namespace import}}] \
+      [interp eval $i {namespace rename foo foo2}] \
+      [interp eval $i {namespace eval foo2::bar {namespace import}}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle namespaces.available} -result {fp1 {} {}}}
+
+###############################################################################
+
+runTest {test namespace-97.16 {namespace delete with current} -setup {
+  set i [interp create -namespaces]
+} -body {
+  unset -nocomplain result
+
+  lappend result [interp eval $i {
+    namespace eval foo {
+      object invoke -flags +NonPublic -tostring \
+          Eagle._Components.Private.NamespaceOps GetCurrent "" null
+    }
+  }]
+
+  lappend result [interp eval $i {
+    namespace eval foo {
+      set result null
+
+      object invoke -flags +NonPublic -nobyref \
+          Interpreter.GetActive DeleteNamespace None ::foo true result
+
+      object invoke -flags +NonPublic -tostring \
+          Eagle._Components.Private.NamespaceOps GetCurrent "" null
+    }
+  }]
+
+  set result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result i
+} -constraints {eagle namespaces.available} -result {foo {}}}
+
+###############################################################################
+
+runTest {test namespace-97.17 {delete with hidden commands} -setup {
+  set i [interp create -safe -namespaces]
+} -body {
+  list [interp eval $i {namespace delete ::}] [interp eval $i {info commands}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle namespaces.available} -result {{} {}}}
+
+###############################################################################
+
+runTest {test namespace-97.18 {object load -namespace merge args} -setup {
+  set i [interp create]
+
+  interp eval $i {
+    namespace enable true
+    namespace eval foo {}
+  }
+} -body {
+  if {[haveConstraint dotNetCore]} then {
+    interp eval $i {
+      set assembly [object load -namespace foo System.Private.CoreLib]
+    }
+  } else {
+    interp eval $i {
+      set assembly [object load -namespace foo mscorlib]
+    }
+  }
+
+  interp eval $i {
+    unset assembly
+
+    set x1 [object create -alias Int32]
+    set y1 [[appendArgs ::foo:: $x1] -create ToString]
+    set z1 [[appendArgs ::foo:: $x1] -create -alias ToString]
+
+    set x2 [object create Int32]
+    set y2 [object invoke -create $x2 ToString X]
+    set z2 [object invoke -create -alias $x2 ToString X]
+
+    set y3 [object invoke -create -- $x2 ToString X]
+    set z3 [object invoke -create -alias -- $x2 ToString X]
+
+    set x4 [object create -alias -objectflags +ReturnAlias Int32]
+    set y4 [$x4 -create ToString]
+    set z4 [$x4 -create -alias ToString]
+
+    list $x1 $y1 $z1 $x2 $y2 $z2 $y3 $z3 $x4 $y4 $z4
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object namespaces.available} -match regexp \
+-result {^System#Int32#\d+ System#String#\d+ System#String#\d+ System#Int32#\d+\
+System#String#\d+ System#String#\d+ System#String#\d+ System#String#\d+\
+::foo::System#Int32#\d+ System#String#\d+ System#String#\d+$}}
+
+###############################################################################
+
+runTest {test namespace-99.999 {delete global w/o marking undefined} -setup {
+  set i [interp create -namespaces]
+} -body {
+  interp eval $i {namespace delete ::}
+
+  set o null; set error null
+
+  set code [object invoke -alias Value \
+      GetInterpreter "" $i Default o error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set result null
+
+  set code [$o RestoreCorePlugin false result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  interp eval $i {set x 2; list [info vars] [info exists x]}
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error result code o i
+} -constraints {eagle command.object namespaces.available} -result {{null x} 1}}
+
+###############################################################################
+
+runTest {test namespace-99.1000 {rename hidden with namespaces} -setup {
+  set i [interp create -namespaces]
+} -body {
+  interp hide $i puts
+
+  list [catch {
+    interp eval $i [list rename -hidden -hiddenonly set ""]
+  } error] $error [catch {
+    interp eval $i [list rename -hidden set ""]
+  } error] $error [catch {
+    interp eval $i [list rename gets ""]
+  } error] $error [catch {
+    interp eval $i [list rename puts ""]
+  } error] $error [catch {
+    interp eval $i [list rename -hidden puts ""]
+  } error] $error
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error code i
+} -constraints {eagle command.object namespaces.available} -result \
+{1 {invalid hidden command name "set"} 0 {} 0 {} 1 {{invalid command name\
+"puts"} {invalid command name "::puts"}} 0 {}}}
+
+###############################################################################
+
+runTest {test namespace-99.1001 {rename hidden without namespaces} -setup {
+  set i [interp create -nonamespaces]
+} -body {
+  interp hide $i puts
+
+  list [catch {
+    interp eval $i [list rename -hidden -hiddenonly set ""]
+  } error] $error [catch {
+    interp eval $i [list rename -hidden set ""]
+  } error] $error [catch {
+    interp eval $i [list rename gets ""]
+  } error] $error [catch {
+    interp eval $i [list rename puts ""]
+  } error] $error [catch {
+    interp eval $i [list rename -hidden puts ""]
+  } error] $error
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error code i
+} -constraints {eagle command.object namespaces.available} -result \
+{1 {can't rename "set": it is not hidden} 0 {} 0 {} 1 {can't rename "puts":\
+unknown identifier kind} 0 {}}}
+
+###############################################################################
+
+runTest {test namespace-99.1002 {rename hidden with namespaces} -setup {
+  set i [interp create -namespaces]
+} -body {
+  interp hide $i puts
+
+  list [catch {
+    interp rename -hidden -hiddenonly $i set ""
+  } error] $error [catch {
+    interp rename -hidden $i set ""
+  } error] $error [catch {
+    interp rename $i gets ""
+  } error] $error [catch {
+    interp rename $i puts ""
+  } error] $error [catch {
+    interp rename -hidden $i puts ""
+  } error] $error
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error code i
+} -constraints {eagle command.object namespaces.available} -result \
+{1 {invalid hidden command name "set"} 0 {} 0 {} 1 {{invalid command name\
+"puts"} {invalid command name "::puts"}} 0 {}}}
+
+###############################################################################
+
+runTest {test namespace-99.1003 {rename hidden without namespaces} -setup {
+  set i [interp create -nonamespaces]
+} -body {
+  interp hide $i puts
+
+  list [catch {
+    interp rename -hidden -hiddenonly $i set ""
+  } error] $error [catch {
+    interp rename -hidden $i set ""
+  } error] $error [catch {
+    interp rename $i gets ""
+  } error] $error [catch {
+    interp rename $i puts ""
+  } error] $error [catch {
+    interp rename -hidden $i puts ""
+  } error] $error
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error code i
+} -constraints {eagle command.object namespaces.available} -result \
+{1 {can't rename "set": it is not hidden} 0 {} 0 {} 1 {can't rename "puts":\
+unknown identifier kind} 0 {}}}
+
+###############################################################################
+
+runTest {test namespace-99.1004 {rename hidden with namespaces} -setup {
+  set i [interp create -namespaces]
+} -body {
+  interp hide $i puts
+
+  list [catch {
+    interp eval $i [list rename puts ""]
+  } error] $error [catch {
+    interp eval $i [list rename -hidden puts ""]
+  } error] $error
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error code i
+} -constraints {eagle command.object namespaces.available} -result \
+{1 {{invalid command name "puts"} {invalid command name "::puts"}} 0 {}}}
+
+###############################################################################
+
+runTest {test namespace-99.1005 {rename hidden without namespaces} -setup {
+  set i [interp create -nonamespaces]
+} -body {
+  interp hide $i puts
+
+  list [catch {
+    interp eval $i [list rename puts ""]
+  } error] $error [catch {
+    interp eval $i [list rename -hidden puts ""]
+  } error] $error
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain error code i
+} -constraints {eagle command.object namespaces.available} -result \
+{1 {can't rename "puts": unknown identifier kind} 0 {}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

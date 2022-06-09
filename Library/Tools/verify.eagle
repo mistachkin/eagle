@@ -1,0 +1,769 @@
+###############################################################################
+#
+# verify.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Release Archive Verification Tool
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+package require Eagle
+
+proc usage { error } {
+  if {[string length $error] > 0} then {puts stdout $error}
+
+  puts stdout "usage:\
+[file tail [getShellExecutableName]]\
+[file tail [info script]] <directory> <withHashes> \[failHashes\]"
+
+  #
+  # NOTE: Indicate to the caller, if any, that we have failed.
+  #
+  exit 1
+}
+
+proc getFileHashes { varName } {
+  variable fossil
+
+  upvar 1 $varName hashes
+
+  set data [exec -success Success -nocarriagereturns -- \
+      $fossil artifact current]; # or "release"
+
+  set result 0
+  set lines [split $data \n]
+
+  foreach line $lines {
+    if {[string range $line 0 1] eq "F "} then {
+      set fields [split $line " "]
+
+      if {[llength $fields] >= 3} then {
+        set fileName [string map [list \\s " "] [lindex $fields 1]]
+        set hash [lindex $fields 2]
+
+        if {[regexp -- {[0-9a-f]{40,64}} $hash]} then {
+          set hashes($fileName) $hash; incr result
+        }
+      }
+    }
+  }
+
+  return $result
+}
+
+proc needSignature { fileName } {
+  if {[file extension $fileName] in [list .dll .exe]} then {
+    return true
+  }
+
+  return false
+}
+
+proc getSignature { fileName } {
+  set channel [open $fileName RDONLY]
+  makeBinaryChannel $channel
+  set result [read $channel 4]
+  close $channel
+
+  set prefix [string range $result 0 1]
+
+  if {$prefix eq "\x4D\x5A"} then {; # MZ
+    set result $prefix
+  }
+
+  return $result
+}
+
+proc getSha1Sum { fileName } {
+  variable fossil
+
+  set hash [string range [exec -success Success -nocarriagereturns \
+      -trimall -- $fossil sha1sum [appendArgs \" $fileName \"]] 0 39]
+
+  if {[regexp -- {[0-9a-f]{40}} $hash]} then {
+    return $hash
+  }
+
+  return ""
+}
+
+proc getSha3Sum { fileName } {
+  variable fossil
+
+  set hash [string range [exec -success Success -nocarriagereturns \
+      -trimall -- $fossil sha3sum [appendArgs \" $fileName \"]] 0 63]
+
+  if {[regexp -- {[0-9a-f]{64}} $hash]} then {
+    return $hash
+  }
+
+  return ""
+}
+
+proc getInnoSetupRootMap {} {
+  return [list app\\ [appendArgs {{app}} \\] tmp\\ [appendArgs {{tmp}} \\]]
+}
+
+proc getExecCommandPrefix {} {
+  return [list exec -success Success -nocarriagereturns --]
+}
+
+proc combineErrors { error1 error2 } {
+  return [appendArgs \n\n $error1 \n $error2 \n]
+}
+
+set argc [llength $argv]
+
+if {$argc >= 2 && $argc <= 3} then {
+  set directory [lindex $argv 0]
+
+  if {[string length $directory] == 0} then {
+    usage "invalid directory specified"
+  }
+
+  if {![file isdirectory $directory]} then {
+    usage [appendArgs \
+        "directory \"" $directory "\" does not exist"]
+  }
+
+  set withHashes [lindex $argv 1]
+
+  if {[string length $withHashes] == 0} then {
+    usage "invalid \"withHashes\" flag specified"
+  }
+
+  if {![string is boolean -strict $withHashes]} then {
+    usage "bad \"withHashes\" flag, not a boolean"
+  }
+
+  set failHashes [expr {$argc >= 3 ? [lindex $argv 2] : true}]
+
+  if {[string length $failHashes] == 0} then {
+    usage "invalid \"failHashes\" flag specified"
+  }
+
+  if {![string is boolean -strict $failHashes]} then {
+    usage "bad \"failHashes\" flag, not a boolean"
+  }
+
+  set exitCode 0
+
+  set script [info script]
+  set path [file dirname $script]
+  set rootName [file rootname [file tail $script]]
+
+  if {![info exists fossil]} then {
+    if {[info exists env(FossilTool)]} then {
+      set fossil $env(FossilTool)
+    }
+
+    if {![info exists fossil] || ![file exists $fossil]} then {
+      set fossil [file join $path fossil.exe]
+    }
+  }
+
+  if {![info exists innounp]} then {
+    if {[info exists env(InnoUnpackTool)]} then {
+      set innounp $env(InnoUnpackTool)
+    }
+
+    if {![info exists innounp] || ![file exists $innounp]} then {
+      set innounp [file join $path innounp.exe]
+    }
+  }
+
+  if {![info exists innoextract]} then {
+    if {[info exists env(InnoExtractTool)]} then {
+      set innoextract $env(InnoExtractTool)
+    }
+
+    if {![info exists innoextract] || ![file exists $innoextract]} then {
+      set innoextract [file join $path innoextract.exe]
+    }
+  }
+
+  if {![info exists rar]} then {
+    if {[info exists env(UnRARTool)]} then {
+      set rar $env(UnRARTool)
+    }
+
+    if {![info exists rar] || ![file exists $rar]} then {
+      set rar [file join $path UnRAR.exe]
+    }
+  }
+
+  if {![info exists zip]} then {
+    if {[info exists env(UnZipTool)]} then {
+      set zip $env(UnZipTool)
+    }
+
+    if {![info exists zip] || ![file exists $zip]} then {
+      set zip [file join $path UnZip.exe]
+    }
+  }
+
+  if {![info exists manifestListFileName]} then {
+    set manifestListFileName [file join \
+        $path data [appendArgs $rootName .lst]]
+  }
+
+  source $manifestListFileName
+
+  if {![array exists manifests]} then {
+    usage "list of archive manifests is missing"
+  }
+
+  package require Eagle.Test; set extractDirectory [getTemporaryFileName]
+
+  if {[string length $extractDirectory] == 0} then {
+    usage "no extract directory is available"
+  }
+
+  file delete $extractDirectory; file mkdir $extractDirectory
+
+  if {![file isdirectory $extractDirectory]} then {
+    usage [appendArgs \
+        "extract directory \"" $extractDirectory "\" does not exist"]
+  }
+
+  if {$withHashes} then {
+    if {![file exists $fossil]} then {
+      usage [appendArgs "tool \"" $fossil "\" is missing"]
+    }
+
+    if {[getFileHashes hashes] == 0} then {
+      usage "no repository hashes are available"
+    }
+  }
+
+  set hashPrefix [expr {$failHashes ? "ERROR" : "WARNING"}]
+  set archiveFileNames [list]
+
+  foreach extension [list exe nupkg rar zip] {
+    eval lappend archiveFileNames [findFilesRecursive \
+        [file join $directory [appendArgs *. $extension]]]
+  }
+
+  foreach archiveFileName $archiveFileNames {
+    set manifest [file tail $archiveFileName]
+
+    #
+    # HACK: Attempt to extract the version and/or date/time
+    #       information from the manifest file name, for use
+    #       by things like [subst] in the manifest itself.
+    #
+    regexp -- {(\d+)\.(\d+)\.(\d+)\.(\d+)} $manifest dummy \
+        major minor build revision
+
+    regexp -- {(\d{4})-(\d{2})-(\d{2})-(\d{2})} $manifest \
+        dummy year month day sequence
+
+    #
+    # HACK: Attempt to match and remove sub-strings from the
+    #       manifest file name that look like the name of a
+    #       build configuration (e.g. "debug" or "release").
+    #
+    regsub -- {-debug-|-release-} $manifest {-} manifest
+
+    #
+    # HACK: Special hack to allow "CLRvX" to appear in the
+    #       manifest file names, part 1, the vanishing.
+    #
+    set manifest [string map \
+        [list CLRv2 CLRvTWO CLRv4 CLRvFOUR Standard.2.0 \
+        StandardTWO-ZERO Standard.2.1 StandardTWO-ONE] \
+        $manifest]
+
+    #
+    # HACK: Special hack to allow "EF6", "Win32", "x64", and
+    #       "x86" to appear in the manifest file names, part 1,
+    #       the vanishing.
+    #
+    set manifest [string map \
+        [list EF6 EF-SIX Win32 Win-THIRTYTWO x64 x-SIXTYFOUR \
+        x86 x-EIGHTYSIX] $manifest]
+
+    #
+    # HACK: Attempt to match and remove sub-strings from the
+    #       manifest file name that look like a version number
+    #       in the format "<major>.<minor>.<build>.<revision>"
+    #       and/or a date/time string matching the format
+    #       "YYYY-MM-DD-NN" (where the NN portion is a generic
+    #       incrementing sequence number).
+    #
+    regsub -- {\d+\.\d+\.\d+\.\d+} $manifest {} manifest
+    regsub -- {\d{4}-\d{2}-\d{2}-\d{2}} $manifest {} manifest
+
+    #
+    # HACK: Special hack to allow "CLRvX" to appear in the
+    #       manifest file names, part 2, the return.
+    #
+    set manifest [string map \
+        [list CLRvTWO CLRv2 CLRvFOUR CLRv4 StandardTWO-ZERO \
+        Standard.2.0 StandardTWO-ONE Standard.2.1] $manifest]
+
+    #
+    # HACK: Special hack to allow "EF6", "Win32", "x64", and
+    #       "x86" to appear in the manifest file names, part 2,
+    #       the return.
+    #
+    set manifest [string map \
+        [list EF-SIX EF6 Win-THIRTYTWO Win32 x-SIXTYFOUR x64 \
+        x-EIGHTYSIX x86] $manifest]
+
+    #
+    # HACK: Fixup manifest file names that correspond to the
+    #       NuGet packages for SymbolSource.
+    #
+    if {[regexp -- {[/\\]SymbolSource[/\\]} $archiveFileName]} then {
+      set manifest [string map [list .. .Source..] $manifest]
+    }
+
+    if {![info exists manifests($manifest)]} then {
+      if {![info exists no(warn)]} then {
+        puts stdout [appendArgs \
+            "WARNING: Cannot find manifest \"" $manifest \
+            "\" for archive \"" $archiveFileName "\", skipped."]
+      }
+
+      continue
+    }
+
+    set manifestFileNames [list]
+
+    foreach list [lrange $manifests($manifest) 1 end] {
+      set rawManifestFileNames [set [appendArgs \
+          [appendArgs [lindex $manifests($manifest) 0] \
+          _manifests] ( $list )]]
+
+      if {[info exists manifests($manifest,subst)]} then {
+        set rawManifestFileNames [subst $rawManifestFileNames]
+      }
+
+      foreach manifestFileName $rawManifestFileNames {
+        lappend manifestFileNames $manifestFileName
+      }
+    }
+
+    set isSetup false
+
+    if {[file extension $archiveFileName] in [list .nupkg .zip]} then {
+      if {![file exists $zip]} then {
+        usage [appendArgs "tool \"" $zip "\" is missing"]
+      }
+
+      set listCommand(1) [getExecCommandPrefix]
+
+      if {[lindex $listCommand(1) 0] ne "error"} then {
+        lappend listCommand(1) $zip -Z -1 \
+            [file nativename $archiveFileName]
+      }
+
+      set listCommand(2) [list error "no fallback list command"]
+      set extractCommand(1) [getExecCommandPrefix]
+
+      if {[lindex $extractCommand(1) 0] ne "error"} then {
+        lappend extractCommand(1) $zip -j -o \
+            [file nativename $archiveFileName] \
+            \"%fileName%\" -d \"%directory%\"
+      }
+
+      set extractCommand(2) [list error "no fallback extract command"]
+    } elseif {[file extension $archiveFileName] eq ".exe" && \
+        [string match -nocase *Setup*.exe $manifest]} then {
+      #
+      # HACK: There is some special handling needed for dealing with
+      #       setup packages, which are currently always created with
+      #       the Inno Setup tool.  The two tools that can be used to
+      #       verify the contents of these packages are "innounp" and
+      #       "innoextract".  Since this archive file name looks like
+      #       one that contains a setup package, assume that it is.
+      #
+      set listCommand(1) [getExecCommandPrefix]
+
+      if {[lindex $listCommand(1) 0] ne "error"} then {
+        lappend listCommand(1) $innounp -v \
+            [file nativename $archiveFileName]
+      }
+
+      set extractCommand(1) [getExecCommandPrefix]
+
+      if {[lindex $extractCommand(1) 0] ne "error"} then {
+        lappend extractCommand(1) $innounp -x -e -y \"-d%directory%\" \
+            [file nativename $archiveFileName] \"%fileName%\"
+      }
+
+      set listCommand(2) [getExecCommandPrefix]
+
+      if {[lindex $listCommand(2) 0] ne "error"} then {
+        lappend listCommand(2) $innoextract --list \
+            [file nativename $archiveFileName]
+      }
+
+      set extractCommand(2) [getExecCommandPrefix]
+
+      if {[lindex $extractCommand(2) 0] ne "error"} then {
+        lappend extractCommand(2) $innoextract --extract --output-dir \
+            \"%directory%\" --include \"%fileName%\" \
+            [file nativename $archiveFileName]
+      }
+
+      set isSetup true
+    } else {
+      if {![file exists $rar]} then {
+        usage [appendArgs "tool \"" $rar "\" is missing"]
+      }
+
+      set listCommand(1) [getExecCommandPrefix]
+
+      if {[lindex $listCommand(1) 0] ne "error"} then {
+        lappend listCommand(1) $rar vb -- \
+            [file nativename $archiveFileName]
+      }
+
+      set listCommand(2) [list error "no fallback list command"]
+      set extractCommand(1) [getExecCommandPrefix]
+
+      if {[lindex $extractCommand(1) 0] ne "error"} then {
+        lappend extractCommand(1) $rar x -ep -y -- \
+            [file nativename $archiveFileName] \
+            \"%fileName%\" \"%directory%\"
+      }
+
+      set extractCommand(2) [list error "no fallback extract command"]
+    }
+
+    if {[catch {
+      set data [eval $listCommand(1)]
+    } error1] == 0 || [catch {
+      set data [eval $listCommand(2)]
+
+      if {$isSetup} then {
+        #
+        # HACK: The "innoextract" tool does not use the curly
+        #       braces around the "{app}"-style directory names.
+        #
+        set data [string map [getInnoSetupRootMap] $data]
+      }
+    } error2] == 0} then {
+      #
+      # HACK: The Inno Setup unpacking tool requires some extra
+      #       parsing logic to handle the output.
+      #
+      set containedFileNames [list]
+
+      if {$isSetup} then {
+        if {[llength $containedFileNames] == 0} then {
+          foreach {dummy matchFileName} [regexp -line -all -inline -- \
+              {^[ 0-9]{10}  \d{4}\.\d{2}\.\d{2} \d{2}:\d{2}  (.*)$} $data] {
+            #
+            # NOTE: Add the file name extracted from the output
+            #       line to the list of file names contained in
+            #       this archive.
+            #
+            lappend containedFileNames $matchFileName
+          }
+        }
+
+        if {[llength $containedFileNames] == 0} then {
+          foreach {dummy matchFileName} [regexp -line -all -inline -- \
+              [appendArgs {^ - "(.*)"(?: \[temp\])? \(\d+(?:\.\d+)? } \
+              {(?:B|KiB|MiB|GiB|TiB|PiB|EiB|ZiB|YiB)\)$}] $data] {
+            #
+            # NOTE: Add the file name extracted from the output
+            #       line to the list of file names contained in
+            #       this archive.
+            #
+            lappend containedFileNames $matchFileName
+          }
+
+          #
+          # NOTE: The "innoextract" tool does not include the
+          #       script file in the list; therefore, fake it.
+          #
+          lappend containedFileNames install_script.iss
+        }
+      } else {
+        foreach matchFileName [split [string map [list \\ /] [string \
+            trim $data]] \n] {
+          #
+          # NOTE: Replace the dynamically calculated MD5 hash
+          #       for the special NuGet package file name, if
+          #       needed.
+          #
+          if {[file extension $matchFileName] eq ".psmdcp"} then {
+            if {[regexp -- {/([0-9a-f]{32})\.} $matchFileName dummy \
+                md5]} then {
+              regsub -- [appendArgs / $md5 \\.] $matchFileName \
+                  {/${md5}.} matchFileName
+            }
+          }
+
+          lappend containedFileNames $matchFileName
+        }
+      }
+
+      foreach manifestFileName $manifestFileNames {
+        #
+        # TODO: Should we use -nocase here because Windows
+        #       is the primary release platform?
+        #
+        if {[lsearch -exact -- $containedFileNames \
+            $manifestFileName] == -1} then {
+          puts stdout [appendArgs \
+              "ERROR: Archive \"" $archiveFileName \
+              "\" missing file \"" $manifestFileName \
+              "\" from manifest \"" $manifest "\"."]
+
+          set exitCode 1
+        }
+
+        #
+        # NOTE: Is this archive supposed to contain source code -OR-
+        #       something else?
+        #
+        if {[string match -nocase -- *Source* $archiveFileName]} then {
+          #
+          # NOTE: Skip checking hashes if that was not requested on the
+          #       command line.
+          #
+          if {!$withHashes} then {
+            continue
+          }
+
+          #
+          # HACK: For now, only verify hashes for those files actually
+          #       present in the repository.
+          #
+          if {![info exists hashes($manifestFileName)]} then {
+            continue
+          }
+
+          #
+          # NOTE: This is an archive containing source code.
+          #
+          set isSource true
+        } else {
+          #
+          # NOTE: This is an archive containing something other than
+          #       source code, e.g. a setup, binaries, NuGet package,
+          #       etc.
+          #
+          set isSource false
+        }
+
+        #
+        # HACK: If necessary, replace the MD5 token with the actual
+        #       value extracted from the associated ".psmdcp" file
+        #       name.
+        #
+        set altManifestFileName $manifestFileName
+
+        if {[file extension $altManifestFileName] eq ".psmdcp" && \
+            [info exists md5] && [string first \
+            {/${md5}.} $altManifestFileName] != -1} then {
+          set altManifestFileName [string map [list {/${md5}.} \
+              [appendArgs / $md5 .]] $altManifestFileName]
+        }
+
+        #
+        # NOTE: Skip anything that does not look like a file.
+        #
+        if {[string index $altManifestFileName end] in [list / \\]} then {
+          continue
+        }
+
+        set extractFileName [file join \
+            $extractDirectory [file tail $altManifestFileName]]
+
+        catch {
+          file attributes $extractFileName -readonly false
+          file delete $extractFileName
+        }
+
+        try {
+          if {!$isSource || [info exists hashes($manifestFileName)]} then {
+            if {$isSource || [needSignature $extractFileName]} then {
+              if {[catch {
+                #
+                # HACK: The UnZip tool cannot handle an unescaped literal
+                #       opening square bracket in a file name.
+                #
+                set altManifestFileName [string map \
+                    [list \[ \[\\\[\]] $altManifestFileName]
+
+                set extractCommandMap [list \
+                    %fileName% [file nativename $altManifestFileName] \
+                    %directory% [file nativename $extractDirectory]]
+
+                set data [eval \
+                    [string map $extractCommandMap $extractCommand(1)]]
+              } error1] == 0 || [catch {
+                if {$isSetup} then {
+                  #
+                  # HACK: The "innoextract" tool does not use the curly
+                  #       braces around the "{app}"-style directory names.
+                  #
+                  set altManifestFileName [string map [getInnoSetupRootMap] \
+                      $altManifestFileName]
+
+                  set extractCommandMap [list \
+                      %fileName% [file nativename $altManifestFileName] \
+                      %directory% [file nativename $extractDirectory]]
+
+                  #
+                  # HACK: The "innoextract" tool uses the full manifest
+                  #       file name when writing the extracted file, so
+                  #       adjust the extracted file name to match it;
+                  #       however, first verify that the path type of
+                  #       the manifest file name is relative.
+                  #
+                  if {[file pathtype $altManifestFileName] eq "relative"} then {
+                    set extractFileName [file normalize [file join \
+                        $extractDirectory $altManifestFileName]]
+
+                    catch {
+                      file attributes $extractFileName -readonly false
+                      file delete $extractFileName
+                    }
+                  } else {
+                    error [appendArgs \
+                        "path type for manifest file name \"" \
+                        $altManifestFileName "\" is not relative"]
+                  }
+                } else {
+                  set extractCommandMap [list \
+                      %fileName% [file nativename $altManifestFileName] \
+                      %directory% [file nativename $extractDirectory]]
+                }
+
+                set data [eval \
+                    [string map $extractCommandMap $extractCommand(2)]]
+              } error2] == 0} then {
+                if {[info exists hashes($manifestFileName)]} then {
+                  if {[string length $hashes($manifestFileName)] == 64} then {
+                    set hash [getSha3Sum $extractFileName]
+                  } else {
+                    set hash [getSha1Sum $extractFileName]
+                  }
+
+                  if {[string length $hash] > 0} then {
+                    if {$hash ne $hashes($manifestFileName)} then {
+                      puts stdout [appendArgs \
+                          $hashPrefix ": Archive \"" $archiveFileName \
+                          "\" file \"" $manifestFileName \
+                          "\" repository hash mismatch, have \"" \
+                          $hash "\", want \"" $hashes($manifestFileName) \
+                          "\"."]
+
+                      if {$failHashes} then {
+                        set exitCode 1
+                      }
+                    }
+                  } else {
+                    puts stdout [appendArgs \
+                        $hashPrefix ": Archive \"" $archiveFileName \
+                        "\" file \"" $manifestFileName \
+                        "\" could not be hashed."]
+
+                    if {$failHashes} then {
+                      set exitCode 1
+                    }
+                  }
+                }
+
+                if {[needSignature $extractFileName]} then {
+                  switch -exact -- [getSignature $extractFileName] {
+                    \x4D\x5A {
+                      #
+                      # NOTE: DOS/Windows executable.
+                      #
+                    }
+                    \xCF\xFA\xED\xFE {
+                      #
+                      # NOTE: Apple OS X ABI Mach-O binary.
+                      #
+                    }
+                    \x7F\x45\x4C\x46 {
+                      #
+                      # NOTE: Executable and Linking Format (ELF).
+                      #
+                    }
+                    default {
+                      puts stdout [appendArgs \
+                          "ERROR: Archive \"" $archiveFileName \
+                          "\" file \"" $manifestFileName \
+                          "\" does not appear to be an executable."]
+
+                      set exitCode 1
+                    }
+                  }
+                }
+              } else {
+                puts stdout [appendArgs \
+                    $hashPrefix ": Failed to extract file \"" \
+                    $manifestFileName "\" from archive \"" \
+                    $archiveFileName "\", error: " [combineErrors \
+                    $error1 $error2]]
+
+                if {$failHashes} then {
+                  set exitCode 1
+                }
+              }
+            }
+          } else {
+            puts stdout [appendArgs \
+                $hashPrefix ": Archive \"" $archiveFileName \
+                "\" file \"" $manifestFileName \
+                "\" has no repository hash."]
+
+            if {$failHashes} then {
+              set exitCode 1
+            }
+          }
+        } finally {
+          catch {
+            file attributes $extractFileName -readonly false
+            file delete $extractFileName
+          }
+        }
+      }
+
+      foreach containedFileName $containedFileNames {
+        #
+        # TODO: Should we use -nocase here because Windows
+        #       is the primary release platform?
+        #
+        if {[lsearch -exact -- $manifestFileNames \
+            $containedFileName] == -1} then {
+          puts stdout [appendArgs \
+              "ERROR: Archive \"" $archiveFileName \
+              "\" contains file \"" $containedFileName \
+              "\" not in manifest \"" $manifest "\"."]
+
+          set exitCode 1
+        }
+      }
+    } else {
+      puts stdout [appendArgs \
+          "ERROR: Failed to get list of files in archive \"" \
+          $archiveFileName "\", error: " [combineErrors \
+          $error1 $error2]]
+
+      set exitCode 1
+    }
+  }
+
+  file rmdir $extractDirectory; # must be empty
+
+  exit $exitCode
+} else {
+  usage ""
+}

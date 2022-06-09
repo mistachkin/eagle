@@ -1,0 +1,59 @@
+###############################################################################
+#
+# bad-subst.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test subst-1.1.1 {bad subst} -setup {
+  set test 1
+  set test2(2) 2
+} -body {
+  subst [readFile [file join $test_data_path bad_subst.txt]]
+} -cleanup {
+  unset test test2
+} -constraints [fixConstraints {!tcl84 file_bad_subst.txt}] -returnCodes 1 \
+-result {missing close-brace}}
+
+###############################################################################
+
+runTest {test subst-1.1.2 {bad subst} -setup {
+  set test 1
+  set test2(2) 2
+} -body {
+  subst [readFile [file join $test_data_path bad_subst.txt]]
+} -cleanup {
+  unset test test2
+} -constraints {tcl tcl84 file_bad_subst.txt} -returnCodes 1 -result \
+{missing close-bracket}}
+
+###############################################################################
+
+#
+# NOTE: Eagle largely uses the Tcl 8.5 [subst] algorithm.
+#
+runTest {test subst-1.1.3 {bad subst} -setup {
+  set test 1
+  set test2(2) 2
+} -body {
+  subst [readFile [file join $test_data_path bad_subst.txt]]
+} -cleanup {
+  unset test test2
+} -constraints {eagle file_bad_subst.txt} -returnCodes 1 -result \
+{missing close-brace}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

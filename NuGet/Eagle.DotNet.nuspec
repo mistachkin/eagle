@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <metadata>
+    <id>Eagle.DotNet</id>
+    <title>The Eagle Project (DotNet)</title>
+    <version>1.0.8192.54321</version>
+    <authors>Eagle Development Team</authors>
+    <description>An implementation of the Tcl scripting language.</description>
+    <language>en-US</language>
+    <projectUrl>https://eagle.to/</projectUrl>
+    <iconUrl>https://eagle.to/images/eagle128.png</iconUrl>
+    <licenseUrl>https://eagle.to/enterprise/license.html</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <tags>automation console database dynamic extensibility functional integration interop interpreter mono msbuild parser plugin powershell reflection scripting sockets tcl/tk winforms wix wpf</tags>
+    <copyright>Copyright &#x00A9; 2007-2012 by Joe Mistachkin.  All rights reserved.</copyright>
+    <dependencies>
+      <group targetFramework="netstandard2.0">
+        <dependency id="Eagle.DotNet.Standard.2.0" version="[1.0.8192.54321]" />
+      </group>
+      <group targetFramework="netstandard2.1">
+        <dependency id="Eagle.DotNet.Standard.2.1" version="[1.0.8192.54321]" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files />
+</package>

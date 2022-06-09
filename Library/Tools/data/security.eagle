@@ -1,0 +1,75 @@
+###############################################################################
+#
+# security.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Security Package Test Script
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure verifies the security certificate information for
+  #       the core library.  It uses the primary plugin from the security
+  #       package -AND- relies upon it already having been loaded prior to
+  #       this procedure being called.
+  #
+  proc verifyCorePluginMetadata {} {
+    if {[lsearch -exact -- \
+        $::eagle_platform(compileOptions) TEST] != -1 && \
+        [lsearch -exact -- \
+        $::eagle_platform(compileOptions) SHELL] != -1} then {
+      set error null
+
+      set result [object invoke \
+          Eagle._Tests.Default TestCorePluginAbout "" true error]
+
+      if {[string length $result] == 0} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      #
+      # TODO: Keep this hard-coded metadata for the core plugin updated
+      #       (e.g. if the public key token for official release builds
+      #       is changed, etc).
+      #
+      set pattern [string map [list !TAB! \\t \n [string map \
+          [list \r \\r \n \\n] [info newline]]] [string trim {
+^!TAB!\[[A-Z]+\] Eagle\.Core v\d+\.\d+\.\d+\.\d+ \(\d+\)
+!TAB!----------------------------------------
+!TAB!Licensed To: NO NAME
+!TAB!Issued By: Mistachkin Systems
+!TAB!With Public Key: 0x29c6297630be05eb
+!TAB!Identified By Number: 0x8d288267a62a560b
+!TAB!Created On: 2007-10-01T09:00:00\.0000000Z
+!TAB!Hash Algorithm: SHA512
+!TAB!Signature Algorithm: RSA-4096
+!TAB!----------------------------------------$
+}]]
+
+      if {![regexp -- $pattern $result]} then {
+        error [appendArgs "wrong metadata for core plugin: " $result]
+      }
+    }
+  }
+
+  #
+  # NOTE: Invoke the necessary procedure now and then remove it.  Upon
+  #       success, nothing else will happen.  Upon any failure, a script
+  #       error will be raised.
+  #
+  verifyCorePluginMetadata; rename verifyCorePluginMetadata ""
+}
+

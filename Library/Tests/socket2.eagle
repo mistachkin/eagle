@@ -1,0 +1,275 @@
+###############################################################################
+#
+# socket2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to Mono bugs, some tests are disabled on Mono.
+###############################################################################
+
+runTest {test socket-2.1 {open/puts/gets/read/eof/close socket} -setup {
+  unset -nocomplain s t a b c d
+} -body {
+  if {[isEagle]} then {
+    set s [socket -sendtimeout $test_timeout $test_host 80]
+  } else {
+    set s [socket $test_host 80]
+  }
+
+  fconfigure $s -translation binary
+
+  set t [time {
+    puts -nonewline $s [appendArgs "GET / HTTP/1.1\r\nHOST: " \
+        $test_host \r\n\r\n]
+
+    flush $s
+  }]
+
+  tputs $test_channel [appendArgs "---- done sending to \"" \
+      $test_host "\" in " $t \n]
+
+  set a ""; set b ""; set c ""; set d 0
+
+  set t [time {
+    while {![eof $s]} {
+      #
+      # NOTE: It seems this read can return zero bytes in some cases (i.e. deep
+      #       down, the ReadByte method on the NetworkStream object returns -1,
+      #       meaning end-of-stream, immediately).  This only seems to happen
+      #       in the .NET Framework 2.0 RTM on Windows 2000.  There may be some
+      #       underlying bug that prevents the data from being sent or received
+      #       properly via a NetworkStream.
+      #
+      append a [gets $s]
+      if {[eof $s]} then {break}; incr d
+
+      append b [read $s 999999]
+      if {[eof $s]} then {break}; incr d
+
+      catch {append c [gets $s]}
+      if {[eof $s]} then {break}; incr d
+    }
+  }]
+
+  tputs $test_channel [appendArgs "---- done receiving from \"" \
+      $test_host "\" in " $t \n]
+
+  close $s; unset s
+
+  list [string length $a] [expr {int([string first "<html>" $b] != -1)}] \
+      [expr {int([string first "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01\
+Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" $b] != -1)}] \
+      [expr {int([string first "</html>" $b] != -1)}] \
+      [string length $c] $d
+} -cleanup {
+  if {[info exists s]} then {catch {close $s}}
+  unset -nocomplain s t a b c d
+} -constraints {command.socket compile.NETWORK internet_eagle.to} -result \
+{16 1 1 1 0 1}}
+
+###############################################################################
+
+#
+# NOTE: The following test(s) do not work reliably on Mono [for OpenBSD] (due
+#       to underlying problems with the pthreads library); however, they may
+#       work on one or more Linux platforms.  Also, Mono 2.8 and 2.10 seem to
+#       have a serious, yet intermittent problem here as well, even on Windows
+#       (i.e. when this test is run in isolation it will pass just fine;
+#       however, if run as part of the entire test suite, it fails
+#       spectacularly).
+#
+# NOTE: As of .NET Core 2.2, the -noexclusive option to [socket] does not yet
+#       work.  It may be fixed in .NET Core 3.0.  On Unix, a SocketException
+#       will be thrown with the message "Address already in use".
+#
+runTest {test socket-2.2 {client/server sockets with threads} -setup {
+  #
+  # HACK: Wait for the server listener thread to finish setting up.  This is
+  #       needed to avoid a very subtle race condition on some systems.
+  #
+  proc waitForServerListen { strict } {
+    #
+    # NOTE: Show what we are waiting on...
+    #
+    tputs $::test_channel "---- waiting for server listener thread... "
+
+    #
+    # NOTE: Determine when we should stop waiting for the other thread.
+    #
+    set stop [expr {[clock seconds] + 5}]
+
+    #
+    # NOTE: Keep waiting for X seconds -OR- until the specified global
+    #       variable (i.e. the one being used as a signal) has been set.
+    #
+    while {[clock seconds] < $stop && ![info exists ::listening]} {
+      nop
+    }
+
+    #
+    # NOTE: See if the other thread actually signaled us to continue;
+    #       otherwise, we timed out while waiting.
+    #
+    if {[info exists ::listening]} then {
+      tputs $::test_channel success\n
+    } else {
+      tputs $::test_channel failure\n
+
+      if {$strict} then {
+        stopServerListen
+        error "server socket was not listening in time"
+      }
+    }
+  }
+
+  proc waitForClientSocket { strict } {
+    #
+    # NOTE: Show what we are waiting on...
+    #
+    tputs $::test_channel "---- waiting for client socket thread... "
+
+    #
+    # NOTE: Determine when we should stop waiting for the other thread.
+    #
+    set stop [expr {[clock seconds] + 5}]
+
+    #
+    # NOTE: Keep waiting for X seconds -OR- until the specified global
+    #       variable (i.e. the one being used as a signal) has been set.
+    #
+    while {[clock seconds] < $stop && ![info exists ::sock(client)]} {
+      nop
+    }
+
+    #
+    # NOTE: See if the other thread actually signaled us to continue;
+    #       otherwise, we timed out while waiting.
+    #
+    if {[info exists ::sock(client)]} then {
+      tputs $::test_channel success\n
+    } else {
+      tputs $::test_channel failure\n
+
+      if {$strict} then {
+        stopServerListen
+        error "client socket was not created in time"
+      }
+    }
+  }
+
+  proc stopServerListen {} {
+    set ::y ""; # NOTE: Should release the server [vwait].
+    after $::test_timeout; # NOTE: Wait for server thread...
+  }
+
+  proc serverListen { port } {
+    set command [list socket]
+    if {[isDotNetCore]} then {lappend command -noexclusive}
+    lappend command -server serverAccept $port
+
+    set ::listening [set ::sock(listen) [eval $command]]
+
+    vwait ::y
+  }
+
+  proc serverAccept { channel ip port } {
+    set ::sock(server) $channel
+    fconfigure $::sock(server) -encoding binary -translation binary
+
+    set data [gets $::sock(server)]
+
+    if {[lindex $data 0] eq "CLIENT" && [lindex $data 1] eq "HELLO"} then {
+      puts $::sock(server) [list SERVER HELLO $ip [info patchlevel]]
+      flush $::sock(server)
+    }
+
+    close $::sock(server)
+
+    set ::y $data
+  }
+
+  proc clientSend { ip port } {
+    set ::sock(client) [socket $ip $port]
+
+    fconfigure $::sock(client) -encoding binary -translation binary
+    puts $::sock(client) [list CLIENT HELLO $ip [info patchlevel]]
+    flush $::sock(client)
+
+    set data [gets $::sock(client)]
+
+    close $::sock(client)
+
+    set ::x $data
+  }
+
+  #
+  # HACK: We need to adjust the event flags used when queueing the script used
+  #       to accept client connections to make sure it gets evaluated on the
+  #       correct thread (i.e. the same one that started the listener and calls
+  #       [vwait], not the client thread).
+  #
+  set interp [object invoke -alias Interpreter GetActive]
+  set queueEventFlags [$interp -flags +NonPublic queueEventFlags]
+  $interp -flags +NonPublic queueEventFlags =After
+} -body {
+  set thread(listen) [createThread [list serverListen $test_port]]
+  set thread(client) [createThread [list clientSend localhost $test_port]]
+
+  startThread $thread(listen); waitForServerListen true
+  startThread $thread(client); waitForClientSocket true
+
+  joinThread $thread(client) $test_timeout
+  joinThread $thread(listen) $test_timeout
+
+  if {[info exists sock(listen)]} then {
+    close $sock(listen); unset sock(listen)
+  }
+
+  if {[info exists ::x] && [info exists ::y]} then {
+    list $::x $::y
+  }
+} -cleanup {
+  cleanupAfterEvents
+  catch {$interp -flags +NonPublic queueEventFlags $queueEventFlags}
+
+  if {[info exists sock(client)]} then {catch {close $sock(client)}}
+  if {[info exists sock(server)]} then {catch {close $sock(server)}}
+  if {[info exists sock(listen)]} then {catch {close $sock(listen)}}
+
+  if {[info exists thread(client)]} then {cleanupThread $thread(client)}
+  if {[info exists thread(listen)]} then {cleanupThread $thread(listen)}
+
+  catch {object removecallback [list clientSend localhost $test_port]}
+  catch {object removecallback [list serverListen $test_port]}
+
+  rename clientSend ""
+  rename serverAccept ""
+  rename serverListen ""
+  rename stopServerListen ""
+  rename waitForClientSocket ""
+  rename waitForServerListen ""
+
+  unset -nocomplain listening sock thread x y queueEventFlags interp
+} -constraints [fixConstraints {eagle command.object command.socket\
+compile.NETWORK compile.THREADING dotNetCoreOrShell !mono28 !mono210 !mono33\
+!mono34 !monoDebugger}] -constraintExpression {[haveConstraint windows] || \
+[haveConstraint dotNetCoreBug22]} -match regexp -result [appendArgs \
+"^\{SERVER HELLO 127\.0\.0\.1 " [string map [list . \\.] [info patchlevel]] \
+"\} \{CLIENT HELLO (?:localhost|127\\.0\\.0\\.1) " [string map [list . \\.] \
+[info patchlevel]] "\}\$"]}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

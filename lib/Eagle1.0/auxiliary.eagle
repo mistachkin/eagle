@@ -1,0 +1,128 @@
+###############################################################################
+#
+# auxiliary.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Auxiliary Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure returns the value of an environment variable, if
+  #       it actually exists; otherwise, an empty string is returned.
+  #
+  proc getEnvironmentVariable { name } {
+    global env
+
+    return [expr {[info exists env($name)] ? $env($name) : ""}]
+  }
+
+  #
+  # NOTE: This procedure accepts an any number of arguments.  The arguments
+  #       are appended into one big string, verbatim.  The resulting string
+  #       is returned.  Normally, this procedure is used to avoid undesired
+  #       string interpolation operations.
+  #
+  proc appendArgs { args } {
+    set result ""; eval append result $args
+  }
+
+  #
+  # NOTE: This procedure attempts to locate the first named value we are
+  #       interested in.  The dictionary argument must be a list with an
+  #       even number of elements in the following format:
+  #
+  #       <name1> <value1> <name2> <value2> ... <nameN> <valueN>
+  #
+  proc getDictionaryValue { dictionary name {default ""} {wrap ""} } {
+    foreach {pairName pairValue} $dictionary {
+      #
+      # NOTE: Does this name match the one specified by the caller?
+      #
+      if {$pairName eq $name} then {
+        #
+        # NOTE: Return the value, optionally wrapped.
+        #
+        return [appendArgs $wrap $pairValue $wrap]
+      }
+    }
+
+    #
+    # NOTE: No match was found, return the default value.
+    #
+    return $default
+  }
+
+  #
+  # NOTE: This procedure exports one or more commands from the specified
+  #       namespace and imports them into the global namespace, optionally
+  #       forgetting all previous imports from the specified namespace.
+  #
+  proc exportAndImportPackageCommands { namespace exports forget force } {
+    #
+    # NOTE: If the specified namespace is global, do nothing as this is a
+    #       no-op.
+    #
+    if {[string length [string trimleft $namespace :]] == 0} then {return}
+
+    #
+    # NOTE: Forget any previous commands that were imported from
+    #       this namespace into the global namespace?
+    #
+    if {$forget} then {
+      namespace eval :: [list namespace forget [appendArgs $namespace ::*]]
+    }
+
+    #
+    # NOTE: Process each command to be exported from the specified
+    #       namespace and import it into the global namespace, if
+    #       necessary.
+    #
+    foreach export $exports {
+      #
+      # NOTE: Force importing of our exported commands into the global
+      #       namespace?  Otherwise, see if the command is already
+      #       present in the global namespace before trying to import
+      #       it.
+      #
+      if {$force || \
+          [llength [info commands [appendArgs :: $export]]] == 0} then {
+        #
+        # NOTE: Export the specified command from the specified namespace.
+        #
+        namespace eval $namespace [list namespace export $export]
+
+        #
+        # NOTE: Import the specified command into the global namespace.
+        #
+        set namespaceExport [appendArgs $namespace :: $export]
+
+        if {$force} then {
+          namespace eval :: [list namespace import -force $namespaceExport]
+        } else {
+          namespace eval :: [list namespace import $namespaceExport]
+        }
+      }
+    }
+  }
+
+  #
+  # NOTE: Provide the Eagle "auxiliary" package to the interpreter.
+  #
+  package provide Eagle.Auxiliary \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<!--
+ *
+ * Garuda.vsprops -
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<VisualStudioPropertySheet
+	ProjectType="Visual C++"
+	Version="8.00"
+	Name="Garuda"
+	>
+	<UserMacro
+		Name="LINKER_VERSION"
+		Value="1.0"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="MANIFEST_VERSION"
+		Value="1.0.0.0"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="COMMON_DEFINES"
+		Value="_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;COBJMACROS;CINTERFACE;CLR_40"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="TCL_DEFINES"
+		Value="TCL_THREADS;USE_TCL_STUBS"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="DEBUG_DEFINES"
+		Value=""
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="WIN32_WARNINGS"
+		Value="4005;4100;4127;4201"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="X64_WARNINGS"
+		Value=""
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="INCLUDE_DIRECTORIES"
+		Value="src\generic;src\win;Tcl\include"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="LIBRARY_DIRECTORIES"
+		Value="Tcl\lib\$(PlatformName)"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="LIBRARY_ARM_DIRECTORIES"
+		Value="Tcl\lib\$(PlatformName)\$(PlatformToolset)"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="OUTPUT_FILE"
+		Value="$(ProjectName)"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="LOG_DIRECTORY"
+		Value="$(OutDir)"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="LOG_FILE"
+		Value="$(LOG_DIRECTORY)\$(ProjectFileName).$(PlatformName)$(ConfigurationName)Build.htm"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="BASE_ADDRESS_X86"
+		Value="0x5F000000"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="BASE_ADDRESS_ARM"
+		Value="0x5F000000"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="BASE_ADDRESS_X64"
+		Value="0x5F00000000000000"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="SIGN_BUILD_COMMAND"
+		Value="CALL &quot;$(ProjectDir)Tools\signViaBuild.bat&quot; &quot;$(TargetPath)&quot; &quot;Eagle Package for Tcl (Garuda)&quot;"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="TAG_BUILD_COMMAND"
+		Value="CALL &quot;$(ProjectDir)..\Common\Tools\tclshViaBuild.bat&quot; &quot;$(ProjectDir)..\Common\Tools\tagViaBuild.tcl&quot; &quot;$(ProjectDir).&quot;"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="COPY_LIBRARY_COMMAND"
+		Value="XCOPY &quot;$(ProjectDir)lib&quot; &quot;$(OutDir)&quot; /D /E /V /I /F /H /Y"
+		PerformEnvironmentSet="true"
+	/>
+</VisualStudioPropertySheet>

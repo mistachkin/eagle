@@ -1,0 +1,136 @@
+###############################################################################
+#
+# excel.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test excel-1.0 {object invokeraw w/early binding} -setup {
+  #
+  # BUGBUG: For some reason, on 64-bit Windows only, the interface types are
+  #         not pre-loaded for Excel?
+  #
+  if {[haveConstraint 64bit]} then {
+    catch {
+      object dispose [object load -declare Microsoft.Office.Interop.Excel]
+    }
+  }
+} -body {
+  set ids [getProcesses excel]
+
+  set applicationType [object invoke -create \
+      Type GetTypeFromProgID Excel.Application]
+
+  set application [object invoke -alias \
+      Activator CreateInstance $applicationType]
+
+  $application -invokeraw -bindingflags {-InvokeMethod +SetProperty} \
+      Visible true
+
+  $application -invokeraw -bindingflags {-InvokeMethod +SetProperty} \
+      DisplayAlerts false
+
+  if {[haveConstraint native] && [haveConstraint windows]} then {
+    tputs $test_channel [appendArgs "---- started: " \
+        [info hwnd [$application Hwnd]] \n]
+  }
+
+  set enumValue [object invoke -create \
+      Int32 Parse FFFFEFB9 AllowHexSpecifier]; # xlWBATWorksheet
+
+  set workbook [object invokeraw -alias -objectflags +NoComObject \
+      -parametertypes [list Int32] $application.Workbooks Add $enumValue]
+
+  unset enumValue; # dispose
+  unset workbook; # dispose
+
+  $application -invokeraw Quit
+
+  list $application [unset application] [unset applicationType] \
+      [waitForProcesses [getProcesses excel] 5000; list] \
+      [llength [info objects]] \
+      [expr {[lsort $ids] eq [lsort [getProcesses excel]]}]; # dispose
+} -cleanup {
+  if {[info exists application]} then {
+    catch {
+      $application -invokeraw -bindingflags {-InvokeMethod +SetProperty} \
+          DisplayAlerts false
+
+      $application -invokeraw Quit
+    }
+  }
+
+  cleanupExcel
+
+  unset -nocomplain enumValue workbook \
+      application applicationType ids; # dispose
+} -constraints {eagle command.object windows interactive excel.usable\
+Microsoft.Office.Interop.Excel referenceCounts} -time true -once true -match \
+regexp -result \
+{^Microsoft#Office#Interop#Excel#(?:_Application|ApplicationClass)#\d+ \{\}\
+\{\} \{\} 1 True$}}
+
+###############################################################################
+
+runTest {test excel-1.1 {simple excel automation} -body {
+  set ids [getProcesses excel]
+
+  set assembly [object load -import -declare Microsoft.Office.Interop.Excel]
+
+  set application [object create -alias \
+    Microsoft.Office.Interop.Excel.ApplicationClass]
+
+  $application Visible true
+  $application DisplayAlerts false
+
+  if {[haveConstraint native] && [haveConstraint windows]} then {
+    tputs $test_channel [appendArgs "---- started: " \
+        [info hwnd [$application Hwnd]] \n]
+  }
+
+  set enumType XlWBATemplate
+  set enumValue [object invoke -create Enum Parse $enumType xlWBATWorksheet]
+  set workbook [object invoke -alias $application.Workbooks Add $enumValue]
+
+  unset enumType; # dispose
+  unset enumValue; # dispose
+  unset workbook; # dispose
+
+  $application Quit
+
+  list $application [unset application] [unset assembly] \
+      [waitForProcesses [getProcesses excel] 5000; list] \
+      [llength [info objects]] \
+      [expr {[lsort $ids] eq [lsort [getProcesses excel]]}]; # dispose
+} -cleanup {
+  if {[info exists application]} then {
+    catch {
+      $application DisplayAlerts false
+      $application Quit
+    }
+  }
+
+  cleanupExcel
+
+  unset -nocomplain enumType enumValue workbook \
+      application assembly ids; # dispose
+} -constraints {eagle command.object windows interactive excel.usable\
+Microsoft.Office.Interop.Excel referenceCounts} -time true -match regexp \
+-result {^Microsoft#Office#Interop#Excel#ApplicationClass#\d+ \{\} \{\} \{\} 1\
+True$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

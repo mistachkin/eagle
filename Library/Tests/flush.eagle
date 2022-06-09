@@ -1,0 +1,46 @@
+###############################################################################
+#
+# flush.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test flush-1.1 {simple flush} -setup {
+  set file [file join [getTemporaryPath] flush-1-1.txt]
+} -body {
+  set fd [open $file {RDWR CREAT TRUNC}]
+  puts $fd "test1"; flush $fd
+  seek $fd 0
+  set x [read $fd]
+  close $fd
+
+  set fd [open $file {RDWR CREAT TRUNC}]
+  puts $fd "test2"; flush $fd
+  seek $fd 0
+  set z [read $fd]
+  close $fd
+
+  list $x $z
+} -cleanup {
+  catch {close $fd}
+  catch {file delete $file}
+  unset -nocomplain fd file x z
+} -result {{test1
+} {test2
+}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

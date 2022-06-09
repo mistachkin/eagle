@@ -1,0 +1,52 @@
+###############################################################################
+#
+# empty.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test empty-1.1 {empty test for native Tcl} -setup {
+  #
+  # NOTE: This test has no setup.
+  #
+} -body {
+  #
+  # NOTE: This test has no body.
+  #
+} -cleanup {
+  #
+  # NOTE: This test has no cleanup.
+  #
+} -constraints {tcl} -result {}}
+
+###############################################################################
+
+runTest {test empty-1.2 {empty test for Eagle} -setup {
+  #
+  # NOTE: This test has no setup.
+  #
+} -body {
+  #
+  # NOTE: This test has no body.
+  #
+} -cleanup {
+  #
+  # NOTE: This test has no cleanup.
+  #
+} -constraints {eagle} -result {}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

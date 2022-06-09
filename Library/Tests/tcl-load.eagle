@@ -1,0 +1,1131 @@
+###############################################################################
+#
+# tcl-load.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# NOTE: Due to Tk crashing on unload, some tests are disabled on Unix.
+#       The same issue also exists on Windows; however, the issue appears to be
+#       "masked" on Windows.
+###############################################################################
+
+#
+# WARNING: This output string is used as a "sentry" for the tests in the file
+#          "package.eagle" (i.e. the Garuda tests) to determine if the tests in
+#          this file actually started running [and logging their output] for a
+#          given test iteration.  Please do not remove or change this string
+#          without modifying the corresponding string in the "package.eagle"
+#          file as well.
+#
+tputs $test_channel "---- running Tcl integration tests...\n"
+
+###############################################################################
+
+runTest {test tclLoad-1.1 {load and unload Tcl/Tk} -setup {
+  unset -nocomplain interp
+  tclLoadForTest tcl_loaded
+
+  if {[haveConstraint quiet]} then {
+    set savedQuiet [object invoke Eagle._Tests.Default TestGetQuiet ""]
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+} -body {
+  unset -nocomplain x
+  lappend x [expr {[llength [tcl find -architecture --]] > 0}]
+  lappend x [set interp [tcl create]]
+
+  #
+  # BUGFIX: Tk may not be available.  Do not assume that it is.
+  #         We prevent this test from leaking a Tcl interpreter;
+  #         however, it is not strictly correct because we have
+  #         no really nice way of checking if the Tk package is
+  #         available except to try and actually load it.
+  #         Therefore, this test will fail if the Tk package is
+  #         not available or cannot be loaded for any reason.
+  #
+  if {[catch {tcl eval $interp {package require Tk}} msg] == 0} then {
+    lappend x $msg
+
+    after 1000 [list interp cancel]
+    lappend x [catch {while {1} {tcl update; update}} msg] $msg
+  } else {
+    #
+    # NOTE: Append the package load failure error message to the
+    #       test result.
+    #
+    lappend x $msg
+  }
+
+  set x
+} -cleanup {
+  unset -nocomplain x msg
+
+  if {[info exists interp]} then {tcl delete $interp}
+  tclUnloadForTest false tcl_loaded
+  unset -nocomplain interp
+
+  if {[info exists savedQuiet]} then {
+    if {[string is boolean -strict $savedQuiet]} then {
+      object invoke Eagle._Tests.Default TestSetQuiet "" $savedQuiet
+    }
+
+    unset -nocomplain savedQuiet
+  }
+} -constraints {eagle tip285 native windows dynamic tclReadyOrLibrary86\
+command.tcl compile.NATIVE compile.TCL tk tkPackage primaryThread\
+Eagle._Tests.Default.TestSetQuiet} -once true -match regexp -result \
+{^True interp#\d+ \d+\.\d+(?:\.\d+|a\d+(?:\.\d+)?|b\d+(?:\.\d+)?)?\
+1 \{eval canceled\}$}}
+
+###############################################################################
+
+runTest {test tclLoad-1.2 {cannot unload Tcl while in-use} -setup {
+  unset -nocomplain interp
+  tclLoadForTest tcl_loaded
+  set interp [tcl create -noforcedelete]
+
+  if {[haveConstraint quiet]} then {
+    set savedQuiet [object invoke Eagle._Tests.Default TestGetQuiet ""]
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+} -body {
+  #
+  # NOTE: Make sure the console user knows that we are waiting for input.
+  #
+  if {![haveConstraint quiet] && [haveConstraint compile.WINFORMS]} then {
+    tputs $test_channel [appendArgs \
+        "please find the window marked \"" [info engine] \
+        "\" and click \"OK\" to continue.\n"]
+  }
+
+  tcl source $interp [file join $test_data_path tcl_unload.tcl]
+} -cleanup {
+  if {[info exists interp]} then {tcl delete $interp}
+  tclUnloadForTest false tcl_loaded
+  unset -nocomplain interp
+
+  if {[info exists savedQuiet]} then {
+    if {[string is boolean -strict $savedQuiet]} then {
+      object invoke Eagle._Tests.Default TestSetQuiet "" $savedQuiet
+    }
+
+    unset -nocomplain savedQuiet
+  }
+} -constraints {eagle command.object native dynamic tclLibrary command.tcl\
+compile.NATIVE compile.TCL interactive userInteraction primaryThread\
+file_tcl_unload.tcl Eagle._Tests.Default.TestSetQuiet} -returnCodes 1 -match \
+glob -result {caught exception while disposing Tcl bridge:\
+Eagle._Components.Public.ScriptException: cannot delete Tcl command, evals are\
+active*}}
+
+###############################################################################
+
+runTest {test tclLoad-2.1 {leak test Tcl interp creation/deletion} -body {
+  #
+  # NOTE: Setup leak data file name in our temporary
+  #       directory.
+  #
+  set leak_file [file join [getTemporaryPath] tcl-mem-leaks.txt]
+
+  #
+  # NOTE: Force Tcl to be loaded if not already.
+  #
+  unset -nocomplain interp
+  tclLoadForTest
+
+  #
+  # NOTE: Make sure the Tcl memory command is available.
+  #
+  if {[llength [tcl eval [tcl primary] info commands memory]] > 0} then {
+    #
+    # NOTE: Tell Tcl where to report memory leaks.
+    #
+    tcl eval [tcl primary] [list memory onexit $leak_file]
+
+    #
+    # NOTE: Create and delete a Tcl interpreter to make
+    #       sure that TclInitSubsystems gets called.
+    #
+    set interp [tcl create]; tcl delete $interp; unset interp
+
+    #
+    # NOTE: Force Tcl_Finalize to be called and Tcl to
+    #       be unloaded from the process.
+    #
+    tclUnloadForTest true
+
+    #
+    # NOTE: Read data from leaks file and then delete it.
+    #
+    set data [readFile $leak_file]; file delete $leak_file
+
+    #
+    # NOTE: Return the results.
+    #
+    list [string length $data] $data
+  } else {
+    #
+    # NOTE: Force Tcl_Finalize to be called and Tcl to
+    #       be unloaded from the process.
+    #
+    tclUnloadForTest true
+
+    #
+    # NOTE: The Tcl memory command is not available.
+    #
+    list "Tcl memory command not available"
+  }
+} -cleanup {
+  unset -nocomplain data leak_file
+} -constraints \
+{isolated eagle native windows dynamic tclLibrary command.tcl compile.NATIVE\
+compile.TCL primaryThread} -result {0 {}}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  set memLeaks [lrepeat 10 {0 {}}]
+} else {
+  set memLeaks [list]
+}
+
+###############################################################################
+
+runTest {test tclLoad-2.2 {leak test Tcl interp creation/deletion} -body {
+  #
+  # NOTE: Setup leak data file name in our temporary
+  #       directory.
+  #
+  set leak_file [file join [getTemporaryPath] tcl-mem-leaks.txt]
+
+  #
+  # NOTE: We are going to repeatedly load and unload Tcl.
+  #
+  set leaks [list]; set i 0
+
+  while {$i < 10} {
+    #
+    # NOTE: Force Tcl to be loaded if not already.
+    #
+    unset -nocomplain interp
+    tclLoadForTest
+
+    #
+    # NOTE: Make sure the Tcl memory command is available.
+    #
+    if {[llength [tcl eval [tcl primary] info commands memory]] > 0} then {
+      #
+      # NOTE: Tell Tcl where to report memory leaks.
+      #
+      tcl eval [tcl primary] [list memory onexit $leak_file]
+
+      #
+      # NOTE: Create and delete a Tcl interpreter to make
+      #       sure that TclInitSubsystems gets called.
+      #
+      set interp [tcl create]; tcl delete $interp; unset interp
+
+      #
+      # NOTE: Force Tcl_Finalize to be called and Tcl to
+      #       be unloaded from the process.
+      #
+      tclUnloadForTest true
+
+      #
+      # NOTE: Read data from leaks file and then delete it.
+      #
+      set data [readFile $leak_file]; file delete $leak_file
+
+      #
+      # NOTE: Append the leak data, if any, to the test
+      #       result.
+      #
+      lappend leaks [list [string length $data] $data]
+    } else {
+      #
+      # NOTE: Force Tcl_Finalize to be called and Tcl to
+      #       be unloaded from the process.
+      #
+      tclUnloadForTest true
+
+      if {[llength $leaks] == 0} then {
+        #
+        # NOTE: The Tcl memory command is not available.
+        #
+        lappend leaks "Tcl memory command not available"
+      }
+    }
+
+    incr i
+  }
+
+  #
+  # NOTE: Return the results.
+  #
+  set leaks
+} -cleanup {
+  unset -nocomplain data leak_file i leaks
+} -constraints \
+{isolated eagle native windows dynamic tclLibrary command.tcl compile.NATIVE\
+compile.TCL primaryThread} -result $memLeaks}
+
+###############################################################################
+
+unset -nocomplain memLeaks
+
+###############################################################################
+
+runTest {test tclLoad-3.1 {basic TclThread usage (Windows)} -setup {
+  tclLoadForTest tcl_loaded
+  set interp [object invoke -alias Interpreter GetActive]
+} -body {
+  #
+  # NOTE: Make 100% sure that the loaded Tcl library is threaded.
+  #
+  if {[catch {tcl set [tcl primary] tcl_platform(threaded)} msg] == 0} then {
+    #
+    # NOTE: This may not work in the .NET Framework 2.0 RTM on Windows 2000.
+    #       The following exception has been seen there and is currently
+    #       "unexplained":
+    #
+    #       System.OutOfMemoryException: Exception of type
+    #          'System.OutOfMemoryException' was thrown.
+    #          at System.Threading.Thread.StartInternal(IPrincipal principal,
+    #             StackCrawlMark& stackMark)
+    #          at System.Threading.Thread.Start()
+    #          at Eagle._Components.Private.Tcl.TclThread..ctor(
+    #             Interpreter interpreter, IClientData clientData,
+    #             Int32 timeout, String name, Boolean generic, Boolean start)
+    #          in .\Eagle\Library\Components\Private\TclThread.cs:line 160
+    #          at Eagle._Components.Private.Tcl.TclThread.Create(
+    #             Interpreter interpreter, IClientData clientData,
+    #             Int32 timeout, String name, Boolean generic, Result& error)
+    #          in .\Eagle\Library\Components\Private\TclThread.cs:line 392
+    #
+    set result ""
+    set code [$interp -alias CreateTclThread null null 1000 false true true \
+        result]
+
+    if {$code eq "Ok"} then {
+      set name [getStringFromObjectHandle $result]
+
+      set command null
+      $interp -alias -flags +NonPublic GetCommand eval Default command result
+      object flags $command +NoDispose; # we do not own this, do not dispose it.
+
+      set false [object invoke -create System.Boolean Parse false]
+
+      set triplet [object create [join \
+          [list Eagle._Components.Public.AnyTriplet`3 \[ \
+          System.String,Eagle._Interfaces.Public.IExecute,System.Boolean\]] \
+          ""] foo $command $false]
+
+      unset -nocomplain result; # NOTE: Re-used.
+
+      set thread null
+      array set result [list 1 "" 2 "" 3 "" 4 "" 5 "" 6 "" 7 "" 8 "" 9 ""]
+      array set errorLine [list 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0]
+
+      set flags {Immediate Debug}
+
+      return [list \
+          [$interp -alias -flags +NonPublic GetTclThread $name \
+              Default thread result(1)] \
+          [llength [tcl threads]] \
+          [$thread QueueEvent None $flags null true result(2) errorLine(2)] \
+          [$thread QueueEvent Idle $flags null true result(3) errorLine(3)] \
+          [$thread QueueEvent Create $flags null true result(4) errorLine(4)] \
+          [$thread QueueEvent SimpleEvaluate $flags {clock seconds} \
+              true result(5) errorLine(5)] \
+          [$thread QueueEvent AddCommand $flags $triplet true result(6) \
+              errorLine(6)] \
+          [$thread QueueEvent SimpleEvaluate $flags \
+              {foo clock seconds} true result(7) errorLine(7)] \
+          [$thread QueueEvent RemoveCommand $flags foo true result(8) \
+              errorLine(8)] \
+          [$interp DeleteTclThread $name false result(9)] \
+          [llength [tcl threads]] \
+          [map [testArrayGet result true] {apply [list [list x] {
+            if {[regexp -- {^Result#\d+$} $x]} then {
+              getStringFromObjectHandle $x
+            } else {
+              set x
+            }
+          }]}]]
+    } else {
+      #
+      # NOTE: Return the error message itself.
+      #
+      return $result
+    }
+  } else {
+    return [appendArgs "Tcl threading support not available: " $msg]
+  }
+} -cleanup {
+  unset -nocomplain thread
+  tclUnloadForTest false tcl_loaded
+
+  unset -nocomplain interp errorLine result code name false triplet command \
+      flags msg
+} -constraints [fixConstraints {eagle command.object native dynamic tclLibrary\
+command.tcl compile.NATIVE compile.TCL compile.TCL_THREADED compile.TCL_THREADS\
+primaryThread !monoDebugger}] -match regexp -result {^Ok 1 Ok Ok Ok Ok Ok Ok Ok\
+Ok 0 \{1 \{\} 2 \{\} 3 \{\} 4 \{\} 5 \d+ 6 \{thread#\d+ foo\} 7 \d+ 8 \{\} 9\
+\{\}\}$}}
+
+###############################################################################
+
+runTest {test tclLoad-3.2 {TclThread script cancellation (Windows)} -setup {
+  tclLoadForTest tcl_loaded
+  set interp [object invoke -alias Interpreter GetActive]
+} -body {
+  #
+  # NOTE: Make 100% sure that the loaded Tcl library is threaded;
+  #       otherwise, this test may cause undefined behavior (e.g.
+  #       it may hang or crash).
+  #
+  if {[catch {tcl set [tcl primary] tcl_platform(threaded)} msg] == 0} then {
+    #
+    # NOTE: Also make 100% sure that the loaded Tcl library supports
+    #       script cancellation (via TIP #285); otherwise, this test
+    #       will most likely hang.
+    #
+    if {[catch {tcl canceled [tcl primary]} msg] == 0} then {
+      set result ""
+      $interp -alias CreateTclThread null null 1000 false true true result
+
+      set name [getStringFromObjectHandle $result]
+
+      unset -nocomplain result; # NOTE: Re-used.
+
+      set thread null
+      array set result [list 1 "" 2 "" 3 "" 4 "" 5 "" 6 ""]
+      array set errorLine [list 1 0 2 0 3 0 4 0 5 0 6 0]
+
+      set flags {Immediate Debug}
+
+      list [$interp -alias -flags +NonPublic GetTclThread $name \
+              Default thread result(1)] \
+          [llength [tcl threads]] \
+          [$thread QueueEvent Create $flags null true result(2) errorLine(2)] \
+          [$thread QueueEvent SimpleEvaluate $flags {while {1} {}} false \
+              result(3) errorLine(3)] \
+          [after 2000] \
+          [$thread QueueEvent Cancel $flags null true result(4) errorLine(4)] \
+          [$thread QueueEvent Delete $flags null true result(5) errorLine(5)] \
+          [$interp DeleteTclThread $name false result(6)] \
+          [llength [tcl threads]] \
+          [map [testArrayGet result true] {apply [list [list x] {
+            if {[regexp -- {^Result#\d+$} $x]} then {
+              getStringFromObjectHandle $x
+            } else {
+              set x
+            }
+          }]}]
+    } else {
+      return [appendArgs \
+          "Tcl script cancellation support not available: " $msg]
+    }
+  } else {
+    return [appendArgs \
+        "Tcl threading support not available: " $msg]
+  }
+} -cleanup {
+  unset -nocomplain thread; # dispose
+  tclUnloadForTest false tcl_loaded
+
+  unset -nocomplain interp errorLine result name flags msg
+} -constraints {eagle command.object native dynamic tclReadyOrLibrary86\
+command.tcl compile.NATIVE compile.TCL compile.TCL_THREADED compile.TCL_THREADS\
+primaryThread} -result {Ok 1 Ok Ok {} Ok Ok Ok 0 {1 {} 2 {} 3 {} 4 {} 5 {} 6\
+{}}}}
+
+###############################################################################
+
+runTest {test tclLoad-3.3 {basic TclThread usage (generic)} -setup {
+  tclLoadForTest tcl_loaded
+  set interp [object invoke -alias Interpreter GetActive]
+} -body {
+  #
+  # NOTE: Make 100% sure that the loaded Tcl library is threaded.
+  #
+  if {[catch {tcl set [tcl primary] tcl_platform(threaded)} msg] == 0} then {
+    #
+    # NOTE: This may not work in the .NET Framework 2.0 RTM on Windows 2000.
+    #       The following exception has been seen there and is currently
+    #       "unexplained":
+    #
+    #       System.OutOfMemoryException: Exception of type
+    #          'System.OutOfMemoryException' was thrown.
+    #          at System.Threading.Thread.StartInternal(IPrincipal principal,
+    #             StackCrawlMark& stackMark)
+    #          at System.Threading.Thread.Start()
+    #          at Eagle._Components.Private.Tcl.TclThread..ctor(
+    #             Interpreter interpreter, IClientData clientData,
+    #             Int32 timeout, String name, Boolean generic, Boolean start)
+    #          in .\Eagle\Library\Components\Private\TclThread.cs:line 160
+    #          at Eagle._Components.Private.Tcl.TclThread.Create(
+    #             Interpreter interpreter, IClientData clientData,
+    #             Int32 timeout, String name, Boolean generic, Result& error)
+    #          in .\Eagle\Library\Components\Private\TclThread.cs:line 392
+    #
+    set result ""
+    set code [$interp -alias CreateTclThread null null 1000 true true true \
+        result]
+
+    if {$code eq "Ok"} then {
+      set name [getStringFromObjectHandle $result]
+
+      set command null
+      $interp -alias -flags +NonPublic GetCommand eval Default command result
+      object flags $command +NoDispose; # we do not own this, do not dispose it.
+
+      set false [object invoke -create System.Boolean Parse false]
+
+      set triplet [object create [join \
+          [list Eagle._Components.Public.AnyTriplet`3 \[ \
+          System.String,Eagle._Interfaces.Public.IExecute,System.Boolean\]] \
+          ""] foo $command $false]
+
+      unset -nocomplain result; # NOTE: Re-used.
+
+      set thread null
+      array set result [list 1 "" 2 "" 3 "" 4 "" 5 "" 6 "" 7 "" 8 "" 9 ""]
+      array set errorLine [list 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0]
+
+      set flags {Immediate Debug}
+
+      return [list \
+          [$interp -alias -flags +NonPublic GetTclThread $name \
+              Default thread result(1)] \
+          [llength [tcl threads]] \
+          [$thread QueueEvent None $flags null true result(2) errorLine(2)] \
+          [$thread QueueEvent Idle $flags null true result(3) errorLine(3)] \
+          [$thread QueueEvent Create $flags null true result(4) errorLine(4)] \
+          [$thread QueueEvent SimpleEvaluate $flags {clock seconds} \
+              true result(5) errorLine(5)] \
+          [$thread QueueEvent AddCommand $flags $triplet true result(6) \
+              errorLine(6)] \
+          [$thread QueueEvent SimpleEvaluate $flags \
+              {foo clock seconds} true result(7) errorLine(7)] \
+          [$thread QueueEvent RemoveCommand $flags foo true result(8) \
+              errorLine(8)] \
+          [$interp DeleteTclThread $name false result(9)] \
+          [llength [tcl threads]] \
+          [map [testArrayGet result true] {apply [list [list x] {
+            if {[regexp -- {^Result#\d+$} $x]} then {
+              getStringFromObjectHandle $x
+            } else {
+              set x
+            }
+          }]}]]
+    } else {
+      #
+      # NOTE: Return the error message itself.
+      #
+      return $result
+    }
+  } else {
+    return [appendArgs "Tcl threading support not available: " $msg]
+  }
+} -cleanup {
+  unset -nocomplain thread
+  tclUnloadForTest false tcl_loaded
+
+  unset -nocomplain interp errorLine result code name false triplet command \
+      flags msg
+} -constraints [fixConstraints {eagle command.object native dynamic tclLibrary\
+command.tcl compile.NATIVE compile.TCL compile.TCL_THREADED compile.TCL_THREADS\
+primaryThread !monoDebugger}] -match regexp -result {^Ok 1 Ok Ok Ok Ok Ok Ok Ok\
+Ok 0 \{1 \{\} 2 \{\} 3 \{\} 4 \{\} 5 \d+ 6 \{thread#\d+ foo\} 7 \d+ 8 \{\} 9\
+\{\}\}$}}
+
+###############################################################################
+
+runTest {test tclLoad-3.4 {TclThread script cancellation (generic)} -setup {
+  tclLoadForTest tcl_loaded
+  set interp [object invoke -alias Interpreter GetActive]
+} -body {
+  #
+  # NOTE: Make 100% sure that the loaded Tcl library is threaded;
+  #       otherwise, this test may cause undefined behavior (e.g.
+  #       it may hang or crash).
+  #
+  if {[catch {tcl set [tcl primary] tcl_platform(threaded)} msg] == 0} then {
+    #
+    # NOTE: Also make 100% sure that the loaded Tcl library supports
+    #       script cancellation (via TIP #285); otherwise, this test
+    #       will most likely hang.
+    #
+    if {[catch {tcl canceled [tcl primary]} msg] == 0} then {
+      set result ""
+      $interp -alias CreateTclThread null null 1000 true true true result
+
+      set name [getStringFromObjectHandle $result]
+
+      unset -nocomplain result; # NOTE: Re-used.
+
+      set thread null
+      array set result [list 1 "" 2 "" 3 "" 4 "" 5 "" 6 ""]
+      array set errorLine [list 1 0 2 0 3 0 4 0 5 0 6 0]
+
+      set flags {Immediate Debug}
+
+      list [$interp -alias -flags +NonPublic GetTclThread $name \
+              Default thread result(1)] \
+          [llength [tcl threads]] \
+          [$thread QueueEvent Create $flags null true result(2) errorLine(2)] \
+          [$thread QueueEvent SimpleEvaluate $flags {while {1} {}} false \
+              result(3) errorLine(3)] \
+          [after 2000] \
+          [$thread QueueEvent Cancel $flags null true result(4) errorLine(4)] \
+          [$thread QueueEvent Delete $flags null true result(5) errorLine(5)] \
+          [$interp DeleteTclThread $name false result(6)] \
+          [llength [tcl threads]] \
+          [map [testArrayGet result true] {apply [list [list x] {
+            if {[regexp -- {^Result#\d+$} $x]} then {
+              getStringFromObjectHandle $x
+            } else {
+              set x
+            }
+          }]}]
+    } else {
+      return [appendArgs \
+          "Tcl script cancellation support not available: " $msg]
+    }
+  } else {
+    return [appendArgs \
+        "Tcl threading support not available: " $msg]
+  }
+} -cleanup {
+  unset -nocomplain thread; # dispose
+  tclUnloadForTest false tcl_loaded
+
+  unset -nocomplain interp errorLine result name flags msg
+} -constraints {eagle command.object native dynamic tclReadyOrLibrary86\
+command.tcl compile.NATIVE compile.TCL compile.TCL_THREADED compile.TCL_THREADS\
+primaryThread} -result {Ok 1 Ok Ok {} Ok Ok Ok 0 {1 {} 2 {} 3 {} 4 {} 5 {} 6\
+{}}}}
+
+###############################################################################
+
+if {[haveConstraint tcl] && [haveConstraint garuda]} then {
+  #
+  # NOTE: Capture and log all the diagnostic output from the Garuda helper
+  #       script(s).
+  #
+  namespace eval ::Garuda {
+    variable logCommand; set logCommand ttclLog
+  }
+}
+
+###############################################################################
+
+runTest {test tclLoad-4.1.1 {Garuda packageId (Tcl)} -body {
+  garuda packageid
+} -constraints {tcl garuda} -match regexp -result \
+{^Garuda 1\.0 [0-9a-f]{40,64} \{\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC\}$}}
+
+###############################################################################
+
+runTest {test tclLoad-4.1.2 {Garuda packageId (Eagle)} -body {
+  tcl eval [tcl primary] garuda packageid
+} -constraints {eagle garuda} -match regexp -result \
+{^Garuda 1\.0 [0-9a-f]{40,64} \{\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC\}$}}
+
+###############################################################################
+
+runTest {test tclLoad-5.1.1 {Garuda status (Tcl)} -body {
+  garuda clrrunning
+} -constraints {tcl garuda} -match regexp -result {^0|1$}}
+
+###############################################################################
+
+runTest {test tclLoad-5.1.2 {Garuda status (Eagle)} -body {
+  #
+  # NOTE: The CLR must be running since this test is constrained to
+  #       run only in Eagle; therefore, the result must always be "1".
+  #
+  tcl eval [tcl primary] garuda clrrunning
+} -constraints {eagle garuda} -result {1}}
+
+###############################################################################
+
+runTest {test tclLoad-6.1.1 {Garuda status (Tcl)} -body {
+  garuda bridgerunning
+} -constraints {tcl garuda} -match regexp -result {^0|1$}}
+
+###############################################################################
+
+runTest {test tclLoad-6.1.2 {Garuda status (Eagle)} -body {
+  #
+  # NOTE: The bridge must be running since this test is constrained to
+  #       run only in Eagle; therefore, the result must always be "1".
+  #
+  tcl eval [tcl primary] garuda bridgerunning
+} -constraints {eagle garuda} -result {1}}
+
+###############################################################################
+
+runTest {test tclLoad-7.1.1 {Garuda appDomainId (Tcl)} -body {
+  expr {[garuda clrrunning] ? [garuda clrappdomainid] : "not running"}
+} -constraints {tcl garuda} -match regexp -result {^\d+|not running$}}
+
+###############################################################################
+
+runTest {test tclLoad-7.1.2 {Garuda appDomainId (Eagle)} -body {
+  expr {[tcl eval [tcl primary] garuda clrrunning] ? \
+      [tcl eval [tcl primary] garuda clrappdomainid] : "not running"}
+} -constraints {eagle garuda} -match regexp -result {^\d+|not running$}}
+
+###############################################################################
+
+runTest {test tclLoad-8.1.1 {Garuda clrVersion (Tcl)} -body {
+  garuda clrversion
+} -constraints {tcl garuda} -match regexp -result \
+{^v2\.0\.50727|v4\.0\.30319$}}
+
+###############################################################################
+
+runTest {test tclLoad-8.1.2 {Garuda clrVersion (Eagle)} -body {
+  tcl eval [tcl primary] garuda clrversion
+} -constraints {eagle garuda} -match regexp -result \
+{^v2\.0\.50727|v4\.0\.30319$}}
+
+###############################################################################
+
+runTest {test tclLoad-9.1.1 {Garuda control (Tcl)} -body {
+  list [garuda control] [garuda control test] \
+      [garuda control "this is a test."]
+} -constraints {tcl garuda} -result {{} {} {}}}
+
+###############################################################################
+
+runTest {test tclLoad-9.1.2 {Garuda control (Eagle)} -body {
+  list [tcl eval [tcl primary] garuda control] \
+      [tcl eval [tcl primary] garuda control test] \
+      [tcl eval [tcl primary] garuda control [list "this is a test."]]
+} -constraints {eagle garuda} -result {{} {} {}}}
+
+###############################################################################
+
+runTest {test tclLoad-10.1.1 {Garuda Tcl-to-Eagle (Tcl)} -body {
+  eagle clock seconds
+} -constraints {tcl garuda} -match regexp -result {^\d+$}}
+
+###############################################################################
+
+runTest {test tclLoad-10.1.2 {Garuda Tcl-to-Eagle (Eagle)} -body {
+  tcl eval [tcl primary] eagle clock seconds
+} -constraints {eagle garuda} -match regexp -result {^\d+$}}
+
+###############################################################################
+
+runTest {test tclLoad-10.1.3 {Garuda Tcl-to-Eagle-to-Tcl (Tcl)} -body {
+  eagle tcl eval [eagle tcl primary] clock seconds
+} -constraints {tcl garuda} -match regexp -result {^\d+$}}
+
+###############################################################################
+
+runTest {test tclLoad-10.1.4 {Garuda Tcl-to-Eagle-to-Tcl (Eagle)} -body {
+  tcl eval [tcl primary] {eagle {tcl eval [tcl primary] clock seconds}}
+} -constraints {eagle garuda} -match regexp -result {^\d+$}}
+
+###############################################################################
+
+runTest {test tclLoad-11.1.1 {Garuda state (Tcl)} -body {
+  garuda dumpstate
+} -constraints {tcl garuda} -match regexp -result {^packageMutex 0x[0-9A-F]+\
+hPackageModule 0x[0-9A-F]+ packageFileName \{.*\} lTclStubs \d+ hTclModule\
+0x[0-9A-F]+ pTclStubs 0x[0-9A-F]+(?: pClrMetaHost 0x[0-9A-F]+ pClrRuntimeInfo\
+0x[0-9A-F]+)? pClrRuntimeHost 0x[0-9A-F]+ bClrStarted (?:0|1) bBridgeStarted\
+(?:0|1)$}}
+
+###############################################################################
+
+runTest {test tclLoad-11.1.2 {Garuda state (Eagle)} -body {
+  tcl eval [tcl primary] garuda dumpstate
+} -constraints {eagle garuda} -match regexp -result {^packageMutex 0x[0-9A-F]+\
+hPackageModule 0x[0-9A-F]+ packageFileName \{.*\} lTclStubs \d+ hTclModule\
+0x[0-9A-F]+ pTclStubs 0x[0-9A-F]+(?: pClrMetaHost 0x[0-9A-F]+ pClrRuntimeInfo\
+0x[0-9A-F]+)? pClrRuntimeHost 0x[0-9A-F]+ bClrStarted (?:0|1) bBridgeStarted\
+(?:0|1)$}}
+
+###############################################################################
+
+proc unloadForGarudaTest { interp {quiet false} } {
+  if {[isEagle]} then {
+    error "native Tcl is required to unload Garuda"
+  }
+
+  #
+  # NOTE: Check if the [unload] command is available (i.e. we are running in
+  #       Tcl 8.5 or higher).
+  #
+  if {[llength [info commands unload]] > 0} then {
+    #
+    # NOTE: Make sure that the necessary namespace variables are present.
+    #
+    if {[info exists ::Garuda::packageName] && \
+        [info exists ::Garuda::packageBinaryFileName] && \
+        [::Garuda::isLoaded $::Garuda::packageBinaryFileName loaded]} then {
+      #
+      # HACK: Prevent the CLR from being stopped by setting the namespace
+      #       variable for that package configuration setting.
+      #
+      interp eval $interp {
+        namespace eval ::Garuda {}; set ::Garuda::stopClr false
+      }
+
+      #
+      # NOTE: Attempt to unload the package binary file from the process.  If
+      #       successful, forget and re-register the package.
+      #
+      set command [list unload [lindex $loaded 0] [lindex $loaded 1]]
+
+      if {[interp issafe $interp]} then {
+        eval interp invokehidden [list $interp] $command
+      } else {
+        interp eval $interp $command
+      }
+
+      if {!$quiet} then {
+        tputs $::test_channel [appendArgs \
+            "---- unloaded package \"" $::Garuda::packageName \
+            "\" binary \"" $loaded "\" in interpreter \"" $interp \
+            \"\n]
+      }
+
+      if {[catch {
+        interp eval $interp {package present $::Garuda::packageName}
+      } version]} then {
+        set version ""
+      }
+
+      if {[string length $version] > 0} then {
+        if {[catch [string map [list %version% $version] {
+          package ifneeded $::Garuda::packageName {%version%}
+        }] ifneeded]} then {
+          set ifneeded ""
+        }
+      }
+
+      interp eval $interp {
+        package forget $::Garuda::packageName; # NOTE: Cannot fail.
+      }
+
+      if {!$quiet} then {
+        tputs $::test_channel [appendArgs \
+            "---- forgot package \"" $::Garuda::packageName \
+            "\" in interpreter \"" $interp \"\n]
+      }
+
+      if {[string length $version] > 0 && \
+          [string length $ifneeded] > 0} then {
+        interp eval $interp [string map \
+            [list %version% $version %ifneeded% $ifneeded] {
+          package ifneeded $::Garuda::packageName {%version%} {%ifneeded%}
+        }]
+
+        if {!$quiet} then {
+          tputs $::test_channel [appendArgs \
+              "---- added package \"" $::Garuda::packageName \
+              "\" require command in interpreter \"" $interp \"\n]
+        }
+      }
+    }
+  }
+}
+
+###############################################################################
+
+proc shutdownForGarudaTest {} {
+  if {[isEagle]} then {
+    return "native Tcl is required to shutdown Garuda"
+  }
+
+  if {[catch {garuda shutdown} error]} then {
+    return $error
+  }
+
+  return ""
+}
+
+###############################################################################
+
+runTest {test tclLoad-12.1 {Garuda auto-start with SafeBase (Tcl)} -setup {
+  proc safeTputs { channel string } {
+    tlog [appendArgs $string \n]
+
+    #
+    # NOTE: Enable this to get full error information.  This can be very
+    #       useful when debugging Safe Tcl interpreter security [and other]
+    #       errors.
+    #
+    if {0} then {
+      catch {
+        set errorInfo [$::interp eval set ::errorInfo]
+        tlog [appendArgs $errorInfo \n]
+      }
+    }
+  }
+
+  set logCommand [list safeTputs $test_channel]
+  set interp [interp create -safe]
+
+  interp alias $interp safeTputs {} safeTputs
+  $interp eval [list namespace eval ::Garuda {}]
+  $interp eval [list set ::Garuda::verbose true]
+  $interp eval [list set ::Garuda::logCommand $logCommand]
+
+  if {![info exists no(tclKit)]} then {
+    $interp eval [list set ::Garuda::methodFlags 0x40]; # METHOD_PROTOCOL_V1R2
+  }
+
+  $interp eval [list set ::Garuda::useSafeInterp true]
+  $interp eval [list set ::Garuda::assemblyPath $::Garuda::assemblyPath]
+  $interp eval [list set ::Garuda::packageName $::Garuda::packageName]
+  $interp eval [list set ::Garuda::packagePath $::Garuda::packagePath]
+  $interp eval [list set ::Garuda::packageBinaryFileName \
+      $::Garuda::packageBinaryFileName]
+
+  ::safe::setLogCmd $logCommand
+  ::safe::interpInit $interp
+  ::safe::interpAddToAccessPath $interp $::Garuda::packagePath
+  ::safe::interpAddToAccessPath $interp [file dirname $::Garuda::assemblyPath]
+} -body {
+  #
+  # NOTE: This test seems to fail with recent versions of Tcl (8.6b3) due to
+  #       changes in error messages originating from the safe Tcl interpreter
+  #       (i.e. the [package require] command produces the full error message
+  #       from Garuda instead of simply "script error").
+  #
+  list [shutdownForGarudaTest] [$interp issafe] \
+      [catch {$interp eval clock seconds} msg] $msg \
+      [catch {$interp eval pwd} msg] $msg \
+      [catch {$interp eval package present Garuda} msg] $msg \
+      [catch {$interp eval package require Garuda} msg] $msg \
+      [catch {$interp eval package present Garuda} msg] $msg \
+      [catch {$interp eval garuda bridgerunning} msg] $msg \
+      [catch {$interp eval eagle clock seconds} msg] $msg \
+      [catch {$interp eval eagle pwd} msg] $msg
+} -cleanup {
+  unloadForGarudaTest $interp
+  ::safe::interpDelete $interp
+  unset -nocomplain msg interp logCommand
+  rename safeTputs ""
+} -constraints {tcl garuda} -match regexp -result {^\{\} 1 0 \d+ 1 \{invalid\
+command name "pwd"\} 1 \{package Garuda is not present\} 0 1\.0 0 1\.0 0 1 0\
+\d+ 1 \{permission denied: safe interpreter cannot use command "pwd"\}$}}
+
+###############################################################################
+
+#
+# NOTE: Due to use of a "safe" Tcl interpreter, this test is supposed to end
+#       up using the minimum CLR version because it cannot detect the newest
+#       version of the CLR on the file system (i.e. because it cannot access
+#       the [file exists] sub-command); however, since the Garuda package
+#       binary may have already been loaded into the process, it may already
+#       be too late for that.  Therefore, this test allows for the loaded CLR
+#       version to be either of the legal values.
+#
+runTest {test tclLoad-12.2 {Garuda command with SafeBase (Tcl)} -setup {
+  proc safeTputs { channel string } {
+    tlog [appendArgs $string \n]
+
+    #
+    # NOTE: Enable this to get full error information.  This can be very
+    #       useful when debugging Safe Tcl interpreter security [and other]
+    #       errors.
+    #
+    if {0} then {
+      catch {
+        set errorInfo [$::interp eval set ::errorInfo]
+        tlog [appendArgs $errorInfo \n]
+      }
+    }
+  }
+
+  set logCommand [list safeTputs $test_channel]
+  set interp [interp create -safe]
+
+  interp alias $interp safeTputs {} safeTputs
+  $interp eval [list namespace eval ::Garuda {}]
+  $interp eval [list set ::Garuda::verbose true]
+  $interp eval [list set ::Garuda::logCommand $logCommand]
+
+  if {![info exists no(tclKit)]} then {
+    $interp eval [list set ::Garuda::methodFlags 0x40]; # METHOD_PROTOCOL_V1R2
+  }
+
+  $interp eval [list set ::Garuda::startBridge false]
+  $interp eval [list set ::Garuda::assemblyPath $::Garuda::assemblyPath]
+  $interp eval [list set ::Garuda::packageName $::Garuda::packageName]
+  $interp eval [list set ::Garuda::packagePath $::Garuda::packagePath]
+  $interp eval [list set ::Garuda::packageBinaryFileName \
+      $::Garuda::packageBinaryFileName]
+
+  ::safe::setLogCmd $logCommand
+  ::safe::interpInit $interp
+  ::safe::interpAddToAccessPath $interp $::Garuda::packagePath
+  ::safe::interpAddToAccessPath $interp [file dirname $::Garuda::assemblyPath]
+} -body {
+  #
+  # NOTE: Unfortunately, this test cannot evaluate any Eagle scripts because
+  #       the Eagle interpreter has already been created as "unsafe" and the
+  #       Tcl interpreter is "safe".  The Eagle native package integration
+  #       code detects this condition and [correctly] fails in the startup
+  #       method.  Eventually, the design may be modified to support fully
+  #       isolated one-to-one relationships between Eagle interpreters and
+  #       Tcl interpreters.  Until then, we test what we can.
+  #
+  list [shutdownForGarudaTest] [$interp issafe] \
+      [catch {$interp eval clock seconds} msg] $msg \
+      [catch {$interp eval pwd} msg] $msg \
+      [catch {$interp eval package present Garuda} msg] $msg \
+      [catch {$interp eval package require Garuda} msg] $msg \
+      [catch {$interp eval package present Garuda} msg] $msg \
+      [catch {$interp eval garuda packageid} msg] $msg \
+      [catch {$interp eval garuda clrrunning} msg] $msg \
+      [catch {$interp eval garuda bridgerunning} msg] $msg \
+      [catch {$interp eval garuda clrversion} msg] $msg \
+      [catch {$interp eval garuda clrappdomainid} msg] $msg \
+      [catch {
+        $interp eval garuda clrexecute $::Garuda::assemblyPath \
+            Eagle._Tests.Default TestMethod 0x12345678
+      } msg] $msg \
+      [catch {$interp eval garuda clrstart} msg] $msg \
+      [catch {$interp eval garuda clrstop} msg] $msg \
+      [catch {$interp eval garuda dumpstate} msg] $msg \
+      [catch {$interp eval garuda startup} msg] $msg \
+      [catch {$interp eval garuda control} msg] $msg \
+      [catch {$interp eval garuda detach} msg] $msg \
+      [catch {$interp eval garuda shutdown} msg] $msg
+} -cleanup {
+  unloadForGarudaTest $interp
+  ::safe::interpDelete $interp
+  unset -nocomplain msg interp logCommand
+  rename safeTputs ""
+} -constraints {tcl garuda compile.TEST} -match regexp -result {^\{\} 1 0 \d+ 1\
+\{invalid command name "pwd"\} 1 \{package Garuda is not present\} 0 1\.0 0\
+1\.0 0 \{Garuda 1\.0 [0-9a-f]{40,64} \{\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\
+UTC\}\} 0 1 0 0 0 (?:v2\.0\.50727|v4\.0\.30319) 0 \d+ 1 \{permission denied:\
+safe interp
+\} 1 \{permission denied: safe interp
+\} 1 \{permission denied: safe interp
+\} 1 \{permission denied: safe interp
+\} 1 \{permission denied: safe interp
+\} 1 \{permission denied: safe interp
+\} 1 \{permission denied: safe interp
+\} 1 \{permission denied: safe interp
+\}$}}
+
+###############################################################################
+
+runTest {test tclLoad-13.1.1 {Garuda execute (Tcl)} -body {
+  #
+  # NOTE: Execute a specific managed method by providing the assembly path,
+  #       type name, and method name.  The method must be static, must take
+  #       a single string argument, and must return an integer.  For this
+  #       test we execute [garuda] command directly in Tcl.
+  #
+  garuda clrexecute $::Garuda::assemblyPath Eagle._Tests.Default \
+      TestMethod 0x12345678
+} -constraints {tcl garuda compile.TEST} -result {305419896}}
+
+###############################################################################
+
+runTest {test tclLoad-13.1.2 {Garuda execute (Eagle)} -body {
+  #
+  # NOTE: Execute a specific managed method by providing the assembly path,
+  #       type name, and method name.  The method must be static, must take
+  #       a single string argument, and must return an integer.  For this
+  #       test we go through the Eagle [tcl] command.
+  #
+  tcl eval [tcl primary] {garuda clrexecute $::Garuda::assemblyPath \
+      Eagle._Tests.Default TestMethod 0x12345678}
+} -constraints {eagle garuda compile.TEST} -result {305419896}}
+
+###############################################################################
+
+runTest {test tclLoad-14.1.1 {haveEagle (Tcl)} -setup {
+  shutdownForGarudaTest; package require Garuda; garuda startup
+} -body {
+  list [set version ""] [haveEagle version] $version
+} -cleanup {
+  unset -nocomplain version
+} -constraints {tcl garuda} -match regexp -result \
+{^\{\} true \d+\.\d+\.\d+\.\d+$}}
+
+###############################################################################
+
+runTest {test tclLoad-14.1.2 {haveEagle (Eagle)} -setup {
+  foreach procName [list isEagle shutdownForGarudaTest] {
+    tcl eval [tcl primary] \
+        [list proc $procName [info args $procName] [info body $procName]]
+  }; unset -nocomplain procName
+
+  tcl eval [tcl primary] {
+    shutdownForGarudaTest; package require Garuda; garuda startup
+  }
+} -body {
+  list [tcl set [tcl primary] version ""] \
+      [tcl eval [tcl primary] haveEagle version] \
+      [tcl set [tcl primary] version]
+} -cleanup {
+  foreach procName [list isEagle shutdownForGarudaTest] {
+    tcl eval [tcl primary] [list rename $procName ""]
+  }; unset -nocomplain procName
+
+  tcl eval [tcl primary] [list unset -nocomplain version]
+} -constraints {eagle garuda} -match regexp -result \
+{^\{\} true \d+\.\d+\.\d+\.\d+$}}
+
+###############################################################################
+
+if {![isEagle]} then {
+  #
+  # NOTE: Attempt to [unload] the Garuda package binary from the process.
+  #       This requires Tcl 8.5 or higher.
+  #
+  shutdownForGarudaTest; unloadForGarudaTest ""
+
+  #
+  # NOTE: Verify that the Garuda package binary has been completely unloaded
+  #       from the process.
+  #
+  catch {
+    ::Garuda::isLoaded $::Garuda::packageBinaryFileName
+  }
+
+  #
+  # NOTE: Cleanup the Garuda namespace, now that the test suite tracks leaks
+  #       of created namespaces (i.e. as of Beta 30).
+  #
+  catch {
+    namespace delete ::Garuda
+
+    tputs $test_channel "---- deleted namespace for package \"Garuda\"\n"
+  }
+}
+
+###############################################################################
+
+rename shutdownForGarudaTest ""
+rename unloadForGarudaTest ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

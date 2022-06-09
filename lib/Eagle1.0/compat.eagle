@@ -1,0 +1,203 @@
+###############################################################################
+#
+# compat.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle [Native Tcl] Compatibility Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure attempts to query the size from the host, in terms
+  #       of columns and rows; failing that, it returns a reasonable default
+  #       value.  Generally, this procedure is intended to be used only by
+  #       the other procedures in this file.
+  #
+  proc getHostSize {} {
+    if {[catch {host size} result] == 0} then {
+      return $result
+    }
+
+    return [list 80 25]; # TODO: Good default?
+  }
+
+  #
+  # NOTE: This procedure emulates the behavior of the native Tcl [parray]
+  #       procedure: it prints (to stdout) the names and values contained
+  #       in the specified array, or a subset of those names based on the
+  #       specified pattern.
+  #
+  proc parray { a args } {
+    if {[llength $args] > 2} then {
+      error "wrong # args: should be \"parray a ?pattern?\""
+    }
+
+    upvar 1 $a array
+
+    if {![array exists array]} {
+      error [appendArgs \" $a "\" isn't an array"]
+    }
+
+    set names [lsort [eval array names array $args]]
+    set maxLength 0
+
+    foreach name $names {
+      set length [string length $name]
+
+      if {$length > $maxLength} {
+        set maxLength $length
+      }
+    }
+
+    set stringMap [list \b " " \t " " \r \xB6 \n \xB6]
+    set maxLength [expr {$maxLength + [string length $a] + 2}]
+    set hostLength [lindex [getHostSize] 0]
+    set valueLength [expr {$hostLength - $maxLength - 5}]; # " ... "
+
+    foreach name $names {
+      #
+      # NOTE: Format the array element name for display.
+      #
+      set nameString [string map $stringMap [appendArgs $a ( $name )]]
+
+      #
+      # NOTE: If the value by itself is too long to fit on one host line,
+      #       just truncate and ellipsis it.
+      #
+      set valueString [string map $stringMap $array($name)]
+
+      if {[string length $valueString] > $valueLength} then {
+        set valueString [appendArgs [string range $valueString 0 \
+            [expr {$valueLength - 4}]] " ..."]
+      }
+
+      #
+      # HACK: Mono does not currently support calling the String.Format
+      #       overload that takes a variable number of arguments via
+      #       reflection (Mono bug #636939).
+      #
+      if {![isMono]} then {
+        set line [string format -verbatim -- [appendArgs "\{0,-" \
+            $maxLength "\} = {1}"] $nameString $valueString]
+      } elseif {[llength [info commands object]] > 0} then {
+        set line [object invoke String Format [appendArgs "\{0,-" \
+            $maxLength "\} = {1}"] $nameString $valueString]
+      } else {
+        set line [format [appendArgs "%-" $maxLength "s = %s"] \
+            $nameString $valueString]
+      }
+
+      puts stdout $line
+    }
+  }
+
+  #
+  # NOTE: This procedure emulates the behavior of the native Tcl [parray]
+  #       procedure: it prints (to stdout) the names and values contained
+  #       in the specified dictionary, or a subset of those names based on
+  #       the specified pattern.
+  #
+  proc pdict { d } {
+    set maxLength 0
+
+    foreach {name value} $d {
+      set length [string length $name]
+
+      if {$length > $maxLength} {
+        set maxLength $length
+      }
+    }
+
+    set hostLength [lindex [getHostSize] 0]
+    set valueLength [expr {$hostLength - $maxLength - 5}]; # " ... "
+
+    foreach {name value} $d {
+      #
+      # NOTE: If the value by itself is too long to fit on one host line,
+      #       just truncate and ellipsis it.
+      #
+      set valueString $value
+
+      if {[string length $valueString] > $valueLength} then {
+        set valueString [appendArgs [string range $valueString 0 \
+            [expr {$valueLength - 4}]] " ..."]
+      }
+
+      #
+      # HACK: Mono does not currently support calling the String.Format
+      #       overload that takes a variable number of arguments via
+      #       reflection (Mono bug #636939).
+      #
+      if {![isMono]} then {
+        set line [string format -verbatim -- [appendArgs "\{0,-" \
+            $maxLength "\} = {1}"] $name $valueString]
+      } elseif {[llength [info commands object]] > 0} then {
+        set line [object invoke String Format [appendArgs "\{0,-" \
+            $maxLength "\} = {1}"] $name $valueString]
+      } else {
+        set line [format [appendArgs "%-" $maxLength "s = %s"] \
+            $name $valueString]
+      }
+
+      puts stdout $line
+    }
+  }
+
+  #
+  # NOTE: This procedure emulates the behavior of the native Tcl [test]
+  #       command as provided by its bundled "tcltest" package.  It is
+  #       designed to automatically detect and handle the type of test
+  #       specified by the various arguments, which may be an old style
+  #       test or a new style test.
+  #
+  proc test { name description args } {
+    #
+    # NOTE: Determine if the caller is trying to run an old style or
+    #       new style test and use the appropriate command.
+    #
+    if {[string index [lindex $args 0] 0] eq "-"} then {
+      #
+      # NOTE: New style test, use [test2] command.
+      #
+      set command test2
+    } else {
+      #
+      # NOTE: Old style test, use [test1] command.
+      #
+      set command test1
+    }
+
+    return [uplevel 1 [list $command $name $description] $args]
+  }
+
+  #
+  # NOTE: This procedure emulates the behavior of the native Tcl [tclLog]
+  #       command.
+  #
+  proc tclLog { string } {
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #
+    catch {puts stderr $string}
+  }
+
+  #
+  # NOTE: Provide the Eagle "Tcl compatibility" package to the interpreter.
+  #
+  package provide Eagle.Tcl.Compatibility \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

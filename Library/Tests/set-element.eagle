@@ -1,0 +1,101 @@
+###############################################################################
+#
+# set-element.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test setElement-1.1 {set array element value} -setup {
+  unset -nocomplain b
+} -body {
+  set b(1) 1
+} -cleanup {
+  unset b
+} -result {1}}
+
+###############################################################################
+
+runTest {test setElement-1.2 {set array element value} -setup {
+  unset -nocomplain b
+} -body {
+  set b(foo bar) 1
+} -returnCodes 1 -result {wrong # args: should be "set varName ?newValue?"}}
+
+###############################################################################
+
+runTest {test setElement-1.3 {set array element value} -setup {
+  unset -nocomplain b
+} -body {
+  list [set {b(foo bar)} 1] [lsort [array names b]] ${b(foo bar)}
+} -cleanup {
+  unset b
+} -result {1 {{foo bar}} 1}}
+
+###############################################################################
+
+runTest {test setElement-1.4 {array element name with '(' and ')'} -setup {
+  unset -nocomplain b
+} -body {
+  list [set b() 0] [set b(1(2)) 1] [set b(() 2] [set b()) 3] \
+      [lsort [array names b]]
+} -cleanup {
+  unset b
+} -result {0 1 2 3 {{} ( ) 1(2)}}}
+
+###############################################################################
+
+runTest {test setElement-1.5 {array element name with '[' and ']'} -setup {
+  unset -nocomplain b
+} -body {
+  list [set b(\[1\]) 0] [set b(\[) 1] [set b(\]) 2] [lsort [array names b]]
+} -cleanup {
+  unset b
+} -result {0 1 2 {{[} {[1]} \]}}}
+
+###############################################################################
+
+runTest {test setElement-1.6 {array element name with '$'} -setup {
+  unset -nocomplain b
+} -body {
+  list [set b(\$) 0] [set b(\$1) 1] [set b(\$1(2) 2] [set b(\$1(2)) 3] \
+      [set b(\$12)) 4] [lsort [array names b]]
+} -cleanup {
+  unset b
+} -result {0 1 2 3 4 {{$} {$1} {$1(2} {$1(2)} {$12)}}}}
+
+###############################################################################
+
+runTest {test setElement-1.7 {array element name with '\'} -setup {
+  unset -nocomplain b
+} -body {
+  list [set b(\$) 0] [set b(\$1) 1] [set b(\$1(2) 2] [set b(\$1(2)) 3] \
+      [set b(\$12)) 4] [lsort [array names b]]
+} -cleanup {
+  unset b
+} -result {0 1 2 3 4 {{$} {$1} {$1(2} {$1(2)} {$12)}}}}
+
+###############################################################################
+
+runTest {test setElement-1.8 {non-array varNames with stray parens} -setup {
+  unset -nocomplain b(1 b)2
+} -body {
+  list [set b(1 0] [set b)2 1] [lsort [array names b]]
+} -cleanup {
+  unset b(1 b)2
+} -result {0 1 {}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

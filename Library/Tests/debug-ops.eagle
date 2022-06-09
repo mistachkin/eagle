@@ -1,0 +1,38 @@
+###############################################################################
+#
+# debug-ops.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test debugOps-1.1 {complain} -setup {
+  object import Eagle._Components.Private
+} -body {
+  set interp [object invoke Interpreter GetActive]
+  set result [object invoke -parametertypes String Result op_Implicit \
+      "you will see this"]
+
+  object invoke DebugOps Complain $interp Ok $result
+  object invoke -flags +NonPublic $interp Complaint
+} -cleanup {
+  object unimport -importpattern Eagle._Components.Private
+
+  unset -nocomplain result interp
+} -constraints {eagle command.object} -match regexp -result \
+{\d+ \(\d+\): you will see this}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

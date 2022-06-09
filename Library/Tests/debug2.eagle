@@ -1,0 +1,116 @@
+###############################################################################
+#
+# debug2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test debug-2.1 {isolated evaluation} -body {
+  set x 1
+  debug eval set x 2
+  debug eval incr x
+  list [set x] [debug eval set x]
+} -cleanup {
+  catch {debug eval unset -nocomplain x}
+  unset -nocomplain x
+} -constraints \
+{eagle compile.DEBUGGER scriptDebugger scriptDebuggerInterpreter} \
+-result {1 3}}
+
+###############################################################################
+
+runTest {test debug-2.35 {IScriptLocation stack balance} -setup {
+  set fileName [file join [getTemporaryPath] debug-2.35.eagle]
+
+  writeFile $fileName {
+    eval {
+      object invoke -flags +NonPublic \
+          Interpreter.GetActive EnableScriptLocation true
+    }
+  }
+
+  set i [interp create]
+} -body {
+  interp eval $i [list source $fileName]
+} -cleanup {
+  catch {interp delete $i}
+
+  catch {file delete $fileName}
+
+  unset -nocomplain i fileName
+} -constraints {eagle command.object compile.DEBUGGER compile.BREAKPOINTS} \
+-result {}}
+
+###############################################################################
+
+runTest {test debug-2.86 {ScriptArguments stack balance} -setup {
+  set i [interp create]
+} -body {
+  string map [list \r\n \n] [interp eval $i {
+    debug emergency {full -break}
+  }]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {eagle command.object compile.SCRIPT_ARGUMENTS} -result \
+{emergency mode now enabled
+debugger created
+debugger types are missing
+debugger types added
+debugger is enabled
+debugger break-on-token enabled
+interactive mode enabled
+script locations enabled
+argument locations enabled
+script arguments enabled
+interactive loop hooked
+}}
+
+###############################################################################
+
+runTest {test debug-2.87 {PathDictionary.GetEnumerator exception} -setup {
+  set i [interp create]
+} -body {
+  set o null; set error null
+
+  set code [object invoke \
+      -alias Value GetInterpreter "" $i Default o error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  catch {
+    object invoke -flags +NonPublic $o EnableScriptLocation true
+  }
+
+  interp eval $i {
+    debug emergency "enabled created tokens"
+  }
+
+  list [catch {
+    interp eval $i {not_a_valid_command}
+  } error] $error
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i o error code
+} -constraints {eagle command.object} -result \
+{1 {invalid command name "not_a_valid_command"}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

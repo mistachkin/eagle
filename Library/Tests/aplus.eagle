@@ -1,0 +1,49 @@
+###############################################################################
+#
+# aplus.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test aplus-1.1 {a+ file open mode} -setup {
+  set file [file join [getTemporaryPath] aplus-1-1.txt]
+
+  set fd [open $file w]
+  fconfigure $fd -translation lf
+  puts $fd "1\n2\n3\n4\n5"
+  # puts $fd "1\r\n2\r\n3\r\n4\r\n5"
+  close $fd
+} -body {
+  set fd [open $file a+]
+  fconfigure $fd -translation lf
+  seek $fd -4 end
+  puts $fd "here"
+  close $fd
+
+  set fd [open $file r]
+  fconfigure $fd -translation binary
+  set data [read $fd]
+  close $fd
+
+  set data
+} -cleanup {
+  catch {close $fd}
+  catch {file delete $file}
+  unset data fd file
+} -result "1\n2\n3\nhere\n"}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

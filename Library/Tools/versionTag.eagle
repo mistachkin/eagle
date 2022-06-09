@@ -1,0 +1,1243 @@
+###############################################################################
+#
+# versionTag.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Version Tag Tool
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+package require Eagle
+
+proc usage { error } {
+  if {[string length $error] > 0} then {puts stdout $error}
+
+  puts stdout "usage:\
+[file tail [getShellExecutableName]]\
+[file tail [info script]]\
+<ChangeLogMode | UpdateMode | PatchLevelMode | SourceIdMode |\
+NuSpecMode | AssemblyDateTimeMode | AssemblyReleaseMode |\
+AssemblyTagMode | AssemblyTextMode | AssemblyUriMode |\
+AssemblyStrongNameTagMode> <fileName> \[directory\] \[notes\]"
+
+  #
+  # NOTE: Indicate to the caller, if any, that we have failed.
+  #
+  exit 1
+}
+
+proc removeTrailingBlankLines { varName } {
+  upvar 1 $varName lines
+
+  set length [llength $lines]
+  set index $length
+
+  for {incr index -1} {$index >= 0} {incr index -1} {
+    set line [lindex $lines $index]
+
+    if {[string length $line] > 0} then {
+      break
+    }
+  }
+
+  set lines [lrange $lines 0 $index]
+  return [expr {($index + 1) < $length}]
+}
+
+proc extractBuildName { name } {
+  set index [string first _ $name]
+
+  if {$index != -1} then {
+    return [string range $name 0 [incr index -1]]
+  } else {
+    return $name
+  }
+}
+
+proc extractBuildType { name } {
+  set index [string first _ $name]
+
+  if {$index != -1} then {
+    return [string range $name [incr index] end]
+  } else {
+    return ""
+  }
+}
+
+proc runOtherShellAndGetResult { fileName script } {
+  rename isDotNetCore __savedIsDotNetCore
+
+  proc isDotNetCore {} [list return \
+      [expr {[file extension $fileName] eq ".dll"}]]
+
+  try {
+    rename getShellExecutableName __savedGetShellExecutableName
+    proc getShellExecutableName {} [list return $fileName]
+
+    try {
+      package require Eagle.Test
+
+      file cleanup -- [set scriptFileName [getTemporaryFileName]]
+      writeFile $scriptFileName $script
+
+      return [execShell [list \
+          -success Success -nocarriagereturns -trimall] -quiet true \
+          -file [appendArgs \" [file nativename $scriptFileName] \"]]
+    } finally {
+      rename getShellExecutableName ""
+      rename __savedGetShellExecutableName getShellExecutableName
+    }
+  } finally {
+    rename isDotNetCore ""
+    rename __savedIsDotNetCore isDotNetCore
+  }
+}
+
+proc isDefaultBuildType { buildType } {
+  return [expr {$buildType in [list "" Default NetFx20]}]
+}
+
+proc getBuildName { buildType name } {
+  #
+  # TODO: If the default build type is ever changed from "NetFx20", it
+  #       will have to be changed here as well.
+  #
+  if {[isDefaultBuildType $buildType]} then {
+    return $name
+  } else {
+    return [appendArgs $name _ $buildType]
+  }
+}
+
+proc getBuildPatchLevel { {fallback ""} } {
+  #
+  # NOTE: Check if the engine patch level has been explicitly overridden
+  #       via the environment.
+  #
+  if {[info exists ::env(PATCHLEVEL)]} then {
+    #
+    # NOTE: The engine patch level has been explicitly overridden via the
+    #       environment; therefore, use it.
+    #
+    return $::env(PATCHLEVEL)
+  } elseif {[string length $fallback] > 0} then {
+    #
+    # NOTE: Use what the caller provided as a fallback, verbatim.
+    #
+    return $fallback
+  } else {
+    #
+    # NOTE: If the default build configuration has been disabled, we cannot
+    #       rely on the engine patch level being accurate (i.e. because this
+    #       may be the LKG build, which would produce the "wrong" engine
+    #       patch level for the new build).
+    #
+    if {[info exists ::env(NONETFX20)]} then {
+      #
+      # NOTE: The default build appears to be disabled; however, the engine
+      #       patch level has not been set in the environment.  Therefore,
+      #       calculate the engine patch level based on the current date and
+      #       time.
+      #
+      return [appendArgs [info engine Version] . [join [clock build] .]]
+    } else {
+      #
+      # NOTE: The default build appears to be enabled; therefore, use the
+      #       normal method for querying the engine patch level.
+      #
+      return [info engine PatchLevel]
+    }
+  }
+}
+
+proc getAssemblyDateTime {} {
+  #
+  # NOTE: Check if the assembly date/time has been explicitly overridden
+  #       via the environment.
+  #
+  if {[info exists ::env(ASSEMBLY_DATETIME)]} then {
+    #
+    # NOTE: The assembly date/time has been explicitly overridden via the
+    #       environment; therefore, use it.
+    #
+    return $::env(ASSEMBLY_DATETIME)
+  } else {
+    #
+    # NOTE: If the default build configuration has been disabled, we cannot
+    #       rely on the assembly date/time being accurate (i.e. because this
+    #       may be the LKG build, which would produce the "wrong" assembly
+    #       date/time for the new build).
+    #
+    if {[info exists ::env(NONETFX20)]} then {
+      #
+      # NOTE: The default build appears to be disabled; however, the assembly
+      #       date/time has not been set in the environment.  Therefore,
+      #       calculate the assembly date/time based on the current date and
+      #       time.
+      #
+      return [clock format [clock seconds] -gmt true -iso -isotimezone]
+    } else {
+      #
+      # NOTE: The default build appears to be enabled; therefore, use the
+      #       normal method for querying the assembly date/time.
+      #
+      return [info engine TimeStamp]
+    }
+  }
+}
+
+proc isSupportedProtocol { protocolId } {
+  return [expr {
+    $protocolId eq "1" || $protocolId eq "2" || $protocolId eq "3"
+  }]
+}
+
+proc getCheckoutDirectory { fileName } {
+  if {[info exists ::checkouts]} then {
+    foreach name [array names ::checkouts] {
+      if {[string match $name [file normalize $fileName]]} then {
+        set directory [file normalize $::checkouts($name)]
+
+        puts stdout [appendArgs \
+            "using checkout directory \"" $directory \
+            "\" for file \"" $fileName \"...]
+
+        return $::checkouts($name)
+      }
+    }
+  }
+
+  return [file normalize [file dirname $fileName]]
+}
+
+proc getSourceId { fileName idVarName timeStampVarName } {
+  set directory [getCheckoutDirectory $fileName]
+
+  upvar 1 $idVarName id
+  upvar 1 $timeStampVarName timeStamp
+
+  set pattern {^checkout:\s+([^\s]+)\s+(.*)\s+$}
+
+  if {[catch {
+    set exec [string map [list \n \r\n] [exec -success Success \
+        -nocarriagereturns -directory $directory -- fossil info]]
+  }] || [regexp -line -- $pattern $exec dummy id timeStamp] == 0} then {
+    #
+    # NOTE: Could not query the source identifier(s); therefore,
+    #       use obviously invalid ones.  In theory, we should be
+    #       able to just use null values here except that these
+    #       values may end up in native C header files as well
+    #       (i.e. not just managed assembly attribute values).
+    #
+    set id 0000000000000000000000000000000000000000
+    set timeStamp "0000-00-00 00:00:00 UTC"
+  }
+
+  return ""
+}
+
+set modes [list \"ChangeLogMode\", \"UpdateMode\", \
+                \"PatchLevelMode\", \"SourceIdMode\", \
+                \"NuSpecMode\", \"AssemblyReleaseMode\", \
+                \"AssemblyTagMode\", \"AssemblyTextMode\", \
+                or \"AssemblyUriMode\"]
+
+set argc [llength $argv]
+
+if {$argc >= 2 && $argc <= 4} then {
+  #
+  # NOTE: If available, load the settings file associated with this
+  #       build tool.
+  #
+  if {[info exists env(XDG_STARTUP_HOME)]} then {
+    set settingsFileName [file join \
+        $env(XDG_STARTUP_HOME) versionTag.settings.eagle]
+
+    if {[file exists $settingsFileName]} then {
+      source $settingsFileName
+    }
+  }
+
+  #
+  # NOTE: Are we updating the "ChangeLog", "stable.txt", or
+  #       "PatchLevel.cs" file?
+  #
+  set mode [lindex $argv 0]
+
+  if {[string length $mode] > 0} then {
+    #
+    # NOTE: Get the file name to read/update/write.
+    #
+    set fileName [lindex $argv 1]
+
+    #
+    # NOTE: Get the directory that should contain the various builds
+    #       (currently for UpdateMode only), if any.
+    #
+    if {$argc >= 3} then {
+      set directory [lindex $argv 2]
+    }
+
+    #
+    # NOTE: Get the notes (currently for UpdateMode only), if any.
+    #
+    if {$argc >= 4} then {
+      set notes [escapeUpdateNotes [lindex $argv 3]]
+    }
+
+    #
+    # NOTE: Initialize the default build configuration (currently
+    #       for UpdateMode only).
+    #
+    if {![info exists configuration]} then {
+      set configuration Release
+    }
+
+    #
+    # NOTE: Make sure the file name provided is not obviously
+    #       invalid.
+    #
+    if {[string length $fileName] > 0} then {
+      #
+      # NOTE: Read all the data out of the text file.
+      #
+      set data [readFile $fileName]
+
+      #
+      # NOTE: Normalize to Unix line-endings.
+      #
+      set data [string map [list \r\n \n] $data]; # Unix.
+
+      #
+      # NOTE: Figure out what mode we are in.
+      #
+      switch -exact -nocase -- $mode {
+        ChangeLogMode {
+          #
+          # NOTE: A bunch of literal asterisk characters.
+          #
+          set stars {\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*}
+
+          #
+          # NOTE: Match against this pattern in the "ChangeLog"
+          #       file (this pattern must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern "($stars ).*?( (?:RELEASE|WORKING) $stars)"
+
+          #
+          # NOTE: The release tag (e.g. Alpha, Beta, Final).
+          #
+          set tag [string totitle [info engine Tag]]
+
+          #
+          # NOTE: The full patch level (e.g. 1.0.3320.36054).
+          #
+          set patchLevel [split [getBuildPatchLevel] .]
+
+          #
+          # NOTE: Reformat the patch level so that it has a consistent
+          #       width (e.g. W.X.YYYY.ZZZZZ).
+          #
+          set patchLevel [object invoke String Format "{0}.{1}.{2:D4}.{3:D5}" \
+            [set w [object invoke -create Int32 Parse [lindex $patchLevel 0]]] \
+            [set x [object invoke -create Int32 Parse [lindex $patchLevel 1]]] \
+            [set y [object invoke -create Int32 Parse [lindex $patchLevel 2]]] \
+            [set z [object invoke -create Int32 Parse [lindex $patchLevel 3]]]]
+
+          #
+          # NOTE: Tidy up the temporary Int32 objects now.
+          #
+          unset w x y z; # dispose
+
+          #
+          # NOTE: Build the final replacement specification string.
+          #
+          set subSpec [appendArgs \\1 $tag " " $patchLevel \\2]
+
+          #
+          # NOTE: Perform the replacement in the original data
+          #       (first match only).
+          #
+          if {[regsub -nocase -- $pattern $data $subSpec data]} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $tag " " $patchLevel]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the string.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "pattern \"" $pattern "\" not found in \"" \
+                $fileName \"]
+          }
+        }
+        UpdateMode {
+          set env(NoConsole) 1; # NOTE: Disable console prompts.
+          set env(NoMutexes) 1; # NOTE: Disable mutex warning messages.
+
+          if {[info exists directory]} then {
+            #
+            # NOTE: This array element will contain the list of build type
+            #       names that we find within the specified directory.
+            #
+            set buildTypes(list) [list]
+
+            #
+            # NOTE: Iterate over all the sub-directories matching the base
+            #       configuration name.
+            #
+            foreach subDirectory [glob -nocomplain [file join [file \
+                normalize $directory] [appendArgs $configuration *]]] {
+              #
+              # NOTE: The core library assembly file and the shell assembly
+              #       file must both exist to process this build.
+              #
+              set shellFileName [file join $subDirectory bin EagleShell.dll]
+
+              if {![file exists $shellFileName] || \
+                  ![file isfile $shellFileName]} then {
+                set shellFileName [file join $subDirectory bin EagleShell.exe]
+              }
+
+              set coreFileName [file join $subDirectory bin Eagle.dll]
+
+              if {[file exists $coreFileName] && \
+                  [file isfile $coreFileName] && \
+                  [file exists $shellFileName] && \
+                  [file isfile $shellFileName]} then {
+                if {[string match *Bare [file tail $subDirectory]]} then {
+                  set buildType Bare; # HACK: Hard-coded.
+                } else {
+                  #
+                  # NOTE: Obtain the build configuration "suffix" for this
+                  #       build configuration using its shell.
+                  #
+                  set buildType [runOtherShellAndGetResult $shellFileName {
+                    set assembly [object invoke -flags +NonPublic \
+                        Eagle._Components.Private.GlobalState GetAssembly]
+
+                    puts stdout [object invoke \
+                        Utility GetAssemblyTextOrSuffix $assembly]
+                  }]
+
+                  if {[isDefaultBuildType $buildType]} then {
+                    set buildType Default
+                  }
+
+                  #
+                  # NOTE: Obtain various build properties for this build
+                  #       configuration using its shell.
+                  #
+                  foreach name [list PublicKeyToken Name Culture \
+                      PatchLevel TimeStamp DownloadBaseUri] {
+                    set script [appendArgs \
+                        "puts stdout \[info engine " [list $name] \]]
+
+                    set buildTypes($buildType,$name) \
+                        [runOtherShellAndGetResult $shellFileName $script]
+                  }
+                }
+
+                #
+                # NOTE: Calculate an MD5, SHA-1, and SHA-512 hashes for
+                #       this build configuration, based on the content
+                #       of its core assembly file.
+                #
+                set assemblyData [readFile $coreFileName]
+
+                set buildTypes($buildType,Md5) \
+                    [string tolower [hash normal md5 $assemblyData]]
+
+                set buildTypes($buildType,Sha1) \
+                    [string tolower [hash normal sha1 $assemblyData]]
+
+                set buildTypes($buildType,Sha512) \
+                    [string tolower [hash normal sha512 $assemblyData]]
+
+                lappend buildTypes(list) $buildType
+              }
+            }
+
+            #
+            # NOTE: The "Bare" build configuration does not have standard
+            #       channels; therefore, just fake it.
+            #
+            if {[lsearch -exact -- $buildTypes(list) Bare] != -1 && \
+                [lsearch -exact -- $buildTypes(list) Default] != -1} then {
+              foreach name [list PublicKeyToken Name Culture \
+                  PatchLevel TimeStamp DownloadBaseUri] {
+                set buildTypes(Bare,$name) $buildTypes(Default,$name)
+              }
+            }
+
+            #
+            # NOTE: Split the data into lines.
+            #
+            set inLines [split $data \n]; # Unix.
+
+            #
+            # NOTE: Start with an empty list of output lines.
+            #
+            set outLines [list]
+
+            #
+            # NOTE: Keep track of how many lines are modified.
+            #
+            set count 0
+
+            #
+            # NOTE: Check each line to find the build information...
+            #
+            foreach line $inLines {
+              #
+              # NOTE: Remove surrounding whitespace from original line.
+              #
+              set newLine [string trim $line]
+
+              #
+              # NOTE: Skip blank lines.
+              #
+              if {[string length $newLine] > 0} then {
+                #
+                # NOTE: Skip comment lines.
+                #
+                if {[string index $newLine 0] ne "#" && \
+                    [string index $newLine 0] ne ";"} then {
+                  #
+                  # NOTE: Split the tab-delimited line into fields.  The
+                  #       format of the lines must be as follows:
+                  #
+                  # <startLine> protocolId <tab> publicKeyToken <tab> name
+                  # <tab> culture <tab> patchLevel <tab> timeStamp <tab>
+                  # baseUri <tab> md5Hash <tab> sha1Hash <tab> sha512Hash
+                  # <tab> notes <newLine>
+                  #
+                  set fields [split $newLine \t]
+
+                  #
+                  # NOTE: Grab the protocol Id field.
+                  #
+                  set protocolId [lindex $fields 0]
+
+                  #
+                  # NOTE: Grab the public key token field.
+                  #
+                  set publicKeyToken [lindex $fields 1]
+
+                  #
+                  # NOTE: Grab the name field.
+                  #
+                  set name [lindex $fields 2]
+
+                  #
+                  # NOTE: Grab the culture field.
+                  #
+                  set culture [lindex $fields 3]
+
+                  #
+                  # NOTE: Grab the patch level field.
+                  #
+                  set patchLevel [lindex $fields 4]
+
+                  #
+                  # NOTE: If no notes were specified, carry over the notes
+                  #       from the previous release.
+                  #
+                  if {![info exists notes]} then {
+                    set notes [lindex $fields 10]; # NOTE: Already escaped.
+                  }
+
+                  #
+                  # NOTE: Does this line refer to an update protocol that
+                  #       is supported by this tool?
+                  #
+                  if {[isSupportedProtocol $protocolId]} then {
+                    #
+                    # NOTE: Figure out the actual build type and base name
+                    #       based on the composite build name.
+                    #
+                    set buildType [extractBuildType $name]
+                    set name [extractBuildName $name]
+
+                    if {[isDefaultBuildType $buildType]} then {
+                      set buildType Default
+                    }
+
+                    #
+                    # NOTE: Has this build configuration been recorded in
+                    #       our search of the target directory?
+                    #
+                    if {[lsearch -exact -- \
+                        $buildTypes(list) $buildType] != -1} then {
+                      #
+                      # NOTE: The public key token is being used here to
+                      #       make sure we get the same "flavor" of the
+                      #       core engine.  These lines are organized so
+                      #       the "latest stable version" is on the first
+                      #       line for a given public key token, followed
+                      #       by development builds, experimental builds,
+                      #       etc.  If any line uses a regular expression
+                      #       for the patch level, it will be skipped.
+                      #
+                      if {[string is version -strict $patchLevel] && \
+                          [matchUpdatePublicKeyToken $publicKeyToken \
+                              $buildTypes($buildType,PublicKeyToken)] && \
+                          [matchUpdateName $name \
+                              $buildTypes($buildType,Name)] && \
+                          [matchUpdateCulture $culture \
+                              $buildTypes($buildType,Culture)]} then {
+                        #
+                        # NOTE: Build the line to insert into the version
+                        #       tag file.
+                        #
+                        if {$protocolId eq "1"} then {
+                          #
+                          # NOTE: This is an update build line.  All fields
+                          #       will get new values, including the three
+                          #       hashes that we calculated of the assembly
+                          #       file data we just read above.
+                          #
+                          set newLine [join [list $protocolId \
+                              $buildTypes($buildType,PublicKeyToken) \
+                              [getBuildName $buildType \
+                                  $buildTypes($buildType,Name)] \
+                              $buildTypes($buildType,Culture) \
+                              [getBuildPatchLevel \
+                                  $buildTypes($buildType,PatchLevel)] \
+                              $buildTypes($buildType,TimeStamp) \
+                              $buildTypes($buildType,DownloadBaseUri) \
+                              $buildTypes($buildType,Md5) \
+                              $buildTypes($buildType,Sha1) \
+                              $buildTypes($buildType,Sha512) \
+                              $notes] \t]
+                        } else {
+                          #
+                          # NOTE: This is an update script line OR an
+                          #       updater self-update line.  In both these
+                          #       cases, make sure to retain the original
+                          #       timestamp, base URI, MD5, SHA-1, SHA-512,
+                          #       and notes fields from the source line.
+                          #
+                          set newLine [join [list $protocolId \
+                              $buildTypes($buildType,PublicKeyToken) \
+                              [getBuildName $buildType \
+                                  $buildTypes($buildType,Name)] \
+                              $buildTypes($buildType,Culture) \
+                              [getBuildPatchLevel \
+                                  $buildTypes($buildType,PatchLevel)] \
+                              [lindex $fields 5] \
+                              [lindex $fields 6] \
+                              [lindex $fields 7] \
+                              [lindex $fields 8] \
+                              [lindex $fields 9] \
+                              [lindex $fields 10]] \t]
+                        }
+
+                        #
+                        # NOTE: Print out the line we are going to end up
+                        #       putting in the file.
+                        #
+                        puts stdout [appendArgs \
+                            "tagged \"" $fileName "\" " $mode " " $newLine]
+
+                        #
+                        # NOTE: Append the modified line to the list of
+                        #       lines to eventually write to the output
+                        #       file.
+                        #
+                        lappend outLines $newLine
+
+                        #
+                        # NOTE: We have now processed another matching
+                        #       line, keep track of it.
+                        #
+                        incr count
+
+                        #
+                        # NOTE: This build type has been emitted.
+                        #
+                        set buildTypes($buildType,done) $count
+
+                        #
+                        # NOTE: This line has been processed successfully;
+                        #       skip to the next line.
+                        #
+                        continue
+                      }
+                    }
+                  }
+                }
+              }
+
+              #
+              # NOTE: Add original line verbatim, including any whitespace.
+              #
+              lappend outLines $line
+            }
+
+            #
+            # NOTE: Next, check for any build types that did not exist in
+            #       the update file -AND- add them.
+            #
+            removeTrailingBlankLines outLines
+
+            if {![info exists no(addBuildTypes)]} then {
+              foreach buildType $buildTypes(list) {
+                if {![info exists buildTypes($buildType,done)]} then {
+                  set newLine [join [list 1 \
+                      $buildTypes($buildType,PublicKeyToken) \
+                      [getBuildName $buildType \
+                          $buildTypes($buildType,Name)] \
+                      $buildTypes($buildType,Culture) \
+                      [getBuildPatchLevel \
+                          $buildTypes($buildType,PatchLevel)] \
+                      $buildTypes($buildType,TimeStamp) \
+                      $buildTypes($buildType,DownloadBaseUri) \
+                      $buildTypes($buildType,Md5) \
+                      $buildTypes($buildType,Sha1) \
+                      $buildTypes($buildType,Sha512) \
+                      $notes] \t]
+
+                  puts stdout [appendArgs \
+                      "added \"" $fileName "\" " $mode " " $newLine]
+
+                  lappend outLines $newLine
+
+                  incr count
+
+                  set buildTypes($buildType,done) $count
+                }
+              }
+            }
+
+            #
+            # NOTE: Check to make sure that we actually changed something.
+            #
+            if {$count > 0} then {
+              #
+              # NOTE: Make sure the file ends with a trailing blank line.
+              #
+              lappend outLines ""
+
+              #
+              # NOTE: Re-write the original file with the modified data.
+              #
+              writeFile $fileName [join $outLines \n]; # Unix.
+            } else {
+              #
+              # NOTE: We could not update the builds.  This is considered
+              #       an overall failure.
+              #
+              usage "no changes were made"
+            }
+          } else {
+            usage [appendArgs "directory required in \"" $mode "\" mode"]
+          }
+        }
+        PatchLevelMode {
+          #
+          # NOTE: Match against this pattern in the "PatchLevel.cs"
+          #       file (this pattern must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern {AssemblyVersion\(.*?\)}
+
+          #
+          # NOTE: The full patch level (e.g. 1.0.3320.36054).
+          #
+          set patchLevel [getBuildPatchLevel]
+
+          #
+          # NOTE: Build the final replacement specification string.
+          #
+          set subSpec [appendArgs AssemblyVersion( \
+              \" $patchLevel \" )]
+
+          #
+          # NOTE: Perform the replacement in the original data
+          #       (first match only).
+          #
+          if {[regsub -nocase -- $pattern $data $subSpec data]} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $patchLevel]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the string.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "pattern \"" $pattern "\" not found in \"" \
+                $fileName \"]
+          }
+        }
+        SourceIdMode {
+          #
+          # NOTE: Query the source identifier from Fossil, if available.
+          #       If we are not within an active checkout, this will fail.
+          #
+          getSourceId $fileName id timeStamp
+
+          #
+          # NOTE: Match against these patterns in the "PatchLevel.cs"
+          #       file (these patterns must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern1 {AssemblySourceId\(.*?\)}
+          set pattern2 {AssemblySourceTimeStamp\(.*?\)}
+          set pattern3 {SOURCE_ID\t\t".*?"}
+          set pattern4 {SOURCE_TIMESTAMP\t".*?"}
+
+          #
+          # NOTE: Build the final replacement specification strings.
+          #
+          set subSpec1 [appendArgs AssemblySourceId(\" $id \" )]
+          set subSpec2 [appendArgs AssemblySourceTimeStamp(\" $timeStamp \" )]
+          set subSpec3 [appendArgs SOURCE_ID\t\t \" $id \"]
+          set subSpec4 [appendArgs SOURCE_TIMESTAMP\t \" $timeStamp \"]
+
+          #
+          # NOTE: Perform the replacements in the original data
+          #       (first match only).
+          #
+          set count 0
+
+          incr count [regsub -nocase -- $pattern1 $data $subSpec1 data]
+          incr count [regsub -nocase -- $pattern2 $data $subSpec2 data]
+          incr count [regsub -nocase -- $pattern3 $data $subSpec3 data]
+          incr count [regsub -nocase -- $pattern4 $data $subSpec4 data]
+
+          #
+          # NOTE: If we actually replaced anything, we need to write back
+          #       to the original file; otherwise, leave it alone.
+          #
+          if {$count > 0} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $id " " $timeStamp]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the strings.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "patterns \"" $pattern1 "\", \"" \
+                $pattern2 "\", \"" $pattern3 "\", and \"" $pattern4 \
+                "\" not found in \"" $fileName \"]
+          }
+        }
+        NuSpecMode {
+          #
+          # NOTE: Match against these patterns in the "*.nuspec"
+          #       files (these patterns must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern1 {<version>.*?</version>}
+          set pattern2 {" version="\[.*?\]" />}; # HACK: Exact-match only.
+
+          #
+          # NOTE: The full patch level (e.g. 1.0.3320.36054).
+          #
+          set patchLevel [getBuildPatchLevel]
+
+          #
+          # NOTE: Build the final replacement specification strings.
+          #
+          set subSpec1 [appendArgs <version> $patchLevel </version>]
+          set subSpec2 [appendArgs "\" version=\"\[" $patchLevel "\]\" />"]
+
+          #
+          # NOTE: Perform the replacements in the original data.  The
+          #       first replacement only looks for one match; however,
+          #       the second looks for all matches.
+          #
+          set count 0
+
+          incr count [regsub -nocase -- $pattern1 $data $subSpec1 data]
+          incr count [regsub -nocase -all -- $pattern2 $data $subSpec2 data]
+
+          if {$count > 0} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $patchLevel]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the strings.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "patterns \"" $pattern1 "\" and \"" \
+                $pattern2 "\" not found in \"" $fileName \"]
+          }
+        }
+        AssemblyDateTimeMode {
+          #
+          # NOTE: Match against this pattern in the "PatchLevel.cs"
+          #       file (this pattern must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern {AssemblyDateTime\(.*?\)}
+
+          #
+          # NOTE: Full date/time (e.g. 2016.09.03T02:51:02.000 +0000).
+          #
+          set dateTime [getAssemblyDateTime]
+
+          #
+          # NOTE: Build the final replacement specification string.
+          #
+          set subSpec [appendArgs AssemblyDateTime( \
+              \" $dateTime \" )]
+
+          #
+          # NOTE: Perform the replacement in the original data
+          #       (first match only).
+          #
+          if {[regsub -nocase -- $pattern $data $subSpec data]} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $dateTime]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the string.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "pattern \"" $pattern "\" not found in \"" \
+                $fileName \"]
+          }
+        }
+        AssemblyReleaseMode {
+          #
+          # NOTE: Attempt to query some text from the stdin channel.
+          #
+          if {[catch {set text [gets stdin]}]} then {
+            #
+            # NOTE: We could not query the text; therefore, use a
+            #       null string.
+            #
+            set text null
+          } else {
+            #
+            # NOTE: Trim the text, escape any embedded double quotes,
+            #       and then wrap the whole thing in double quotes.
+            #
+            set text [appendArgs \" [string map [list \" \\\\\"] \
+                [string trim $text]] \"]
+          }
+
+          #
+          # NOTE: Match against this pattern in the "PatchLevel.cs"
+          #       file (this pattern must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern {AssemblyRelease\((?:".*?"|null)\)}
+
+          #
+          # NOTE: Build the final replacement specification string.
+          #
+          set subSpec [appendArgs AssemblyRelease( $text )]
+
+          #
+          # NOTE: Perform the replacement in the original data
+          #       (first match only).
+          #
+          if {[regsub -nocase -- $pattern $data $subSpec data]} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $text]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the string.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "pattern \"" $pattern "\" not found in \"" \
+                $fileName \"]
+          }
+        }
+        AssemblyStrongNameTagMode {
+          #
+          # NOTE: Attempt to query some text from the stdin channel.
+          #
+          if {[catch {set text [gets stdin]}]} then {
+            #
+            # NOTE: We could not query the text; therefore, use a
+            #       null string.
+            #
+            set text null
+          } else {
+            #
+            # NOTE: Trim the text, escape any embedded double quotes,
+            #       and then wrap the whole thing in double quotes.
+            #
+            set text [appendArgs \" [string map [list \" \\\\\"] \
+                [string trim $text]] \"]
+          }
+
+          #
+          # NOTE: Match against this pattern in the "PatchLevel.cs"
+          #       file (this pattern must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern {AssemblyStrongNameTag\((?:".*?"|null)\)}
+
+          #
+          # NOTE: Build the final replacement specification string.
+          #
+          set subSpec [appendArgs AssemblyStrongNameTag( $text )]
+
+          #
+          # NOTE: Perform the replacement in the original data
+          #       (first match only).
+          #
+          if {[regsub -nocase -- $pattern $data $subSpec data]} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $text]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the string.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "pattern \"" $pattern "\" not found in \"" \
+                $fileName \"]
+          }
+        }
+        AssemblyTagMode {
+          #
+          # NOTE: Attempt to query some text from the stdin channel.
+          #
+          if {[catch {set text [gets stdin]}]} then {
+            #
+            # NOTE: We could not query the text; therefore, use a
+            #       null string.
+            #
+            set text null
+          } else {
+            #
+            # NOTE: Trim the text, escape any embedded double quotes,
+            #       and then wrap the whole thing in double quotes.
+            #
+            set text [appendArgs \" [string map [list \" \\\\\"] \
+                [string trim $text]] \"]
+          }
+
+          #
+          # NOTE: Match against this pattern in the "PatchLevel.cs"
+          #       file (this pattern must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern {AssemblyTag\((?:".*?"|null)\)}
+
+          #
+          # NOTE: Build the final replacement specification string.
+          #
+          set subSpec [appendArgs AssemblyTag( $text )]
+
+          #
+          # NOTE: Perform the replacement in the original data
+          #       (first match only).
+          #
+          if {[regsub -nocase -- $pattern $data $subSpec data]} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $text]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the string.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "pattern \"" $pattern "\" not found in \"" \
+                $fileName \"]
+          }
+        }
+        AssemblyTextMode {
+          #
+          # NOTE: Attempt to query some text from the stdin channel.
+          #
+          if {[catch {set text [gets stdin]}]} then {
+            #
+            # NOTE: We could not query the text; therefore, use a
+            #       null string.
+            #
+            set text null
+          } else {
+            #
+            # NOTE: Trim the text, escape any embedded double quotes,
+            #       and then wrap the whole thing in double quotes.
+            #
+            set text [appendArgs \" [string map [list \" \\\\\"] \
+                [string trim $text]] \"]
+          }
+
+          #
+          # NOTE: Match against this pattern in the "PatchLevel.cs"
+          #       file (this pattern must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern {AssemblyText\((?:".*?"|null)\)}
+
+          #
+          # NOTE: Build the final replacement specification string.
+          #
+          set subSpec [appendArgs AssemblyText( $text )]
+
+          #
+          # NOTE: Perform the replacement in the original data
+          #       (first match only).
+          #
+          if {[regsub -nocase -- $pattern $data $subSpec data]} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $text]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the string.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "pattern \"" $pattern "\" not found in \"" \
+                $fileName \"]
+          }
+        }
+        AssemblyUriMode {
+          #
+          # NOTE: Attempt to query some text from the stdin channel.
+          #
+          if {[catch {set text [gets stdin]}]} then {
+            #
+            # NOTE: We could not query the text; therefore, use a
+            #       null string.
+            #
+            set text null
+          } else {
+            #
+            # NOTE: Make sure the string is a valid URI.
+            #
+            if {![uri isvalid $text]} then {
+              usage "invalid URI"
+            }
+
+            #
+            # NOTE: Trim the text, escape any embedded double quotes,
+            #       and then wrap the whole thing in double quotes.
+            #
+            set text [appendArgs \" [string map [list \" \\\\\"] \
+                [string trim $text]] \"]
+          }
+
+          #
+          # NOTE: Match against this pattern in the "PatchLevel.cs"
+          #       file (this pattern must be fairly strict to prevent
+          #       false-positives).
+          #
+          set pattern {AssemblyUri\((?:".*?"|null)\)}
+
+          #
+          # NOTE: Build the final replacement specification string.
+          #
+          set subSpec [appendArgs AssemblyUri( $text )]
+
+          #
+          # NOTE: Perform the replacement in the original data
+          #       (first match only).
+          #
+          if {[regsub -nocase -- $pattern $data $subSpec data]} then {
+            #
+            # NOTE: Show how we tagged it.
+            #
+            puts stdout [appendArgs "tagged \"" $fileName "\" " $mode \
+                " " $text]
+
+            #
+            # NOTE: Re-write the original file with the modified data.
+            #
+            writeFile $fileName [string map [list \n \r\n] $data]; # DOS.
+          } else {
+            #
+            # NOTE: We could not replace the string.  This is considered
+            #       an overall failure.
+            #
+            usage [appendArgs "pattern \"" $pattern "\" not found in \"" \
+                $fileName \"]
+          }
+        }
+        default {
+          usage [appendArgs "unknown mode, must be " [join $modes " "]]
+        }
+      }
+    } else {
+      usage "invalid file name"
+    }
+  } else {
+    usage [appendArgs "invalid mode, must be " [join $modes " "]]
+  }
+} else {
+  usage ""
+}

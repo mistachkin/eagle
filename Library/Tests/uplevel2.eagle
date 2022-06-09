@@ -1,0 +1,66 @@
+###############################################################################
+#
+# uplevel2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+set ::uplevel2 ""
+
+proc a { a } {
+  append ::uplevel2 [info level]; # 1
+  b $a
+}
+
+proc b { b } {
+  append ::uplevel2 [info level]; # 2
+
+  uplevel 1 {
+    append ::uplevel2 [info level]; # 1
+
+    uplevel 1 {
+      append ::uplevel2 [info level]; # 0
+
+      uplevel ##0 {
+        append ::uplevel2 [info level]; # 0
+      }
+
+      uplevel ##1 {
+        append ::uplevel2 [info level]; # 1
+      }
+
+      uplevel ##2 {
+        append ::uplevel2 [info level]; # 2
+      }
+    }
+  }
+}
+
+###############################################################################
+
+runTest {test uplevel-12.1 {mixed uplevel} -body {
+  a 2; return $::uplevel2
+} -constraints {eagle} -result {1210012}}
+
+###############################################################################
+
+rename a ""
+rename b ""
+
+unset -nocomplain ::uplevel2
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

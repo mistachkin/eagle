@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Komodo Project File - DO NOT EDIT -->
+<project id="602026c7-1e44-422f-87ba-936c34d9f02d" kpf_version="4" name="Example.kpf">
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../../Library/Resources/Eagle.ico" id="23c34820-dcd9-4553-a0de-74ee48d95a6c" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="Ctrl+E" name="Start Eagle Shell (debug)..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%p\..\..\..\bin\Debug\bin\EagleShell.exe"</command>
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../../Library/Resources/Eagle.ico" id="3c640412-f3ef-4843-97e8-33e2f4a0ad28" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate file in Eagle..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%p\..\..\..\bin\Debug\bin\EagleShell.exe" -file "%F"</command>
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../../Library/Resources/Eagle.ico" id="7ad54493-f2fc-4647-8dea-07486117de9f" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate string in Eagle..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%p\..\..\..\bin\Debug\bin\EagleShell.exe" -eval "%(ask:Script:)"</command>
+<URL icon="../../../Library/Resources/Eagle.ico" id="b491f1be-95b1-4a5a-aca3-1f346f80ce3a" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" keyboard_shortcut="" name="Visit project website...">
+https://eagle.to/</URL>
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../../Library/Resources/Eagle.ico" id="f7cd8693-838e-4e33-b7b5-6c076a7b121f" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Start Eagle Shell (release)..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%p\..\..\..\bin\Release\bin\EagleShell.exe"</command>
+<command cwd="" doNotOpenOutputWindow="0" env="" icon="../../../Library/Resources/Tcl.ico" id="c2db7527-0502-4e40-8c8f-e525597f1ff6" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate file in Tcl..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
+"%(tclsh)" "%F"</command>
+<menu accesskey="g" id="3ced8182-f3e0-4bc1-a066-361336a9aa7c" idref="602026c7-1e44-422f-87ba-936c34d9f02d" name="Eagle" priority="100" />
+<folder id="e58f9a81-3541-4657-88d4-85d2f904a9a0" idref="602026c7-1e44-422f-87ba-936c34d9f02d" name="Scripts" />
+
+<file id="bcbfca46-58fd-409a-aee0-06d85bc089b9" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_arrays.eagle" url="../../Scripts/ex_arrays.eagle" />
+<file id="f8ddffe9-2b8f-43b5-aae3-f609899eaef7" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_debugger.eagle" url="../../Scripts/ex_debugger.eagle" />
+<file id="8dabeaa6-b430-40fd-8906-f9a785a17ad1" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_debugger2.eagle" url="../../Scripts/ex_debugger2.eagle" />
+<file id="881f6bee-64ed-4224-985a-34cd6fe15649" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_debugger3.eagle" url="../../Scripts/ex_debugger3.eagle" />
+<file id="15699cdf-a3b6-46e3-895f-5029c0de2ced" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_grouping.eagle" url="../../Scripts/ex_grouping.eagle" />
+<file id="d5ee7e3a-d0c5-4771-aa8d-d0dd00d882d4" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_helloWorld.eagle" url="../../Scripts/ex_helloWorld.eagle" />
+<file id="21e3fbed-c6a7-47cb-95db-490ed5145b4b" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_substitution.eagle" url="../../Scripts/ex_substitution.eagle" />
+<file id="115cd69f-42d6-463a-ab4c-4c372c2f4cbf" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_tcl.eagle" url="../../Scripts/ex_tcl.eagle" />
+<file id="110284e6-0144-4c8c-9f3d-b7ce6fffbdd6" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_variables.eagle" url="../../Scripts/ex_variables.eagle" />
+<file id="5ecfe22a-954e-48f7-99fb-d500474bff88" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_winForms.eagle" url="../../Scripts/ex_winForms.eagle" />
+<file id="44ea6407-1a01-45a4-9edf-3f662f538289" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_xaml.eagle" url="../../Scripts/ex_xaml.eagle" />
+<file id="2a193ed6-a60d-469d-b137-1a7b76078678" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="tetris.tcl" url="../../Scripts/tetris.tcl" />
+</project>

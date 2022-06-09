@@ -1,0 +1,70 @@
+################################################################
+#                                                              #
+# This script uses the Tcl/Tk script "tetris.tcl", written by  #
+# Jeffrey Hobbs, and redistributed with his permission.  It is #
+# being used only to demonstrate the native Tcl/Tk integration #
+# features of Eagle.  It was obtained from SourceForge, where  #
+# it appears to be BSD licensed.                               #
+#                                                              #
+# The original "tetris.tcl" (v3.2) script has been modified in #
+# the following ways:                                          #
+#                                                              #
+# 1. The default binding for "Rotate-Right" has been changed   #
+#    from "<Key-Down>" to "<Key-space>".                       #
+#                                                              #
+# 2. The default binding for "Drop" has been changed from      #
+#    "<Key-space>" to "<Key-Down>".                            #
+#                                                              #
+# 3. The -pad option to [grid] has been replaced with the      #
+#    -padx and -pady options.  Apparently, the -pad option     #
+#    may have been removed from Tk at some point.              #
+#                                                              #
+# 4. All trailing spaces have been removed.                    #
+#                                                              #
+################################################################
+#                                                              #
+# These are the SHA1 hashes:                                   #
+#                                                              #
+# original -- 42d6a1620b6ce2626ffe54256297cb050de58caa         #
+# modified -- 443fd98648c091ade327b87aabd01a93be04b928         #
+#                                                              #
+################################################################
+
+set path [file normalize [file dirname [info script]]]
+
+if {![tcl ready]} then {
+  #
+  # HACK: Avoid using any ActiveTcl "BaseKits" here in case they
+  #       do not embed Tk correctly.  Also, make sure the Win32
+  #       SetDllDirectory API gets called prior to attempting to
+  #       load the native Tcl library; otherwise, the inability
+  #       of "tcl*.dll" to load "zlib1.dll" could cause issues.
+  #
+  tcl load -findflags -OtherNamePatternList -loadflags +SetDllDirectory
+  set loaded 1
+}
+
+tcl set [tcl primary] path $path
+
+if {[catch {
+  tcl eval [tcl primary] {
+    set argv {}
+    proc exit { args } {
+      set ai [after info]
+      if {[llength $ai] > 0} then {
+        foreach i $ai {after cancel $i}
+      }
+      catch {destroy .}; # can this fail?
+      set ::forever 1; # exit vwait
+    }
+    package require Tk; # may error, no Tk?
+    wm protocol . WM_DELETE_WINDOW exit
+    source [file join $path tetris.tcl]
+    after 0 list; vwait forever; unset -nocomplain forever
+  }
+} error] != 0} then {
+  puts stdout [appendArgs "Tcl error: " $error]
+}
+
+if {[info exists loaded] && $loaded} then {tcl unload}
+unset -nocomplain error loaded path

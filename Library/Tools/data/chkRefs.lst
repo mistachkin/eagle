@@ -1,0 +1,136 @@
+###############################################################################
+#
+# chkRefs.lst --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Official Assembly References Manifest
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+#
+# HACK: If necessary, the "::eagle_platform(patchLevel)" array element value
+#       can be overridden via "-preInitialize" command line argument so that
+#       an arbitrary build of Eagle can be used to evaluate this script file.
+#
+###############################################################################
+#################################### Eagle ####################################
+###############################################################################
+
+set references(ReleaseNetFx20/bin/Eagle.dll) {
+  {mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Runtime.Remoting, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Data, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Xml, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Web, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Drawing, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Configuration, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+}
+
+set references(ReleaseNetFx20/bin/EagleShell.exe) {
+  {mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+}
+
+set references(ReleaseNetFx20/bin/EagleShell32.exe) {
+  {mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+}
+
+set references(ReleaseNetFx20/bin/EagleCmdlets.dll) {
+  {System.Management.Automation, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35}
+  {Eagle, Version=$::eagle_platform(patchLevel), Culture=neutral, PublicKeyToken=29c6297630be05eb}
+  {mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+}
+
+set references(ReleaseNetFx20/bin/EagleTasks.dll) {
+  {mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {Microsoft.Build.Utilities, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {Eagle, Version=$::eagle_platform(patchLevel), Culture=neutral, PublicKeyToken=29c6297630be05eb}
+  {Microsoft.Build.Framework, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+}
+
+set references(ReleaseNetFx40/bin/Eagle.dll) {
+  {mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Runtime.Remoting, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Xml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System.Web, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Configuration, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Core, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+}
+
+set references(ReleaseNetFx40/bin/EagleShell.exe) {
+  {mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+}
+
+set references(ReleaseNetFx40/bin/EagleShell32.exe) {
+  {mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+}
+
+set references(ReleaseNetFx40/bin/EagleCmdlets.dll) {
+  {System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35}
+  {Eagle, Version=$::eagle_platform(patchLevel), Culture=neutral, PublicKeyToken=29c6297630be05eb}
+  {mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+}
+
+set references(ReleaseNetFx40/bin/EagleTasks.dll) {
+  {mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089}
+  {Microsoft.Build.Utilities.v4.0, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {Eagle, Version=$::eagle_platform(patchLevel), Culture=neutral, PublicKeyToken=29c6297630be05eb}
+  {Microsoft.Build.Framework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+}
+
+set references(ReleaseNetStandard20/bin/Eagle.dll) {
+  {netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51}
+  {System.Collections.Immutable, Version=1.2.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Reflection.Emit.Lightweight, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Reflection.Emit, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Reflection.Emit.ILGeneration, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Reflection.Metadata, Version=1.4.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+}
+
+set references(ReleaseNetStandard20/bin/EagleShell.dll) {
+  {System.Runtime, Version=4.2.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {Eagle, Version=$::eagle_platform(patchLevel), Culture=neutral, PublicKeyToken=29c6297630be05eb}
+  {System.Resources.ResourceManager, Version=4.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Runtime.InteropServices, Version=4.2.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Diagnostics.Process, Version=4.2.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Runtime.Extensions, Version=4.2.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Console, Version=4.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Diagnostics.Debug, Version=4.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+}
+
+set references(ReleaseNetStandard21/bin/Eagle.dll) {
+  {netstandard, Version=2.1.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51}
+  {System.Collections.Immutable, Version=1.2.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Reflection.Metadata, Version=1.4.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+}
+
+set references(ReleaseNetStandard21/bin/EagleShell.dll) {
+  {System.Runtime, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {Eagle, Version=$::eagle_platform(patchLevel), Culture=neutral, PublicKeyToken=29c6297630be05eb}
+  {System.Resources.ResourceManager, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Runtime.InteropServices, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Diagnostics.Process, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Runtime.Extensions, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Console, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+  {System.Diagnostics.Debug, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a}
+}
+
+###############################################################################
+# end of file

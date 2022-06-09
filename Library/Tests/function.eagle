@@ -1,0 +1,2062 @@
+###############################################################################
+#
+# function.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc saveAndResetPrecision { {precision 0} } {
+  if {[info exists ::tcl_precision]} then {
+    set ::saved_tcl_precision $::tcl_precision
+    set ::tcl_precision $precision
+  }
+}
+
+###############################################################################
+
+proc restorePrecision {} {
+  if {[info exists ::saved_tcl_precision]} then {
+    set ::tcl_precision $::saved_tcl_precision
+    unset ::saved_tcl_precision
+  }
+}
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=710512
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=710522
+###############################################################################
+
+runTest {test function-1.1 {add/use/remove custom math functions} -body {
+  set interp [object invoke Interpreter GetActive]
+  set x [object invoke -alias Eagle._Tests.Default TestAddFunction $interp]
+
+  list [string map [list \r\n \n] [getStringFromObjectHandle $x]] \
+    [expr {min(1,2,3)}] [expr {bar(1,2,3)}] [expr {1 eq 1}] \
+    [expr {"1"eq"1"}] [expr {1 eq 2}] [expr {"1"eq"2"}] [expr {eqq(1,2,3)}]
+} -cleanup {
+  set y [object invoke -alias Eagle._Tests.Default TestRemoveFunction $interp]
+  unset x y interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddFunction Eagle._Tests.Default.TestRemoveFunction} \
+-match regexp -result {(?s)^\{\{System\.MissingMethodException: .*\} Ok\
+\{can't add "eq": operator already exists\} Ok\} 1 1 True True False False 1$}}
+
+###############################################################################
+
+runTest {test function-2.1 {abs function} -body {
+  list [expr {abs(1)}] [expr {abs(0)}] [expr {abs(-1)}]
+} -result {1 0 1}}
+
+###############################################################################
+
+runTest {test function-2.2 {acos function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 14
+  }
+} -body {
+  list [expr {acos(-1)}] [expr {acos(0)}] [expr {acos(1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {3.14159265358979 1.5707963267949 0}}
+
+###############################################################################
+
+runTest {test function-2.3 {asin function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 13
+  }
+} -body {
+  list [expr {asin(-1)}] [expr {asin(0)}] [expr {asin(1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {-1.5707963267949 0 1.5707963267949}}
+
+###############################################################################
+
+runTest {test function-2.4 {atan function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 15
+  }
+} -body {
+  list [expr {atan(-1)}] [expr {atan(0)}] [expr {atan(1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {-0.785398163397448 0 0.785398163397448}}
+
+###############################################################################
+
+runTest {test function-2.5 {atan2 function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 15
+  }
+} -body {
+  list [expr {atan2(-1,1)}] [expr {atan2(0,1)}] [expr {atan2(1,1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {-0.785398163397448 0 0.785398163397448}}
+
+###############################################################################
+
+runTest {test function-2.6 {bool function} -body {
+  list [expr {bool(0)}] [expr {bool(1)}] [expr {bool(0.1)}]
+} -constraints {eagle} -result {False True True}}
+
+###############################################################################
+
+runTest {test function-2.7 {ceil function} -body {
+  list [expr {ceil(1.1)}] [expr {ceil(1.4)}] [expr {ceil(1.5)}] \
+      [expr {ceil(1.9)}]
+} -constraints {eagle} -match regexp -result \
+{^2(?:\.0)? 2(?:\.0)? 2(?:\.0)? 2(?:\.0)?$}}
+
+###############################################################################
+
+runTest {test function-2.8 {cos function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 14
+  }
+} -body {
+  list [expr {cos(-1)}] [expr {cos(0)}] [expr {cos(1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {0.54030230586814 1 0.54030230586814}}
+
+###############################################################################
+
+runTest {test function-2.9 {cosh function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 14
+  }
+} -body {
+  list [expr {cosh(-1)}] [expr {cosh(0)}] [expr {cosh(1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {1.54308063481524 1 1.54308063481524}}
+
+###############################################################################
+
+runTest {test function-2.10 {datetime function} -body {
+  list [expr {wide(datetime(0))}] [expr {wide(datetime(3155378975999999999))}]
+} -constraints {eagle} -result {0 3155378975999999999}}
+
+###############################################################################
+
+runTest {test function-2.11 {decimal function} -body {
+  list [expr {decimal("-79228162514264337593543950335")}] [expr {decimal(0)}] \
+      [expr {decimal("79228162514264337593543950335")}]
+} -constraints {eagle} -result {-79228162514264337593543950335 0\
+79228162514264337593543950335}}
+
+###############################################################################
+
+runTest {test function-2.12.1 {double function} -body {
+  list [expr {double(-1.79769e+308)}] [expr {double(0)}] \
+      [expr {double(1.79769e+308)}] [expr {double(0.0) / double(0.0)}] \
+      [expr {double(-1.0) / double(0.0)}] [expr {double(1.0) / double(0.0)}]
+} -constraints {eagle} -constraintExpression {(![haveConstraint dotNetCore] || \
+[haveConstraint windows]) && (![haveConstraint osVersion.WindowsNT_10.0] || \
+[haveConstraint mono])} -result \
+{-1.79769E+308 0 1.79769E+308 NaN -Infinity Infinity}}
+
+###############################################################################
+
+runTest {test function-2.12.2 {double function} -body {
+  list [expr {double(-1.79769e+308)}] [expr {double(0)}] \
+      [expr {double(1.79769e+308)}] [expr {double(0.0) / double(0.0)}] \
+      [expr {double(-1.0) / double(0.0)}] [expr {double(1.0) / double(0.0)}]
+} -constraints {eagle} -constraintExpression {([haveConstraint dotNetCore] && \
+![haveConstraint windows]) || ([haveConstraint osVersion.WindowsNT_10.0] && \
+![haveConstraint mono])} -result \
+"-1.79769E+308 0 1.79769E+308 NaN -\u221E \u221E"}
+
+###############################################################################
+
+runTest {test function-2.13 {e function} -body {
+  list [expr {e()}]
+} -constraints [fixConstraints {eagle !ieee754r2008}] -result \
+{2.71828182845905}}
+
+###############################################################################
+
+runTest {test function-2.14 {epsilon function} -body {
+  list [expr {epsilon()}]
+} -constraints [fixConstraints {eagle !ieee754r2008}] -result \
+{4.94065645841247E-324}}
+
+###############################################################################
+
+runTest {test function-2.15 {exp function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 15
+  }
+} -body {
+  list [expr {exp(-1)}] [expr {exp(0)}] [expr {exp(1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints [fixConstraints {eagle !ieee754r2008}] -result \
+{0.367879441171442 1 2.71828182845905}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test function-2.16 {flags function} -setup {
+  #
+  # HACK: Save the current expression levels and flags for the
+  #       interpreter.  Then, reset the expression levels to
+  #       zero so that the flags function can work properly with
+  #       the BooleanToInteger flag.  The saved levels and flags
+  #       will be restored during test cleanup.
+  #
+  set savedLevels [object invoke -flags +NonPublic \
+      Interpreter.GetActive ExpressionLevels]
+
+  object invoke -flags +NonPublic \
+      Interpreter.GetActive ExpressionLevels 0
+
+  set savedFlags [object invoke -flags +NonPublic \
+      Interpreter.GetActive ExpressionFlags]
+
+  object invoke -flags +NonPublic \
+      Interpreter.GetActive ExpressionFlags Default
+} -body {
+  list [expr {1 == 0}] [expr {1 == 1}] [expr {flags("+BooleanToInteger")}] \
+      [expr {1 == 0}] [expr {1 == 1}] [expr {flags("-BooleanToInteger")}] \
+      [expr {1 == 0}] [expr {1 == 1}]
+} -cleanup {
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      ExpressionFlags [appendArgs = $savedFlags]
+
+  object invoke -flags +NonPublic \
+      Interpreter.GetActive ExpressionLevels $savedLevels
+
+  unset -nocomplain savedFlags savedLevels
+} -constraints {eagle command.object dotNetOrDotNetCore\
+compile.EXPRESSION_FLAGS} -result {False True {Default, BooleanToInteger} 0 1\
+Default False True}}
+
+###############################################################################
+
+runTest {test function-2.17 {floor function} -body {
+  list [expr {floor(1.1)}] [expr {floor(1.4)}] [expr {floor(1.5)}] \
+      [expr {floor(1.9)}]
+} -constraints {eagle} -result {1 1 1 1}}
+
+###############################################################################
+
+runTest {test function-2.18 {fmod function} -body {
+  list [expr {fmod(1,1)}] [expr {fmod(3,2)}] [expr {fmod(4,2)}] \
+      [expr {fmod(5,4)}]
+} -constraints {eagle} -result {0 -1 0 1}}
+
+###############################################################################
+
+runTest {test function-2.19 {hypot function} -body {
+  list [expr {hypot(3,4)}] [expr {hypot(3,5)}] [expr {hypot(4,5)}] \
+      [expr {hypot(1,4)}] [expr {hypot(0,0)}] [expr {hypot(1,1)}]
+} -constraints [fixConstraints {eagle !ieee754r2008}] -result {5\
+5.8309518948453 6.40312423743285 4.12310562561766 0 1.4142135623731}}
+
+###############################################################################
+
+runTest {test function-2.20 {int function} -body {
+  list [expr {int(3155378975999999999)}] [expr {int(2.1)}] [expr {int(2.2)}] \
+      [expr {int(2.4)}] [expr {int(2.5)}] [expr {int(2.9)}] [expr {int(True)}]
+} -constraints {eagle} -result {-197705729 2 2 2 2 2 1}}
+
+###############################################################################
+
+runTest {test function-2.21 {list function} -body {
+  list [expr {list("a b c")}]
+} -constraints {eagle} -result {{{a b c}}}}
+
+###############################################################################
+
+runTest {test function-2.22 {log function} -body {
+  list [expr {log(1)}] [expr {log(e())}] [expr {log(e() ** 2)}]
+} -constraints {eagle} -result {0 1 2}}
+
+###############################################################################
+
+runTest {test function-2.23 {log10 function} -body {
+  list [expr {log10(1)}] [expr {log10(10)}] [expr {log10(100)}]
+} -constraints {eagle} -result {0 1 2}}
+
+###############################################################################
+
+runTest {test function-2.24 {log2 function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 14
+  }
+} -body {
+  list [expr {log2(1.0)}] [expr {log2(2.0)}] [expr {log2(4.0)}] \
+      [expr {log2(10)}] [expr {log2(10.0)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {0 1 2 3 3.32192809488736}}
+
+###############################################################################
+
+runTest {test function-2.25 {log2 function} -body {
+  list [expr {log2(1.0)}] [expr {log2(2.0)}] [expr {log2(4.0)}]
+} -constraints {eagle} -result {0 1 2}}
+
+###############################################################################
+
+runTest {test function-2.26 {logx function} -body {
+  list [expr {logx(1,3)}] [expr {logx(3,3)}] [expr {logx(9,3)}]
+} -constraints {eagle} -result {0 1 2}}
+
+###############################################################################
+
+runTest {test function-2.27 {max function} -body {
+  list [expr {max(1,2,3)}] [expr {max(0x1,0x2,0x10)}] [expr {max(-2,2,2.2)}]
+} -constraints {tcl85Feature} -result {3 16 2.2}}
+
+###############################################################################
+
+runTest {test function-2.28 {min function} -body {
+  list [expr {min(1,2,3)}] [expr {min(0x1,0x2,-0x10)}] [expr {min(-2,2,2.2)}]
+} -constraints {tcl85Feature} -result {1 -16 -2}}
+
+###############################################################################
+
+runTest {test function-2.29 {nop function} -body {
+  list [expr {nop(1,2,3)}] [expr {nop(0x1,0x2,-0x10)}] [expr {nop("a",2,2.2)}]
+} -constraints {eagle} -result {{} {} {}}}
+
+###############################################################################
+
+runTest {test function-2.30 {pi function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 14
+  }
+} -body {
+  list [expr {pi()}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {3.14159265358979}}
+
+###############################################################################
+
+runTest {test function-2.31 {pow function} -body {
+  list [expr {pow(2,-1)}] [expr {pow(2,0)}] [expr {pow(2,1)}] [expr {pow(2,2)}]
+} -constraints {eagle} -result {0.5 1 2 4}}
+
+###############################################################################
+
+runTest {test function-2.32 {rand function} -body {
+  list [expr {srand(0)}] [expr {rand()}]
+} -constraints [fixConstraints {eagle dotNetOrDotNetCore !ieee754r2008}] \
+-result {0.72624326996796 0.817325359590969}}
+
+###############################################################################
+
+runTest {test function-2.33 {random function} -body {
+  list [expr {random()}]
+} -constraints {eagle} -match regexp -result {^(?:-)?\d+$}}
+
+###############################################################################
+
+runTest {test function-2.34 {randstr function} -body {
+  string length [expr {randstr(2048)}]
+} -constraints {eagle} -result {2048}}
+
+###############################################################################
+
+runTest {test function-2.35.1 {round function} -body {
+  list [expr {round(1.0)}] [expr {round(1.4)}] [expr {round(1.5)}] \
+      [expr {round(1.9)}]
+} -constraints {tcl} -result {1 1 2 2}}
+
+###############################################################################
+
+runTest {test function-2.35.2 {round function} -body {
+  list [expr {round(1.0)}] [expr {round(1.4)}] [expr {round(1.5)}] \
+      [expr {round(1.9)}]
+} -constraints {eagle} -match regexp -result {^1 1 2(?:\.0)? 2(?:\.0)?$}}
+
+###############################################################################
+
+#
+# HACK: *MONO* Apparently, the rounding of 1.5 is different for Mono 2.4.X,
+#       2.6.X, 2.8.X, 2.10.X, 2.11.X, 3.0.2, and 3.3.0.  They all seem to
+#       produce the value 1 here instead of the value 2 produced by the
+#       .NET Framework.
+#
+runTest {test function-2.36 {round2 function} -body {
+  list [expr {round2(1.0,0)}] [expr {round2(1.4,0)}] \
+      [expr {round2(1.5,0)}] [expr {round2(1.9,0)}] \
+      [expr {round2(1.0,1)}] [expr {round2(1.4,1)}] \
+      [expr {round2(1.5,1)}] [expr {round2(1.9,1)}] \
+      [expr {round2(1.044,2)}] [expr {round2(1.045,2)}] \
+      [expr {round2(1.444,2)}] [expr {round2(1.445,2)}] \
+      [expr {round2(1.554,2)}] [expr {round2(1.555,2)}] \
+      [expr {round2(1.994,2)}] [expr {round2(1.995,2)}]
+} -constraints {eagle monoBug312} -match regexp -result {^1 1 2(?:\.0+)?\
+2(?:\.0+)? 1(?:\.0)? 1\.4 1\.5 1\.9 1\.04 1\.04 1\.44 1\.44 1\.55 1\.56 1\.99\
+2(?:\.0+)?$}}
+
+###############################################################################
+
+#
+# HACK: *MONO* Apparently, the rounding of 1.5 is different for Mono 2.4.X,
+#       2.6.X, 2.8.X, 2.10.X, 2.11.X, 3.0.2, and 3.3.0.  They all seem to
+#       produce the value 1 here instead of the value 2 produced by the
+#       .NET Framework.
+#
+runTest {test function-2.37 {round3 function} -body {
+  list [expr {round3(1.0,0,"ToEven")}] \
+      [expr {round3(1.4,0,"ToEven")}] \
+      [expr {round3(1.5,0,"ToEven")}] \
+      [expr {round3(1.9,0,"ToEven")}] \
+      [expr {round3(1.0,1,"ToEven")}] \
+      [expr {round3(1.4,1,"ToEven")}] \
+      [expr {round3(1.5,1,"ToEven")}] \
+      [expr {round3(1.9,1,"ToEven")}] \
+      [expr {round3(1.044,2,"ToEven")}] \
+      [expr {round3(1.045,2,"ToEven")}] \
+      [expr {round3(1.444,2,"ToEven")}] \
+      [expr {round3(1.445,2,"ToEven")}] \
+      [expr {round3(1.554,2,"ToEven")}] \
+      [expr {round3(1.555,2,"ToEven")}] \
+      [expr {round3(1.994,2,"ToEven")}] \
+      [expr {round3(1.995,2,"ToEven")}] \
+      [expr {round3(1.0,0,"AwayFromZero")}] \
+      [expr {round3(1.4,0,"AwayFromZero")}] \
+      [expr {round3(1.5,0,"AwayFromZero")}] \
+      [expr {round3(1.9,0,"AwayFromZero")}] \
+      [expr {round3(1.0,1,"AwayFromZero")}] \
+      [expr {round3(1.4,1,"AwayFromZero")}] \
+      [expr {round3(1.5,1,"AwayFromZero")}] \
+      [expr {round3(1.9,1,"AwayFromZero")}] \
+      [expr {round3(1.044,2,"AwayFromZero")}] \
+      [expr {round3(1.045,2,"AwayFromZero")}] \
+      [expr {round3(1.444,2,"AwayFromZero")}] \
+      [expr {round3(1.445,2,"AwayFromZero")}] \
+      [expr {round3(1.554,2,"AwayFromZero")}] \
+      [expr {round3(1.555,2,"AwayFromZero")}] \
+      [expr {round3(1.994,2,"AwayFromZero")}] \
+      [expr {round3(1.995,2,"AwayFromZero")}]
+} -constraints {eagle monoBug312} -match regexp -result {^1 1 2(?:\.0+)?\
+2(?:\.0+)? 1(?:\.0)? 1\.4 1\.5 1\.9 1\.04 1\.04 1\.44 1\.44 1\.55 1\.56 1\.99\
+2(?:\.0+)? 1 1 2(?:\.0+)? 2(?:\.0+)? 1(?:\.0)? 1\.4 1\.5 1\.9 1\.04 1\.05 1\.44\
+1\.45 1\.55 1\.56 1\.99 2(?:\.0+)?$}}
+
+###############################################################################
+
+runTest {test function-2.38 {sign function} -body {
+  list [expr {sign(-1)}] [expr {sign(0)}] [expr {sign(1)}]
+} -constraints {eagle} -result {-1 0 1}}
+
+###############################################################################
+
+runTest {test function-2.39 {sin function} -body {
+  list [expr {sin(-1)}] [expr {sin(0)}] [expr {sin(1)}]
+} -constraints [fixConstraints {eagle !ieee754r2008}] -result \
+{-0.841470984807897 0 0.841470984807897}}
+
+###############################################################################
+
+runTest {test function-2.40 {sinh function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 13
+  }
+} -body {
+  list [expr {sinh(-1)}] [expr {sinh(0)}] [expr {sinh(1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {-1.1752011936438 0 1.1752011936438}}
+
+###############################################################################
+
+runTest {test function-2.41 {sqrt function} -body {
+  list [expr {sqrt(0)}] [expr {sqrt(1)}] [expr {sqrt(4)}] [expr {sqrt(9)}]
+} -constraints {eagle} -result {0 1 2 3}}
+
+###############################################################################
+
+runTest {test function-2.42 {srand function} -body {
+  list [expr {srand(0)}] [expr {rand()}] [expr {srand(1)}] [expr {rand()}]
+} -constraints [fixConstraints {eagle dotNetOrDotNetCore !ieee754r2008}] \
+-result {0.72624326996796 0.817325359590969 0.248668584157093\
+0.110743977181029}}
+
+###############################################################################
+
+runTest {test function-2.43 {tan function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 13
+  }
+} -body {
+  list [expr {tan(-1)}] [expr {tan(0)}] [expr {tan(1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {-1.5574077246549 0 1.5574077246549}}
+
+###############################################################################
+
+runTest {test function-2.44 {tanh function} -setup {
+  if {[haveConstraint ieee754r2008]} then {
+    saveAndResetPrecision 15
+  }
+} -body {
+  list [expr {tanh(-1)}] [expr {tanh(0)}] [expr {tanh(1)}]
+} -cleanup {
+  if {[haveConstraint ieee754r2008]} then {
+    restorePrecision
+  }
+} -constraints {eagle} -result {-0.761594155955765 0 0.761594155955765}}
+
+###############################################################################
+
+runTest {test function-2.45 {truncate function} -body {
+  list [expr {truncate(1.0)}] [expr {truncate(1.4)}] [expr {truncate(1.6)}] \
+      [expr {truncate(1.9)}]
+} -constraints {eagle} -result {1 1 1 1}}
+
+###############################################################################
+
+runTest {test function-2.46 {typeof function} -body {
+  list [expr {typeof(1)}] [expr {typeof(bool(1))}] [expr {typeof(int(1))}] \
+      [expr {typeof(wide(1))}] [expr {typeof(decimal(1))}] \
+      [expr {typeof(double(1))}] [expr {typeof(datetime(1))}] \
+      [expr {typeof(list(1))}]
+} -constraints {eagle} -result \
+{string bool int wide decimal double dateTime list}}
+
+###############################################################################
+
+runTest {test function-2.47 {wide function} -body {
+  list [expr {wide(3155378975999999999)}] [expr {wide(2.1)}] \
+      [expr {wide(2.2)}] [expr {wide(2.4)}] [expr {wide(2.5)}] \
+      [expr {wide(2.9)}] [expr {wide(True)}]
+} -constraints {eagle} -result {3155378975999999999 2 2 2 2 2 1}}
+
+###############################################################################
+
+proc fixMono { str } {
+  #
+  # NOTE: Purposely strict, for now.
+  #
+  return [expr {[isMono] ? \
+      [string map [list "0.248668584157093" "0.366854591000292"] $str] : $str}]
+}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test function-3.1 {function argument counts} -setup {
+  set funcs [lsort [info functions -safe -unsafe]]
+} -body {
+  set results [list]
+
+  foreach func $funcs {
+    for {set i 0} {$i <= 4} {incr i} {
+      set args [appendArgs ( \
+          [expr {($i > 0) ? [join [lrepeat $i [expr \
+          {$func eq "flags" ? "\"+0\"" : 1}]] ,] : ""}] )]
+
+      set code [catch {expr ${func}${args}} result]
+
+      #
+      # NOTE: We cannot easily match the successful results of
+      #       certain functions in this test (i.e. not all of
+      #       the functions are deterministic).
+      #
+      if {$code != 0 || \
+          $func ni [list datetime rand random randstr]} then {
+        lappend results [list $func $args $code $result]
+      } else {
+        lappend results [list $func $args $code]
+      }
+    }
+  }
+
+  set results
+} -cleanup {
+  unset -nocomplain funcs results func i args code result
+} -constraints [fixConstraints {eagle dotNetOrDotNetCore !ieee754r2008}] \
+-result [fixMono \
+{{abs () 1 {too few arguments for math function "abs"}}\
+{abs (1) 0 1}\
+{abs (1,1) 1 {too many arguments for math function "abs"}}\
+{abs (1,1,1) 1 {too many arguments for math function "abs"}}\
+{abs (1,1,1,1) 1 {too many arguments for math function "abs"}}\
+{acos () 1 {too few arguments for math function "acos"}}\
+{acos (1) 0 0}\
+{acos (1,1) 1 {too many arguments for math function "acos"}}\
+{acos (1,1,1) 1 {too many arguments for math function "acos"}}\
+{acos (1,1,1,1) 1 {too many arguments for math function "acos"}}\
+{asin () 1 {too few arguments for math function "asin"}}\
+{asin (1) 0 1.5707963267949}\
+{asin (1,1) 1 {too many arguments for math function "asin"}}\
+{asin (1,1,1) 1 {too many arguments for math function "asin"}}\
+{asin (1,1,1,1) 1 {too many arguments for math function "asin"}}\
+{atan () 1 {too few arguments for math function "atan"}}\
+{atan (1) 0 0.785398163397448}\
+{atan (1,1) 1 {too many arguments for math function "atan"}}\
+{atan (1,1,1) 1 {too many arguments for math function "atan"}}\
+{atan (1,1,1,1) 1 {too many arguments for math function "atan"}}\
+{atan2 () 1 {too few arguments for math function "atan2"}}\
+{atan2 (1) 1 {too few arguments for math function "atan2"}}\
+{atan2 (1,1) 0 0.785398163397448}\
+{atan2 (1,1,1) 1 {too many arguments for math function "atan2"}}\
+{atan2 (1,1,1,1) 1 {too many arguments for math function "atan2"}}\
+{bool () 1 {too few arguments for math function "bool"}}\
+{bool (1) 0 True}\
+{bool (1,1) 1 {too many arguments for math function "bool"}}\
+{bool (1,1,1) 1 {too many arguments for math function "bool"}}\
+{bool (1,1,1,1) 1 {too many arguments for math function "bool"}}\
+{ceil () 1 {too few arguments for math function "ceil"}}\
+{ceil (1) 0 1}\
+{ceil (1,1) 1 {too many arguments for math function "ceil"}}\
+{ceil (1,1,1) 1 {too many arguments for math function "ceil"}}\
+{ceil (1,1,1,1) 1 {too many arguments for math function "ceil"}}\
+{cos () 1 {too few arguments for math function "cos"}}\
+{cos (1) 0 0.54030230586814}\
+{cos (1,1) 1 {too many arguments for math function "cos"}}\
+{cos (1,1,1) 1 {too many arguments for math function "cos"}}\
+{cos (1,1,1,1) 1 {too many arguments for math function "cos"}}\
+{cosh () 1 {too few arguments for math function "cosh"}}\
+{cosh (1) 0 1.54308063481524}\
+{cosh (1,1) 1 {too many arguments for math function "cosh"}}\
+{cosh (1,1,1) 1 {too many arguments for math function "cosh"}}\
+{cosh (1,1,1,1) 1 {too many arguments for math function "cosh"}}\
+{datetime () 1 {too few arguments for math function "datetime"}}\
+{datetime (1) 0}\
+{datetime (1,1) 1 {too many arguments for math function "datetime"}}\
+{datetime (1,1,1) 1 {too many arguments for math function "datetime"}}\
+{datetime (1,1,1,1) 1 {too many arguments for math function "datetime"}}\
+{decimal () 1 {too few arguments for math function "decimal"}}\
+{decimal (1) 0 1}\
+{decimal (1,1) 1 {too many arguments for math function "decimal"}}\
+{decimal (1,1,1) 1 {too many arguments for math function "decimal"}}\
+{decimal (1,1,1,1) 1 {too many arguments for math function "decimal"}}\
+{double () 1 {too few arguments for math function "double"}}\
+{double (1) 0 1}\
+{double (1,1) 1 {too many arguments for math function "double"}}\
+{double (1,1,1) 1 {too many arguments for math function "double"}}\
+{double (1,1,1,1) 1 {too many arguments for math function "double"}}\
+{e () 0 2.71828182845905}\
+{e (1) 1 {too many arguments for math function "e"}}\
+{e (1,1) 1 {too many arguments for math function "e"}}\
+{e (1,1,1) 1 {too many arguments for math function "e"}}\
+{e (1,1,1,1) 1 {too many arguments for math function "e"}}\
+{epsilon () 0 4.94065645841247E-324}\
+{epsilon (1) 1 {too many arguments for math function "epsilon"}}\
+{epsilon (1,1) 1 {too many arguments for math function "epsilon"}}\
+{epsilon (1,1,1) 1 {too many arguments for math function "epsilon"}}\
+{epsilon (1,1,1,1) 1 {too many arguments for math function "epsilon"}}\
+{exp () 1 {too few arguments for math function "exp"}}\
+{exp (1) 0 2.71828182845905}\
+{exp (1,1) 1 {too many arguments for math function "exp"}}\
+{exp (1,1,1) 1 {too many arguments for math function "exp"}}\
+{exp (1,1,1,1) 1 {too many arguments for math function "exp"}}\
+{flags () 1 {too few arguments for math function "flags"}}\
+{flags (\"+0\") 0 Default}\
+{flags (\"+0\",\"+0\") 1 {too many arguments for math function "flags"}}\
+{flags (\"+0\",\"+0\",\"+0\") 1 {too many arguments for math function "flags"}}\
+{flags (\"+0\",\"+0\",\"+0\",\"+0\") 1 {too many arguments for math function\
+"flags"}}\
+{floor () 1 {too few arguments for math function "floor"}}\
+{floor (1) 0 1}\
+{floor (1,1) 1 {too many arguments for math function "floor"}}\
+{floor (1,1,1) 1 {too many arguments for math function "floor"}}\
+{floor (1,1,1,1) 1 {too many arguments for math function "floor"}}\
+{fmod () 1 {too few arguments for math function "fmod"}}\
+{fmod (1) 1 {too few arguments for math function "fmod"}}\
+{fmod (1,1) 0 0}\
+{fmod (1,1,1) 1 {too many arguments for math function "fmod"}}\
+{fmod (1,1,1,1) 1 {too many arguments for math function "fmod"}}\
+{hypot () 1 {too few arguments for math function "hypot"}}\
+{hypot (1) 1 {too few arguments for math function "hypot"}}\
+{hypot (1,1) 0 1.4142135623731}\
+{hypot (1,1,1) 1 {too many arguments for math function "hypot"}}\
+{hypot (1,1,1,1) 1 {too many arguments for math function "hypot"}}\
+{int () 1 {too few arguments for math function "int"}}\
+{int (1) 0 1}\
+{int (1,1) 1 {too many arguments for math function "int"}}\
+{int (1,1,1) 1 {too many arguments for math function "int"}}\
+{int (1,1,1,1) 1 {too many arguments for math function "int"}}\
+{isfinite () 1 {too few arguments for math function "isfinite"}}\
+{isfinite (1) 0 True}\
+{isfinite (1,1) 1 {too many arguments for math function "isfinite"}}\
+{isfinite (1,1,1) 1 {too many arguments for math function "isfinite"}}\
+{isfinite (1,1,1,1) 1 {too many arguments for math function "isfinite"}}\
+{isinf () 1 {too few arguments for math function "isinf"}}\
+{isinf (1) 0 False}\
+{isinf (1,1) 1 {too many arguments for math function "isinf"}}\
+{isinf (1,1,1) 1 {too many arguments for math function "isinf"}}\
+{isinf (1,1,1,1) 1 {too many arguments for math function "isinf"}}\
+{isnan () 1 {too few arguments for math function "isnan"}}\
+{isnan (1) 0 False}\
+{isnan (1,1) 1 {too many arguments for math function "isnan"}}\
+{isnan (1,1,1) 1 {too many arguments for math function "isnan"}}\
+{isnan (1,1,1,1) 1 {too many arguments for math function "isnan"}}\
+{isnormal () 1 {too few arguments for math function "isnormal"}}\
+{isnormal (1) 0 True}\
+{isnormal (1,1) 1 {too many arguments for math function "isnormal"}}\
+{isnormal (1,1,1) 1 {too many arguments for math function "isnormal"}}\
+{isnormal (1,1,1,1) 1 {too many arguments for math function "isnormal"}}\
+{issubnormal () 1 {too few arguments for math function "issubnormal"}}\
+{issubnormal (1) 0 False}\
+{issubnormal (1,1) 1 {too many arguments for math function "issubnormal"}}\
+{issubnormal (1,1,1) 1 {too many arguments for math function "issubnormal"}}\
+{issubnormal (1,1,1,1) 1 {too many arguments for math function "issubnormal"}}\
+{isunordered () 1 {too few arguments for math function "isunordered"}}\
+{isunordered (1) 1 {too few arguments for math function "isunordered"}}\
+{isunordered (1,1) 0 False}\
+{isunordered (1,1,1) 1 {too many arguments for math function "isunordered"}}\
+{isunordered (1,1,1,1) 1 {too many arguments for math function "isunordered"}}\
+{list () 1 {too few arguments for math function "list"}}\
+{list (1) 0 1}\
+{list (1,1) 1 {too many arguments for math function "list"}}\
+{list (1,1,1) 1 {too many arguments for math function "list"}}\
+{list (1,1,1,1) 1 {too many arguments for math function "list"}}\
+{log () 1 {too few arguments for math function "log"}}\
+{log (1) 0 0}\
+{log (1,1) 1 {too many arguments for math function "log"}}\
+{log (1,1,1) 1 {too many arguments for math function "log"}}\
+{log (1,1,1,1) 1 {too many arguments for math function "log"}}\
+{log10 () 1 {too few arguments for math function "log10"}}\
+{log10 (1) 0 0}\
+{log10 (1,1) 1 {too many arguments for math function "log10"}}\
+{log10 (1,1,1) 1 {too many arguments for math function "log10"}}\
+{log10 (1,1,1,1) 1 {too many arguments for math function "log10"}}\
+{log2 () 1 {too few arguments for math function "log2"}}\
+{log2 (1) 0 0}\
+{log2 (1,1) 1 {too many arguments for math function "log2"}}\
+{log2 (1,1,1) 1 {too many arguments for math function "log2"}}\
+{log2 (1,1,1,1) 1 {too many arguments for math function "log2"}}\
+{logx () 1 {too few arguments for math function "logx"}}\
+{logx (1) 1 {too few arguments for math function "logx"}}\
+{logx (1,1) 0 NaN}\
+{logx (1,1,1) 1 {too many arguments for math function "logx"}}\
+{logx (1,1,1,1) 1 {too many arguments for math function "logx"}}\
+{max () 1 {too few arguments for math function "max"}}\
+{max (1) 0 1}\
+{max (1,1) 0 1}\
+{max (1,1,1) 0 1}\
+{max (1,1,1,1) 0 1}\
+{min () 1 {too few arguments for math function "min"}}\
+{min (1) 0 1}\
+{min (1,1) 0 1}\
+{min (1,1,1) 0 1}\
+{min (1,1,1,1) 0 1}\
+{nop () 0 {}}\
+{nop (1) 0 {}}\
+{nop (1,1) 0 {}}\
+{nop (1,1,1) 0 {}}\
+{nop (1,1,1,1) 0 {}}\
+{pi () 0 3.14159265358979}\
+{pi (1) 1 {too many arguments for math function "pi"}}\
+{pi (1,1) 1 {too many arguments for math function "pi"}}\
+{pi (1,1,1) 1 {too many arguments for math function "pi"}}\
+{pi (1,1,1,1) 1 {too many arguments for math function "pi"}}\
+{pow () 1 {too few arguments for math function "pow"}}\
+{pow (1) 1 {too few arguments for math function "pow"}}\
+{pow (1,1) 0 1}\
+{pow (1,1,1) 1 {too many arguments for math function "pow"}}\
+{pow (1,1,1,1) 1 {too many arguments for math function "pow"}}\
+{rand () 0} {rand (1) 1 {too many arguments for math function "rand"}}\
+{rand (1,1) 1 {too many arguments for math function "rand"}}\
+{rand (1,1,1) 1 {too many arguments for math function "rand"}}\
+{rand (1,1,1,1) 1 {too many arguments for math function "rand"}}\
+{random () 0}\
+{random (1) 1 {too many arguments for math function "random"}}\
+{random (1,1) 1 {too many arguments for math function "random"}}\
+{random (1,1,1) 1 {too many arguments for math function "random"}}\
+{random (1,1,1,1) 1 {too many arguments for math function "random"}}\
+{randstr () 1 {too few arguments for math function "randstr"}}\
+{randstr (1) 0}\
+{randstr (1,1) 1 {too many arguments for math function "randstr"}}\
+{randstr (1,1,1) 1 {too many arguments for math function "randstr"}}\
+{randstr (1,1,1,1) 1 {too many arguments for math function "randstr"}}\
+{round () 1 {too few arguments for math function "round"}}\
+{round (1) 0 1}\
+{round (1,1) 1 {too many arguments for math function "round"}}\
+{round (1,1,1) 1 {too many arguments for math function "round"}}\
+{round (1,1,1,1) 1 {too many arguments for math function "round"}}\
+{round2 () 1 {too few arguments for math function "round2"}}\
+{round2 (1) 1 {too few arguments for math function "round2"}}\
+{round2 (1,1) 0 1}\
+{round2 (1,1,1) 1 {too many arguments for math function "round2"}}\
+{round2 (1,1,1,1) 1 {too many arguments for math function "round2"}}\
+{round3 () 1 {too few arguments for math function "round3"}}\
+{round3 (1) 1 {too few arguments for math function "round3"}}\
+{round3 (1,1) 1 {too few arguments for math function "round3"}}\
+{round3 (1,1,1) 0 1}\
+{round3 (1,1,1,1) 1 {too many arguments for math function "round3"}}\
+{sign () 1 {too few arguments for math function "sign"}}\
+{sign (1) 0 1}\
+{sign (1,1) 1 {too many arguments for math function "sign"}}\
+{sign (1,1,1) 1 {too many arguments for math function "sign"}}\
+{sign (1,1,1,1) 1 {too many arguments for math function "sign"}}\
+{sin () 1 {too few arguments for math function "sin"}}\
+{sin (1) 0 0.841470984807897}\
+{sin (1,1) 1 {too many arguments for math function "sin"}}\
+{sin (1,1,1) 1 {too many arguments for math function "sin"}}\
+{sin (1,1,1,1) 1 {too many arguments for math function "sin"}}\
+{sinh () 1 {too few arguments for math function "sinh"}}\
+{sinh (1) 0 1.1752011936438}\
+{sinh (1,1) 1 {too many arguments for math function "sinh"}}\
+{sinh (1,1,1) 1 {too many arguments for math function "sinh"}}\
+{sinh (1,1,1,1) 1 {too many arguments for math function "sinh"}}\
+{sqrt () 1 {too few arguments for math function "sqrt"}}\
+{sqrt (1) 0 1}\
+{sqrt (1,1) 1 {too many arguments for math function "sqrt"}}\
+{sqrt (1,1,1) 1 {too many arguments for math function "sqrt"}}\
+{sqrt (1,1,1,1) 1 {too many arguments for math function "sqrt"}}\
+{srand () 1 {too few arguments for math function "srand"}}\
+{srand (1) 0 0.248668584157093}\
+{srand (1,1) 1 {too many arguments for math function "srand"}}\
+{srand (1,1,1) 1 {too many arguments for math function "srand"}}\
+{srand (1,1,1,1) 1 {too many arguments for math function "srand"}}\
+{tan () 1 {too few arguments for math function "tan"}}\
+{tan (1) 0 1.5574077246549}\
+{tan (1,1) 1 {too many arguments for math function "tan"}}\
+{tan (1,1,1) 1 {too many arguments for math function "tan"}}\
+{tan (1,1,1,1) 1 {too many arguments for math function "tan"}}\
+{tanh () 1 {too few arguments for math function "tanh"}}\
+{tanh (1) 0 0.761594155955765}\
+{tanh (1,1) 1 {too many arguments for math function "tanh"}}\
+{tanh (1,1,1) 1 {too many arguments for math function "tanh"}}\
+{tanh (1,1,1,1) 1 {too many arguments for math function "tanh"}}\
+{timespan () 1 {too few arguments for math function "timespan"}}\
+{timespan (1) 0 00:00:00.0000001}\
+{timespan (1,1) 1 {too many arguments for math function "timespan"}}\
+{timespan (1,1,1) 1 {too many arguments for math function "timespan"}}\
+{timespan (1,1,1,1) 1 {too many arguments for math function "timespan"}}\
+{truncate () 1 {too few arguments for math function "truncate"}}\
+{truncate (1) 0 1}\
+{truncate (1,1) 1 {too many arguments for math function "truncate"}}\
+{truncate (1,1,1) 1 {too many arguments for math function "truncate"}}\
+{truncate (1,1,1,1) 1 {too many arguments for math function "truncate"}}\
+{typeof () 1 {too few arguments for math function "typeof"}}\
+{typeof (1) 0 string}\
+{typeof (1,1) 1 {too many arguments for math function "typeof"}}\
+{typeof (1,1,1) 1 {too many arguments for math function "typeof"}}\
+{typeof (1,1,1,1) 1 {too many arguments for math function "typeof"}}\
+{wide () 1 {too few arguments for math function "wide"}}\
+{wide (1) 0 1}\
+{wide (1,1) 1 {too many arguments for math function "wide"}}\
+{wide (1,1,1) 1 {too many arguments for math function "wide"}}\
+{wide (1,1,1,1) 1 {too many arguments for math function "wide"}}}]}
+
+###############################################################################
+
+rename fixMono ""
+
+###############################################################################
+
+runTest {test function-4.1 {function groups} -body {
+  set result [list]
+
+  foreach name [lsort [info functions -safe -unsafe]] {
+    set function null; set token 0; set error null
+
+    set code [object invoke Interpreter.GetActive GetFunction \
+        $name NoWrapper token function error]
+
+    lappend result [list $name \
+        [expr {$code eq "Ok" ? [object invoke $function Group] : "error"}]]
+
+    unset -nocomplain code error token function
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain code error token function name result
+} -constraints {eagle command.object} -result {{abs component} {acos\
+trigonometric} {asin trigonometric} {atan trigonometric} {atan2 trigonometric}\
+{bool conversion} {ceil rounding} {cos trigonometric} {cosh trigonometric}\
+{datetime conversion} {decimal conversion} {double conversion} {e constant}\
+{epsilon constant} {exp exponential} {flags control} {floor rounding} {fmod\
+congruence} {hypot trigonometric} {int conversion} {isfinite indicator} {isinf\
+indicator} {isnan indicator} {isnormal indicator} {issubnormal indicator}\
+{isunordered indicator} {list conversion} {log logarithmic} {log10 logarithmic}\
+{log2 logarithmic} {logx logarithmic} {max aggregate} {min aggregate} {nop nop}\
+{pi constant} {pow power} {rand random} {random random} {randstr random} {round\
+rounding} {round2 rounding} {round3 rounding} {sign component} {sin\
+trigonometric} {sinh trigonometric} {sqrt power} {srand random} {tan\
+trigonometric} {tanh trigonometric} {timespan conversion} {truncate rounding}\
+{typeof conversion} {wide conversion}}}
+
+###############################################################################
+
+runTest {test function-5.1 {function name parsing of "NaN"} -setup {
+  set interp [object invoke Interpreter GetActive]
+} -body {
+  set result null
+  set code [object invoke -alias Eagle._Tests.Default TestAddNamedFunction \
+      $interp nancy null result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  expr {nancy()}
+} -cleanup {
+  catch {
+    set result null
+    set code [object invoke -alias Eagle._Tests.Default \
+        TestRemoveNamedFunction $interp nancy null result]
+
+    if {$code ne "Ok"} then {
+      tputs $test_channel [appendArgs \
+          "---- failed to remove math function \"nancy\": " \
+          [getStringFromObjectHandle $result] \n]
+    }
+  }
+
+  unset -nocomplain result code interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddNamedFunction\
+Eagle._Tests.Default.TestRemoveNamedFunction} -returnCodes 1 -match glob \
+-result {syntax error in expression "nancy()"*}}
+
+###############################################################################
+
+runTest {test function-5.2 {function name parsing of "Inf"} -setup {
+  set interp [object invoke Interpreter GetActive]
+} -body {
+  set result null
+  set code [object invoke -alias Eagle._Tests.Default TestAddNamedFunction \
+      $interp influence null result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  expr {influence()}
+} -cleanup {
+  catch {
+    set result null
+    set code [object invoke -alias Eagle._Tests.Default \
+        TestRemoveNamedFunction $interp influence null result]
+
+    if {$code ne "Ok"} then {
+      tputs $test_channel [appendArgs \
+          "---- failed to remove math function \"influence\": " \
+          [getStringFromObjectHandle $result] \n]
+    }
+  }
+
+  unset -nocomplain result code interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddNamedFunction\
+Eagle._Tests.Default.TestRemoveNamedFunction} -returnCodes 1 -match glob \
+-result {syntax error in expression "influence()"*}}
+
+###############################################################################
+
+runTest {test function-5.3 {function name parsing of [0-9]} -setup {
+  set interp [object invoke Interpreter GetActive]
+} -body {
+  set result null
+  set code [object invoke -alias Eagle._Tests.Default TestAddNamedFunction \
+      $interp 99bottles null result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  expr {99bottles()}
+} -cleanup {
+  catch {
+    set result null
+    set code [object invoke -alias Eagle._Tests.Default \
+        TestRemoveNamedFunction $interp 99bottles null result]
+
+    if {$code ne "Ok"} then {
+      tputs $test_channel [appendArgs \
+          "---- failed to remove math function \"99bottles\": " \
+          [getStringFromObjectHandle $result] \n]
+    }
+  }
+
+  unset -nocomplain result code interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddNamedFunction\
+Eagle._Tests.Default.TestRemoveNamedFunction} -returnCodes 1 -match glob \
+-result {syntax error in expression "99bottles()"*}}
+
+###############################################################################
+
+runTest {test function-5.4 {function name containing "NaN"} -setup {
+  set interp [object invoke Interpreter GetActive]
+} -body {
+  set result null
+  set code [object invoke -alias Eagle._Tests.Default TestAddNamedFunction \
+      $interp banana null result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  list [catch {expr {banana("2**20")}} msg] $msg \
+      [catch {expr {banana("foo()")}} msg] $msg
+} -cleanup {
+  catch {
+    set result null
+    set code [object invoke -alias Eagle._Tests.Default \
+        TestRemoveNamedFunction $interp banana null result]
+
+    if {$code ne "Ok"} then {
+      tputs $test_channel [appendArgs \
+          "---- failed to remove math function \"banana\": " \
+          [getStringFromObjectHandle $result] \n]
+    }
+  }
+
+  unset -nocomplain msg result code interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddNamedFunction\
+Eagle._Tests.Default.TestRemoveNamedFunction} -result \
+{0 {2**20 1048576} 1 {invalid function name "foo"}}}
+
+###############################################################################
+
+runTest {test function-5.5 {function name containing "Inf"} -setup {
+  set interp [object invoke Interpreter GetActive]
+} -body {
+  set result null
+  set code [object invoke -alias Eagle._Tests.Default TestAddNamedFunction \
+      $interp gainful null result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  list [catch {expr {gainful("2**20")}} msg] $msg \
+      [catch {expr {gainful("foo()")}} msg] $msg
+} -cleanup {
+  catch {
+    set result null
+    set code [object invoke -alias Eagle._Tests.Default \
+        TestRemoveNamedFunction $interp gainful null result]
+
+    if {$code ne "Ok"} then {
+      tputs $test_channel [appendArgs \
+          "---- failed to remove math function \"gainful\": " \
+          [getStringFromObjectHandle $result] \n]
+    }
+  }
+
+  unset -nocomplain msg result code interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddNamedFunction\
+Eagle._Tests.Default.TestRemoveNamedFunction} -result \
+{0 {2**20 1048576} 1 {invalid function name "foo"}}}
+
+###############################################################################
+
+runTest {test function-5.6 {function name containing [0-9]} -setup {
+  set interp [object invoke Interpreter GetActive]
+} -body {
+  set result null
+  set code [object invoke -alias Eagle._Tests.Default TestAddNamedFunction \
+      $interp tcl84x null result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  list [catch {expr {tcl84x("2**20")}} msg] $msg \
+      [catch {expr {tcl84x("foo()")}} msg] $msg
+} -cleanup {
+  catch {
+    set result null
+    set code [object invoke -alias Eagle._Tests.Default \
+        TestRemoveNamedFunction $interp tcl84x null result]
+
+    if {$code ne "Ok"} then {
+      tputs $test_channel [appendArgs \
+          "---- failed to remove math function \"tcl84x\": " \
+          [getStringFromObjectHandle $result] \n]
+    }
+  }
+
+  unset -nocomplain msg result code interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddNamedFunction\
+Eagle._Tests.Default.TestRemoveNamedFunction} -result \
+{0 {2**20 1048576} 1 {invalid function name "foo"}}}
+
+###############################################################################
+
+runTest {test function-5.7.1 {dynamic function arguments} -setup {
+  proc ::tcl::mathfunc::func3 { args } {
+    if {[llength $args] < 2} then {
+      error {wrong # args: should be "func3 bool arg ?arg ...?"}
+    }
+    if {[lindex $args 0]} then {
+      return [[lindex $args 1] {*}[lrange $args 2 end]]
+    } else {
+      return $args
+    }
+  }
+  proc func3proc1 { args } { lsort $args }
+  proc func3proc2 { args } { return 42 }
+  proc func3proc3 { args } { join $args "" }
+} -body {
+  list [catch {expr {func3()}} msg] $msg \
+      [catch {expr {func3(0)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1",1,0x5)}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1",1,0x5)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1",1,"0x5")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1",1,"0x5")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1",1,0x5+0)}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1",1,0x5+0)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1",1,"0x5"+0)}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1",1,"0x5"+0)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc2")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc2")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc2",2+1)}} msg] $msg \
+      [catch {expr {func3(1,"func3proc2",2+1)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc2","2+1")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc2","2+1")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc3")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc3")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc3","0","x","5")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc3","0","x","5")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc3","0","x","Z")}} msg] $msg
+} -cleanup {
+  rename func3proc3 ""
+  rename func3proc2 ""
+  rename func3proc1 ""
+  rename ::tcl::mathfunc::func3 ""
+
+  unset -nocomplain msg
+} -constraints {tcl tcl85Feature} -result {1 {wrong # args: should\
+be "func3 bool arg ?arg ...?"} 1 {wrong # args: should be "func3 bool arg ?arg\
+...?"} 0 {0 func3proc1} 0 {} 0 {0 func3proc1 1 0x5} 0 {0x5 1} 0 {0 func3proc1 1\
+0x5} 0 {0x5 1} 0 {0 func3proc1 1 5} 0 {1 5} 0 {0 func3proc1 1 5} 0 {1 5} 0 {0\
+func3proc2} 0 42 0 {0 func3proc2 3} 0 42 0 {0 func3proc2 2+1} 0 42 0 {0\
+func3proc3} 0 {} 0 {0 func3proc3 0 x 5} 0 5 0 0xZ}}
+
+###############################################################################
+
+runTest {test function-5.7.2 {dynamic function arguments} -setup {
+  proc func3proc1 { args } { lsort $args }
+  proc func3proc2 { args } { return 42 }
+  proc func3proc3 { args } { join $args "" }
+
+  set interp [object invoke Interpreter GetActive]
+} -body {
+  set result null
+  set code [object invoke -alias Eagle._Tests.Default TestAddNamedFunction3 \
+      $interp func3 null result]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  list [catch {expr {func3()}} msg] $msg \
+      [catch {expr {func3(0)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1",1,0x5)}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1",1,0x5)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1",1,"0x5")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1",1,"0x5")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1",1,0x5+0)}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1",1,0x5+0)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc1",1,"0x5"+0)}} msg] $msg \
+      [catch {expr {func3(1,"func3proc1",1,"0x5"+0)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc2")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc2")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc2",2+1)}} msg] $msg \
+      [catch {expr {func3(1,"func3proc2",2+1)}} msg] $msg \
+      [catch {expr {func3(0,"func3proc2","2+1")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc2","2+1")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc3")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc3")}} msg] $msg \
+      [catch {expr {func3(0,"func3proc3","0","x","5")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc3","0","x","5")}} msg] $msg \
+      [catch {expr {func3(1,"func3proc3","0","x","Z")}} msg] $msg
+} -cleanup {
+  rename func3proc3 ""
+  rename func3proc2 ""
+  rename func3proc1 ""
+
+  catch {
+    set result null
+    set code [object invoke -alias Eagle._Tests.Default \
+        TestRemoveNamedFunction $interp func3 null result]
+
+    if {$code ne "Ok"} then {
+      tputs $test_channel [appendArgs \
+          "---- failed to remove math function \"func3\": " \
+          [getStringFromObjectHandle $result] \n]
+    }
+  }
+
+  unset -nocomplain msg result code interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddNamedFunction3\
+Eagle._Tests.Default.TestRemoveNamedFunction} -result {1 {wrong # args: should\
+be "func3 bool arg ?arg ...?"} 1 {wrong # args: should be "func3 bool arg ?arg\
+...?"} 0 {0 func3proc1} 0 {} 0 {0 func3proc1 1 0x5} 0 {0x5 1} 0 {0 func3proc1 1\
+0x5} 0 {0x5 1} 0 {0 func3proc1 1 5} 0 {1 5} 0 {0 func3proc1 1 5} 0 {1 5} 0 {0\
+func3proc2} 0 42 0 {0 func3proc2 3} 0 42 0 {0 func3proc2 2+1} 0 42 0 {0\
+func3proc3} 0 {} 0 {0 func3proc3 0 x 5} 0 0x5 0 0xZ}}
+
+###############################################################################
+
+set dateTimes [list -2147483648 -1795910400 -1153180800 \
+                    -1084579200 -720316800 -467942400 \
+                    -220406400 0 185846400 \
+                    315532800 946598400 946684800 \
+                    1293753600 2147483647]
+
+set range(start) 1262304000; # 01/01/2010
+set range(stop)  1293840000; # 01/01/2011
+
+###############################################################################
+
+runTest {test clock-1.1.1 {basic formats} -body {
+  set formats [list %c %D %r %R %T %x %X]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain format dateTime result formats
+} -constraints {tcl tcl84 culture.invariant} -result \
+{{Friday, December 13, 1901 8:45:52 PM} 12/13/01 {08:45:52 PM} 20:45 20:45:52\
+12/13/1901 {8:45:52 PM} {Monday, February 03, 1913 12:00:00 AM} 02/03/13\
+{12:00:00 AM} 00:00 00:00:00 2/3/1913 {12:00:00 AM} {Saturday, June 17, 1933\
+12:00:00 AM} 06/17/33 {12:00:00 AM} 00:00 00:00:00 6/17/1933 {12:00:00 AM}\
+{Tuesday, August 20, 1935 12:00:00 AM} 08/20/35 {12:00:00 AM} 00:00 00:00:00\
+8/20/1935 {12:00:00 AM} {Thursday, March 06, 1947 12:00:00 AM} 03/06/47\
+{12:00:00 AM} 00:00 00:00:00 3/6/1947 {12:00:00 AM} {Saturday, March 05, 1955\
+12:00:00 AM} 03/05/55 {12:00:00 AM} 00:00 00:00:00 3/5/1955 {12:00:00 AM}\
+{Monday, January 07, 1963 12:00:00 AM} 01/07/63 {12:00:00 AM} 00:00 00:00:00\
+1/7/1963 {12:00:00 AM} {Thursday, January 01, 1970 12:00:00 AM} 01/01/70\
+{12:00:00 AM} 00:00 00:00:00 1/1/1970 {12:00:00 AM} {Saturday, November 22,\
+1975 12:00:00 AM} 11/22/75 {12:00:00 AM} 00:00 00:00:00 11/22/1975 {12:00:00\
+AM} {Tuesday, January 01, 1980 12:00:00 AM} 01/01/80 {12:00:00 AM} 00:00\
+00:00:00 1/1/1980 {12:00:00 AM} {Friday, December 31, 1999 12:00:00 AM}\
+12/31/99 {12:00:00 AM} 00:00 00:00:00 12/31/1999 {12:00:00 AM} {Saturday,\
+January 01, 2000 12:00:00 AM} 01/01/00 {12:00:00 AM} 00:00 00:00:00 1/1/2000\
+{12:00:00 AM} {Friday, December 31, 2010 12:00:00 AM} 12/31/10 {12:00:00 AM}\
+00:00 00:00:00 12/31/2010 {12:00:00 AM} {Tuesday, January 19, 2038 3:14:07 AM}\
+01/19/38 {03:14:07 AM} 03:14 03:14:07 1/19/2038 {3:14:07 AM}}}
+
+###############################################################################
+
+runTest {test clock-1.1.2 {basic formats} -body {
+  set formats [list %c %D %r %R %T %x %X]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain format dateTime result formats
+} -constraints {eagle tcl84 culture.invariant} -result \
+{{Friday, 13 December 1901 20:45:52} 12/13/01 {08:45:52 PM} 20:45 20:45:52\
+12/13/1901 {8:45:52 PM} {Monday, 03 February 1913 00:00:00} 02/03/13 {12:00:00\
+AM} 00:00 00:00:00 2/3/1913 {12:00:00 AM} {Saturday, 17 June 1933 00:00:00}\
+06/17/33 {12:00:00 AM} 00:00 00:00:00 6/17/1933 {12:00:00 AM} {Tuesday, 20\
+August 1935 00:00:00} 08/20/35 {12:00:00 AM} 00:00 00:00:00 8/20/1935 {12:00:00\
+AM} {Thursday, 06 March 1947 00:00:00} 03/06/47 {12:00:00 AM} 00:00 00:00:00\
+3/6/1947 {12:00:00 AM} {Saturday, 05 March 1955 00:00:00} 03/05/55 {12:00:00\
+AM} 00:00 00:00:00 3/5/1955 {12:00:00 AM} {Monday, 07 January 1963 00:00:00}\
+01/07/63 {12:00:00 AM} 00:00 00:00:00 1/7/1963 {12:00:00 AM} {Thursday, 01\
+January 1970 00:00:00} 01/01/70 {12:00:00 AM} 00:00 00:00:00 1/1/1970 {12:00:00\
+AM} {Saturday, 22 November 1975 00:00:00} 11/22/75 {12:00:00 AM} 00:00 00:00:00\
+11/22/1975 {12:00:00 AM} {Tuesday, 01 January 1980 00:00:00} 01/01/80 {12:00:00\
+AM} 00:00 00:00:00 1/1/1980 {12:00:00 AM} {Friday, 31 December 1999 00:00:00}\
+12/31/99 {12:00:00 AM} 00:00 00:00:00 12/31/1999 {12:00:00 AM} {Saturday, 01\
+January 2000 00:00:00} 01/01/00 {12:00:00 AM} 00:00 00:00:00 1/1/2000 {12:00:00\
+AM} {Friday, 31 December 2010 00:00:00} 12/31/10 {12:00:00 AM} 00:00 00:00:00\
+12/31/2010 {12:00:00 AM} {Tuesday, 19 January 2038 03:14:07} 01/19/38 {03:14:07\
+AM} 03:14 03:14:07 1/19/2038 {3:14:07 AM}}}
+
+###############################################################################
+
+runTest {test clock-1.2 {ISO8601 format} -body {
+  set formats [list %i]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain format dateTime result formats
+} -constraints {eagle} -result \
+{1901.12.13T20:45:52.000 1913.02.03T00:00:00.000 1933.06.17T00:00:00.000\
+1935.08.20T00:00:00.000 1947.03.06T00:00:00.000 1955.03.05T00:00:00.000\
+1963.01.07T00:00:00.000 1970.01.01T00:00:00.000 1975.11.22T00:00:00.000\
+1980.01.01T00:00:00.000 1999.12.31T00:00:00.000 2000.01.01T00:00:00.000\
+2010.12.31T00:00:00.000 2038.01.19T03:14:07.000}}
+
+###############################################################################
+
+runTest {test clock-1.3 {advanced formats} -body {
+  set formats [list %% %a %A %b %B %d %e %h %H %I %k %l %m %M %n %p %S %t %y %Y]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      set value [clock format $dateTime -format $format -gmt true]
+
+      if {[string length [string trim $value]] > 0} then {
+        lappend result [string trim $value]
+      } else {
+        lappend result $value
+      }
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain value format dateTime result formats
+} -constraints {culture.invariant} -result \
+[list % Fri Friday Dec December 13 13 Dec 20 08 20 8 12 45 \n PM 52 \t 01 1901\
+% Mon Monday Feb February 03 3 Feb 00 12 0 12 02 00 \n AM 00 \t 13 1913 % Sat\
+Saturday Jun June 17 17 Jun 00 12 0 12 06 00 \n AM 00 \t 33 1933 % Tue Tuesday\
+Aug August 20 20 Aug 00 12 0 12 08 00 \n AM 00 \t 35 1935 % Thu Thursday Mar\
+March 06 6 Mar 00 12 0 12 03 00 \n AM 00 \t 47 1947 % Sat Saturday Mar March 05\
+5 Mar 00 12 0 12 03 00 \n AM 00 \t 55 1955 % Mon Monday Jan January 07 7 Jan 00\
+12 0 12 01 00 \n AM 00 \t 63 1963 % Thu Thursday Jan January 01 1 Jan 00 12 0\
+12 01 00 \n AM 00 \t 70 1970 % Sat Saturday Nov November 22 22 Nov 00 12 0 12\
+11 00 \n AM 00 \t 75 1975 % Tue Tuesday Jan January 01 1 Jan 00 12 0 12 01 00\
+\n AM 00 \t 80 1980 % Fri Friday Dec December 31 31 Dec 00 12 0 12 12 00 \n AM\
+00 \t 99 1999 % Sat Saturday Jan January 01 1 Jan 00 12 0 12 01 00 \n AM 00 \t\
+00 2000 % Fri Friday Dec December 31 31 Dec 00 12 0 12 12 00 \n AM 00 \t 10\
+2010 % Tue Tuesday Jan January 19 19 Jan 03 03 3 3 01 14 \n AM 07 \t 38 2038]}
+
+###############################################################################
+
+runTest {test clock-1.4 {format century} -body {
+  set formats [list %C]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain format dateTime result formats
+} -result {19 19 19 19 19 19 19 19 19 19 19 20 20 20}}
+
+###############################################################################
+
+runTest {test clock-1.5 {format two digit ISO8601 year} -body {
+  set formats [list %g]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [clock format $i -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -result {01 13 33 35 47 55 63 70 75 80 99 99 10 38 09 09 09 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10\
+10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10}}
+
+###############################################################################
+
+runTest {test clock-1.6 {format four digit ISO8601 year} -body {
+  set formats [list %G]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [clock format $i -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -result {1901 1913 1933 1935 1947 1955 1963 1970 1975 1980 1999 1999 2010\
+2038 2009 2009 2009 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010\
+2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010 2010}}
+
+###############################################################################
+
+runTest {test clock-1.7 {format day-of-year} -body {
+  set formats [list %j]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [clock format $i -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -result {347 034 168 232 065 064 007 001 326 001 365 001 365 019 001 002 003\
+004 005 006 007 008 009 010 011 012 013 014 015 016 017 018 019 020 021 022 023\
+024 025 026 027 028 029 030 031 032 033 034 035 036 037 038 039 040 041 042 043\
+044 045 046 047 048 049 050 051 052 053 054 055 056 057 058 059 060 061 062 063\
+064 065 066 067 068 069 070 071 072 073 074 075 076 077 078 079 080 081 082 083\
+084 085 086 087 088 089 090 091 092 093 094 095 096 097 098 099 100 101 102 103\
+104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123\
+124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143\
+144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163\
+164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183\
+184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200 201 202 203\
+204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223\
+224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240 241 242 243\
+244 245 246 247 248 249 250 251 252 253 254 255 256 257 258 259 260 261 262 263\
+264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 279 280 281 282 283\
+284 285 286 287 288 289 290 291 292 293 294 295 296 297 298 299 300 301 302 303\
+304 305 306 307 308 309 310 311 312 313 314 315 316 317 318 319 320 321 322 323\
+324 325 326 327 328 329 330 331 332 333 334 335 336 337 338 339 340 341 342 343\
+344 345 346 347 348 349 350 351 352 353 354 355 356 357 358 359 360 361 362 363\
+364 365}}
+
+###############################################################################
+
+runTest {test clock-1.8 {format seconds since epoch} -body {
+  set formats [list %s]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [clock format $i -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -constraints {tcl85Feature} -result {-2147483648 -1795910400 -1153180800\
+-1084579200 -720316800 -467942400 -220406400 0 185846400 315532800 946598400\
+946684800 1293753600 2147483647 1262304000 1262390400 1262476800 1262563200\
+1262649600 1262736000 1262822400 1262908800 1262995200 1263081600 1263168000\
+1263254400 1263340800 1263427200 1263513600 1263600000 1263686400 1263772800\
+1263859200 1263945600 1264032000 1264118400 1264204800 1264291200 1264377600\
+1264464000 1264550400 1264636800 1264723200 1264809600 1264896000 1264982400\
+1265068800 1265155200 1265241600 1265328000 1265414400 1265500800 1265587200\
+1265673600 1265760000 1265846400 1265932800 1266019200 1266105600 1266192000\
+1266278400 1266364800 1266451200 1266537600 1266624000 1266710400 1266796800\
+1266883200 1266969600 1267056000 1267142400 1267228800 1267315200 1267401600\
+1267488000 1267574400 1267660800 1267747200 1267833600 1267920000 1268006400\
+1268092800 1268179200 1268265600 1268352000 1268438400 1268524800 1268611200\
+1268697600 1268784000 1268870400 1268956800 1269043200 1269129600 1269216000\
+1269302400 1269388800 1269475200 1269561600 1269648000 1269734400 1269820800\
+1269907200 1269993600 1270080000 1270166400 1270252800 1270339200 1270425600\
+1270512000 1270598400 1270684800 1270771200 1270857600 1270944000 1271030400\
+1271116800 1271203200 1271289600 1271376000 1271462400 1271548800 1271635200\
+1271721600 1271808000 1271894400 1271980800 1272067200 1272153600 1272240000\
+1272326400 1272412800 1272499200 1272585600 1272672000 1272758400 1272844800\
+1272931200 1273017600 1273104000 1273190400 1273276800 1273363200 1273449600\
+1273536000 1273622400 1273708800 1273795200 1273881600 1273968000 1274054400\
+1274140800 1274227200 1274313600 1274400000 1274486400 1274572800 1274659200\
+1274745600 1274832000 1274918400 1275004800 1275091200 1275177600 1275264000\
+1275350400 1275436800 1275523200 1275609600 1275696000 1275782400 1275868800\
+1275955200 1276041600 1276128000 1276214400 1276300800 1276387200 1276473600\
+1276560000 1276646400 1276732800 1276819200 1276905600 1276992000 1277078400\
+1277164800 1277251200 1277337600 1277424000 1277510400 1277596800 1277683200\
+1277769600 1277856000 1277942400 1278028800 1278115200 1278201600 1278288000\
+1278374400 1278460800 1278547200 1278633600 1278720000 1278806400 1278892800\
+1278979200 1279065600 1279152000 1279238400 1279324800 1279411200 1279497600\
+1279584000 1279670400 1279756800 1279843200 1279929600 1280016000 1280102400\
+1280188800 1280275200 1280361600 1280448000 1280534400 1280620800 1280707200\
+1280793600 1280880000 1280966400 1281052800 1281139200 1281225600 1281312000\
+1281398400 1281484800 1281571200 1281657600 1281744000 1281830400 1281916800\
+1282003200 1282089600 1282176000 1282262400 1282348800 1282435200 1282521600\
+1282608000 1282694400 1282780800 1282867200 1282953600 1283040000 1283126400\
+1283212800 1283299200 1283385600 1283472000 1283558400 1283644800 1283731200\
+1283817600 1283904000 1283990400 1284076800 1284163200 1284249600 1284336000\
+1284422400 1284508800 1284595200 1284681600 1284768000 1284854400 1284940800\
+1285027200 1285113600 1285200000 1285286400 1285372800 1285459200 1285545600\
+1285632000 1285718400 1285804800 1285891200 1285977600 1286064000 1286150400\
+1286236800 1286323200 1286409600 1286496000 1286582400 1286668800 1286755200\
+1286841600 1286928000 1287014400 1287100800 1287187200 1287273600 1287360000\
+1287446400 1287532800 1287619200 1287705600 1287792000 1287878400 1287964800\
+1288051200 1288137600 1288224000 1288310400 1288396800 1288483200 1288569600\
+1288656000 1288742400 1288828800 1288915200 1289001600 1289088000 1289174400\
+1289260800 1289347200 1289433600 1289520000 1289606400 1289692800 1289779200\
+1289865600 1289952000 1290038400 1290124800 1290211200 1290297600 1290384000\
+1290470400 1290556800 1290643200 1290729600 1290816000 1290902400 1290988800\
+1291075200 1291161600 1291248000 1291334400 1291420800 1291507200 1291593600\
+1291680000 1291766400 1291852800 1291939200 1292025600 1292112000 1292198400\
+1292284800 1292371200 1292457600 1292544000 1292630400 1292716800 1292803200\
+1292889600 1292976000 1293062400 1293148800 1293235200 1293321600 1293408000\
+1293494400 1293580800 1293667200 1293753600}}
+
+###############################################################################
+
+runTest {test clock-1.9 {format weekday number one-to-seven} -body {
+  set formats [list %u]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [clock format $i -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -result {5 1 6 2 4 6 1 4 6 2 5 6 5 2 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3\
+4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1\
+2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6\
+7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4\
+5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2\
+3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7\
+1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5\
+6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3\
+4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1\
+2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5 6 7 1 2 3 4 5}}
+
+###############################################################################
+
+runTest {test clock-1.10 {format week-of-year (Sunday is first day)} -body {
+  set formats [list %U]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [clock format $i -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -result {49 05 24 33 09 09 01 00 46 00 52 00 52 03 00 00 01 01 01 01 01 01 01\
+02 02 02 02 02 02 02 03 03 03 03 03 03 03 04 04 04 04 04 04 04 05 05 05 05 05\
+05 05 06 06 06 06 06 06 06 07 07 07 07 07 07 07 08 08 08 08 08 08 08 09 09 09\
+09 09 09 09 10 10 10 10 10 10 10 11 11 11 11 11 11 11 12 12 12 12 12 12 12 13\
+13 13 13 13 13 13 14 14 14 14 14 14 14 15 15 15 15 15 15 15 16 16 16 16 16 16\
+16 17 17 17 17 17 17 17 18 18 18 18 18 18 18 19 19 19 19 19 19 19 20 20 20 20\
+20 20 20 21 21 21 21 21 21 21 22 22 22 22 22 22 22 23 23 23 23 23 23 23 24 24\
+24 24 24 24 24 25 25 25 25 25 25 25 26 26 26 26 26 26 26 27 27 27 27 27 27 27\
+28 28 28 28 28 28 28 29 29 29 29 29 29 29 30 30 30 30 30 30 30 31 31 31 31 31\
+31 31 32 32 32 32 32 32 32 33 33 33 33 33 33 33 34 34 34 34 34 34 34 35 35 35\
+35 35 35 35 36 36 36 36 36 36 36 37 37 37 37 37 37 37 38 38 38 38 38 38 38 39\
+39 39 39 39 39 39 40 40 40 40 40 40 40 41 41 41 41 41 41 41 42 42 42 42 42 42\
+42 43 43 43 43 43 43 43 44 44 44 44 44 44 44 45 45 45 45 45 45 45 46 46 46 46\
+46 46 46 47 47 47 47 47 47 47 48 48 48 48 48 48 48 49 49 49 49 49 49 49 50 50\
+50 50 50 50 50 51 51 51 51 51 51 51 52 52 52 52 52 52}}
+
+###############################################################################
+
+runTest {test clock-1.11 {format ISO8601 week-of-year} -body {
+  set formats [list %V]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [clock format $i -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -result {50 06 24 34 10 09 02 01 47 01 52 52 52 03 53 53 53 01 01 01 01 01 01\
+01 02 02 02 02 02 02 02 03 03 03 03 03 03 03 04 04 04 04 04 04 04 05 05 05 05\
+05 05 05 06 06 06 06 06 06 06 07 07 07 07 07 07 07 08 08 08 08 08 08 08 09 09\
+09 09 09 09 09 10 10 10 10 10 10 10 11 11 11 11 11 11 11 12 12 12 12 12 12 12\
+13 13 13 13 13 13 13 14 14 14 14 14 14 14 15 15 15 15 15 15 15 16 16 16 16 16\
+16 16 17 17 17 17 17 17 17 18 18 18 18 18 18 18 19 19 19 19 19 19 19 20 20 20\
+20 20 20 20 21 21 21 21 21 21 21 22 22 22 22 22 22 22 23 23 23 23 23 23 23 24\
+24 24 24 24 24 24 25 25 25 25 25 25 25 26 26 26 26 26 26 26 27 27 27 27 27 27\
+27 28 28 28 28 28 28 28 29 29 29 29 29 29 29 30 30 30 30 30 30 30 31 31 31 31\
+31 31 31 32 32 32 32 32 32 32 33 33 33 33 33 33 33 34 34 34 34 34 34 34 35 35\
+35 35 35 35 35 36 36 36 36 36 36 36 37 37 37 37 37 37 37 38 38 38 38 38 38 38\
+39 39 39 39 39 39 39 40 40 40 40 40 40 40 41 41 41 41 41 41 41 42 42 42 42 42\
+42 42 43 43 43 43 43 43 43 44 44 44 44 44 44 44 45 45 45 45 45 45 45 46 46 46\
+46 46 46 46 47 47 47 47 47 47 47 48 48 48 48 48 48 48 49 49 49 49 49 49 49 50\
+50 50 50 50 50 50 51 51 51 51 51 51 51 52 52 52 52 52}}
+
+###############################################################################
+
+runTest {test clock-1.12 {format weekday number zero-to-six} -body {
+  set formats [list %w]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [clock format $i -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -result {5 1 6 2 4 6 1 4 6 2 5 6 5 2 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3\
+4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1\
+2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6\
+0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4\
+5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2\
+3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0\
+1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5\
+6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3\
+4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1\
+2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5 6 0 1 2 3 4 5}}
+
+###############################################################################
+
+runTest {test clock-1.13 {format week-of-year (Monday is first day)} -body {
+  set formats [list %W]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [clock format $dateTime -format $format -gmt true]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [clock format $i -format $format -gmt true]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -result {49 05 24 33 09 09 01 00 46 00 52 00 52 03 00 00 00 01 01 01 01 01 01\
+01 02 02 02 02 02 02 02 03 03 03 03 03 03 03 04 04 04 04 04 04 04 05 05 05 05\
+05 05 05 06 06 06 06 06 06 06 07 07 07 07 07 07 07 08 08 08 08 08 08 08 09 09\
+09 09 09 09 09 10 10 10 10 10 10 10 11 11 11 11 11 11 11 12 12 12 12 12 12 12\
+13 13 13 13 13 13 13 14 14 14 14 14 14 14 15 15 15 15 15 15 15 16 16 16 16 16\
+16 16 17 17 17 17 17 17 17 18 18 18 18 18 18 18 19 19 19 19 19 19 19 20 20 20\
+20 20 20 20 21 21 21 21 21 21 21 22 22 22 22 22 22 22 23 23 23 23 23 23 23 24\
+24 24 24 24 24 24 25 25 25 25 25 25 25 26 26 26 26 26 26 26 27 27 27 27 27 27\
+27 28 28 28 28 28 28 28 29 29 29 29 29 29 29 30 30 30 30 30 30 30 31 31 31 31\
+31 31 31 32 32 32 32 32 32 32 33 33 33 33 33 33 33 34 34 34 34 34 34 34 35 35\
+35 35 35 35 35 36 36 36 36 36 36 36 37 37 37 37 37 37 37 38 38 38 38 38 38 38\
+39 39 39 39 39 39 39 40 40 40 40 40 40 40 41 41 41 41 41 41 41 42 42 42 42 42\
+42 42 43 43 43 43 43 43 43 44 44 44 44 44 44 44 45 45 45 45 45 45 45 46 46 46\
+46 46 46 46 47 47 47 47 47 47 47 48 48 48 48 48 48 48 49 49 49 49 49 49 49 50\
+50 50 50 50 50 50 51 51 51 51 51 51 51 52 52 52 52 52}}
+
+###############################################################################
+
+runTest {test clock-1.14 {to boldly go where no test has gone before} -body {
+  set formats [list %Q]
+  set result [list]
+
+  foreach dateTime $dateTimes {
+    foreach format $formats {
+      lappend result [string trim [string map [list "Stardate " ""] \
+          [clock format $dateTime -format $format -gmt true]]]
+    }
+  }
+
+  for {set i $range(start)} {$i < $range(stop)} {incr i 86400} {
+    foreach format $formats {
+      lappend result [string trim [string map [list "Stardate " ""] \
+          [clock format $i -format $format -gmt true]]]
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain i format dateTime result formats
+} -constraints {tcl85Feature} -result {-45947.8 -33090.0 -13457.0 -11632.0\
+01175.0 09172.0 17016.0 24000.0 29890.0 34000.0 53997.0 54000.0 64997.0 92049.1\
+64000.0 64002.0 64005.0 64008.0 64010.0 64013.0 64016.0 64019.0 64021.0 64024.0\
+64027.0 64030.0 64032.0 64035.0 64038.0 64041.0 64043.0 64046.0 64049.0 64052.0\
+64054.0 64057.0 64060.0 64063.0 64065.0 64068.0 64071.0 64073.0 64076.0 64079.0\
+64082.0 64084.0 64087.0 64090.0 64093.0 64095.0 64098.0 64101.0 64104.0 64106.0\
+64109.0 64112.0 64115.0 64117.0 64120.0 64123.0 64126.0 64128.0 64131.0 64134.0\
+64136.0 64139.0 64142.0 64145.0 64147.0 64150.0 64153.0 64156.0 64158.0 64161.0\
+64164.0 64167.0 64169.0 64172.0 64175.0 64178.0 64180.0 64183.0 64186.0 64189.0\
+64191.0 64194.0 64197.0 64200.0 64202.0 64205.0 64208.0 64210.0 64213.0 64216.0\
+64219.0 64221.0 64224.0 64227.0 64230.0 64232.0 64235.0 64238.0 64241.0 64243.0\
+64246.0 64249.0 64252.0 64254.0 64257.0 64260.0 64263.0 64265.0 64268.0 64271.0\
+64273.0 64276.0 64279.0 64282.0 64284.0 64287.0 64290.0 64293.0 64295.0 64298.0\
+64301.0 64304.0 64306.0 64309.0 64312.0 64315.0 64317.0 64320.0 64323.0 64326.0\
+64328.0 64331.0 64334.0 64336.0 64339.0 64342.0 64345.0 64347.0 64350.0 64353.0\
+64356.0 64358.0 64361.0 64364.0 64367.0 64369.0 64372.0 64375.0 64378.0 64380.0\
+64383.0 64386.0 64389.0 64391.0 64394.0 64397.0 64400.0 64402.0 64405.0 64408.0\
+64410.0 64413.0 64416.0 64419.0 64421.0 64424.0 64427.0 64430.0 64432.0 64435.0\
+64438.0 64441.0 64443.0 64446.0 64449.0 64452.0 64454.0 64457.0 64460.0 64463.0\
+64465.0 64468.0 64471.0 64473.0 64476.0 64479.0 64482.0 64484.0 64487.0 64490.0\
+64493.0 64495.0 64498.0 64501.0 64504.0 64506.0 64509.0 64512.0 64515.0 64517.0\
+64520.0 64523.0 64526.0 64528.0 64531.0 64534.0 64536.0 64539.0 64542.0 64545.0\
+64547.0 64550.0 64553.0 64556.0 64558.0 64561.0 64564.0 64567.0 64569.0 64572.0\
+64575.0 64578.0 64580.0 64583.0 64586.0 64589.0 64591.0 64594.0 64597.0 64600.0\
+64602.0 64605.0 64608.0 64610.0 64613.0 64616.0 64619.0 64621.0 64624.0 64627.0\
+64630.0 64632.0 64635.0 64638.0 64641.0 64643.0 64646.0 64649.0 64652.0 64654.0\
+64657.0 64660.0 64663.0 64665.0 64668.0 64671.0 64673.0 64676.0 64679.0 64682.0\
+64684.0 64687.0 64690.0 64693.0 64695.0 64698.0 64701.0 64704.0 64706.0 64709.0\
+64712.0 64715.0 64717.0 64720.0 64723.0 64726.0 64728.0 64731.0 64734.0 64736.0\
+64739.0 64742.0 64745.0 64747.0 64750.0 64753.0 64756.0 64758.0 64761.0 64764.0\
+64767.0 64769.0 64772.0 64775.0 64778.0 64780.0 64783.0 64786.0 64789.0 64791.0\
+64794.0 64797.0 64800.0 64802.0 64805.0 64808.0 64810.0 64813.0 64816.0 64819.0\
+64821.0 64824.0 64827.0 64830.0 64832.0 64835.0 64838.0 64841.0 64843.0 64846.0\
+64849.0 64852.0 64854.0 64857.0 64860.0 64863.0 64865.0 64868.0 64871.0 64873.0\
+64876.0 64879.0 64882.0 64884.0 64887.0 64890.0 64893.0 64895.0 64898.0 64901.0\
+64904.0 64906.0 64909.0 64912.0 64915.0 64917.0 64920.0 64923.0 64926.0 64928.0\
+64931.0 64934.0 64936.0 64939.0 64942.0 64945.0 64947.0 64950.0 64953.0 64956.0\
+64958.0 64961.0 64964.0 64967.0 64969.0 64972.0 64975.0 64978.0 64980.0 64983.0\
+64986.0 64989.0 64991.0 64994.0 64997.0}}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  set savedDateTimeFormat [object invoke Interpreter.GetActive DateTimeFormat]
+  object invoke Interpreter.GetActive DateTimeFormat null
+  set savedDateTimeKind [object invoke Interpreter.GetActive DateTimeKind]
+  object invoke Interpreter.GetActive DateTimeKind Utc
+}
+
+###############################################################################
+
+runTest {test clock-1.15 {check date strings with [clock isvalid]} -body {
+  list [clock isvalid ""] \
+      [clock isvalid -1] \
+      [clock isvalid 0] \
+      [clock isvalid 1] \
+      [clock isvalid 1/1/10] \
+      [clock isvalid 1/1/80] \
+      [clock isvalid 1/1/1980] \
+      [clock isvalid "01/01/1980 00:00:00"] \
+      [clock isvalid "01/01/1980 23:59:59"] \
+      [clock isvalid "01/01/1980 12:59:59am"] \
+      [clock isvalid "01/01/1980 12:59:59pm"] \
+      [clock isvalid 99/01/1980] \
+      [clock isvalid 01/01/9999] \
+      [clock isvalid 01/01/100] \
+      [clock isvalid "01/01/2000 24:00:00"] \
+      [clock isvalid "01/01/2000 23:00:00pm"] \
+      [clock isvalid 1980.01.01T23:59:59.000]
+} -constraints [fixConstraints {eagle command.object !mono20 !mono22 !mono24}] \
+-result {False False True True True True True True True True True False True\
+True False True True}}
+
+###############################################################################
+
+runTest {test clock-1.16 {check date strings with [string is]} -body {
+  list [string is datetime -strict ""] \
+      [string is datetime ""] \
+      [string is datetime -1] \
+      [string is datetime 0] \
+      [string is datetime 1] \
+      [string is datetime 1/1/10] \
+      [string is datetime 1/1/80] \
+      [string is datetime 1/1/1980] \
+      [string is datetime "01/01/1980 00:00:00"] \
+      [string is datetime "01/01/1980 23:59:59"] \
+      [string is datetime "01/01/1980 12:59:59am"] \
+      [string is datetime "01/01/1980 12:59:59pm"] \
+      [string is datetime 99/01/1980] \
+      [string is datetime 01/01/9999] \
+      [string is datetime 01/01/100] \
+      [string is datetime "01/01/2000 24:00:00"] \
+      [string is datetime "01/01/2000 23:00:00pm"] \
+      [string is datetime 1980.01.01T23:59:59.000]
+} -constraints [fixConstraints {eagle command.object !mono20 !mono22 !mono24}] \
+-result {False True False False False True True True True True True True False\
+True True False True True}}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  object invoke Interpreter.GetActive DateTimeKind $savedDateTimeKind
+  object invoke Interpreter.GetActive DateTimeFormat $savedDateTimeFormat
+  unset -nocomplain savedDateTimeKind savedDateTimeFormat
+}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test does not work on Mono due to a bug parsing TimeSpan
+#       strings, which is still present as of version 3.10.0.
+#
+runTest {test clock-1.17 {check time-span strings with [string is]} -body {
+  list [string is timespan -strict ""] \
+      [string is timespan ""] \
+      [string is timespan -1] \
+      [string is timespan 0] \
+      [string is timespan 1] \
+      [string is timespan -1.00:00] \
+      [string is timespan 1.00:00] \
+      [string is timespan -1.00:00:00] \
+      [string is timespan 1.00:00:00] \
+      [string is timespan -1.00:00:00.00] \
+      [string is timespan 1.00:00:00.00] \
+      [string is timespan -01:00:00] \
+      [string is timespan 01:00:00] \
+      [string is timespan -01:00:00.00] \
+      [string is timespan 01:00:00.00] \
+      [string is timespan 001:00.00] \
+      [string is timespan 01:000.00] \
+      [string is timespan 01:00.000]
+} -constraints [fixConstraints {eagle !mono28 !mono210 !mono211 !mono30 !mono33\
+!mono34 !mono35 !mono36 !mono38 !mono310 !mono312}] -result {False True True\
+True True True True True True True True True True True True False False False}}
+
+###############################################################################
+
+runTest {test clock-1.18 {verify the epoch} -body {
+  set ::eagle_platform(epoch)
+} -constraints {eagle monoBug211} -result {1970.01.01T00:00:00.000 +0000}}
+
+###############################################################################
+
+unset range dateTimes
+
+###############################################################################
+
+runTest {test clock-4.2 {clock scan tests} -body {
+  list [catch {clock scan "bad-string"} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {tcl84} -result \
+{1 {unable to convert date-time string "bad-string"}}}
+
+###############################################################################
+
+runTest {test clock-4.3 {clock scan tests} {
+  clock format [clock scan "14 Feb 92" -gmt true] -format \
+      "%m/%d/%y %I:%M:%S %p" -gmt true
+} "02/14/92 12:00:00 AM"}
+
+###############################################################################
+
+runTest {test clock-4.4 {clock scan tests} {
+  clock format [clock scan "Feb 14, 1992 12:20 PM" -gmt true] -format \
+      "%m/%d/%y %I:%M:%S %p" -gmt true
+} "02/14/92 12:20:00 PM"}
+
+###############################################################################
+
+runTest {test clock-4.5 {clock scan tests} {
+  clock format [clock scan "Feb 14, 1992 12:20 PM" -base 319363200 -gmt true] \
+      -format "%m/%d/%y %I:%M:%S %p" -gmt true
+} "02/14/92 12:20:00 PM"}
+
+###############################################################################
+
+runTest {test clock-4.6 {clock scan tests} {
+  clock format [clock scan "Oct 23,1992 15:00"] -format "%b %d,%Y %H:%M"
+} "Oct 23,1992 15:00"}
+
+###############################################################################
+
+runTest {test clock-4.7 {clock scan tests} {
+  clock format [clock scan "Oct 23,1992 15:00 GMT"] -format \
+      "%b %d,%Y %H:%M GMT" -gmt true
+} "Oct 23,1992 15:00 GMT"}
+
+###############################################################################
+
+runTest {test clock-4.8 {clock scan tests} {
+  clock format [clock scan "Oct 23,1992 15:00" -gmt true] -format \
+      "%b %d,%Y %H:%M GMT" -gmt true
+} "Oct 23,1992 15:00 GMT"}
+
+###############################################################################
+
+runTest {test clock-4.10 {clock scan tests} {
+  clock format [clock scan "1/1/71" -gmt true] -format \
+      "%b %d,%Y %H:%M GMT" -gmt true
+} "Jan 01,1971 00:00 GMT"}
+
+###############################################################################
+
+runTest {test clock-4.14 {clock scan, ISO 8601 expanded date format} {
+  clock format [clock scan "1992-10-23"] -format "%b %d, %Y"
+} "Oct 23, 1992"}
+
+###############################################################################
+
+runTest {test clock-4.15 {clock scan, DD-Mon-YYYY format} {
+  clock format [clock scan "23-Oct-1992"] -format "%b %d, %Y"
+} "Oct 23, 1992"}
+
+###############################################################################
+
+runTest {test clock-4.30 {clock scan, number/number} {
+  clock format [clock scan "1/1/1999" -gmt true -base 946627200] -format \
+      "%b %d, %Y %H:%M:%S" -gmt true
+} "Jan 01, 1999 00:00:00"}
+
+###############################################################################
+
+runTest {test clock-19.69 {clock scan, connected} -body {
+  set dateTimeFormat yyyy-MM-ddTHH:mm:ssK
+
+  set dateTime [object invoke \
+      -create DateTime ParseExact 1969-10-30T05:30:00Z \
+      $dateTimeFormat null AdjustToUniversal]
+
+  set dateTime [object invoke \
+      -create -alias DateTime SpecifyKind $dateTime Utc]
+
+  list [$dateTime Kind] [$dateTime Ticks] \
+      [object invoke $dateTime ToString $dateTimeFormat]
+} -cleanup {
+  unset -nocomplain dateTime dateTimeFormat
+} -constraints {eagle monoBug30} -result \
+{Utc 621301734000000000 1969-10-30T05:30:00Z}}
+
+###############################################################################
+
+runTest {test clock-19.85 {clock scan, present future in the past} -body {
+  list [set second [clock scan "OCT 21 2015 11:29 PM +0000"]] \
+      [clock format $second -gmt true -iso] \
+      [set second [clock scan "OCT 22, 2015 02:28 AM +0000"]] \
+      [clock format $second -gmt true -iso]
+} -cleanup {
+  unset -nocomplain second
+} -constraints {eagle monoBug312} -result \
+{1445470140 2015.10.21T23:29:00.000 1445480880 2015.10.22T02:28:00.000}}
+
+###############################################################################
+
+rename restorePrecision ""
+rename saveAndResetPrecision ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

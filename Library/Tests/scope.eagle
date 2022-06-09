@@ -1,0 +1,391 @@
+###############################################################################
+#
+# scope.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test scope-6.1 {clone/upvar/incr inside proc} -setup {
+  proc foo { name a } {
+    set c 9
+    scope create -open -clone -args $name
+    if {![info exists b]} then {upvar 2 $a b}; # caller of proc foo
+    incr b $c
+    return [list [info level] [info level [info level]] $b]
+    # scope close; # always implied
+  }
+} -body {
+  set s foo
+  if {![info exists i]} then {set i 0}
+  list [foo $s i] [foo $s i] [foo $s i]
+} -cleanup {
+  catch {scope destroy $s}
+  unset -nocomplain s i
+  rename foo ""
+} -constraints {eagle} -result {{2 {foo foo i} 9} {2 {foo foo i} 18}\
+{2 {foo foo i} 27}}}
+
+###############################################################################
+
+runTest {test scope-6.2 {create -open -procedure} -setup {
+  proc foo { varName } {
+    set ::scope [scope create -open -procedure -args]
+    upvar 0 $varName myVar
+    if {[info exists myVar]} then {
+      incr myVar
+    } else {
+      set myVar 0
+    }
+    return $myVar
+    # scope close; # always implied
+  }
+} -body {
+  list [foo x] [foo y(1)] [foo x] [foo y(1)]
+} -cleanup {
+  catch {scope destroy $::scope}
+  unset -nocomplain ::scope
+  rename foo ""
+} -constraints {eagle} -result {0 0 1 1}}
+
+###############################################################################
+
+runTest {test scope-6.3 {create/open -procedure} -setup {
+  proc foo { varName } {
+    if {[info exists ::scope] && [scope exists $::scope]} then {
+      scope open -procedure -args
+      set type open
+    } else {
+      set ::scope [scope create -open -procedure -args]
+      set type create
+    }
+    upvar 0 $varName myVar
+    if {[info exists myVar]} then {
+      incr myVar
+    } else {
+      set myVar 0
+    }
+    return [list $type $myVar]
+    # scope close; # always implied
+  }
+} -body {
+  list [foo x] [foo y(1)] [foo x] [foo y(1)]
+} -cleanup {
+  catch {scope destroy $::scope}
+  unset -nocomplain ::scope
+  rename foo ""
+} -constraints {eagle} -result {{create 0} {open 0} {open 1} {open 1}}}
+
+###############################################################################
+
+runTest {test scope-6.4 {create -procedure error (no proc frame)} -body {
+  scope create -open -procedure -args
+} -constraints {eagle} -returnCodes 1 -result {no procedure frame available}}
+
+###############################################################################
+
+runTest {test scope-6.5 {open -procedure error (no procedure frame)} -body {
+  scope open -procedure -args
+} -constraints {eagle} -returnCodes 1 -result {no procedure frame available}}
+
+###############################################################################
+
+runTest {test scope-6.6 {create -procedure error (cannot use name)} -body {
+  scope create -open -procedure -args foobar
+} -constraints {eagle} -returnCodes 1 -result \
+{cannot specify scope name with -procedure}}
+
+###############################################################################
+
+runTest {test scope-6.7 {open -procedure error (cannot use name)} -body {
+  scope open -procedure -args foobar
+} -constraints {eagle} -returnCodes 1 -result \
+{cannot specify scope name with -procedure}}
+
+###############################################################################
+
+runTest {test scope-6.8 {create/destroy while open} -setup {
+  proc foo {} {
+    scope create -open foo; scope destroy foo
+  }
+} -body {
+  foo
+} -cleanup {
+  catch {scope destroy foo}
+  rename foo ""
+} -constraints {eagle} -result {}}
+
+###############################################################################
+
+runTest {test scope-6.9 {nested create ok} -setup {
+  proc foo {} {
+    set ::scope [scope create -open -procedure]; scope create -open foo
+  }
+} -body {
+  foo
+} -cleanup {
+  catch {scope destroy foo}
+  catch {scope destroy $::scope}
+  unset -nocomplain ::scope
+  rename foo ""
+} -constraints {eagle} -result {foo}}
+
+###############################################################################
+
+runTest {test scope-6.10 {nested create error (not procedure frame)} -setup {
+  proc foo {} {
+    scope create -open foo; set ::scope [scope create -open -procedure]
+  }
+} -body {
+  foo
+} -cleanup {
+  catch {scope destroy foo}
+  catch {scope destroy $::scope}
+  unset -nocomplain ::scope
+  rename foo ""
+} -constraints {eagle} -returnCodes 1 -result {no procedure frame available}}
+
+###############################################################################
+
+runTest {test scope-6.11 {scope eval call frame management} -setup {
+  proc foo {} {
+    return [info level]
+  }
+} -body {
+  scope create foo
+
+  set a [scope eval foo foo]; set b [scope eval foo foo]
+
+  list $a $b [info level] [expr {$a == $b}]
+} -cleanup {
+  catch {scope destroy foo}
+  rename foo ""
+  unset -nocomplain a b
+} -constraints {eagle} -match regexp -result {^\d+ \d+ 0 True$}}
+
+###############################################################################
+
+runTest {test scope-9.1 {single scope impact on info level} -body {
+  list [info level] [scope create -open foo] [info level]
+} -cleanup {
+  catch {scope destroy foo}
+} -constraints {eagle} -result {0 foo 1}}
+
+###############################################################################
+
+runTest {test scope-9.2 {nested scope impact on info level} -body {
+  list [info level] [scope create -open foo] [info level] [scope open foo] \
+      [info level]
+} -cleanup {
+  catch {scope destroy foo}
+} -constraints {eagle} -result {0 foo 1 {} 2}}
+
+###############################################################################
+
+runTest {test scope-9.3 {nested scope close with info level} -body {
+  list [info level] [scope create -open foo] [info level] [scope open foo] \
+      [info level] [scope close] [info level] [scope close] [info level]
+} -cleanup {
+  catch {scope destroy foo}
+} -constraints {eagle} -result {0 foo 1 {} 2 foo 1 foo 0}}
+
+###############################################################################
+
+runTest {test scope-9.4 {nested scope close with -all} -body {
+  list [info level] [scope create -open foo] [info level] [scope open foo] \
+      [info level] [scope close -all] [info level]
+} -cleanup {
+  catch {scope destroy foo}
+} -constraints {eagle} -result {0 foo 1 {} 2 foo 0}}
+
+###############################################################################
+
+runTest {test scope-9.5 {scope destroy current with objects} -body {
+  list [llength [info objects]] [scope create -open foo] \
+      [set x [object create Object]] [scope destroy foo] \
+      [llength [info objects]]
+} -cleanup {
+  catch {scope destroy foo}
+} -constraints {eagle command.object referenceCounts} -match regexp -result \
+{^1 foo System#Object#\d+ \{\} 1$}}
+
+###############################################################################
+
+runTest {test scope-10.1 {scope global} -setup {
+  set interp [interp create]
+} -body {
+  set script {
+    set code [catch {
+      interp eval $interp {
+        list [scope current] [scope global] \
+            [expr {[llength [info vars]] == 1}] \
+            [expr {[llength [info vars]] > 1}]
+      }
+    } result]
+  }
+
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope global foo}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope global -unset foo}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope global -unset}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope create -open foo}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {set x 1}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope global foo}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope global -unset}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope close -all}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope open foo}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope global foo}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+
+  set code [catch {
+    interp eval $interp {scope destroy foo}
+  } result]
+
+  lappend results $code $result
+  eval $script; lappend results $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain results result code script interp
+} -constraints {eagle} -result {0 {{} {} False True} 1 {scope "foo" not found}\
+0 {{} {} False True} 1 {cannot specify scope name with -unset option} 0 {{} {}\
+False True} 1 {global scope call frame not set} 0 {{} {} False True} 0 foo 0\
+{foo {} False False} 0 1 0 {foo {} True False} 0 foo 0 {{} foo True False} 0 {}\
+0 {foo {} True False} 0 foo 0 {{} {} False True} 0 {} 0 {foo {} True False} 0\
+foo 0 {{} foo True False} 0 {} 0 {{} {} False True}}}
+
+###############################################################################
+
+runTest {test scope-11.1 {scope create -clone frames w/namespace} -setup {
+  set interp [interp create -namespaces]
+} -body {
+  interp eval $interp {
+    namespace eval ::bar {
+      variable some1 11111
+      set ::s [scope create -clone -open]
+      set some1 22222
+    }
+
+    list [set ::bar::some1] [scope set $::s some1] \
+        [set ::bar::some1 99999] [scope set $::s some1]
+  }
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain interp
+} -constraints {eagle namespaces.available} -result {11111 22222 99999 22222}}
+
+###############################################################################
+
+runTest {test scope-12.1 {scope create -clone versus scope update} -setup {
+  set interp [interp create]
+} -body {
+  interp eval $interp {
+    proc scopeTest1 { z } {
+      set a 123; scope create -clone abc
+    }
+
+    proc scopeTest2 { z } {
+      set b 123; scope create -open -clone def
+    }
+
+    proc scopeTest3 { z } {
+      set c 123; scope create -clone ghi; scope update ghi
+    }
+
+    proc scopeTest4 { z } {
+      set d 123; scope create -open -clone jkl; scope update
+    }
+
+    scopeTest1 12; scopeTest1 21
+    scopeTest2 34; scopeTest2 43
+    scopeTest3 56; scopeTest3 65
+    scopeTest4 78; scopeTest4 87
+
+    list [lsort [scope vars abc]] [lsort [scope vars def]] \
+        [lsort [scope vars ghi]] [lsort [scope vars jkl]] \
+        [scope set abc a] [scope set abc z] \
+        [scope set def b] [scope set def z] \
+        [scope set ghi c] [scope set ghi z] \
+        [scope set jkl d] [scope set jkl z]
+  }
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain interp
+} -constraints {eagle} -result \
+{{a z} {b z} {c z} {d z} 123 12 123 34 123 65 123 87}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,528 @@
+###############################################################################
+#
+# apply.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+if {![info exists shortWrongNumArgs]} then {
+  #
+  # HACK: I think Tcl gets (got?) this wrong; however, I cannot prove
+  #       it.  Meanwhile, Eagle is never going to output the entire
+  #       lambda expression inline into the error message (primarily
+  #       because it could be arbitrarily large).
+  #
+  if {[isEagle]} then {
+    set shortWrongNumArgs true
+  } else {
+    # set shortWrongNumArgs false
+    set shortWrongNumArgs true
+  }
+}
+
+###############################################################################
+
+if {$shortWrongNumArgs} then {
+  set wrongNumArgs {wrong # args: should be "apply lambdaExpr a ?arg ...?"}
+} else {
+  set wrongNumArgs {wrong # args: should be\
+"apply {{a args} { return "$a, $args" }} a ?arg ...?"}
+}
+
+###############################################################################
+
+runTest {test apply-1.1 {apply formal arg plus args} -setup {
+  set lambda [list [list a args] {
+    return "$a, $args"
+  }]
+} -body {
+  catch {apply $lambda} error
+  list [apply $lambda 1 2 3] [apply $lambda 1 2] [apply $lambda 1] $error
+} -cleanup {
+  unset lambda error
+} -constraints {tip194 tcl86Feature} -result \
+[list {1, 2 3} {1, 2} {1, } $wrongNumArgs]}
+
+unset wrongNumArgs
+
+###############################################################################
+
+runTest {test apply-1.2 {apply args} -setup {
+  set lambda2 [list [list args] { return $args }]
+} -body {
+  list [apply $lambda2] [apply $lambda2 1] [apply $lambda2 1 2] \
+      [apply $lambda2 1 2 3]
+} -cleanup {
+  unset lambda2
+} -constraints {tip194} -result {{} 1 {1 2} {1 2 3}}}
+
+###############################################################################
+
+runTest {test apply-1.3 {apply with scope} -setup {
+  set lambda3 [list [list name args] {
+    scope create -open -args $name
+
+    if {![info exists sum]} then {
+      set sum 0
+    }
+
+    if {[llength $args] > 0} then {
+      incr sum [expr [list [join $args +]]]
+    }
+
+    return $sum
+  }]
+} -body {
+  list [apply $lambda3 test1] [apply $lambda3 test1 1] \
+      [apply $lambda3 test1 1 2] [apply $lambda3 test1 1 2 3]
+} -cleanup {
+  catch {scope destroy test1}
+  unset lambda3
+} -constraints {eagle tip194} -result {0 1 4 10}}
+
+###############################################################################
+
+runTest {test apply-1.4 {apply with scope -procedure} -setup {
+  set lambda4 [list [list args] {
+    set ::scope [scope create -open -args -procedure]
+
+    if {![info exists sum]} then {
+      set sum 0
+    }
+
+    if {[llength $args] > 0} then {
+      incr sum [expr [list [join $args +]]]
+    }
+
+    return $sum
+  }]
+} -body {
+  list [apply $lambda4] [apply $lambda4 1] \
+      [apply $lambda4 1 2] [apply $lambda4 1 2 3]
+} -cleanup {
+  catch {scope destroy $::scope}
+  unset -nocomplain ::scope
+  unset lambda4
+} -constraints {eagle tip194} -result {0 1 4 10}}
+
+###############################################################################
+
+runTest {test apply-1.5 {apply with scope -procedure -shared} -setup {
+  set lambda5 [list [list args] {
+    set ::scope [scope create -open -args -procedure -shared]
+
+    if {![info exists sum]} then {
+      set sum 0
+    }
+
+    if {[llength $args] > 0} then {
+      incr sum [expr [list [join $args +]]]
+    }
+
+    return $sum
+  }]
+} -body {
+  list [apply $lambda5] [apply $lambda5 1] \
+      [apply $lambda5 1 2] [apply $lambda5 1 2 3]
+} -cleanup {
+  catch {scope destroy $::scope}
+  unset -nocomplain ::scope
+  unset lambda5
+} -constraints {eagle tip194} -result {0 1 4 10}}
+
+###############################################################################
+
+runTest {test apply-1.6 {apply with scope -procedure} -setup {
+  set lambda6_1 [list [list args] {
+    set ::scope(1) [scope create -open -args -procedure]
+
+    if {![info exists sum]} then {
+      set sum 0
+    }
+
+    if {[llength $args] > 0} then {
+      incr sum [expr [list [join $args +]]]
+    }
+
+    return $sum
+  }]
+
+  set lambda6_2 [list [list args] {
+    # NOTE: This comment makes this lambda "different" from "lambda6_1".
+    set ::scope(2) [scope create -open -args -procedure]
+
+    if {![info exists sum]} then {
+      set sum 0
+    }
+
+    if {[llength $args] > 0} then {
+      incr sum [expr [list [join $args +]]]
+    }
+
+    return $sum
+  }]
+} -body {
+  list [apply $lambda6_1] [apply $lambda6_1 1] \
+      [apply $lambda6_1 1 2] [apply $lambda6_1 1 2 3] \
+      [apply $lambda6_2] [apply $lambda6_2 1] \
+      [apply $lambda6_2 1 2] [apply $lambda6_2 1 2 3]
+} -cleanup {
+  catch {scope destroy $::scope(2)}
+  catch {scope destroy $::scope(1)}
+  unset -nocomplain ::scope
+  unset lambda6_1 lambda6_2
+} -constraints {eagle tip194} -result {0 1 4 10 0 1 4 10}}
+
+###############################################################################
+
+runTest {test apply-1.7 {apply with scope -procedure -shared} -setup {
+  set lambda7_1 [list [list args] {
+    set ::scope(1) [scope create -open -args -procedure -shared]
+
+    if {![info exists sum]} then {
+      set sum 0
+    }
+
+    if {[llength $args] > 0} then {
+      incr sum [expr [list [join $args +]]]
+    }
+
+    return $sum
+  }]
+
+  set lambda7_2 [list [list args] {
+    # NOTE: This comment makes this lambda "different" from "lambda7_1".
+    set ::scope(2) [scope create -open -args -procedure -shared]
+
+    if {![info exists sum]} then {
+      set sum 0
+    }
+
+    if {[llength $args] > 0} then {
+      incr sum [expr [list [join $args +]]]
+    }
+
+    return $sum
+  }]
+} -body {
+  list [apply $lambda7_1] [apply $lambda7_1 1] \
+      [apply $lambda7_1 1 2] [apply $lambda7_1 1 2 3] \
+      [apply $lambda7_2] [apply $lambda7_2 1] \
+      [apply $lambda7_2 1 2] [apply $lambda7_2 1 2 3]
+} -cleanup {
+  catch {scope destroy $::scope(2)}
+  catch {scope destroy $::scope(1)}
+  unset -nocomplain ::scope
+  unset lambda7_1 lambda7_2
+} -constraints {eagle tip194} -result {0 1 4 10 0 1 4 10}}
+
+###############################################################################
+
+runTest {test apply-1.8 {apply with info level} -setup {
+  set lambda6 [list [list args] { return [info level [info level]] }]
+} -body {
+  list [apply $lambda6] [apply $lambda6 1] \
+      [apply $lambda6 1 2] [apply $lambda6 1 2 3]
+} -cleanup {
+  unset lambda6
+} -constraints {tip194} -result {{apply {args { return [info level\
+[info level]] }}} {apply {args { return [info level [info level]] }} 1} {apply\
+{args { return [info level [info level]] }} 1 2} {apply {args { return [info\
+level [info level]] }} 1 2 3}}}
+
+###############################################################################
+
+runTest {test apply-2.1 {apply with filter} -setup {
+  set lambda [list [list i] {
+    return [expr {$i eq "a"}]
+  }]
+} -body {
+  filter [list a b c] {apply $lambda}
+} -cleanup {
+  unset lambda
+} -constraints {tip194} -result {a}}
+
+###############################################################################
+
+runTest {test apply-2.2 {apply with map} -setup {
+  set lambda [list [list i] {
+    return [string toupper $i]
+  }]
+} -body {
+  map [list a b c] {apply $lambda}
+} -cleanup {
+  unset lambda
+} -constraints {tip194} -result {A B C}}
+
+###############################################################################
+
+runTest {test apply-2.3 {apply with reduce} -setup {
+  set lambda [list [list res i] {
+    return [concat $res \{ $i \}]
+  }]
+} -body {
+  reduce [list a b c] {apply $lambda}
+} -cleanup {
+  unset lambda
+} -constraints {tip194} -result {{ a } { b } { c }}}
+
+###############################################################################
+
+if {$shortWrongNumArgs} then {
+  set wrongNumArgs {wrong # args: should be "apply lambdaExpr a ?b?"}
+} else {
+  set wrongNumArgs {wrong # args: should be\
+"apply {{a {b 2}} { return "$a, $b" }} a ?b?"}
+}
+
+###############################################################################
+
+runTest {test apply-2.4 {apply with optional args} -setup {
+  set lambda [list [list a {b 2}] {
+    return "$a, $b"
+  }]
+} -body {
+  catch {apply $lambda} error
+  list [apply $lambda 1 2] [apply $lambda 1] $error
+} -cleanup {
+  unset lambda error
+} -constraints {tip194 tcl86Feature} -result \
+[list {1, 2} {1, 2} $wrongNumArgs]}
+
+###############################################################################
+
+unset wrongNumArgs
+
+###############################################################################
+
+if {$shortWrongNumArgs} then {
+  set wrongNumArgs {wrong # args: should be "apply lambdaExpr a ?b? ?c?"}
+} else {
+  set wrongNumArgs {wrong # args: should be\
+"apply {{a {b 2} {c 3}} { return "$a, $b, $c" }} a ?b? ?c?"}
+}
+
+###############################################################################
+
+runTest {test apply-2.5 {apply with optional args} -setup {
+  set lambda [list [list a {b 2} {c 3}] {
+    return "$a, $b, $c"
+  }]
+} -body {
+  catch {apply $lambda} error
+  list [apply $lambda 1 2 3] [apply $lambda 1 2] [apply $lambda 1] $error
+} -cleanup {
+  unset lambda error
+} -constraints {tip194 tcl86Feature} -result \
+[list {1, 2, 3} {1, 2, 3} {1, 2, 3} $wrongNumArgs]}
+
+###############################################################################
+
+unset wrongNumArgs
+
+###############################################################################
+
+if {$shortWrongNumArgs} then {
+  set wrongNumArgs {wrong # args: should be "apply lambdaExpr a ?b? ?arg ...?"}
+} else {
+  set wrongNumArgs {wrong # args: should be\
+"apply {{a {b 2} args} { return "$a, $b, $args" }} a ?b? ?arg ...?"}
+}
+
+###############################################################################
+
+runTest {test apply-2.6 {apply with optional and variadic args} -setup {
+  set lambda [list [list a {b 2} args] {
+    return "$a, $b, $args"
+  }]
+} -body {
+  catch {apply $lambda} error
+  list [apply $lambda 1 2 3] [apply $lambda 1 2] [apply $lambda 1] $error
+} -cleanup {
+  unset lambda error
+} -constraints {tip194 tcl86Feature} -result \
+[list {1, 2, 3} {1, 2, } {1, 2, } $wrongNumArgs]}
+
+###############################################################################
+
+unset wrongNumArgs
+
+###############################################################################
+
+if {$shortWrongNumArgs} then {
+  set wrongNumArgs {wrong # args: should be\
+"apply lambdaExpr a ?b? ?c? ?arg ...?"}
+} else {
+  set wrongNumArgs {wrong # args: should be\
+"apply {{a {b 2} {c 3} args} { return "$a, $b, $c, $args" }}\
+a ?b? ?c? ?arg ...?"}
+}
+
+###############################################################################
+
+runTest {test apply-2.7 {apply with optional and variadic args} -setup {
+  set lambda [list [list a {b 2} {c 3} args] {
+    return "$a, $b, $c, $args"
+  }]
+} -body {
+  catch {apply $lambda} error
+  list [apply $lambda 1 2 3 4] [apply $lambda 1 2 3] [apply $lambda 1 2] \
+      [apply $lambda 1] $error
+} -cleanup {
+  unset lambda error
+} -constraints {tip194 tcl86Feature} -result \
+[list {1, 2, 3, 4} {1, 2, 3, } {1, 2, 3, } {1, 2, 3, } $wrongNumArgs]}
+
+###############################################################################
+
+unset wrongNumArgs
+
+###############################################################################
+
+unset shortWrongNumArgs
+
+###############################################################################
+
+runTest {test apply-3.1 {apply with global namespace} -setup {
+  set lambda [list [list a] {
+    return [list [namespace current] $a]
+  } ::]
+} -body {
+  list [catch {apply $lambda 1} error] $error
+} -cleanup {
+  unset lambda error
+} -constraints {namespaces tip194 tcl86Feature} -result {0 {:: 1}}}
+
+###############################################################################
+
+runTest {test apply-3.2.1 {apply with bad namespace} -setup {
+  set lambda [list [list a] {
+    return [list [namespace current] $a]
+  } bad]
+} -body {
+  list [catch {apply $lambda 2} error] $error
+} -cleanup {
+  unset lambda error
+} -constraints {tcl namespaces tip194 tcl86Feature} -result \
+{1 {namespace "::bad" not found}}}
+
+###############################################################################
+
+runTest {test apply-3.2.2 {apply with bad namespace} -setup {
+  set lambda [list [list a] {
+    return [list [namespace current] $a]
+  } bad]
+} -body {
+  list [catch {apply $lambda 2} error] $error
+} -cleanup {
+  unset lambda error
+} -constraints {eagle namespaces tip194 tcl86Feature} -result \
+{1 {namespace "bad" not found in "::"}}}
+
+###############################################################################
+
+runTest {test apply-3.3 {apply with non-global namespace (success)} -setup {
+  namespace eval ::foo {}; # NOTE: Create.
+  set lambda [list [list a] {
+    return [list [namespace current] $a]
+  } foo]
+} -body {
+  list [catch {apply $lambda 3} error] $error
+} -cleanup {
+  unset lambda error
+  catch {namespace delete ::foo}
+} -constraints {namespaces tip194 tcl86Feature} -result {0 {::foo 3}}}
+
+###############################################################################
+
+runTest {test apply-3.4 {apply with non-global namespace (failure)} -setup {
+  namespace eval ::foo {variable a 2}; # NOTE: Create.
+  set lambda [list [list a] {
+    return [list [namespace current] $a [variable a] $a]
+  } foo]
+} -body {
+  list [catch {apply $lambda 3} error] $error
+} -cleanup {
+  unset lambda error
+  catch {namespace delete ::foo}
+} -constraints {namespaces tip194 tcl86Feature} -result \
+{1 {variable "a" already exists}}}
+
+###############################################################################
+
+runTest {test apply-3.5 {apply with non-global namespace and scope} -setup {
+  namespace eval ::foo {variable name bar}; # NOTE: Create.
+  set lambda3 [list [list name args] {
+    scope create -open -args $name
+
+    if {![info exists sum]} then {
+      set sum 0
+    }
+
+    if {[llength $args] > 0} then {
+      incr sum [expr [list [join $args +]]]
+    }
+
+    return [list [namespace current] [scope current] $sum]
+  } ::foo]
+} -body {
+  list [apply $lambda3 test2] [apply $lambda3 test2 4] \
+      [apply $lambda3 test2 4 5] [apply $lambda3 test2 4 5 6] \
+      [info vars ::foo::*] [set ::foo::name] [scope vars test2] \
+      [scope set test2 name]
+} -cleanup {
+  catch {scope destroy test2}
+  unset lambda3
+  catch {namespace delete ::foo}
+} -constraints {eagle tip194 namespaces} -result {{::foo test2 0} {::foo test2\
+4} {::foo test2 13} {::foo test2 28} ::foo::name bar {name args sum} test2}}
+
+###############################################################################
+
+runTest {test apply-3.6 {apply with non-global namespace and scope} -setup {
+  namespace eval ::foo {variable name bar}; # NOTE: Create.
+  namespace eval ::foo::bar {variable name splog}; # NOTE: Create.
+  set lambda3 [list [list name args] {
+    scope create -open -args $name
+
+    if {![info exists sum]} then {
+      set sum 0
+    }
+
+    if {[llength $args] > 0} then {
+      incr sum [expr [list [join $args +]]]
+    }
+
+    return [list [namespace current] [scope current] $sum \
+        [namespace eval bar {variable name; set name}] \
+        [namespace eval ::foo {variable name; set name}]]
+  } ::foo]
+} -body {
+  list [apply $lambda3 test2] [apply $lambda3 test2 4] \
+      [apply $lambda3 test2 4 5] [apply $lambda3 test2 4 5 6] \
+      [info vars ::foo::*] [info vars ::foo::bar::*] \
+      [set ::foo::name] [set ::foo::bar::name] \
+      [scope vars test2] [scope set test2 name]
+} -cleanup {
+  catch {scope destroy test2}
+  unset lambda3
+  catch {namespace delete ::foo}
+} -constraints {eagle tip194 namespaces} -result {{::foo test2 0 splog bar}\
+{::foo test2 4 splog bar} {::foo test2 13 splog bar} {::foo test2 28 splog bar}\
+::foo::name ::foo::bar::name bar splog {name args sum} test2}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

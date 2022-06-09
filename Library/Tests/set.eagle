@@ -1,0 +1,244 @@
+###############################################################################
+#
+# set.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test set-1.1 {set variable value} -setup {
+  unset -nocomplain a
+} -body {
+  set a 1
+} -cleanup {
+  unset a
+} -result {1}}
+
+###############################################################################
+
+runTest {test set-1.2 {set variable value} -setup {
+  unset -nocomplain {foo bar}
+} -body {
+  set foo bar 1
+} -returnCodes 1 -result {wrong # args: should be "set varName ?newValue?"}}
+
+###############################################################################
+
+runTest {test set-1.3 {set variable value} -setup {
+  unset -nocomplain {foo bar}
+} -body {
+  set {foo bar} 1
+} -cleanup {
+  unset {foo bar}
+} -result {1}}
+
+###############################################################################
+
+#
+# HACK: *MONO* Performance counters seem to always return zero when running
+#       on Mono.
+#
+if {[isEagle] && ![isMono] && ![isDotNetCore] && \
+    [llength [info commands object]] > 0} then {
+  proc showCounters {} {
+    if {[info exists ::counter]} then {
+      foreach name [array names ::counter] {
+        set counterName [$::counter($name) CounterName]
+        set counterValue [$::counter($name) RawValue]
+
+        tputs $::test_channel [appendArgs \
+            "---- performance counter (" $name "): \"" \
+            $counterName "\" = " $counterValue \n]
+      }
+    }
+  }
+
+  unset -nocomplain counter
+
+  set counter(1) [object create -alias \
+      System.Diagnostics.PerformanceCounter Process \
+      "Working Set" [file rootname [file tail $bin_file]]]
+
+  set counter(2) [object create -alias \
+      System.Diagnostics.PerformanceCounter Process \
+      "Working Set Peak" [file rootname [file tail $bin_file]]]
+
+  set counter(3) [object create -alias \
+      System.Diagnostics.PerformanceCounter Process \
+      "Private Bytes" [file rootname [file tail $bin_file]]]
+}
+
+###############################################################################
+
+#
+# NOTE: *MONO* This test was apparently passing on Mono between versions
+#       2.4 to 4.4; however, as of 4.6 it is now failing.
+#
+# HACK: May crash on .NET Core when running on non-Windows.
+#
+runTest {test set-1.4 {big set, out-of-memory, global} -setup {
+  unset -nocomplain x
+} -body {
+  set x(0) 123
+  set x(1) $x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)
+  set x(2) $x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)
+  set x(3) $x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)
+  set x(4) $x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)
+  set x(5) $x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)
+  set x(6) $x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)
+  set x(7) $x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)
+  set x(8) $x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)
+  set x(9) $x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)
+} -cleanup {
+  if {[isEagle]} then {
+    unset -nocomplain -purge -- x; debug collect
+  } else {
+    unset -nocomplain x
+  }
+
+  if {[llength [info commands showCounters]] > 0} then {showCounters}
+} -constraints {eagle memoryIntensive monoBug46 tclCrash} \
+-constraintExpression {[haveConstraint windows] || \
+![haveConstraint dotNetCore]} -returnCodes 1 -match regexp -result \
+[appendArgs {^(?:.*: )?(?:System\.OutOfMemoryException} \
+{|Eagle\._Components\.Public\.ScriptEngineException): .*$}]}
+
+###############################################################################
+
+#
+# NOTE: *MONO* This test was apparently passing on Mono between versions
+#       2.4 to 4.4; however, as of 4.6 it is now failing.
+#
+# HACK: May crash on .NET Core when running on non-Windows.
+#
+runTest {test set-1.5 {big set, out-of-memory, procedure} -setup {
+  proc bigSet {} {
+    set x(0) 123
+    set x(1) $x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)
+    set x(2) $x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)
+    set x(3) $x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)
+    set x(4) $x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)
+    set x(5) $x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)
+    set x(6) $x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)
+    set x(7) $x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)
+    set x(8) $x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)
+    set x(9) $x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)
+  }
+} -body {
+  bigSet
+} -cleanup {
+  if {[isEagle]} then {
+    debug collect
+  }
+
+  rename bigSet ""
+
+  if {[llength [info commands showCounters]] > 0} then {showCounters}
+} -constraints {eagle memoryIntensive monoBug46 tclCrash} \
+-constraintExpression {[haveConstraint windows] || \
+![haveConstraint dotNetCore]} -returnCodes 1 -match regexp -result \
+[appendArgs {^(?:.*: )?(?:System\.OutOfMemoryException} \
+{|Eagle\._Components\.Public\.ScriptEngineException): .*$}]}
+
+###############################################################################
+
+#
+# HACK: May crash on .NET Core when running on non-Windows.
+#
+runTest {test set-1.6 {big set, out-of-memory, nested procedures} -setup {
+  proc bigSet1 {} {
+    set x 2
+    catch {bigSet2} y
+    return [expr {$x * $y}]
+  }
+
+  proc bigSet2 {} {
+    set x 4
+    catch {bigSet3}
+    return $x
+  }
+
+  proc bigSet3 {} {
+    set x(0) 123
+    set x(1) $x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)$x(0)
+    set x(2) $x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)$x(1)
+    set x(3) $x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)$x(2)
+    set x(4) $x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)$x(3)
+    set x(5) $x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)$x(4)
+    set x(6) $x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)$x(5)
+    set x(7) $x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)$x(6)
+    set x(8) $x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)$x(7)
+    set x(9) $x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)$x(8)
+  }
+} -body {
+  bigSet1
+} -cleanup {
+  rename bigSet3 ""
+  rename bigSet2 ""
+  rename bigSet1 ""
+
+  if {[llength [info commands showCounters]] > 0} then {showCounters}
+} -constraints {eagle memoryIntensive monoBug22 tclCrash} \
+-constraintExpression {[haveConstraint windows] || \
+![haveConstraint dotNetCore]} -result {8}}
+
+###############################################################################
+
+unset -nocomplain counter
+
+if {[llength [info commands showCounters]] > 0} then {
+  rename showCounters ""
+}
+
+###############################################################################
+
+runTest {test unset-1.1 {unset array element with -nocomplain} -setup {
+  unset -nocomplain foo
+} -body {
+  set foo(1) 1; unset -nocomplain foo(2)
+} -cleanup {
+  unset -nocomplain foo
+} -result {}}
+
+###############################################################################
+
+runTest {test unset-1.2 {no stale variable state} -setup {
+  set varName [appendArgs unset_1_2_ [string trim [clock seconds] -]]
+
+  proc myProc1 {} {
+    variable $::varName
+    lappend $::varName one
+    return [set $::varName]
+  }
+} -body {
+  list [myProc1] [unset $::varName] [myProc1]
+} -cleanup {
+  rename myProc1 ""
+
+  unset -nocomplain $::varName ::varName
+} -result {one {} one}}
+
+###############################################################################
+
+runTest {test unset-1.3 {-nocomplain for bad array element ref} -setup {
+  set foo bar
+} -body {
+  list [info exists foo] [unset -nocomplain foo(bar)] [info exists foo]
+} -cleanup {
+  catch {unset -nocomplain foo}
+} -result {1 {} 1}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

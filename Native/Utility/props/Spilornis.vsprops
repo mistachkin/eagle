@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<!--
+ *
+ * Spilornis.vsprops -
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<VisualStudioPropertySheet
+	ProjectType="Visual C++"
+	Version="8.00"
+	Name="Spilornis"
+	>
+	<UserMacro
+		Name="LINKER_VERSION"
+		Value="1.0"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="MANIFEST_VERSION"
+		Value="1.0.0.0"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="COMMON_DEFINES"
+		Value="_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;HAVE_MALLOC_H=1;USE_32BIT_SIZE_T=1"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="DEBUG_DEFINES"
+		Value=""
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="WIN32_WARNINGS"
+		Value="4100;4127"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="X64_WARNINGS"
+		Value=""
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="INCLUDE_DIRECTORIES"
+		Value="src\generic;src\win"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="LIBRARY_DIRECTORIES"
+		Value=""
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="OUTPUT_FILE"
+		Value="$(ProjectName)"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="LOG_DIRECTORY"
+		Value="$(OutDir)"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="LOG_FILE"
+		Value="$(LOG_DIRECTORY)\$(ProjectFileName).$(PlatformName)$(ConfigurationName)Build.htm"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="BASE_ADDRESS_X86"
+		Value="0x5E000000"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="BASE_ADDRESS_ARM"
+		Value="0x5E000000"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="BASE_ADDRESS_X64"
+		Value="0x5E00000000000000"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="SIGN_BUILD_COMMAND"
+		Value="CALL &quot;$(ProjectDir)Tools\signViaBuild.bat&quot; &quot;$(TargetPath)&quot; &quot;Eagle Native Utility Library (Spilornis)&quot;"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="COPY_BUILD_COMMAND_DEBUG_WIN32"
+		Value="XCOPY &quot;$(TargetDir)$(TargetName).*&quot; &quot;$(OutDir)..\..\..\Debug$(EagleConfigurationSuffix)\bin\x86\&quot; /D /E /V /I /F /H /Y"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="COPY_BUILD_COMMAND_DEBUG_ARM"
+		Value="XCOPY &quot;$(TargetDir)$(TargetName).*&quot; &quot;$(OutDir)..\..\..\Debug$(EagleConfigurationSuffix)\bin\ARM\&quot; /D /E /V /I /F /H /Y"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="COPY_BUILD_COMMAND_DEBUG_X64"
+		Value="XCOPY &quot;$(TargetDir)$(TargetName).*&quot; &quot;$(OutDir)..\..\..\Debug$(EagleConfigurationSuffix)\bin\x64\&quot; /D /E /V /I /F /H /Y"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="COPY_BUILD_COMMAND_RELEASE_WIN32"
+		Value="XCOPY &quot;$(TargetDir)$(TargetName).*&quot; &quot;$(OutDir)..\..\..\Release$(EagleConfigurationSuffix)\bin\x86\&quot; /D /E /V /I /F /H /Y"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="COPY_BUILD_COMMAND_RELEASE_ARM"
+		Value="XCOPY &quot;$(TargetDir)$(TargetName).*&quot; &quot;$(OutDir)..\..\..\Release$(EagleConfigurationSuffix)\bin\ARM\&quot; /D /E /V /I /F /H /Y"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="COPY_BUILD_COMMAND_RELEASE_X64"
+		Value="XCOPY &quot;$(TargetDir)$(TargetName).*&quot; &quot;$(OutDir)..\..\..\Release$(EagleConfigurationSuffix)\bin\x64\&quot; /D /E /V /I /F /H /Y"
+		PerformEnvironmentSet="true"
+	/>
+	<UserMacro
+		Name="TAG_BUILD_COMMAND"
+		Value="CALL &quot;$(ProjectDir)..\Common\Tools\tclshViaBuild.bat&quot; &quot;$(ProjectDir)..\Common\Tools\tagViaBuild.tcl&quot; &quot;$(ProjectDir).&quot;"
+		PerformEnvironmentSet="true"
+	/>
+</VisualStudioPropertySheet>

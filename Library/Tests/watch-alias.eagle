@@ -1,0 +1,41 @@
+###############################################################################
+#
+# watch-alias.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test debug-4.1 {watch variable creation} -setup {
+  set interp [object invoke Interpreter GetActive]
+  set interactive [object invoke $interp Interactive]
+
+  object invoke $interp Interactive false
+
+  proc foo {a} {variable b; debug watch b +BreakOnAny; set b 10}
+} -body {
+  foo 1
+} -cleanup {
+  if {[llength [info procs foo]] == 1} then {rename foo ""}
+
+  object invoke $interp Interactive $interactive
+
+  catch {debug watch b -BreakOnAny}
+  unset -nocomplain b interactive interp
+} -constraints {eagle command.object compile.DEBUGGER scriptDebugger} \
+-returnCodes 1 -result {cannot break into interactive loop}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

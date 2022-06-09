@@ -1,0 +1,3137 @@
+###############################################################################
+#
+# basic.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=710567
+###############################################################################
+
+runTest {test basic-1.0.1 {::tcl_platform(engine) for Tcl} -body {
+  #
+  # NOTE: This tests TIP #440 compliance for Tcl.
+  #
+  expr {[info exists ::tcl_platform(engine)] ? $::tcl_platform(engine) : ""}
+} -constraints {tcl} -match regexp -result {^|Tcl$}}
+
+###############################################################################
+
+runTest {test basic-1.0.2 {::tcl_platform(engine) for Eagle} -body {
+  #
+  # NOTE: This tests TIP #440 compliance for Eagle.
+  #
+  set ::tcl_platform(engine)
+} -constraints {eagle} -result {Eagle}}
+
+###############################################################################
+
+runTest {test basic-1.1 {end-of-file character in source file} -setup {
+  unset -nocomplain x
+} -body {
+  source [file join $test_data_path source.eagle]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {file_source.eagle} -result {{this is a test...}}}
+
+###############################################################################
+
+runTest {test basic-1.2 {unbalanced brace in source file} -setup {
+  unset -nocomplain a
+} -body {
+  source [file join $test_data_path unbalanced_brace.eagle]
+} -cleanup {
+  unset -nocomplain a
+} -constraints {file_unbalanced_brace.eagle} -returnCodes 1 -result \
+{missing close-brace: possible unbalanced brace in comment}}
+
+###############################################################################
+
+runTest {test basic-1.3 {unbalanced brace in comment} -setup {
+  unset -nocomplain a
+} -body {
+  source [file join $test_data_path unbalanced_brace2.eagle]
+} -cleanup {
+  unset -nocomplain a
+} -constraints {file_unbalanced_brace2.eagle} -result {this is a test...}}
+
+###############################################################################
+
+runTest {test basic-1.4 {source/read -nonewline "cr/lf" EOL} -setup {
+  unset -nocomplain f x
+} -body {
+  source [file join $test_data_path read.eagle]
+} -cleanup {
+  unset -nocomplain f x
+} -constraints {file_read.eagle} -result {683}}
+
+###############################################################################
+
+runTest {test basic-1.5 {source/read "cr/lf" EOL} -setup {
+  unset -nocomplain f x
+} -body {
+  source [file join $test_data_path read2.eagle]
+} -cleanup {
+  unset -nocomplain f x
+} -constraints {file_read2.eagle} -result {683}}
+
+###############################################################################
+
+runTest {test basic-1.6 {source/read "lf" EOL} -setup {
+  unset -nocomplain f x
+} -body {
+  source [file join $test_data_path read3.eagle]
+} -cleanup {
+  unset -nocomplain f x
+} -constraints {file_read3.eagle} -result {659}}
+
+###############################################################################
+
+runTest {test basic-1.7 {source/read "cr" EOL} -setup {
+  unset -nocomplain f x
+} -body {
+  source [file join $test_data_path read4.eagle]
+} -cleanup {
+  unset -nocomplain f x
+} -constraints {file_read4.eagle} -result {660}}
+
+###############################################################################
+
+runTest {test basic-1.8 {global inside of namespace eval} -body {
+  namespace eval foo { global bar }
+} -cleanup {
+  catch {namespace delete foo}
+} -result {}}
+
+###############################################################################
+
+runTest {test basic-1.9 {variable inside of namespace eval} -body {
+  namespace eval foo { variable bar }
+} -cleanup {
+  catch {namespace delete foo}
+} -result {}}
+
+###############################################################################
+
+runTest {test basic-1.10 {alias creation and usage} -body {
+  interp alias {} foo {} set; foo x 2
+
+  list [set x] [catch {foo} error] $error [catch {foo x 2} error] $error
+} -cleanup {
+  catch {interp alias {} foo {}}
+
+  unset -nocomplain x error
+} -constraints {tcl85Feature} -result [list 2 1 [expr {[isEagle] ? \
+{wrong # args: should be "set varName ?newValue?"} : \
+{wrong # args: should be "foo varName ?newValue?"}}]  0 2]}
+
+###############################################################################
+
+runTest {test basic-1.11 {alias creation and usage with arguments} -body {
+  interp alias {} foo {} set x; foo 2
+
+  list [set x] [catch {foo} error] $error [catch {foo x 2} error] $error
+} -cleanup {
+  catch {interp alias {} foo {}}
+
+  unset -nocomplain x error
+} -result {2 0 2 1 {wrong # args: should be "set varName ?newValue?"}}}
+
+###############################################################################
+
+runTest {test basic-1.12 {alias error handling} -body {
+  proc fooProc {} {error error}
+  interp alias {} foo {} fooProc
+  interp alias {} bar {} barProc
+
+  list [catch {foo} error] $error [catch {foo 1} error] $error \
+      [catch {bar} error] $error
+} -cleanup {
+  catch {interp alias {} bar {}}
+  catch {interp alias {} foo {}}
+
+  rename fooProc ""
+
+  unset -nocomplain error
+} -constraints {tcl85Feature} -result [list 1 error 1 [expr {[isEagle] ? \
+{wrong # args: should be "fooProc"} : \
+{wrong # args: should be "foo"}}] 1 {invalid command name "barProc"}]}
+
+###############################################################################
+
+set aliases [interp aliases]
+
+runTest {test basic-1.13 {alias renaming} -body {
+  interp alias {} foo {} bar
+
+  list [lsort [interp aliases]] [rename foo baz] [lsort [interp aliases]] \
+      [catch {foo} error] $error [catch {baz} error] $error
+} -cleanup {
+  catch {interp alias {} foo {}}
+  catch {interp alias {} baz {}}
+
+  unset -nocomplain error
+} -result [list [lsort [eval list $aliases foo]] {} \
+[lsort [eval list $aliases foo]] 1 {invalid command name "foo"} 1 \
+{invalid command name "bar"}]}
+
+unset -nocomplain aliases
+
+###############################################################################
+
+runTest {test basic-1.14 {alias loop prevention, creation} -body {
+  interp alias {} foo {} bar
+  interp alias {} bar {} baz
+  interp alias {} baz {} foo
+} -cleanup {
+  catch {interp alias {} foo {}}
+  catch {interp alias {} bar {}}
+  catch {interp alias {} baz {}}
+} -returnCodes 1 -result \
+{cannot define or rename alias "baz": would create a loop}}
+
+###############################################################################
+
+runTest {test basic-1.15 {alias loop prevention, renaming} -body {
+  interp alias {} a {} b
+  rename a c
+  rename c b
+} -cleanup {
+  catch {interp alias {} a {}}
+} -constraints {tcl85Feature} -returnCodes 1 -result \
+{cannot define or rename alias "b": would create a loop}}
+
+###############################################################################
+
+runTest {test basic-1.16 {alias renaming and introspection} -body {
+  interp alias {} a {} b
+  rename a c
+  interp alias {} a {} b {foo bar} baz
+
+  list [interp alias {} a] [interp alias {} ::a]
+} -cleanup {
+  catch {interp alias {} a {}}
+} -constraints {tcl85Feature} -result {b {b {foo bar} baz}}}
+
+###############################################################################
+
+runTest {test basic-1.17 {alias renaming and introspection} -body {
+  interp alias {} a {} b
+  rename a c
+  interp alias {} a {} c
+  rename a d
+  interp alias {} a {} d
+
+  list [interp alias {} a] [interp alias {} ::a] [interp alias {} ::::a]
+} -cleanup {
+  catch {interp alias {} a {}}
+  catch {interp alias {} ::a {}}
+  catch {interp alias {} ::::a {}}
+} -constraints {tcl85Feature} -result {b c d}}
+
+###############################################################################
+
+runTest {test basic-1.18 {alias creation and usage, nested} -body {
+  proc baz { args } { list [info level [info level]] [llength $args] $args }
+  interp alias {} foo {} bar
+  interp alias {} bar {} baz
+  foo 1 2 3 4
+} -cleanup {
+  catch {interp alias {} foo {}}
+  catch {interp alias {} bar {}}
+
+  rename baz ""
+} -result {{baz 1 2 3 4} 4 {1 2 3 4}}}
+
+###############################################################################
+
+runTest {test basic-1.19 {alias introspection} -body {
+  interp alias {} a {} b {foo bar} baz
+  interp alias {} a
+} -cleanup {
+  catch {interp alias {} a {}}
+} -result {b {foo bar} baz}}
+
+###############################################################################
+
+runTest {test basic-1.20 {asynchronous evaluation with OK} -setup {
+  set interp [object invoke Interpreter GetActive]
+  set x [object create Eagle._Tests.Default]
+  set y [object invoke -create -parametertypes String Result op_Implicit ""]
+} -body {
+  list [object invoke $x TestEvaluateAsync $interp \
+      "set z 2" None None None None $test_timeout y] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain z y x interp
+} -constraints [fixConstraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestEvaluateAsync !monoDebugger}] \
+-result {Ok 2}}
+
+###############################################################################
+
+runTest {test basic-1.21 {asynchronous evaluation with ERROR} -setup {
+  set interp [object invoke Interpreter GetActive]
+  set x [object create Eagle._Tests.Default]
+  set y [object invoke -create -parametertypes String Result op_Implicit ""]
+} -body {
+  list [object invoke $x TestEvaluateAsync $interp \
+      "error foo" None None None None $test_timeout y] \
+      [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain y x interp
+} -constraints [fixConstraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestEvaluateAsync !monoDebugger}] \
+-result {Ok {Error, line 1: foo}}}
+
+###############################################################################
+
+runTest {test basic-1.22 {do/while and do/until} -setup {
+  set i 0; set j 0; set k 0; set l 0; unset -nocomplain w x y z
+} -body {
+  do {incr i; continue; set w 1} while {$i < 10}
+  do {incr j; continue; set x 1} until {$j >= 10}
+  do {incr k; break; set y 1} while {$k < 10}
+  do {incr l; break; set z 1} until {$l >= 10}
+
+  list $i $j $k $l [info exists w] [info exists x] \
+      [info exists y] [info exists z]
+} -cleanup {
+  unset i j k l; unset -nocomplain w x y z
+} -constraints {eagle} -result {10 10 1 1 0 0 0 0}}
+
+###############################################################################
+
+runTest {test basic-1.23 {boolean expression parsing} -setup {
+  unset -nocomplain x
+  set savedFlags [after flags]
+  after flags =Immediate
+} -body {
+  after 1000 [list interp cancel]
+  catch {set x 0; while {[incr x]} {}}
+  expr {$x > 0}
+} -cleanup {
+  after flags [appendArgs = $savedFlags]
+  unset -nocomplain x savedFlags
+} -constraints {eagle tip285} -noCancel true -noEvent true -result {True}}
+
+###############################################################################
+
+#
+# WARNING: This must be done outside the context of an active test to work
+#          properly because the test suite redefines the [puts] command
+#          while tests are active.
+#
+if {[isEagle]} then {debug vout stdout true}
+
+###############################################################################
+
+#
+# HACK: This test is flagged to run only once because the ServicePointManager
+#       class insists on "caching" the results of SSL certificate validations
+#       on both the .NET Framework and Mono.  Apparently, the following could
+#       be used to migitate this issue:
+#
+#       object invoke System.Net.ServicePointManager MaxServicePointIdleTime 0
+#
+#       However, it is unclear from the documentation [of this property] that
+#       it can have such an impact on SSL certificate validations.
+#
+runTest {test basic-1.24 {source https ".eagle" failure} -setup {
+  set savedEngineFlags [object invoke -flags +NonPublic \
+      Interpreter.GetActive SharedEngineFlags]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      SharedEngineFlags [combineFlags $savedEngineFlags \
+      NoDefaultError]
+} -body {
+  list [uri softwareupdates] [catch {
+    source [appendArgs https:// $test_host /scripts/secureTest.eagle]
+  } error] $error
+} -cleanup {
+  unset -nocomplain error
+  catch {rename helloWorld ""}
+
+  catch {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags $savedEngineFlags
+  }
+  unset -nocomplain savedEngineFlags
+} -constraints [fixConstraints {eagle command.object internet_eagle.to\
+!security.enabled}] -once true -match regexp -result {^\{software update\
+certificate is untrusted\} (?:0 \{\}|1 \{caught exception getting script\
+stream: System\.Net\.WebException: .*\})$}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+#
+# HACK: This test is flagged to run only once because the ServicePointManager
+#       class insists on "caching" the results of SSL certificate validations
+#       on both the .NET Framework and Mono.  Apparently, the following could
+#       be used to migitate this issue:
+#
+#       object invoke System.Net.ServicePointManager MaxServicePointIdleTime 0
+#
+#       However, it is unclear from the documentation [of this property] that
+#       it can have such an impact on SSL certificate validations.
+#
+runTest {test basic-1.25 {source https ".xml" failure} -setup {
+  set savedEngineFlags [object invoke -flags +NonPublic \
+      Interpreter.GetActive SharedEngineFlags]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      SharedEngineFlags [combineFlags $savedEngineFlags \
+      NoDefaultError]
+} -body {
+  list [uri softwareupdates] [catch {
+    source [appendArgs https:// $test_host /scripts/secureTest.xml]
+  } error] $error
+} -cleanup {
+  unset -nocomplain error
+  catch {rename helloWorld ""}
+
+  catch {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags $savedEngineFlags
+  }
+  unset -nocomplain savedEngineFlags
+} -constraints [fixConstraints {eagle command.object internet_eagle.to\
+!security.enabled}] -once true -match regexp -result {^\{software update\
+certificate is untrusted\} (?:0 \{\}|1 \{caught exception getting script\
+stream: System\.Net\.WebException: .*\})$}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+runTest {test basic-1.26 {source http ".eagle" success} -body {
+  source [appendArgs http:// $test_host /scripts/secureTest.eagle]
+} -cleanup {
+  catch {rename helloWorld ""}
+} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled}] \
+-output [string map [list eagle.to $test_host] \
+{Hello World - http://eagle.to/scripts/secureTest.eagle
+}] -result {}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+runTest {test basic-1.27 {source http ".xml" success} -body {
+  source [appendArgs http:// $test_host /scripts/secureTest.xml]
+} -cleanup {
+  catch {rename helloWorld ""}
+} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled}] \
+-output [string map [list eagle.to $test_host] \
+{Hello World - http://eagle.to/scripts/secureTest.xml
+}] -result {}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test does not work on Mono due to bug #710567, which is
+#       still present as of version 3.0.2.
+#
+runTest {test basic-1.28 {source http ".xml" w/validate success} -setup {
+  set savedValidateXml [object invoke Interpreter.GetActive ValidateXml]
+  object invoke Interpreter.GetActive ValidateXml true
+} -body {
+  source [appendArgs http:// $test_host /scripts/secureTest.xml]
+} -cleanup {
+  catch {rename helloWorld ""}
+
+  object invoke Interpreter.GetActive ValidateXml $savedValidateXml
+  unset -nocomplain savedValidateXml
+} -constraints [fixConstraints {eagle command.object monoBug44\
+internet_eagle.to !security.enabled}] -output [string map [list eagle.to \
+$test_host] {Hello World - http://eagle.to/scripts/secureTest.xml
+}] -result {}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+runTest {test basic-1.29.1 {source https ".eagle" success} -setup {
+  uri softwareupdates true
+} -body {
+  list [uri softwareupdates] \
+      [source [appendArgs https:// $test_host /scripts/secureTest.eagle]]
+} -cleanup {
+  catch {rename helloWorld ""}
+  catch {uri softwareupdates false}
+} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled\
+!dotNetCore}] -output [string map [list eagle.to $test_host] \
+{Hello World - https://eagle.to/scripts/secureTest.eagle
+}] -result {{software update certificate is trusted} {}}}
+
+###############################################################################
+
+runTest {test basic-1.29.2 {source https ".eagle" success} -setup {
+  catch {uri softwareupdates true}
+} -body {
+  source [appendArgs https:// $test_host /scripts/secureTest.eagle]
+} -cleanup {
+  catch {rename helloWorld ""}
+  catch {uri softwareupdates false}
+} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled\
+dotNetCore}] -output [string map [list eagle.to $test_host] \
+{Hello World - https://eagle.to/scripts/secureTest.eagle
+}] -result {}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+runTest {test basic-1.30.1 {source https ".xml" success} -setup {
+  uri softwareupdates true
+} -body {
+  list [uri softwareupdates] \
+      [source [appendArgs https:// $test_host /scripts/secureTest.xml]]
+} -cleanup {
+  catch {rename helloWorld ""}
+  catch {uri softwareupdates false}
+} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled\
+!dotNetCore}] -output [string map [list eagle.to $test_host] \
+{Hello World - https://eagle.to/scripts/secureTest.xml
+}] -match regexp -result {{software update certificate is trusted} {}}}
+
+###############################################################################
+
+runTest {test basic-1.30.2 {source https ".xml" success} -setup {
+  catch {uri softwareupdates true}
+} -body {
+  source [appendArgs https:// $test_host /scripts/secureTest.xml]
+} -cleanup {
+  catch {rename helloWorld ""}
+  catch {uri softwareupdates false}
+} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled\
+dotNetCore}] -output [string map [list eagle.to $test_host] \
+{Hello World - https://eagle.to/scripts/secureTest.xml
+}] -result {}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+#
+# HACK: *MONO* On Mono, as of version 3.4.0, this test fails for reasons that
+#       are presently unknown.
+#
+runTest {test basic-1.31 {delegate execution} -setup {
+  set i [interp create -test]
+
+  interp eval $i {rename puts ""}; # NOTE: Going to replace this with ours.
+  interp alias $i puts "" puts; # NOTE: Redirect [puts] output to this interp.
+
+  interp eval $i {
+    proc runTestBasic-1.31 {} {
+      set allCodes [list]; set codes null; set results null
+
+      set arguments null
+
+      object invoke -alias Eagle._Tests.Default TestExecuteStaticDelegates \
+          $arguments codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromString "delegate test"]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteStaticDelegates \
+          $arguments codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromByte 1]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteStaticDelegates \
+          $arguments codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromDateTime 2011-04-15]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteStaticDelegates \
+          $arguments codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      set execute null; set error null
+      set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
+          Interpreter.GetActive GetIExecuteViaResolvers UseAllMask clock null \
+          Default execute error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      $arguments Add [object invoke \
+          -flags +NonPublic Argument FromObject $execute false false false]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteStaticDelegates \
+          $arguments codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set codeCount [llength $allCodes]
+      set resultCount [object invoke $results Count]
+
+      if {$codeCount != $resultCount} then {
+        error [appendArgs "length mismatch between return code and result " \
+            "lists, found " $codeCount " return codes and " $resultCount \
+            " results"]
+      }
+
+      set allResults [list]
+
+      for {set index 0} {$index < [llength $allCodes]} {incr index} {
+        set code [lindex $allCodes $index]
+        set result [object invoke $results get_Item $index]
+
+        if {[string length $result] > 0} then {
+          set result [getStringFromObjectHandle $result]
+        }
+
+        if {$code eq "Ok"} then {
+          #
+          # NOTE: Success, add the result.
+          #
+          lappend allResults $result
+        } else {
+          if {[regexp -- {(System\.(?:[\w\.]*?)Exception): } \
+              $result dummy exception]} then {
+            #
+            # NOTE: Exception, extract the name only and add it.
+            #
+            lappend allResults $exception
+          } else {
+            #
+            # NOTE: No idea what happened, just add it.
+            #
+            lappend allResults $result
+          }
+        }
+      }
+
+      object cleanup; # NOTE: Kill all transient objects.
+
+      return [list $allCodes $allResults]
+    }
+  }
+} -body {
+  interp eval $i {runTestBasic-1.31}
+} -cleanup {
+  interp eval $i {
+    catch {object cleanup}; # NOTE: Kill all transient objects.
+    rename runTestBasic-1.31 ""
+  }
+
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints [fixConstraints {eagle command.object !mono211 !mono30 !mono33\
+!mono34 compile.TEST Eagle._Tests.Default.TestExecuteStaticDelegates}] -output \
+{delegate test
+} -result {{Error Error Error Ok Error Error Error Error Error Error Ok Error\
+Error Error Ok} {System.Reflection.TargetParameterCountException\
+System.Reflection.TargetParameterCountException\
+System.Reflection.TargetParameterCountException {}\
+System.ArgumentException System.ArgumentException\
+System.Reflection.TargetParameterCountException\
+System.Reflection.TargetParameterCountException\
+System.Reflection.TargetParameterCountException\
+System.ArgumentException 634384224000000000 System.ArgumentException\
+System.ArgumentException System.ArgumentException {buildnumber clicks days\
+duration filetime format isvalid microseconds milliseconds now scan seconds\
+start stop}}}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+#
+# HACK: *MONO* The result of this test allows the NullReferenceException or
+#       NotSupportedException class to be thrown from the default binder during
+#       the method call(s).  Technically, Mono should not do this and it is
+#       unclear why this particular behavior would differ in this manner.  From
+#       looking at the ChangeType method belonging to the default binder
+#       implementation in Mono, it would appears that it attempts to perform
+#       various type conversions whereas the default binder implementation in
+#       the .NET Framework always throws exceptions from its ChangeType method
+#       (as documented in MSDN).
+#
+runTest {test basic-1.32 {static delegate command execution} -setup {
+  set i [interp create -test]
+
+  interp eval $i {rename puts ""}; # NOTE: Going to replace this with ours.
+  interp alias $i puts "" puts; # NOTE: Redirect [puts] output to this interp.
+
+  interp eval $i {
+    proc runTestBasic-1.32 {} {
+      set allCodes [list]; set codes null; set results null
+
+      set arguments null
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments false codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromString "delegate test"]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments false codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromString "delegate test"]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromByte 1]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments false codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromDateTime 2012-04-15]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments false codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      set execute null; set error null
+      set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
+          Interpreter.GetActive GetIExecuteViaResolvers UseAllMask clock null \
+          Default execute error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromString [object invoke \
+          -flags +NonPublic Eagle._Components.Private.HandleOps Wrap "" \
+          $execute]]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments false codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set codeCount [llength $allCodes]
+      set resultCount [object invoke $results Count]
+
+      if {$codeCount != $resultCount} then {
+        error [appendArgs "length mismatch between return code and result " \
+            "lists, found " $codeCount " return codes and " $resultCount \
+            " results"]
+      }
+
+      set allResults [list]
+
+      for {set index 0} {$index < [llength $allCodes]} {incr index} {
+        set code [lindex $allCodes $index]
+        set result [object invoke $results get_Item $index]
+
+        if {[string length $result] > 0} then {
+          set result [getStringFromObjectHandle $result]
+        }
+
+        if {[string length $result] > 0 && [object exists $result]} then {
+          set result [getStringFromObjectHandle $result]
+        }
+
+        if {$code eq "Ok"} then {
+          #
+          # NOTE: Success, add the result.
+          #
+          lappend allResults $result
+        } else {
+          if {[regexp -- {System\.((?:[\w\.]*?)Exception): } \
+                  $result dummy exception] || \
+              [regexp -- {Eagle\._Components\.Public\.(ScriptException): } \
+                  $result dummy exception]} then {
+            #
+            # NOTE: Exception, extract the name only and add it.
+            #
+            lappend allResults $exception
+          } else {
+            #
+            # NOTE: No idea what happened, just add it.
+            #
+            lappend allResults $result
+          }
+        }
+      }
+
+      object cleanup; # NOTE: Kill all transient objects.
+
+      return [list $allCodes $allResults]
+    }
+  }
+} -body {
+  interp eval $i {runTestBasic-1.32}
+} -cleanup {
+  interp eval $i {
+    catch {object cleanup}; # NOTE: Kill all transient objects.
+    rename runTestBasic-1.32 ""
+  }
+
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle command.object monoBug30 compile.TEST\
+Eagle._Tests.Default.TestExecuteDelegateCommands} -output {delegate test
+} -match regexp -result {^\{Error Ok Error Error Error Error Error Ok Ok Error\
+Error Error Ok\} \{\{invalid argument list\} \{\} FormatException\
+(?:NullReferenceException|NotSupportedException|ScriptException) \{method #0\
+"TestVoidMethod" requires exactly 1 argument and 2 were supplied\} \{method #0\
+"TestLongMethod" requires exactly 1 argument and 2 were supplied\} \{method #0\
+"TestIEnumerableMethod" requires exactly 1 argument and 2 were supplied\} \{\}\
+634700448000000000\
+(?:NullReferenceException|NotSupportedException|ScriptException) \{could not\
+convert method #0 "TestVoidMethod" argument #0 "value" with value "Command#\d+"\
+to type "System\.String": cannot convert from type "Eagle\._Wrappers\.Command"\
+to type "System\.String"\} \{could not convert method #0 "TestLongMethod"\
+argument #0 "dateTime" with value "Command#\d+" to type "System\.DateTime":\
+cannot convert from type "Eagle\._Wrappers\.Command" to type\
+"System\.IConvertible"\} \{buildnumber clicks days duration filetime format\
+isvalid microseconds milliseconds now scan seconds start stop\}\}$}}
+
+###############################################################################
+
+#
+# NOTE: This virtual output must be reset between these tests.
+#
+if {[isEagle]} then {
+  debug vout stdout false
+  debug vout stdout true
+}
+
+###############################################################################
+
+#
+# HACK: *MONO* The result of this test allows the NullReferenceException or
+#       NotSupportedException class to be thrown from the default binder during
+#       the method call(s).  Technically, Mono should not do this and it is
+#       unclear why this particular behavior would differ in this manner.  From
+#       looking at the ChangeType method belonging to the default binder
+#       implementation in Mono, it would appears that it attempts to perform
+#       various type conversions whereas the default binder implementation in
+#       the .NET Framework always throws exceptions from its ChangeType method
+#       (as documented in MSDN).
+#
+runTest {test basic-1.33 {dynamic delegate command execution} -setup {
+  set i [interp create -test]
+
+  interp eval $i {rename puts ""}; # NOTE: Going to replace this with ours.
+  interp alias $i puts "" puts; # NOTE: Redirect [puts] output to this interp.
+
+  interp eval $i {
+    proc runTestBasic-1.33 {} {
+      set allCodes [list]; set codes null; set results null
+
+      set arguments null
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments true codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromString "delegate test"]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments true codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromString "delegate test"]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromByte 1]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments true codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromDateTime 2013-04-15]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments true codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set arguments [object create -alias ArgumentList]
+
+      set execute null; set error null
+      set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
+          Interpreter.GetActive GetIExecuteViaResolvers UseAllMask clock null \
+          Default execute error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      $arguments Add \
+          [object invoke -flags +NonPublic Argument FromString [object invoke \
+          -flags +NonPublic Eagle._Components.Private.HandleOps Wrap "" \
+          $execute]]
+
+      object invoke -alias Eagle._Tests.Default TestExecuteDelegateCommands \
+          "" $arguments true codes results
+
+      eval lappend allCodes $codes; set codes null
+
+      set codeCount [llength $allCodes]
+      set resultCount [object invoke $results Count]
+
+      if {$codeCount != $resultCount} then {
+        error [appendArgs "length mismatch between return code and result " \
+            "lists, found " $codeCount " return codes and " $resultCount \
+            " results"]
+      }
+
+      set allResults [list]
+
+      for {set index 0} {$index < [llength $allCodes]} {incr index} {
+        set code [lindex $allCodes $index]
+        set result [object invoke $results get_Item $index]
+
+        if {[string length $result] > 0} then {
+          set result [getStringFromObjectHandle $result]
+        }
+
+        if {[string length $result] > 0 && [object exists $result]} then {
+          set result [getStringFromObjectHandle $result]
+        }
+
+        if {$code eq "Ok"} then {
+          #
+          # NOTE: Success, add the result.
+          #
+          lappend allResults $result
+        } else {
+          if {[regexp -- {System\.((?:[\w\.]*?)Exception): } \
+                  $result dummy exception] || \
+              [regexp -- {Eagle\._Components\.Public\.(ScriptException): } \
+                  $result dummy exception]} then {
+            #
+            # NOTE: Exception, extract the name only and add it.
+            #
+            lappend allResults $exception
+          } else {
+            #
+            # NOTE: No idea what happened, just add it.
+            #
+            lappend allResults $result
+          }
+        }
+      }
+
+      object cleanup; # NOTE: Kill all transient objects.
+
+      return [list $allCodes $allResults]
+    }
+  }
+} -body {
+  interp eval $i {runTestBasic-1.33}
+} -cleanup {
+  interp eval $i {
+    catch {object cleanup}; # NOTE: Kill all transient objects.
+    rename runTestBasic-1.33 ""
+  }
+
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle command.object monoBug30 compile.TEST\
+Eagle._Tests.Default.TestExecuteDelegateCommands} -output {delegate test
+} -match regexp -result {^\{Error Ok Error Error Error Error Error Ok Ok Error\
+Error Error Ok\} \{\{invalid argument list\} \{\} FormatException\
+(?:NullReferenceException|NotSupportedException|ScriptException) \{method #0\
+"TestVoidMethod" requires exactly 1 argument and 2 were supplied\} \{method #0\
+"TestLongMethod" requires exactly 1 argument and 2 were supplied\} \{method #0\
+"TestIEnumerableMethod" requires exactly 1 argument and 2 were supplied\} \{\}\
+635015808000000000\
+(?:NullReferenceException|NotSupportedException|ScriptException) \{could not\
+convert method #0 "TestVoidMethod" argument #0 "value" with value "Command#\d+"\
+to type "System\.String": cannot convert from type "Eagle\._Wrappers\.Command"\
+to type "System\.String"\} \{could not convert method #0 "TestLongMethod"\
+argument #0 "dateTime" with value "Command#\d+" to type "System\.DateTime":\
+cannot convert from type "Eagle\._Wrappers\.Command" to type\
+"System\.IConvertible"\} \{buildnumber clicks days duration filetime format\
+isvalid microseconds milliseconds now scan seconds start stop\}\}$}}
+
+###############################################################################
+
+if {[isEagle]} then {debug vout stdout false}
+
+###############################################################################
+
+runTest {test basic-1.34 {external command execution} -body {
+  set execute null; set error null
+  set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
+      Interpreter.GetActive GetIExecuteViaResolvers UseAllMask eval null \
+      Default execute error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set script {
+    return [list [incr x] [object invoke -flags +NonPublic \
+        Interpreter.GetActive EngineFlags]]
+  }
+
+  set x 12345; # NOTE: Luggage combination.
+
+  #
+  # NOTE: This test is primarily used to make sure that externally executed
+  #       commands (i.e. commands executed outside of script evaluation)
+  #       have the proper engine flags.
+  #
+  set arguments [object create ArgumentList eval $script]; set result null
+  set code [object invoke Engine ExternalExecuteWithFrame set $execute "" \
+      null $arguments None All Engine All result]
+
+  if {$code ne "Return"} then {
+    error [getStringFromObjectHandle $result]
+  }
+
+  list $x $code $result [getStringFromObjectHandle $result]
+} -cleanup {
+  unset -nocomplain result arguments x script code error execute
+} -constraints {eagle command.object} -match regexp -result {^12346 Return\
+Result#\d+ \{12346 \{FullStackMask, ExternalExecution\}\}$}}
+
+###############################################################################
+
+set old_auto_path $::auto_path
+
+runTest {test basic-1.35 {auto_path handling} -setup {
+  set savedAutoPath $::auto_path
+} -body {
+  list [expr {int([string length [info library]] == 0 || \
+      [lsearch -exact $::auto_path [info library]] != -1)}] \
+      [lappend ::auto_path $test_path]
+} -cleanup {
+  set ::auto_path $savedAutoPath
+  unset -nocomplain savedAutoPath
+} -constraints {tcl_library_external} -result \
+[list 1 [eval list $old_auto_path [list $test_path]]]}
+
+unset -nocomplain old_auto_path
+
+###############################################################################
+
+runTest {test basic-1.36 {top-level script cancellation} -setup {
+  set i [interp create]
+
+  if {[haveConstraint quiet]} then {
+    object invoke Eagle._Tests.Default TestSetQuiet $i true
+  }
+} -body {
+  #
+  # NOTE: Figure out the number of commands we need to occupy the engine for
+  #       about 10 seconds.
+  #
+  if {[info exists ::test_cops]} then {
+    #
+    # NOTE: Use the tested commands-per-second for this machine.
+    #
+    set c [expr {int($::test_cops * 10)}]
+  } elseif {[info exists ::test_base_cops]} then {
+    #
+    # NOTE: Use the hard-coded baseline commands-per-second.
+    #
+    set c [expr {int($::test_base_cops * 10)}]
+  } else {
+    #
+    # NOTE: Use a reasonable default value.
+    #
+    set c 100000
+  }
+
+  tputs $test_channel [appendArgs "---- attempting to execute: " $c \
+      " commands...\n"]
+
+  interp eval $i [list set x 0]
+  interp eval $i [list after flags =Immediate]
+  interp eval $i [list after 3000 [list interp cancel -unwind]]
+
+  catch {interp eval $i [string repeat {incr x;} $c]}
+  interp resetcancel $i -global; # HACK: Beta 47+
+  set x [interp eval $i [list set x]]
+
+  tputs $test_channel [appendArgs "---- actually executed: " $x \
+      " commands\n"]
+
+  list $x [expr {$x < $c}]
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain x c i
+} -constraints {eagle command.object tip285 globalTip285 compile.TEST\
+Eagle._Tests.Default.TestSetQuiet} -match regexp -result {^\d+ True$}}
+
+###############################################################################
+
+runTest {test basic-1.37 {culture-sensitive double parsing (ok)} -setup {
+  object import System.Globalization
+  object import System.Threading
+
+  set culture [object invoke CultureInfo GetCultureInfo fr-FR]
+  set savedCulture [object invoke Thread.CurrentThread CurrentCulture]
+  object invoke Thread.CurrentThread CurrentCulture $culture
+
+  #
+  # NOTE: If the culture bug being tested is not fixed, the creation of this
+  #       interpreter may fail.
+  #
+  set i [interp create]
+} -body {
+  interp eval $i {
+    #
+    # HACK: Forcibly clear the script [and expression] parsing cache(s).  This
+    #       may be necessary to force the expression below to be re-parsed
+    #       using the current culture for the interpreter.
+    #
+    catch {
+      object invoke -flags +NonPublic \
+          Interpreter.GetActive.parseStateCache Clear
+    }
+    expr {1.0}
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+
+  object invoke Thread.CurrentThread CurrentCulture $savedCulture
+  unset -nocomplain savedCulture culture
+
+  object unimport -importpattern System.Threading
+  object unimport -importpattern System.Globalization
+} -constraints {eagle command.object} -result {1.0}}
+
+###############################################################################
+
+runTest {test basic-1.38 {culture-sensitive double parsing (error)} -setup {
+  object import System.Globalization
+
+  set culture [object invoke CultureInfo GetCultureInfo fr-FR]
+  set savedCulture [object invoke Interpreter.GetActive CultureInfo]
+  object invoke Interpreter.GetActive CultureInfo $culture
+} -body {
+  #
+  # HACK: Forcibly clear the script [and expression] parsing cache(s).  This
+  #       may be necessary to force the expression below to be re-parsed
+  #       using the current culture for the interpreter.
+  #
+  catch {
+    object invoke -flags +NonPublic \
+        Interpreter.GetActive.parseStateCache Clear
+  }
+  expr {1.0}
+} -cleanup {
+  object invoke Interpreter.GetActive CultureInfo $savedCulture
+  unset -nocomplain savedCulture culture
+
+  object unimport -importpattern System.Globalization
+} -constraints {eagle command.object} -returnCodes 1 -result {syntax error in\
+expression "1.0" near ".0" at index 1: extra tokens at end of expression}}
+
+###############################################################################
+
+runTest {test basic-1.39 {linked variables (scalar)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set error null
+  set code [$test TestSetVariableLinks "" \
+      sVar oVar iVar pVar true true true true true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  set i [object invoke -create Int32 Parse 1234]
+
+  list [set sVar] [set oVar] [set iVar] [set pVar] \
+      [set sVar testing] [set oVar $i] [set iVar 42] \
+      [$test intField] [set pVar] [set pVar 43] \
+      [set iVar] [$test SimpleIntProperty] [incr iVar] \
+      [$test intField] [$test SimpleIntProperty] \
+      [$test -flags +NonPublic privateField] \
+      [$test -flags +NonPublic objectField]
+} -cleanup {
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableLinks "" \
+        sVar oVar iVar pVar true true true true true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableLinks error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  unset -nocomplain i pVar iVar oVar sVar code error test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetVariableLinks\
+Eagle._Tests.Default.TestUnsetVariableLinks Eagle._Tests.Default.privateField\
+Eagle._Tests.Default.objectField Eagle._Tests.Default.intField\
+Eagle._Tests.Default.get_SimpleIntProperty} -match regexp -result \
+{^Eagle\._Tests\.Default \{\} 0 0 testing System#Int32#\d+ 42 42 42 43 43 43 44\
+44 44 testing 1234$}}
+
+###############################################################################
+
+runTest {test basic-1.40 {linked variables (array elements)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set error null
+  set code [$test TestSetVariableLinks "" \
+      sVar(idx) oVar(idx) iVar(idx) pVar(idx) true true true true true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  set i [object invoke -create Int32 Parse 1234]
+
+  list [set sVar(idx)] [set oVar(idx)] [set iVar(idx)] \
+      [set sVar(idx) testing] [set oVar(idx) $i] \
+      [$test intField] [$test SimpleIntProperty] \
+      [set iVar(idx) 42] [$test intField] \
+      [$test SimpleIntProperty] [set pVar(idx) 43] \
+      [$test intField] [$test SimpleIntProperty] \
+      [$test -flags +NonPublic privateField] \
+      [$test -flags +NonPublic objectField]
+} -cleanup {
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableLinks "" \
+        sVar(idx) oVar(idx) iVar(idx) pVar(idx) true true true true true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableLinks error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  unset -nocomplain i pVar iVar oVar sVar code error test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetVariableLinks\
+Eagle._Tests.Default.TestUnsetVariableLinks Eagle._Tests.Default.privateField\
+Eagle._Tests.Default.objectField Eagle._Tests.Default.intField\
+Eagle._Tests.Default.get_SimpleIntProperty} -match regexp -result \
+{^Eagle\._Tests\.Default \{\} 0 testing System#Int32#\d+ 0 0 42 42 42 43 43 43\
+testing 1234$}}
+
+###############################################################################
+
+runTest {test basic-1.41 {linked variables (error handling)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set error null
+  set code [$test TestSetVariableLinks "" \
+      sVar(idx) null null null true false false false true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  list [set sVar(idx)] [set sVar(idx) testing] \
+      [$test -flags +NonPublic privateField] \
+      [catch {set sVar} msg] $msg \
+      [catch {set sVar(foo)} msg] $msg \
+      [catch {unset sVar(foo)} msg] $msg \
+      [catch {unset -nocomplain sVar(bar)} msg] $msg
+} -cleanup {
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableLinks "" \
+        sVar(idx) null null null true false false false true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableLinks error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  unset -nocomplain msg sVar code error test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetVariableLinks\
+Eagle._Tests.Default.TestUnsetVariableLinks Eagle._Tests.Default.privateField} \
+-result {Eagle._Tests.Default testing testing 1 {can't read "sVar": variable is\
+array} 1 {can't read "sVar(foo)": broken link} 1 {can't unset "sVar(foo)": no\
+such element in array} 0 {}}}
+
+###############################################################################
+
+runTest {test basic-1.42 {linked variables (set/unset/set scalar)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set error null
+  set code [$test TestSetVariableLinks "" \
+      sVar null null null true false false false true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  set result [list [set sVar] [set sVar testing1] [unset sVar] \
+      [$test -flags +NonPublic privateField]]
+
+  set sVar foobar1
+  $test -flags +NonPublic privateField ""
+
+  set error null
+  set code [$test TestSetVariableLinks "" \
+      sVar null null null true false false false true error]
+
+  if {$code eq "Ok"} then {
+    lappend result [set sVar] [set sVar testing2] \
+        [$test -flags +NonPublic privateField]
+  } else {
+    set sVar foobar2
+
+    lappend result [getStringFromObjectHandle $error] [set sVar] \
+        [set sVar testing2] [$test -flags +NonPublic privateField]
+  }
+
+  set result
+} -cleanup {
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableLinks "" \
+        sVar null null null true false false false true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableLinks error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  unset -nocomplain result sVar code error test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetVariableLinks\
+Eagle._Tests.Default.TestUnsetVariableLinks Eagle._Tests.Default.privateField} \
+-result {Eagle._Tests.Default testing1 {} testing1 {can't link "sVar": could\
+not set variable trace} foobar2 testing2 {}}}
+
+###############################################################################
+
+runTest {test basic-1.43 {linked variables (set/unset/set array)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set error null
+  set code [$test TestSetVariableLinks "" \
+      sVar(idx) null null null true false false false true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  list [set sVar(idx)] [set sVar(idx) testing1] \
+      [unset sVar(idx)] [$test -flags +NonPublic privateField] \
+      [catch {set sVar(idx) foobar} msg] $msg
+} -cleanup {
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableLinks "" \
+        sVar(idx) null null null true false false false true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableLinks error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  unset -nocomplain msg sVar code error test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetVariableLinks\
+Eagle._Tests.Default.TestUnsetVariableLinks Eagle._Tests.Default.privateField} \
+-result {Eagle._Tests.Default testing1 {} testing1 1 {can't set "sVar(idx)":\
+broken link}}}
+
+###############################################################################
+
+runTest {test basic-1.44 {verify strong name} -body {
+  object invoke Interpreter.GetActive DemandStrongName
+} -constraints {eagle command.object strongName compile.CAS_POLICY} -result {}}
+
+###############################################################################
+
+runTest {test basic-1.45 {verify certificate} -body {
+  object invoke Interpreter.GetActive DemandCertificate
+} -constraints {eagle command.object certificate compile.CAS_POLICY} -result {}}
+
+###############################################################################
+
+runTest {test basic-1.46 {read entire script stream} -body {
+  set result null
+  object invoke Eagle._Tests.Default TestScriptStream "" null null -1 result
+  string map [list \n <lf>] [getStringFromObjectHandle $result]
+} -cleanup {
+  unset -nocomplain result
+} -constraints [fixConstraints {eagle command.object !security.enabled\
+Eagle._Tests.Default.TestScriptStream}] -result {Ok Ok {set x 1<lf>} {} abc {}}}
+
+###############################################################################
+
+runTest {test basic-1.47 {read partial script stream} -body {
+  for {set length 0} {$length <= 14} {incr length} {
+    set result($length) null
+
+    object invoke Eagle._Tests.Default TestScriptStream "" null null $length \
+        result($length)
+  }
+
+  foreach name [lsort -integer [array names result]] {
+    lappend result(-1) $name
+    lappend result(-1) [getStringFromObjectHandle $result($name)]
+  }
+
+  expr {[info exists result(-1)] ? [string map \
+      [list \r\n <crlf> \r <cr> \n <lf> \x1A <eof>] $result(-1)] : ""}
+} -cleanup {
+  unset -nocomplain name length result
+} -constraints [fixConstraints {eagle command.object !security.enabled\
+Eagle._Tests.Default.TestScriptStream}] -result {0 {Ok Ok {} {} {set x\
+1<crlf><eof>abc} {}} 1 {Ok Ok s {} {et x 1<crlf><eof>abc} {}} 2 {Ok Ok se {} {t\
+x 1<crlf><eof>abc} {}} 3 {Ok Ok set {} { x 1<crlf><eof>abc} {}} 4 {Ok Ok {set }\
+{} {x 1<crlf><eof>abc} {}} 5 {Ok Ok {set x} {} { 1<crlf><eof>abc} {}} 6 {Ok Ok\
+{set x } {} {1<crlf><eof>abc} {}} 7 {Ok Ok {set x 1} {} {<crlf><eof>abc} {}} 8\
+{Ok Ok {set x 1<lf>} {} {<lf><eof>abc} {}} 9 {Ok Ok {set x 1<lf>} {} <eof>abc\
+{}} 10 {Ok Ok {set x 1<lf>} {} abc {}} 11 {Ok Ok {set x 1<lf>} {} bc {}} 12 {Ok\
+Ok {set x 1<lf>} {} c {}} 13 {Ok Ok {set x 1<lf>} {} {} {}} 14 {Error Ok\
+{unexpected end-of-stream, read 13 characters, wanted 14 characters, result\
+discarded} {} {} {}}}}
+
+###############################################################################
+
+runTest {test basic-1.48 {invoke command} -setup {
+  proc foo { a } { invoke 1 set x $a }
+  proc bar { a } { invoke set x $a }
+} -body {
+  list [catch {invoke} msg] $msg [catch {invoke set x 1} msg] $msg \
+      [catch {invoke 0 set x 1} msg] $msg \
+      [catch {foo 2} msg] $msg [catch {foo 3} msg] $msg \
+      [catch {bar 2} msg] $msg [catch {bar 3} msg] $msg
+} -cleanup {
+  rename bar ""
+  rename foo ""
+
+  unset -nocomplain msg x
+} -constraints {eagle} -result {1 {wrong # args: should be "invoke ?level? cmd\
+?arg ...?"} 1 {bad level "1"} 0 1 0 2 0 3 0 2 0 3}}
+
+###############################################################################
+
+runTest {test basic-1.49 {serialization of ScriptException} -body {
+  set serializer [object create -alias \
+      System.Runtime.Serialization.Formatters.Binary.BinaryFormatter]
+
+  set stream [object create -alias System.IO.MemoryStream]
+
+  set exception(1) [object create -alias ScriptException \
+      Break "this is a test"]
+
+  $serializer Serialize $stream $exception(1)
+
+  $stream Seek 0 Begin
+
+  set exception(2) [$serializer -alias Deserialize $stream]
+
+  list [$exception(1) ReturnCode] [$exception(1) Message] \
+      [$exception(2) ReturnCode] [$exception(2) Message] \
+      [expr {[$exception(1) ReturnCode] eq [$exception(2) ReturnCode]}] \
+      [expr {[$exception(1) Message] eq [$exception(2) Message]}]
+} -cleanup {
+  unset -nocomplain exception stream serializer
+} -constraints {eagle command.object monoBug30 compile.SERIALIZATION} \
+-result {Break {this is a test} Break {this is a test} True True}}
+
+###############################################################################
+
+runTest {test basic-1.50 {exception ranges, SF bug #2835313} -setup {
+  unset -nocomplain x
+} -body {
+  set x 0
+  while 1 {
+    if {[incr x] > 30000} then {break}
+    foo [continue]
+  }
+  set x
+} -cleanup {
+  unset -nocomplain x
+} -constraints {tclCrash85 tclCrash86} -result {30001}}
+
+###############################################################################
+
+runTest {test basic-1.51 {ScriptBuilder class} -setup {
+  unset -nocomplain x y z command result result2 name
+
+  foreach name [list a this that another yet_another] {
+    proc $name args {
+      lappend ::result2 [info level [info level]]
+      return [llength $::result2]
+    }
+  }
+} -body {
+  set x [object invoke -alias ScriptBuilder Create]
+  set y [object invoke -alias ScriptBuilder Create]
+  set z [object create -alias StringList a b c d]
+
+  set command the_command
+  set result null
+  list [$x Clear result] \
+      [$x Add "this command\n" result] \
+      [$x Add "that command" result] \
+      [$y Add "another \{ \[ \\command\n" result] \
+      [$y Add "yet_another \} \] \$command" result] \
+      [$x Add $y result] [$x Add $z result] [$x Count] \
+      [$y Count] [$z Count] [getStringFromObjectHandle $x] \
+      [getStringFromObjectHandle $y] \
+      [getStringFromObjectHandle $z] "BEGIN EVAL" \
+      [catch [getStringFromObjectHandle $x] result] $result \
+      [expr {[info exists result2] ? $result2 : ""}] \
+      [catch [getStringFromObjectHandle $y] result] $result \
+      [expr {[info exists result2] ? $result2 : ""}] \
+      "END EVAL"  [$x Clear result] [$y Clear result] \
+      [$z Clear] [$x Count] [$y Count] [$z Count]
+} -cleanup {
+  foreach name [list a this that another yet_another] {
+    rename $name ""
+  }
+
+  unset -nocomplain x y z command result result2 name
+} -constraints {eagle command.object monoBug30} -result \
+[string map [list \r\n \n] {Ok Ok Ok Ok Ok Ok Ok 4 2 4 {this command
+that command
+another { [ \command
+yet_another } ] $command
+a b c d} {another { [ \command
+yet_another } ] $command} {a b c d} {BEGIN EVAL} 0 4 {{this command} {that\
+command} {another { [ \command
+yet_another } \] the_command} {a b c d}} 0 5 {{this command} {that command}\
+{another { [ \command
+yet_another } \] the_command} {a b c d} {another { [ \command
+yet_another } \] the_command}} {END EVAL} Ok Ok {} 0 0 0}]}
+
+###############################################################################
+
+runTest {test basic-1.52 {ScriptBuilder with nested commands} -setup {
+  unset -nocomplain x y z result result2 result3 name
+
+  foreach name [list this reserved] {
+    proc $name args {
+      lappend ::result2 [info level [info level]]
+      return [llength $::result2]
+    }
+  }
+} -body {
+  set x [object invoke -alias ScriptBuilder Create]
+  set y [object create -alias StringList reserved character \\]
+  set z [object create -alias StringList reserved character \{]
+
+  set result null
+  list [$x Count] [$x Add "this is a test" result] [$x Count] \
+      [$x Add $y result] [$x Count] [$x Add $z result] \
+      [$x Count] [$x GetString true] "BEGIN EVAL" \
+      [catch "set result3 [$x GetString true]" result] \
+      $result [expr {[info exists result2] ? $result2 : ""}] \
+      [expr {[info exists result3] ? $result3 : ""}] \
+      [catch {subst [$x GetString true]} result] $result \
+      [expr {[info exists result2] ? $result2 : ""}] \
+      [expr {[info exists result3] ? $result3 : ""}] \
+      "END EVAL"
+} -cleanup {
+  foreach name [list this reserved] {
+    rename $name ""
+  }
+
+  unset -nocomplain x y z result result2 result3 name
+} -constraints {eagle command.object} -result {0 Ok 1 Ok 2 Ok 3 {[this is a\
+test;reserved character \\;reserved character \{]} {BEGIN EVAL} 0 3 {{this is a\
+test} {reserved character \\} {reserved character \{}} 3 0 6 {{this is a test}\
+{reserved character \\} {reserved character \{} {this is a test} {reserved\
+character \\} {reserved character \{}} 3 {END EVAL}}}
+
+###############################################################################
+
+runTest {test basic-1.53 {recycled variable flags} -setup {
+  set varName [appendArgs basic_1_53_ [string trim [clock seconds] -]]
+} -body {
+  set $varName [object create -objectname [appendArgs $varName _obj] Int32]
+  makeVariableFast $varName true; unset -nocomplain $varName
+  set $varName [object create StringList [list a b c]]
+
+  set flags [string map [list , ""] \
+      [lindex [lindex [debug variable $varName] 2] \
+      end]]; # BUGBUG: Fragile.
+
+  list [lsearch -exact -- $flags FastMask] \
+      [lsearch -exact -- $flags NoWatchpoint] \
+      [lsearch -exact -- $flags NoTrace] \
+      [lsearch -exact -- $flags NoNotify] \
+      [lsearch -exact -- $flags NoPostProcess]
+} -cleanup {
+  catch {object dispose [appendArgs $varName _obj]}
+
+  unset -nocomplain -purge -- $varName varName flags; debug collect
+} -constraints {eagle command.object} -result {-1 -1 -1 -1 -1}}
+
+###############################################################################
+
+#
+# HACK: *MONO* The final "None" EngineFlags value in the result for this test
+#       seems to show up on Mono 2.10 as simply "0".
+#
+runTest {test basic-1.54 {callback queue} -setup {
+  set i [interp create]
+} -body {
+  list [interp eval $i {
+    set savedEngineFlags [object invoke -flags +NonPublic \
+        Interpreter.GetActive SharedEngineFlags]
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags NoCallbackQueue
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags
+  }] [interp eval $i {
+    set result(1) [list]
+
+    lappend result(1) [callback count]
+    lappend result(1) [callback enqueue set x 1]
+    lappend result(1) [callback count]
+    lappend result(1) [callback clear]
+    lappend result(1) [callback count]
+    lappend result(1) [callback enqueue set x]
+    lappend result(1) [callback count]
+    lappend result(1) [callback list]
+
+    set command [callback dequeue -alias]
+    lappend result(1) [getStringFromObjectHandle $command]
+
+    set list [object create StringList X]
+    set result(2) null
+    lappend result(1) [$command -alias Invoke $list result(2)]
+    lappend result(1) [getStringFromObjectHandle $result(2)]
+
+    lappend result(1) [callback count]
+    lappend result(1) [callback enqueue set x 3]
+    lappend result(1) [callback list]
+    lappend result(1) [callback execute]
+
+    set result(1)
+  }] [interp eval $i {
+    callback enqueue set y 1
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags $savedEngineFlags
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags
+  }] [interp eval $i {nop}] [interp eval $i {set y}]
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle command.object command.callback compile.CALLBACK_QUEUE} \
+-match regexp -result {^NoCallbackQueue \{0 \{\} 1 \{\} 0 \{\} 1 \{\{set x\}\}\
+\{set x\} Ok X 0 \{\} \{\{set x 3\}\} 3\} (?:None|0) 1 1$}}
+
+###############################################################################
+
+runTest {test basic-1.55 {ArgumentList (zero element string array)} -setup {
+  unset -nocomplain array list
+} -body {
+  set array [object create -alias String\[\] 0]
+  set list [object create -alias ArgumentList $array]
+
+  getStringFromObjectHandle $list
+} -cleanup {
+  unset -nocomplain array list
+} -constraints {eagle command.object} -result {}}
+
+###############################################################################
+
+runTest {test basic-1.56 {ArgumentList (one element string array)} -setup {
+  unset -nocomplain array list
+} -body {
+  set array [object create -alias String\[\] 1]
+
+  $array SetValue "this one" 0
+
+  set list [object create -alias ArgumentList $array]
+
+  getStringFromObjectHandle $list
+} -cleanup {
+  unset -nocomplain array list
+} -constraints {eagle command.object} -result {{this one}}}
+
+###############################################################################
+
+runTest {test basic-1.57 {ArgumentList (two element string array)} -setup {
+  unset -nocomplain array list
+} -body {
+  set array [object create -alias String\[\] 2]
+
+  $array SetValue "this one" 0
+  $array SetValue "another one" 1
+
+  set list [object create -alias ArgumentList $array]
+
+  getStringFromObjectHandle $list
+} -cleanup {
+  unset -nocomplain array list
+} -constraints {eagle command.object} -result {{this one} {another one}}}
+
+###############################################################################
+
+runTest {test basic-1.58 {proc frame cleanup, using [global]} -setup {
+  set i [interp create]
+} -body {
+  interp eval $i {
+    proc foo { name } {
+      global $name; return [info exists $name]
+    }
+
+    proc bar {} {
+      global foo; # initially undefined
+      foo foo; # still undefined
+      set foo 1; # now defined
+      return [foo foo]; # still defined
+    }
+
+    bar
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -result {1}}
+
+###############################################################################
+
+runTest {test basic-1.59 {proc frame cleanup, global [variable]} -setup {
+  set i [interp create]
+} -body {
+  interp eval $i {
+    namespace eval :: {
+      proc foo { name } {
+        variable $name; return [info exists $name]
+      }
+
+      proc bar {} {
+        variable foo; # initially undefined
+        foo foo; # still undefined
+        set foo 1; # now defined
+        return [foo foo]; # still defined
+      }
+
+      bar
+    }
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -result {1}}
+
+###############################################################################
+
+runTest {test basic-1.60 {proc frame cleanup, namespace [variable]} -setup {
+  if {[isEagle]} then {
+    set i [interp create -namespaces]
+  } else {
+    set i [interp create]
+  }
+} -body {
+  interp eval $i {
+    namespace eval ::bar {
+      proc foo { name } {
+        variable $name; return [info exists $name]
+      }
+
+      proc bar {} {
+        variable foo; # initially undefined
+        foo foo; # still undefined
+        set foo 1; # now defined
+        return [foo foo]; # still defined
+      }
+
+      bar
+    }
+  }
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {namespaces.available} -result {1}}
+
+###############################################################################
+
+runTest {test basic-1.61 {EvaluateScript with IScript} -setup {
+  set script [object invoke Script Create "set x 1"]
+} -body {
+  set result null
+
+  list [object invoke -alias Engine EvaluateScript "" $script result] \
+      [getStringFromObjectHandle $result]
+} -cleanup {
+  unset -nocomplain x result script
+} -constraints [fixConstraints {eagle command.object !security.enabled}] \
+-result {Ok 1}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* The System.DefaultBinder.ChangeType method for the .NET
+#       Framework raises a System.NotSupportedException; however, when
+#       running on Mono, it simply does nothing.  This test relies on
+#       the .NET Framework behavior.
+#
+runTest {test basic-1.62 {[set] System.Array variables} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set error null
+  set code [$test TestIntPtrChangeTypeCallback "" true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set error null
+  set code [$test TestSetVariableSystemArray "" \
+      ptrVar objVar true true true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  list [catch {set ptrVar(0,0)} result(0)] $result(0) \
+      [catch {set ptrVar(0,0) 0x12345678} result(1)] $result(1) \
+      [catch {set ptrVar(1,2) 0x87654321} result(2)] $result(2) \
+      [catch {set ptrVar(2,1) 0x87654321} result(3)] \
+          [string match "System.IndexOutOfRangeException: *" $result(3)] \
+      [catch {set ptrVar(0,0)} result(4)] $result(4) \
+      [catch {set ptrVar(1,0)} result(5)] $result(5) \
+      [catch {set ptrVar(0,1)} result(6)] $result(6) \
+      [catch {set ptrVar(1,2)} result(7)] $result(7) \
+      [catch {set ptrVar(2,1)} result(8)] \
+          [string match "System.IndexOutOfRangeException: *" $result(8)] \
+      [catch {set objVar(0)} result(9)] $result(9) \
+      [catch {set objVar(0) null} result(10)] $result(10) \
+      [catch {set objVar(0) ""} result(11)] [expr {
+        [string match "System.NotSupportedException: *" $result(11)] || \
+        [string match "System.InvalidCastException: *" $result(11)]}] \
+      [catch {set objVar(0) $test} result(12)] $result(12) \
+      [catch {set objVar(0)} result(13)] $result(13)
+} -cleanup {
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableSystemArray "" \
+        ptrVar objVar true true true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableSystemArray error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+
+    set error null
+    set code [$test TestIntPtrChangeTypeCallback "" false error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestIntPtrChangeTypeCallback error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  catch {object dispose $test}
+
+  unset -nocomplain result objVar ptrVar code error test
+} -constraints {eagle command.object dotNetOrDotNetCore compile.TEST\
+Eagle._Tests.Default.TestIntPtrChangeTypeCallback\
+Eagle._Tests.Default.TestSetVariableSystemArray\
+Eagle._Tests.Default.TestUnsetVariableSystemArray} -match regexp -result {^0 0\
+0 0x12345678 0 0x87654321 1 True 0 305419896 0 0 0 0 0\
+(?:2271560481|-2023406815) 1 True 0 \{\} 0 null 1 True 0 Default#\d+ 0\
+Default#\d+$}}
+
+###############################################################################
+
+runTest {test basic-1.63 {[unset] System.Array variables} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set error null
+  set code [$test TestIntPtrChangeTypeCallback "" true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set error null
+  set code [$test TestSetVariableSystemArray "" \
+      ptrVar objVar true true true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  list [catch {set ptrVar(0,0) 0x12345678} result(0)] $result(0) \
+      [catch {unset ptrVar(0,0)} result(1)] $result(1) \
+          [string match "System.IndexOutOfRangeException: *" $result(1)] \
+      [catch {unset ptrVar} result(2)] $result(2) \
+      [catch {set objVar(0) $test} result(3)] $result(3) \
+      [catch {unset objVar(0)} result(4)] $result(4) \
+          [string match "System.NotSupportedException: *" $result(4)] \
+      [catch {unset objVar} result(5)] $result(5)
+} -cleanup {
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableSystemArray "" \
+        ptrVar objVar true true true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableSystemArray error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+
+    set error null
+    set code [$test TestIntPtrChangeTypeCallback "" false error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestIntPtrChangeTypeCallback error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  catch {object dispose $test}
+
+  unset -nocomplain result objVar ptrVar code error test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestIntPtrChangeTypeCallback\
+Eagle._Tests.Default.TestSetVariableSystemArray\
+Eagle._Tests.Default.TestUnsetVariableSystemArray} -match regexp -result {^0\
+0x12345678 1 \{can't unset "ptrVar\(0,0\)": operation not supported for\
+"System\.Array"\} False 0 \{\} 0 Default#\d+ 1 \{can't unset "objVar\(0\)":\
+operation not supported for "System\.Array"\} False 0 \{\}$}}
+
+###############################################################################
+
+runTest {test basic-1.64 {[array] System.Array variables} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set error null
+  set code [$test TestIntPtrChangeTypeCallback "" true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set error null
+  set code [$test TestSetVariableSystemArray "" \
+      ptrVar objVar true true true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  list [catch {set ptrVar(0,0) 0x12345678} result(0)] $result(0) \
+      [catch {set objVar(0) $test} result(1)] $result(1) \
+      [catch {array names ptrVar} result(2)] $result(2) \
+      [catch {array names ptrVar 1,*} result(3)] $result(3) \
+      [catch {array values ptrVar} result(4)] $result(4) \
+      [catch {array values ptrVar 305419896} result(5)] $result(5) \
+      [catch {array get ptrVar} result(6)] $result(6) \
+      [catch {array get ptrVar 1,*} result(7)] $result(7) \
+      [catch {array size ptrVar} result(8)] $result(8) \
+      [catch {array unset ptrVar *} result(9)] $result(9) \
+      [catch {array unset ptrVar} result(10)] $result(10) \
+      [catch {array names objVar} result(11)] $result(11) \
+      [catch {array names objVar 1} result(12)] $result(12) \
+      [catch {array values objVar} result(13)] $result(13) \
+      [catch {array values objVar Default#*} result(14)] $result(14) \
+      [catch {array get objVar} result(15)] $result(15) \
+      [catch {array get objVar 1} result(16)] $result(16) \
+      [catch {array size objVar} result(17)] $result(17) \
+      [catch {array unset objVar *} result(18)] $result(18) \
+      [catch {array unset objVar} result(19)] $result(19)
+} -cleanup {
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableSystemArray "" \
+        ptrVar objVar true true true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableSystemArray error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+
+    set error null
+    set code [$test TestIntPtrChangeTypeCallback "" false error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestIntPtrChangeTypeCallback error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  catch {object dispose $test}
+
+  unset -nocomplain result objVar ptrVar code error test
+} -constraints {eagle command.object dotNetOrDotNetCore compile.TEST\
+Eagle._Tests.Default.TestIntPtrChangeTypeCallback\
+Eagle._Tests.Default.TestSetVariableSystemArray\
+Eagle._Tests.Default.TestUnsetVariableSystemArray} -match regexp -result {^0\
+0x12345678 0 Default#\d+ 0 \{0,0 0,1 0,2 1,0 1,1 1,2\} 0 \{1,0 1,1 1,2\} 0\
+\{305419896 0 0 0 0 0\} 0 305419896 0 \{0,0 0,1 0,2 1,0 1,1 1,2\} 0 \{1,0 1,1\
+1,2\} 0 6 1 \{can't unset matching "ptrVar" elements: operation not supported\
+for "System\.Array"\} 0 \{\} 0 0 0 \{\} 0 Eagle\._Tests\.Default 0 \{\} 0 0 0\
+\{\} 0 1 1 \{can't unset matching "objVar" elements: operation not supported\
+for "System\.Array"\} 0 \{\}$}}
+
+###############################################################################
+
+runTest {test basic-1.65 {[array startsearch] System.Array variables} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set error null
+  set code [$test TestIntPtrChangeTypeCallback "" true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set error null
+  set code [$test TestSetVariableSystemArray "" \
+      ptrVar "" true false true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  catch {set ptrVar(0,0) 0x12345678}
+  catch {set ptrVar(0,1) 0x87654321}
+
+  set result [list]
+  set search [array startsearch ptrVar]
+
+  while {[array anymore ptrVar $search]} {
+    set next [array nextelement ptrVar $search]
+    lappend result $next $ptrVar($next)
+  }
+
+  set result
+} -cleanup {
+  array donesearch ptrVar $search; unset -nocomplain search
+
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableSystemArray "" \
+        ptrVar "" true false true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableSystemArray error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+
+    set error null
+    set code [$test TestIntPtrChangeTypeCallback "" false error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestIntPtrChangeTypeCallback error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  catch {object dispose $test}
+
+  unset -nocomplain next result ptrVar code error test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestIntPtrChangeTypeCallback\
+Eagle._Tests.Default.TestSetVariableSystemArray\
+Eagle._Tests.Default.TestUnsetVariableSystemArray} -match regexp -result \
+{0,0 305419896 0,1 (?:2271560481|-2023406815) 0,2 0 1,0 0 1,1 0 1,2 0}}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  proc isNullObject { value } {
+    return [expr {[string length $value] == 0 || \
+        [object invoke Object ReferenceEquals $value null]}]
+  }
+
+  proc eventHandler { sender e } {
+    #
+    # NOTE: This line is EXEMPT from using [getStringFromObjectHandle].
+    #
+    set ::result [list $sender \
+        [expr {![isNullObject $sender] ? [$sender ToString] : "null"}] \
+        $e [$e Name]]
+  }
+}
+
+###############################################################################
+
+runTest {test basic-1.66 {simple event handler} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+} -body {
+  set result ""
+  set e [object create ResolveEventArgs test]
+
+  $test TestTakeEventHandler eventHandler null $e
+
+  set result
+} -cleanup {
+  catch {object dispose $test}
+  catch {object removecallback eventHandler}
+
+  unset -nocomplain result e test
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestTakeEventHandler} \
+-match regexp -result {^\{\} null System#ResolveEventArgs#\d+ test$}}
+
+###############################################################################
+
+runTest {test basic-1.67 {simple generic event handler (success)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+} -body {
+  set result ""
+  set e [object create ResolveEventArgs test]
+
+  $test TestTakeResolveEventHandler eventHandler null $e
+
+  set result
+} -cleanup {
+  catch {object dispose $test}
+  catch {object removecallback eventHandler}
+
+  unset -nocomplain result e test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestTakeResolveEventHandler} -match regexp -result \
+{^\{\} null System#ResolveEventArgs#\d+ test$}}
+
+###############################################################################
+
+runTest {test basic-1.68 {simple generic event handler (failure)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+} -body {
+  set e [object create EventArgs]
+
+  list [catch {
+    $test TestTakeResolveEventHandler eventHandler null $e
+  } result] [getFirstLineOfError $result]
+} -cleanup {
+  catch {object dispose $test}
+  catch {object removecallback eventHandler}
+
+  unset -nocomplain result e test
+} -constraints {eagle command.object dotNetOrDotNetCore compile.TEST\
+Eagle._Tests.Default.TestTakeResolveEventHandler} -match regexp -result {^1\
+\{could not convert method #\d+ "Default#\d+\.TestTakeResolveEventHandler"\
+argument #2 "e" with value "System#EventArgs#\d+" to type\
+"System\.ResolveEventArgs": (?:System\.NotSupportedException: ChangeType\
+operation is not supported\.|Eagle\._Components\.Public\.ScriptException:\
+reference type mismatch, neither type "System\.EventArgs" nor type\
+"System\.String" is compatible with type "System\.ResolveEventArgs")\}$}}
+
+###############################################################################
+
+runTest {test basic-1.69 {typed generic event handler (success)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+} -body {
+  set result ""
+  set e [object create ResolveEventArgs test]
+
+  $test -methodtypes [list ResolveEventArgs] TestTakeGenericEventHandler \
+      eventHandler null $e
+
+  set result
+} -cleanup {
+  catch {object dispose $test}
+  catch {object removecallback eventHandler}
+
+  unset -nocomplain result e test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestTakeGenericEventHandler} -match regexp -result \
+{^\{\} null System#ResolveEventArgs#\d+ test$}}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands object]] > 0} then {
+  rename eventHandler ""
+  rename isNullObject ""
+}
+
+###############################################################################
+
+runTest {test basic-1.70 {static invoke w/-objecttypes option} -setup {
+  set dictionary [object create -alias StringDictionary]
+
+  $dictionary Add one one
+} -body {
+  set key null
+
+  list [object invoke -flags +NonPublic -objecttypes [list String String] \
+      Eagle._Components.Private.GenericOps`2 TryGetKeyAtIndex $dictionary \
+      0 key] $key
+} -cleanup {
+  unset -nocomplain key dictionary
+} -constraints {eagle command.object} -result {True one}}
+
+###############################################################################
+
+runTest {test basic-1.71 {callback queue error handling} -setup {
+  set i [interp create]
+} -body {
+  set interpreter null; set error null
+
+  set code [object invoke -flags +NonPublic -objectflags +NoDispose \
+      Interpreter.GetActive GetChildInterpreter $i Default interpreter \
+      error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  list [interp eval $i {
+    set savedEngineFlags [object invoke -flags +NonPublic \
+        Interpreter.GetActive SharedEngineFlags]
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags +NoCallbackQueue
+  }] [interp eval $i {
+    set result(1) [list]
+
+    lappend result(1) [info exists x]
+    lappend result(1) [info exists y]
+    lappend result(1) [callback count]
+    lappend result(1) [callback enqueue nop 1]
+    lappend result(1) [callback enqueue nop 2]
+    lappend result(1) [callback enqueue nop 3]
+    lappend result(1) [callback enqueue set x 1]
+    lappend result(1) [callback enqueue error bad]
+    lappend result(1) [callback enqueue set y 1]
+    lappend result(1) [callback enqueue nop 4]
+    lappend result(1) [callback enqueue nop 5]
+    lappend result(1) [callback enqueue nop 6]
+    lappend result(1) [callback count]
+
+    set result(1)
+  }] [interp eval $i {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags -NoCallbackQueue
+  }] [catch {interp eval $i {
+    #
+    # NOTE: This command will *NOT* be executed.  When the engine
+    #       processes the callback queue, the [error] command will
+    #       prevent further processing of the callback queue -AND-
+    #       cause the script in progress to raise an error.  The
+    #       remaining callbacks from the queue will be preserved.
+    #
+    lappend result(1) good
+  }} error] $error \
+  [object invoke -flags +NonPublic $interpreter callbackQueue.Count] \
+  [interp eval $i {nop}] [interp eval $i {
+    set result(2) [list]
+
+    lappend result(2) [callback count]
+    lappend result(2) [callback list]
+    lappend result(2) [info exists x]
+    lappend result(2) [info exists y]
+
+    set result(2)
+  }] [object invoke -flags +NonPublic $interpreter callbackQueue.Count] \
+  [interp eval $i {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags $savedEngineFlags
+  }]
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain error code interpreter i
+} -constraints {eagle command.object command.callback compile.CALLBACK_QUEUE} \
+-result {{} {0 0 0 {} {} {} {} {} {} {} {} {} 9} {} 1 bad 4 {} {0 {} 1 1} 0 {}}}
+
+###############################################################################
+
+runTest {test basic-1.72 {callback queue disposal handling} -setup {
+  set i [interp create]
+} -body {
+  set interpreter null; set error null
+
+  set code [object invoke -flags +NonPublic -objectflags +NoDispose \
+      Interpreter.GetActive GetChildInterpreter $i Default interpreter \
+      error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  list [interp eval $i {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags +NoCallbackQueue
+  }] [interp eval $i {
+    set result(1) [list]
+
+    lappend result(1) [info exists x]
+    lappend result(1) [info exists y]
+    lappend result(1) [callback count]
+    lappend result(1) [callback enqueue nop 1]
+    lappend result(1) [callback enqueue nop 2]
+    lappend result(1) [callback enqueue nop 3]
+    lappend result(1) [callback enqueue set x 1]
+
+    lappend result(1) [callback enqueue object \
+        invoke Interpreter.GetActive Dispose]
+
+    lappend result(1) [callback enqueue set y 1]
+    lappend result(1) [callback enqueue nop 4]
+    lappend result(1) [callback enqueue nop 5]
+    lappend result(1) [callback enqueue nop 6]
+    lappend result(1) [callback count]
+
+    set result(1)
+  }] [interp eval $i {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags -NoCallbackQueue
+  }] [catch {interp eval $i {
+    #
+    # NOTE: This command will *NOT* be executed.  When the engine
+    #       processes the callback queue, the interpreter will be
+    #       disposed, thus preventing any further processing of the
+    #       callback queue -AND- causing the script in progress to
+    #       raise an error.  The remaining callbacks from the queue
+    #       will *NOT* be preserved.
+    #
+    lappend result(1) good
+  }} error] $error \
+  [object invoke -flags +NonPublic $interpreter callbackQueue]
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain error code interpreter i
+} -constraints {eagle command.object command.callback compile.CALLBACK_QUEUE} \
+-result {{} {0 0 0 {} {} {} {} {} {} {} {} {} 9} {} 1 {interpreter is unusable\
+(it may have been disposed)} {}}}
+
+###############################################################################
+
+if {[info exists test_data_path]} then {
+  set callStackFileName [file join $test_data_path callStack.eagle]
+} else {
+  set callStackFileName callStack.eagle; # NOTE: Should not happen.
+}
+
+###############################################################################
+
+runTest {test basic-1.73 {EvaluateFile with "file" call frame} -setup {
+  set i [interp create]
+} -body {
+  interp set $i fileName $callStackFileName
+
+  list [interp eval $i {
+    source $fileName
+  }] [interp eval $i {
+    set savedEngineFlags [object invoke -flags +NonPublic \
+        Interpreter.GetActive SharedEngineFlags]
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags ExtraCallFrame
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags
+  }] [interp eval $i {
+    source $fileName
+  }] [interp eval $i {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        SharedEngineFlags $savedEngineFlags
+  }]
+} -cleanup {
+  catch {interp delete $i}
+  unset -nocomplain i
+} -constraints {eagle command.object file_callStack.eagle} -result [list \
+[list global [list source $callStackFileName]] ExtraCallFrame [list global \
+[list source $callStackFileName] [list file [file nativename \
+$callStackFileName]]] ""]}
+
+###############################################################################
+
+unset -nocomplain callStackFileName
+
+###############################################################################
+
+if {[isEagle]} then {
+  proc setupLogging { name path expandBuffer zeroBuffer } {
+    if {![info exists ::logListener]} then {
+      set ::logListener [object create -alias \
+          Eagle._Tests.Default+Listener $name $path null 0 \
+          $expandBuffer $zeroBuffer]
+    }
+
+    object invoke System.Diagnostics.Trace.Listeners Add \
+        $::logListener
+
+    tputs $::test_channel [appendArgs \
+        "---- enabled trace logging to \"" $path \"\n]
+  }
+
+  proc cleanupLogging { path } {
+    if {[info exists ::logListener]} then {
+      object invoke System.Diagnostics.Trace.Listeners Remove \
+          $::logListener
+
+      $::logListener Close
+    }
+
+    #
+    # NOTE: Copy the trace listener log file to the main test log file.
+    #
+    tlog "---- BEGIN TRACE LISTENER OUTPUT\n"
+    tlog [readFile $path]
+    tlog "\n---- END TRACE LISTENER OUTPUT\n"
+
+    #
+    # NOTE: Delete the trace listener log file because its contents have
+    #       been copied to the main test log file.
+    #
+    file delete $path
+
+    tputs $::test_channel [appendArgs \
+        "---- disabled trace logging to \"" $path \"\n]
+  }
+}
+
+proc normalizeTraceLineEndings { value } {
+  if {[isWindows]} then {
+    return [string map [list \n \r\n] $value]
+  } else {
+    return $value
+  }
+}
+
+###############################################################################
+
+runTest {test basic-1.74 {test trace listener} -setup {
+  unset -nocomplain logListener tracePath
+  set tracePath [appendArgs [file rootname $test_log] .trace.log]
+
+  if {[info exists tracePath]} then {
+    setupLogging basic-1.74 $tracePath true true
+  }
+} -body {
+  object invoke System.Diagnostics.Trace WriteLine "first test."
+  object invoke System.Diagnostics.Trace WriteLine [string repeat - 1025]
+  object invoke System.Diagnostics.Trace WriteLine "another test."
+
+  if {[info exists logListener]} then {
+    $logListener WriteLine "second test."; $logListener Flush
+    $logListener WriteLine [string repeat = 1025]; $logListener Flush
+    $logListener WriteLine "one more test."; $logListener Flush
+  }
+
+  if {[info exists tracePath]} then {
+    readSharedFile $tracePath
+  }
+} -cleanup {
+  if {[info exists tracePath]} then {
+    cleanupLogging $tracePath
+  }
+
+  unset -nocomplain logListener tracePath
+} -constraints {eagle command.object compile.TEST monoMatchFramework\
+monoCrash40 member_Eagle._Tests.Default.Listener.WriteLine\
+member_Eagle._Tests.Default.Listener.Flush} -noTrack true -result \
+[normalizeTraceLineEndings [appendArgs \
+"first test.\n" [string repeat - 1025] \n \
+"another test.\n" "second test.\n" \
+[string repeat = 1025] \n \
+"one more test.\n"]]}
+
+###############################################################################
+
+runTest {test basic-1.75 {command tracing} -setup {
+  unset -nocomplain interp logListener tracePath
+
+  if {0} then {
+    object invoke -flags +NonPublic \
+        Eagle._Components.Private.TraceOps SetBareTraceFormat
+  }
+
+  if {1} then {
+    #
+    # HACK: *MONO* When running on Mono, various "extra" trace messages
+    #       may be emitted during interpreter creation (e.g. failing to
+    #       verify strong name signatures on the core library assembly,
+    #       due to an unimplemented native API, when querying assembly
+    #       plugin flags).
+    #
+    # NOTE: Restricting the enabled trace categories has no impact on
+    #       the monitor plugin when it is operating in "direct" mode,
+    #       as it does in this test; however, the important effect at
+    #       this point is preventing non-monitor trace messages from
+    #       ending up in the resulting output (i.e. DebugTrace calls
+    #       outside of the Eagle._Plugins.Monitor class).
+    #
+    unset -nocomplain cats
+
+    set cats [object create -alias StringList]
+    $cats Add Eagle._Plugins.Monitor
+
+    object invoke -flags +NonPublic \
+        Eagle._Components.Private.TraceOps SetTraceCategories \
+        $cats 1
+  }
+
+  set tracePath [appendArgs [file rootname $test_log] .monitor.log]
+
+  if {[info exists tracePath]} then {
+    setupLogging basic-1.75 $tracePath false false
+  }
+
+  set interp [interp create -monitor]
+} -body {
+  interp eval $interp {
+    package require Eagle.Test
+
+    set name [getPluginName [appendArgs \
+        "Eagle\\._Plugins\\.Monitor, " [getTestAssemblyName] ", .*"]]
+
+    if {[string length $name] == 0} then {return}
+    proc z {} {set y [set x 1]}
+
+    if {0} then {
+      debug pluginexecute $name "normalFormat {{0} ==> {1}}"
+      debug pluginexecute $name "normalPriority Highest"
+      debug pluginexecute $name "direct false"
+    }
+
+    debug pluginexecute $name "directCategory {}"
+    debug pluginexecute $name "disabled false"
+    z; # used to demonstrate tracing...
+  }
+
+  if {[info exists logListener]} then {
+    $logListener Flush
+  }
+
+  if {[info exists tracePath]} then {
+    readSharedFile $tracePath
+  }
+} -cleanup {
+  if {[info exists tracePath]} then {
+    cleanupLogging $tracePath
+  }
+
+  catch {interp delete $interp}
+
+  if {1} then {
+    catch {
+      object invoke -flags +NonPublic \
+          Eagle._Components.Private.TraceOps UnsetTraceCategories \
+          $cats
+    }
+
+    unset -nocomplain cats
+  }
+
+  if {0} then {
+    catch {
+      object invoke -flags +NonPublic \
+          Eagle._Components.Private.TraceOps SetMediumTraceFormat
+    }
+  }
+
+  unset -nocomplain interp logListener tracePath
+} -constraints {eagle command.object compile.NOTIFY compile.NOTIFY_ARGUMENTS\
+strongName.official compile.TEST monoMatchFramework monoCrash40\
+member_Eagle._Tests.Default.Listener} -noTrack true -match regexp -result \
+[normalizeTraceLineEndings [string map [list %testAsm% \
+[getTestAssemblyName]] {^debug pluginexecute \{Eagle\._Plugins\.Monitor,\
+%testAsm%, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+\{disabled false\} ==> False
+set x 1 ==> 1
+set y 1 ==> 1
+z ==> 1
+$}]]}
+
+###############################################################################
+
+rename normalizeTraceLineEndings ""
+
+if {[isEagle]} then {
+  rename cleanupLogging ""
+  rename setupLogging ""
+}
+
+###############################################################################
+
+runTest {test basic-1.76 {NormalizeLineEndings method} -body {
+  list [object invoke Utility NormalizeLineEndings null] \
+      [object invoke Utility NormalizeLineEndings ""] \
+      [object invoke Utility NormalizeLineEndings "negative zero"] \
+      [object invoke Utility NormalizeLineEndings "one\rtwo"] \
+      [object invoke Utility NormalizeLineEndings "three\nfour"] \
+      [object invoke Utility NormalizeLineEndings "five\r\nsix"] \
+      [object invoke Utility NormalizeLineEndings "seven\n\reight"]
+} -constraints {eagle command.object} -result {{} {} {negative zero} {one
+two} {three
+four} {five
+six} {seven
+eight}}}
+
+###############################################################################
+
+#
+# WARNING: This test relies on having trailing spaces within its result,
+#          please do not trim them.
+#
+runTest {test basic-1.77 {ScriptBlocks class} -setup {
+  unset -nocomplain i count code text texts output error errors results
+
+  set i [interp create]
+} -body {
+  set texts [list {} {
+    section one <# set xxx 123 #> section two
+  } {
+    <#
+      set yyy 000
+    #>
+
+    section one...
+
+    <##>
+    <###>
+
+    <#=env(windir)#>
+    <#=xyz#>
+    <#=env#>
+
+    <##
+    $env(windir)
+    #>
+
+    <#
+      set x 9; # comment.
+      return [appendArgs <SCRIPT> [set x] </SCRIPT>]
+    #> section two.
+
+    section three "<## $env(windir) #>", section four.
+
+    section five
+
+    <#
+      error "error three"
+    #>
+
+    section six
+
+    <#
+      incr x
+      append x "<#"
+      append x "\x3C\x25"
+      append x "\x25\x3E"
+      return [appendArgs <SCRIPT> [format %lx [pid]] </SCRIPT>]
+      append x "# >"
+    #>
+
+    section seven <#=x#>
+  } {
+    <#
+  } {
+    #>
+  }]
+
+  foreach text $texts {
+    array set count {
+      literalCount       0 blockCount         0 evaluateCount      0
+      substituteCount    0 variableCount      0 failCount          0
+      errorCount         0
+    }
+
+    set text [string map [list \n \r\n] $text]
+    set output null; set errors null
+
+    set code [object invoke \
+        ScriptBlocks Process $i $text "Standard -StopOnError -StopOnFailure" \
+        count(literalCount) count(blockCount) count(evaluateCount) \
+        count(substituteCount) count(variableCount) count(failCount) \
+        count(errorCount) output errors]
+
+    lappend results $code
+
+    if {[string length $output] > 0} then {
+      lappend results [getStringFromObjectHandle $output]
+    }
+
+    if {[string length $errors]} then {
+      lappend results [getStringFromObjectHandle $errors]
+    }
+
+    lappend results $count(literalCount)
+    lappend results $count(blockCount)
+    lappend results $count(evaluateCount)
+    lappend results $count(substituteCount)
+    lappend results $count(variableCount)
+    lappend results $count(failCount)
+    lappend results $count(errorCount)
+  }
+
+  set results
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i count code text texts output error errors results
+} -constraints {eagle windows command.object} -result [string map [list \
+%windir% [getEnvironmentVariable windir] %pid% [format %lx [pid]] \n \r\n] \
+{Ok 0 0 0 0 0 0 0 Ok {
+    section one 123 section two
+  } 2 1 1 0 0 0 0 Error {
+    000
+
+    section one...
+
+    
+    
+
+    %windir%
+    
+
+BLOCK ERROR: Error: can't read "xyz": no such variable
+
+
+    
+
+BLOCK ERROR: Error: can't read "env": variable is array
+
+
+
+    %windir%
+
+    <SCRIPT>9</SCRIPT> section two.
+
+    section three "%windir%", section four.
+
+    section five
+
+    
+
+BLOCK ERROR: Error, line 2: error three
+
+
+
+    section six
+
+    <SCRIPT>%pid%</SCRIPT>
+
+    section seven 10<#<%%>
+  } {{block from absolute index 110 to absolute index 116 had evaluation error:\
+Error: can't read "xyz": no such variable} {block from absolute index 124 to\
+absolute index 130 had evaluation error: Error: can't read "env": variable is\
+array} {block from absolute index 367 to absolute index 402 had evaluation\
+error: Error, line 2: error three}} 13 12 5 3 4 0 3 Error {
+    
+
+PARSE ERROR: found opening tag "<#" at absolute index 6 and expected closing\
+tag "#>", which was not found
+
+  } {found opening tag "<#" at absolute index 6 and expected closing tag "#>",\
+which was not found} 2 0 0 0 0 1 0 Error {
+
+PARSE ERROR: found closing tag "#>" at absolute index 6 and expected opening\
+tag "<#", which was not found
+
+
+  } {found closing tag "#>" at absolute index 6 and expected opening tag "<#",\
+which was not found} 1 0 0 0 0 1 0}]}
+
+###############################################################################
+
+if {[isEagle]} then {
+  set host [appendArgs \
+      (?: [info engine Uri] | [info engine UpdateBaseUri] | \
+      [info engine DownloadBaseUri] | [info engine ScriptBaseUri] )]
+} else {
+  set host ""
+}
+
+###############################################################################
+
+#
+# HACK: This test (now) requires that the operating system on this machine
+#       (e.g. Windows Vista, Windows 7, etc) support TLS certificates with
+#       SNI.  Unfortunately, Windows XP does not support this; therefore,
+#       this test will on longer work on Windows XP.
+#
+# HACK: Only run this test for the default build (i.e. NetFx20); otherwise,
+#       the server data would have to include all release build variants,
+#       e.g. Bare, Database, LeanAndMean, etc, which are really only being
+#       built to verify that optional features can actually be omitted and
+#       are not too interdependent.
+#
+runTest {test basic-1.101 {checkForUpdate script library procedure} -setup {
+  set savedPatchLevel $::eagle_platform(patchLevel)
+} -body {
+  set patchLevel 0.0.0.0
+
+  set ::eagle_platform(patchLevel) 1.0.0.0
+  set data(lessThan) [checkForUpdate]
+
+  if {![regexp -- \
+      {^\{(?:stable|latest) build (\d+\.\d+\.\d+\.\d+),} \
+      $data(lessThan) dummy patchLevel]} then {
+    tputs $test_channel [appendArgs \
+        "---- : procedure \[checkForUpdate\] failed: " \
+        \n $data(lessThan) \n]
+  }
+
+  set ::eagle_platform(patchLevel) $patchLevel
+  set data(equalTo) [checkForUpdate]
+
+  set ::eagle_platform(patchLevel) 1.9.0.0
+  set data(greaterThan) [checkForUpdate]
+
+  list $data(lessThan) $data(equalTo) $data(greaterThan)
+} -cleanup {
+  set ::eagle_platform(patchLevel) $savedPatchLevel
+  unset -nocomplain savedPatchLevel
+
+  unset -nocomplain patchLevel dummy data host
+} -constraints {eagle command.object compile.NETWORK\
+network_eagle.to strongName.official osVersion.WindowsNT_6.0_OrHigher} \
+-constraintExpression {[haveConstraint buildType.Default] || \
+[haveConstraint buildType.NetFx20]} -match regexp -result [string map [list \
+%host% $host] {^\{\{(?:stable|latest) build \d+\.\d+\.\d+\.\d+, dated\
+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}, is newer than the running build\
+1\.0\.0\.0, dated \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}, based on the data from\
+%host%\} \{uri %host% patchLevel \d+\.\d+\.\d+\.\d+ notes \{\} md5 [0-9a-f]{32}\
+sha1 [0-9a-f]{40} sha512 [0-9a-f]{128}\}\} \{\{running build\
+\d+\.\d+\.\d+\.\d+, dated \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}, is the\
+(?:stable|latest) build, based on the data from %host%\}\} \{\{running build\
+1\.9\.0\.0, dated \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}, is newer than the\
+(?:stable|latest) build \d+\.\d+\.\d+\.\d+, dated\
+\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}, based on the data from %host%\}\}$}]}
+
+###############################################################################
+
+unset -nocomplain host
+
+###############################################################################
+
+runTest {test basic-1.102 {guid command} -body {
+  set guid(null) [guid null]
+  set guid(new) [guid new]
+
+  list $guid(null) $guid(new) [guid isvalid foo] \
+      [guid isvalid $guid(null)] [guid isvalid $guid(new)] \
+      [guid isnull $guid(null)] [guid isnull $guid(new)]
+} -cleanup {
+  unset -nocomplain guid
+} -constraints {eagle command.guid} -match regexp -result \
+{^00000000-0000-0000-0000-000000000000\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+0 1 1 1 0$}}
+
+###############################################################################
+
+runTest {test basic-1.103 {invoke command} -body {
+  expr {[info level] == [invoke 0 info level]}
+} -constraints {eagle} -result {True}}
+
+###############################################################################
+
+runTest {test basic-1.104 {interp alias w/ns, SF bug #1590483} -setup {
+  if {[isEagle]} then {
+    set i [interp create -namespaces]
+  } else {
+    set i [interp create]
+  }
+} -body {
+  interp eval $i {
+    set res ""
+    proc x {} {
+      if {![llength $::res]} {
+        set ::res [list [info level 0] ::]
+        lappend ::res [uplevel 1 [info level 0]]
+      } else {
+        return ::
+      }
+    }
+    namespace eval a {
+      proc x {} {return ::a}
+    }
+    interp alias {} y {} x
+    namespace eval a y
+    set res
+  }
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i
+} -constraints {namespaces.available} -result {x :: ::a}}
+
+###############################################################################
+
+runTest {test basic-1.105 {enumerable variables} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+  $test TestSetupIntArray false
+
+  set error null
+  set code [$test TestSetVariableEnumerable "" \
+      sVar(auto) true true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set error null
+  set code [$test TestSetVariableEnumerable "" \
+      sVar2(manual) false true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+} -body {
+  set result [list]
+
+  while {[catch {set sVar(auto)} item] == 0} {
+    lappend result auto $item
+  }
+
+  while {[catch {set sVar2(manual)} item] == 0} {
+    lappend result manual $item
+  }
+
+  $test TestSetupIntArray true
+
+  while {[catch {set sVar(auto)} item] == 0} {
+    lappend result auto $item
+  }
+
+  while {[catch {set sVar2(manual)} item] == 0} {
+    lappend result manual $item
+  }
+
+  lappend result [unset sVar(auto)]
+  lappend result [unset sVar]
+  lappend result [unset sVar2]
+
+  set result
+} -cleanup {
+  if {[info exists test] && [string length $test] > 0} then {
+    set error null
+    set code [$test TestUnsetVariableEnumerable "" \
+        sVar true error]
+
+    if {$code ne "Ok" && ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "---- TestUnsetVariableEnumerable error: " \
+          \n [getStringFromObjectHandle $error] \n]
+    }
+  }
+
+  unset -nocomplain sVar sVar2 code error result item test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetupIntArray\
+Eagle._Tests.Default.TestSetVariableEnumerable\
+Eagle._Tests.Default.TestUnsetVariableEnumerable} -result {auto 0 auto 1 auto 2\
+auto 3 auto 4 auto 5 auto 6 auto 7 auto 8 auto 9 manual 0 manual 1 manual 2\
+manual 3 manual 4 manual 5 manual 6 manual 7 manual 8 manual 9 auto 9 auto 8\
+auto 7 auto 6 auto 5 auto 4 auto 3 auto 2 auto 1 auto 0 {} {} {}}}
+
+###############################################################################
+
+runTest {test basic-1.106 {asynchronous evaluation context counts} -setup {
+  set interp [object invoke Interpreter GetActive]
+  set x [object create Eagle._Tests.Default]
+  set y [object invoke -create -parametertypes String Result op_Implicit ""]
+} -body {
+  set w1 -1; set w2 -1
+
+  list [object invoke $x TestEvaluateAsync $interp \
+      "set z 2" None None None None $test_timeout w1 w2 y] \
+      [getStringFromObjectHandle $y] $w1 $w2
+} -cleanup {
+  unset -nocomplain z y x w2 w1 interp
+} -constraints [fixConstraints {eagle command.object compile.THREADING\
+compile.TEST Eagle._Tests.Default.TestEvaluateAsync !monoDebugger}] \
+-match regexp -result {^Ok 2 [1-4] 0$}}
+
+###############################################################################
+
+runTest {test basic-1.107 {out-of-band objects w/ [object fromvar]} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+} -body {
+  set error null
+
+  set code [$test TestSetVariableWithTypedValue \
+      "" DirectSetValueMask x1 null Int32 false error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set error null
+
+  set code [$test TestSetVariableWithTypedValue \
+      "" DirectSetValueMask x2 null String false error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set error null
+
+  set code [$test TestSetVariableWithTypedValue \
+      "" DirectSetValueMask x3 null Eagle._Tests.Default \
+      false error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set error null
+
+  set code [$test TestSetVariableWithTypedValue \
+      "" DirectSetValueMask x4 $test null false error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  set y1 [object fromvar -alias x1]
+  set y2 [object fromvar -alias x2]
+  set y3 [object fromvar -alias x3]
+  set y4 [object fromvar -alias x4]
+
+  list [getStringFromObjectHandle $y1] [getStringFromObjectHandle $y2] \
+      [getStringFromObjectHandle $y3] [getStringFromObjectHandle $y4]
+} -cleanup {
+  unset -nocomplain x1 x2 x3 x4 y1 y2 y3 y4 code error test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetVariableWithTypedValue} -match regexp -result {^0\
+[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
+Eagle\._Tests\.Default Eagle\._Tests\.Default$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

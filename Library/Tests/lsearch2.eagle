@@ -1,0 +1,828 @@
+###############################################################################
+#
+# lsearch2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+set x {abcd bbcd 123 234 345}
+
+###############################################################################
+
+runTest {test lsearch-1.1 {lsearch command} {
+  lsearch $x 123
+} 2}
+
+###############################################################################
+
+runTest {test lsearch-1.2 {lsearch command} {
+  lsearch $x 3456
+} -1}
+
+###############################################################################
+
+runTest {test lsearch-1.3 {lsearch command} {
+  lsearch $x *5
+} 4}
+
+###############################################################################
+
+runTest {test lsearch-1.4 {lsearch command} {
+  lsearch $x *bc*
+} 0}
+
+###############################################################################
+
+unset -nocomplain x
+
+###############################################################################
+
+runTest {test lsearch-2.1 {search modes} {
+  lsearch -exact {xyz bbcc *bc*} *bc*
+} 2}
+
+###############################################################################
+
+runTest {test lsearch-2.2 {search modes} {
+  lsearch -exact {b.x ^bc xy bcx} ^bc
+} 1}
+
+###############################################################################
+
+runTest {test lsearch-2.3 {search modes} {
+  lsearch -exact {foo bar cat} ba
+} -1}
+
+###############################################################################
+
+runTest {test lsearch-2.4 {search modes} {
+  lsearch -exact {foo bar cat} bart
+} -1}
+
+###############################################################################
+
+runTest {test lsearch-2.5 {search modes} {
+  lsearch -exact {foo bar cat} bar
+} 1}
+
+###############################################################################
+
+runTest {test lsearch-2.6 {search modes} -body {
+  list [catch {lsearch -regexp {xyz bbcc *bc*} *bc*} msg] $msg
+} -constraints {eagle} -match glob -noCase true -result {1 {*quantifier*}}}
+
+###############################################################################
+
+runTest {test lsearch-2.7 {search modes} {
+  lsearch -regexp {b.x ^bc xy bcx} ^bc
+} 3}
+
+###############################################################################
+
+runTest {test lsearch-2.8 {search modes} {
+  lsearch -glob {xyz bbcc *bc*} *bc*
+} 1}
+
+###############################################################################
+
+runTest {test lsearch-2.9 {search modes} {
+  lsearch -glob {b.x ^bc xy bcx} ^bc
+} 1}
+
+###############################################################################
+
+runTest {test lsearch-2.10 {search modes} -body {
+  list [catch {lsearch -glib {b.x bx xy bcx} b.x} msg] $msg
+} -constraints {eagle} -result \
+{1 {bad option "-glib": must be --, ---, -all, -ascii, -decreasing,\
+-dictionary, -exact, -glob, -increasing, -index, -inline, -integer, -inverse,\
+-nocase, -not, -real, -regexp, -sorted, -start, -subindices, -substring, or\
+-variable}}}
+
+###############################################################################
+
+runTest {test lsearch-2.11 {search modes with -nocase} -body {
+  lsearch -exact -nocase {a b c A B C} A
+} -constraints {tip241} -result 0}
+
+###############################################################################
+
+runTest {test lsearch-2.12 {search modes with -nocase} -body {
+  lsearch -glob -nocase {a b c A B C} A*
+} -constraints {tip241} -result 0}
+
+###############################################################################
+
+runTest {test lsearch-2.13 {search modes with -nocase} -body {
+  lsearch -regexp -nocase {a b c A B C} ^A\$
+} -constraints {tip241} -result 0}
+
+###############################################################################
+
+runTest {test lsearch-2.14 {search modes without -nocase} {
+  lsearch -exact {a b c A B C} A
+} 3}
+
+###############################################################################
+
+runTest {test lsearch-2.15 {search modes without -nocase} {
+  lsearch -glob {a b c A B C} A*
+} 3}
+
+###############################################################################
+
+runTest {test lsearch-2.16 {search modes without -nocase} {
+  lsearch -regexp {a b c A B C} ^A\$
+} 3}
+
+###############################################################################
+
+runTest {test lsearch-3.1.1 {lsearch errors} -body {
+  list [catch lsearch msg] $msg
+} -constraints [fixConstraints {!tcl86}] -result \
+{1 {wrong # args: should be "lsearch ?options? list pattern"}}}
+
+###############################################################################
+
+runTest {test lsearch-3.1.2 {lsearch errors} -body {
+  list [catch lsearch msg] $msg
+} -constraints {tcl86} -result \
+{1 {wrong # args: should be "lsearch ?-option value ...? list pattern"}}}
+
+###############################################################################
+
+runTest {test lsearch-3.2.1 {lsearch errors} -body {
+  list [catch {lsearch a} msg] $msg
+} -constraints [fixConstraints {!tcl86}] -result \
+{1 {wrong # args: should be "lsearch ?options? list pattern"}}}
+
+###############################################################################
+
+runTest {test lsearch-3.2.2 {lsearch errors} -body {
+  list [catch {lsearch a} msg] $msg
+} -constraints {tcl86} -result \
+{1 {wrong # args: should be "lsearch ?-option value ...? list pattern"}}}
+
+###############################################################################
+
+runTest {test lsearch-3.3 {lsearch errors} -body {
+  list [catch {lsearch a b c} msg] $msg
+} -constraints {eagle} -result \
+{1 {wrong # args: should be "lsearch ?options? list pattern"}}}
+
+###############################################################################
+
+runTest {test lsearch-3.4 {lsearch errors} -body {
+  list [catch {lsearch a b c d} msg] $msg
+} -constraints {eagle} -result \
+{1 {wrong # args: should be "lsearch ?options? list pattern"}}}
+
+###############################################################################
+
+runTest {test lsearch-3.5 {lsearch errors} {
+  list [catch {lsearch "\{" b} msg] $msg
+} {1 {unmatched open brace in list}}}
+
+###############################################################################
+
+runTest {test lsearch-3.6 {lsearch errors} -body {
+  list [catch {lsearch -index a b} msg] $msg
+} -constraints {eagle} -result \
+{1 {wrong # args: should be "lsearch ?options? list pattern"}}}
+
+###############################################################################
+
+runTest {test lsearch-3.7 {lsearch errors} -body {
+  list [catch {lsearch -subindices -exact a b} msg] $msg
+} -constraints {tip127} -result \
+{1 {-subindices cannot be used without -index option}}}
+
+###############################################################################
+
+runTest {test lsearch-4.1 {binary data} {
+  lsearch -exact [list foo one\000two bar] bar
+} 2}
+
+###############################################################################
+
+runTest {test lsearch-4.2 {binary data} {
+  set x one
+  append x \x00
+  append x two
+  lsearch -exact [list foo one\000two bar] $x
+} 1}
+
+###############################################################################
+
+# Make a sorted list
+set l {}
+set l2 {}
+
+for {set i 0} {$i < 100} {incr i} {
+  lappend l $i
+  lappend l2 [expr {double($i)/2}]
+}
+
+set increasingIntegers [lsort -integer $l]
+set decreasingIntegers [lsort -decreasing -integer $l]
+
+unset l
+
+set increasingDoubles [lsort -real $l2]
+set decreasingDoubles [lsort -decreasing -real $l2]
+
+unset l2
+
+set increasingStrings [lsort {48 6a 18b 22a 21aa 35 36}]
+set decreasingStrings [lsort -decreasing {48 6a 18b 22a 21aa 35 36}]
+set increasingDictionary [lsort -dictionary {48 6a 18b 22a 21aa 35 36}]
+set decreasingDictionary [lsort -dictionary -decreasing $increasingDictionary]
+
+set l {}
+
+for {set i 0} {$i < 10} {incr i} {
+  lappend l $i $i $i $i $i
+}
+
+set repeatingIncreasingIntegers [lsort -integer $l]
+set repeatingDecreasingIntegers [lsort -integer -decreasing $l]
+
+unset l
+
+###############################################################################
+
+runTest {test lsearch-5.1 {binary search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -integer -sorted $increasingIntegers $i]
+  }
+  set res
+} $increasingIntegers}
+
+###############################################################################
+
+runTest {test lsearch-5.2 {binary search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -integer -decreasing -sorted \
+        $decreasingIntegers $i]
+  }
+  set res
+} $decreasingIntegers}
+
+###############################################################################
+
+runTest {test lsearch-5.3 {-sorted finds leftmost} -body {
+  set res {}
+  for {set i 0} {$i < 10} {incr i} {
+    set idx [lsearch -integer -sorted $repeatingIncreasingIntegers $i]
+    lappend res $idx
+  }
+  set res
+} -constraints {eagle} -result [list 2 5 11 17 24 27 30 37 43 46]}
+
+###############################################################################
+
+runTest {test lsearch-5.4 {-sorted -decreasing finds leftmost} -body {
+    set res {}
+    for {set i 9} {$i >= 0} {incr i -1} {
+      set idx [lsearch -sorted -integer -decreasing \
+          $repeatingDecreasingIntegers $i]
+
+      lappend res $idx
+    }
+    set res
+} -constraints {eagle} -result [list 2 5 11 17 24 27 30 37 43 46]}
+
+###############################################################################
+
+runTest {test lsearch-6.1 {integer search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -exact -integer $increasingIntegers $i]
+  }
+  set res
+} [lrange $increasingIntegers 0 99]}
+
+###############################################################################
+
+runTest {test lsearch-6.2 {decreasing integer search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -exact -integer -decreasing \
+        $decreasingIntegers $i]
+  }
+  set res
+} [lrange $decreasingIntegers 0 99]}
+
+###############################################################################
+
+runTest {test lsearch-6.3 {sorted integer search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -sorted -integer $increasingIntegers $i]
+  }
+  set res
+} [lrange $increasingIntegers 0 99]}
+
+###############################################################################
+
+runTest {test lsearch-6.4 {sorted decreasing integer search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -integer -sorted -decreasing \
+        $decreasingIntegers $i]
+  }
+  set res
+} [lrange $decreasingIntegers 0 99]}
+
+###############################################################################
+
+runTest {test lsearch-7.1 {double search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -exact -real $increasingDoubles \
+        [expr {double($i)/2}]]
+  }
+  set res
+} [lrange $increasingIntegers 0 99]}
+
+###############################################################################
+
+runTest {test lsearch-7.2 {decreasing double search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -exact -real -decreasing \
+        $decreasingDoubles [expr {double($i)/2}]]
+  }
+  set res
+} [lrange $decreasingIntegers 0 99]}
+
+###############################################################################
+
+runTest {test lsearch-7.3 {sorted double search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -sorted -real \
+        $increasingDoubles [expr {double($i)/2}]]
+  }
+  set res
+} [lrange $increasingIntegers 0 99]}
+
+###############################################################################
+
+runTest {test lsearch-7.4 {sorted decreasing double search} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -sorted -real -decreasing \
+        $decreasingDoubles [expr {double($i)/2}]]
+  }
+  set res
+} [lrange $decreasingIntegers 0 99]}
+
+###############################################################################
+
+runTest {test lsearch-8.1 {dictionary search} {
+  set res {}
+  foreach val {6a 18b 21aa 22a 35 36 48} {
+    lappend res [lsearch -exact -dictionary $increasingDictionary $val]
+  }
+  set res
+} [list 0 1 2 3 4 5 6]}
+
+###############################################################################
+
+runTest {test lsearch-8.2 {decreasing dictionary search} {
+  set res {}
+  foreach val {6a 18b 21aa 22a 35 36 48} {
+    lappend res [lsearch -exact -dictionary $decreasingDictionary $val]
+  }
+  set res
+} [list 6 5 4 3 2 1 0]}
+
+###############################################################################
+
+runTest {test lsearch-8.3 {sorted dictionary search} {
+  set res {}
+  foreach val {6a 18b 21aa 22a 35 36 48} {
+    lappend res [lsearch -sorted -dictionary $increasingDictionary $val]
+  }
+  set res
+} [list 0 1 2 3 4 5 6]}
+
+###############################################################################
+
+runTest {test lsearch-8.4 {decreasing sorted dictionary search} {
+  set res {}
+  foreach val {6a 18b 21aa 22a 35 36 48} {
+    lappend res [lsearch -decreasing -sorted -dictionary \
+        $decreasingDictionary $val]
+  }
+  set res
+} [list 6 5 4 3 2 1 0]}
+
+###############################################################################
+
+runTest {test lsearch-9.1 {ascii search} {
+  set res {}
+  foreach val {18b 21aa 22a 35 36 48 6a} {
+    lappend res [lsearch -exact -ascii $increasingStrings $val]
+  }
+  set res
+} [list 0 1 2 3 4 5 6]}
+
+###############################################################################
+
+runTest {test lsearch-9.2 {decreasing ascii search} {
+  set res {}
+  foreach val {18b 21aa 22a 35 36 48 6a} {
+    lappend res [lsearch -exact -ascii $decreasingStrings $val]
+  }
+  set res
+} [list 6 5 4 3 2 1 0]}
+
+###############################################################################
+
+runTest {test lsearch-9.3 {sorted ascii search} {
+  set res {}
+  foreach val {18b 21aa 22a 35 36 48 6a} {
+    lappend res [lsearch -sorted -ascii $increasingStrings $val]
+  }
+  set res
+} [list 0 1 2 3 4 5 6]}
+
+###############################################################################
+
+runTest {test lsearch-9.4 {decreasing sorted ascii search} {
+  set res {}
+  foreach val {18b 21aa 22a 35 36 48 6a} {
+    lappend res [lsearch -decreasing -sorted -ascii \
+        $decreasingStrings $val]
+  }
+  set res
+} [list 6 5 4 3 2 1 0]}
+
+###############################################################################
+
+runTest {test lsearch-10.1 {offset searching} {
+  lsearch -start 2 {a b c a b c} a
+} 3}
+
+###############################################################################
+
+runTest {test lsearch-10.2 {offset searching} {
+  lsearch -start 2 {a b c d e f} a
+} -1}
+
+###############################################################################
+
+runTest {test lsearch-10.3 {offset searching} {
+  lsearch -start end-4 {a b c a b c} a
+} 3}
+
+###############################################################################
+
+runTest {test lsearch-10.4.1 {offset searching} -body {
+  list [catch {lsearch -start foobar {a b c a b c} a} msg] $msg
+} -constraints {tcl tcl84} -result \
+{1 {bad index "foobar": must be integer or end?-integer?}}}
+
+###############################################################################
+
+runTest {test lsearch-10.4.2 {offset searching} -body {
+  list [catch {lsearch -start foobar {a b c a b c} a} msg] $msg
+} -constraints {tcl tcl85} -result \
+{1 {bad index "foobar": must be integer?[+-]integer? or end?[+-]integer?}}}
+
+###############################################################################
+
+runTest {test lsearch-10.4.3 {offset searching} -body {
+    list [catch {lsearch -start foobar {a b c a b c} a} msg] $msg
+} -constraints {eagle} -result {1 {bad index "foobar": must be\
+start|end|count|integer?[+-*/%]start|end|count|integer?}}}
+
+###############################################################################
+
+runTest {test lsearch-10.5 {offset searching} -body {
+  list [catch {lsearch -start 1 2} msg] $msg
+} -constraints {eagle} -result \
+{1 {wrong # args: should be "lsearch ?options? list pattern"}}}
+
+###############################################################################
+
+runTest {test lsearch-10.6 {binary search with offset} {
+  set res {}
+  for {set i 0} {$i < 100} {incr i} {
+    lappend res [lsearch -integer -start 2 -sorted $increasingIntegers $i]
+  }
+  set res
+} [concat -1 -1 [lrange $increasingIntegers 2 end]]}
+
+###############################################################################
+
+runTest {test lsearch-10.7 {offset searching with an empty list} {
+  # Stop bug #694232 from reocurring
+  lsearch -start 0 {} x
+} -1}
+
+###############################################################################
+
+runTest {test lsearch-10.8 {offset searching past the end of the list} {
+  # Stop [Bug 1374778] from reoccurring
+  lsearch -start 10 {a b c} c
+} -1}
+
+###############################################################################
+
+runTest {test lsearch-10.9 {offset searching past the end of the list} {
+  # Stop [Bug 1374778] from reoccurring
+  lsearch -start 10 -all {a b c} c
+} {}}
+
+###############################################################################
+
+runTest {test lsearch-10.10 {offset searching past the end of the list} {
+  # Stop [Bug 1374778] from reoccurring
+  lsearch -start 10 -inline {a b c} c
+} {}}
+
+###############################################################################
+
+runTest {test lsearch-11.1 {negated searches} {
+  lsearch -not {a a a b a a a} a
+} 3}
+
+###############################################################################
+
+runTest {test lsearch-11.2 {negated searches} {
+  lsearch -not {a a a a a a a} a
+} -1}
+
+###############################################################################
+
+runTest {test lsearch-12.1 {return values instead of indices} {
+  lsearch -glob -inline {a1 b2 c3 d4} c*
+} c3}
+
+###############################################################################
+
+runTest {test lsearch-12.2 {return values instead of indices} {
+  lsearch -glob -inline {a1 b2 c3 d4} e*
+} {}}
+
+###############################################################################
+
+runTest {test lsearch-13.1 {search for all matches} {
+  lsearch -all {a b a c a d} 1
+} {}}
+
+###############################################################################
+
+runTest {test lsearch-13.2 {search for all matches} {
+  lsearch -all {a b a c a d} a
+} {0 2 4}}
+
+###############################################################################
+
+runTest {test lsearch-13.3 {search for all matches with -nocase} -body {
+  lsearch -all -exact -nocase {a b c A B C} A
+} -constraints {tip241} -result {0 3}}
+
+###############################################################################
+
+runTest {test lsearch-13.4 {search for all matches with -nocase} -body {
+  lsearch -all -glob -nocase {a b c A B C} A*
+} -constraints {tip241} -result {0 3}}
+
+###############################################################################
+
+runTest {test lsearch-13.5 {search for all matches with -nocase} -body {
+  lsearch -all -regexp -nocase {a b c A B C} ^A\$
+} -constraints {tip241} -result {0 3}}
+
+###############################################################################
+
+runTest {test lsearch-14.1 {combinations: -all and -inline} {
+  lsearch -all -inline -glob {a1 b2 a3 c4 a5 d6} a*
+} {a1 a3 a5}}
+
+###############################################################################
+
+runTest {test lsearch-14.2 {combinations: -all, -inline and -not} {
+  lsearch -all -inline -not -glob {a1 b2 a3 c4 a5 d6} a*
+} {b2 c4 d6}}
+
+###############################################################################
+
+runTest {test lsearch-14.3 {combinations: -all and -not} {
+  lsearch -all -not -glob {a1 b2 a3 c4 a5 d6} a*
+} {1 3 5}}
+
+###############################################################################
+
+runTest {test lsearch-14.4 {combinations: -inline and -not} {
+  lsearch -inline -not -glob {a1 b2 a3 c4 a5 d6} a*
+} {b2}}
+
+###############################################################################
+
+runTest {test lsearch-14.5 {combinations: -start, -all and -inline} {
+  lsearch -start 2 -all -inline -glob {a1 b2 a3 c4 a5 d6} a*
+} {a3 a5}}
+
+###############################################################################
+
+runTest {test lsearch-14.6 {combinations: -start, -all, -inline and -not} {
+  lsearch -start 2 -all -inline -not -glob {a1 b2 a3 c4 a5 d6} a*
+} {c4 d6}}
+
+###############################################################################
+
+runTest {test lsearch-14.7 {combinations: -start, -all and -not} {
+  lsearch -start 2 -all -not -glob {a1 b2 a3 c4 a5 d6} a*
+} {3 5}}
+
+###############################################################################
+
+runTest {test lsearch-14.8 {combinations: -start, -inline and -not} {
+  lsearch -start 2 -inline -not -glob {a1 b2 a3 c4 a5 d6} a*
+} {c4}}
+
+###############################################################################
+
+runTest {test lsearch-15.1 {make sure no shimmering occurs} {
+  set x [expr int(sin(0))]
+  lsearch -start $x $x $x
+} 0}
+
+###############################################################################
+
+runTest {test lsearch-16.1 {-regexp shared object} {
+  set str a
+  lsearch -regexp $str $str
+} 0}
+
+###############################################################################
+
+# Bug 1366683
+runTest {test lsearch-16.2 {-regexp allows internal backrefs} {
+  lsearch -regexp {a aa b} {(.)\1}
+} 1}
+
+###############################################################################
+
+runTest {test lsearch-17.1 {-index option, basic functionality} -body {
+  lsearch -index 1 {{a c} {a b} {a a}} a
+} -constraints {tip127} -result 2}
+
+###############################################################################
+
+runTest {test lsearch-17.2 {-index option, basic functionality} -body {
+  lsearch -index 1 -exact {{a c} {a b} {a a}} a
+} -constraints {tip127} -result 2}
+
+###############################################################################
+
+runTest {test lsearch-17.3 {-index option, basic functionality} -body {
+  lsearch -index 1 -glob {{ab cb} {ab bb} {ab ab}} b*
+} -constraints {tip127} -result 1}
+
+###############################################################################
+
+runTest {test lsearch-17.4 {-index option, basic functionality} -body {
+  lsearch -index 1 -regexp {{ab cb} {ab bb} {ab ab}} {[cb]b}
+} -constraints {tip127} -result 0}
+
+###############################################################################
+
+runTest {test lsearch-17.5 {-index option, basic functionality} -body {
+  lsearch -all -index 0 -exact {{a c} {a b} {d a}} a
+} -constraints {tip127} -result {0 1}}
+
+###############################################################################
+
+runTest {test lsearch-17.6 {-index option, basic functionality} -body {
+  lsearch -all -index 1 -glob {{ab cb} {ab bb} {db bx}} b*
+} -constraints {tip127} -result {1 2}}
+
+###############################################################################
+
+runTest {test lsearch-17.7 {-index option, basic functionality} -body {
+  lsearch -all -index 1 -regexp {{ab cb} {ab bb} {ab ab}} {[cb]b}
+} -constraints {tip127} -result {0 1}}
+
+###############################################################################
+
+runTest {test lsearch-18.1 {-index option, list as index} -body {
+  lsearch -index {0 0} {{{x x} {x b} {a d}} {{a c} {a b} {a a}}} a
+} -constraints {tip127} -result 1}
+
+###############################################################################
+
+runTest {test lsearch-18.2 {-index option, list as index} -body {
+  lsearch -index {2 0} -exact {{{x x} {x b} {a d}} {{a c} {a b} {a a}}} a
+} -constraints {tip127} -result 0}
+
+###############################################################################
+
+runTest {test lsearch-18.3 {-index option, list as index} -body {
+  lsearch -index {1 1} -glob \
+      {{{ab cb} {ab bb} {ab ab}} {{ab cb} {ab bb} {ab ab}}} b*
+} -constraints {tip127} -result 0}
+
+###############################################################################
+
+runTest {test lsearch-18.4 {-index option, list as index} -body {
+  lsearch -index {0 1} -regexp \
+      {{{ab cb} {ab bb} {ab ab}} {{ab cb} {ab bb} {ab ab}}} {[cb]b}
+} -constraints {tip127} -result 0}
+
+###############################################################################
+
+runTest {test lsearch-18.5 {-index option, list as index basic functionality} -body {
+  lsearch -all -index {0 0} -exact \
+      {{{a c} {a b} {d a}} {{a c} {a b} {d a}}} a
+} -constraints {tip127} -result {0 1}}
+
+###############################################################################
+
+runTest {test lsearch-19.1 {-sunindices option} -body {
+  lsearch -subindices -index {0 0} {{{x x} {x b} {a d}} {{a c} {a b} {a a}}} a
+} -constraints {tip127} -result {1 0 0}}
+
+###############################################################################
+
+runTest {test lsearch-19.2 {-sunindices option} -body {
+  lsearch -subindices -index {2 0} -exact \
+      {{{x x} {x b} {a d}} {{a c} {a b} {a a}}} a
+} -constraints {tip127} -result {0 2 0}}
+
+###############################################################################
+
+runTest {test lsearch-19.3 {-sunindices option} -body {
+  lsearch -subindices -index {1 1} -glob \
+      {{{ab cb} {ab bb} {ab ab}} {{ab cb} {ab bb} {ab ab}}} b*
+} -constraints {tip127} -result {0 1 1}}
+
+###############################################################################
+
+runTest {test lsearch-19.4 {-sunindices option} -body {
+  lsearch -subindices -index {0 1} -regexp \
+      {{{ab cb} {ab bb} {ab ab}} {{ab cb} {ab bb} {ab ab}}} {[cb]b}
+} -constraints {tip127} -result {0 0 1}}
+
+###############################################################################
+
+runTest {test lsearch-19.5 {-sunindices option} -body {
+  lsearch -subindices -all -index {0 0} -exact \
+      {{{a c} {a b} {d a}} {{a c} {a b} {d a}}} a
+} -constraints {tip127} -result {{0 0 0} {1 0 0}}}
+
+###############################################################################
+
+runTest {test lsearch-20.1 {-index option, index larger than sublists} -body {
+  list [catch {lsearch -index 2 {{a c} {a b} {a a}} a} msg] $msg
+} -constraints {tip127} -result {1 {element 2 missing from sublist "a c"}}}
+
+###############################################################################
+
+runTest {test lsearch-20.2.1 {-index option, malformed index} -body {
+  list [catch {lsearch -index foo {{a c} {a b} {a a}} a} msg] $msg
+} -constraints [fixConstraints {!eagle tip127}] -result \
+{1 {bad index "foo": must be integer?[+-]integer? or end?[+-]integer?}}}
+
+###############################################################################
+
+runTest {test lsearch-20.2.2 {-index option, malformed index} -body {
+  list [catch {lsearch -index foo {{a c} {a b} {a a}} a} msg] $msg
+} -constraints {eagle tip127} -result {1 {bad index "foo": must be\
+start|end|count|integer?[+-*/%]start|end|count|integer?}}}
+
+###############################################################################
+
+runTest {test lsearch-20.3 {-index option, malformed index} -body {
+  list [catch {lsearch -index \{ {{a c} {a b} {a a}} a} msg] $msg
+} -constraints {tip127} -result {1 {unmatched open brace in list}}}
+
+###############################################################################
+
+unset -nocomplain i idx msg res decreasingDictionary decreasingDoubles \
+    decreasingIntegers decreasingStrings increasingDictionary \
+    increasingDoubles increasingIntegers increasingStrings \
+    repeatingDecreasingIntegers repeatingIncreasingIntegers x val str
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

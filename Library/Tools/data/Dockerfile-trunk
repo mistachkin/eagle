@@ -1,0 +1,35 @@
+###############################################################################
+#
+# Dockerfile-trunk --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+FROM mcr.microsoft.com/dotnet/sdk:3.1
+
+RUN curl --location https://urn.to/r/eagle_src_trunk_tar | tar zx && \
+    cd eagle-src/Eagle && \
+    dotnet build EagleNetStandard2X.sln /property:Configuration=Release /property:EagleNetStandard21=true && \
+    useradd eagle && \
+    mkdir -p /opt/eagle/bin && \
+    mkdir -p /opt/eagle/lib/Eagle1.0 && \
+    mkdir -p /opt/eagle/lib/Test1.0 && \
+    cp /eagle-src/Eagle/bin/ReleaseNetStandard21/bin/netstandard2.1/Eagle.dll /opt/eagle/bin && \
+    cp /eagle-src/Eagle/bin/ReleaseNetStandard21/bin/netcoreapp3.0/EagleShell.dll /opt/eagle/bin && \
+    cp /eagle-src/Eagle/bin/ReleaseNetStandard21/bin/netcoreapp3.0/EagleShell.runtimeconfig.json /opt/eagle/bin && \
+    cp /eagle-src/Eagle/lib/Eagle1.0/* /opt/eagle/lib/Eagle1.0 && \
+    cp /eagle-src/Eagle/lib/Test1.0/* /opt/eagle/lib/Test1.0 && \
+    chown -R eagle:eagle /opt/eagle && \
+    rm -rf /eagle-src
+
+USER eagle
+
+CMD ["dotnet", "exec", "/opt/eagle/bin/EagleShell.dll"]

@@ -1,0 +1,796 @@
+#------------------------------------------------------------- -*- makefile -*-
+# makefile.vc --
+#
+#	Microsoft Visual C++ makefile for use with nmake.exe v1.62+ (VC++ 5.0+)
+#
+# This makefile is based upon the Tcl 8.6 Makefile.vc and modified to
+# make it suitable as a general package makefile. Look for the word EDIT
+# which marks sections that may need modification. As a minumum you will
+# need to change the PROJECT, DOTVERSION and DLLOBJS variables to values
+# relevant to your package.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# Copyright (c) 1995-1996 Sun Microsystems, Inc.
+# Copyright (c) 1998-2000 Ajuba Solutions.
+# Copyright (c) 2001-2005 ActiveState Corporation.
+# Copyright (c) 2001-2004 David Gravereaux.
+# Copyright (c) 2003-2008 Pat Thoyts.
+# Copyright (c) 2012 Joe Mistachkin.
+#------------------------------------------------------------------------------
+
+# Check to see we are configured to build with MSVC (MSDEVDIR, MSVCDIR or
+# VCINSTALLDIR) or with the MS Platform SDK (MSSDK or WindowsSDKDir)
+!if !defined(MSDEVDIR) && !defined(MSVCDIR) && !defined(VCINSTALLDIR)
+!if !defined(MSSDK) && !defined(WINDOWSSDKDIR)
+MSG = ^
+You need to run vcvars32.bat from Developer Studio or setenv.bat from the^
+Platform SDK first to setup the environment.  Jump to this line to read^
+the build instructions.
+!error $(MSG)
+!endif
+!endif
+
+#------------------------------------------------------------------------------
+# HOW TO USE this makefile:
+#
+# 1)  It is now necessary to have MSVCDir, MSDevDir or MSSDK set in the
+#     environment.  This is used as a check to see if vcvars32.bat had been
+#     run prior to running nmake or during the installation of Microsoft
+#     Visual C++, MSVCDir had been set globally and the PATH adjusted.
+#     Either way is valid.
+#
+#     You'll need to run vcvars32.bat contained in the MsDev's vc(98)/bin
+#     directory to setup the proper environment, if needed, for your
+#     current setup.  This is a needed bootstrap requirement and allows the
+#     swapping of different environments to be easier.
+#
+# 2)  To use the Platform SDK (not expressly needed), run setenv.bat after
+#     vcvars32.bat according to the instructions for it.  This can also
+#     turn on the 64-bit compiler, if your SDK has it.
+#
+# 3)  Primary targets are:
+#	check          -- Performs initial checks on the build environment.
+#	clean          -- Clean all transient and temporary build files.
+#	realclean      -- All of "clean", plus the build output files.
+#	distclean      -- All of "realclean", plus "nmakehlp.*" and "trimspace.*".
+#	allclean       -- All of "distclean", plus all downloaded temporary files.
+#	all            -- Builds everything.
+#	dll            -- Builds the project dynamic link library only.
+#	<project>      -- Builds the project (eg: nmake sample)
+#	test           -- Builds and runs the test suite.
+#	install        -- Installs the built binaries and libraries to $(INSTALLDIR)
+#	                  in an appropriate subdirectory.
+#	build-eagle    -- Builds the Eagle binaries using the checked out source code
+#	                  that should be located adjacent to the directory for this
+#	                  project (i.e. since they reside in the same source code
+#	                  repository).
+#	clean-eagle    -- Cleans the Eagle binaries and other files left by the build
+#	                  process.
+#	download-eagle -- Downloads the latest Eagle binary distribution and extracts
+#	                  it underneath the TEMP directory, for use with the "test"
+#	                  target, in case Eagle is not to be built locally.
+#	rekey-eagle    -- If necessary (i.e. the primary Eagle private key file is
+#	                  not found), create a new strong name key pair to be used
+#	                  when signing the built Eagle binaries.
+#
+# 4)  Macros usable on the commandline:
+#	XCOMPILE=1
+#		If set, make sure the "nmakehlp.exe" and "trimspace.exe" tools are
+#		compiled for the native platform, for cases where the project is
+#		being cross-compiled.  Setting this on the command line is absolutely
+#		essential when building 64-bit binaries on a 32-bit operating system;
+#		otherwise, the build process will fail when it attempts to execute a
+#		64-bit "nmakehlp.exe" or "trimspace.exe" tool on a 32-bit operating
+#		system.
+#
+#	INSTALLDIR=<path>
+#		Sets where to install Tcl from the built binaries.
+#		C:\Progra~1\Tcl is assumed when not specified.
+#
+#	OPTS=loimpact,nomsvcrt,nothreads,pdbs,profile,static,privatestubs,
+#	     symbols,unchecked,pgi,pgo,none
+#		Sets special options for the core.  The default is for none.
+#		Any combination of the above may be used (comma separated).
+#		'none' will over-ride everything to nothing.
+#
+#		loimpact     = Adds a flag for how NT treats the heap to keep memory
+#		               in use, low.  This is said to impact alloc performance.
+#		nomsvcrt     = Prevents linking to the dynamically provided C runtime
+#		               library (i.e. MSVCRT(D)), instead forcing use of the
+#		               static C runtime library (i.e. LIBCMT(D)). This can
+#		               be useful in situations where the necessary dynamic
+#		               runtime libraries may not be available at runtime and
+#		               cannot be easily installed due to limited privileges,
+#		               etc.
+#		nothreads    = Turns off multithreading support (not recommended)
+#		static       = Builds a static library of the core instead of a
+#		               dll.  The shell will be static (and large), as well.
+#		privatestubs = Enables use of the private Tcl stubs mechanism, which
+#		               removes the requirement of linking against a compiled
+#		               Tcl stubs library.
+#		pdbs         = Build detached symbols for release builds.
+#		profile      = Adds profiling hooks.  Map file is assumed.
+#		symbols      = Debug build. Links to the debug C runtime, disables
+#		               optimizations and creates pdb symbols files.
+#		unchecked    = Allows a symbols build to not use the debug
+#		               enabled runtime (msvcrt.dll not msvcrtd.dll
+#		               or libcmt.lib not libcmtd.lib).
+#		pgi          = Enables profile guided optimization instrumentation.
+#		pgo          = Enables profile guided optimization.
+#
+#	STATS=all,compdbg,memdbg,none
+#		Sets optional memory and bytecode compiler debugging code added
+#		to the core.  The default is for none.  Any combination of the
+#		above may be used (comma separated).  'none' will over-ride
+#		everything to nothing.
+#
+#		all      = Enables all debugging code.
+#		compdbg  = Enables byte compilation logging.
+#		memdbg   = Enables the debugging memory allocator.
+#
+#	CHECKS=64bit,fullwarn,nodep,none
+#		Sets special macros for checking compatability.
+#
+#		64bit    = Enable 64bit portability warnings (if available)
+#		fullwarn = Builds with full compiler and link warnings enabled.
+#		           Very verbose.
+#		nodep    = Turns off compatability macros to ensure the extension
+#		           isn't being built with deprecated functions.
+#
+#	MACHINE=(IX86|IA64|AMD64|ARM|ARM64)
+#		Set the machine type used for the compiler, linker, and
+#		resource compiler.  This hook is needed to tell the tools
+#		when alternate platforms are requested.  IX86 is the default
+#		when not specified. If the CPU environment variable has been
+#		set (ie: recent Platform SDK) then MACHINE is set from CPU.
+#
+#	TMP_DIR=<path>
+#	OUT_DIR=<path>
+#		Hooks to allow the intermediate and output directories to be
+#		changed.  $(OUT_DIR) is assumed to be
+#		$(BINROOT)\(Release|Debug) based on if symbols are requested.
+#		$(TMP_DIR) will de $(OUT_DIR)\<buildtype> by default.
+#
+#	TESTPAT=<file>
+#		Reads the tests requested to be run from this file.
+#
+# 5)  Examples:
+#
+#	Basic syntax of calling nmake looks like this:
+#	nmake [-nologo] -f makefile.vc [target|macrodef [target|macrodef] [...]]
+#
+#                        Standard (no frills)
+#       c:\src\win\>c:\progra~1\micros~1\vc98\bin\vcvars32.bat
+#       Setting environment for using Microsoft Visual C++ tools.
+#       c:\src\win\>nmake -f makefile.vc all
+#       c:\src\win\>nmake -f makefile.vc install INSTALLDIR=c:\progra~1\tcl
+#
+#                         Building for Win64
+#       c:\src\win\>c:\progra~1\micros~1\vc98\bin\vcvars32.bat
+#       Setting environment for using Microsoft Visual C++ tools.
+#       c:\src\win\>c:\progra~1\platfo~1\setenv.bat /pre64 /RETAIL
+#       Targeting Windows pre64 RETAIL
+#       c:\src\win\>nmake -f makefile.vc MACHINE=IA64
+#
+#------------------------------------------------------------------------------
+#==============================================================================
+#------------------------------------------------------------------------------
+
+!if !exist("makefile.vc")
+MSG = ^
+You must run this makefile only from the directory it is in.^
+Please `cd` to its location first.
+!error $(MSG)
+!endif
+
+#-------------------------------------------------------------------------
+# Project specific information (EDIT)
+#
+# You should edit this with the name and version of your project. This
+# information is used to generate the name of the package library and
+# it's install location.
+#
+# For example, the sample extension is  going to build sample05.dll and
+# would install it into $(INSTALLDIR)\lib\sample05
+#
+# You need to specify the object files that need to be linked into your
+# binary here.
+#
+#-------------------------------------------------------------------------
+
+### To be effective, these two values must be set prior to including the
+### "rules.vc" file.
+PROJECT			= Garuda
+ALTNAME			= dotnet
+TCLDIR			= ..\..\..\Tcl
+
+!include "rules.vc"
+!include "pkg.vc"
+
+DOTVERSION	= $(PACKAGE_VERSION:"=) #"
+VERSION			= $(PACKAGE_MAJOR)$(PACKAGE_MINOR)
+STUBPREFIX	= $(PROJECT)stub
+
+DLLOBJS			= \
+	$(TMP_DIR)\DllMain.obj \
+	$(TMP_DIR)\Garuda.obj \
+!if !$(STATIC_BUILD)
+	$(TMP_DIR)\Garuda.res
+!endif
+
+#-------------------------------------------------------------------------
+# Target names and paths ( shouldn't need changing )
+#-------------------------------------------------------------------------
+
+BINROOT									= .
+ROOT										= ..\..\..
+SDKROOT									= C:\Program Files
+SDKDIR									=
+
+PRJIMPLIB								= $(OUT_DIR)\$(PROJECT)$(SUFX).lib
+PRJLIBNAME							= $(PROJECT)$(SUFX).$(EXT)
+PRJLIB									= $(OUT_DIR)\$(PRJLIBNAME)
+
+PRJSTUBLIBNAME					= $(STUBPREFIX).lib
+PRJSTUBLIB							= $(OUT_DIR)\$(PRJSTUBLIBNAME)
+
+### Make sure we use backslash only.
+PRJ_INSTALL_DIR					= $(_INSTALLDIR)\$(PROJECT)$(DOTVERSION)
+LIB_INSTALL_DIR					= $(PRJ_INSTALL_DIR)
+BIN_INSTALL_DIR					= $(PRJ_INSTALL_DIR)
+DOC_INSTALL_DIR					= $(PRJ_INSTALL_DIR)
+INCLUDE_INSTALL_DIR			= $(_TCLDIR)\include
+
+### These paths are specific to the Eagle project.  They are used to
+### locate shared tools needed by this makefile and when building the
+### Eagle core library itself.
+EAGLE_DIR								= $(ROOT)\..\..
+EAGLE_KEYS_DIR					= $(ROOT)\..\..\Keys
+EAGLE_LIBRARY_TOOLS_DIR	= $(EAGLE_DIR)\Library\Tools
+EAGLE_NATIVE_TOOLS_DIR	= $(EAGLE_DIR)\Native\Common\Tools
+
+### The following paths CANNOT have spaces in them.
+PRJ_DIR									= $(ROOT)
+PRJ_GENERIC_DIR					= $(ROOT)\src\generic
+PRJ_RC_DIR							= $(ROOT)\rc
+PRJ_WIN_DIR							= $(ROOT)\src\win
+PRJ_TEA_DIR							= $(ROOT)\src\win\tea
+PRJ_LIB_DIR							= $(ROOT)\lib
+PRJ_DOC_DIR							= $(ROOT)\doc
+PRJ_TOOLS_DIR						= $(ROOT)\tools
+PRJ_COMPAT_DIR					= $(ROOT)\compat
+PRJ_TESTS_DIR						= $(ROOT)\tests
+PRJ_TEMP_DIR						= $(TEMP)\$(PROJECT)Temp
+
+### The header files, both public and private, for this project.
+PRJ_GENERIC_HEADERS			= Garuda.h GarudaInt.h GarudaPre.h
+PRJ_GENERIC_HEADERS			= $(PRJ_GENERIC_HEADERS) pkgVersion.h rcVersion.h
+PRJ_WIN_HEADERS					= fakeSal.h stubs.h
+
+### Fallback on the default Tcl shell file name only if the one set
+### appears to be invalid.
+!if !defined(TCLSH) || !exist($(TCLSH))
+TCLSH										= tclsh84.exe
+!endif
+
+!message *** Configured Tcl shell is '$(TCLSH)'
+
+### Fix things broken via "rules.vc".
+COFFBASE								= $(PRJ_TEA_DIR)\coffbase.txt
+
+### Some settings that may require fine-tuning.
+EAGLE_SNK_NO_SDK				= 1
+EAGLE_SNK_BITS					= 4096
+EAGLE_SNK_PRIVATE				= EagleFastPrivate.snk
+EAGLE_SNK_PUBLIC				= EagleFastPublic.snk
+
+### Some more settings that may be customized.
+EAGLE_BUILD_TYPE				= NetFx20
+
+!if $(VCVER) > 6
+!message *** Detected 'modern' MSC version '$(MSCVER)'
+!message *** Detected 'modern' VC version '$(VCVER)'
+### Disable the macro redefinition warning for WIN32_LEAN_AND_MEAN if
+### possible.
+WARNINGS								= $(WARNINGS) -wd4005
+### The MSCorEE header and library files should already be available
+### (i.e. via the build environment for the compiler).
+USE_CLR_VIA_SDK					= 0
+### The real "sal.h" header file should be available.
+USE_FAKE_SAL						= 0
+!else
+!message *** Detected 'legacy' MSC version '$(MSCVER)'
+!message *** Detected 'legacy' VC version '$(VCVER)'
+### The MSCorEE header and library files must be located in one of
+### the supported SDK directories that we search, since the build
+### environment for the compiler (MSVC 6.0) will not provide them.
+USE_CLR_VIA_SDK					= 1
+### The real "sal.h" header file will not be available, use our fake
+### one that does nothing, instead.
+USE_FAKE_SAL						= 1
+!endif
+
+### When using an MSVC 6.0 build environment, locate the directories
+### containing the MSCorEE header and library files that we need since
+### they do not ship with MSVC 6.0 (i.e. because it is pre-CLR).
+!if $(USE_CLR_VIA_SDK) != 0
+!if "$(SDKDIR)" != ""
+CLR_INCLUDES	= -I"$(SDKDIR)\Include"
+CLR_LIBPATHS	= -LIBPATH:"$(SDKDIR)\Lib"
+!message *** Using the specified SDK directory '$(SDKDIR)'
+!else
+!message *** SDK root directory will be '$(SDKROOT)'
+!if exist("$(SDKROOT)\Microsoft SDKs\Windows\v6.1\Include") \
+    && exist("$(SDKROOT)\Microsoft SDKs\Windows\v6.1\Include\MSCorEE.h") \
+    && exist("$(SDKROOT)\Microsoft SDKs\Windows\v6.1\Lib") \
+    && exist("$(SDKROOT)\Microsoft SDKs\Windows\v6.1\Lib\MSCorEE.lib")
+CLR_INCLUDES	= -I"$(SDKROOT)\Microsoft SDKs\Windows\v6.1\Include"
+CLR_LIBPATHS	= -LIBPATH:"$(SDKROOT)\Microsoft SDKs\Windows\v6.1\Lib"
+!message *** Using the Microsoft Windows SDK v6.1
+!elseif exist("$(SDKROOT)\Microsoft SDKs\Windows\v6.0A\Include") \
+    && exist("$(SDKROOT)\Microsoft SDKs\Windows\v6.0A\Include\MSCorEE.h") \
+    && exist("$(SDKROOT)\Microsoft SDKs\Windows\v6.0A\Lib") \
+    && exist("$(SDKROOT)\Microsoft SDKs\Windows\v6.0A\Lib\MSCorEE.lib")
+CLR_INCLUDES	= -I"$(SDKROOT)\Microsoft SDKs\Windows\v6.0A\Include"
+CLR_LIBPATHS	= -LIBPATH:"$(SDKROOT)\Microsoft SDKs\Windows\v6.0A\Lib"
+!message *** Using the Microsoft Windows SDK v6.0A
+!elseif exist("$(SDKROOT)\Microsoft.NET\SDK\v2.0\Include") \
+    && exist("$(SDKROOT)\Microsoft.NET\SDK\v2.0\Include\MSCorEE.h") \
+    && exist("$(SDKROOT)\Microsoft.NET\SDK\v2.0\Lib") \
+    && exist("$(SDKROOT)\Microsoft.NET\SDK\v2.0\Lib\MSCorEE.lib")
+CLR_INCLUDES	= -I"$(SDKROOT)\Microsoft.NET\SDK\v2.0\Include"
+CLR_LIBPATHS	= -LIBPATH:"$(SDKROOT)\Microsoft.NET\SDK\v2.0\Lib"
+!message *** Using the Microsoft .NET Framework SDK v2.0
+!else
+!message *** Could not detect header and library paths for MSCorEE
+!message *** Set CLR_INCLUDES and CLR_LIBPATHS to specify manually
+!endif
+!endif
+!else
+!message *** Assuming header and library for MSCorEE are available
+!endif
+
+!message *** Additional compiler options for the CLR are '$(CLR_INCLUDES)'
+!message *** Additional linker options for the CLR are '$(CLR_LIBPATHS)'
+
+#---------------------------------------------------------------------
+# Compile flags
+#---------------------------------------------------------------------
+
+!if !$(DEBUG)
+!if $(OPTIMIZING)
+### This cranks the optimization level to maximize speed
+cdebug			= $(OPTIMIZATIONS)
+!else
+cdebug			=
+!endif
+!if $(SYMBOLS)
+cdebug			= $(cdebug) -Zi
+!endif
+!else if $(MACHINE_IS64BIT) != 0
+### Warnings are too many, can't support warnings into errors.
+cdebug			= -Zi -Od $(DEBUGFLAGS)
+!else
+cdebug			= -Zi -WX $(DEBUGFLAGS)
+!endif
+
+### Adjustments for legacy build environments
+!if $(USE_FAKE_SAL) != 0
+clegacy			= -I"$(TMP_DIR)\include" -DUSE_FAKE_SAL=1
+!else
+clegacy			=
+!endif
+
+### Common compiler options that are architecture specific
+!if "$(MACHINE)" == "ARM"
+carch				= -D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE
+!else
+carch				=
+!endif
+
+### Declarations common to debug compiler options
+!if $(DEBUG)
+cdbg				= -DDEBUG -D_DEBUG
+!else
+cdbg				=
+!endif
+
+### Declarations common to all compiler options
+cwarn				= $(WARNINGS) -D_CRT_SECURE_NO_DEPRECATE -D_CRT_SECURE_NO_WARNINGS
+cwarn				= $(cwarn) -D_CRT_NONSTDC_NO_DEPRECATE -D_CRT_NONSTDC_NO_WARNINGS
+cproj				= -DUSE_TCL_TEA -DWIN32_LEAN_AND_MEAN -DCOBJMACROS -DCINTERFACE
+cproj				= $(cproj) -D_TRACE -DCLR_40 -DOUTPUT_FILE=$(PROJECT)$(SUFX)
+cflags			= -nologo -c $(COMPILERFLAGS) -DBUILD_$(PROJECT) $(carch) $(cwarn)
+cflags			= $(cflags) $(cdbg) $(cproj) $(clegacy) -Fp$(TMP_DIR)^\
+
+!if $(MSVCRT)
+!if $(DEBUG) && !$(UNCHECKED)
+crt					= -MDd
+!else
+crt					= -MD
+!endif
+!else
+!if $(DEBUG) && !$(UNCHECKED)
+crt					= -MTd
+!else
+crt					= -MT
+!endif
+!endif
+
+cflags			= $(cflags) -DMODULE_SCOPE=extern
+
+!if !$(STATIC_BUILD)
+cflags			= $(cflags) -DUSE_TCL_STUBS
+!if defined(TKSTUBLIB)
+cflags			= $(cflags) -DUSE_TK_STUBS
+!endif
+!endif
+
+!if $(PRIVATE_STUBS)
+cflags			= $(cflags) -DUSE_TCL_PRIVATE_STUBS
+!if defined(TKSTUBLIB)
+cflags			= $(cflags) -DUSE_TK_PRIVATE_STUBS
+!endif
+!endif
+
+INCLUDES		= $(TCL_INCLUDES) $(CLR_INCLUDES) -I"$(PRJ_WIN_DIR)"
+INCLUDES		= $(INCLUDES) -I"$(PRJ_GENERIC_DIR)"
+BASE_CFLAGS	= $(cflags) $(cdebug) $(crt) $(INCLUDES)
+CON_CFLAGS	= $(cflags) $(cdebug) $(crt) -DCONSOLE
+TCL_CFLAGS	= -DPACKAGE_NAME="\"$(PROJECT)\"" \
+		  -DPACKAGE_VERSION="\"$(DOTVERSION)\"" \
+		  $(BASE_CFLAGS) $(OPTDEFINES)
+
+#---------------------------------------------------------------------
+# Link flags
+#---------------------------------------------------------------------
+
+!if $(DEBUG)
+ldebug			= -debug -debugtype:cv
+!if $(MSVCRT)
+ldebug			= $(ldebug) -nodefaultlib:msvcrt
+!endif
+!else
+ldebug			= -release -opt:ref -opt:icf,3
+!if $(SYMBOLS)
+ldebug			= $(ldebug) -debug -debugtype:cv
+!endif
+!endif
+
+### Declarations common to all linker options
+lflags		= -nologo -machine:$(MACHINE) $(LINKERFLAGS) $(ldebug)
+
+!if $(PROFILE)
+lflags		= $(lflags) -profile
+!endif
+
+!if $(ALIGN98_HACK) && !$(STATIC_BUILD)
+### Align sections for PE size savings.
+lflags		= $(lflags) -opt:nowin98
+!else if !$(ALIGN98_HACK) && $(STATIC_BUILD)
+### Align sections for speed in loading by choosing the virtual page size.
+lflags		= $(lflags) -align:4096
+!endif
+
+!if $(LOIMPACT)
+lflags		= $(lflags) -ws:aggressive
+!endif
+
+dlllflags	= $(lflags) -dll -def:"$(PRJ_WIN_DIR)\$(PROJECT).def"
+dlllflags	= $(dlllflags) $(CLR_LIBPATHS)
+conlflags	= $(lflags) -subsystem:console
+guilflags	= $(lflags) -subsystem:windows
+!if !$(STATIC_BUILD)
+baselibs	= $(TCLSTUBLIB)
+!if defined(TKSTUBLIB)
+baselibs	= $(baselibs) $(TKSTUBLIB)
+!endif
+!endif
+
+# Avoid 'unresolved external symbol __security_cookie' errors.
+# c.f. http://support.microsoft.com/?id=894573
+!if $(MACHINE_IS64BIT) != 0
+!if $(MSCVER) > 1399 && $(MSCVER) < 1500
+baselibs	= $(baselibs) bufferoverflowU.lib
+!endif
+!endif
+
+baselibs	= $(baselibs) user32.lib gdi32.lib MSCorEE.lib
+
+#---------------------------------------------------------------------
+# TclTest required flags (i.e. arguments)
+#---------------------------------------------------------------------
+
+!if "$(EAGLE_BUILD_TYPE)" != ""
+TESTREQFLAGS	= $(TESTREQFLAGS) -suffix $(EAGLE_BUILD_TYPE)
+!endif
+
+#---------------------------------------------------------------------
+# TclTest optional flags (i.e. arguments)
+#---------------------------------------------------------------------
+
+!if "$(TESTPAT)" != ""
+TESTOPTFLAGS	= $(TESTOPTFLAGS) -file $(TESTPAT)
+!endif
+
+#---------------------------------------------------------------------
+# Project specific targets (EDIT)
+#---------------------------------------------------------------------
+
+check:
+	@echo *** Build environment appears to be functional
+
+all:				check setup tag $(PROJECT)
+dll:				check setup tag $(PRJLIB)
+$(PROJECT):	check setup tag pkgIndex $(PRJLIB) $(OUT_DIR)\dotnet.tcl $(OUT_DIR)\helper.tcl
+install:		install-binaries install-libraries install-docs
+pkgIndex:		$(OUT_DIR)\pkgIndex.tcl
+
+test: check setup tag $(PROJECT)
+	@set EagleBuild=$(EAGLE_DIR)
+	@set EagleTemp=$(PRJ_TEMP_DIR)
+	@set DefaultQuiet=1
+	@set $(PROJECT)=$(OUT_DIR_PATH:\=/)
+	@set TCL_LIBRARY=$(TCL_LIBRARY:\=/)
+	@set TCLLIBPATH=$(OUT_DIR_PATH:\=/)
+!if $(TCLINSTALL)
+	@set PATH=$(_TCLDIR)\bin;$(PATH)
+!else
+	@set PATH=$(_TCLDIR)\win\$(BUILDDIRTOP);$(PATH)
+!endif
+!if "$(OS)" == "Windows_NT"  || "$(MSVCDIR)" == "IDE"
+	$(DEBUGGER) $(TCLSH) "$(PRJ_TESTS_DIR)\all.tcl" $(TESTFLAGS) \
+		$(TESTREQFLAGS) $(TESTOPTFLAGS)
+!else
+	@echo Please wait while the test results are collected...
+	$(DEBUGGER) $(TCLSH) "$(PRJ_TESTS_DIR)\all.tcl" $(TESTFLAGS) \
+		$(TESTREQFLAGS) $(TESTOPTFLAGS) > "$(TMP_DIR)\tests.log" 2>&1
+	type "$(TMP_DIR)\tests.log" | more
+!endif
+
+shell: check setup tag $(PROJECT)
+	@set $(PROJECT)=$(OUT_DIR_PATH:\=/)
+	@set TCL_LIBRARY=$(TCL_LIBRARY:\=/)
+	@set TCLLIBPATH=$(OUT_DIR_PATH:\=/)
+!if $(TCLINSTALL)
+	@set PATH=$(_TCLDIR)\bin;$(PATH)
+!else
+	@set PATH=$(_TCLDIR)\win\$(BUILDDIRTOP);$(PATH)
+!endif
+	$(DEBUGGER) $(TCLSH) $(SCRIPT)
+
+setup:
+	@if not exist "$(OUT_DIR)" $(MKDIR) "$(OUT_DIR)"
+	@if not exist "$(TMP_DIR)" $(MKDIR) "$(TMP_DIR)"
+!if $(USE_FAKE_SAL) != 0
+	@if not exist "$(TMP_DIR)\include" $(MKDIR) "$(TMP_DIR)\include"
+	@$(COPY) "$(PRJ_WIN_DIR)\fakeSal.h" "$(TMP_DIR)\include\sal.h"
+!endif
+
+tag:
+	@echo Tagging project header files from '$(PRJ_DIR)'
+	@set PATH=$(EAGLE_LIBRARY_TOOLS_DIR);$(PATH)
+	$(TCLSH) "$(EAGLE_NATIVE_TOOLS_DIR)\tagViaBuild.tcl" "$(PRJ_DIR)"
+	@echo Done > "$(TMP_DIR)\tag.done"
+
+# See <tcl>/win/coffbase.txt for extension base addresses.
+$(PRJLIB): $(DLLOBJS)
+!if $(STATIC_BUILD)
+	$(TLIB) -nologo -out:$@ @<<
+$**
+<<
+!else
+	$(TLINK) $(dlllflags) -base:@$(COFFBASE),$(PROJECT) -out:$@ $(baselibs) @<<
+$**
+<<
+	$(_VC_MANIFEST_EMBED_DLL)
+	-@$(DEL) $*.exp
+!endif
+
+$(PRJSTUBLIB): $(PRJSTUBOBJS)
+	$(TLIB) -nologo -out:$@ $(PRJSTUBOBJS)
+
+#---------------------------------------------------------------------
+# Implicit rules
+#---------------------------------------------------------------------
+
+{$(PRJ_WIN_DIR)}.c{$(TMP_DIR)}.obj::
+	$(TCC) $(TCL_CFLAGS) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+{$(PRJ_GENERIC_DIR)}.c{$(TMP_DIR)}.obj::
+	$(TCC) $(TCL_CFLAGS) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+{$(PRJ_COMPAT_DIR)}.c{$(TMP_DIR)}.obj::
+	$(TCC) $(TCL_CFLAGS) -Fo$(TMP_DIR)\ @<<
+$<
+<<
+
+{$(PRJ_RC_DIR)}.rc{$(TMP_DIR)}.res:
+	$(TRC) -fo $@ -r -i "$(PRJ_GENERIC_DIR)" $(TCL_INCLUDES) $(cproj) \
+		-D__WIN32__ -DCOMMAVERSION=$(DOTVERSION:.=,),0 \
+		-DDOTVERSION=\"$(DOTVERSION)\" \
+		-DVERSION=\"$(VERSION)$(SUFX)\" \
+		-DRC_MSC_VER=$(MSCVER) $(cdbg) \
+!if $(TCL_THREADS)
+	-DTCL_THREADS \
+!endif
+!if $(STATIC_BUILD)
+	-DSTATIC_BUILD \
+!endif
+!if $(PRIVATE_STUBS)
+	-DUSE_TCL_PRIVATE_STUBS \
+!if defined(TKSTUBLIB)
+	-DUSE_TK_PRIVATE_STUBS \
+!endif
+!endif
+	$<
+
+.SUFFIXES:
+.SUFFIXES:.c .rc
+
+#-------------------------------------------------------------------------
+# Explicit dependency rules
+#-------------------------------------------------------------------------
+
+$(OUT_DIR)\dotnet.tcl:
+	@echo Copying '$(PRJ_LIB_DIR)\dotnet.tcl' to '$(OUT_DIR)'
+	@$(CPY) "$(PRJ_LIB_DIR)\dotnet.tcl" "$(OUT_DIR)"
+
+$(OUT_DIR)\helper.tcl:
+	@echo Copying '$(PRJ_LIB_DIR)\helper.tcl' to '$(OUT_DIR)'
+	@$(CPY) "$(PRJ_LIB_DIR)\helper.tcl" "$(OUT_DIR)"
+
+$(OUT_DIR)\pkgIndex.tcl: $(PRJ_TEA_DIR)\pkgIndex.tcl.in
+	@nmakehlp -s << $** > $@
+@PACKAGE_VERSION@         $(DOTVERSION)
+@PACKAGE_NAME@            $(PROJECT)
+@PACKAGE_ALTERNATE_NAME@  $(ALTNAME)
+@PKG_LIB_FILE@            $(PRJLIBNAME)
+<<
+
+#-------------------------------------------------------------------------
+# Eagle build rules
+#
+# TODO: When new versions of the .NET Framework and/or Visual Studio are
+#       released, this section may need updating.
+#
+# NOTE: The "official policy" for mapping a release of Visual Studio to
+#       its associated version of the .NET Framework is that a release
+#       of Visual Studio shall be considered only to support the highest
+#       version of the .NET Framework that it originally supported when
+#       it was first released (RTM).  One effect of this policy is that
+#       not all available versions of the .NET Framework are available
+#       from here.  That is deemed "acceptable" because this is not the
+#       primary means of building the managed assemblies (i.e. the tool
+#       "build.bat" should be used directly instead if more options are
+#       needed).
+#
+#-------------------------------------------------------------------------
+
+clean-eagle:
+	@echo Cleaning Eagle binaries from '$(EAGLE_DIR)'
+	@call "$(EAGLE_LIBRARY_TOOLS_DIR)\clean.bat"
+
+build-eagle: setup
+	@set NETFX48ONLY=1
+	@echo Attempting to use .NET Framework 4.8
+!if $(MSCVER) < 1930
+	@set NETFX471ONLY=1
+	@echo Disabled use of the .NET Framework 4.8
+	@echo Disabled use of the .NET Framework 4.7.2
+!endif
+!if $(MSCVER) < 1920
+	@set NETFX47ONLY=1
+	@echo Disabled use of the .NET Framework 4.7.1
+!endif
+!if $(MSCVER) < 1910
+	@set NETFX46ONLY=1
+	@echo Disabled use of the .NET Framework 4.7
+	@echo Disabled use of the .NET Framework 4.6.2
+	@echo Disabled use of the .NET Framework 4.6.1
+!endif
+!if $(MSCVER) < 1900
+	@set NETFX451ONLY=1
+	@echo Disabled use of the .NET Framework 4.6
+!endif
+!if $(MSCVER) < 1800
+	@set NETFX45ONLY=1
+	@echo Disabled use of the .NET Framework 4.5.2
+	@echo Disabled use of the .NET Framework 4.5.1
+!endif
+!if $(MSCVER) < 1700
+	@set NETFX40ONLY=1
+	@echo Disabled use of the .NET Framework 4.5
+!endif
+!if $(MSCVER) < 1600
+	@set NETFX35ONLY=1
+	@echo Disabled use of the .NET Framework 4.0
+!endif
+!if $(MSCVER) < 1500
+	@set NETFX20ONLY=1
+	@echo Disabled use of the .NET Framework 3.5
+!endif
+	@echo Building Eagle binaries from '$(EAGLE_DIR)'
+	@call "$(EAGLE_LIBRARY_TOOLS_DIR)\build.bat" "$(CONFIGURATION)" \
+!if "$(EAGLE_BUILD_TYPE)" != ""
+		/property:EagleBuildType=$(EAGLE_BUILD_TYPE) \
+!endif
+!if $(EAGLE_SNK_NO_SDK) != 0
+		/property:StrongNameWithoutSdk=true \
+!endif
+		/property:ViaGaruda=true
+	@echo Done > "$(TMP_DIR)\build-eagle.done"
+
+rekey-eagle: setup
+	@echo Attempting to rekey Eagle from '$(EAGLE_KEYS_DIR)'
+	@pushd "$(EAGLE_KEYS_DIR)" && @if not exist "$(EAGLE_SNK_PRIVATE)" ( \
+		@$(SN) -k "$(EAGLE_SNK_BITS)" "$(EAGLE_SNK_PRIVATE)" && \
+		@$(SN) -p "$(EAGLE_SNK_PRIVATE)" "$(EAGLE_SNK_PUBLIC)" \
+	) && @popd
+	@echo Done > "$(TMP_DIR)\rekey-eagle.done"
+
+download-eagle: setup
+	@echo Downloading Eagle binary distribution to '$(PRJ_TEMP_DIR)'
+	@if not exist "$(PRJ_TEMP_DIR)" $(MKDIR) "$(PRJ_TEMP_DIR)"
+	$(TCLSH) "$(EAGLE_NATIVE_TOOLS_DIR)\getEagle.tcl" \
+		"$(PRJ_TEMP_DIR)\EagleBinary.exe"
+	"$(PRJ_TEMP_DIR)\EagleBinary.exe" "-d$(PRJ_TEMP_DIR)" -s2
+	@echo Done > "$(TMP_DIR)\download-eagle.done"
+
+#---------------------------------------------------------------------
+# Installation. (EDIT)
+#
+# You may need to modify this section to reflect the final distribution
+# of your files and possibly to generate documentation.
+#---------------------------------------------------------------------
+
+install-binaries:
+	@echo Installing binaries to '$(BIN_INSTALL_DIR)'
+	@if not exist "$(BIN_INSTALL_DIR)" $(MKDIR) "$(BIN_INSTALL_DIR)"
+	@$(CPY) $(PRJLIB) "$(BIN_INSTALL_DIR)"
+
+install-libraries: $(OUT_DIR)\pkgIndex.tcl
+	@echo Installing libraries to '$(LIB_INSTALL_DIR)'
+	@if exist "$(PRJ_LIB_DIR)" $(CPY) "$(PRJ_LIB_DIR)\*.tcl" "$(LIB_INSTALL_DIR)"
+	@echo Installing package index in '$(LIB_INSTALL_DIR)'
+	@$(CPY) "$(OUT_DIR)\pkgIndex.tcl" "$(LIB_INSTALL_DIR)"
+
+install-docs:
+	@echo Installing documentation files to '$(DOC_INSTALL_DIR)'
+	@if exist "$(PRJ_DOC_DIR)" $(CPY) "$(PRJ_DOC_DIR)\*.n" "$(DOC_INSTALL_DIR)"
+
+#---------------------------------------------------------------------
+# Clean up
+#---------------------------------------------------------------------
+
+clean:
+	@if exist "$(TMP_DIR)" $(RMDIR) "$(TMP_DIR)"
+	@if exist "$(PRJ_TEA_DIR)\vc*.pdb" $(DEL) "$(PRJ_TEA_DIR)\vc*.pdb"
+	@if exist "$(PRJ_TEA_DIR)\version.ts" $(DEL) "$(PRJ_TEA_DIR)\version.ts"
+	@if exist "$(PRJ_TEA_DIR)\version.vc" $(DEL) "$(PRJ_TEA_DIR)\version.vc"
+	@if exist "$(PRJ_TEA_DIR)\versions.ts" $(DEL) "$(PRJ_TEA_DIR)\versions.ts"
+	@if exist "$(PRJ_TEA_DIR)\versions.vc" $(DEL) "$(PRJ_TEA_DIR)\versions.vc"
+	@if exist "$(PRJ_TEA_DIR)\vercl.i" $(DEL) "$(PRJ_TEA_DIR)\vercl.i"
+	@if exist "$(PRJ_TEA_DIR)\vercl.ts" $(DEL) "$(PRJ_TEA_DIR)\vercl.ts"
+	@if exist "$(PRJ_TEA_DIR)\vercl.vc" $(DEL) "$(PRJ_TEA_DIR)\vercl.vc"
+	@if exist "$(PRJ_TEA_DIR)\vercl.x" $(DEL) "$(PRJ_TEA_DIR)\vercl.x"
+	@if exist "$(PRJ_TEA_DIR)\_junk.out" $(DEL) "$(PRJ_TEA_DIR)\_junk.out"
+	@if exist "$(PRJ_TEA_DIR)\_junk.pch" $(DEL) "$(PRJ_TEA_DIR)\_junk.pch"
+
+realclean: clean
+	@if exist "$(OUT_DIR)" $(RMDIR) "$(OUT_DIR)"
+
+distclean: realclean
+	@if exist "$(PRJ_TEA_DIR)\nmakehlp.exe" $(DEL) "$(PRJ_TEA_DIR)\nmakehlp.exe"
+	@if exist "$(PRJ_TEA_DIR)\nmakehlp.obj" $(DEL) "$(PRJ_TEA_DIR)\nmakehlp.obj"
+	@if exist "$(PRJ_TEA_DIR)\trimspace.exe" $(DEL) "$(PRJ_TEA_DIR)\trimspace.exe"
+	@if exist "$(PRJ_TEA_DIR)\trimspace.obj" $(DEL) "$(PRJ_TEA_DIR)\trimspace.obj"
+
+allclean: distclean
+	@if exist "$(PRJ_TEMP_DIR)" $(RMDIR) "$(PRJ_TEMP_DIR)"

@@ -1,0 +1,49 @@
+###############################################################################
+#
+# sample.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Sample Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure counts characters in the specified string, based
+  #       on their ordinal value.  It returns the resulting dictionary of
+  #       name/value pairs, where the names are the ordinal values for the
+  #       characters and the values are the associated counts.
+  #
+  proc countChars { string } {
+    foreach character [split $string ""] {
+      set ordinal [string ordinal $character 0]
+
+      if {[info exists counts($ordinal)]} then {
+        incr counts($ordinal)
+      } else {
+        set counts($ordinal) 1
+      }
+    }
+
+    return [array get counts]
+  }
+
+  #
+  # NOTE: Provide the Eagle "sample" package to the interpreter.
+  #
+  package provide Eagle.Sample.Package \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

@@ -1,0 +1,2347 @@
+###############################################################################
+#
+# redefine.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+#
+# NOTE: Instead of using [debug restore], this test could use interpreter
+#       isolation (i.e. via the -isolationLevel option).
+#
+runTest {test redefine-1.1 {redefine set while script is pending} -setup {
+  unset -nocomplain x
+} -body {
+  list [set x 1] [set x [proc set args "return {GOOD $x}"]] $x
+} -cleanup {
+  unset x
+
+  #
+  # NOTE: Now, remove the set procedure and restore the core
+  #       [set] command.
+  #
+  rename -kind procedure set ""; debug restore
+
+  #
+  # NOTE: *SPECIAL* If an "optional" command (i.e. as recognized by the
+  #       test suite) was not present before [debug restore], remove it
+  #       now.
+  #
+  if {![haveConstraint command.callback]} then {
+    catch {rename callback ""}
+  }
+
+  if {![haveConstraint command.library]} then {
+    catch {rename library ""}
+  }
+
+  if {![haveConstraint command.object]} then {
+    catch {rename object ""}
+  }
+
+  if {![haveConstraint command.socket]} then {
+    catch {rename socket ""}
+  }
+
+  if {![haveConstraint command.sql]} then {
+    catch {rename sql ""}
+  }
+
+  if {![haveConstraint command.tcl]} then {
+    catch {rename tcl ""}
+  }
+
+  if {![haveConstraint command.xml]} then {
+    catch {rename xml ""}
+  }
+} -constraints {eagle} -result {1 {GOOD 1} 1}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  proc getSubCommandsAndCommand { interp name hidden create {varName ""} } {
+    set interpreter null; set error null
+
+    set code [object invoke -alias \
+        Value GetInterpreter "" $interp Default interpreter error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName command
+    }
+
+    set command null; set error null
+
+    set code [$interpreter -alias \
+        GetIdentifier [expr {$hidden ? "HiddenCommand" : "Command"}] \
+        $name null Default command error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    object flags $command +NoDispose; # NOTE: Not owned.
+    set subCommands [$command -alias SubCommands]
+
+    if {$create && ![isNonNullObjectHandle $subCommands]} then {
+      set subCommands [object create -alias EnsembleDictionary]
+      $command SubCommands $subCommands
+    }
+
+    return $subCommands
+  }
+
+  proc getSubCommands { interp name hidden allowed create } {
+    set interpreter null; set error null
+
+    set code [object invoke -alias \
+        Value GetInterpreter "" $interp Default interpreter error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    set command null; set error null
+
+    set code [$interpreter -alias \
+        GetIdentifier [expr {$hidden ? "HiddenCommand" : "Command"}] \
+        $name null Default command error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    object flags $command +NoDispose; # NOTE: Not owned.
+
+    if {[string length $allowed] == 0} then {
+      set subCommands [$command -alias SubCommands]
+
+      if {$create && ![isNonNullObjectHandle $subCommands]} then {
+        set subCommands [object create -alias EnsembleDictionary]
+        $command SubCommands $subCommands
+      }
+    } elseif {$allowed} then {
+      set subCommands [$command -alias AllowedSubCommands]
+
+      if {$create && ![isNonNullObjectHandle $subCommands]} then {
+        set subCommands [object create -alias EnsembleDictionary]
+        $command AllowedSubCommands $subCommands
+      }
+    } else {
+      set subCommands [$command -alias DisallowedSubCommands]
+
+      if {$create && ![isNonNullObjectHandle $subCommands]} then {
+        set subCommands [object create -alias EnsembleDictionary]
+        $command DisallowedSubCommands $subCommands
+      }
+    }
+
+    return $subCommands
+  }
+
+  proc getCommand { interp name hidden } {
+    set interpreter null; set error null
+
+    set code [object invoke -alias \
+        Value GetInterpreter "" $interp Default interpreter error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    set command null; set error null
+
+    set code [$interpreter -alias \
+        GetIdentifier [expr {$hidden ? "HiddenCommand" : "Command"}] \
+        $name null Default command error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    object flags $command +NoDispose; # NOTE: Not owned.
+    return $command
+  }
+
+  proc createSubCommand {
+          viaTest name command scriptCommand execute useIExecute
+          strictNoArguments useExecuteArguments skipNameArguments } {
+    #
+    # NOTE: Use the dedicated test class if requested -OR- if we
+    #       have no choice (i.e. because they are using a feature
+    #       not supported by the core class).
+    #
+    if {$viaTest || $useIExecute} then {
+      set subCommand [object create -alias \
+          Eagle._Tests.Default+SubCommand $name $command null null None \
+          $scriptCommand $execute [object invoke -alias -flags +NonPublic \
+          Eagle._Components.Private.ScriptOps GetSubCommandNameIndex] \
+          $useIExecute $strictNoArguments $useExecuteArguments \
+          $skipNameArguments]
+    } else {
+      set flags =None
+
+      if {$strictNoArguments} then {lappend flags StrictNoArguments}
+      if {$useExecuteArguments} then {lappend flags UseExecuteArguments}
+      if {$skipNameArguments} then {lappend flags SkipNameArguments}
+
+      set subCommand [object invoke -alias -flags +NonPublic \
+          Eagle._Components.Private.ScriptOps NewCommandSubCommand \
+          $name null $command $scriptCommand [object invoke -alias \
+          -flags +NonPublic Eagle._Components.Private.ScriptOps \
+          GetSubCommandNameIndex] $flags]
+    }
+
+    return $subCommand
+  }
+
+  proc getScopeFrame { interp name } {
+    set interpreter null; set error null
+
+    set code [object invoke -alias \
+        Value GetInterpreter "" $interp Default interpreter error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    set frame null
+
+    set code [$interpreter -flags +NonPublic GetScopeCallFrame \
+        $name Default false false frame error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    object flags $frame +NoDispose; # NOTE: Not owned.
+    return $frame
+  }
+
+  proc getNamespaceV1 { interp name } {
+    set error null
+
+    set namespace [object invoke -flags +NonPublic \
+        Eagle._Components.Private.NamespaceOps Lookup $interp $name false \
+        false error]
+
+    if {![isNonNullObjectHandle $namespace]} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    object flags $namespace +NoDispose; # NOTE: Not owned.
+    return $namespace
+  }
+
+  proc getNamespaceV2 { interp name } {
+    set interpreter null; set error null
+
+    set code [object invoke -alias \
+        Value GetInterpreter "" $interp Default interpreter error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    set namespace null; set error null
+
+    set code [object invoke \
+        $interpreter LookupNamespace "" false namespace error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    object flags $namespace +NoDispose; # NOTE: Not owned.
+    return $namespace
+  }
+
+  proc createNamespace { interp namespaceData } {
+    set interpreter null; set error null
+
+    set code [object invoke -alias \
+        Value GetInterpreter "" $interp Default interpreter error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    set namespace null; set error null
+
+    set code [object invoke \
+        $interpreter CreateNamespace $namespaceData null true \
+        namespace error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    object flags $namespace +NoDispose; # NOTE: Not owned.
+    return $namespace
+  }
+
+  proc getIExecute { interp name } {
+    set interpreter null; set error null
+
+    set code [object invoke -alias \
+        Value GetInterpreter "" $interp Default interpreter error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    set execute null; set error null
+
+    set code [$interpreter -flags +NonPublic GetIExecuteViaResolvers \
+        UseAllMask $name null Default execute error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    object flags $execute +NoDispose; # NOTE: Not owned.
+    return $execute
+  }
+
+  proc getGlobalVariable { interp name } {
+    set interpreter null; set error null
+
+    set code [object invoke -alias \
+        Value GetInterpreter "" $interp Default interpreter error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    set flags GlobalOnly; set variable null; set error null
+
+    set code [$interpreter -flags +NonPublic \
+        GetVariableViaResolversWithSplit $name flags variable error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    object flags $variable +NoDispose; # NOTE: Not owned.
+    return $variable
+  }
+
+  proc setResolver { interp resolve } {
+    set interpreter null; set error null
+
+    set code [object invoke -alias \
+        Value GetInterpreter "" $interp Default interpreter error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+
+    set result null
+    set code [$interpreter AddResolver $resolve null Default result]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $result]
+    }
+  }
+}
+
+###############################################################################
+
+runTest {test redefine-2.1 {remove core library sub-command} -body {
+  set interp [interp create]
+  set subCommands [getSubCommandsAndCommand $interp string false false]
+
+  $subCommands Remove length
+
+  set code [catch {
+    interp eval $interp {string length foo}
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {object dispose $subCommand}
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain subCommands interp
+} -constraints {eagle command.object} -match regexp -result \
+{^1 \{bad option "length": .*\}$}}
+
+###############################################################################
+
+runTest {test redefine-2.2 {add core library sub-command (test)} -body {
+  set interp [interp create]
+  set subCommands [getSubCommandsAndCommand $interp string false false command]
+
+  set list [object create -alias StringList]
+  $list Add return; $list Add foo
+
+  set subCommand [createSubCommand \
+      true foo $command $list null false false false false]
+
+  $subCommands Add foo $subCommand
+
+  set code [catch {
+    interp eval $interp {string foo}
+  } result]
+
+  list $code $result [$subCommand -flags +NonPublic executeCount]
+} -cleanup {
+  catch {object dispose $subCommand}
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code list
+  unset -nocomplain subCommand command subCommands interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString} -result {0 foo 1}}
+
+###############################################################################
+
+runTest {test redefine-2.3 {modify core library sub-command (test)} -body {
+  set interp [interp create]
+  set subCommands [getSubCommandsAndCommand $interp string false false command]
+
+  interp eval $interp {
+    proc string_length { args } {
+      if {[llength $args] != 3} then {
+        error {wrong # args: should be "string length string"}
+      }
+      set value [lindex $args end]
+      set string [object create -alias String $value]
+      return [expr {42 + [$string Length]}]
+    }
+  }
+
+  set list [object create -alias StringList]
+  $list Add string_length
+
+  set subCommand [createSubCommand \
+      true length $command $list null false false true false]
+
+  $subCommands Item length $subCommand
+
+  set code [catch {
+    interp eval $interp {string length foo}
+  } result]
+
+  list $code $result [$subCommand -flags +NonPublic executeCount]
+} -cleanup {
+  catch {object dispose $subCommand}
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code list
+  unset -nocomplain subCommand command subCommands interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString} -result {0 45 1}}
+
+###############################################################################
+
+runTest {test redefine-2.4 {wrap core library sub-command (test)} -body {
+  set interp [interp create]
+  set subCommands [getSubCommandsAndCommand $interp string false false command]
+
+  set subCommand [createSubCommand \
+      true length $command null $command true false false false]
+
+  $subCommands Item length $subCommand
+
+  set code [catch {
+    interp eval $interp {string length foo}
+  } result]
+
+  list $code $result [$subCommand -flags +NonPublic executeCount]
+} -cleanup {
+  catch {object dispose $subCommand}
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code list
+  unset -nocomplain subCommand command subCommands interp
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString} -result {0 3 1}}
+
+###############################################################################
+
+runTest {test redefine-2.5 {add core library sub-command (core)} -body {
+  set interp [interp create]
+  set subCommands [getSubCommandsAndCommand $interp string false false command]
+
+  set list [object create -alias StringList]
+  $list Add return; $list Add foo
+
+  set subCommand [createSubCommand \
+      false foo $command $list null false false false false]
+
+  $subCommands Add foo $subCommand
+
+  set code [catch {
+    interp eval $interp {string foo}
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {object dispose $subCommand}
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code list
+  unset -nocomplain subCommand command subCommands interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString} -result {0 foo}}
+
+###############################################################################
+
+runTest {test redefine-2.6 {modify core library sub-command (core)} -body {
+  set interp [interp create]
+  set subCommands [getSubCommandsAndCommand $interp string false false command]
+
+  interp eval $interp {
+    proc string_length { args } {
+      if {[llength $args] != 3} then {
+        error {wrong # args: should be "string length string"}
+      }
+      set value [lindex $args end]
+      set string [object create -alias String $value]
+      return [expr {42 + [$string Length]}]
+    }
+  }
+
+  set list [object create -alias StringList]
+  $list Add string_length
+
+  set subCommand [createSubCommand \
+      false length $command $list null false false true false]
+
+  $subCommands Item length $subCommand
+
+  set code [catch {
+    interp eval $interp {string length foo}
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {object dispose $subCommand}
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code list
+  unset -nocomplain subCommand command subCommands interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString} -result {0 45}}
+
+###############################################################################
+
+runTest {test redefine-2.7 {clear core library sub-commands (core)} -body {
+  set interp [interp create]
+  set subCommands [getSubCommandsAndCommand $interp string false false command]
+
+  $subCommands Clear
+
+  set code [catch {
+    interp eval $interp {string length foo}
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code list
+  unset -nocomplain subCommand command subCommands interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString} -result \
+{1 {bad option "length"}}}
+
+###############################################################################
+
+runTest {test redefine-3.1 {remove core library sub-command (interp)} -body {
+  set interp [interp create]
+
+  interp subcommand -flags ForceDelete -- \
+      $interp string length ""
+
+  set code [catch {
+    interp eval $interp {string length foo}
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code interp
+} -constraints {eagle} -match regexp -result {^1 \{bad option "length": .*\}$}}
+
+###############################################################################
+
+runTest {test redefine-3.2 {add core library sub-command (interp)} -body {
+  set interp [interp create]
+  interp subcommand $interp string foo "return foo"
+
+  set code [catch {
+    interp eval $interp {string foo}
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code interp
+} -constraints {eagle} -result {0 foo}}
+
+###############################################################################
+
+runTest {test redefine-3.3 {modify core library sub-command (interp)} -body {
+  set interp [interp create]
+
+  interp subcommand -flags UseExecuteArguments -- \
+      $interp string length string_length
+
+  interp eval $interp {
+    proc string_length { args } {
+      if {[llength $args] != 3} then {
+        error {wrong # args: should be "string length string"}
+      }
+      set value [lindex $args end]
+      set string [object create -alias String $value]
+      return [expr {42 + [$string Length]}]
+    }
+  }
+
+  set code [catch {
+    interp eval $interp {string length foo}
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code interp
+} -constraints {eagle} -result {0 45}}
+
+###############################################################################
+
+runTest {test redefine-3.4 {reset core library sub-command (interp)} -body {
+  set interp [interp create]
+
+  interp subcommand -flags UseExecuteArguments -- \
+      $interp string length string_length
+
+  interp eval $interp {
+    proc string_length { args } {
+      if {[llength $args] != 3} then {
+        error {wrong # args: should be "string length string"}
+      }
+      set value [lindex $args end]
+      set string [object create -alias String $value]
+      return [expr {42 + [$string Length]}]
+    }
+  }
+
+  set code(1) [catch {
+    interp eval $interp {string length foo}
+  } result(1)]
+
+  interp subcommand $interp string length ""
+
+  set code(2) [catch {
+    interp eval $interp {string length foo}
+  } result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code interp
+} -constraints {eagle} -result {0 45 0 3}}
+
+###############################################################################
+
+runTest {test redefine-3.5 {restore core library sub-command (interp)} -body {
+  set interp [interp create]
+
+  interp subcommand -flags ForceDelete -- \
+      $interp string length ""
+
+  set code(1) [catch {
+    interp eval $interp {string length foo}
+  } result(1)]
+
+  interp subcommand -flags ForceReset -- \
+      $interp string length ""
+
+  set code(2) [catch {
+    interp eval $interp {string length foo}
+  } result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code interp
+} -constraints {eagle} -match regexp -result \
+{^1 \{bad option "length": .*\} 0 3$}}
+
+###############################################################################
+
+runTest {test redefine-3.6 {query core library sub-command (interp)} -body {
+  set interp [interp create]
+
+  set result(1) [interp subcommand $interp string length]
+
+  interp subcommand $interp string length string_length
+
+  set result(2) [interp subcommand $interp string length]
+
+  interp subcommand $interp string length ""
+
+  set result(3) [interp subcommand $interp string length]
+
+  interp subcommand -flags ForceDelete -- \
+      $interp string length ""
+
+  set code(4) [catch {
+    interp subcommand $interp string length
+  } result(4)]
+
+  set code(5) [catch {
+    interp subcommand -flags "ForceQuery NoComplain" -- \
+        $interp string length ""
+  } result(5)]
+
+  list $result(1) $result(2) $result(3) $code(4) $result(4) $code(5) $result(5)
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code interp
+} -constraints {eagle} -result {{} {Eagle._SubCommands.Command length} {} 1\
+{can't query sub-command: doesn't exist} 0 {}}}
+
+###############################################################################
+
+runTest {test redefine-4.1 {remove plugin sub-command} -body {
+  set interp [interp create -isolated]
+
+  interp eval $interp \
+      [list proc getSubCommandsAndCommand \
+      [info args getSubCommandsAndCommand] \
+      [info body getSubCommandsAndCommand]]
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+
+      set subCommands [getSubCommandsAndCommand \
+          "" class12 false false ""]
+
+      $subCommands Remove example3
+
+      class12 example3
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+} -constraints {eagle command.object compile.ISOLATED_INTERPRETERS\
+file_Plugin.dll strongName.official} -match regexp -result \
+{^1 \{bad option "example3": .*\}$}}
+
+###############################################################################
+
+runTest {test redefine-4.2 {add plugin sub-command (test)} -body {
+  set interp [interp create -isolated]
+
+  interp eval $interp \
+      [list proc getSubCommandsAndCommand \
+      [info args getSubCommandsAndCommand] \
+      [info body getSubCommandsAndCommand]]
+
+  interp eval $interp \
+      [list proc createSubCommand \
+      [info args createSubCommand] \
+      [info body createSubCommand]]
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+
+      set subCommands [getSubCommandsAndCommand \
+          "" class12 false false command]
+
+      set list [object create -alias StringList]
+      $list Add return; $list Add foo
+
+      set subCommand [createSubCommand \
+          true example4 $command $list null false false false false]
+
+      $subCommands Add example4 $subCommand
+
+      list [class12 example4] \
+          [$subCommand -flags +NonPublic executeCount]
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString compile.ISOLATED_INTERPRETERS\
+file_Plugin.dll strongName.official} -result {0 {foo 1}}}
+
+###############################################################################
+
+runTest {test redefine-4.3 {modify plugin sub-command (test)} -body {
+  set interp [interp create -isolated]
+
+  interp eval $interp \
+      [list proc getSubCommandsAndCommand \
+      [info args getSubCommandsAndCommand] \
+      [info body getSubCommandsAndCommand]]
+
+  interp eval $interp \
+      [list proc createSubCommand \
+      [info args createSubCommand] \
+      [info body createSubCommand]]
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+
+      set subCommands [getSubCommandsAndCommand \
+          "" class12 false false command]
+
+      proc class12_example4 { args } {
+        if {[llength $args] != 2} then {
+          error {wrong # args: should be "class12 example4"}
+        }
+        return "not a number"
+      }
+
+      set list [object create -alias StringList]
+      $list Add class12_example4
+
+      set subCommand [createSubCommand \
+          true example4 $command $list null false false true false]
+
+      $subCommands Item example4 $subCommand
+
+      list [class12 example4] \
+          [$subCommand -flags +NonPublic executeCount]
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString compile.ISOLATED_INTERPRETERS\
+file_Plugin.dll strongName.official} -result {0 {{not a number} 1}}}
+
+###############################################################################
+
+runTest {test redefine-4.4 {wrap plugin sub-command (test)} -body {
+  set interp [interp create -isolated]
+
+  interp eval $interp \
+      [list proc getSubCommandsAndCommand \
+      [info args getSubCommandsAndCommand] \
+      [info body getSubCommandsAndCommand]]
+
+  interp eval $interp \
+      [list proc createSubCommand \
+      [info args createSubCommand] \
+      [info body createSubCommand]]
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+
+      set subCommands [getSubCommandsAndCommand \
+          "" class12 false false command]
+
+      set subCommand [createSubCommand \
+          true example2 $command null $command true false false false]
+
+      $subCommands Item example2 $subCommand
+
+      list [class12 example2] \
+          [$subCommand -flags +NonPublic executeCount]
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString compile.ISOLATED_INTERPRETERS\
+file_Plugin.dll strongName.official} -match regexp -result {^0 \{\d+ 1\}$}}
+
+###############################################################################
+
+runTest {test redefine-4.5 {wrap plugin nested sub-command (test)} -body {
+  set interp [interp create -isolated]
+
+  interp eval $interp \
+      [list proc getSubCommandsAndCommand \
+      [info args getSubCommandsAndCommand] \
+      [info body getSubCommandsAndCommand]]
+
+  interp eval $interp \
+      [list proc createSubCommand \
+      [info args createSubCommand] \
+      [info body createSubCommand]]
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+
+      set subCommands [getSubCommandsAndCommand \
+          "" class12 false false command]
+
+      set oldSubCommand [$subCommands Item example3]
+      object flags $oldSubCommand +NoDispose; # NOTE: Not owned.
+
+      set newSubCommand [createSubCommand \
+          true example3 $command null $oldSubCommand true false false false]
+
+      $subCommands Item example3 $newSubCommand
+
+      list [class12 example3] \
+          [$newSubCommand -flags +NonPublic executeCount]
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString compile.ISOLATED_INTERPRETERS\
+file_Plugin.dll strongName.official} -match regexp -result {^0 \{\d+ 1\}$}}
+
+###############################################################################
+
+runTest {test redefine-4.6 {add plugin sub-command (core)} -body {
+  set interp [interp create -isolated]
+
+  interp eval $interp \
+      [list proc getSubCommandsAndCommand \
+      [info args getSubCommandsAndCommand] \
+      [info body getSubCommandsAndCommand]]
+
+  interp eval $interp \
+      [list proc createSubCommand \
+      [info args createSubCommand] \
+      [info body createSubCommand]]
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+
+      set subCommands [getSubCommandsAndCommand \
+          "" class12 false false command]
+
+      set list [object create -alias StringList]
+      $list Add return; $list Add foo
+
+      set subCommand [createSubCommand \
+          false example3 $command $list null false false false false]
+
+      $subCommands Add foo $subCommand
+
+      class12 example3
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString compile.ISOLATED_INTERPRETERS\
+file_Plugin.dll strongName.official} -match regexp -result {^0 \d+$}}
+
+###############################################################################
+
+runTest {test redefine-4.7 {modify plugin sub-command (core)} -body {
+  set interp [interp create -isolated]
+
+  interp eval $interp \
+      [list proc getSubCommandsAndCommand \
+      [info args getSubCommandsAndCommand] \
+      [info body getSubCommandsAndCommand]]
+
+  interp eval $interp \
+      [list proc createSubCommand \
+      [info args createSubCommand] \
+      [info body createSubCommand]]
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+
+      set subCommands [getSubCommandsAndCommand \
+          "" class12 false false command]
+
+      proc class12_example3 { args } {
+        if {[llength $args] != 2} then {
+          error {wrong # args: should be "class12 example3"}
+        }
+        return "something important"
+      }
+
+      set list [object create -alias StringList]
+      $list Add class12_example3
+
+      set subCommand [createSubCommand \
+          false example3 $command $list null false false true false]
+
+      $subCommands Item length $subCommand
+
+      class12 example3
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code list
+  unset -nocomplain interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString compile.ISOLATED_INTERPRETERS\
+file_Plugin.dll strongName.official} -match regexp -result {^0 \d+$}}
+
+###############################################################################
+
+runTest {test redefine-4.8 {clear plugin sub-commands (core)} -body {
+  set interp [interp create -isolated]
+
+  interp eval $interp \
+      [list proc getSubCommandsAndCommand \
+      [info args getSubCommandsAndCommand] \
+      [info body getSubCommandsAndCommand]]
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+
+      set subCommands [getSubCommandsAndCommand \
+          "" class12 false false command]
+
+      $subCommands Clear
+
+      set code [catch {class12 example3} result]; list $code $result
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code list
+  unset -nocomplain interp
+} -constraints {eagle command.object monoBug30 compile.TEST\
+member_Eagle._Tests.Default.SubCommand.ToString compile.ISOLATED_INTERPRETERS\
+file_Plugin.dll strongName.official} -result {0 {1 {bad option "example3"}}}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename createSubCommand ""
+  rename getSubCommandsAndCommand ""
+}
+
+###############################################################################
+
+runTest {test redefine-5.1 {custom IScriptBinder w/custom conversions} -body {
+  set interp [interp create -isolated]
+
+  interp eval $interp \
+      [list proc getCommand \
+      [info args getCommand] \
+      [info body getCommand]]
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+
+      set binder [object invoke Interpreter.GetActive Binder]
+
+      if {[isMono]} then {
+        set class9 [object create \
+            -objectvalueflags +OneParameterGetType Sample.Class9 \
+            "" $binder]
+      } else {
+        set class9 [object create Sample.Class9 "" $binder]
+      }
+
+      object invoke Interpreter.GetActive Binder $class9
+
+      set class2 [getCommand "" class2 false]
+      $class2 Description "This is an arbitrary description string."
+
+      set oldClass2 [$class2 -create -alias Object]
+
+      if {[isMono]} then {
+        set newClass2 [object invoke -create -alias \
+            -objectvalueflags +OneParameterGetType \
+            Sample.Class2 TestMethod $oldClass2]
+      } else {
+        set newClass2 [object invoke -create -alias \
+            Sample.Class2 TestMethod $oldClass2]
+      }
+
+      list [object invoke -tostring Sample.Class2 TestMethod $oldClass2] \
+          [object invoke Object ReferenceEquals $oldClass2 $newClass2] \
+          [getStringFromObjectHandle $newClass2]
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+} -constraints {eagle command.object compile.ISOLATED_INTERPRETERS\
+file_Plugin.dll strongName.official} -result {0 {{This is an arbitrary\
+description string.} True {Sample.Class2 class2}}}}
+
+###############################################################################
+
+runTest {test redefine-6.1 {custom package fallback (non-isolated)} -setup {
+  if {[info exists env(EAGLE_EXTRA_PACKAGE_DIRECTORY)]} then {
+    set savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY) \
+        $env(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+  } else {
+    unset -nocomplain savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+  }
+
+  set directory [getTemporaryFileName]
+  file delete $directory; file mkdir $directory
+
+  writeFile [file join $directory pkgIndex.eagle] {
+    if {![package vsatisfies [package provide Tcl] 8.4]} {return}
+    if {![package vsatisfies [package provide Eagle] 1.0]} {return}
+
+    package ifneeded redefine-6.1 1.0 \
+        [list package provide redefine-6.1 1.0]
+  }
+
+  if {[haveConstraint security.enabled]} then {
+    writeFile [file join $directory pkgIndex.eagle.harpy] [string trim {
+      <?xml version="1.0" encoding="utf-8"?>
+      <Certificate xmlns="https://eagle.to/2011/harpy"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Protocol>None</Protocol>
+        <Vendor>Mistachkin Systems</Vendor>
+        <Id>251b7b1c-a86b-42a8-ab56-6a8f1e9df303</Id>
+        <HashAlgorithm>SHA512</HashAlgorithm>
+        <EntityType>Script</EntityType>
+        <TimeStamp>2018-03-10T22:06:31.3399349Z</TimeStamp>
+        <Duration>-1.00:00:00</Duration>
+        <Key>0x9559f6017247e3e2</Key>
+        <Signature>
+          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
+        </Signature>
+      </Certificate>
+    }]
+  }
+
+  set env(EAGLE_EXTRA_PACKAGE_DIRECTORY) $directory
+} -body {
+  if {[haveConstraint compile.ISOLATED_INTERPRETERS]} then {
+    set interp [interp create -isolated]
+  } else {
+    set interp [interp create]
+  }
+
+  set code [catch {
+    interp eval $interp {
+      package require Sample.Class3
+      package require redefine-6.1
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  if {![haveConstraint compile.ISOLATED_INTERPRETERS]} then {
+    interp eval $interp {
+      unload [getPluginPath {Sample\.Class3, }] \
+          [getPluginName {Sample\.Class3, }]
+    }
+  }
+
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+
+  if {[haveConstraint security.enabled]} then {
+    catch {file delete [file join $directory pkgIndex.eagle.harpy]}
+  }
+
+  catch {file delete [file join $directory pkgIndex.eagle]}
+
+  catch {
+    if {[llength [glob -nocomplain \
+        [file join $directory *]]] == 0} then {
+      file rmdir $directory
+    }
+  }
+
+  if {[info exists savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY)]} then {
+    set env(EAGLE_EXTRA_PACKAGE_DIRECTORY) \
+        $savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+
+    unset -nocomplain savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+  } else {
+    unset -nocomplain env(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+  }
+
+  unset -nocomplain savedEnv
+  unset -nocomplain directory
+} -constraints {eagle command.object file_Plugin.dll strongName.official} \
+-result {0 1.0}}
+
+###############################################################################
+
+runTest {test redefine-6.2 {custom package fallback (isolated)} -setup {
+  if {[info exists env(EAGLE_EXTRA_PACKAGE_DIRECTORY)]} then {
+    set savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY) \
+        $env(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+  } else {
+    unset -nocomplain savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+  }
+
+  set directory [getTemporaryFileName]
+  file delete $directory; file mkdir $directory
+
+  writeFile [file join $directory pkgIndex.eagle] {
+    if {![package vsatisfies [package provide Tcl] 8.4]} {return}
+    if {![package vsatisfies [package provide Eagle] 1.0]} {return}
+
+    package ifneeded redefine-6.2 1.0 \
+        [list package provide redefine-6.2 1.0]
+  }
+
+  if {[haveConstraint security.enabled]} then {
+    writeFile [file join $directory pkgIndex.eagle.harpy] [string trim {
+      <?xml version="1.0" encoding="utf-8"?>
+      <Certificate xmlns="https://eagle.to/2011/harpy"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Protocol>None</Protocol>
+        <Vendor>Mistachkin Systems</Vendor>
+        <Id>e188975a-681d-4a19-bc4d-507459624aac</Id>
+        <HashAlgorithm>SHA512</HashAlgorithm>
+        <EntityType>Script</EntityType>
+        <TimeStamp>2018-03-10T22:07:59.3864895Z</TimeStamp>
+        <Duration>-1.00:00:00</Duration>
+        <Key>0x9559f6017247e3e2</Key>
+        <Signature>
+          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
+        </Signature>
+      </Certificate>
+    }]
+  }
+
+  set env(EAGLE_EXTRA_PACKAGE_DIRECTORY) $directory
+} -body {
+  if {[haveConstraint compile.ISOLATED_INTERPRETERS]} then {
+    set interp [interp create -isolated]
+  } else {
+    set interp [interp create]
+  }
+
+  set code [catch {
+    interp eval $interp {
+      object invoke -flags +NonPublic \
+          Interpreter.GetActive PluginFlags Isolated
+
+      package require Sample.Class3
+      package require redefine-6.2
+    }
+  } result]
+
+  list $code $result
+} -cleanup {
+  if {![haveConstraint compile.ISOLATED_INTERPRETERS]} then {
+    interp eval $interp {
+      unload [getPluginPath {Sample\.Class3, }] \
+          [getPluginName {Sample\.Class3, }]
+    }
+  }
+
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+
+  if {[haveConstraint security.enabled]} then {
+    catch {file delete [file join $directory pkgIndex.eagle.harpy]}
+  }
+
+  catch {file delete [file join $directory pkgIndex.eagle]}
+
+  catch {
+    if {[llength [glob -nocomplain \
+        [file join $directory *]]] == 0} then {
+      file rmdir $directory
+    }
+  }
+
+  if {[info exists savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY)]} then {
+    set env(EAGLE_EXTRA_PACKAGE_DIRECTORY) \
+        $savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+
+    unset -nocomplain savedEnv(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+  } else {
+    unset -nocomplain env(EAGLE_EXTRA_PACKAGE_DIRECTORY)
+  }
+
+  unset -nocomplain savedEnv
+  unset -nocomplain directory
+} -constraints {eagle command.object compile.ISOLATED_PLUGINS file_Plugin.dll\
+strongName.official} -result {0 1.0}}
+
+###############################################################################
+
+runTest {test resolver-1.1 {custom IResolve.GetVariableFrame} -body {
+  set interp(1) [interp create]
+
+  interp eval $interp(1) {
+    #
+    # HACK: Work around having the Badge plugin loaded by removing
+    #       any pre-existing [flags] command, thus preventing command
+    #       name collisions with the aliased "flags" parameter to the
+    #       IResolve.GetVariableFrame interface method.
+    #
+    catch {rename flags ""}
+
+    scope create -open -- resolver-1.1; set x 1234
+  }
+
+  set script {
+    if {[isNonNullObjectHandle varName]} then {
+      if {[getStringFromObjectHandle varName] eq "x"} then {
+        return true
+      } elseif {[getStringFromObjectHandle varName] eq "::::bad1"} then {
+        error "bad variable frame"
+      }
+    }
+
+    return false
+  }
+
+  set frame [getScopeFrame $interp(1) resolver-1.1]
+
+  set interp(2) [interp create]
+
+  set resolve [object create -alias Eagle._Tests.Default+Resolve \
+      $interp(1) $interp(2) $script $frame null null null Default]
+
+  setResolver $interp(2) $resolve
+
+  set code(1) [catch {
+    interp eval $interp(2) {
+      set ::::good1
+    }
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $interp(2) {
+      set ::::bad1
+    }
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $interp(2) {
+      set x
+    }
+  } result(3)]
+
+  list $code(1) $result(1) $code(2) $result(2) $code(3) $result(3)
+} -cleanup {
+  catch {interp delete $interp(2)}
+  catch {interp delete $interp(1)}
+
+  catch {object dispose $frame}
+
+  unset -nocomplain code result script frame resolve interp
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.Resolve.ToString} -result {1 {can't read\
+"::::good1": no such variable} 1 {can't read "::::bad1": no such variable} 0\
+1234}}
+
+###############################################################################
+
+runTest {test resolver-1.2 {custom IResolve.GetCurrentNamespace} -body {
+  set interp(1) [interp create -namespaces]
+
+  if {[haveConstraint quiet]} then {
+    interp eval $interp(1) {
+      object invoke Eagle._Tests.Default TestSetQuiet "" true
+    }
+  }
+
+  interp eval $interp(1) {
+    #
+    # HACK: Work around having the Badge plugin loaded by removing
+    #       any pre-existing [flags] command, thus preventing command
+    #       name collisions with the aliased "flags" parameter to the
+    #       IResolve.GetVariableFrame interface method.
+    #
+    catch {rename flags ""}
+
+    namespace eval ::one::two::three {
+      variable x 54321
+    }
+  }
+
+  set script {
+    if {[isNonNullObjectHandle frame]} then {
+      set frame frame
+    } else {
+      set frame [targetInterpreter -alias -flags +NonPublic \
+          -objectflags +NoDispose CurrentFrame]
+    }
+
+    try {
+      if {[isNonNullObjectHandle $frame]} then {
+        if {[$frame Name] eq [list "namespace eval" ::good1]} then {
+          return true
+        } elseif {[$frame Name] eq [list "namespace eval" ::bad1]} then {
+          error "bad namespace"
+        }
+      }
+
+      return false
+    } finally {
+      catch {object dispose $frame}
+    }
+  }
+
+  set interp(2) [interp create -namespaces]
+
+  interp eval $interp(2) {
+    namespace eval ::::good1 {}
+    namespace eval ::::bad1 {}
+    namespace eval ::::x {}
+  }
+
+  set namespace [getNamespaceV1 $interp(1) ::one::two::three]
+
+  set resolve [object create -alias Eagle._Tests.Default+Resolve \
+      $interp(1) $interp(2) $script null $namespace null null Default]
+
+  setResolver $interp(2) $resolve
+
+  set code(1) [catch {
+    interp eval $interp(2) {
+      namespace eval ::::good1 {
+        info vars
+      }
+    }
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $interp(2) {
+      namespace eval ::::bad1 {
+        info vars
+      }
+    }
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $interp(2) {
+      namespace eval ::::x {
+        info vars
+      }
+    }
+  } result(3)]
+
+  list $code(1) $result(1) $code(2) $result(2) $code(3) $result(3)
+} -cleanup {
+  catch {interp delete $interp(2)}
+  catch {interp delete $interp(1)}
+
+  catch {object dispose $namespace}
+
+  unset -nocomplain code result script namespace resolve interp
+} -constraints {eagle command.object compile.TEST namespaces.available\
+member_Eagle._Tests.Default.Resolve.ToString\
+Eagle._Tests.Default.TestSetQuiet} -result {0 x 0 {} 0 {}}}
+
+###############################################################################
+
+runTest {test resolver-1.3 {custom IResolve.GetIExecute} -body {
+  set interp(1) [interp create]
+
+  interp eval $interp(1) {
+    proc resolver-1.3 {} {
+      return [object invoke Interpreter.GetActive Id]
+    }
+  }
+
+  set script {
+    if {[isNonNullObjectHandle name]} then {
+      if {[getStringFromObjectHandle name] eq "::::good1"} then {
+        return true
+      } elseif {[getStringFromObjectHandle name] eq "::::bad1"} then {
+        error "bad execute"
+      }
+    }
+
+    return false
+  }
+
+  set interp(2) [interp create]
+
+  interp eval $interp(2) {
+    rename xml ""
+  }
+
+  set execute [getIExecute $interp(1) resolver-1.3]
+
+  set resolve [object create -alias Eagle._Tests.Default+Resolve \
+      $interp(1) $interp(2) $script null null $execute null Default]
+
+  setResolver $interp(2) $resolve
+
+  set code(1) [catch {
+    interp eval $interp(2) {
+      ::::good1
+    }
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $interp(2) {
+      ::::bad1
+    }
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $interp(2) {
+      x
+    }
+  } result(3)]
+
+  list $code(1) $result(1) $code(2) $result(2) $code(3) $result(3)
+} -cleanup {
+  catch {interp delete $interp(2)}
+  catch {interp delete $interp(1)}
+
+  catch {object dispose $execute}
+
+  unset -nocomplain code result script execute resolve interp
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.Resolve.ToString} -match regexp -result {^0 \d+ 1\
+\{invalid command name "::::bad1"\} 1 \{invalid command name "x"\}$}}
+
+###############################################################################
+
+runTest {test resolver-1.4 {custom IResolve.GetVariable} -body {
+  set interp(1) [interp create]
+
+  interp eval $interp(1) {
+    set xyz 12345
+  }
+
+  set script {
+    if {[isNonNullObjectHandle varName]} then {
+      if {[getStringFromObjectHandle varName] eq "::::good1"} then {
+        return true
+      } elseif {[getStringFromObjectHandle varName] eq "::::bad1"} then {
+        error "bad variable"
+      }
+    }
+
+    return false
+  }
+
+  set interp(2) [interp create]
+
+  set variable [getGlobalVariable $interp(1) xyz]
+
+  set resolve [object create -alias Eagle._Tests.Default+Resolve \
+      $interp(1) $interp(2) $script null null null $variable Default]
+
+  setResolver $interp(2) $resolve
+
+  set code(1) [catch {
+    interp eval $interp(2) {
+      set ::::good1
+    }
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $interp(2) {
+      set ::::bad1
+    }
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $interp(2) {
+      set x
+    }
+  } result(3)]
+
+  list $code(1) $result(1) $code(2) $result(2) $code(3) $result(3)
+} -cleanup {
+  catch {interp delete $interp(2)}
+  catch {interp delete $interp(1)}
+
+  catch {object dispose $variable}
+
+  unset -nocomplain code result script variable resolve interp
+} -constraints {eagle command.object compile.TEST\
+member_Eagle._Tests.Default.Resolve.ToString} -result {0 12345 1 {can't read\
+"::::bad1": no such variable} 1 {can't read "x": no such variable}}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename getNamespaceV1 ""
+  rename getScopeFrame ""
+}
+
+###############################################################################
+
+runTest {test resolver-1.50 {isolated IResolve} -body {
+  set interp(2) [interp create -isolated -namespaces]
+
+  set resolve [object create -alias Eagle._Tests.Default+Resolve \
+      null $interp(2) null null null null null Default]
+
+  setResolver $interp(2) $resolve
+
+  set code(1) [catch {
+    interp eval $interp(2) {
+      namespace eval ::one {
+        variable xyz 9999
+
+        proc two {} {
+          variable xyz
+
+          set result [list]
+
+          foreach varName [lsort [info vars]] {
+            lappend result $varName [set $varName]
+          }
+
+          return $result
+        }
+
+        two
+      }
+    }
+  } result(1)]
+
+  list $code(1) $result(1) [getStringFromObjectHandle $resolve]
+} -cleanup {
+  catch {interp delete $interp(2)}
+
+  unset -nocomplain code result resolve interp
+} -constraints {eagle command.object compile.TEST compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS namespaces.available\
+member_Eagle._Tests.Default.Resolve.ToString} -result \
+{0 {result {} xyz 9999} {28 32 15 20}}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename setResolver ""
+}
+
+###############################################################################
+
+runTest {test resolver-1.51 {per-namespace IResolve} -body {
+  set interp(1) [interp create]
+
+  interp eval $interp(1) {
+    set xyz 12345
+
+    set methodNames [list]
+    set executeNames [list]
+    set variableNames [list]
+  }
+
+  set execute [getIExecute $interp(1) incr]
+  set variable [getGlobalVariable $interp(1) xyz]
+
+  set interp(2) [interp create -namespaces]
+
+  interp eval $interp(2) {
+    set x 0
+  }
+
+  set globalNamespace [getNamespaceV2 $interp(2) ""]
+
+  set script {
+    set methodName [getStringFromObjectHandle methodName]
+    lappend methodNames $methodName
+    switch -exact -- $methodName {
+      GetVariableFrame {
+        return true
+      }
+      GetCurrentNamespace {
+        return true
+      }
+      GetIExecute {
+        set executeName [getStringFromObjectHandle name]
+        lappend executeNames $executeName
+        if {$executeName eq "otherincr"} then {
+          return true
+        }
+      }
+      GetVariable {
+        set variableName [getStringFromObjectHandle varName]
+        lappend variableNames $variableName
+        if {$variableName eq "otherxyz"} then {
+          return true
+        }
+      }
+      default {
+        error "unsupported method name"
+      }
+    }
+
+    return false
+  }
+
+  set resolve [object create -alias Eagle._Tests.Default+Resolve \
+      $interp(1) $interp(2) $script null null $execute $variable \
+      {Default AlwaysUseNamespaceFrame}]
+
+  set namespaceData [object create \
+      NamespaceData special null $interp(2) $globalNamespace \
+      $resolve null null]
+
+  set namespace [createNamespace $interp(2) $namespaceData]
+  object invoke -flags +NonPublic $resolve namespace $namespace; # field
+
+  set code(1) [catch {
+    interp eval $interp(2) {
+      namespace eval ::special {
+        otherincr ::x 111
+      }
+    }
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $interp(2) {
+      ::special::otherincr x 222
+    }
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $interp(2) {
+      set ::special::otherxyz 999
+    }
+  } result(3)]
+
+  set code(4) [catch {
+    interp eval $interp(1) {
+      list $methodNames $executeNames $variableNames $xyz
+    }
+  } result(4)]
+
+  set code(5) [catch {
+    interp eval $interp(1) {
+      info exists x
+    }
+  } result(5)]
+
+  set code(6) [catch {
+    interp eval $interp(2) {
+      set x
+    }
+  } result(6)]
+
+  list $code(1) $result(1) $code(2) $result(2) $code(3) $result(3) \
+      $code(4) $result(4) $code(5) $result(5) $code(6) $result(6) \
+      [getStringFromObjectHandle $resolve]
+} -cleanup {
+  catch {interp delete $interp(2)}
+  catch {interp delete $interp(1)}
+
+  catch {object dispose $execute}
+  catch {object dispose $variable}
+  catch {object dispose $globalNamespace}
+  catch {object dispose $namespace}
+
+  unset -nocomplain code result script execute variable resolve interp \
+      globalNamespace namespaceData namespace
+} -constraints {eagle command.object compile.TEST namespaces.available\
+member_Eagle._Tests.Default.Resolve.ToString} -result {0 111 0 333 0 999 0\
+{{GetIExecute GetIExecute GetVariable} {otherincr otherincr} otherxyz 999} 0 0\
+0 333 {2 0 2 1}}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename getGlobalVariable ""
+  rename getIExecute ""
+  rename getNamespaceV2 ""
+  rename createNamespace ""
+}
+
+###############################################################################
+
+runTest {test safe-1.90 {add to built-in "safe" [info] policy} -body {
+  set interp [interp create -safe]
+  set subCommands [getSubCommands $interp info true true false]
+
+  set code(1) [catch {
+    interp eval $interp {
+      info cmdcount
+    }
+  } result(1)]
+
+  $subCommands Add cmdcount null
+
+  set code(2) [catch {
+    interp eval $interp {
+      info cmdcount
+    }
+  } result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain subCommands interp
+} -constraints {eagle command.object} -match regexp -result {^1 \{permission\
+denied: safe interpreter cannot use command "info cmdcount"\} 0 \d+$}}
+
+###############################################################################
+
+runTest {test safe-1.91 {remove from built-in "safe" [info] policy} -body {
+  set interp [interp create -safe]
+  set subCommands [getSubCommands $interp info true true false]
+
+  set code(1) [catch {
+    interp eval $interp {
+      info level
+    }
+  } result(1)]
+
+  $subCommands Remove level
+
+  set code(2) [catch {
+    interp eval $interp {
+      info level
+    }
+  } result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain subCommands interp
+} -constraints {eagle command.object} -result {0 0 1 {permission denied: safe\
+interpreter cannot use command "info level"}}}
+
+###############################################################################
+
+runTest {test safe-1.92 {remove from built-in "safe" [package] policy} -body {
+  set interp [interp create -safe]
+  set subCommands [getSubCommands $interp package true false false]
+
+  set code(1) [catch {
+    interp eval $interp {
+      package reset
+    }
+  } result(1)]
+
+  $subCommands Remove reset
+
+  set code(2) [catch {
+    interp eval $interp {
+      package reset
+    }
+  } result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain subCommands interp
+} -constraints {eagle command.object} -result {1 {permission denied: safe\
+interpreter cannot use command "package reset"} 0 {}}}
+
+###############################################################################
+
+runTest {test safe-1.93 {add to built-in "safe" [package] policy} -body {
+  set interp [interp create -safe]
+  set subCommands [getSubCommands $interp package true false false]
+
+  set code(1) [catch {
+    interp eval $interp {
+      package require Eagle
+    }
+  } result(1)]
+
+  $subCommands Add require null
+
+  set code(2) [catch {
+    interp eval $interp {
+      package require Eagle
+    }
+  } result(2)]
+
+  list $code(1) $result(1) $code(2) $result(2)
+} -cleanup {
+  catch {object dispose $subCommands}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain subCommands interp
+} -constraints {eagle command.object} -match regexp -result {^0\
+\d+\.\d+\.\d+\.\d+ 1 \{permission denied: safe interpreter cannot use command\
+"package require"\}$}}
+
+###############################################################################
+
+runTest {test executeCallback-1.1 {ExecuteCallback command} -body {
+  set interp [interp create]
+
+  set code(1) [catch {
+    interp eval $interp {
+      set token 0; set result null
+
+      set code [object invoke Eagle._Tests.Default \
+          TestAddExecuteCallback "" foo null token result]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $result]
+      }
+    }
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $interp {
+      foo set x 1
+    }
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $interp {
+      set x
+    }
+  } result(3)]
+
+  list $code(1) $result(1) $code(2) $result(2) $code(3) $result(3)
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddExecuteCallback\
+Eagle._Tests.Default.TestExecuteCallback1} -result {0 {} 0 1 0 1}}
+
+###############################################################################
+
+runTest {test executeCallback-1.2 {ExecuteCallback sub-command} -body {
+  set interp [interp create]
+  set command [getCommand $interp package false]
+
+  interp shareobject $interp $command
+  interp set $interp command $command
+
+  set code(1) [catch {
+    interp eval $interp {
+      set token 0; set result null
+
+      set code [object invoke Eagle._Tests.Default \
+          TestAddExecuteCallback "" foo $command null token result]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $result]
+      }
+    }
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $interp {
+      package foo set x 2
+    }
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $interp {
+      set x
+    }
+  } result(3)]
+
+  list $code(1) $result(1) $code(2) $result(2) $code(3) $result(3)
+} -cleanup {
+  catch {object dispose $command}
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain command interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestAddExecuteCallback\
+Eagle._Tests.Default.TestExecuteCallback2} -result {0 {} 0 2 0 2}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename getSubCommands ""
+  rename getCommand ""
+}
+
+###############################################################################
+
+runTest {test newWebClientCallback-1.1 {WebClient customization} -setup {
+  #
+  # HACK: Save the current plugin flags for the interpreter and then
+  #       temporarily set them to "Isolated".  The saved flags will
+  #       be restored during test cleanup.
+  #
+  set savedPluginFlags [object invoke -flags +NonPublic \
+      Interpreter.GetActive PluginFlags]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      PluginFlags [combineFlags $savedPluginFlags Isolated]
+} -body {
+  #
+  # HACK: We do not want to bother using HTTPS for this test.
+  #
+  set uri [string map [list https: http:] [file join $test_repository_url \
+      test_env]]
+
+  set file [file nativename [file join $core_lib_path Plugin1.0 \
+      [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]
+
+  load $file Sample.Class3
+
+  list [expr {[string first -nocase <html [uri download -inline $uri]] >= 0}] \
+      [debug pluginexecute [getPluginName [appendArgs "Sample\\.Class3, .*"]] \
+      copyState]
+} -cleanup {
+  catch {unload -match glob $file "Sample.Class3, *"}
+
+  unset -nocomplain file uri
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      PluginFlags [appendArgs = $savedPluginFlags]
+
+  unset -nocomplain savedPluginFlags
+} -constraints {eagle command.object compile.ISOLATED_PLUGINS file_Plugin.dll\
+strongName.official fossil_repository_url variable_test_repository_url} \
+-result {True True}}
+
+###############################################################################
+
+runTest {test framework-1.1 {GetFramework method for general types} -body {
+  set result(1) null
+
+  set code(1) [object invoke Interpreter.GetActive GetFramework \
+      4f867f2c-e65f-48d8-bf81-e794d10f7466 "BuiltIn, Static, NonPublic" \
+      result(1)]
+
+  lappend results $code(1) [getStringFromObjectHandle $result(1)]
+
+  set result(2) null
+
+  set code(2) [object invoke Interpreter.GetActive GetFramework \
+      4f867f2c-e65f-48d8-bf81-e794d10f7466 "BuiltIn, Instance, NonPublic" \
+      result(2)]
+
+  lappend results $code(2) [getStringFromObjectHandle $result(2)]
+
+  set result(3) null
+
+  set code(3) [object invoke Interpreter.GetActive GetFramework \
+      2dacac40-7b18-4fc6-841a-35ffa7550dc9 "BuiltIn, Static, NonPublic" \
+      result(3)]
+
+  lappend results $code(3) [getStringFromObjectHandle $result(3)]
+
+  set result(4) null
+
+  set code(4) [object invoke Interpreter.GetActive GetFramework \
+      2dacac40-7b18-4fc6-841a-35ffa7550dc9 "BuiltIn, Instance, NonPublic" \
+      result(4)]
+
+  lappend results $code(4) [getStringFromObjectHandle $result(4)]
+
+  set result(5) null
+
+  set code(5) [object invoke Interpreter.GetActive GetFramework \
+      83d21bd9-be3d-47c4-9506-37e20dedf1c7 "BuiltIn, Static, NonPublic" \
+      result(5)]
+
+  lappend results $code(5) [getStringFromObjectHandle $result(5)]
+
+  set result(6) null
+
+  set code(6) [object invoke Interpreter.GetActive GetFramework \
+      83d21bd9-be3d-47c4-9506-37e20dedf1c7 "BuiltIn, Instance, NonPublic" \
+      result(6)]
+
+  if {$code(6) eq "Ok"} then {
+    set int32 [object invoke -create Int32 Parse 12345678]
+    object invoke $result(6) Value.Value $int32
+  }
+
+  lappend results $code(6) [getStringFromObjectHandle $result(6)]
+} -cleanup {
+  unset -nocomplain int32 results result code
+} -constraints {eagle command.object strongName.official} -match regexp \
+-result {^Ok Eagle\._Commands\.After Error \{framework with Id\
+"4f867f2c-e65f-48d8-bf81-e794d10f7466" and flags "BuiltIn, NonPublic, Instance"\
+within assembly "Eagle, Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
+available\} Ok \{Eagle\._Components\.Public\.AnyPair`2\[T1,T2\]\} Error\
+\{framework with Id "2dacac40-7b18-4fc6-841a-35ffa7550dc9" and flags "BuiltIn,\
+NonPublic, Instance" within assembly "Eagle, Version=\d+\.\d+\.\d+\.\d+,\
+Culture=neutral,\
+PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
+available\} Ok Eagle\._Components\.Public\.Number Ok 12345678$}}
+
+###############################################################################
+
+runTest {test framework-1.2 {GetFramework method for core test type} -body {
+  set result(1) null
+
+  set code(1) [object invoke Interpreter.GetActive GetFramework \
+      e1257294-a012-4164-b0ea-3763dd06eec2 "BuiltIn, Static, NonPublic" \
+      result(1)]
+
+  lappend results $code(1) [getStringFromObjectHandle $result(1)]
+
+  set result(2) null
+
+  set code(2) [object invoke Interpreter.GetActive GetFramework \
+      e1257294-a012-4164-b0ea-3763dd06eec2 "BuiltIn, Instance, NonPublic" \
+      result(2)]
+
+  lappend results $code(2) [getStringFromObjectHandle $result(2)]
+
+  set result(3) null
+
+  set code(3) [object invoke Interpreter.GetActive GetFramework \
+      null "BuiltIn, Test, Static" result(3)]
+
+  lappend results $code(3) [getStringFromObjectHandle $result(3)]
+
+  set result(4) null
+
+  set code(4) [object invoke Interpreter.GetActive GetFramework \
+      null "BuiltIn, Test, Instance" result(4)]
+
+  lappend results $code(4) [getStringFromObjectHandle $result(4)]
+} -cleanup {
+  unset -nocomplain results result code
+} -constraints {eagle command.object compile.TEST} -result {Ok\
+Eagle._Tests.Default Ok Eagle._Tests.Default Ok Eagle._Tests.Default Ok\
+Eagle._Tests.Default}}
+
+###############################################################################
+
+runTest {test unknown-1.1 {UnknownCallback property} -setup {
+  set savedUnknownCount [object invoke \
+      -flags +NonPublic Interpreter.GetActive unknownCount]
+
+  object invoke -flags +NonPublic Interpreter.GetActive \
+      unknownCount 0
+
+  set savedUnknownCallback [object invoke \
+      Interpreter.GetActive UnknownCallback]
+
+  set test [object create -alias Eagle._Tests.Default]
+
+  set script(null) null
+
+  set script(ok) {
+    set typeName Eagle._Commands.Nop
+
+    set commandData [object create CommandData \
+        [getStringFromObjectHandle name] null null null $typeName \
+        {Safe, NonStandard, Core} null 0]
+
+    set command [object create $typeName $commandData]
+
+    return $command
+  }
+
+  set script(error) {
+    error "that command is forbidden"
+  }
+
+  set script(break) {
+    break; # nothing will happen.
+  }
+
+  set script(continue) {
+    continue "that command is probably bad"
+  }
+} -body {
+  foreach rc [list null ok error break continue] {
+    lappend results $rc [$test \
+        TestSetUnknownScriptObjectCallback "" $script($rc) true]
+
+    set code($rc) [catch {not_a_command} result($rc)]
+
+    lappend results $rc $code($rc) $result($rc)
+
+    lappend results count [object invoke \
+        -flags +NonPublic Interpreter.GetActive unknownCount]
+
+    lappend results $rc [$test \
+        TestSetUnknownScriptObjectCallback "" null false]
+  }
+
+  set results
+} -cleanup {
+  unset -nocomplain typeName commandData command
+  unset -nocomplain results result code rc script test
+
+  catch {
+    object invoke Interpreter.GetActive \
+        UnknownCallback $savedUnknownCallback
+  }
+
+  unset -nocomplain savedUnknownCallback
+
+  catch {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        unknownCount $savedUnknownCount
+  }
+
+  unset -nocomplain savedUnknownCount
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetUnknownScriptObjectCallback} -result {null {} null\
+1 {invalid command name "not_a_command"} count 1 null {} ok {} ok 0 {} count 1\
+ok {} error {} error 1 {invalid command name "not_a_command"} count 2 error {}\
+break {} break 0 {} count 2 break {} continue {} continue 1 {that command is\
+probably bad} count 2 continue {}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

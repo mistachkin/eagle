@@ -1,0 +1,578 @@
+###############################################################################
+#
+# package.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+#
+# NOTE: This test cannot be run if the test log file has been disabled as it
+#       needs to scan the log file to determine if the tests actually ran.
+#
+runTest {test garuda-1.1 {Eagle Package for Tcl (Garuda) via Tcl} -setup {
+  proc findStringInFile { fileName string } {
+    try {
+      set data [readFile $fileName]
+
+      #
+      # NOTE: Check for the string in the entire log file and return
+      #       non-zero if found.
+      #
+      return [string last $string $data]
+    } finally {
+      #
+      # NOTE: We do not want to hold all the log file data in memory;
+      #       therefore, do our very best to remove it now.
+      #
+      unset -nocomplain -purge -- data; debug collect
+    }
+  }
+
+  unset -nocomplain stdErr stdOut exitCode script sentryIndex test_sentry
+} -body {
+  #
+  # NOTE: This is the test sentry string to look for in the log file.  It
+  #       must be placed into the log file by the test file being run
+  #       (i.e. "tcl-load.eagle").
+  #
+  set test_sentry " running Tcl integration tests."
+
+  tputs $test_channel [appendArgs "---- log file size is " \
+      [file size $test_log] " before test\n"]
+
+  set sentryIndex(old) [findStringInFile $test_log $test_sentry]
+
+  tputs $test_channel [appendArgs \
+      "---- sentry string at position " $sentryIndex(old) \
+      " before test\n"]
+
+  #
+  # NOTE: Prevent superfluous object disposal related diagnostic messages
+  #       from interfering with the testing itself.
+  #
+  set script(pre) [string map [list %test_run_id% [getTestRunId]] { \
+    set env(DefaultQuiet) true; \
+    set test_run_id %test_run_id% \
+  }]
+
+  #
+  # NOTE: Unless forbidden, make sure to set the METHOD_PROTOCOL_V1R2
+  #       method flag, for test portability (i.e. this will allow the
+  #       test to work with TclKit shells).
+  #
+  if {![info exists no(tclKit)]} then {
+    append script(pre) \; { \
+      namespace eval ::Garuda {set methodFlags 0x40} \
+    }
+  }
+
+  #
+  # HACK: Chain the entire Garuda test suite (in native Tcl) to this one.
+  #
+  testExec $test_tclsh \
+      [list -exitcode exitCode -stdout stdOut -stderr stdErr] \
+      [appendArgs \" [file join $base_path Native Package Tests all.tcl] \
+      \"] -configuration [appendArgs \" [getTestConfiguration] \"] \
+      -suffix [appendArgs \" [getTestSuffix] \"] -exitOnComplete true \
+      -preTest [appendArgs \" $script(pre) \"] \
+      -logFile [appendArgs \" [getTestLog] \"]
+
+  tputs $test_channel [appendArgs "---- log file size is " \
+      [file size $test_log] " after test\n"]
+
+  set sentryIndex(new) [findStringInFile $test_log $test_sentry]
+
+  tputs $test_channel [appendArgs \
+      "---- sentry string at position " $sentryIndex(new) \
+      " after test\n"]
+
+  #
+  # NOTE: If the sentry string position has not changed then the package
+  #       probably failed to load and we need to record why.  Also, we
+  #       need to dump the captured standard output if we fail to find
+  #       our sentry string at all.
+  #
+  if {$sentryIndex(new) == -1 || \
+      $sentryIndex(new) == $sentryIndex(old)} then {
+    if {[info exists stdOut] && [string length $stdOut] > 0} then {
+      tputs $test_channel "---- dumping \"stdout\" to log file...\n"
+
+      tlog "---- BEGIN STDOUT OUTPUT\n"
+      tlog $stdOut
+      tlog "\n---- END STDOUT OUTPUT\n"
+    }
+  }
+
+  #
+  # HACK: Always dump the captured standard error output because it may
+  #       contain useful information even when the test succeeds.
+  #
+  if {[info exists stdErr] && [string length $stdErr] > 0} then {
+    tputs $test_channel "---- dumping \"stderr\" to log file...\n"
+
+    tlog "---- BEGIN STDERR OUTPUT\n"
+    tlog $stdErr
+    tlog "\n---- END STDERR OUTPUT\n"
+  }
+
+  set exitCode
+} -cleanup {
+  catch {info previouspid true}
+
+  #
+  # NOTE: We captured all the output from the child process (which could
+  #       be quite large); therefore, attempt to recover the memory now.
+  #
+  unset -nocomplain -purge -- stdErr stdOut; debug collect
+  unset -nocomplain exitCode script sentryIndex test_sentry
+
+  rename findStringInFile ""
+} -constraints [fixConstraints {eagle dotNet windows logFile tclShell\
+compile.WINDOWS compile.NATIVE compile.TCL compile.NATIVE_PACKAGE testExec\
+file_Garuda.dll file_pkgAll.tcl}] -result {Success}}
+
+###############################################################################
+
+runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
+  proc findStringInFile { fileName string } {
+    try {
+      set data [readFile $fileName]
+
+      #
+      # NOTE: Check for the string in the entire log file and return
+      #       non-zero if found.
+      #
+      return [string last $string $data]
+    } finally {
+      #
+      # NOTE: We do not want to hold all the log file data in memory;
+      #       therefore, do our very best to remove it now.
+      #
+      unset -nocomplain -purge -- data; debug collect
+    }
+  }
+
+  unset -nocomplain stdErr stdOut exitCode script sentryIndex test_sentry
+} -body {
+  #
+  # NOTE: This is the test sentry string to look for in the log file.  It
+  #       must be placed into the log file by the test file being run
+  #       (i.e. "tcl-load.eagle").
+  #
+  set test_sentry " running Tcl integration tests."
+
+  tputs $test_channel [appendArgs "---- log file size is " \
+      [file size $test_log] " before test\n"]
+
+  set sentryIndex(old) [findStringInFile $test_log $test_sentry]
+
+  tputs $test_channel [appendArgs \
+      "---- sentry string at position " $sentryIndex(old) \
+      " before test\n"]
+
+  #
+  # HACK: Prior to running the test file, we need to make sure that the Tcl
+  #       library is loaded into the Eagle interpreter and that the Garuda
+  #       package is loaded into the primary Tcl interpreter.  Furthermore,
+  #       preventing the "base-*.dll" files, provided by some distributions
+  #       like ActiveTcl, from being used and forcing the SetDllDirectory
+  #       Win32 API to be called are necessary in some configurations.
+  #
+  # BUGFIX: Make sure that the specified directory is the *FIRST* one that
+  #         gets searched for the package being tested; otherwise, we may
+  #         end up loading and testing the wrong package binary.
+  #
+  # WARNING: The [tcl] command is absolutely required for the nested test
+  #          shell used by this test.  Without it, the nested test shell
+  #          cannot even setup the test environment properly.
+  #
+  set script(pre) { \
+    set env(DefaultQuiet) true; \
+    tclLoadForTest {} -OtherNamePatternList +SetDllDirectory; \
+    tcl eval [tcl primary] [list proc lprepend { varName args } { \
+      if {[llength $args] > 0} then { \
+        upvar 1 $varName list; \
+        set list [eval linsert [list $list] 0 $args] \
+      } \
+    }]; \
+    tcl eval [tcl primary] \
+        [list lprepend auto_path [file dirname [getGarudaDll \
+        $tcl_platform(machine)]]]; \
+    tcl set [tcl primary] test_flags(-configuration) \
+        [getTestConfiguration]; \
+    tcl set [tcl primary] test_flags(-suffix) [getTestSuffix]; \
+    tcl eval [tcl primary] [list namespace eval ::Garuda { \
+      set verbose true; set logCommand tclLog \
+    }]; \
+    tcl eval [tcl primary] package require Garuda \
+  }
+
+  #
+  # HACK: After running the test file, we need to verify number of tests that
+  #       passed against the hard-coded value(s) in this script.  The exact
+  #       number of tests required to pass is non-trivial to calculate and
+  #       will vary based on several factors, including but not limited to:
+  #
+  #       1.  Whether or not Tk is available (i.e. there is currently 1 test
+  #           that requires Tk).
+  #
+  #       2.  Whether or not Tcl 8.6 is available (i.e. there are currently 2
+  #           tests that require Tcl 8.6 or higher).
+  #
+  #       3.  Whether or not the "interactive", "userInteraction", and/or
+  #           "isolated" test constraints have been set manually (i.e. we do
+  #           not set them).
+  #
+  #       4.  Whether or not Eagle has been compiled with the requirement that
+  #           the Tcl library is thread-safe.
+  #
+  #       5.  Whether or not Eagle has been compiled with the isolated Tcl
+  #           worker thread feature enabled (i.e. the "TclThread" class).
+  #
+  #       6.  Whether or not Eagle has been compiled with the dedicated test
+  #           code included (i.e. the Eagle._Tests.Default class).
+  #
+  #       7.  Whether or not the [object] command is available.
+  #
+  #       Also, the hard-coded value(s) must be kept in sync if the number of
+  #       tests in "tcl-load.eagle" changes OR if the constraints in the
+  #       "tcl-load.eagle" file change such that a different number of tests
+  #       may be skipped.
+  #
+  set script(post) { \
+    set b(1) [haveConstraint native]; \
+    set b(2) [haveConstraint dynamic]; \
+    set b(3) [haveConstraint windows]; \
+    set b(4) [haveConstraint tip285]; \
+    set b(5) [haveConstraint compile.NATIVE]; \
+    set b(6) [haveConstraint compile.TCL]; \
+    set b(7) [haveConstraint compile.TCL_THREADED]; \
+    set b(8) [haveConstraint compile.TCL_THREADS]; \
+    set b(9) [haveConstraint compile.TEST]; \
+    set b(10) [haveConstraint command.object]; \
+    set b(11) [haveConstraint command.tcl]; \
+    set b(12) [haveConstraint tclLibrary]; \
+    set b(13) [haveConstraint tclReadyOrLibrary86]; \
+    set b(14) [haveConstraint tk]; \
+    set b(15) [haveConstraint tkPackage]; \
+    set b(16) [haveConstraint isolated]; \
+    set b(17) [haveConstraint interactive]; \
+    set b(18) [haveConstraint userInteraction]; \
+    set b(19) [haveConstraint monoDebugger]; \
+    set b(20) [haveConstraint primaryThread]; \
+    set b(21) [haveConstraint file_tcl_unload.tcl]; \
+    set c(1) [expr {10 + \
+      ($b(11) && $b(5) && $b(6) && $b(2) && \
+          $b(1) && $b(20) && $b(13) && $b(4) && \
+          $b(14) && $b(15) && $b(3) ? 1 : 0) + \
+      ($b(10) && $b(11) && $b(5) && $b(6) && \
+          $b(2) && $b(21) && $b(17) && $b(1) && \
+          $b(20) && $b(12) && $b(18) ? 1 : 0) + \
+      ($b(11) && $b(5) && $b(6) && $b(2) && \
+          $b(16) && $b(1) && $b(20) ? 2 : 0) + \
+      (!$b(19) && $b(10) && $b(11) && $b(5) && \
+          $b(6) && $b(7) && $b(8) && $b(2) && \
+          $b(1) && $b(20) && $b(12) ? 2 : 0) + \
+      ($b(10) && $b(11) && $b(5) && $b(6) && \
+          $b(7) && $b(8) && $b(2) && $b(1) && \
+          $b(20) && $b(13) ? 2 : 0) + \
+      ($b(9) ? 1 : 0)}]; \
+    if {$eagle_tests(Passed) == $c(1)} then { \
+      tputs $test_channel [appendArgs \
+          [subst {---- test 'Passed' count match\n}]] \
+    } else { \
+      tputs $test_channel [appendArgs \
+          [subst {---- test 'Passed' count mismatch, must be $c(1)\n}]]; \
+      set exitCode Failure \
+    } \
+  }
+
+  #
+  # HACK: Grab the existing Tcl find and load flags from the interpreter
+  #       and make sure to pass them into the child test shell.
+  #
+  if {[catch {
+    object invoke -flags +NonPublic Interpreter.GetActive TclFindFlags
+  } tclFindFlags]} then {
+    set tclFindFlags Default
+  }
+
+  if {[catch {
+    object invoke -flags +NonPublic Interpreter.GetActive TclLoadFlags
+  } tclLoadFlags]} then {
+    set tclLoadFlags Default
+  }
+
+  execTestShell [list -exitcode exitCode -stdout stdOut -stderr stdErr] \
+      -noArgumentsFileName -noAppSettings \
+      -preInitialize [appendArgs \" "set env(NoAutoRecord) true" \"] \
+      -preInitialize [appendArgs \" [expr {[haveConstraint quiet] ? \
+      "catch {object invoke Eagle._Tests.Default TestSetQuiet}" : ""}] \"] \
+      -preInitialize [appendArgs \" "catch \{object invoke -flags " \
+      "+NonPublic Interpreter.GetActive TclFindFlags \{" $tclFindFlags \
+      \}\}\"] \
+      -preInitialize [appendArgs \" "catch \{object invoke -flags " \
+      "+NonPublic Interpreter.GetActive TclLoadFlags \{" $tclLoadFlags \
+      \}\}\"] \
+      -preInitialize [appendArgs \" "set test_run_id " [getTestRunId] \"] \
+      -file [appendArgs \" [file join $test_path tcl-load.eagle] \"] \
+      -configuration [appendArgs \" [getTestConfiguration] \"] \
+      -suffix [appendArgs \" [getTestSuffix] \"] \
+      -preTest [appendArgs \" $script(pre) \"] \
+      -postTest [appendArgs \" $script(post) \"] \
+      -exitOnComplete true -logFile [appendArgs \" [getTestLog] \"] \
+      -no [appendArgs \" "logFileName 1" \"]
+
+  tputs $test_channel [appendArgs "---- log file size is " \
+      [file size $test_log] " after test\n"]
+
+  set sentryIndex(new) [findStringInFile $test_log $test_sentry]
+
+  tputs $test_channel [appendArgs \
+      "---- sentry string at position " $sentryIndex(new) \
+      " after test\n"]
+
+  #
+  # NOTE: If the sentry string position has not changed then the package
+  #       probably failed to load and we need to record why.  Also, we
+  #       need to dump the captured standard output if we fail to find
+  #       our sentry string at all.
+  #
+  if {$sentryIndex(new) == -1 || \
+      $sentryIndex(new) == $sentryIndex(old)} then {
+    if {[info exists stdOut] && [string length $stdOut] > 0} then {
+      tputs $test_channel "---- dumping \"stdout\" to log file...\n"
+
+      tlog "---- BEGIN STDOUT OUTPUT\n"
+      tlog $stdOut
+      tlog "\n---- END STDOUT OUTPUT\n"
+    }
+  }
+
+  #
+  # HACK: Always dump the captured standard error output because it may
+  #       contain useful information even when the test succeeds.
+  #
+  if {[info exists stdErr] && [string length $stdErr] > 0} then {
+    tputs $test_channel "---- dumping \"stderr\" to log file...\n"
+
+    tlog "---- BEGIN STDERR OUTPUT\n"
+    tlog $stdErr
+    tlog "\n---- END STDERR OUTPUT\n"
+  }
+
+  set exitCode
+} -cleanup {
+  catch {info previouspid true}
+
+  #
+  # NOTE: We captured all the output from the child process (which could
+  #       be quite large); therefore, attempt to recover the memory now.
+  #
+  unset -nocomplain -purge -- stdErr stdOut; debug collect
+  unset -nocomplain exitCode tclLoadFlags tclFindFlags script
+  unset -nocomplain sentryIndex test_sentry
+
+  rename findStringInFile ""
+} -constraints [fixConstraints {eagle dotNet windows logFile garudaLibrary\
+tclLibrary command.tcl compile.WINDOWS compile.NATIVE compile.TCL\
+compile.NATIVE_PACKAGE Eagle._Tests.Default.TestSetQuiet testExec\
+file_Garuda.dll}] -result {Success}}
+
+###############################################################################
+
+proc pathToRegExp { path } {
+  return [string map [list \\ \\\\ . \\. \{ \\\{ \} \\\}] $path]
+}
+
+###############################################################################
+
+if {[isEagle]} then {
+  set enginePatchLevel [info engine PatchLevel]
+} else {
+  set enginePatchLevel ""; # NOTE: Native Tcl.
+}
+
+###############################################################################
+
+#
+# BUGBUG: When this test is run from a shell outside of the source tree, e.g.
+#         the LKG build, it will fail because the "ifNeeded" script, which is
+#         not actually used, will be different from what is expected because
+#         the auto-path is modified to include the wrong core script library
+#         path, which then overwrites the "ifNeeded" script value of the core
+#         script library (e.g. "init.eagle"), which was already loaded from
+#         its location outside of the source tree.  This appears to be caused
+#         by the command [lappend auto_path $test_package_path] within the
+#         test suite prologue.
+#
+runTest {test package-1.1 {package info sub-command} -body {
+  package info Eagle.Library
+} -constraints {eagle tcl_library_external} -match regexp -result \
+[appendArgs "^kind Package id " \
+"\[0-9A-Fa-f\]{8}-\[0-9A-Fa-f\]{4}-\[0-9A-Fa-f\]{4}-\[0-9A-Fa-f\]{4}-" \
+"\[0-9A-Fa-f\]{12} name Eagle\\.Library description \\{\\} indexFileName " \
+[pathToRegExp [list [file normalize [file join $tcl_library pkgIndex.eagle]]]] \
+" provideFileName " [pathToRegExp [list [file normalize [file join \
+$tcl_library init.eagle]]]] " flags \\{(?:(?:None|Default), )?Core, Library\\}\
+loaded " [string map [list . \\.] $enginePatchLevel] " ifNeeded \\{1\\.0 \\{" \
+[pathToRegExp [package ifneeded Eagle.Library 1.0]] "\\}\\} wasNeeded \{\}\$"]}
+
+###############################################################################
+
+unset -nocomplain enginePatchLevel
+
+###############################################################################
+
+rename pathToRegExp ""
+
+###############################################################################
+
+runTest {test package-2.1 {PackageFallback callback} -body {
+  set interp [interp create]
+
+  interp eval $interp {
+    #
+    # HACK: Avoid name collision with method params.
+    #
+    catch {rename flags ""}; # NOTE: Harpy?
+    rename version ""
+  }
+
+  set code(1) [catch {
+    interp eval $interp {
+      package require Some.Package 2.0
+    }
+  } result(1)]
+
+  set code(2) [catch {
+    interp eval $interp {
+      package require Some.Package 1.0
+    }
+  } result(2)]
+
+  set code(3) [catch {
+    interp eval $interp {
+      package require Other.Package 1.0
+    }
+  } result(3)]
+
+  set code(4) [catch {
+    interp eval $interp {
+      set test [object create -alias Eagle._Tests.Default]
+      $test TestSetPackageFallbackCallback "" null true
+    }
+  } result(4)]
+
+  set code(5) [catch {
+    interp eval $interp {
+      package require Some.Package 2.0
+    }
+  } result(5)]
+
+  set code(6) [catch {
+    interp eval $interp {
+      package require Some.Package 1.0
+    }
+  } result(6)]
+
+  set code(7) [catch {
+    interp eval $interp {
+      package require Other.Package 1.0
+    }
+  } result(7)]
+
+  set code(8) [catch {
+    interp eval $interp {
+      $test TestSetPackageFallbackCallback "" {
+        return false
+      } true
+    }
+  } result(8)]
+
+  set code(9) [catch {
+    interp eval $interp {
+      package require Some.Package 2.0
+    }
+  } result(9)]
+
+  set code(10) [catch {
+    interp eval $interp {
+      package require Some.Package 1.0
+    }
+  } result(10)]
+
+  set code(11) [catch {
+    interp eval $interp {
+      package require Other.Package 1.0
+    }
+  } result(11)]
+
+  set code(12) [catch {
+    interp eval $interp {
+      $test TestSetPackageFallbackCallback "" {
+        if {[getStringFromObjectHandle methodName] eq "PackageFallback" && \
+            [getStringFromObjectHandle name] eq "Some.Package" && \
+            [getStringFromObjectHandle version] eq "1.0"} then {
+          return true
+        } elseif {[getStringFromObjectHandle version] eq "2.0"} then {
+          error "bad package version"
+        } else {
+          return false
+        }
+      } true
+    }
+  } result(12)]
+
+  set code(13) [catch {
+    interp eval $interp {
+      package require Some.Package 2.0
+    }
+  } result(13)]
+
+  set code(14) [catch {
+    interp eval $interp {
+      package require Some.Package 1.0
+    }
+  } result(14)]
+
+  set code(15) [catch {
+    interp eval $interp {
+      package require Other.Package 1.0
+    }
+  } result(15)]
+
+  list $code(1) $result(1) $code(2) $result(2) $code(3) $result(3) \
+      $code(4) $result(4) $code(5) $result(5) $code(6) $result(6) \
+      $code(7) $result(7) $code(8) $result(8) $code(9) $result(9) \
+      $code(10) $result(10) $code(11) $result(11) $code(12) $result(12) \
+      $code(13) $result(13) $code(14) $result(14) $code(15) $result(15)
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result code
+  unset -nocomplain interp
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestSetPackageFallbackCallback} -result {1 {can't find\
+package "Some.Package 2.0"} 1 {can't find package "Some.Package 1.0"} 1 {can't\
+find package "Other.Package 1.0"} 0 {} 1 {can't find package "Some.Package\
+2.0"} 1 {can't find package "Some.Package 1.0"} 1 {can't find package\
+"Other.Package 1.0"} 0 {} 1 {can't find package "Some.Package 2.0"} 1 {can't\
+find package "Some.Package 1.0"} 1 {can't find package "Other.Package 1.0"} 0\
+{} 1 {bad package version} 0 1.0 1 {can't find package "Other.Package 1.0"}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

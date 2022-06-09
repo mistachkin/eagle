@@ -1,0 +1,1994 @@
+<!--
+ *
+ * Eagle.Settings.targets -
+ *
+ * WARNING: Contains more evil MSBuild hacks than your doctor recommended.
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+  ******************************************************************************
+  **                          Load Per-User Settings                          **
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: If the per-user settings file exists, import it now.  The contained
+            settings, if any, will override the default ones provided below.
+  -->
+  <Import Condition="'$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Targets\Eagle.Settings.targets.user')"
+          Project="$(EagleDir)\Targets\Eagle.Settings.targets.user" />
+
+  <!--
+  ******************************************************************************
+  **                       [Fairly] Generic Properties                        **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        NOTE: *UNCONDITIONAL* We never want to the "Prefer 32-bit" setting
+              to be enabled.  Make sure it is always false.  This seems to
+              be necessary as of Visual Studio 2017.
+    -->
+    <Prefer32Bit>false</Prefer32Bit>
+
+    <!--
+        NOTE: *UNCONDITIONAL* We never want to use the hosting process for
+              debugging.  It causes problems.
+    -->
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+
+    <!--
+        NOTE: *UNCONDITIONAL* We never want to use the fast up-to-date check
+              that Visual Studio provides.
+    -->
+    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
+
+    <!--
+        HACK: *UNCONDITIONAL* The Visual Studio IDE ignores the
+              BaseIntermediateOutputPath property and creates empty "bin" and
+              "obj" directories for every project whenever the project is opened
+              or built.  Also, the Visual Studio IDE will occasionally fail to
+              rebuild the project due to this confusion.  The situation appears
+              to improve somewhat when this is set to false.  Please note that
+              even if this is set to false, things still do not work 100%
+              correctly; however, at least there appears to be less build
+              failures.
+
+              Please see Microsoft Connect FeedbackID 105854 for their official
+              list of excuses, on this now more than 3 year old bug.
+    -->
+    <UseHostCompilerIfAvailable>false</UseHostCompilerIfAvailable>
+
+    <!--
+        NOTE: What is the target framework version for the solution?  Normally,
+              this is set at the project level; however, there are times when it
+              is convenient (or necessary) to set it globally.
+    -->
+    <!--
+    <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.8</TargetFrameworkVersion>
+    -->
+
+    <!--
+        NOTE: Should the "BaseIntermediateOutputPath" property be reset so that
+              it is contained in the solution directory instead of individual
+              project directories?  By default, this is enabled.  This does not
+              work with .NET Core.
+    -->
+    <EagleBaseIntermediateOutputPath Condition="'$(EagleBaseIntermediateOutputPath)' == ''">true</EagleBaseIntermediateOutputPath>
+
+    <!--
+        NOTE: Enable use of the strong name signing tool without verifying that
+              the .NET Framework SDK is installed?  If this is disabled and the
+              .NET Framework SDK is not installed, strong name signing will be
+              unavailable.  By default, this is disabled.
+    -->
+    <StrongNameWithoutSdk Condition="'$(StrongNameWithoutSdk)' == ''">false</StrongNameWithoutSdk>
+
+    <!--
+        NOTE: What is the selected build type?  Typically, this property is set
+              only during the official release process (i.e. by the release
+              preparation tool); however, it may be set during development as
+              well.  Currently, the following build types are supported (refer
+              to the "Eagle.Builds.targets" file for additional information on
+              each build type):
+
+                  "NetFx20": Official configuration for the .NET Framework 2.0.
+                  "NetFx35": Configuration for the .NET Framework 3.5.
+                  "NetFx40": Official configuration for the .NET Framework 4.0.
+                  "NetFx45": Configuration for the .NET Framework 4.5.
+                 "NetFx451": Configuration for the .NET Framework 4.5.1.
+                 "NetFx452": Configuration for the .NET Framework 4.5.2.
+                  "NetFx46": Configuration for the .NET Framework 4.6.
+                 "NetFx461": Configuration for the .NET Framework 4.6.1.
+                 "NetFx462": Configuration for the .NET Framework 4.6.2.
+                  "NetFx47": Configuration for the .NET Framework 4.7.
+                 "NetFx471": Configuration for the .NET Framework 4.7.1.
+                 "NetFx472": Configuration for the .NET Framework 4.7.2.
+                  "NetFx48": Configuration for the .NET Framework 4.8.
+            "NetStandard20": Configuration for the .NET Standard 2.0.
+            "NetStandard21": Configuration for the .NET Standard 2.1.
+                     "Bare": Omits all optional features for testing purposes.
+              "LeanAndMean": Omits features that may negatively impact speed.
+                 "Database": Omits features that do not work inside SQL Server.
+               "MonoOnUnix": Official release options for Mono on Unix.
+              "Development": Configuration for active Eagle development.
+                  "Default": Currently, this is identical to "NetFx20".
+
+              Since this file is not included by the project files until after
+              the "Eagle.Builds.targets" file (i.e. because it relies upon some
+              properties defined in this file), simply uncommenting the line
+              below will not work.  Instead, it must be manually copied into a
+              file named "Eagle.Builds.targets.user" in this directory.
+    -->
+    <!--
+    <EagleBuildType Condition="'$(EagleBuildType)' == ''">Default</EagleBuildType>
+    -->
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                    Eagle Standard Edition Properties                     **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        NOTE: Is the current project being built as part of an official Eagle
+              release?  By default, this is disabled.  If this is enabled, this
+              build will be considered official; otherwise, this build will not
+              be considered official.  This should only be set to true by the
+              Eagle Development Team.
+    -->
+    <EagleOfficial Condition="'$(EagleOfficial)' == ''">false</EagleOfficial>
+
+    <!--
+        NOTE: Is the current project being built as part of a stable Eagle
+              release?  By default, this is disabled.  If this is enabled, this
+              build will be considered stable; otherwise, this build will not
+              be considered stable.  This should only be set to true by the
+              Eagle Development Team.
+    -->
+    <EagleStable Condition="'$(EagleStable)' == ''">false</EagleStable>
+
+    <!--
+        NOTE: Is the current project being built as part of an Eagle solution
+              that includes the Eagle core library source code?  By default,
+              this is enabled.  If this is enabled, the current project should
+              be built with a reference to the Eagle core library project (i.e.
+              the project containing the source code for the Eagle core library
+              itself) instead of a reference to a pre-built Eagle core library
+              assembly.
+    -->
+    <EagleSolution Condition="'$(EagleSolution)' == ''">true</EagleSolution>
+
+    <!--
+        NOTE: The official display name for the project being compiled.  This
+              can be overridden in each project file.
+    -->
+    <EagleProjectName Condition="'$(EagleProjectName)' == ''">Eagle</EagleProjectName>
+
+    <!--
+        NOTE: The directory where the last-known-good (LKG) build of Eagle can
+              be found.
+    -->
+    <EagleLkgDir Condition="'$(EagleLkgDir)' == ''">$(LKG)\Eagle</EagleLkgDir>
+
+    <!--
+        NOTE: Enable the externally updated "PatchLevel.cs" file to define the
+              assembly version?  By default, this is disabled.  If this is
+              enabled, the assembly version will be based on the assembly
+              version attribute defined in the "PatchLevel.cs" file instead of
+              the assembly version attribute defined in the "AssemblyInfo.cs"
+              file.
+    -->
+    <EaglePatchLevel Condition="'$(EaglePatchLevel)' == ''">false</EaglePatchLevel>
+
+    <!--
+        NOTE: Enable the externally updated "PatchLevel.cs" file to define the
+              source identifier?  By default, this is disabled.  If this is
+              enabled, the value of the source identifier attribute in the
+              "PatchLevel.cs" file will be changed based on the active Fossil
+              checkout, if any.  If, for any reason, the source identifier
+              cannot be determined (e.g. there is no active Fossil checkout), a
+              string of zeros will be used instead.
+    -->
+    <EagleSourceId Condition="'$(EagleSourceId)' == ''">false</EagleSourceId>
+
+    <!--
+        NOTE: Enable the externally updated "PatchLevel.cs" file to define the
+              source timestamp?  By default, this is disabled.  If this is
+              enabled, the value of the source timestamp attribute in the
+              "PatchLevel.cs" file will be changed based on the active Fossil
+              checkout, if any.  If, for any reason, the source timestamp
+              cannot be determined (e.g. there is no active Fossil checkout), a
+              string of zeros will be used instead.
+    -->
+    <EagleSourceTimeStamp Condition="'$(EagleSourceTimeStamp)' == ''">false</EagleSourceTimeStamp>
+
+    <!--
+        NOTE: Enable externally updated files, such as "PatchLevel.cs" and
+              "BuildInfo.cs", to include the strong name "tag" (i.e. a string
+              that describes the strong name key pair in use)?  By default, this
+              is disabled.  If this is enabled, the value of the assembly strong
+              name tag attribute will be changed to the value read from the
+              "stdin" channel during the release preparation process, if any;
+              otherwise, a null string will be used.  If this is disabled, no
+              assembly strong name tag attribute will be included.
+    -->
+    <EagleAssemblyStrongNameTag Condition="'$(EagleAssemblyStrongNameTag)' == ''">false</EagleAssemblyStrongNameTag>
+
+    <!--
+        NOTE: Enable externally updated files, such as "PatchLevel.cs" and
+              "BuildInfo.cs", to include some text defined by the user?  By
+              default, this is disabled.  If this is enabled, the value of the
+              assembly text attribute will be changed to the value read from the
+              "stdin" channel during the release preparation process, if any;
+              otherwise, a null string will be used.  If this is disabled, no
+              assembly text attribute will be included.
+    -->
+    <EagleAssemblyText Condition="'$(EagleAssemblyText)' == ''">false</EagleAssemblyText>
+
+    <!--
+        NOTE: Enable externally updated files, such as "PatchLevel.cs" and
+              "BuildInfo.cs", to include date/time information defined by the
+              user?  By default, this is disabled.  If this is enabled, the
+              value of the assembly date/time attribute may be changed based on
+              a user-specified value during the release preparation process, if
+              any; otherwise, an invalid date/time value will be used.  If this
+              is disabled, a default assembly date/time attribute based on the
+              executable image date/time will be included instead.
+    -->
+    <EagleAssemblyDateTime Condition="'$(EagleAssemblyDateTime)' == ''">false</EagleAssemblyDateTime>
+
+    <!--
+        NOTE: Enable externally updated files, such as "PatchLevel.cs" and
+              "BuildInfo.cs", to include some release information defined by the
+              user?  By default, this is disabled.  If this is enabled, the
+              value of the assembly release attribute will be changed to the
+              value read from the "stdin" channel during the release preparation
+              process, if any; otherwise, a null string will be used.  If this
+              is disabled, no assembly release attribute will be included.
+    -->
+    <EagleAssemblyRelease Condition="'$(EagleAssemblyRelease)' == ''">false</EagleAssemblyRelease>
+
+    <!--
+        NOTE: Enable externally updated files, such as "PatchLevel.cs" and
+              "BuildInfo.cs", to include some text defined by the user?  By
+              default, this is disabled.  If this is enabled, the value of the
+              assembly tag attribute will be changed to the value read from the
+              "stdin" channel during the release preparation process, if any;
+              otherwise, a null string will be used.  If this is disabled, no
+              assembly tag attribute will be included.
+    -->
+    <EagleAssemblyTag Condition="'$(EagleAssemblyTag)' == ''">false</EagleAssemblyTag>
+
+    <!--
+        NOTE: Enable externally updated files, such as "PatchLevel.cs" and
+              "BuildInfo.cs", to include some text defined by the user?  By
+              default, this is disabled.  If this is enabled, the value of the
+              assembly URI attribute will be changed to the value read from the
+              "stdin" channel during the release preparation process, if any;
+              otherwise, a null string will be used.  If this is disabled, no
+              assembly URI attribute will be included.
+    -->
+    <EagleAssemblyUri Condition="'$(EagleAssemblyUri)' == ''">false</EagleAssemblyUri>
+
+    <!--
+        NOTE: The name of an extra file to include in the core library as an
+              embedded resource.  By default, this is an empty string (i.e.
+              there is no extra file to embed).  If this is not an empty string,
+              it will be interpreted as the name of an existing file containing
+              content to include in the core library as an embedded resource.
+    -->
+    <EagleEmbeddedResourceFile Condition="'$(EagleEmbeddedResourceFile)' == ''"></EagleEmbeddedResourceFile>
+
+    <!--
+        NOTE: The logical name to use for the extra embedded resource that is
+              specified by the EagleEmbeddedResourceFile property (above).  By
+              default, this is an empty string.  If this is not an empty string,
+              it will override the default logical name generated by the build
+              system.
+    -->
+    <EagleEmbeddedResourceName Condition="'$(EagleEmbeddedResourceName)' == ''"></EagleEmbeddedResourceName>
+
+    <!--
+        NOTE: The name of a command line arguments file to include in the core
+              library as an embedded resource.  By default, this is an empty
+              string (i.e. there is no command line arguments file to embed).
+              If this is not an empty string, it will be interpreted as the
+              name of an existing file containing content to include in the
+              core library as an embedded resource.
+    -->
+    <EagleArgsResourceFile Condition="'$(EagleArgsResourceFile)' == ''"></EagleArgsResourceFile>
+
+    <!--
+        NOTE: The logical name to use for the command line arguments embedded
+              resource that is specified by the EagleArgsResourceFile property
+              (above).  By default, this is an empty string.  If this is not an
+              empty string, it will override the default logical name generated
+              by the build system.
+    -->
+    <EagleArgsResourceName Condition="'$(EagleArgsResourceName)' == ''"></EagleArgsResourceName>
+
+    <!--
+        NOTE: The official URL for the project(s) being compiled.  This can be
+              overridden in each project file.
+    -->
+    <EagleProjectUrl Condition="'$(EagleProjectUrl)' == ''">https://eagle.to/</EagleProjectUrl>
+
+    <!--
+        NOTE: The official Authenticode time-stamping URL for the project(s)
+              being compiled.  This can be overridden in each project file.
+    -->
+    <EagleTimeStampUrl Condition="'$(EagleTimeStampUrl)' == ''">http://timestamp.verisign.com/scripts/timstamp.dll</EagleTimeStampUrl>
+
+    <!--
+        NOTE: In the event of an Authenticode time-stamping failure, the number
+              of times to retry the time-stamping operation.
+    -->
+    <EagleTimeStampRetries Condition="'$(EagleTimeStampRetries)' == ''">10</EagleTimeStampRetries>
+
+    <!--
+        NOTE: In the event of an Authenticode time-stamping failure, the number
+              of seconds to wait between each retry.
+    -->
+    <EagleTimeStampWait Condition="'$(EagleTimeStampWait)' == ''">60</EagleTimeStampWait>
+
+    <!--
+        NOTE: The official primary Authenticode RFC 3161 time-stamping URL
+              for the project(s) being compiled.  This can be overridden in
+              each project file.
+    -->
+    <EagleRfcTimeStampUrl1 Condition="'$(EagleRfcTimeStampUrl1)' == ''">http://timestamp.globalsign.com/</EagleRfcTimeStampUrl1>
+
+    <!--
+        NOTE: The official primary Authenticode RFC 3161 time-stamping digest
+              algorithm to use.  This should be a SHA2 based algorithm, such as
+              SHA512.
+    -->
+    <EagleRfcTimeStampAlgorithm1 Condition="'$(EagleRfcTimeStampAlgorithm1)' == ''">sha512</EagleRfcTimeStampAlgorithm1>
+
+    <!--
+        NOTE: The official secondary Authenticode RFC 3161 time-stamping URL
+              for the project(s) being compiled.  This can be overridden in
+              each project file.
+    -->
+    <EagleRfcTimeStampUrl2 Condition="'$(EagleRfcTimeStampUrl2)' == ''">http://timestamp.digicert.com/</EagleRfcTimeStampUrl2>
+
+    <!--
+        NOTE: The official secondary Authenticode RFC 3161 time-stamping digest
+              algorithm to use.  This should be a SHA2 based algorithm, such as
+              SHA512.
+    -->
+    <EagleRfcTimeStampAlgorithm2 Condition="'$(EagleRfcTimeStampAlgorithm2)' == ''">sha1</EagleRfcTimeStampAlgorithm2>
+
+    <!--
+        NOTE: The official tertiary Authenticode RFC 3161 time-stamping URL
+              for the project(s) being compiled.  This can be overridden in
+              each project file.
+    -->
+    <EagleRfcTimeStampUrl3 Condition="'$(EagleRfcTimeStampUrl3)' == ''">http://timestamp.digicert.com/</EagleRfcTimeStampUrl3>
+
+    <!--
+        NOTE: The official tertiary Authenticode RFC 3161 time-stamping digest
+              algorithm to use.  This should be a SHA1 based algorithm, such as
+              SHA1.
+    -->
+    <EagleRfcTimeStampAlgorithm3 Condition="'$(EagleRfcTimeStampAlgorithm3)' == ''">sha512</EagleRfcTimeStampAlgorithm3>
+
+    <!--
+        NOTE: The suffix for the name of the build configuration directory .  By
+              default, this is an empty string.
+    -->
+    <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == ''"></EagleConfigurationSuffix>
+
+    <!--
+        NOTE: Include code in the library that can produce verbose diagnostic
+              output?  By default, this is disabled.  If this is enabled, some
+              extra diagnostic messages may be generated.
+    -->
+    <EagleVerbose Condition="'$(EagleVerbose)' == ''">false</EagleVerbose>
+
+    <!--
+        NOTE: Include code in the library that is not currently used?  By
+              default, this is disabled.  If this is enabled, some code will be
+              compiled into the library that is not currently used; however,
+              this helps makes sure that the code does not become too "stale".
+    -->
+    <EagleDeadCode Condition="'$(EagleDeadCode)' == ''">false</EagleDeadCode>
+
+    <!--
+        NOTE: Include code in the library that is obsolete?  By default, this is
+              disabled.  If this is enabled, obsolete features may be compiled
+              into the library.  These features should not be used by any new
+              projects.  This option is provided for backwards compatibility.
+    -->
+    <EagleObsolete Condition="'$(EagleObsolete)' == ''">false</EagleObsolete>
+
+    <!--
+        NOTE: Remove the read-only flag from files that are "well-known" to be
+              generated during the build process?  By default, this is enabled.
+              If this is disabled and files that need to be regenerated are
+              flagged as read-only, build errors may occur.
+    -->
+    <EagleUnsetReadOnly Condition="'$(EagleUnsetReadOnly)' == ''">true</EagleUnsetReadOnly>
+
+    <!--
+        NOTE: Generate the "Generated\messages.*" files to be used by the core
+              library using the "Messages\messages.xml" file as the basis for
+              them?  By default, this is disabled.  If this is enabled, several
+              files will be created or modified in the "Generated" directory
+              during the build process for the core library.  Normally, this
+              build target is not really necessary because the generated files
+              are already provided with the project source code.
+    -->
+    <EagleMsgGen Condition="'$(EagleMsgGen)' == ''">false</EagleMsgGen>
+
+    <!--
+        NOTE: Generate the "Resources\messages.resources" file to be used by the
+              core library using the "Resources\messages.resx" file as the basis
+              for it?  By default, this is disabled.  If this is enabled, the
+              "Resources\messages.resources" file will be created or modified
+              during the build process for the core library.  Normally, this
+              build target is not really necessary because the generated file is
+              already provided with the project source code.
+    -->
+    <EagleMessagesResGen Condition="'$(EagleMessagesResGen)' == ''">false</EagleMessagesResGen>
+
+    <!--
+        NOTE: Generate the "Resources\library.resources" file to be used by the
+              core library using the "Resources\library.resx" file (and all the
+              files contained in the core script library itself) as the basis
+              for it?  By default, this is enabled.  If this is enabled, the
+              "Resources\library.resources" file will be created or modified
+              during the build process for the core library.  Normally, this
+              build target is not really necessary because the generated file is
+              already provided with the project source code.
+    -->
+    <EagleLibraryResGen Condition="'$(EagleLibraryResGen)' == ''">true</EagleLibraryResGen>
+
+    <!--
+        NOTE: Generate the "Resources\packages.resources" file to be used by the
+              core library using the "Resources\packages.resx" file (and all the
+              files contained in the core script packages themselves) as the
+              basis for it?  By default, this is enabled.  If this is enabled,
+              the "Resources\packages.resources" file will be created or
+              modified during the build process for the core library.  Normally,
+              this build target is not really necessary because the generated
+              file is already provided with the project source code.
+    -->
+    <EaglePackagesResGen Condition="'$(EaglePackagesResGen)' == ''">true</EaglePackagesResGen>
+
+    <!--
+        NOTE: To allow for fairly deep recursion, adjust the default stack size.
+              This value must be kept in sync with the "DefaultStackSize" value
+              in the "NativeStack.cs" file.  Values may be specified in decimal
+              or hexadecimal.  The format of this argument mirrors that of the
+              STACK option to the EditBin tool, which is "reserve[,commit]".
+    -->
+    <EagleDefaultStackSize Condition="'$(EagleDefaultStackSize)' == ''">0x1000000</EagleDefaultStackSize>
+
+    <!--
+        NOTE: To allow for fairly deep recursion, adjust the default stack size.
+              This value must be kept in sync with the "DefaultStackSize" value
+              in the "NativeStack.cs" file.  Values may be specified in decimal
+              or hexadecimal.  The format of this argument mirrors that of the
+              STACK option to the EditBin tool, which is "reserve[,commit]".
+    -->
+    <EagleStackSize Condition="'$(EagleStackSize)' == ''">$(EagleDefaultStackSize)</EagleStackSize>
+
+    <!--
+        NOTE: Throw an exception if an object has already been disposed?  By
+              default, this is enabled.  If this is disabled, an exception will
+              not be thrown when an Eagle object which has already been disposed
+              is accessed.  While this may sound dangerous, the classes have
+              been designed to be fault-tolerant in the face of their disposal;
+              therefore, this has not been a real issue in practice.  That being
+              said, we enable it by default anyway.
+    -->
+    <EagleThrowOnDisposed Condition="'$(EagleThrowOnDisposed)' == ''">true</EagleThrowOnDisposed>
+
+    <!--
+        NOTE: Embed all the necessary library scripts and other files inside the
+              library (i.e. "enable single-file deployment")?  By default, this
+              is disabled.  If this is enabled, library scripts will be searched
+              for on the native file system first, then via the IHost.GetScript
+              method, if necessary.  Otherwise, library scripts will be searched
+              for via the IHost.GetScript method first, then on the native file
+              system, if necessary.
+    -->
+    <EagleEmbeddedLibrary Condition="'$(EagleEmbeddedLibrary)' == ''">false</EagleEmbeddedLibrary>
+
+    <!--
+        NOTE: Skip all traces, notifications, watches, etc when the engine needs
+              to set the global errorCode script variable?  By default, this is
+              disabled.  If this is enabled, any code that relies on the default
+              behavior of these "events" being fired for the global errorCode
+              script variable may not work correctly; however, it can improve
+              the overall speed of error handling for the entire library.
+    -->
+    <EagleFastErrorCode Condition="'$(EagleFastErrorCode)' == ''">false</EagleFastErrorCode>
+
+    <!--
+        NOTE: Skip all traces, notifications, watches, etc when the engine needs
+              to set the global errorInfo script variable?  By default, this is
+              disabled.  If this is enabled, any code that relies on the default
+              behavior of these "events" being fired for the global errorInfo
+              script variable may not work correctly; however, it can improve
+              the overall speed of error handling for the entire library.
+    -->
+    <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">false</EagleFastErrorInfo>
+
+    <!--
+        NOTE: Enable enforcement of limits for results?  By default, this is
+              enabled.  If this is enabled, script evaluation performance may
+              be reduced.  These limits are not guaranteed to prevent memory
+              exhaustion errors.  If disabled, result limits are unavailable
+              and cannot be enforced, which may increase the chances of memory
+              exhaustion errors.
+    -->
+    <EagleResultLimits Condition="'$(EagleResultLimits)' == ''">true</EagleResultLimits>
+
+    <!--
+        NOTE: Detect the build tool (e.g. MSBuild or XBuild) that is being used.
+              By default, this is enabled.  If this is disabled, all build
+              targets that require a specific build tool will be disabled.
+    -->
+    <EagleDetectBuildTool Condition="'$(EagleDetectBuildTool)' == ''">true</EagleDetectBuildTool>
+
+    <!--
+        NOTE: Detect the operating system (e.g. Windows_NT or Unix) that is
+              being used.  By default, this is enabled.  If this is disabled,
+              all build targets that require a specific operating system will be
+              disabled.
+    -->
+    <EagleDetectOperatingSystem Condition="'$(EagleDetectOperatingSystem)' == ''">true</EagleDetectOperatingSystem>
+
+    <!--
+        NOTE: Detect the processor architecture (e.g. x86 or x64) that is being
+              used.  By default, this is enabled.  If this is disabled, all
+              build targets that require a specific processor architecture will
+              be disabled.
+    -->
+    <EagleDetectArchitecture Condition="'$(EagleDetectArchitecture)' == ''">true</EagleDetectArchitecture>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              2.0 RTM?  By default, this is enabled.  This setting is not really
+              meant to be disabled and doing so may cause the build process to
+              fail.
+    -->
+    <EagleDetectNetFx20 Condition="'$(EagleDetectNetFx20)' == ''">true</EagleDetectNetFx20>
+
+    <!--
+        NOTE: Enable the build target for detecting which service pack of the
+              .NET Framework 2.0 is being used to compile the assembly?  By
+              default, this is enabled.  If this is disabled, only features
+              present in the .NET Framework 2.0 RTM (i.e. SP0) will be used and
+              some features that rely on later service packs may be unavailable.
+    -->
+    <EagleDetectNetFx20Sp Condition="'$(EagleDetectNetFx20Sp)' == ''">true</EagleDetectNetFx20Sp>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              3.0 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx30 Condition="'$(EagleDetectNetFx30)' == ''">true</EagleDetectNetFx30>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              3.5 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx35 Condition="'$(EagleDetectNetFx35)' == ''">true</EagleDetectNetFx35>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.0 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx40 Condition="'$(EagleDetectNetFx40)' == ''">true</EagleDetectNetFx40>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.5 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx45 Condition="'$(EagleDetectNetFx45)' == ''">true</EagleDetectNetFx45>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.5.1 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx451 Condition="'$(EagleDetectNetFx451)' == ''">true</EagleDetectNetFx451>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.5.2 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx452 Condition="'$(EagleDetectNetFx452)' == ''">true</EagleDetectNetFx452>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.6 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx46 Condition="'$(EagleDetectNetFx46)' == ''">true</EagleDetectNetFx46>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.6.1 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx461 Condition="'$(EagleDetectNetFx461)' == ''">true</EagleDetectNetFx461>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.6.2 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx462 Condition="'$(EagleDetectNetFx462)' == ''">true</EagleDetectNetFx462>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.7 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx47 Condition="'$(EagleDetectNetFx47)' == ''">true</EagleDetectNetFx47>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.7.1 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx471 Condition="'$(EagleDetectNetFx471)' == ''">true</EagleDetectNetFx471>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.7.2 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx472 Condition="'$(EagleDetectNetFx472)' == ''">true</EagleDetectNetFx472>
+
+    <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.8 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx48 Condition="'$(EagleDetectNetFx48)' == ''">true</EagleDetectNetFx48>
+
+    <!--
+        NOTE: Prohibit the use of .NET Framework features that require a version
+              higher than 2.0 at compile-time?  By default, this is disabled.
+              If this is enabled, some features may be unavailable.
+    -->
+    <EagleOnlyNetFx20 Condition="'$(EagleOnlyNetFx20)' == ''">false</EagleOnlyNetFx20>
+
+    <!--
+        NOTE: Enable use of our "Fast Enum" hack for the .NET Framework 2.0?  By
+              default, this is disabled because it is flaky and relies upon
+              undocumented internal functionality of the .NET Framework.  Leave
+              this disabled unless you know exactly what it does.
+    -->
+    <EagleNetFx20FastEnum Condition="'$(EagleNetFx20FastEnum)' == ''">false</EagleNetFx20FastEnum>
+
+    <!--
+        NOTE: For the PowerShell cmdlets, only use verbs from the officially
+              approved list?  By default, this is enabled.
+    -->
+    <EagleApprovedVerbs Condition="'$(EagleApprovedVerbs)' == ''">true</EagleApprovedVerbs>
+
+    <!--
+        NOTE: Building for what PowerShell version?  By default, we want version
+              1.0.  If the value of this property is 2.0, 3.0, 4.0, or 5.0 and
+              we are actually building against PowerShell version 1.0, the build
+              will most likely fail.
+    -->
+    <EaglePowerShellVersion Condition="'$(EaglePowerShellVersion)' == ''">1.0</EaglePowerShellVersion>
+
+    <!--
+        NOTE: Building for what WiX version?  Keep in mind that version 3.0 does
+              not have support custom "pragmas" nor does it guarantee the
+              deterministic finalization of loaded extensions.  By default, we
+              want version 3.0.  If the value of this property is 3.5, 3.6, 3.7,
+              3.8, 3.9, 3.10, or 3.11 and we are building against WiX version
+              3.0, the build will fail.
+    -->
+    <EagleWixVersion Condition="'$(EagleWixVersion)' == ''">3.0</EagleWixVersion>
+
+    <!--
+        NOTE: Where is the WiX 3.0 binary directory (i.e. "WiX.dll") in the
+              default install?
+    -->
+    <EagleWix30Directory Condition="'$(EagleWix30Directory)' == ''">$(ProgramFiles)\Windows Installer XML v3</EagleWix30Directory>
+
+    <!--
+        NOTE: Where is the WiX 3.5 binary directory (i.e. "WiX.dll") in the
+              default install?
+    -->
+    <EagleWix35Directory Condition="'$(EagleWix35Directory)' == ''">$(ProgramFiles)\Windows Installer XML v3.5</EagleWix35Directory>
+
+    <!--
+        NOTE: Where is the WiX 3.6 binary directory (i.e. "WiX.dll") in the
+              default install?
+    -->
+    <EagleWix36Directory Condition="'$(EagleWix36Directory)' == ''">$(ProgramFiles)\Windows Installer XML v3.6</EagleWix36Directory>
+
+    <!--
+        NOTE: Where is the WiX 3.7 binary directory (i.e. "WiX.dll") in the
+              default install?
+    -->
+    <EagleWix37Directory Condition="'$(EagleWix37Directory)' == ''">$(ProgramFiles)\WiX Toolset v3.7</EagleWix37Directory>
+
+    <!--
+        NOTE: Where is the WiX 3.8 binary directory (i.e. "WiX.dll") in the
+              default install?
+    -->
+    <EagleWix38Directory Condition="'$(EagleWix38Directory)' == ''">$(ProgramFiles)\WiX Toolset v3.8</EagleWix38Directory>
+
+    <!--
+        NOTE: Where is the WiX 3.9 binary directory (i.e. "WiX.dll") in the
+              default install?
+    -->
+    <EagleWix39Directory Condition="'$(EagleWix39Directory)' == ''">$(ProgramFiles)\WiX Toolset v3.9</EagleWix39Directory>
+
+    <!--
+        NOTE: Where is the WiX 3.10 binary directory (i.e. "WiX.dll") in the
+              default install?
+    -->
+    <EagleWix310Directory Condition="'$(EagleWix310Directory)' == ''">$(ProgramFiles)\WiX Toolset v3.10</EagleWix310Directory>
+
+    <!--
+        NOTE: Where is the WiX 3.11 binary directory (i.e. "WiX.dll") in the
+              default install?
+    -->
+    <EagleWix311Directory Condition="'$(EagleWix311Directory)' == ''">$(ProgramFiles)\WiX Toolset v3.11</EagleWix311Directory>
+
+    <!--
+        NOTE: Where is the WiX binary directory (i.e. "WiX.dll")?  By default,
+              this is an empty string.  However, it can be manually overridden
+              here if necessary (e.g. WiX is installed in a custom location).
+    -->
+    <EagleWixDirectory Condition="'$(EagleWixDirectory)' == ''"></EagleWixDirectory>
+
+    <!--
+        NOTE: Enable use of "unsafe" code?  By default, this is enabled.  If
+              this is disabled, certain optimizations and/or optional features
+              that require it will be unavailable.
+    -->
+    <EagleUnsafe Condition="'$(EagleUnsafe)' == ''">true</EagleUnsafe>
+
+    <!--
+        NOTE: Building for Windows?  By default, this is enabled.  If this is
+              disabled, some features will be unavailable.
+    -->
+    <EagleWindows Condition="'$(EagleWindows)' == ''">true</EagleWindows>
+
+    <!--
+        NOTE: Enable using System.Net and related types?  By default, this is
+              enabled.  If this is disabled, some features will be unavailable.
+    -->
+    <EagleNetwork Condition="'$(EagleNetwork)' == ''">true</EagleNetwork>
+
+    <!--
+        NOTE: Enable using System.Console and related types?  By default, this
+              is enabled.  If this is disabled, no console integration will be
+              available.
+
+        WARNING: If this is disabled, other projects that rely on console
+                 functionality being exposed and provided by the library may
+                 fail to compile.
+    -->
+    <EagleConsole Condition="'$(EagleConsole)' == ''">true</EagleConsole>
+
+    <!--
+        NOTE: Break into the debugger when exiting if there is a termination or
+              resource disposal failure?   By default, this is enabled.  If this
+              is disabled, most termination and resource disposal failures that
+              occur while exiting will be ignored.
+    -->
+    <EagleBreakOnExiting Condition="'$(EagleBreakOnExiting)' == ''">true</EagleBreakOnExiting>
+
+    <!--
+        NOTE: Building for Unix?  By default, this is disabled.  If this is
+              enabled, features that are known to be incomplete, incorrect, or
+              missing on Unix will be unavailable.  Please note that enabling
+              this is not strictly required to function on Unix nor does it mean
+              that everything is magically guaranteed to work on Unix.
+    -->
+    <EagleUnix Condition="'$(EagleUnix)' == ''">false</EagleUnix>
+
+    <!--
+        NOTE: Use random initial values for all the unique identifier pools?  By
+              default, this is disabled.  If this is enabled, all unique object
+              and interpreter identifiers will be far less deterministic.
+    -->
+    <EagleRandomizeId Condition="'$(EagleRandomizeId)' == ''">false</EagleRandomizeId>
+
+    <!--
+        NOTE: Enable pooling of object and interpreter unique identifiers?  By
+              default, this is disabled.  If enabled, the unique identifiers for
+              created interpreters will come from the same pool as the unique
+              identifiers for global objects.  This setting does not change the
+              behavior of the per-interpreter unique identifiers.
+    -->
+    <EagleSharedIdPool Condition="'$(EagleSharedIdPool)' == ''">false</EagleSharedIdPool>
+
+    <!--
+        NOTE: Enable using the application domain identifier when creating any
+              global identifiers?  By default, this is disabled.  If enabled,
+              the unique identifiers for created interpreters and other global
+              objects may include the identifier of their application domain.
+              This setting does not change the behavior of the per-interpreter
+              unique identifiers.
+    -->
+    <EagleUseAppDomainForId Condition="'$(EagleUseAppDomainForId)' == ''">false</EagleUseAppDomainForId>
+
+    <!--
+        NOTE: Enable debug tracing via the DebugTrace method?  By default, this
+              is enabled.  When enabled, this will cause many diagnostic trace
+              messages to be emitted at various strategic points in the core
+              library that can be very useful for troubleshooting.  If this is
+              disabled, these diagnostic messages will not be emitted.
+    -->
+    <EagleDebugTrace Condition="'$(EagleDebugTrace)' == ''">true</EagleDebugTrace>
+
+    <!--
+        NOTE: Enable debug tracing via the DebugWrite method?  By default, this
+              is enabled.  When enabled, this will cause selected informational
+              messages to be emitted at various points in the core library.  If
+              this is disabled, these diagnostic messages will not be emitted.
+    -->
+    <EagleDebugWrite Condition="'$(EagleDebugWrite)' == ''">true</EagleDebugWrite>
+
+    <!--
+        NOTE: Force non-essential runtime diagnostic messages to be enabled in
+              release builds?  By default, this is disabled.  When enabled, this
+              will cause many diagnostic trace messages to be emitted at various
+              strategic points in the core library (and/or third-party plugins)
+              that can be very useful for troubleshooting.  If this is disabled,
+              these diagnostic messages will not be emitted in release builds.
+    -->
+    <EagleForceTrace Condition="'$(EagleForceTrace)' == ''">false</EagleForceTrace>
+
+    <!--
+        NOTE: Force runtime diagnostic messagess to be throttled?  By default,
+              this is disabled.  When enabled, this may cause some diagnostic
+              trace messages to be silently dropped (i.e. because the message
+              content or category has been seen too frequently).
+    -->
+    <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">false</EagleMaybeTrace>
+
+    <!--
+        NOTE: Enable policy tracing?  By default, this is disabled.  If enabled,
+              this has the potential to slow down the library very slightly;
+              however, it can be useful when debugging subtle command and file
+              policy issues.
+    -->
+    <EaglePolicyTrace Condition="'$(EaglePolicyTrace)' == ''">false</EaglePolicyTrace>
+
+    <!--
+        NOTE: Building for Mono 2.0 or higher?  By default, this is disabled.
+              If this is enabled, features that are known to be incomplete,
+              incorrect, or missing on Mono will be unavailable.  Please note
+              that enabling this is not strictly required to run on Mono nor
+              does it mean that everything is magically guaranteed to work on
+              Mono.
+    -->
+    <EagleMono Condition="'$(EagleMono)' == ''">false</EagleMono>
+
+    <!--
+        NOTE: Building using Mono 2.0 or higher?  By default, this is disabled.
+              If this is enabled, features that are known to be incomplete,
+              incorrect, or missing using the Mono compiler OR XBuild may be
+              modified or unavailable.  Please note that enabling this is not
+              strictly required to run on Mono nor does it mean that everything
+              is magically guaranteed to work with the Mono compiler and XBuild.
+              In order to actually build with XBuild and run with Mono on Unix,
+              a command line similar to the following is required:
+
+              xbuild Eagle.sln /property:EagleMono=true \
+                  /property:EagleMonoBuild=true /property:EagleUnix=true \
+                  /property:EagleWindows=false
+    -->
+    <EagleMonoBuild Condition="'$(EagleMonoBuild)' == ''">false</EagleMonoBuild>
+
+    <!--
+        NOTE: *HACK* Avoid using any identifiers or constructs that do not work
+              properly in Mono 2.4 or higher?  By default, this is enabled.  If
+              this is disabled, features that are known to be incomplete,
+              incorrect, or missing on Mono 2.4 will NOT be worked around
+              (sometimes resulting in spectacular failures).  Please note that
+              enabling this is not strictly required to function on Mono nor
+              does it mean that everything is magically guaranteed to work on
+              Mono.
+    -->
+    <EagleMonoHacks Condition="'$(EagleMonoHacks)' == ''">true</EagleMonoHacks>
+
+    <!--
+        NOTE: *HACK* Avoid using any identifiers or constructs that do not work
+              properly in Mono 2.2 or lower?  By default, this is enabled.  If
+              this is disabled, features that are known to be incomplete,
+              incorrect, or missing on Mono 2.0/2.2 will NOT be worked around
+              (sometimes resulting in spectacular failures).  Please note that
+              enabling this is not strictly required to function on Mono nor
+              does it mean that everything is magically guaranteed to work on
+              Mono.
+    -->
+    <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">true</EagleMonoLegacy>
+
+    <!--
+        NOTE: Allow use of System.IO.Compression.FileSystem?  By default, this
+              is disabled because it is not available until the .NET Framework
+              4.5.  If this is enabled, functionality related to handling zip
+              files will be included.
+    -->
+    <EagleCompression Condition="'$(EagleCompression)' == ''">false</EagleCompression>
+
+    <!--
+        NOTE: Allow use of System.Configuration?  By default, this is enabled.
+              If this is disabled, some features will be unavailable.
+    -->
+    <EagleConfiguration Condition="'$(EagleConfiguration)' == ''">true</EagleConfiguration>
+
+    <!--
+        NOTE: Allow use of System.Data?  By default, this is enabled.  If this
+              is disabled, some features will be unavailable.
+    -->
+    <EagleData Condition="'$(EagleData)' == ''">true</EagleData>
+
+    <!--
+        NOTE: Allow use of System.Drawing (primarily for setting up the console
+              icon)?  By default, this is enabled.  If this is disabled, some
+              features will be unavailable.
+    -->
+    <EagleDrawing Condition="'$(EagleDrawing)' == ''">true</EagleDrawing>
+
+    <!--
+        NOTE: Allow use of System.Runtime.Remoting (primarily for testing)?  By
+              default, this is enabled.  If this is disabled, some features will
+              be unavailable.
+    -->
+    <EagleRemoting Condition="'$(EagleRemoting)' == ''">true</EagleRemoting>
+
+    <!--
+        NOTE: Allow use of System.Runtime.Serialization?  By default, this is
+              enabled.  If this is disabled, some features will be unavailable.
+    -->
+    <EagleSerialization Condition="'$(EagleSerialization)' == ''">true</EagleSerialization>
+
+    <!--
+        NOTE: Allow use of System.Web?  By default, this is enabled.  If this is
+              disabled, some features will be unavailable.
+    -->
+    <EagleWeb Condition="'$(EagleWeb)' == ''">true</EagleWeb>
+
+    <!--
+        NOTE: Allow use of System.Windows.Forms (primarily for error reporting)?
+              By default, this is enabled.  If this is disabled, some features
+              will be unavailable.
+    -->
+    <EagleWinForms Condition="'$(EagleWinForms)' == ''">true</EagleWinForms>
+
+    <!--
+        NOTE: Allow use of System.Xml?  By default, this is enabled.  If this is
+              disabled, some features will be unavailable.
+    -->
+    <EagleXml Condition="'$(EagleXml)' == ''">true</EagleXml>
+
+    <!--
+        NOTE: Enable the script debugger?  By default this is enabled.  If this
+              is disabled, all the features provided by the script debugger will
+              be unavailable (e.g. breakpoints of all types, watchpoints,
+              single-step, and isolated evaluation).
+    -->
+    <EagleDebugger Condition="'$(EagleDebugger)' == ''">true</EagleDebugger>
+
+    <!--
+        NOTE: Enable sending the current command name arguments to the script
+              debugger?  By default, this is enabled.  If enabled, this has the
+              potential to slow down the library quite a bit.  If this is
+              disabled, the current command arguments will be unavailable in
+              the debugger diagnostic output.
+    -->
+    <EagleDebuggerArguments Condition="'$(EagleDebuggerArguments)' == ''">true</EagleDebuggerArguments>
+
+    <!--
+        NOTE: Enable core script debugging?  By default, this is enabled.  If
+              enabled, this has the potential to slow down the library a bit.
+              If this is disabled, all script debugging (including being able
+              to set breakpoints for script completion and cancellation) will
+              be unavailable.
+    -->
+    <EagleDebuggerEngine Condition="'$(EagleDebuggerEngine)' == ''">true</EagleDebuggerEngine>
+
+    <!--
+        NOTE: Enable core entity debugging (e.g. commands and procedures)?  By
+              default, this is enabled.  If enabled, this has the potential to
+              slow down the library somewhat.  If this is disabled, all entity
+              debugging (including being able to set breakpoints and/or step
+              into commands and procedures) will be unavailable.
+    -->
+    <EagleDebuggerExecute Condition="'$(EagleDebuggerExecute)' == ''">true</EagleDebuggerExecute>
+
+    <!--
+        NOTE: Enable core expression debugging (e.g. operators and functions)?
+              By default, this is enabled.  If enabled, this has the potential
+              to slow down the library quite a bit.  If this is disabled,
+              all expression debugging (including being able to set breakpoints
+              and/or step into expression operators and functions) will be
+              unavailable.
+    -->
+    <EagleDebuggerExpression Condition="'$(EagleDebuggerExpression)' == ''">true</EagleDebuggerExpression>
+
+    <!--
+        NOTE: Enable core variable debugging (e.g. break-on-set, etc)?  By
+              default, this is enabled.  If enabled, this has the potential to
+              slow down the library somewhat.  If this is disabled, all variable
+              debugging (including being able to set watchpoints) will be
+              unavailable.
+    -->
+    <EagleDebuggerVariable Condition="'$(EagleDebuggerVariable)' == ''">true</EagleDebuggerVariable>
+
+    <!--
+        NOTE: Enable breakpoints for the script debugger?  If enabled, this has
+              the potential to slow down the library slightly; however, it can
+              be very useful.  By default this is enabled.  If this is disabled,
+              some features will be unavailable.
+    -->
+    <EagleBreakpoints Condition="'$(EagleBreakpoints)' == ''">true</EagleBreakpoints>
+
+    <!--
+        NOTE: Enable the per-interpreter performance profiler?  By default,
+              this is enabled.  If this is disabled, no detailed performance
+              metrics will be kept for the interpreter.
+    -->
+    <EagleProfiler Condition="'$(EagleProfiler)' == ''">true</EagleProfiler>
+
+    <!--
+        NOTE: Enable "event-style" notifications for events that may be of
+              interest to plugins?  If enabled, this has the potential to slow
+              down the library slightly; however, it can be very useful.  By
+              default, this is enabled.  If this is disabled, no plugin
+              notifications will be fired except those that are absolutely
+              required for automatic reference counting of object handles to
+              work properly.
+    -->
+    <EagleNotify Condition="'$(EagleNotify)' == ''">true</EagleNotify>
+
+    <!--
+        NOTE: Enable "event-style" notifications for command execution events?
+              If enabled, this has the potential to slow down the library a bit;
+              however, it can be very useful.  By default, this is enabled.  If
+              this is disabled, these notifications will be unavailable.
+    -->
+    <EagleNotifyArguments Condition="'$(EagleNotifyArguments)' == ''">true</EagleNotifyArguments>
+
+    <!--
+        NOTE: Enable tracking of all nested script arguments?  By default, this
+              is disabled.  If enabled, this has the potential to slow down the
+              library a bit; however, it can be useful.
+    -->
+    <EagleScriptArguments Condition="'$(EagleScriptArguments)' == ''">false</EagleScriptArguments>
+
+    <!--
+        NOTE: Enable "event-style" notifications for most "global" events (i.e.
+              notifications which may be of interest to plugins from multiple
+              interpreters)?  If enabled, this has the potential to slow down
+              the library slightly; however, it can be useful in some scenarios.
+              By default, this is enabled.
+    -->
+    <EagleNotifyGlobal Condition="'$(EagleNotifyGlobal)' == ''">true</EagleNotifyGlobal>
+
+    <!--
+        NOTE: Enable "event-style" notifications when an interpreter is pushed
+              or popped [onto/from the active interpreter stack]?  If enabled,
+              this has the potential to slow down the library quite a bit;
+              however, it can still be useful in some scenarios.  By default,
+              this is disabled.
+    -->
+    <EagleNotifyActive Condition="'$(EagleNotifyActive)' == ''">false</EagleNotifyActive>
+
+    <!--
+        NOTE: Enable "event-style" notifications for certain exceptional events
+              related to the script engine?  By default, this is enabled.  If
+              this is disabled, these notifications will be unavailable.
+    -->
+    <EagleNotifyException Condition="'$(EagleNotifyException)' == ''">true</EagleNotifyException>
+
+    <!--
+        NOTE: Enable "event-style" notifications for IExecute execution events?
+              By default, this is enabled.  If enabled, this has the potential
+              to slow down the library somewhat.  If this is disabled, these
+              notifications will be unavailable.
+    -->
+    <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">true</EagleNotifyExecute>
+
+    <!--
+        NOTE: Enable "event-style" notifications for expression related events?
+              By default, this is enabled.  If enabled, this has the potential
+              to slow down the library quite a bit.  If this is disabled, all
+              notifications related to expression handling within the engine
+              (e.g. execution of functions and operators) will be unavailable.
+    -->
+    <EagleNotifyExpression Condition="'$(EagleNotifyExpression)' == ''">true</EagleNotifyExpression>
+
+    <!--
+        NOTE: Enable "event-style" notifications for events that are required by
+              the object handle reference counting plugin?  If enabled, this has
+              the potential to slow down the library very slightly; however, it
+              is required for proper operation of object handle reference
+              counting.  By default, this is enabled.  If this is disabled,
+              automatic reference counting of object handles contained within
+              variable values will not work properly.
+
+        WARNING: DO NOT CHANGE OR DISABLE THIS SETTING UNLESS YOU KNOW EXACTLY
+                 WHAT IT DOES AND HOW IT WORKS.
+    -->
+    <EagleNotifyObject Condition="'$(EagleNotifyObject)' == ''">true</EagleNotifyObject>
+
+    <!--
+        NOTE: Enable "event-style" notifications for native Tcl events?  By
+              default, this is enabled.  If this is disabled, notifications
+              will not be fired for any native Tcl integration events.
+    -->
+    <EagleNotifyTcl Condition="'$(EagleNotifyTcl)' == ''">true</EagleNotifyTcl>
+
+    <!--
+        NOTE: Enable support for command history tracking?  By default, this is
+              disabled.  If enabled, this has the potential to slow the library
+              down slightly; however, it can be very useful.  If disabled,
+              command history cannot be tracked.
+    -->
+    <EagleHistory Condition="'$(EagleHistory)' == ''">false</EagleHistory>
+
+    <!--
+        NOTE: Enable support for the built-in interactive commands?  By default,
+              this is enabled.  If this is disabled, the built-in interactive
+              commands will be unavailable (e.g. when using the shell).
+    -->
+    <EagleInteractiveCommands Condition="'$(EagleInteractiveCommands)' == ''">true</EagleInteractiveCommands>
+
+    <!--
+        NOTE: Enable support for previous result tracking?  If enabled, this has
+              the potential to slow down the library slightly; however, it can
+              be very useful.  By default, this is enabled.  If this is
+              disabled, the previous result cannot be tracked and some debugging
+              functions may be impaired.
+    -->
+    <EaglePreviousResult Condition="'$(EaglePreviousResult)' == ''">true</EaglePreviousResult>
+
+    <!--
+        NOTE: Enable support for evaluation engine callbacks (i.e. user code
+              to be invoked when the evaluation engine has completed processing
+              a top-level command)?  If enabled, this has the potential to slow
+              down the library slightly; however, it can be very useful.  By
+              default, this is enabled.
+    -->
+    <EagleCallbackQueue Condition="'$(EagleCallbackQueue)' == ''">true</EagleCallbackQueue>
+
+    <!--
+        NOTE: Enable support for restricting expression token types during
+              expression evaluation?  By default, this is enabled.  If this is
+              disabled, the expression flags will be ignored during expression
+              evaluation.
+    -->
+    <EagleExpressionFlags Condition="'$(EagleExpressionFlags)' == ''">true</EagleExpressionFlags>
+
+    <!--
+        NOTE: Enable inclusion of the dedicated test code?  By default, this is
+              enabled.  If this is disabled, any unit tests that require the
+              dedicated test code will be skipped.
+    -->
+    <EagleTest Condition="'$(EagleTest)' == ''">true</EagleTest>
+
+    <!--
+        NOTE: Enable inclusion of the dedicated test plugin?  By default, this
+              is enabled.  If this is disabled, the dedicated test plugin will
+              only be available in the debug build configuration.
+    -->
+    <EagleTestPlugin Condition="'$(EagleTestPlugin)' == ''">true</EagleTestPlugin>
+
+    <!--
+        NOTE: Enable multi-threaded script evaluation support?  By default, this
+              is enabled.  If this is disabled, evaluating scripts in multiple
+              threads may not work properly due to threading issues (e.g. call
+              frame management, race conditions for the "current" and
+              "procedure" call frames may occur if any procs are involved).
+    -->
+    <EagleThreading Condition="'$(EagleThreading)' == ''">true</EagleThreading>
+
+    <!--
+        NOTE: Allow use of native functions via P/Invoke?  By default, this is
+              enabled.  If this is disabled, some features will be unavailable,
+              including Tcl/Tk integration (below).
+    -->
+    <EagleNative Condition="'$(EagleNative)' == ''">true</EagleNative>
+
+    <!--
+        NOTE: Allow Eagle to be loaded and initialized directly by native code
+              (via the ICLRRuntimeHost.ExecuteInDefaultAppDomain method)?  By
+              default, this is enabled.  If this is disabled, some features will
+              be unavailable, including advanced Tcl integration features such
+              as the Eagle Package for Tcl (Garuda).
+    -->
+    <EagleNativePackage Condition="'$(EagleNativePackage)' == ''">true</EagleNativePackage>
+
+    <!--
+        NOTE: Always use the native thread Id.  Otherwise, the native thread Id
+              will only be used when absolutely necessary for correctness.  By
+              default, this is enabled.  If this is disabled, the native thread
+              Id will only be queried and/or used by the Eagle core library when
+              explicitly requested via the [info] command -OR- when integrating
+              with native Tcl and/or the underlying operating system.
+    -->
+    <EagleNativeThreadId Condition="'$(EagleNativeThreadId)' == ''">true</EagleNativeThreadId>
+
+    <!--
+        NOTE: Allow Eagle to load and use the Eagle Native Utility Library?  By
+              default, this is enabled.  If this is disabled, the performance of
+              all list splitting and joining operations may be reduced.
+    -->
+    <EagleNativeUtility Condition="'$(EagleNativeUtility)' == ''">true</EagleNativeUtility>
+
+    <!--
+        NOTE: In the Eagle Native Utility Library, make use of the SysStringLen
+              Win32 BSTR API to figure out the length of list element strings?
+              By default, this is enabled.  If this is disabled, a slower, more
+              portable method will be used to determine list element string
+              lengths.  If this is enabled on a non-Windows platform, it will
+              most likely cause the native utility library to malfunction.
+    -->
+    <EagleNativeUtilityBstr Condition="'$(EagleNativeUtilityBstr)' == ''">true</EagleNativeUtilityBstr>
+
+    <!--
+        NOTE: Enable support for creating interpreters in isolated application
+              domains?  By default, this is disabled.
+    -->
+    <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">false</EagleIsolatedInterpreters>
+
+    <!--
+        NOTE: Enable support for loading plugins into isolated application
+              domains?  By default, this is disabled.
+    -->
+    <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">false</EagleIsolatedPlugins>
+
+    <!--
+        NOTE: Enable use of the soon (i.e. as of CLR v4) to be deprecated CAS
+              policy APIs?
+    -->
+    <EagleCasPolicy Condition="'$(EagleCasPolicy)' == ''">false</EagleCasPolicy>
+
+    <!--
+        NOTE: Allow use of System.Reflection.Emit?  By default, this is enabled.
+              If this is disabled, some features will be unavailable.
+    -->
+    <EagleEmit Condition="'$(EagleEmit)' == ''">true</EagleEmit>
+
+    <!--
+        NOTE: Enable native library integration via P/Invoke?  By default, this
+              is enabled.
+    -->
+    <EagleLibrary Condition="'$(EagleLibrary)' == ''">true</EagleLibrary>
+
+    <!--
+        NOTE: Enable application domain management by the interpreter?  By
+              default, this is disabled.
+    -->
+    <EagleAppDomains Condition="'$(EagleAppDomains)' == ''">false</EagleAppDomains>
+
+    <!--
+        NOTE: Enable collection of limited cache usage statistics?  By default,
+              this is enabled.  If this is disabled, cache statistics will not
+              be tracked.
+    -->
+    <EagleCacheStatistics Condition="'$(EagleCacheStatistics)' == ''">true</EagleCacheStatistics>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of argument objects?  By default,
+              this is enabled.  If this is disabled, repeated creation of
+              identically valued argument objects may be slower.
+    -->
+    <EagleArgumentCache Condition="'$(EagleArgumentCache)' == ''">true</EagleArgumentCache>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of parser states?  This feature has
+              actually been enabled out-of-the-box for quite some time.
+              Unfortunately, no noticable speed improvement has been observed;
+              however, further analysis and profiling may be warranted.  By
+              default, this is enabled.  If this is disabled, repeated parsing
+              of identical strings may be slower.
+    -->
+    <EagleParseCache Condition="'$(EagleParseCache)' == ''">true</EagleParseCache>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of parsed lists (where possible)?
+              By default, this is enabled.  If this is disabled, repeated
+              parsing of identical lists may be slower.
+    -->
+    <EagleListCache Condition="'$(EagleListCache)' == ''">true</EagleListCache>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of command resolution (where
+              possible)?  By default, this is enabled.  If this is disabled,
+              repeated lookups of identical strings may be slower.
+    -->
+    <EagleExecuteCache Condition="'$(EagleExecuteCache)' == ''">true</EagleExecuteCache>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of object type resolution (where
+              possible)?  By default, this is enabled.  If this is disabled,
+              repeated lookups of identical object types may be slower.
+    -->
+    <EagleTypeCache Condition="'$(EagleTypeCache)' == ''">true</EagleTypeCache>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of COM object type resolution (where
+              possible)?  By default, this is enabled.  If this is disabled,
+              repeated lookups of identical COM objects may be slower.
+    -->
+    <EagleComTypeCache Condition="'$(EagleComTypeCache)' == ''">true</EagleComTypeCache>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable use of the custom caching dictionary class?
+              By default, this is disabled.  This feature has not been fully
+              regression tested and may cause performance issues.
+    -->
+    <EagleCacheDictionary Condition="'$(EagleCacheDictionary)' == ''">false</EagleCacheDictionary>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of the string representations that
+              are returned from the Argument.ToString method?  By default, this
+              is enabled.  If this is disabled, overall performance of the core
+              library may be reduced.
+    -->
+    <EagleCacheArgumentToString Condition="'$(EagleCacheArgumentToString)' == ''">true</EagleCacheArgumentToString>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of the string representations that
+              are returned from the Result.ToString method?  By default, this is
+              enabled.  If this is disabled, overall performance of the core
+              library may be reduced.
+    -->
+    <EagleCacheResultToString Condition="'$(EagleCacheResultToString)' == ''">true</EagleCacheResultToString>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of the string representations that
+              are returned from the ArgumentList.ToString method?  By default,
+              this is enabled.  If this is disabled, overall performance of the
+              core library may be reduced.
+    -->
+    <EagleCacheArgumentListToString Condition="'$(EagleCacheArgumentListToString)' == ''">true</EagleCacheArgumentListToString>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable caching of the string representations that
+              are returned from the StringList.ToString method?  By default,
+              this is enabled.  If this is disabled, overall performance of the
+              core library may be reduced.
+    -->
+    <EagleCacheStringListToString Condition="'$(EagleCacheStringListToString)' == ''">true</EagleCacheStringListToString>
+
+    <!--
+        NOTE: Enable support for static loading of the Eagle library by the
+              command line shell?  By default, this is disabled.  If this is
+              enabled [and the dynamic loading support above is disabled], the
+              command line shell will require the exact version of the Eagle
+              library it was compiled against to run properly.
+    -->
+    <EagleStatic Condition="'$(EagleStatic)' == ''">false</EagleStatic>
+
+    <!--
+        NOTE: Enable support for dynamic loading of the Eagle library by the
+              command line shell?  By default, this is enabled.  If this is
+              enabled [and the static loading support above is disabled], the
+              command line shell will be capable of dynamically loading and
+              using any compatible version of the Eagle library.
+    -->
+    <EagleDynamic Condition="'$(EagleDynamic)' == ''">true</EagleDynamic>
+
+    <!--
+        NOTE: Enable interactive shell support?  By default, this is enabled.
+              If this is disabled, the interactive shell and all its associated
+              functionality will be unavailable.
+    -->
+    <EagleShell Condition="'$(EagleShell)' == ''">true</EagleShell>
+
+    <!--
+        NOTE: Which shell entry point should be used?  By default, this is set
+              to the dynamic entry point.
+    -->
+    <!--
+    <EagleShellStartupObject Condition="'$(EagleShellStartupObject)' == ''">Eagle._Shell.StaticCommandLine</EagleShellStartupObject>
+    -->
+    <EagleShellStartupObject Condition="'$(EagleShellStartupObject)' == ''">Eagle._Shell.DynamicCommandLine</EagleShellStartupObject>
+
+    <!--
+        NOTE: Enable Tcl/Tk integration?  By default, this is enabled.
+    -->
+    <EagleTcl Condition="'$(EagleTcl)' == ''">true</EagleTcl>
+
+    <!--
+        NOTE: Enforce Tcl libraries being threaded? By default, this is enabled.
+              If this is enabled, the Tcl wrapper will refuse to load
+              non-threaded builds of Tcl at runtime.
+    -->
+    <EagleTclThreaded Condition="'$(EagleTclThreaded)' == ''">true</EagleTclThreaded>
+
+    <!--
+        NOTE: *EXPERIMENTAL* Enable isolated Tcl interpreter threads?  By
+              default, this is enabled.  If this is disabled, Tcl/Tk integration
+              will still be available (subject to the other compile options);
+              however, support for isolated Tcl interpreter worker threads will
+              not be available.
+    -->
+    <EagleTclThreads Condition="'$(EagleTclThreads)' == ''">true</EagleTclThreads>
+
+    <!--
+        NOTE: Enable TclKit handling?  By default, this is enabled.  If this is
+              disabled, "stardlls" cannot be loaded correctly.
+    -->
+    <EagleTclKits Condition="'$(EagleTclKits)' == ''">true</EagleTclKits>
+
+    <!--
+        NOTE: Publically expose the Tcl wrapper functionality?  By default,
+              this is disabled.
+    -->
+    <EagleTclWrapper Condition="'$(EagleTclWrapper)' == ''">false</EagleTclWrapper>
+
+    <!--
+        NOTE: Use Unicode for Tcl/Tk integration?  By default, this is enabled.
+    -->
+    <EagleTclUnicode Condition="'$(EagleTclUnicode)' == ''">true</EagleTclUnicode>
+
+    <!--
+        NOTE: Enable full (Tcl 8.4 compatible) namespace support for all new
+              interpreters?  By default, this is disabled.  If this is enabled,
+              all new interpreters created with the default creation flags will
+              have namespaces enabled.
+    -->
+    <EagleUseNamespaces Condition="'$(EagleUseNamespaces)' == ''">false</EagleUseNamespaces>
+
+    <!--
+        NOTE: Run the test suite when building the shell?  By default, this is
+              disabled.
+    -->
+    <EagleRunTests Condition="'$(EagleRunTests)' == ''">false</EagleRunTests>
+
+    <!--
+        NOTE: Run the test suite using the configured code coverage tool?
+    -->
+    <EagleRunCoverage Condition="'$(EagleRunCoverage)' == ''">false</EagleRunCoverage>
+
+    <!--
+        NOTE: What is the code coverage tool (e.g. NCover)?
+    -->
+    <EagleCoverageTool Condition="'$(EagleCoverageTool)' == '' And '$(ProgramFiles)' != ''">$(ProgramFiles)\NCover\NCover.Console.exe</EagleCoverageTool>
+
+    <!--
+        NOTE: The "common" command line arguments to pass to the test suite
+              (right after the executable file name).  By default, this is an
+              empty string.
+    -->
+    <EagleCommonTestArguments Condition="'$(EagleCommonTestArguments)' == ''"></EagleCommonTestArguments>
+
+    <!--
+        NOTE: The extra command line arguments to pass to the test suite (right
+              before the file name itself).  By default, this is an empty
+              string.
+    -->
+    <EagleTestArguments Condition="'$(EagleTestArguments)' == ''"></EagleTestArguments>
+
+    <!--
+        NOTE: The extra command line arguments to pass to the test suite (right
+              after the file name itself).  By default, this is an empty string.
+    -->
+    <EagleTestFlags Condition="'$(EagleTestFlags)' == ''"></EagleTestFlags>
+
+    <!--
+        NOTE: Reset the stack size for the shell executable(s)?  By default,
+              this is enabled.  If this is disabled, the stack size will have
+              the default value and deep recursion in scripts may result in
+              stack overflow errors.
+    -->
+    <EagleSetStack Condition="'$(EagleSetStack)' == ''">true</EagleSetStack>
+
+    <!--
+        NOTE: Reset the icon for the shell executable(s)?  By default, this is
+              enabled.  If this is disabled, the default application icon will
+              be used.
+    -->
+    <EagleSetIcon Condition="'$(EagleSetIcon)' == ''">true</EagleSetIcon>
+
+    <!--
+        NOTE: Strip the directory name from the PDB file names contained in the
+              built binaries?  If this is disabled, the built binaries will not
+              be modified in this fashion.
+    -->
+    <EagleStripPdbPath Condition="'$(EagleStripPdbPath)' == ''">true</EagleStripPdbPath>
+
+    <!--
+        NOTE: If necessary, embed the application manifest into the built
+              executable(s) (e.g. for UAC elevation, etc)?  By default, this is
+              enabled.  If this is disabled, the built executable files may not
+              work correctly on operating systems released after Windows XP.
+    -->
+    <EagleEmbedExeManifest Condition="'$(EagleEmbedExeManifest)' == ''">true</EagleEmbedExeManifest>
+
+    <!--
+        NOTE: Strong name sign the built binaries?  By default, this is enabled.
+              If this is disabled, full strong name signing will not be done for
+              the built binaries.
+    -->
+    <EagleStrongNameSign Condition="'$(EagleStrongNameSign)' == ''">true</EagleStrongNameSign>
+
+    <!--
+        NOTE: Strong name sign the 32-bit-only executable(s)?  By default, this
+              is enabled. If this is disabled, full strong name signing will not
+              be done for the built 32-bit-only executable(s).
+    -->
+    <EagleStrongNameSign32BitOnly Condition="'$(EagleStrongNameSign32BitOnly)' == ''">true</EagleStrongNameSign32BitOnly>
+
+    <!--
+        NOTE: Authenticode sign the built binaries?  By default, this is
+              disabled [while in development] because it is an "expensive"
+              operation.  If this is enabled, various [environment] variables
+              will be used to find the software publishing certificates and key
+              files.
+    -->
+    <EagleAuthenticodeSign Condition="'$(EagleAuthenticodeSign)' == ''">false</EagleAuthenticodeSign>
+
+    <!--
+        NOTE: Enable legacy, primary, secondary, and tertiary Authenticode
+              signatures?  By default, these are enabled.  If any of these are
+              disabled, the corresponding Authenticode signature(s) will be
+              missing from the built binaries.
+    -->
+    <EagleAuthenticodeSign1 Condition="'$(EagleAuthenticodeSign1)' == ''">true</EagleAuthenticodeSign1>
+    <EagleAuthenticodeSign2 Condition="'$(EagleAuthenticodeSign2)' == ''">true</EagleAuthenticodeSign2>
+    <EagleAuthenticodeSign3 Condition="'$(EagleAuthenticodeSign3)' == ''">true</EagleAuthenticodeSign3>
+    <EagleAuthenticodeSign4 Condition="'$(EagleAuthenticodeSign4)' == ''">true</EagleAuthenticodeSign4>
+
+    <!--
+        NOTE: Authenticode sign the 32-bit-only executable(s)?  By default, this
+              is disabled [while in development] because it is an "expensive"
+              operation.  If this is enabled, various [environment] variables
+              will be used to find the software publishing certificates and key
+              files.
+    -->
+    <EagleAuthenticodeSign32BitOnly Condition="'$(EagleAuthenticodeSign32BitOnly)' == ''">false</EagleAuthenticodeSign32BitOnly>
+
+    <!--
+        NOTE: The number of milliseconds to wait between some server operations
+              (e.g. for the Authenticode timestamping servers).
+    -->
+    <EaglePauseForServerMilliseconds Condition="'$(EaglePauseForServerMilliseconds)' == ''">15000</EaglePauseForServerMilliseconds>
+
+    <!--
+        NOTE: Should the sample project(s) demonstrate the usage of the custom
+              build tasks?  By default, this is enabled.  If this is disabled,
+              the custom build tasks will be skipped.  Currently, these custom
+              build tasks do not work correctly with XBuild (see Mono bug
+              #635767).
+    -->
+    <EagleSampleTargets Condition="'$(EagleSampleTargets)' == '' And ('$(MSBuildBinPath)' != '' And !HasTrailingSlash('$(MSBuildBinPath)') And Exists('$(MSBuildBinPath)\MSBuild.exe'))">true</EagleSampleTargets>
+    <EagleSampleTargets Condition="'$(EagleSampleTargets)' == '' And ('$(MSBuildBinPath)' == '' Or HasTrailingSlash('$(MSBuildBinPath)') Or !Exists('$(MSBuildBinPath)\MSBuild.exe'))">false</EagleSampleTargets>
+
+    <!--
+        NOTE: Should [XML] documentation files be produced?  By default, this is
+              disabled because it totally breaks incremental builds.
+
+              Please see Microsoft Connect FeedbackID 470485 for more
+              information.
+    -->
+    <EagleDocumentationFile Condition="'$(EagleDocumentationFile)' == ''">false</EagleDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **             Eagle Enterprise Edition Integration Properties              **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        NOTE: Do we want to force script certificate enforcement to be enabled?
+              This is useful if only authorized script files should be allowed.
+              By default, this is disabled.  If this is enabled, only signed,
+              trusted script files can be evaluated -AND- script certificate
+              enforcement cannot be disabled at runtime.  This rule applies to
+              all created interpreters -AND- it requires the Eagle Enterprise
+              Edition plugins (i.e. "Harpy" and "Badge") to be available.
+    -->
+    <EagleEnterpriseLockdown Condition="'$(EagleEnterpriseLockdown)' == ''">false</EagleEnterpriseLockdown>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                   Eagle Enterprise Edition Properties                    **
+  ******************************************************************************
+  -->
+
+  <!--
+      WARNING: These properties are included here for reference purposes only.
+               They are ONLY intended for use with "Harpy" and it is available
+               only as part of the Eagle Enterprise Edition feature set, under
+               license.
+  -->
+  <PropertyGroup>
+    <!--
+        NOTE: Do we want to enforce the license certificate checking via the
+              Harpy plugins (i.e. not when run via the command line)?  By
+              default, this is enabled.  If this is disabled, then no license
+              certificate checking will be performed by the Harpy plugins.
+    -->
+    <!--
+    <Licensing Condition="'$(Licensing)' == ''">true</Licensing>
+    -->
+
+    <!--
+        NOTE: Do we want to obfuscate the built assembly using Dotfuscator
+              Community Edition (and/or similar tools)?  By default, this is
+              enabled; however, it may not function on Windows Vista or later
+              unless Visual Studio is running as an elevated administrator.
+    -->
+    <!--
+    <Obfuscate1 Condition="'$(Obfuscate1)' == ''">true</Obfuscate1>
+    <Obfuscate2 Condition="'$(Obfuscate2)' == ''">true</Obfuscate2>
+    <Obfuscate3 Condition="'$(Obfuscate3)' == ''">true</Obfuscate3>
+    -->
+
+    <!--
+        NOTE: Do we want to include the plugin commands in the built assembly?
+              By default, this is enabled.  If this is disabled, the commands
+              provided by the plugin will be unavailable (i.e. the code will
+              simply not be compiled into the built assembly).
+    -->
+    <!--
+    <PluginCommands Condition="'$(PluginCommands)' == ''">true</PluginCommands>
+    -->
+
+    <!--
+        NOTE: Do we want to include the base license manager code in the built
+              assembly?  By default, this is enabled.  If this is disabled, the
+              license manager, including all its components and interfaces, will
+              be unavailable (i.e. the code will simply not be compiled into the
+              built assembly).
+    -->
+    <!--
+    <LicenseManager Condition="'$(LicenseManager)' == ''">true</LicenseManager>
+    -->
+
+    <!--
+        NOTE: Do we want to include the certificate plugin code in the built
+              assembly?  By default, this is enabled.  If this is disabled, the
+              certificate plugin, including all its commands and policies, will
+              be unavailable (i.e. the code will simply not be compiled into the
+              built assembly).
+    -->
+    <!--
+    <CertificatePlugin Condition="'$(CertificatePlugin)' == ''">true</CertificatePlugin>
+    -->
+
+    <!--
+        NOTE: Do we want to include certificate policy enforcement in the built
+              assembly?  By default, this is enabled.  If this is disabled, the
+              certificate policy mechanism will be unavailable (i.e. the code
+              will simply not be compiled into the built assembly).
+    -->
+    <!--
+    <CertificatePolicy Condition="'$(CertificatePolicy)' == ''">true</CertificatePolicy>
+    -->
+
+    <!--
+        NOTE: Do we want to include automatic certificate renewal in the built
+              assembly?  By default, this is enabled.  If this is disabled, the
+              automatic certificate renewal mechanism will be unavailable (i.e.
+              the code will simply not be compiled into the built assembly).
+    -->
+    <!--
+    <CertificateRenewal Condition="'$(CertificateRenewal)' == ''">true</CertificateRenewal>
+    -->
+
+    <!--
+        NOTE: Do we want to embed license certificates in the built assembly?
+              By default, this is disabled.  If this is enabled, there must be
+              existing license certificates in "Resources\Certificate";
+              otherwise, this property will be silently ignored.  If the license
+              certificate are successfully embedded at compile-time, they will
+              be used as the ultimate fallback in the event no external license
+              certificates can be located at runtime.
+    -->
+    <!--
+    <EmbedCertificates Condition="'$(EmbedCertificates)' == ''">false</EmbedCertificates>
+    -->
+
+    <!--
+        NOTE: Do we want to use the ObfuscationAttribute class to mark various
+              interfaces, classes, and properties as immune from the obfuscation
+              processing, if any?  By default, this is enabled.  If this is
+              disabled, the built assembly may not function correctly because
+              there are some non-public classes that are referenced by name by
+              Eagle itself, the unit tests, and various other external callers
+              (typically via reflection).
+    -->
+    <!--
+    <EagleObfuscation Condition="'$(EagleObfuscation)' == ''">true</EagleObfuscation>
+    -->
+
+    <!--
+        NOTE: Do we want to use the various extra "security" features that are
+              enabled to protect against casual copying and/or snooping?  By
+              default, this is enabled.  If this is disabled, extra security
+              measures will not be enabled, providing less protection against
+              casual copying and/or snooping.
+    -->
+    <!--
+    <EagleSecurity Condition="'$(EagleSecurity)' == ''">true</EagleSecurity>
+    -->
+
+    <!--
+        NOTE: Do we want to consider license certificates that are marked as
+              "For Test Use Only" as invalid?  By default, this is disabled
+              for debug builds and enabled for release builds.
+    -->
+    <!--
+    <EagleForTestUseOnly Condition="'$(EagleForTestUseOnly)' == '' And '$(Configuration)' == 'Debug'">false</EagleForTestUseOnly>
+    <EagleForTestUseOnly Condition="'$(EagleForTestUseOnly)' == '' And '$(Configuration)' == 'Release'">true</EagleForTestUseOnly>
+    -->
+
+    <!--
+        NOTE: If the build type has been set, use the same one when performing
+              obfuscation on the target assembly, if any.
+    -->
+    <ObfuscatorBuildType Condition="'$(EagleBuildType)' != '' And '$(ObfuscatorBuildType)' == ''">$(EagleBuildType)</ObfuscatorBuildType>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                    Eagle Directory Related Properties                    **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(EagleDir)' != ''">
+    <!--
+        NOTE: Build the official reference assembly directory name based on the
+              selected PowerShell version now.
+    -->
+    <EaglePowerShellDirectory Condition="'$(EaglePowerShellDirectory)' == '' And '$(EaglePowerShellVersion)' == ''">$(ProgramFiles)\Reference Assemblies\Microsoft\WindowsPowerShell\v1.0</EaglePowerShellDirectory>
+    <EaglePowerShellDirectory Condition="'$(EaglePowerShellDirectory)' == '' And ('$(EaglePowerShellVersion)' == '1.0' Or '$(EaglePowerShellVersion)' == 'v1.0')">$(ProgramFiles)\Reference Assemblies\Microsoft\WindowsPowerShell\v1.0</EaglePowerShellDirectory>
+    <EaglePowerShellDirectory Condition="'$(EaglePowerShellDirectory)' == '' And ('$(EaglePowerShellVersion)' == '2.0' Or '$(EaglePowerShellVersion)' == 'v2.0')">$(ProgramFiles)\Reference Assemblies\Microsoft\WindowsPowerShell\v1.0</EaglePowerShellDirectory>
+    <EaglePowerShellDirectory Condition="'$(EaglePowerShellDirectory)' == '' And ('$(EaglePowerShellVersion)' == '3.0' Or '$(EaglePowerShellVersion)' == 'v3.0')">$(ProgramFiles)\Reference Assemblies\Microsoft\WindowsPowerShell\3.0</EaglePowerShellDirectory>
+    <EaglePowerShellDirectory Condition="'$(EaglePowerShellDirectory)' == '' And ('$(EaglePowerShellVersion)' == '4.0' Or '$(EaglePowerShellVersion)' == 'v4.0')">$(ProgramFiles)\Reference Assemblies\Microsoft\WindowsPowerShell\3.0</EaglePowerShellDirectory>
+    <EaglePowerShellDirectory Condition="'$(EaglePowerShellDirectory)' == '' And ('$(EaglePowerShellVersion)' == '5.0' Or '$(EaglePowerShellVersion)' == 'v5.0')">$(ProgramFiles)\Reference Assemblies\Microsoft\WindowsPowerShell\3.0</EaglePowerShellDirectory>
+
+    <!--
+        NOTE: Build the name of the directory (within our "Externals" directory)
+              that contains the PowerShell reference assemblies for the selected
+              version.
+    -->
+    <EaglePowerShellExternalsDirectory Condition="'$(EaglePowerShellExternalsDirectory)' == '' And '$(EaglePowerShellVersion)' == ''">$(EagleDir)\Externals\PowerShell\v1.0</EaglePowerShellExternalsDirectory>
+    <EaglePowerShellExternalsDirectory Condition="'$(EaglePowerShellExternalsDirectory)' == '' And ('$(EaglePowerShellVersion)' == '1.0' Or '$(EaglePowerShellVersion)' == 'v1.0')">$(EagleDir)\Externals\PowerShell\v1.0</EaglePowerShellExternalsDirectory>
+    <EaglePowerShellExternalsDirectory Condition="'$(EaglePowerShellExternalsDirectory)' == '' And ('$(EaglePowerShellVersion)' == '2.0' Or '$(EaglePowerShellVersion)' == 'v2.0')">$(EagleDir)\Externals\PowerShell\v2.0</EaglePowerShellExternalsDirectory>
+    <EaglePowerShellExternalsDirectory Condition="'$(EaglePowerShellExternalsDirectory)' == '' And ('$(EaglePowerShellVersion)' == '3.0' Or '$(EaglePowerShellVersion)' == 'v3.0')">$(EagleDir)\Externals\PowerShell\v3.0</EaglePowerShellExternalsDirectory>
+    <EaglePowerShellExternalsDirectory Condition="'$(EaglePowerShellExternalsDirectory)' == '' And ('$(EaglePowerShellVersion)' == '4.0' Or '$(EaglePowerShellVersion)' == 'v4.0')">$(EagleDir)\Externals\PowerShell\v4.0</EaglePowerShellExternalsDirectory>
+    <EaglePowerShellExternalsDirectory Condition="'$(EaglePowerShellExternalsDirectory)' == '' And ('$(EaglePowerShellVersion)' == '5.0' Or '$(EaglePowerShellVersion)' == 'v5.0')">$(EagleDir)\Externals\PowerShell\v5.0</EaglePowerShellExternalsDirectory>
+
+    <!--
+        NOTE: The non-package final output files are in one place.  Ideally, we
+              should be using the EagleBinaryOutputPath setting (above) here;
+              unfortunately, the code coverage tool (NCover) refuses to use a
+              path with a trailing backslash.
+    -->
+    <EagleCoverageOutputPath Condition="'$(EagleCoverageOutputPath)' == '' And '$(Configuration)' != ''">$(EagleDir)\bin\$(Configuration)$(EagleConfigurationSuffix)\bin</EagleCoverageOutputPath>
+
+    <!--
+        NOTE: What are the extra arguments for the code coverage tool (NCover)?
+    -->
+    <EagleCoverageArguments Condition="'$(EagleCoverageArguments)' == '' And '$(EagleCoverageOutputPath)' != '' And '$(AssemblyName)' != ''">//w &quot;$(EagleCoverageOutputPath)&quot; //x &quot;$(EagleCoverageOutputPath)\$(AssemblyName).coverage.xml&quot; //coverall //ias &quot;Eagle;Plugin;$(AssemblyName)&quot; //p Eagle</EagleCoverageArguments>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                         Eagle Warning Properties                         **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <WarningLevel>4</WarningLevel>
+    <NoWarn>612,618,1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <WarningLevel>4</WarningLevel>
+    <NoWarn>612,618,1591</NoWarn>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                   Eagle Global Output Path Properties                    **
+  ******************************************************************************
+  -->
+
+  <!--
+      WARNING: Setting the "BaseIntermediateOutputPath" property breaks the
+               build when using the .NET Core SDK, see:
+
+               https://github.com/dotnet/sdk/issues/1518
+  -->
+  <PropertyGroup Condition="'$(EagleDir)' != '' And '$(EagleBaseIntermediateOutputPath)' != 'false'">
+    <!--
+        NOTE: Keep all the intermediate files in one place.  The Visual Studio
+              IDE seems to have a nasty habit of ignoring this setting.  The
+              Visual Studio IDE then fails to build the project(s) properly when
+              the output does not end up where it expects the output to be.
+              When in doubt, build from the command line.  The "build.bat" tool
+              in "Library\Tools" makes the command line build process fairly
+              painless.  Please note that if you do not have the Eagle private
+              keys (and most people will not), you will need to use the strong
+              name bypass tool first (i.e. "Library\Tools\data\strongName*.reg"
+              or "Library\Tools\strongName.bat").
+    -->
+    <BaseIntermediateOutputPath Condition="'$(EagleConfigurationSuffix)' == ''">$(EagleDir)\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(EagleConfigurationSuffix)' != ''">$(EagleDir)\obj\$(MSBuildProjectName)\$(EagleConfigurationSuffix)\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **              Eagle Per-Configuration Output Path Properties              **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(EagleDir)' != '' And '$(Configuration)' != ''">
+    <!--
+        NOTE: The non-package final output files need to go in one place.
+    -->
+    <EagleBinaryOutputPath Condition="'$(EagleBinaryOutputPath)' == ''">$(EagleDir)\bin\$(Configuration)$(EagleConfigurationSuffix)\bin\</EagleBinaryOutputPath>
+
+    <!--
+        NOTE: The package final output files need to go in their package
+              specific directory.
+    -->
+    <EaglePackageOutputPath Condition="'$(EaglePackageOutputPath)' == ''">$(EagleDir)\bin\$(Configuration)$(EagleConfigurationSuffix)\lib\$(AssemblyName)$(EaglePackageVersion)\</EaglePackageOutputPath>
+
+    <!--
+        NOTE: Setup the location of the library project directory relative to
+              the base Eagle directory.
+    -->
+    <EagleLibraryDir Condition="'$(EagleLibraryDir)' == ''">$(EagleDir)\Library\</EagleLibraryDir>
+
+    <!--
+        NOTE: Setup the location of the library generated files directory
+              relative to the library project directory.
+    -->
+    <EagleLibraryGeneratedDir Condition="'$(EagleLibraryGeneratedDir)' == ''">$(EagleLibraryDir)Generated\</EagleLibraryGeneratedDir>
+
+    <!--
+        NOTE: Setup the location of the library resource files directory
+              relative to the library project directory.
+    -->
+    <EagleLibraryResourcesDir Condition="'$(EagleLibraryResourcesDir)' == ''">$(EagleLibraryDir)Resources\</EagleLibraryResourcesDir>
+
+    <!--
+        NOTE: Setup the location of the library tools directory relative to the
+              library project directory.
+    -->
+    <EagleLibraryToolsDir Condition="'$(EagleLibraryToolsDir)' == ''">$(EagleLibraryDir)Tools\</EagleLibraryToolsDir>
+
+    <!--
+        NOTE: Setup the location of the Eagle assemblies containing the custom
+              MSBuild tasks.
+    -->
+    <EagleTaskPath Condition="'$(EagleTaskPath)' == ''">$(EagleDir)\bin\$(Configuration)$(EagleConfigurationSuffix)\bin\BuildTasks\</EagleTaskPath>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                   Eagle Strong Name Signing Properties                   **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(EagleDir)' != ''">
+    <!--
+        NOTE: This is the strong name key path for all builds.  This property
+              can be overridden in the project file and is used to locate the
+              strong name key used to sign the output assembly.
+    -->
+    <EagleStrongNameDir Condition="'$(EagleStrongNameDir)' == ''">$(EagleDir)\Keys</EagleStrongNameDir>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        NOTE: This is the strong name key prefix for all builds.  This property
+              can be overridden in the project file and is used to help control
+              the name of the strong name key used to sign the output assembly.
+    -->
+    <!--
+    <EagleStrongNamePrefix Condition="'$(EagleStrongNamePrefix)' == ''">EagleBeta</EagleStrongNamePrefix>
+    <EagleStrongNamePrefix Condition="'$(EagleStrongNamePrefix)' == ''">EagleStrong</EagleStrongNamePrefix>
+    -->
+    <EagleStrongNamePrefix Condition="'$(EagleStrongNamePrefix)' == ''">EagleFast</EagleStrongNamePrefix>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **             Eagle Debug Build Strong Name Signing Properties             **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(EagleStrongNameDir)' != '' And '$(Configuration)' == 'Debug'">
+    <!--
+        NOTE: Sign the assembly?
+    -->
+    <SignAssembly Condition="'$(SignAssembly)' == ''">true</SignAssembly>
+
+    <!--
+        NOTE: Use delay signing?  We almost always need to do this because we
+              modify the executables with build tasks.
+    -->
+    <DelaySign Condition="'$(DelaySign)' == ''">true</DelaySign>
+
+    <!--
+        NOTE: This is the public strong name key file for debug builds.
+    -->
+    <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == '' And '$(DelaySign)' == 'true'">$(EagleStrongNameDir)\$(EagleStrongNamePrefix)Public.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == '' And '$(DelaySign)' == 'false'">$(EagleStrongNameDir)\$(EagleStrongNamePrefix)Private.snk</AssemblyOriginatorKeyFile>
+
+    <!--
+        NOTE: This is the private strong name key pair file for debug builds.
+
+              For security reasons, this file is not included in the public
+              source distribution.
+    -->
+    <EaglePrivateKeyFile Condition="'$(EaglePrivateKeyFile)' == ''">$(EagleStrongNameDir)\$(EagleStrongNamePrefix)Private.snk</EaglePrivateKeyFile>
+    <AssemblyPrivateKeyFile Condition="'$(AssemblyPrivateKeyFile)' == ''">$(EagleStrongNameDir)\$(EagleStrongNamePrefix)Private.snk</AssemblyPrivateKeyFile>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **            Eagle Release Build Strong Name Signing Properties            **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(EagleStrongNameDir)' != '' And '$(Configuration)' == 'Release'">
+    <!--
+        NOTE: Sign the assembly?
+    -->
+    <SignAssembly Condition="'$(SignAssembly)' == ''">true</SignAssembly>
+
+    <!--
+        NOTE: Use delay signing?  We almost always need to do this because we
+              modify the executables with build tasks.
+    -->
+    <DelaySign Condition="'$(DelaySign)' == ''">true</DelaySign>
+
+    <!--
+        NOTE: This is the public strong name key file for release builds.
+    -->
+    <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == '' And '$(DelaySign)' == 'true'">$(EagleStrongNameDir)\$(EagleStrongNamePrefix)Public.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == '' And '$(DelaySign)' == 'false'">$(EagleStrongNameDir)\$(EagleStrongNamePrefix)Private.snk</AssemblyOriginatorKeyFile>
+
+    <!--
+        NOTE: This is the private strong name key pair file for release builds.
+
+              For security reasons, this file is not included in the public
+              source distribution.
+    -->
+    <EaglePrivateKeyFile Condition="'$(EaglePrivateKeyFile)' == ''">$(EagleStrongNameDir)\$(EagleStrongNamePrefix)Private.snk</EaglePrivateKeyFile>
+    <AssemblyPrivateKeyFile Condition="'$(AssemblyPrivateKeyFile)' == ''">$(EagleStrongNameDir)\$(EagleStrongNamePrefix)Private.snk</AssemblyPrivateKeyFile>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **          Forcibly Disable NuGet Package Restore (non-.NET Core)          **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <ResolveNuGetPackages Condition="'$(TargetFramework)' != 'netstandard2.0' And '$(TargetFramework)' != 'netstandard2.1' And '$(TargetFramework)' != 'netcoreapp2.0' And '$(TargetFramework)' != 'netcoreapp2.1' And '$(TargetFramework)' != 'netcoreapp2.2' And '$(TargetFramework)' != 'netcoreapp3.0' And '$(TargetFramework)' != 'netcoreapp3.1'">false</ResolveNuGetPackages>
+  </PropertyGroup>
+</Project>

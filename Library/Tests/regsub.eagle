@@ -1,0 +1,712 @@
+###############################################################################
+#
+# regsub.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=636939
+###############################################################################
+
+proc foo { args } {lappend ::z $args; return $args}
+proc bar { args } {lappend ::z $args; return ""}
+proc splog { args } {lappend ::z $args; break}
+
+###############################################################################
+
+runTest {test regsub-98.1 {regsub -extra handling} -setup {
+  unset -nocomplain test pattern string
+} -body {
+  set pattern this
+  set string "this is a test."
+
+  list [regsub -- $pattern $string {\P} test] $test \
+      [regsub -- $pattern $string {\I} test] $test \
+      [regsub -- $pattern $string {\S} test] $test \
+      [regsub -- $pattern $string {\S that} test] $test \
+      [regsub -extra -- $pattern $string {\P} test] $test \
+      [regsub -extra -- $pattern $string {\I} test] $test \
+      [regsub -extra -- $pattern $string {\S} test] $test \
+      [regsub -extra -- $pattern $string {\S that} test] $test
+} -cleanup {
+  unset -nocomplain test pattern string
+} -constraints {eagle} -result {1 {\P is a test.} 1 {\I is a test.} 1 {\S is a\
+test.} 1 {\S that is a test.} 1 {this is a test.} 1 {this is a test. is a\
+test.} 1 {\S is a test.} 1 {\S that that is a test.}}}
+
+###############################################################################
+
+runTest {test regsub-98.2 {regsub subSpec backslash handling} -setup {
+  unset -nocomplain test pattern string
+} -body {
+  set pattern (this)
+  set string "this is a test."
+
+  list [regsub -- $pattern $string {"} test] $test \
+      [regsub -- $pattern $string {\"} test] $test \
+      [regsub -- $pattern $string \\ test] $test \
+      [regsub -- $pattern $string {\\} test] $test \
+      [regsub -- $pattern $string \\\\ test] $test \
+      [regsub -- $pattern $string {\\\\} test] $test \
+      [regsub -- $pattern $string \\\\\\ test] $test \
+      [regsub -- $pattern $string {\\\\\\} test] $test \
+      [regsub -- $pattern $string {&} test] $test \
+      [regsub -- $pattern $string {\&} test] $test \
+      [regsub -- $pattern $string {0} test] $test \
+      [regsub -- $pattern $string {\0} test] $test \
+      [regsub -- $pattern $string {1} test] $test \
+      [regsub -- $pattern $string {\1} test] $test \
+      [regsub -- $pattern $string {2} test] $test \
+      [regsub -- $pattern $string {\2} test] $test \
+      [regsub -- $pattern $string {n} test] $test \
+      [regsub -- $pattern $string {\n} test] $test
+} -cleanup {
+  unset -nocomplain test pattern string
+} -result {1 {" is a test.} 1 {\" is a test.} 1 {\ is a test.} 1 {\ is a test.}\
+1 {\ is a test.} 1 {\\ is a test.} 1 {\\ is a test.} 1 {\\\ is a test.} 1 {this\
+is a test.} 1 {& is a test.} 1 {0 is a test.} 1 {this is a test.} 1 {1 is a\
+test.} 1 {this is a test.} 1 {2 is a test.} 1 { is a test.} 1 {n is a test.} 1\
+{\n is a test.}}}
+
+###############################################################################
+
+runTest {test regsub-98.3 {regsub subSpec backslash -nostrict} -setup {
+  unset -nocomplain test pattern string
+} -body {
+  set pattern (this)
+  set string "this is a test."
+
+  list [regsub -nostrict -- $pattern $string {"} test] $test \
+      [regsub -nostrict -- $pattern $string {\"} test] $test \
+      [regsub -nostrict -- $pattern $string \\ test] $test \
+      [regsub -nostrict -- $pattern $string {\\} test] $test \
+      [regsub -nostrict -- $pattern $string \\\\ test] $test \
+      [regsub -nostrict -- $pattern $string {\\\\} test] $test \
+      [regsub -nostrict -- $pattern $string \\\\\\ test] $test \
+      [regsub -nostrict -- $pattern $string {\\\\\\} test] $test \
+      [regsub -nostrict -- $pattern $string {&} test] $test \
+      [regsub -nostrict -- $pattern $string {\&} test] $test \
+      [regsub -nostrict -- $pattern $string {0} test] $test \
+      [regsub -nostrict -- $pattern $string {\0} test] $test \
+      [regsub -nostrict -- $pattern $string {1} test] $test \
+      [regsub -nostrict -- $pattern $string {\1} test] $test \
+      [regsub -nostrict -- $pattern $string {2} test] $test \
+      [regsub -nostrict -- $pattern $string {\2} test] $test \
+      [regsub -nostrict -- $pattern $string {n} test] $test \
+      [regsub -nostrict -- $pattern $string {\n} test] $test
+} -cleanup {
+  unset -nocomplain test pattern string
+} -constraints {eagle} -result {1 {" is a test.} 1 {" is a test.} 1 {\ is a\
+test.} 1 {\ is a test.} 1 {\ is a test.} 1 {\\ is a test.} 1 {\\ is a test.} 1\
+{\\\ is a test.} 1 {this is a test.} 1 {& is a test.} 1 {0 is a test.} 1 {this\
+is a test.} 1 {1 is a test.} 1 {this is a test.} 1 {2 is a test.} 1 { is a\
+test.} 1 {n is a test.} 1 {n is a test.}}}
+
+###############################################################################
+
+runTest {test regsub-98.4 {regsub -eval script without -extra} -setup {
+  unset -nocomplain test script pattern string subSpec
+} -body {
+  set script {
+    list "\\P" "\\I" "\\S"
+  }
+
+  set pattern (this)
+  set string "this is a test."
+  set subSpec that
+
+  list [regsub -eval $script -- $pattern $string $subSpec test] $test
+} -cleanup {
+  unset -nocomplain test script pattern string subSpec
+} -constraints {eagle} -result {1 {{\P} {\I} {\S} is a test.}}}
+
+###############################################################################
+
+runTest {test regsub-98.5 {regsub -eval script with -extra} -setup {
+  unset -nocomplain test script pattern string subSpec
+} -body {
+  set script {
+    list "\\P" "\\I" "\\S"
+  }
+
+  set pattern (this)
+  set string "this is a test."
+  set subSpec that
+
+  list [regsub -eval $script -extra -- $pattern $string $subSpec test] $test
+} -cleanup {
+  unset -nocomplain test script pattern string subSpec
+} -constraints {eagle} -result {1 {(this) {this is a test.} that is a test.}}}
+
+###############################################################################
+
+runTest {test regsub-99.1 {regsub -eval/override matches no cap all} -setup {
+  unset -nocomplain ::z
+} -body {
+  regsub -eval [list foo \\0 \\1 \\2 \\& & \\\\] -all -nocase -- {.*} \
+      "this is a test..." ""
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {{this is a test...} {} {} &\
+{this is a test...} \\{} {} {} & {} \\}}
+
+###############################################################################
+
+runTest {test regsub-99.2 {regsub -eval, error} -body {
+  regsub -eval [list error "bad replacement..."] -all -nocase -- {.*} \
+      "this is a test..." ""
+} -constraints {eagle} -returnCodes 1 -result {bad replacement...}}
+
+###############################################################################
+
+runTest {test regsub-99.3 {regsub double output} -setup {
+  unset -nocomplain test
+} -body {
+  list [regsub -all -nocase -- {.} "this is a test..." "\\0\\0" test] [set test]
+} -cleanup {
+  unset -nocomplain test
+} -result {17 {tthhiiss  iiss  aa  tteesstt......}}}
+
+###############################################################################
+
+runTest {test regsub-99.4 {regsub -eval/override matches cap all} -setup {
+  unset -nocomplain ::z
+} -body {
+  list [regsub -eval [list foo \\0 \\1 \\2 \\& & \\\\] -all -nocase -- {(.*)} \
+      "this is a test..." ""] $::z
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {{{this is a test...} {this is a test...} {} &\
+{this is a test...} \\{} {} {} & {} \\} {{{this is a test...}\
+{this is a test...} {} & {this is a test...} \\} {{} {} {} & {} \\}}}}
+
+###############################################################################
+
+runTest {test regsub-99.5 {regsub -eval/default matches cap all} -setup {
+  unset -nocomplain ::z
+} -body {
+  list [regsub -eval [list bar \\0 \\1 \\2 \\& & \\\\] -all -nocase -- {(.*)} \
+      "this is a test..." ""] $::z
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {{} {{{this is a test...} {this is a test...}\
+{} & {this is a test...} \\} {{} {} {} & {} \\}}}}
+
+###############################################################################
+
+runTest {test regsub-99.6 {regsub -eval/override matches no cap} -setup {
+  unset -nocomplain ::z
+} -body {
+  list [regsub -eval [list foo \\0 \\1 \\2 \\& & \\] -all -nocase -- {.} \
+      "this is a test..." ""] $::z
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {{t {} {} & t \\h {} {} & h \\i {} {} & i\
+\\s {} {} & s \\{ } {} {} & { } \\i {} {} & i \\s {} {} & s \\{ } {} {} & { }\
+\\a {} {} & a \\{ } {} {} & { } \\t {} {} & t \\e {} {} & e \\s {} {} & s\
+\\t {} {} & t \\. {} {} & . \\. {} {} & . \\. {} {} & . \\} {{t {} {} & t \\}\
+{h {} {} & h \\} {i {} {} & i \\} {s {} {} & s \\} {{ } {} {} & { } \\}\
+{i {} {} & i \\} {s {} {} & s \\} {{ } {} {} & { } \\} {a {} {} & a \\}\
+{{ } {} {} & { } \\} {t {} {} & t \\} {e {} {} & e \\} {s {} {} & s \\}\
+{t {} {} & t \\} {. {} {} & . \\} {. {} {} & . \\} {. {} {} & . \\}}}}
+
+###############################################################################
+
+runTest {test regsub-99.7 {regsub -eval/override matches cap} -setup {
+  unset -nocomplain ::z
+} -body {
+  list [regsub -eval [list foo \\0 \\1 \\2 \\& & \\] -all -nocase -- {(.)} \
+      "this is a test..." ""] $::z
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {{t t {} & t \\h h {} & h \\i i {} & i\
+\\s s {} & s \\{ } { } {} & { } \\i i {} & i \\s s {} & s \\{ } { } {} & { }\
+\\a a {} & a \\{ } { } {} & { } \\t t {} & t \\e e {} & e \\s s {} & s\
+\\t t {} & t \\. . {} & . \\. . {} & . \\. . {} & . \\} {{t t {} & t \\}\
+{h h {} & h \\} {i i {} & i \\} {s s {} & s \\} {{ } { } {} & { } \\}\
+{i i {} & i \\} {s s {} & s \\} {{ } { } {} & { } \\} {a a {} & a \\}\
+{{ } { } {} & { } \\} {t t {} & t \\} {e e {} & e \\} {s s {} & s \\}\
+{t t {} & t \\} {. . {} & . \\} {. . {} & . \\} {. . {} & . \\}}}}
+
+###############################################################################
+
+runTest {test regsub-99.8 {regsub -eval/override matches cap} -setup {
+  unset -nocomplain ::z
+} -body {
+  list [regsub -eval [list foo \\0 \\1 \\2 \\& & \\\\] -all -nocase -- {(.)} \
+      "this is a test..." ""] $::z
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {{t t {} & t \\h h {} & h \\i i {} & i\
+\\s s {} & s \\{ } { } {} & { } \\i i {} & i \\s s {} & s \\{ } { } {} & { }\
+\\a a {} & a \\{ } { } {} & { } \\t t {} & t \\e e {} & e \\s s {} & s\
+\\t t {} & t \\. . {} & . \\. . {} & . \\. . {} & . \\} {{t t {} & t \\}\
+{h h {} & h \\} {i i {} & i \\} {s s {} & s \\} {{ } { } {} & { } \\}\
+{i i {} & i \\} {s s {} & s \\} {{ } { } {} & { } \\} {a a {} & a \\}\
+{{ } { } {} & { } \\} {t t {} & t \\} {e e {} & e \\} {s s {} & s \\}\
+{t t {} & t \\} {. . {} & . \\} {. . {} & . \\} {. . {} & . \\}}}}
+
+###############################################################################
+
+runTest {test regsub-99.9 {regsub -eval/override match missing} -setup {
+  unset -nocomplain ::z
+} -body {
+  list [regsub -eval [list foo \\0] -all -nocase -- {[^this]} \
+      "this is a test..." ""] $::z
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {{this{ }is{ }a{ }test...}\
+{{{ }} {{ }} a {{ }} e . . .}}}
+
+###############################################################################
+
+runTest {test regsub-99.10 {regsub -eval/override sub-match missing} -setup {
+  unset -nocomplain ::z
+} -body {
+  list [regsub -eval [list foo \\1] -all -nocase -- {[^this]} \
+      "this is a test..." ""] $::z
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {this{}is{}{}{}t{}st{}{}{}\
+{{{}} {{}} {{}} {{}} {{}} {{}} {{}} {{}}}}}
+
+###############################################################################
+
+runTest {test regsub-99.11 {regsub -eval/override match} -setup {
+  unset -nocomplain ::z
+} -body {
+  list [regsub -eval [list foo \\0] -all -nocase -- {[this]} \
+      "this is a test..." ""] $::z
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {{this is a test...} {t h i s i s t s t}}}
+
+###############################################################################
+
+runTest {test regsub-99.12 {regsub -eval/override sub-match} -setup {
+  unset -nocomplain ::z
+} -body {
+  list [regsub -eval [list foo \\1] -all -nocase -- {[this]} \
+      "this is a test..." ""] $::z
+} -cleanup {
+  unset -nocomplain ::z
+} -constraints {eagle} -result {{{}{}{}{} {}{} a {}e{}{}...}\
+{{{}} {{}} {{}} {{}} {{}} {{}} {{}} {{}} {{}}}}}
+
+###############################################################################
+
+rename foo ""
+rename bar ""
+rename splog ""
+
+###############################################################################
+
+runTest {test regsub-99.13 {something regsub this way comes} -body {
+  #
+  # NOTE: Create a regular expression to capture "reserved" characters.
+  #
+  set exp {[][{};#\\\$\s\u0080-\uFFFF]}
+
+  #
+  # NOTE: Create a string with a lot of "reserved" characters.
+  #
+  set string {	
+this is a test. \t\v\r\n ~`!@#$%^&*() []{}<>\|/?-_=+"'}
+
+  #
+  # NOTE: We will be substituting this short script fragment for each
+  #       "reserved" character we find and then the entire result will go
+  #       through [subst].  All the created objects will be captured into
+  #       the "obj" variable for later cleanup.
+  #
+  set subSpec {[string format "\\\\u{0:X4}" \
+        [object invoke -parametertypes Byte Convert ToInt16 \
+            [set obj([incr idx]) \
+                [object invoke -create \
+                    [set obj([incr idx]) \
+                        [object create String &]] Chars 0]]]]}
+
+  set idx 0
+
+  string map [list "\\u0020" " "] \
+      [subst [regsub -all -quote -- $exp $string $subSpec]]
+} -cleanup {
+  unset -nocomplain exp string subSpec idx obj
+} -constraints {eagle command.object} -result \
+{\u0009\u000A\u000B\u000Cthis is a test. \u005Ct\u005Cv\u005Cr\u005Cn\
+~`!@\u0023\u0024%^&*() \u005B\u005D\u007B\u007D<>\u005C|/?-_=+"'}}
+
+###############################################################################
+
+runTest {test regsub-99.14 {regsub -eval nested} -setup {
+  proc outerProc { arg } {
+    regsub -eval [list innerProc $arg] -all -- {[st]} $arg ""
+    lappend ::result [list o $arg [incr ::count(outer)]]
+  }
+
+  proc innerProc { arg } {
+    lappend ::result [list i $arg [incr ::count(inner)]]
+  }
+
+  unset -nocomplain count result output
+} -body {
+  set count(outer) 0; set count(inner) 0; set count(total) 0
+
+  incr count(total) [regsub -eval [list outerProc \\1] -all -- {([this])} \
+      "this is a test..." "" output]
+
+  list [list inner $count(inner) outer $count(outer) total $count(total)] \
+      $result
+} -cleanup {
+  unset -nocomplain count result output
+
+  rename innerProc ""
+  rename outerProc ""
+} -constraints {eagle} -result {{inner 6 outer 9 total 9} {{i t 1} {o t 1} {o h\
+2} {o i 3} {i s 2} {o s 4} {o i 5} {i s 3} {o s 6} {i t 4} {o t 7} {i s 5} {o s\
+8} {i t 6} {o t 9}}}}
+
+###############################################################################
+
+#
+# HACK: For Eagle, fake the [scan] functionality required by the test.
+#
+if {[isEagle] && [llength [info commands scan]] == 0} then {
+  proc scan { string format {varName ""} } {
+    if {[string length $string] == 0} then {return -1}
+    if {$format ne "%c"} then {error "format not implemented"}
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName x
+      set x [string ordinal $string 0]
+      return 1
+    } else {
+      return [string ordinal $string 0]
+    }
+  }
+
+  set added_scan_proc true
+}
+
+###############################################################################
+
+#
+# NOTE: Revision 1.2 of TIP #463 actually says the expected result should be
+#       "ab cd%7b,} ij" here; however, I think that is incorrect because it
+#       would require omitting the "ef gh" portion, which seems wrong.
+#
+runTest {test regsub-100.1 {regsub -command (TIP #463)} -body {
+  regsub -command {\W(\W)} "ab cd,{ef gh,} ij" \
+      {apply {{x y} {scan $y %c c; format %%%02x $c}}}
+} -constraints {tip194 tip463} -result "ab cd%7bef gh,\} ij"}
+
+###############################################################################
+
+runTest {test regsub-100.2 {TIP #463 with TIP #285} -setup {
+  unset -nocomplain code result matches
+} -body {
+  set code [catch {
+    regsub -all -command {\W(\W)} "ab cd,{ef gh,} ij" \
+        {apply {{x y} {if {$x eq ",\}"} then {interp cancel}; \
+        lappend ::matches $y; scan $y %c c; format %%%02x $c}}}
+  } result]
+
+  list $code $result $matches
+} -cleanup {
+  unset -nocomplain code result matches
+} -constraints {tip285 tip463} -result {1 {eval canceled} {\{}}}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands scan]] == 1 && \
+    [info exists added_scan_proc]} then {
+  #
+  # NOTE: Remove the [scan] helper procedure that we added above.
+  #
+  rename scan ""; unset added_scan_proc
+}
+
+###############################################################################
+
+#
+# WARNING: This must be done outside the context of an active test to work
+#          properly because the test suite redefines the [puts] command
+#          while tests are active.
+#
+if {[isEagle]} then {debug vout stdout true}
+
+###############################################################################
+
+runTest {test regsub-100.3 {regsub -command (TIP #463)} -body {
+  regsub -all -command {\w} ab-cd-ef-gh {puts}
+} -constraints {tip463} -output \
+{a
+b
+c
+d
+e
+f
+g
+h
+} -result {---}}
+
+###############################################################################
+
+if {[isEagle]} then {debug vout stdout false}
+
+###############################################################################
+
+runTest {test regsub-200.1 {regsub -extra with \M} -setup {
+  unset -nocomplain pattern data
+} -body {
+  set pattern {^\(?(\d)(\d)(\d)\)?-(\d)(\d)(\d)-(\d)(\d)(\d)(\d)$}
+
+  set data(1) 123-456-7890
+  set data(2) (123)-456-7890
+
+  regsub -all -extra $pattern $data(1) {\M10} data(3)
+  regsub -all -extra $pattern $data(2) {\M10} data(4)
+
+  regsub -all -extra $pattern $data(1) {P-\M10} data(5)
+  regsub -all -extra $pattern $data(2) {P-\M10} data(6)
+
+  regsub -all -extra $pattern $data(1) {P-\M10-S} data(7)
+  regsub -all -extra $pattern $data(2) {P-\M10-S} data(8)
+
+  regsub -all -extra $pattern $data(1) {\M10-S} data(9)
+  regsub -all -extra $pattern $data(2) {\M10-S} data(10)
+
+  list $data(3) $data(4) $data(5) $data(6) \
+      $data(7) $data(8) $data(9) $data(10)
+} -cleanup {
+  unset -nocomplain pattern data
+} -constraints {eagle} -result {0 0 P-0 P-0 P-0-S P-0-S 0-S 0-S}}
+
+###############################################################################
+
+runTest {test regsub-200.2 {regsub -eval and -extra with \M} -setup {
+  unset -nocomplain x pattern data
+} -body {
+  set pattern {^\(?(\d)(\d)(\d)\)?-(\d)(\d)(\d)-(\d)(\d)(\d)(\d)$}
+
+  set data(1) 123-456-7890
+  set data(2) (123)-456-7890
+
+  regsub -all -eval {lappend x \\M10} -extra $pattern $data(1) "" data(3)
+  regsub -all -eval {lappend x \\M10} -extra $pattern $data(2) "" data(4)
+
+  regsub -all -eval {lappend x P-\\M10} -extra $pattern $data(1) "" data(5)
+  regsub -all -eval {lappend x P-\\M10} -extra $pattern $data(2) "" data(6)
+
+  regsub -all -eval {lappend x P-\\M10-S} -extra $pattern $data(1) "" data(7)
+  regsub -all -eval {lappend x P-\\M10-S} -extra $pattern $data(2) "" data(8)
+
+  regsub -all -eval {lappend x \\M10-S} -extra $pattern $data(1) "" data(9)
+  regsub -all -eval {lappend x \\M10-S} -extra $pattern $data(2) "" data(10)
+
+  list x $x data $data(3) $data(4) $data(5) $data(6) \
+      $data(7) $data(8) $data(9) $data(10)
+} -cleanup {
+  unset -nocomplain x pattern data
+} -constraints {eagle} -result {x {0 0 P-0 P-0 P-0-S P-0-S 0-S 0-S} data 0 {0\
+0} {0 0 P-0} {0 0 P-0 P-0} {0 0 P-0 P-0 P-0-S} {0 0 P-0 P-0 P-0-S P-0-S} {0 0\
+P-0 P-0 P-0-S P-0-S 0-S} {0 0 P-0 P-0 P-0-S P-0-S 0-S 0-S}}}
+
+###############################################################################
+
+runTest {test regsub-300.1 {regsub -extra with \N} -setup {
+  unset -nocomplain pattern data
+} -body {
+  set pattern [string map [list \r "" \n "" " " ""] {
+    ^\(?
+    (?<areaCode>(\d)(\d)(\d))
+    \)?
+    -?
+    (?<centralOfficeCode>(\d)(\d)(\d))
+    -?
+    (?<stationNumber>(\d)(\d)(\d)(\d))$
+  }]
+
+  set data(1) 123-456-7890
+  set data(2) (123)-456-7890
+
+  regsub -all -extra $pattern $data(1) {\N<areaCode>} data(3)
+  regsub -all -extra $pattern $data(2) {\N<areaCode>} data(4)
+  regsub -all -extra $pattern $data(1) {\N<centralOfficeCode>} data(5)
+  regsub -all -extra $pattern $data(2) {\N<centralOfficeCode>} data(6)
+  regsub -all -extra $pattern $data(1) {\N<stationNumber>} data(7)
+  regsub -all -extra $pattern $data(2) {\N<stationNumber>} data(8)
+
+  regsub -all -extra $pattern $data(1) {P-\N<areaCode>} data(9)
+  regsub -all -extra $pattern $data(2) {P-\N<areaCode>} data(10)
+  regsub -all -extra $pattern $data(1) {P-\N<centralOfficeCode>} data(11)
+  regsub -all -extra $pattern $data(2) {P-\N<centralOfficeCode>} data(12)
+  regsub -all -extra $pattern $data(1) {P-\N<stationNumber>} data(13)
+  regsub -all -extra $pattern $data(2) {P-\N<stationNumber>} data(14)
+
+  regsub -all -extra $pattern $data(1) {P-\N<areaCode>-S} data(15)
+  regsub -all -extra $pattern $data(2) {P-\N<areaCode>-S} data(16)
+  regsub -all -extra $pattern $data(1) {P-\N<centralOfficeCode>-S} data(17)
+  regsub -all -extra $pattern $data(2) {P-\N<centralOfficeCode>-S} data(18)
+  regsub -all -extra $pattern $data(1) {P-\N<stationNumber>-S} data(19)
+  regsub -all -extra $pattern $data(2) {P-\N<stationNumber>-S} data(20)
+
+  regsub -all -extra $pattern $data(1) {\N<areaCode>-S} data(21)
+  regsub -all -extra $pattern $data(2) {\N<areaCode>-S} data(22)
+  regsub -all -extra $pattern $data(1) {\N<centralOfficeCode>-S} data(23)
+  regsub -all -extra $pattern $data(2) {\N<centralOfficeCode>-S} data(24)
+  regsub -all -extra $pattern $data(1) {\N<stationNumber>-S} data(25)
+  regsub -all -extra $pattern $data(2) {\N<stationNumber>-S} data(26)
+
+  list $data(3) $data(4) $data(5) $data(6) \
+      $data(7) $data(8) $data(9) $data(10) \
+      $data(11) $data(12) $data(13) $data(14) \
+      $data(15) $data(16) $data(17) $data(18) \
+      $data(19) $data(20) $data(21) $data(22) \
+      $data(23) $data(24) $data(25) $data(26)
+} -cleanup {
+  unset -nocomplain pattern data
+} -constraints {eagle} -result {123 123 456 456 7890 7890 P-123 P-123 P-456\
+P-456 P-7890 P-7890 P-123-S P-123-S P-456-S P-456-S P-7890-S P-7890-S 123-S\
+123-S 456-S 456-S 7890-S 7890-S}}
+
+###############################################################################
+
+runTest {test regsub-300.2 {regsub -eval and -extra with \N} -setup {
+  unset -nocomplain x pattern data
+} -body {
+  set pattern [string map [list \r "" \n "" " " ""] {
+    ^\(?
+    (?<areaCode>(\d)(\d)(\d))
+    \)?
+    -?
+    (?<centralOfficeCode>(\d)(\d)(\d))
+    -?
+    (?<stationNumber>(\d)(\d)(\d)(\d))$
+  }]
+
+  set data(1) 123-456-7890
+  set data(2) (123)-456-7890
+
+  regsub -all -eval {lappend x \\N<areaCode>} -extra \
+      $pattern $data(1) "" data(3)
+
+  regsub -all -eval {lappend x \\N<areaCode>} -extra \
+      $pattern $data(2) "" data(4)
+
+  regsub -all -eval {lappend x \\N<centralOfficeCode>} -extra \
+      $pattern $data(1) "" data(5)
+
+  regsub -all -eval {lappend x \\N<centralOfficeCode>} -extra \
+      $pattern $data(2) "" data(6)
+
+  regsub -all -eval {lappend x \\N<stationNumber>} -extra \
+      $pattern $data(1) "" data(7)
+
+  regsub -all -eval {lappend x \\N<stationNumber>} -extra \
+      $pattern $data(2) "" data(8)
+
+  regsub -all -eval {lappend x P-\\N<areaCode>} -extra \
+      $pattern $data(1) "" data(9)
+
+  regsub -all -eval {lappend x P-\\N<areaCode>} -extra \
+      $pattern $data(2) "" data(10)
+
+  regsub -all -eval {lappend x P-\\N<centralOfficeCode>} -extra \
+      $pattern $data(1) "" data(11)
+
+  regsub -all -eval {lappend x P-\\N<centralOfficeCode>} -extra \
+      $pattern $data(2) "" data(12)
+
+  regsub -all -eval {lappend x P-\\N<stationNumber>} -extra \
+      $pattern $data(1) "" data(13)
+
+  regsub -all -eval {lappend x P-\\N<stationNumber>} -extra \
+      $pattern $data(2) "" data(14)
+
+  regsub -all -eval {lappend x P-\\N<areaCode>-S} -extra \
+      $pattern $data(1) "" data(15)
+
+  regsub -all -eval {lappend x P-\\N<areaCode>-S} -extra \
+      $pattern $data(2) "" data(16)
+
+  regsub -all -eval {lappend x P-\\N<centralOfficeCode>-S} -extra \
+      $pattern $data(1) "" data(17)
+
+  regsub -all -eval {lappend x P-\\N<centralOfficeCode>-S} -extra \
+      $pattern $data(2) "" data(18)
+
+  regsub -all -eval {lappend x P-\\N<stationNumber>-S} -extra \
+      $pattern $data(1) "" data(19)
+
+  regsub -all -eval {lappend x P-\\N<stationNumber>-S} -extra \
+      $pattern $data(2) "" data(20)
+
+  regsub -all -eval {lappend x \\N<areaCode>-S} -extra \
+      $pattern $data(1) "" data(21)
+
+  regsub -all -eval {lappend x \\N<areaCode>-S} -extra \
+      $pattern $data(2) "" data(22)
+
+  regsub -all -eval {lappend x \\N<centralOfficeCode>-S} -extra \
+      $pattern $data(1) "" data(23)
+
+  regsub -all -eval {lappend x \\N<centralOfficeCode>-S} -extra \
+      $pattern $data(2) "" data(24)
+
+  regsub -all -eval {lappend x \\N<stationNumber>-S} -extra \
+      $pattern $data(1) "" data(25)
+
+  regsub -all -eval {lappend x \\N<stationNumber>-S} -extra \
+      $pattern $data(2) "" data(26)
+
+  list x $x data \
+      $data(3) $data(4) $data(5) $data(6) \
+      $data(7) $data(8) $data(9) $data(10) \
+      $data(11) $data(12) $data(13) $data(14) \
+      $data(15) $data(16) $data(17) $data(18) \
+      $data(19) $data(20) $data(21) $data(22) \
+      $data(23) $data(24) $data(25) $data(26)
+} -cleanup {
+  unset -nocomplain x pattern data
+} -constraints {eagle} -result {x {123 123 456 456 7890 7890 P-123 P-123 P-456\
+P-456 P-7890 P-7890 P-123-S P-123-S P-456-S P-456-S P-7890-S P-7890-S 123-S\
+123-S 456-S 456-S 7890-S 7890-S} data 123 {123 123} {123 123 456} {123 123 456\
+456} {123 123 456 456 7890} {123 123 456 456 7890 7890} {123 123 456 456 7890\
+7890 P-123} {123 123 456 456 7890 7890 P-123 P-123} {123 123 456 456 7890 7890\
+P-123 P-123 P-456} {123 123 456 456 7890 7890 P-123 P-123 P-456 P-456} {123 123\
+456 456 7890 7890 P-123 P-123 P-456 P-456 P-7890} {123 123 456 456 7890 7890\
+P-123 P-123 P-456 P-456 P-7890 P-7890} {123 123 456 456 7890 7890 P-123 P-123\
+P-456 P-456 P-7890 P-7890 P-123-S} {123 123 456 456 7890 7890 P-123 P-123 P-456\
+P-456 P-7890 P-7890 P-123-S P-123-S} {123 123 456 456 7890 7890 P-123 P-123\
+P-456 P-456 P-7890 P-7890 P-123-S P-123-S P-456-S} {123 123 456 456 7890 7890\
+P-123 P-123 P-456 P-456 P-7890 P-7890 P-123-S P-123-S P-456-S P-456-S} {123 123\
+456 456 7890 7890 P-123 P-123 P-456 P-456 P-7890 P-7890 P-123-S P-123-S P-456-S\
+P-456-S P-7890-S} {123 123 456 456 7890 7890 P-123 P-123 P-456 P-456 P-7890\
+P-7890 P-123-S P-123-S P-456-S P-456-S P-7890-S P-7890-S} {123 123 456 456 7890\
+7890 P-123 P-123 P-456 P-456 P-7890 P-7890 P-123-S P-123-S P-456-S P-456-S\
+P-7890-S P-7890-S 123-S} {123 123 456 456 7890 7890 P-123 P-123 P-456 P-456\
+P-7890 P-7890 P-123-S P-123-S P-456-S P-456-S P-7890-S P-7890-S 123-S 123-S}\
+{123 123 456 456 7890 7890 P-123 P-123 P-456 P-456 P-7890 P-7890 P-123-S\
+P-123-S P-456-S P-456-S P-7890-S P-7890-S 123-S 123-S 456-S} {123 123 456 456\
+7890 7890 P-123 P-123 P-456 P-456 P-7890 P-7890 P-123-S P-123-S P-456-S P-456-S\
+P-7890-S P-7890-S 123-S 123-S 456-S 456-S} {123 123 456 456 7890 7890 P-123\
+P-123 P-456 P-456 P-7890 P-7890 P-123-S P-123-S P-456-S P-456-S P-7890-S\
+P-7890-S 123-S 123-S 456-S 456-S 7890-S} {123 123 456 456 7890 7890 P-123 P-123\
+P-456 P-456 P-7890 P-7890 P-123-S P-123-S P-456-S P-456-S P-7890-S P-7890-S\
+123-S 123-S 456-S 456-S 7890-S 7890-S}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,105 @@
+###############################################################################
+#
+# lsearch.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test lsearch-99.1 {search increasing sorted list} -setup {
+  set x [list a b c d e f g h i j k l m n o p q r s t u v w x y z]
+} -body {
+  list [lsearch -sorted $x x] [lsearch -decreasing -sorted $x x]
+} -cleanup {
+  unset x
+} -result {23 -1}}
+
+###############################################################################
+
+runTest {test lsearch-99.2 {search decreasing sorted list} -setup {
+  set z [list z y x w v u t s r q p o n m l k j i h g f e d c b a]
+} -body {
+  list [lsearch -sorted $z x] [lsearch -decreasing -sorted $z x]
+} -cleanup {
+  unset z
+} -result {-1 2}}
+
+###############################################################################
+
+runTest {test lsearch-100.1 {-inverse with -exact} -body {
+  list [lsearch -exact -inverse [list a b c] a] \
+      [lsearch -exact -inverse [list d e f] a] \
+      [lsearch -exact -inverse [list a* b* c*] a] \
+      [lsearch -exact -inverse [list d* e* f*] a] \
+      [lsearch -exact -nocase -inverse [list a b c] A] \
+      [lsearch -exact -nocase -inverse [list d e f] A] \
+      [lsearch -exact -nocase -inverse [list a* b* c*] A] \
+      [lsearch -exact -nocase -inverse [list d* e* f*] A]
+} -constraints {eagle} -result {0 -1 -1 -1 0 -1 -1 -1}}
+
+###############################################################################
+
+runTest {test lsearch-100.2 {-inverse with -glob} -body {
+  list [lsearch -inverse [list a b c] a] \
+      [lsearch -inverse [list d e f] a] \
+      [lsearch -inverse [list a* b* c*] a] \
+      [lsearch -inverse [list d* e* f*] a] \
+      [lsearch -nocase -inverse [list a b c] a] \
+      [lsearch -nocase -inverse [list d e f] a] \
+      [lsearch -nocase -inverse [list a* b* c*] a] \
+      [lsearch -nocase -inverse [list d* e* f*] a] \
+      [lsearch -glob -inverse [list a b c] a] \
+      [lsearch -glob -inverse [list d e f] a] \
+      [lsearch -glob -inverse [list a* b* c*] a] \
+      [lsearch -glob -inverse [list d* e* f*] a] \
+      [lsearch -glob -nocase -inverse [list a b c] a] \
+      [lsearch -glob -nocase -inverse [list d e f] a] \
+      [lsearch -glob -nocase -inverse [list a* b* c*] a] \
+      [lsearch -glob -nocase -inverse [list d* e* f*] a]
+} -constraints {eagle} -result {0 -1 0 -1 0 -1 0 -1 0 -1 0 -1 0 -1 0 -1}}
+
+###############################################################################
+
+runTest {test lsearch-100.3 {-inverse with -regexp} -body {
+  list [lsearch -regexp -inverse [list a b c] a] \
+      [lsearch -regexp -inverse [list d e f] a] \
+      [lsearch -regexp -inverse [list {^a$} {^b$} {^c$}] a] \
+      [lsearch -regexp -inverse [list {^d$} {^e$} {^f$}] a] \
+      [lsearch -regexp -nocase -inverse [list a b c] A] \
+      [lsearch -regexp -nocase -inverse [list d e f] A] \
+      [lsearch -regexp -nocase -inverse [list {^a$} {^b$} {^c$}] A] \
+      [lsearch -regexp -nocase -inverse [list {^d$} {^e$} {^f$}] A]
+} -constraints {eagle} -result {0 -1 0 -1 0 -1 0 -1}}
+
+###############################################################################
+
+runTest {test lsearch-100.4 {-inverse with -all and -inline} -body {
+  list [lsearch -inverse -inline [list a* b* c*] a] \
+      [lsearch -inverse -inline [list d* e* f*] a] \
+      [lsearch -nocase -inverse -all -inline [list A* a* b* c*] a] \
+      [lsearch -nocase -inverse -all -inline [list D* d* e* f*] a]
+} -constraints {eagle} -result {a* {} {A* a*} {}}}
+
+###############################################################################
+
+runTest {test lsearch-100.5 {-inverse with -not and -inline} -body {
+  list [lsearch -inverse -not -inline [list a* b* c*] a] \
+      [lsearch -inverse -not -inline [list d* e* f*] a] \
+      [lsearch -nocase -not -inverse -all -inline [list A* a* b* c*] a] \
+      [lsearch -nocase -not -inverse -all -inline [list D* d* e* f*] a]
+} -constraints {eagle} -result {b* d* {b* c*} {D* d* e* f*}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

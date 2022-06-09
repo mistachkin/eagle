@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <title>$title</title>
+
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+
+    <meta name="engine" content="[info engine Name] [info engine PatchLevel]">
+    <meta name="generatedWith" content="[file tail [info script]]">
+    <meta name="generatedTemplate" content="[file tail $templateFileName]">
+    <meta name="generatedDateTime" content="[clock format [clock seconds]]">
+
+    <link rel="StyleSheet" type="text/css" href="css/method.css" media="screen">
+    <link rel="StyleSheet" type="text/css" href="css/method.css" media="print">
+
+    [
+      #
+      # NOTE: Common initialization goes here.
+      #
+      set indent "          "
+
+      #
+      # NOTE: No result (we do not want to insert anything here).
+      #
+      return ""
+    ]
+  </head>
+
+  <body>
+    <table>
+      <tr>
+        <td class="requirements">
+          Minimum Version: $minimumVersion
+          <br>
+          Compile Option(s): [expr {[string length $compileOptions] > 0 ? $compileOptions : "None."}]
+          <br>
+        </td>
+      </tr>
+      <tr>
+        <td class="identifier">
+          $namespaceName
+          <br>
+          $className
+          <br>
+          $memberType
+          <br>
+          $memberName
+          <br>
+        </td>
+      </tr>
+      <tr>
+        <td class="parameters">
+          [eval {
+            set result ""
+
+            foreach parameter $parameters {
+              append result $indent \
+                  "<span class=\"parameter\">$parameter</span>\r\n"
+
+              append result $indent "<br>\r\n"
+            }
+
+            set result
+          }]
+        </td>
+      </tr>
+      <tr>
+        <td class="returnType">
+          $returnType
+        </td>
+      </tr>
+      <tr>
+        <td class="notes">
+          [expr {[string length $notes] > 0 ? $notes : "None."}]
+        </td>
+      </tr>
+      <tr>
+        <td class="example">
+          [expr {[string length $example] > 0 ? $example : "None."}]
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

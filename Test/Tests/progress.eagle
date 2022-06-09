@@ -1,0 +1,24 @@
+###############################################################################
+#
+# progress.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Test Shell Status Reporting Test
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source test
+
+for {set x 0} {$x <= 100} {incr x} {
+  after 20
+  report result [appendArgs fakeTest-1. $x] Passed
+  report progress $x
+}
+

@@ -1,0 +1,179 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <EagleDir>$(MSBuildProjectDirectory)\..</EagleDir>
+  </PropertyGroup>
+  <Import Project="$(EagleDir)\Targets\Eagle.Presets.targets" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.50727</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{E0CA3F9E-C872-4549-B70A-0933209687DF}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>EagleExtensions</RootNamespace>
+    <AssemblyName>EagleExtensions</AssemblyName>
+    <BaseAddress>1644167168</BaseAddress>
+    <EagleProjectName>Eagle Extensions</EagleProjectName>
+  </PropertyGroup>
+  <Import Project="$(EagleDir)\Targets\Eagle.Builds.targets" />
+  <Import Project="$(EagleDir)\Targets\Eagle.Settings.targets" />
+  <PropertyGroup Condition="'$(EagleOnlyNetFx20)' != 'false'">
+    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleBinaryOutputPath)' != ''">
+    <OutputPath>$(EagleBinaryOutputPath)</OutputPath>
+    <DocumentationFile Condition="'$(EagleDocumentationFile)' != 'false'">$(EagleBinaryOutputPath)$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ReferencePath>$(EagleDir)\Externals\WiX;$(EagleWix30Directory)\bin;$(EagleWix35Directory)\bin;$(EagleWix36Directory)\bin;$(EagleWix37Directory)\bin;$(EagleWix38Directory)\bin;$(EagleWix39Directory)\bin;$(EagleWix310Directory)\bin;$(EagleWix311Directory)\bin</ReferencePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleWixDirectory)' != ''">
+    <ReferencePath>$(EagleWixDirectory);$(ReferencePath)</ReferencePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Xml" />
+    <Reference Include="WiX, Version=$(EagleWixVersion).0.0, Culture=neutral, PublicKeyToken=ce35f76fcda82bad, processorArchitecture=MSIL">
+      <Private>False</Private>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Components\Private\DefineConstants.cs" />
+    <Compile Include="Components\Private\PatchLevel.cs" />
+    <Compile Include="Extensions\Eagle.cs" />
+    <Compile Include="Extensions\Preprocessor.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Tests\Files\test.txt" />
+    <None Include="Tests\Scripts\test.eagle" />
+    <None Include="Tests\test.wxs" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(EagleOnlyNetFx20)' != 'false'">
+    <DefineConstants>$(DefineConstants);NET_20_ONLY</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleOfficial)' != 'false'">
+    <DefineConstants>$(DefineConstants);OFFICIAL</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleStable)' != 'false'">
+    <DefineConstants>$(DefineConstants);STABLE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EaglePatchLevel)' != 'false'">
+    <DefineConstants>$(DefineConstants);PATCHLEVEL</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleAssemblyDateTime)' != 'false'">
+    <DefineConstants>$(DefineConstants);ASSEMBLY_DATETIME</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleAssemblyRelease)' != 'false'">
+    <DefineConstants>$(DefineConstants);ASSEMBLY_RELEASE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleSourceId)' != 'false'">
+    <DefineConstants>$(DefineConstants);SOURCE_ID</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleSourceTimeStamp)' != 'false'">
+    <DefineConstants>$(DefineConstants);SOURCE_TIMESTAMP</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleAssemblyText)' != 'false'">
+    <DefineConstants>$(DefineConstants);ASSEMBLY_TEXT</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleAssemblyStrongNameTag)' != 'false'">
+    <DefineConstants>$(DefineConstants);ASSEMBLY_STRONG_NAME_TAG</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleThrowOnDisposed)' != 'false'">
+    <DefineConstants>$(DefineConstants);THROW_ON_DISPOSED</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(EagleSolution)' != 'false'">
+    <ProjectReference Include="..\Library\Eagle.csproj">
+      <Project>{2D4021DA-415C-4FAD-95FF-6ACA0974A677}</Project>
+      <Name>Eagle</Name>
+      <Private>False</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleSolution)' == 'false'">
+    <Reference Include="Eagle">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>$(EagleLkgDir)\bin\Eagle.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(EagleDir)\Targets\Eagle.targets" />
+  <PropertyGroup>
+    <BuildDependsOn>
+      EagleDetectUserBuilds;
+      EagleDetectUserSettings;
+      EagleDetectBuildTool;
+      EagleDetectOperatingSystem;
+      EagleDetectWix30;
+      EagleDetectWix35;
+      EagleDetectWix36;
+      EagleDetectWix37;
+      EagleDetectWix38;
+      EagleDetectWix39;
+      EagleDetectWix310;
+      EagleDetectWix311;
+      $(BuildDependsOn);
+      EagleStripPdbPath;
+      EagleStrongNameSign;
+      EagleAuthenticodeSign;
+      FixCopyFilesToOutputDirectory;
+      GetDoneFiles;
+      UpdateDoneFiles;
+    </BuildDependsOn>
+    <CleanDependsOn>
+      $(CleanDependsOn);
+      CleanWixOutputFiles;
+      CleanDoneFiles;
+    </CleanDependsOn>
+  </PropertyGroup>
+  <PropertyGroup Condition="(!Exists('$(EagleDir)\Externals\WiX\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleDir)\Externals\WiX\WiX.dll')) And
+                            (!Exists('$(EagleWix30Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleWix30Directory)\bin\WiX.dll')) And
+                            (!Exists('$(EagleWix35Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleWix35Directory)\bin\WiX.dll')) And
+                            (!Exists('$(EagleWix36Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleWix36Directory)\bin\WiX.dll')) And
+                            (!Exists('$(EagleWix37Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleWix37Directory)\bin\WiX.dll')) And
+                            (!Exists('$(EagleWix38Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleWix38Directory)\bin\WiX.dll')) And
+                            (!Exists('$(EagleWix39Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleWix39Directory)\bin\WiX.dll')) And
+                            (!Exists('$(EagleWix310Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleWix310Directory)\bin\WiX.dll')) And
+                            (!Exists('$(EagleWix311Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleWix311Directory)\bin\WiX.dll')) And
+                            (!Exists('$(EagleWixDirectory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                             !Exists('$(EagleWixDirectory)\bin\WiX.dll'))">
+    <!--
+        NOTE: We cannot build this project without the necessary reference
+              assemblies; therefore, skip building it altogether.
+    -->
+    <BuildDependsOn>
+      MissingWix
+    </BuildDependsOn>
+  </PropertyGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

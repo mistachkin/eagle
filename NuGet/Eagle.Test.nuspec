@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <metadata>
+    <id>Eagle.Test</id>
+    <title>The Eagle Project (Test)</title>
+    <version>1.0.X.X</version>
+    <authors>Eagle Development Team</authors>
+    <description>This is a pre-release package and is not intended for production use.  An implementation of the Tcl scripting language.</description>
+    <language>en-US</language>
+    <projectUrl>https://eagle.to/</projectUrl>
+    <iconUrl>https://eagle.to/images/eagle128.png</iconUrl>
+    <licenseUrl>https://eagle.to/enterprise/license.html</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <tags>automation console database dynamic extensibility functional integration interop interpreter mono msbuild parser plugin powershell reflection scripting sockets tcl/tk winforms wix wpf</tags>
+    <copyright>Copyright &#x00A9; 2007-2012 by Joe Mistachkin.  All rights reserved.</copyright>
+    <dependencies>
+      <group targetFramework="net20" />
+    </dependencies>
+  </metadata>
+  <files>
+    <!--
+        NOTE: For this package to work properly, the DLL below must be compiled
+              with the script library embedded (e.g. via the MSBuild command
+              line option "/property:EagleEmbeddedLibrary=true").
+    -->
+    <file src="bin\Eagle.dll" target="lib\net20" />
+    <file src="bin\Eagle.pdb" target="lib\net20" />
+    <file src="bin\Eagle.Eye.dll" target="lib\net20" />
+    <file src="bin\Eagle.Eye.pdb" target="lib\net20" />
+    <file src="bin\x86\Spilornis.dll" target="build\net20\x86" />
+    <file src="bin\x64\Spilornis.dll" target="build\net20\x64" />
+    <file src="build\Eagle.NuGet.targets" target="build\net20\Eagle.Test.targets" />
+  </files>
+</package>

@@ -1,0 +1,48 @@
+###############################################################################
+#
+# version.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test version-1.1 {version info line} -setup {
+  set time(create) [time {set interp [interp create -nosecurity]}]
+
+  tputs $test_channel [appendArgs \
+      "---- created interpreter \"" $interp "\" in " $time(create) \n]
+} -body {
+  interp eval $interp {version}
+} -cleanup {
+  catch {set time(delete) [time {interp delete $interp}]}
+
+  tputs $test_channel [appendArgs \
+      "---- deleted interpreter \"" $interp "\" in " $time(delete) \n]
+
+  unset -nocomplain interp time
+} -constraints {eagle} -match regexp -result [appendArgs {^Eagle\
+\d+\.\d+\.\d+\.\d+ (?:\{\}|trusted) (?:\{\}|genuine) (?:unofficial|official)\
+(?:unstable|stable) (?:alpha|beta|rc|final) \{(?:.*)\}} { (?:\{\}|} [join \
+[getKnownBuildTypes] |] {) (?:Debug|Release) \{Tcl 8\.4\.\d+\}\
+\{\d{4}\.\d{2}\.\d{2}T\d{2}:\d{2}:\d{2}\.\d{3} (?:\+|-)?\d{4}\}\
+(?:\{\}|[0-9a-f]{40,64}) (?:\{\}|\{\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC\})\
+\{(?:Microsoft\.NET|Mono|\.NET Core|\.NET) \d+(?:\.\d+)+(?:(?: \d+)?|(?:\
+\d+(?:\.\d+)+)?)(?: .*?)?(?: \[.*?\])?\} (?:Win32s|\{Windows 9x\}|\{Windows\
+NT\}|\{Windows CE\}|Unix|Linux|FreeBSD|OpenBSD|NetBSD|Xbox|Darwin|\{Mono on\
+Unix\})} { (?:intel|mips|alpha|ppc|shx|arm|ia64|alpha64|msil|amd64} \
+{|ia32_on_win64|neutral|arm64|unknown)$}]}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

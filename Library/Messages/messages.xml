@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+ *
+ * messages.xml -
+ *
+ * Script errors, warnings, and informational messages (en_US).
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<Messages Namespace="Eagle._Messages" Resources="Messages" xmlns="http://schemas.microsoft.com/genmsgs/2004/07/messages">
+  <Class Name="ScriptErrors" ContainerName="ScriptError" BaseContainerName="Eagle._Components.Public.MessageEventArgs">
+    <Message Id="GenericError" Number="1001">
+      <Instance>ERROR: '{0}'.
+        <Parameter Type="System.String" Name="message" />
+      </Instance>
+    </Message>
+  </Class>
+
+  <Class Name="ScriptWarnings" ContainerName="ScriptWarning" BaseContainerName="Eagle._Components.Public.MessageEventArgs">
+    <Message Id="GenericWarning" Number="2001">
+      <Instance>WARNING: '{0}'.
+        <Parameter Type="System.String" Name="message" />
+      </Instance>
+    </Message>
+  </Class>
+
+  <Class Name="ScriptInformationals" ContainerName="ScriptInformational" BaseContainerName="Eagle._Components.Public.MessageEventArgs">
+    <Message Id="GenericInformation" Number="3001">
+      <Instance>INFORMATION: '{0}'.
+        <Parameter Type="System.String" Name="message" />
+      </Instance>
+    </Message>
+  </Class>
+</Messages>

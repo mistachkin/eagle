@@ -1,0 +1,101 @@
+###############################################################################
+#
+# runopt.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Runtime Option Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure returns non-zero if the specified runtime option
+  #       is currently set.
+  #
+  proc hasRuntimeOption { name {default false} } {
+    if {[llength [info commands debug]] > 0} then {
+      if {[llength [info subcommands debug runtimeoption]] > 0} then {
+        if {[catch {debug runtimeoption has $name} result] == 0} then {
+          return $result
+        }
+      }
+    }
+
+    if {[llength [info commands object]] > 0} then {
+      if {[catch {
+        object invoke Interpreter.GetActive HasRuntimeOption $name
+      } result] == 0} then {
+        return $result
+      }
+    }
+
+    return $default
+  }
+
+  #
+  # NOTE: This procedure attempts to add the specified runtime option and
+  #       returns non-zero if it was actually added.
+  #
+  proc addRuntimeOption { name } {
+    if {[llength [info commands debug]] > 0} then {
+      if {[llength [info subcommands debug runtimeoption]] > 0} then {
+        if {[catch {debug runtimeoption add $name} result] == 0} then {
+          return $result
+        }
+      }
+    }
+
+    if {[llength [info commands object]] > 0} then {
+      if {[catch {
+        object invoke Interpreter.GetActive AddRuntimeOption $name
+      } result] == 0} then {
+        return $result
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure attempts to remove the specified runtime option
+  #       and returns non-zero if it was actually removed.
+  #
+  proc removeRuntimeOption { name } {
+    if {[llength [info commands debug]] > 0} then {
+      if {[llength [info subcommands debug runtimeoption]] > 0} then {
+        if {[catch {debug runtimeoption remove $name} result] == 0} then {
+          return $result
+        }
+      }
+    }
+
+    if {[llength [info commands object]] > 0} then {
+      if {[catch {
+        object invoke Interpreter.GetActive RemoveRuntimeOption $name
+      } result] == 0} then {
+        return $result
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: Provide the Eagle "runtime option" package to the interpreter.
+  #
+  package provide Eagle.Runtime.Option \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

@@ -1,0 +1,72 @@
+###############################################################################
+#
+# scope3.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test scope-8.1 {outside proc} -setup {
+  proc bar { b } {
+    upvar 1 $b local_b
+    set local_b; # must exist
+    lappend local_b [info level [info level]]
+  }
+
+  proc splog { c } {
+    upvar 1 $c local_c
+    lappend local_c [info level [info level]]
+  }
+} -body {
+  scope create -open foobar
+  unset -nocomplain x
+  list [catch {bar x} error] $error [splog x] $x [bar x] $x
+} -cleanup {
+  catch {scope destroy foobar}
+  rename bar ""
+  rename splog ""
+} -constraints {eagle} -result {1 {can't read "local_b": no such variable}\
+{{splog x}} {{splog x}} {{splog x} {bar x}} {{splog x} {bar x}}}}
+
+###############################################################################
+
+runTest {test scope-8.2 {nested procs} -setup {
+  proc bar { b } {
+    scope create -open -args bar
+    set bar_b $b
+    set splog_c $bar_b
+    return [list $b $bar_b $splog_c [info level [info level]] \
+        [splog [expr {$b + 1}]] [info level [info level]] $bar_b $splog_c]
+    # scope close; # always implied
+  }
+
+  proc splog { c } {
+    scope create -open -args splog
+    set bar_b $c
+    set splog_c $bar_b
+    return [list $c $bar_b $splog_c [info level [info level]]]
+    # scope close; # always implied
+  }
+} -body {
+  bar 1
+} -cleanup {
+  catch {scope destroy splog}
+  catch {scope destroy bar}
+  rename bar ""
+  rename splog ""
+} -constraints {eagle} -result {1 1 1 {bar 1} {2 2 2 {splog 2}} {bar 1} 1 1}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

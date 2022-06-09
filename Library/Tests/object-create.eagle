@@ -1,0 +1,31 @@
+###############################################################################
+#
+# object-create.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test object-99.1 {create object from external assembly} -body {
+  set x [object create "System.Configuration.AppSettingsSection,\
+System.Configuration, Version=2.0.0.0, Culture=neutral,\
+PublicKeyToken=b03f5f7f11d50a3a"]
+} -cleanup {
+  unset x
+} -constraints {eagle command.object compile.CONFIGURATION} -match regexp \
+-result {^System#Configuration#AppSettingsSection#\d+$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

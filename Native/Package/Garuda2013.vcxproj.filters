@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Library Files">
+      <UniqueIdentifier>{402e2539-d5bc-4075-a688-b50b752a2c4b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Property Files">
+      <UniqueIdentifier>{ddd58722-c0bb-4602-9292-3dd54af594d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tcl Header Files">
+      <UniqueIdentifier>{ccb0dcf5-8683-4d68-b8e8-85a734e5efbb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tcl Library Files (ARM, Toolset v110)">
+      <UniqueIdentifier>{81fd9b49-f458-4e41-83ff-5a7218154a26}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tcl Library Files (ARM, Toolset v120)">
+      <UniqueIdentifier>{c96655c5-2c6b-47f7-b90a-c6c2de5b53bc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tcl Library Files (ARM, Toolset v140)">
+      <UniqueIdentifier>{5c724477-b4ed-4d22-90b2-fa3744f774fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tcl Library Files (ARM, Toolset v141)">
+      <UniqueIdentifier>{4b82dbf6-883d-4c9b-a53d-be416cbf0838}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tcl Library Files (ARM, Toolset v142)">
+      <UniqueIdentifier>{6667dbd6-4243-4d6d-8133-8246576ef62b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tcl Library Files (ARM, Toolset v143)">
+      <UniqueIdentifier>{66ce6d26-1cb5-49f9-94b2-78bac36cb083}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tcl Library Files (Win32)">
+      <UniqueIdentifier>{6443a59d-42da-410e-a3b6-416a6f7ba142}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tcl Library Files (x64)">
+      <UniqueIdentifier>{b2997e07-f1fc-4e2f-8c83-7a0fd34948bf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TEA Files">
+      <UniqueIdentifier>{29689339-10eb-4809-909b-bfc6efd6919a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Test Files">
+      <UniqueIdentifier>{24f695ac-4bef-4419-be7e-a3f33cf0cebc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tool Files">
+      <UniqueIdentifier>{a9d5eb81-3584-466c-83b5-650eaa141d68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Script Files">
+      <UniqueIdentifier>{e8eab13e-2d83-4621-bdf7-2945ee990b6c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Image Files">
+      <UniqueIdentifier>{701b8457-9cc8-412e-8789-a944e0df050e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\generic\Garuda.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win\DllMain.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\win\Garuda.def">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="lib\dotnet.tcl">
+      <Filter>Library Files</Filter>
+    </None>
+    <None Include="lib\helper.tcl">
+      <Filter>Library Files</Filter>
+    </None>
+    <None Include="lib\pkgIndex.tcl">
+      <Filter>Library Files</Filter>
+    </None>
+    <None Include="props\Garuda.props">
+      <Filter>Property Files</Filter>
+    </None>
+    <None Include="Scripts\ex_winForms.tcl">
+      <Filter>Script Files</Filter>
+    </None>
+    <None Include="Tests\all.tcl">
+      <Filter>Test Files</Filter>
+    </None>
+    <None Include="Tools\bake.bat">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="..\Common\Tools\common.tcl">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="..\Common\Tools\getEagle.tcl">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="..\Common\Tools\pkgIndex.tcl">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="Tools\release.bat">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="Tools\signViaBuild.bat">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="..\Common\Tools\tagViaBuild.tcl">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="Tools\update.bat">
+      <Filter>Tool Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\generic\Garuda.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\GarudaInt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\GarudaPre.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\pkgVersion.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\rcVersion.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win\fakeSal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win\stubs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Tcl\include\tcl.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclDecls.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclInt.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclIntDecls.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclIntPlatDecls.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclPlatDecls.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclPort.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclTomMath.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclTomMathDecls.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+    <None Include="Tcl\include\tclWinPort.h">
+      <Filter>Tcl Header Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Tcl\lib\ARM\v110\tclstub86.lib">
+      <Filter>Tcl Library Files (ARM, Toolset v110)</Filter>
+    </None>
+    <None Include="Tcl\lib\ARM\v120\tclstub86.lib">
+      <Filter>Tcl Library Files (ARM, Toolset v120)</Filter>
+    </None>
+    <None Include="Tcl\lib\ARM\v140\tclstub86.lib">
+      <Filter>Tcl Library Files (ARM, Toolset v140)</Filter>
+    </None>
+    <None Include="Tcl\lib\ARM\v141\tclstub86.lib">
+      <Filter>Tcl Library Files (ARM, Toolset v141)</Filter>
+    </None>
+    <None Include="Tcl\lib\ARM\v142\tclstub86.lib">
+      <Filter>Tcl Library Files (ARM, Toolset v142)</Filter>
+    </None>
+    <None Include="Tcl\lib\ARM\v143\tclstub86.lib">
+      <Filter>Tcl Library Files (ARM, Toolset v143)</Filter>
+    </None>
+    <None Include="Tcl\lib\Win32\tclstub86.lib">
+      <Filter>Tcl Library Files (Win32)</Filter>
+    </None>
+    <None Include="Tcl\lib\x64\tclstub86.lib">
+      <Filter>Tcl Library Files (x64)</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\win\tea\coffbase.txt">
+      <Filter>TEA Files</Filter>
+    </None>
+    <None Include="src\win\tea\makefile.vc">
+      <Filter>TEA Files</Filter>
+    </None>
+    <None Include="src\win\tea\nmakehlp.c">
+      <Filter>TEA Files</Filter>
+    </None>
+    <None Include="src\win\tea\pkg.vc">
+      <Filter>TEA Files</Filter>
+    </None>
+    <None Include="src\win\tea\pkgIndex.tcl.in">
+      <Filter>TEA Files</Filter>
+    </None>
+    <None Include="src\win\tea\rules.vc">
+      <Filter>TEA Files</Filter>
+    </None>
+    <None Include="src\win\tea\trimspace.c">
+      <Filter>TEA Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="images\logo.png">
+      <Filter>Image Files</Filter>
+    </None>
+    <None Include="images\logoSfx.bmp">
+      <Filter>Image Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="rc\Garuda.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

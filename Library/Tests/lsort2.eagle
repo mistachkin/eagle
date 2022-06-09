@@ -1,0 +1,188 @@
+###############################################################################
+#
+# lsort2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test lsort-1.1 {ascii numbers} {} {
+  lsort -ascii {d e c b a d35 d300 100 20}
+} {100 20 a b c d d300 d35 e}}
+
+###############################################################################
+
+runTest {test lsort-1.2 {dictionary numbers} {} {
+  lsort -dictionary {d e c b a d35 d300 100 20}
+} {20 100 a b c d d35 d300 e}}
+
+###############################################################################
+
+runTest {test lsort-1.3 {integer hex numbers} -body {
+  lsort -integer {35 21 0x20 30 023 100 8}
+} -constraints {eagle} -result {8 21 023 30 0x20 35 100}}
+
+###############################################################################
+
+runTest {test lsort-1.4 {real mixed numbers} {} {
+  lsort -real {24 2.5e01 16.7 85e-1 10.004}
+} {85e-1 10.004 16.7 24 2.5e01}}
+
+###############################################################################
+
+runTest {test lsort-1.5 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a003b a03b}
+} {a03b a003b}}
+
+###############################################################################
+
+runTest {test lsort-1.6 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a3b a03b}
+} {a3b a03b}}
+
+###############################################################################
+
+runTest {test lsort-1.7 {dictionary "hex" numbers, mixed case} {} {
+  lsort -dictionary {a3b A03b}
+} {A03b a3b}}
+
+###############################################################################
+
+runTest {test lsort-1.8 {dictionary "hex" numbers, mixed case} {} {
+  lsort -dictionary {a3b a03B}
+} {a3b a03B}}
+
+###############################################################################
+
+runTest {test lsort-1.9 {dictionary zeros} {} {
+  lsort -dictionary {00000 000}
+} {000 00000}}
+
+###############################################################################
+
+runTest {test lsort-1.10 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a321b a03210b}
+} {a321b a03210b}}
+
+###############################################################################
+
+runTest {test lsort-1.11 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a03210b a321b}
+} {a321b a03210b}}
+
+###############################################################################
+
+runTest {test lsort-1.12 {dictionary "hex" numbers} {} {
+  lsort -dictionary {48 6a 18b 22a 21aa 35 36}
+} {6a 18b 21aa 22a 35 36 48}}
+
+###############################################################################
+
+runTest {test lsort-1.13 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a123x a123b}
+} {a123b a123x}}
+
+###############################################################################
+
+runTest {test lsort-1.14 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a123b a123x}
+} {a123b a123x}}
+
+###############################################################################
+
+runTest {test lsort-1.15 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a1b aab}
+} {a1b aab}}
+
+###############################################################################
+
+runTest {test lsort-1.16 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a1b a!b}
+} {a!b a1b}}
+
+###############################################################################
+
+runTest {test lsort-1.17 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a1b2c a1b1c}
+} {a1b1c a1b2c}}
+
+###############################################################################
+
+runTest {test lsort-1.18 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a1b2c a1b3c}
+} {a1b2c a1b3c}}
+
+###############################################################################
+
+runTest {test lsort-1.19 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a7654884321988762b a7654884321988761b}
+} {a7654884321988761b a7654884321988762b}}
+
+###############################################################################
+
+runTest {test lsort-1.20 {dictionary "hex" numbers} {} {
+  lsort -dictionary {a8765488432198876b a7654884321988761b}
+} {a7654884321988761b a8765488432198876b}}
+
+###############################################################################
+
+runTest {test lsort-1.21 {dictionary "hex" numbers} {} {
+  lsort -dictionary {aBCd abcc}
+} {abcc aBCd}}
+
+###############################################################################
+
+runTest {test lsort-1.22 {dictionary "hex" numbers} {} {
+  lsort -dictionary {aBCd abce}
+} {aBCd abce}}
+
+###############################################################################
+
+runTest {test lsort-1.23 {dictionary "hex" numbers} {} {
+  lsort -dictionary {abcd ABcc}
+} {ABcc abcd}}
+
+###############################################################################
+
+runTest {test lsort-1.24 {dictionary "hex" numbers} {} {
+  lsort -dictionary {abcd ABce}
+} {abcd ABce}}
+
+###############################################################################
+
+runTest {test lsort-1.25 {dictionary "hex" numbers} {} {
+  lsort -dictionary {abCD ABcd}
+} {ABcd abCD}}
+
+###############################################################################
+
+runTest {test lsort-1.26 {dictionary "hex" numbers} {} {
+  lsort -dictionary {ABcd aBCd}
+} {ABcd aBCd}}
+
+###############################################################################
+
+runTest {test lsort-1.27 {dictionary "hex" numbers} {} {
+  lsort -dictionary {ABcd AbCd}
+} {ABcd AbCd}}
+
+###############################################################################
+
+runTest {test lsort-1.28 {mixed case} {} {
+  lsort {a A b B z Z c D}
+} {A B D Z a b c z}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

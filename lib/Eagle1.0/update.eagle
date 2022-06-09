@@ -1,0 +1,2041 @@
+###############################################################################
+#
+# update.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Update Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure creates an identifier suitable for use with the
+  #       [isUpdateInstalled] and [markUpdateInstalled] script library
+  #       procedures.  The format of the returned string identifier is
+  #       unspecified.
+  #
+  proc makeUpdateId { args } {
+    #
+    # NOTE: Enforce a restriction that there must be at least one string
+    #       in the list of arguments.
+    #
+    if {[llength $args] == 0} then {
+      error "cannot make update identifier without any arguments"
+    }
+
+    if {[isEagle]} then {
+      #
+      # NOTE: Attempt to load Eagle test package as it is required for its
+      #       [generateUniqueId] procedure.
+      #
+      package require Eagle.Test
+
+      #
+      # NOTE: Attempt to generate a stable unique identifier that is based
+      #       on the arguments specified.
+      #
+      return [generateUniqueId $args]
+    } elseif {[catch {package require sha1}] == 0} then {
+      #
+      # BUGBUG: Apparently, the ActiveState tcllib sha1 package may have a
+      #         bug that produces the wrong values here.  No attempt is made
+      #         here to work around any such bug.  For further information,
+      #         please see:
+      #
+      #         https://core.tcl.tk/tcllib/info/ad20454023
+      #
+      return [sha1::sha1 -hex $args]
+    } else {
+      error "cannot make unique identifier without the sha1 package"
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a fully qualified file name for the updates
+  #       file -OR- an empty string if it cannot be determined.
+  #
+  proc getUpdateFileName { {directory ""} } {
+    #
+    # NOTE: The (installed) updates file, if it exists, must reside in the
+    #       specified directory by the caller, the current update directory
+    #       for the target interpreter, or the directory containing the Tcl
+    #       script library.  It must be a textual file with fields and lines
+    #       delimited by tab characters and new line characters.
+    #
+    if {[string length $directory] > 0} then {
+      return [file join $directory updates.tsv]
+    } elseif {[isEagle] && [llength [info commands object]] > 0} then {
+      set directory [object invoke -flags +NonPublic \
+          Eagle._Components.Private.ShellOps GetUpdateDirectory ""]
+
+      if {[string length $directory] > 0} then {
+        return [file join $directory updates.tsv]
+      }
+    }
+
+    return [file join [info library] updates.tsv]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified updated has been
+  #       installed on the local machine.  Optionally, it will evaluate an
+  #       arbitrary script for each update found.
+  #
+  proc isUpdateInstalled { updateId {directory ""} {script ""} } {
+    #
+    # NOTE: Assume that the specified update is not installed and then try
+    #       to prove otherwise.
+    #
+    set result false
+
+    #
+    # NOTE: The (installed) updates file, if it exists, must reside in the
+    #       specified directory by the caller, the current update directory
+    #       for the target interpreter, or the directory containing the Tcl
+    #       script library.  It must be a textual file with fields and lines
+    #       delimited by tab characters and new line characters.
+    #
+    set fileName [getUpdateFileName $directory]
+
+    if {[file isfile $fileName] && [file readable $fileName]} then {
+      #
+      # NOTE: Attempt to read all the update data from the file, which must
+      #       exist within the script library directory.  This may raise an
+      #       error.  Convert the read data to Unix-style line-endings.  If
+      #       there is no data, do nothing.
+      #
+      set data [string map [list \r\n \n] [readFile $fileName]]
+
+      if {[string length $data] > 0} then {
+        #
+        # NOTE: Split the data into lines.  This will always use Unix-style
+        #       line-endings.
+        #
+        set lines [split $data \n]
+
+        foreach line $lines {
+          #
+          # NOTE: Save the original line for use by the script callback, if
+          #       any.
+          #
+          set savedLine $line
+
+          #
+          # NOTE: Remove surrounding spaces (but not tabs), skip blank lines
+          #       and comment lines.
+          #
+          set line [string trim $line " "]
+
+          if {[string length $line] == 0} then {
+            if {[string length $script] > 0} then {eval $script}
+            continue
+          }
+
+          set char [string index $line 0]
+
+          if {$char eq "#" || $char eq ";"} then {
+            if {[string length $script] > 0} then {eval $script}
+            continue
+          }
+
+          #
+          # NOTE: Split the tab-delimited line into its fields.  The format
+          #       of all lines in the data must be as follows, all on the
+          #       same line:
+          #
+          #       <startLine> updateId <tab> timeStamp <tab> notes <newLine>
+          #
+          set fields [split $line \t]
+
+          if {[llength $fields] < 3} then {
+            if {[string length $script] > 0} then {eval $script}
+            continue
+          }
+
+          #
+          # NOTE: Grab all fields from the update line.  The caller supplied
+          #       script may need them.
+          #
+          set field(updateId) [lindex $fields 0]
+          set field(timeStamp) [lindex $fields 1]
+          set field(notes) [lindex $fields 2]
+
+          #
+          # NOTE: If the caller specified a script, it will be evaluated for
+          #       each line, even blank lines and comment lines.
+          #
+          if {[string length $script] > 0} then {eval $script}
+
+          #
+          # NOTE: Compare this update identifier with the update identifier
+          #       specified by the caller.
+          #
+          if {$field(updateId) eq $updateId} then {
+            #
+            # NOTE: The update appears to be installed.  We cannot simply
+            #       here because the caller supplied script, if any, needs
+            #       access to all the lines.
+            #
+            set result true
+          }
+        }
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure marks the specified update as being installed on
+  #       the local machine (or not).
+  #
+  proc markUpdateInstalled { updateId installed {directory ""} {notes ""} } {
+    #
+    # NOTE: Check if the update is installed while capturing each line of
+    #       the updates file.
+    #
+    set lines [list]; set result [isUpdateInstalled $updateId $directory {
+      #
+      # HACK: The list of lines is only used when marking an update as not
+      #       being installed; therefore, always omit that update line, if
+      #       present.
+      #
+      if {![info exists field(updateId)] || \
+          $field(updateId) ne [uplevel 1 [list set updateId]]} then {
+        #
+        # NOTE: This is either a blank line, comment line, unknown line,
+        #       or an update line not pertaining to the update specified
+        #       by the caller; therefore, retain it in the filtered list.
+        #
+        uplevel 1 [list lappend lines $savedLine]
+      }
+    }]
+
+    #
+    # NOTE: The (installed) updates file, if it exists, must reside in the
+    #       specified directory by the caller, the current update directory
+    #       for the target interpreter, or the directory containing the Tcl
+    #       script library.  It must be a textual file with fields and lines
+    #       delimited by tab characters and new line characters.
+    #
+    set fileName [getUpdateFileName $directory]
+
+    #
+    # NOTE: Are we marking the update as "installed"?  Otherwise, we are
+    #       removing the installation mark.
+    #
+    if {$installed} then {
+      #
+      # NOTE: Is the update currently marked as "installed"?  If so, raise
+      #       a script error; otherwise, mark it as "installed" by simply
+      #       appending a properly formed update line to the updates file.
+      #
+      if {$result} then {
+        error [appendArgs \
+            "update \"" $updateId "\" is already installed"]
+      } else {
+        if {[isEagle]} then {
+          # 2019.10.24T00:12:28.503 -0400
+          set timeStamp [clock format \
+              [clock seconds] -iso -isotimezone]
+        } else {
+          # 2019.10.24T00:12:28.000
+          set timeStamp [clock format \
+              [clock seconds] -format %Y.%m.%dT%H:%M:%S.000]
+        }
+
+        appendFile $fileName [appendArgs \
+            [expr {[llength $lines] > 0 ? "\n" : ""}] $updateId \t \
+            $timeStamp \t [escapeUpdateNotes $notes]]
+      }
+    } else {
+      #
+      # NOTE: Is the update currently marked as installed?  If so, write
+      #       out the (filtered) list of lines to the updates file, which
+      #       will have the effect of removing that installation mark;
+      #       otherwise, raise a script error.
+      #
+      if {$result} then {
+        writeFile $fileName [join $lines \n]
+      } else {
+        error [appendArgs \
+            "update \"" $updateId "\" is not installed"]
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified public key tokens
+  #       match.  An empty string matches any public key token (including an
+  #       empty string).
+  #
+  proc matchUpdatePublicKeyToken { publicKeyToken1 publicKeyToken2 } {
+    if {[string length $publicKeyToken1] == 0} then {
+      return true
+    }
+
+    if {[string length $publicKeyToken2] == 0} then {
+      return true
+    }
+
+    return [expr {$publicKeyToken1 eq $publicKeyToken2}]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified product / update
+  #       names match.  An empty string matches any name (including an empty
+  #       string).
+  #
+  proc matchUpdateName { name1 name2 } {
+    return [expr {[string length $name1] == 0 || $name1 eq $name2}]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified culture names
+  #       match.  An empty string matches any culture name (including an
+  #       empty string).
+  #
+  proc matchUpdateCulture { culture1 culture2 } {
+    return [expr {[string length $culture1] == 0 || $culture1 eq $culture2}]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified public key token
+  #       matches the one in use by the Eagle script engine.
+  #
+  proc matchEnginePublicKeyToken { publicKeyToken } {
+    return [matchUpdatePublicKeyToken \
+        $publicKeyToken [info engine PublicKeyToken]]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified product / update
+  #       name matches the Eagle script engine.
+  #
+  proc matchEngineName { name } {
+    return [matchUpdateName $name [info engine Name]]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified culture name
+  #       matches the one in use by the Eagle script engine.
+  #
+  proc matchEngineCulture { culture } {
+    return [matchUpdateCulture $culture [info engine Culture]]
+  }
+
+  #
+  # NOTE: This procedure escapes the reserved characters in the specified
+  #       update notes and returns the resulting string.
+  #
+  proc escapeUpdateNotes { notes } {
+    #
+    # NOTE: Escape any embedded tab and line-ending characters.
+    #
+    return [string map \
+        [list & &amp\; \t &htab\; \v &vtab\; \n &lf\; \r &cr\;] $notes]
+  }
+
+  #
+  # NOTE: This procedure unescapes reserved characters in the specified
+  #       update notes and returns the resulting string.
+  #
+  proc unescapeUpdateNotes { notes } {
+    #
+    # NOTE: Unescape any embedded tab and line-ending characters.
+    #
+    return [string map \
+        [list &htab\; \t &vtab\; \v &lf\; \n &cr\; \r &amp\; &] $notes]
+  }
+
+  #
+  # NOTE: This procedure returns the list of arguments to be passed to the
+  #       [uri download] call that performs the auto-update check.
+  #
+  proc getFetchUpdateArgs { name type directory metadata extension varName } {
+    #
+    # NOTE: Use a variable in the context of the caller to communicate the
+    #       exact error condition, if any.
+    #
+    upvar 1 $varName error
+
+    #
+    # NOTE: Initially, set the result to an empty list to indicate
+    #       unrecognized input.
+    #
+    set result [list]
+
+    #
+    # NOTE: Make sure the base URI is valid.
+    #
+    set baseUri [getDictionaryValue $metadata uri]
+
+    if {[uri isvalid $baseUri]} then {
+      #
+      # NOTE: Make sure the base (product) name looks valid.
+      #
+      if {[regexp -nocase -- {^[0-9A-Z_]+$} $name]} then {
+        #
+        # NOTE: Make sure the patch level looks valid.
+        #
+        set patchLevel [getDictionaryValue $metadata patchLevel]
+
+        if {[regexp -- {^\d+\.\d+\.\d+\.\d+$} $patchLevel]} then {
+          #
+          # NOTE: Make sure the directory is either empty or an existing
+          #       valid directory.
+          #
+          if {[string length $directory] == 0 || \
+              [file isdirectory $directory]} then {
+            #
+            # NOTE: Make sure the extension is supported.
+            #
+            if {$extension eq ".exe" || \
+                $extension eq ".rar" || $extension eq ".zip"} then {
+              #
+              # NOTE: Start with URI components common to all release
+              #       types.
+              #
+              set components [list $baseUri releases $patchLevel]
+
+              #
+              # NOTE: Next, figure out what type of download is being
+              #       requested.
+              #
+              switch -exact -nocase -- $type {
+                source -
+                setup -
+                binary {
+                  #
+                  # NOTE: *LEGACY* These release types only support the ".exe"
+                  #       and ".rar" file extensions.  Of these, the ".exe" is
+                  #       always preferred (on Windows), primarily because it
+                  #       can be securely signed (via Authenticode).
+                  #
+                  if {$extension eq ".exe" || $extension eq ".rar"} then {
+                    #
+                    # HACK: Setup files, which are currently only for Windows,
+                    #       must always have an ".exe" file extension.
+                    #
+                    if {[string tolower $type] eq "setup"} then {
+                      set extension .exe
+                    }
+
+                    #
+                    # NOTE: Source code, setup, or binary download.  This may
+                    #       be a RAR or an EXE file.  Append the appropriate
+                    #       file name and then join all the URI components to
+                    #       form the final URI.
+                    #
+                    set fileName [appendArgs \
+                        $name [string totitle $type] $patchLevel $extension]
+
+                    lappend components $fileName
+
+                    set result [list \
+                        [eval uri join $components] [file join $directory \
+                        $fileName]]
+                  } else {
+                    set error [appendArgs \
+                        "file extension is unsupported for release type \"" \
+                        $type \"]
+                  }
+                }
+                plugin {
+                  #
+                  # NOTE: Since this release type must work on all platforms,
+                  #       use of the ".zip" file extension is a requirement.
+                  #
+                  if {$extension eq ".zip"} then {
+                    set fileName [appendArgs \
+                        $name [string totitle $type] $patchLevel $extension]
+
+                    lappend components $fileName
+
+                    set result [list \
+                        [eval uri join $components] [file join $directory \
+                        $fileName]]
+                  } else {
+                    set error [appendArgs \
+                        "file extension is unsupported for release type \"" \
+                        $type \"]
+                  }
+                }
+                default {
+                  set error "release type is unsupported"
+                }
+              }
+            } else {
+              set error "file extension is unsupported"
+            }
+          } else {
+            set error "directory is invalid"
+          }
+        } else {
+          set error "patch level is invalid"
+        }
+      } else {
+        set error "base name is invalid"
+      }
+    } else {
+      set error "base URI is invalid"
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure fetches an update package with the specified patch
+  #       level and package type and then saves it to the specified local
+  #       directory.
+  #
+  proc fetchUpdate {
+          type publicKeyToken name culture patchLevel targetDirectory
+          metadata varName } {
+    #
+    # NOTE: Figure out the appropriate file extension to download for this
+    #       release type and platform.
+    #
+    if {[string tolower $type] eq "plugin"} then {
+      #
+      # NOTE: Plugin updates are always packaged as ZIP archives on all
+      #       supported platforms.  There is no portable way to securely
+      #       sign these files.  In general, these should be checked via
+      #       OpenPGP signatures before being used.
+      #
+      set extension .zip
+    } elseif {[isWindows]} then {
+      #
+      # NOTE: Otherwise, on Windows, prefer self-extracting executables,
+      #       because they can be secure signed and trivially verified.
+      #
+      set extension .exe
+    } else {
+      #
+      # NOTE: Otherwise, fallback to using RAR archives, which should be
+      #       cross-platform.  There is no portable way to securely sign
+      #       these files.  In general, these should also be checked via
+      #       OpenPGP signatures before being used.
+      #
+      set extension .rar
+    }
+
+    #
+    # NOTE: Build the necessary arguments for the download, optionally
+    #       capturing them into a variable provided by the caller.
+    #
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName args
+    }
+
+    set args [getFetchUpdateArgs \
+        $name $type $targetDirectory $metadata $extension error]
+
+    if {[llength $args] > 0} then {
+      #
+      # NOTE: Start trusting ONLY our self-signed SSL certificate.
+      #
+      set trusted true
+
+      if {[lindex [uri softwareupdates] end] eq "untrusted"} then {
+        catch {uri softwareupdates true}
+      } else {
+        set trusted false; # NOTE: Already trusted.
+      }
+
+      try {
+        #
+        # NOTE: Download the file from the web site.
+        #
+        eval uri download $args; # synchronous.
+      } finally {
+        if {$trusted && \
+            [lindex [uri softwareupdates] end] eq "trusted"} then {
+          #
+          # NOTE: Stop trusting ONLY our self-signed SSL certificate.
+          #
+          catch {uri softwareupdates false}
+        }
+      }
+
+      #
+      # NOTE: Return a result indicating what was done.
+      #
+      return [appendArgs \
+          "downloaded URI " [lindex $args 0] " to directory \"" \
+          $targetDirectory \"]
+    } else {
+      return [appendArgs "cannot fetch update: " $error]
+    }
+  }
+
+  #
+  # NOTE: This procedure runs the updater tool and then immediately exits the
+  #       process.
+  #
+  proc runUpdateAndExit { {automatic false} {whatIf false} } {
+    global tcl_platform
+
+    #
+    # NOTE: Determine the fully qualified file name for the updater.  If
+    #       it is not available, we cannot continue.
+    #
+    set fileName [file join [file normalize \
+        [file dirname [getShellExecutableName]]] Hippogriff.exe]
+
+    if {![file exists $fileName]} then {
+      error [appendArgs \
+          "updater executable \"" $fileName "\" is not available"]
+    }
+
+    #
+    # NOTE: If this procedure has been forbidden from actually running,
+    #       return an error now.
+    #
+    if {[info exists ::no(runUpdateAndExit)]} then {
+      error [appendArgs \
+          "updater executable \"" $fileName "\" is manually forbidden"]
+    }
+
+    #
+    # NOTE: Start out with just the base [exec] command, -shell option,
+    #       and the end-of-options marker.
+    #
+    set command [list exec -shell --]
+
+    #
+    # NOTE: Add the necessary command line arguments to run the target
+    #       file using the current runtime.
+    #
+    eval lappend command [getRuntimeCommandLine $fileName]
+
+    #
+    # NOTE: Add the base options to the updater executable.  Typically,
+    #       this only includes the initial (mutex checking) delay.
+    #
+    lappend command -delay 2000
+
+    #
+    # HACK: The native StrongNameSignatureVerificationEx() function does
+    #       not appear to work on WOA (Windows-on-ARM) on the Surface RT
+    #       tablet; therefore, attempt to disable its use when calling
+    #       into the updater on that platform.
+    #
+    if {[isWindows] && \
+        [info exists tcl_platform(machine)] && \
+        $tcl_platform(machine) eq "arm"} then {
+      #
+      # NOTE: We appear to be running on WOA (Windows-on-ARM), add the
+      #       command line option that skips strong name verification.
+      #
+      lappend command -noStrongNameSigned true
+    }
+
+    #
+    # NOTE: If requested, enable fully automatic update mode.
+    #
+    if {$automatic} then {
+      lappend command -silent true -confirm false
+    }
+
+    set baseUri [getUpdateBaseUri]
+
+    if {[string length $baseUri] > 0} then {
+      lappend command -baseUri $baseUri
+    }
+
+    set pathAndQuery [getUpdatePathAndQuery]
+
+    if {[string length $pathAndQuery] > 0} then {
+      lappend command -tagPathAndQuery $pathAndQuery
+    }
+
+    if {$whatIf} then {
+      return $command
+    } else {
+      eval $command &; exit -force
+    }
+  }
+
+  #
+  # NOTE: This procedure fetches an update file (based on a URI), saves it to
+  #       a temporary directory, verifies its authenticity, extracts its files
+  #       to another temporary directory, and then copies them to the target
+  #       directory.
+  #
+  proc downloadAndExtractUpdate {
+          type publicKeyToken name culture patchLevel targetDirectory
+          metadata varName } {
+    #
+    # NOTE: Currently, this procedure will not work properly without the
+    #       [object] command.
+    #
+    if {[llength [info commands object]] == 0} then {
+      error "cannot update: missing \"object\" command"
+    }
+
+    #
+    # NOTE: Attempt to load Eagle test package as it is required for its
+    #       [getTemporaryPath] procedure.
+    #
+    package require Eagle.Test
+
+    #
+    # NOTE: Figure out where, underneath the temporary directory, the
+    #       update file should be downloaded and extracted to.
+    #
+    set temporaryDirectory [file join \
+        [getTemporaryPath] [appendArgs ea-tu-pb- [pid] - [string trim \
+        [clock seconds] -]]]
+
+    try {
+      #
+      # NOTE: Create outer temporary directory used by this procedure.
+      #       This makes it easy to cleanup later as it will contain
+      #       all other temporary directories and files created within
+      #       this procedure.
+      #
+      file mkdir $temporaryDirectory
+
+      #
+      # NOTE: Create the temporary directory only used for fetching the
+      #       update (archive?) file.
+      #
+      set fetchDirectory [file join $temporaryDirectory fetch]
+      file mkdir $fetchDirectory
+
+      #
+      # NOTE: Actually fetch (download) the update (archive?) file from
+      #       its built URI, saving it to a temporary directory created
+      #       specially for this operation.  Optionally capture all the
+      #       arguments used for the fetch operation into the variable
+      #       specified by the caller.
+      #
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName fetchArgs
+      }
+
+      fetchUpdate $type $publicKeyToken $name $culture $patchLevel \
+          $fetchDirectory $metadata fetchArgs
+
+      #
+      # NOTE: Grab the downloaded file name from the arguments returned
+      #       by the fetch operation.
+      #
+      set archiveFileName [lindex $fetchArgs 1]
+
+      #
+      # NOTE: Match up the md5, sha1, and sha512 fields from the metadata
+      #       and verify they match the fetched update (archive?) file.
+      #
+      if {[set md5 [string tolower [hash normal -filename md5 \
+          $archiveFileName]]] ne [getDictionaryValue $metadata md5]} then {
+        error [appendArgs \
+            "cannot update: fetched update archive file \"" \
+            $archiveFileName "\" has wrong MD5 hash, want \"" \
+            [getDictionaryValue $metadata md5] "\", have \"" \
+            $md5 \"]
+      }
+
+      if {[set sha1 [string tolower [hash normal -filename sha1 \
+          $archiveFileName]]] ne [string tolower [getDictionaryValue \
+          $metadata sha1]]} then {
+        error [appendArgs \
+            "cannot update: fetched update archive file \"" \
+            $archiveFileName "\" has wrong SHA1 hash, want \"" \
+            [getDictionaryValue $metadata sha1] "\", have \"" \
+            $sha1 \"]
+      }
+
+      if {[set sha512 [string tolower [hash normal -filename sha512 \
+          $archiveFileName]]] ne [string tolower [getDictionaryValue \
+          $metadata sha512]]} then {
+        error [appendArgs \
+            "cannot update: fetched update archive file \"" \
+            $archiveFileName "\" has wrong SHA512 hash, want \"" \
+            [getDictionaryValue $metadata sha512] "\", have \"" \
+            $sha512 \"]
+      }
+
+      #
+      # NOTE: Create the temporary directory only used to contain the
+      #       files extracted from the update (archive?) file.  These
+      #       are the files that will be copied to the final target
+      #       directory (after they have been fully verified).
+      #
+      set extractRootDirectory [file join $temporaryDirectory extract]
+      file mkdir $extractRootDirectory
+
+      #
+      # NOTE: Attempt to load Eagle unzip package as it is required for
+      #       the [extractZipArchive] procedure.
+      #
+      package require Eagle.Unzip
+
+      #
+      # NOTE: Extract the contents of the fetched update (archive?) file
+      #       and then figure out the list of included content files.
+      #
+      set extractDirectory [extractZipArchive \
+          $archiveFileName $extractRootDirectory true]
+
+      if {![info exists ::no(deleteDownloadAndExtractUpdateFiles)]} then {
+        catch {file delete $archiveFileName}; # NOTE: No longer needed.
+      }
+
+      set extractFileNames [object invoke System.IO.Directory GetFiles \
+          $extractDirectory * AllDirectories]
+
+      #########################################################################
+      #################### PHASE 1: VERIFY EXTRACTED FILES ####################
+      #########################################################################
+
+      foreach extractFileName $extractFileNames {
+        #
+        # NOTE: Based on the extension of the extracted file, attempt to
+        #       verify its contents (e.g. check signatures, etc).
+        #
+        switch -exact -nocase -- [file extension $extractFileName] {
+          .dll -
+          .exe {
+            #
+            # NOTE: Verify the Authenticode signature for the native
+            #       executable file is intact.  This always applies,
+            #       even when the executable file contains a managed
+            #       assembly (i.e. with its strong name signature).
+            #
+            if {[catch {library certificate $extractFileName}]} then {
+              error [appendArgs \
+                  "cannot update: extracted native executable \"" \
+                  $extractFileName "\" was not properly signed"]
+            }
+
+            #
+            # HACK: If this platform does not appear to have access to
+            #       the necessary native CLR API used to verify strong
+            #       name signatures, just skip it.
+            #
+            if {[info exists ::eagle_platform(strongName)] && \
+                [string is true -strict [getDictionaryValue \
+                $::eagle_platform(strongName) verified]]} then {
+              #
+              # NOTE: Does the extracted executable actually contain a
+              #       managed assembly?
+              #
+              if {[catch {
+                object invoke System.Reflection.AssemblyName \
+                    GetAssemblyName $extractFileName
+              }] == 0} then {
+                #
+                # NOTE: Forcibly verify the strong name signature for
+                #       the managed assembly is intact.
+                #
+                if {[catch {
+                  object invoke -flags +NonPublic \
+                      Eagle._Components.Private.RuntimeOps \
+                      IsStrongNameVerified $extractFileName true
+                } verified] == 0 && $verified} then {
+                  #
+                  # NOTE: Everything is properly signed, do nothing.
+                  #
+                } else {
+                  error [appendArgs \
+                      "cannot update: extracted managed assembly \"" \
+                      $extractFileName "\" was not properly signed"]
+                }
+              }
+            }
+          }
+          .eagle -
+          .harpy -
+          .pdb -
+          .xml {
+            #
+            # NOTE: *SECURITY* These file types are allowed -AND- do not
+            #       (currently) require any further verification.
+            #
+          }
+          .rar -
+          .zip {
+            #
+            # NOTE: *SECURITY* These file types are forbidden (for now),
+            #       due to the potential for abuse.
+            #
+            error [appendArgs \
+                "cannot update: extracted file \"" $extractFileName \
+                "\" has forbidden file extension"]
+          }
+          default {
+            #
+            # NOTE: *SECURITY* Other file types are forbidden (for now),
+            #       due to the potential for abuse.
+            #
+            error [appendArgs \
+                "cannot update: extracted file \"" $extractFileName \
+                "\" has unrecognized file extension"]
+          }
+        }
+      }
+
+      #########################################################################
+      ################## PHASE 2: VERIFY RELATIVE FILE NAMES ##################
+      #########################################################################
+
+      #
+      # NOTE: If we get to this point, all extracted files are verified.
+      #       The only remaining thing to do is to copy them to the final
+      #       target directory specified by the caller.
+      #
+      set extractDirectoryLength1 [expr {
+        [string length $extractDirectory]
+      }]
+
+      set extractDirectoryLength2 [expr {
+        $extractDirectoryLength1 - 1
+      }]
+
+      foreach extractFileName $extractFileNames {
+        #
+        # NOTE: Sanity-check that the (prefix) portion of the extracted file
+        #       name matches the originally specified extract directory name.
+        #
+        if {[string range $extractFileName 0 \
+            $extractDirectoryLength2] ne $extractDirectory} then {
+          error [appendArgs \
+              "bad extracted file name \"" $extractFileName \
+              "\", not relative to the extract directory"]
+        }
+
+        #
+        # NOTE: Sanity-check the first character of the calculated relative
+        #       file name is a legal directory separator.
+        #
+        set relativeFileName [string range \
+            $extractFileName $extractDirectoryLength1 end]
+
+        if {[string index $relativeFileName 0] ni [list / \\]} then {
+          error [appendArgs \
+              "bad relative file name \"" $relativeFileName \
+              "\", malformed, missing leading directory separator"]
+        }
+      }
+
+      #########################################################################
+      ################### PHASE 3: COPY TO TARGET DIRECTORY ###################
+      #########################################################################
+
+      foreach extractFileName $extractFileNames {
+        #
+        # NOTE: Grab the relative file name from the extracted file name.
+        #       This exact relative file name was already sanity-checked
+        #       in the previous phase.
+        #
+        set relativeFileName [string range \
+            $extractFileName $extractDirectoryLength1 end]
+
+        #
+        # NOTE: Figure out final target file name using the final target
+        #       directory and the relative file name for this extracted
+        #       file.
+        #
+        set targetFileName [appendArgs \
+            $targetDirectory $relativeFileName]
+
+        #
+        # NOTE: Just in case the target sub-directory does not exist yet,
+        #       create it now.  Then, copy the extracted file to its final
+        #       target sub-directory.
+        #
+        file mkdir [file dirname $targetFileName]
+        file copy -force $extractFileName $targetFileName
+      }
+
+      #########################################################################
+      ################### PHASE 4: MARK UPDATE AS INSTALLED ###################
+      #########################################################################
+
+      #
+      # NOTE: The update should now be "installed".  Mark it as such.
+      #
+      markUpdateInstalled [makeUpdateId $type $publicKeyToken $name \
+          $culture $patchLevel] true "" $targetDirectory
+    } finally {
+      #
+      # NOTE: Completely delete the outer temporary directory, which will
+      #       cleanup the fetched update (archive?) file name and all the
+      #       files subsequently extracted from the archive.
+      #
+      if {![info exists ::no(deleteDownloadAndExtractUpdateFiles)]} then {
+        catch {file delete -recursive -- $temporaryDirectory}
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the base URI that should be used to check
+  #       for available updates.
+  #
+  proc getUpdateBaseUri { {refresh ""} } {
+    #
+    # NOTE: Does the caller want to force a choice between the current and
+    #       default base URI?
+    #
+    if {[string length $refresh] > 0} then {
+      #
+      # NOTE: Return the specified base URI for updates.
+      #
+      return [info engine UpdateBaseUri $refresh]
+    } else {
+      #
+      # NOTE: Check the current base URI for updates against the one baked
+      #       into the assembly.  If they are different, then the base URI
+      #       must have been overridden.  In that case, we must return the
+      #       current base URI; otherwise, we must return an empty string.
+      #
+      set baseUri(0) [info engine UpdateBaseUri false]; # NOTE: Current.
+      set baseUri(1) [info engine UpdateBaseUri true];  # NOTE: Default.
+
+      if {[string length $baseUri(0)] > 0 && \
+          [string length $baseUri(1)] > 0} then {
+        #
+        # NOTE: Ok, they are both valid.  Are they different?
+        #
+        if {$baseUri(0) ne $baseUri(1)} then {
+          return $baseUri(0)
+        }
+      }
+
+      return ""
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the path and query portions of the URI that
+  #       should be used to check for available updates.
+  #
+  proc getUpdatePathAndQuery { {refresh ""} } {
+    #
+    # NOTE: Does the caller want to force a choice between the current and
+    #       default tag path and query?
+    #
+    if {[string length $refresh] > 0} then {
+      #
+      # NOTE: Return the specified tag path and query for updates.
+      #
+      return [info engine UpdatePathAndQuery $refresh]
+    } else {
+      #
+      # NOTE: Check the current tag path and query for updates against the
+      #       one baked into the assembly.  If they are different, then the
+      #       tag path and query must have been overridden.  In that case,
+      #       we must return the current tag path and query; otherwise, we
+      #       must return an empty string.
+      #
+      set pathAndQuery(0) [info engine UpdatePathAndQuery \
+          false]; # NOTE: Current.
+
+      set pathAndQuery(1) [info engine UpdatePathAndQuery \
+          true];  # NOTE: Default.
+
+      if {[string length $pathAndQuery(0)] > 0 && \
+          [string length $pathAndQuery(1)] > 0} then {
+        #
+        # NOTE: Ok, they are both valid.  Are they different?
+        #
+        if {$pathAndQuery(0) ne $pathAndQuery(1)} then {
+          return $pathAndQuery(0)
+        }
+      }
+
+      return ""
+    }
+  }
+
+  #
+  # NOTE: This procedure downloads the available update data and returns it
+  #       verbatim.
+  #
+  proc getUpdateData { uri } {
+    #
+    # NOTE: Start trusting ONLY our own self-signed SSL certificate.
+    #
+    set trusted true
+
+    if {[lindex [uri softwareupdates] end] eq "untrusted"} then {
+      catch {uri softwareupdates true}
+    } else {
+      set trusted false; # NOTE: Already trusted.
+    }
+
+    try {
+      #
+      # NOTE: Download the tag file from the web site.
+      #
+      return [uri download -timeout 2000 -inline $uri]; # synchronous.
+    } finally {
+      if {$trusted && \
+          [lindex [uri softwareupdates] end] eq "trusted"} then {
+        #
+        # NOTE: Stop trusting ONLY our own self-signed SSL certificate.
+        #
+        catch {uri softwareupdates false}
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure downloads an update script and then returns it
+  #       verbatim.
+  #
+  proc getUpdateScriptData { uri } {
+    #
+    # NOTE: Start trusting ONLY our own self-signed SSL certificate.
+    #
+    set trusted true
+
+    if {[lindex [uri softwareupdates] end] eq "untrusted"} then {
+      catch {uri softwareupdates true}
+    } else {
+      set trusted false; # NOTE: Already trusted.
+    }
+
+    try {
+      #
+      # NOTE: Download the script file from the web site.
+      #
+      return [interp readorgetscriptfile -- "" $uri]; # synchronous.
+    } finally {
+      if {$trusted && \
+          [lindex [uri softwareupdates] end] eq "trusted"} then {
+        #
+        # NOTE: Stop trusting ONLY our own self-signed SSL certificate.
+        #
+        catch {uri softwareupdates false}
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the base URI that should be used to download
+  #       available updates, if a specific base URI is not specified via the
+  #       manifest of available updates.
+  #
+  proc getDownloadBaseUri {} {
+    #
+    # NOTE: Just return the current base URI for downloads.
+    #
+    return [info engine DownloadBaseUri]; # NOTE: Current.
+  }
+
+  #
+  # NOTE: This procedure returns the base URI that should be used to download
+  #       available scripts, if a specific base URI is not specified via the
+  #       manifest of available scripts.
+  #
+  proc getScriptBaseUri {} {
+    #
+    # NOTE: Just return the current base URI for scripts.
+    #
+    return [info engine ScriptBaseUri]; # NOTE: Current.
+  }
+
+  #
+  # NOTE: This procedure returns the base URI that should be used to download
+  #       auxiliary data.
+  #
+  proc getAuxiliaryBaseUri {} {
+    #
+    # NOTE: Just return the current base URI for auxiliary data.
+    #
+    return [info engine AuxiliaryBaseUri]; # NOTE: Current.
+  }
+
+  #
+  # NOTE: This procedure is used to check for new versions -OR- new update
+  #       scripts for the runtime when a user executes the interactive
+  #       "#check" command.  To disable this functionality, simply redefine
+  #       this procedure to do nothing.
+  #
+  proc checkForEngine {
+          {wantScripts false} {quiet false} {prompt false}
+          {automatic false} } {
+    return [checkForUpdate \
+        "" "" "" "" "" "" "" $wantScripts $quiet $prompt $automatic]
+  }
+
+  #
+  # NOTE: This procedure is used to check for new versions of a plugin just
+  #       prior to it being loaded into an interpreter (when an appropriate
+  #       flag is enabled).  To disable this functionality, simply redefine
+  #       this procedure to do nothing.
+  #
+  proc checkForPlugin {
+          {uri ""} {publicKeyToken ""} {name ""} {culture ""}
+          {patchLevel ""} {timeStamp ""} {wantScripts false}
+          {quiet false} {prompt false} {automatic false} } {
+    return [checkForUpdate \
+        plugin $uri $publicKeyToken $name $culture $patchLevel \
+        $timeStamp $wantScripts $quiet $prompt $automatic]
+  }
+
+  #
+  # NOTE: This procedure is used to check for new versions -OR- new update
+  #       scripts for the runtime when a user executes the interactive
+  #       "#check" command.  To disable this functionality, simply redefine
+  #       this procedure to do nothing.
+  #
+  proc checkForUpdate {
+          {type ""} {uri ""} {publicKeyToken ""} {name ""} {culture ""}
+          {patchLevel ""} {timeStamp ""} {wantScripts false} {quiet false}
+          {prompt false} {automatic false} } {
+    #
+    # NOTE: First, set default channel for update script status messages.
+    #       If the test channel has been set (i.e. by the test suite), it
+    #       will be used instead.
+    #
+    set channel [expr {
+      [info exists ::test_channel] ? $::test_channel : "stdout"
+    }]
+
+    #
+    # NOTE: First of all, what type of update are we checking?  Possible
+    #       values for this include "build", "plugin", "script", et al.
+    #       These mirror the values of the UpdateType enumeration.
+    #
+    if {[string length $type] > 0} then {
+      #
+      # NOTE: Use the update type specified by the caller directly.  In
+      #       the future, perhaps sanity check this?  Currently, its use
+      #       is entirely cosmetic.
+      #
+      set updateType $type
+    } else {
+      #
+      # NOTE: Default to the legacy update type of "build".  Currently,
+      #       this is only used to construct messages to be displayed to
+      #       the user.
+      #
+      set updateType build; # LEGACY
+    }
+
+    #
+    # NOTE: Did the caller directly specify a URI to use?
+    #
+    if {[string length $uri] > 0} then {
+      #
+      # NOTE: If the caller specified a URI, it must be fully qualified.
+      #       It will be used verbatim.
+      #
+      set updateBaseUri $uri
+
+      #
+      # NOTE: Assume that the URI refers to the latest available version
+      #       of the specified product.
+      #
+      set updateUriType latest; # TODO: Good default?
+
+      #
+      # NOTE: If the caller specified a URI, it must be fully qualified.
+      #       It will be used verbatim.
+      #
+      set updateUri $updateBaseUri
+    } else {
+      #
+      # NOTE: Grab the (current) base URI for updates.
+      #
+      set updateBaseUri [getUpdateBaseUri false]
+
+      #
+      # NOTE: Grab the (current) update path and query string used for
+      #       updates.
+      #
+      set updatePathAndQuery [getUpdatePathAndQuery false]
+
+      #
+      # TODO: Exract the URI type (e.g. "stable" or "latest") from the
+      #       update path and query.  This code may need to be modified
+      #       in the future.
+      #
+      set updateUriType [lindex [split $updatePathAndQuery .] 0]
+
+      #
+      # NOTE: Combine them to form the complete update URI.
+      #
+      set updateUri [appendArgs $updateBaseUri $updatePathAndQuery]
+    }
+
+    #
+    # NOTE: Did the caller directly specify a public key token to use?
+    #
+    if {[string length $publicKeyToken] > 0} then {
+      #
+      # NOTE: Use the public key token specified by the caller to match
+      #       against.
+      #
+      set updatePublicKeyToken $publicKeyToken
+    } else {
+      #
+      # NOTE: Use the public key token of the script engine to match
+      #       against.
+      #
+      set updatePublicKeyToken [info engine PublicKeyToken]
+    }
+
+    #
+    # NOTE: Did the caller directly specify a (product) name to use?  In
+    #       almost all cases, this will be the base name of the manifest
+    #       assembly associated with the product.
+    #
+    if {[string length $name] > 0} then {
+      #
+      # NOTE: Use the (product) name specified by the caller to match
+      #       against.
+      #
+      set updateName $name
+    } else {
+      #
+      # HACK: The [getKnownBuildTypes] procedure is required to validate
+      #       the build type against the engine text attribute.
+      #
+      if {[catch {
+        package require Eagle.Test.Constraints
+      } error] == 0} then {
+        set engineTextOrSuffix [info engine TextOrSuffix]
+
+        if {$engineTextOrSuffix ni [list "" Default] && \
+            $engineTextOrSuffix ni [getKnownBuildTypes]} then {
+          if {!$quiet} then {
+            tqputs $channel [appendArgs \
+                "---- ignored unknown build type: " \
+                $engineTextOrSuffix \n]
+          }
+
+          set engineTextOrSuffix ""; # invalid, do not use.
+        }
+      } else {
+        if {!$quiet} then {
+          tqputs $channel [appendArgs \
+              "---- known build types unavailable: " $error \n]
+        }
+
+        set engineTextOrSuffix ""; # cannot check, do not use.
+      }
+
+      #
+      # NOTE: Use assembly name of the script engine to match against.
+      #
+      set engineName [info engine Name]
+
+      if {[string length $engineName] > 0} then {
+        if {[string length $engineTextOrSuffix] > 0 && \
+            $engineTextOrSuffix ni [list Default NetFx20]} then {
+          set updateName [appendArgs \
+              $engineName _ $engineTextOrSuffix]; # NetFx40, etc.
+        } else {
+          set updateName $engineName; # NetFx20
+        }
+      } else {
+        if {[string length $engineTextOrSuffix] > 0} then {
+          set updateName [appendArgs \
+              Eagle_ $engineTextOrSuffix]; # LEGACY NetFx40, etc.
+        } else {
+          set updateName Eagle; # LEGACY
+        }
+      }
+    }
+
+    #
+    # NOTE: Did the caller directly specify a culture name to use?  In
+    #       almost all cases, this will be the invariant culture.
+    #
+    if {[string length $culture] > 0} then {
+      #
+      # NOTE: Use the culture name specified by the caller to match
+      #       against.
+      #
+      set updateCulture $culture
+    } else {
+      #
+      # NOTE: Use culture name of the script engine to match against.
+      #
+      set updateCulture [info engine Culture]
+    }
+
+    #
+    # NOTE: Did the caller directly specify a patch level to use?
+    #
+    if {[string length $patchLevel] > 0} then {
+      #
+      # NOTE: Use the patch level specified by the caller to compare
+      #       against versions available on the server.
+      #
+      set updatePatchLevel $patchLevel
+    } else {
+      #
+      # NOTE: Use patch level of the script engine to compare against
+      #       versions available on the server.
+      #
+      set updatePatchLevel [info engine PatchLevel]
+    }
+
+    #
+    # NOTE: Did the caller directly specify a timestamp to use?  As of
+    #       this writing (2019-05-10) this is only used to construct an
+    #       information message to the user.
+    #
+    if {[string length $timeStamp] > 0} then {
+      #
+      # NOTE: Use the timestamp specified by the caller.
+      #
+      set updateTimeStamp $timeStamp
+    } else {
+      #
+      # NOTE: Use timestamp of the script engine.
+      #
+      set updateTimeStamp [info engine TimeStamp]
+    }
+
+    if {[string length $updateTimeStamp] == 0} then {
+      #
+      # NOTE: This will end up displaying as the Unix epoch, which would
+      #       be January 1st, 1970 at midnight (UTC).
+      #
+      set updateTimeStamp 0; #never?
+    }
+
+    #
+    # NOTE: What should the DateTime format be for display?  This should
+    #       be some variation on ISO-8601.
+    #
+    set dateTimeFormat yyyy-MM-ddTHH:mm:ss
+
+    #
+    # NOTE: Does it look like the number of seconds since the epoch -OR-
+    #       some kind of date/time string?
+    #
+    if {[string is integer -strict $updateTimeStamp]} then {
+      set updateDateTime [clock format \
+          $updateTimeStamp -format $dateTimeFormat]
+    } else {
+      set updateDateTime [clock format \
+          [clock scan $updateTimeStamp] -format $dateTimeFormat]
+    }
+
+    #
+    # NOTE: Fetch the update data from the configured distribution site
+    #       and normalize to Unix-style line-endings.
+    #
+    set updateData [string map [list \r\n \n] [getUpdateData $updateUri]]
+
+    #
+    # NOTE: Split the data into lines.  Given the previous command, this
+    #       will always use Unix-style line-endings.
+    #
+    set lines [split $updateData \n]
+
+    #
+    # NOTE: Keep track of how many update scripts are processed -AND- their
+    #       associated (final) dispositions.
+    #
+    array set scriptCounts {
+      invalid              0 fail                 0 bad                  0
+      ok                   0 error                0 match                0
+    }
+
+    #
+    # NOTE: Check each update line to find the build information...  Lines
+    #       that do not conform to the correct format should be skipped.
+    #
+    foreach line $lines {
+      #
+      # NOTE: Remove surrounding spaces (but not tabs), skip blank lines
+      #       and comment lines.
+      #
+      set line [string trim $line " "]
+      if {[string length $line] == 0} then {continue}
+
+      set char [string index $line 0]
+      if {$char eq "#" || $char eq ";"} then {continue}
+
+      #
+      # NOTE: Split the tab-delimited line into its fields.  The format of
+      #       all lines in the data must be as follows, all on the same
+      #       line:
+      #
+      #       <startLine> protocolId <tab> publicKeyToken <tab> name <tab>
+      #       culture <tab> patchLevel <tab> timeStamp <tab> baseUri <tab>
+      #       md5Hash <tab> sha1Hash <tab> sha512Hash <tab> notes <newLine>
+      #
+      set fields [split $line \t]
+      if {[llength $fields] < 11} then {continue}
+
+      #
+      # NOTE: Grab the protocol Id field.
+      #
+      set field(protocolId) [lindex $fields 0]
+
+      #
+      # NOTE: Grab the public key token field.
+      #
+      set field(publicKeyToken) [lindex $fields 1]
+
+      #
+      # NOTE: Grab the (product) name field.
+      #
+      set field(name) [lindex $fields 2]
+
+      #
+      # NOTE: Grab the culture field.
+      #
+      set field(culture) [lindex $fields 3]
+
+      #
+      # NOTE: Figure out which protocol is in use for this line.  The value
+      #       "1" means this line specifies a build of the script engine.
+      #       The value "2" means this line specifies an update script (via
+      #       a URI) to evaluate.  The value "3" means this line specifies
+      #       a build of the GUI updater tool (not handled by this script).
+      #       The value "4" means this line specifies a build of a (binary)
+      #       plugin.  All other values are currently reserved and ignored.
+      #
+      set checkBuild [expr {
+        !$wantScripts && $field(protocolId) eq "1"
+      }]
+
+      set checkScript [expr {
+        $wantScripts && $field(protocolId) eq "2"
+      }]
+
+      set checkSelf [expr {
+        !$wantScripts && $field(protocolId) eq "3"
+      }]
+
+      set checkPlugin [expr {
+        !$wantScripts && $field(protocolId) eq "4"
+      }]
+
+      #
+      # NOTE: We only want to find the first line that matches our target.
+      #       The public key token is being used here to make sure we get
+      #       the same build "flavor" of the script engine -OR- the binary
+      #       plugin vendor / identity.  These lines are organized so that
+      #       the "latest stable version" should be on the first line (for
+      #       a given public key token) and may be followed by development
+      #       / experimental versions, etc.  Prior to checking patch level
+      #
+      #
+      if {($checkBuild || $checkScript || $checkPlugin) && \
+          [matchUpdatePublicKeyToken \
+              $field(publicKeyToken) $updatePublicKeyToken] && \
+          [matchUpdateName $field(name) $updateName] && \
+          [matchUpdateCulture $field(culture) $updateCulture]} then {
+        #
+        # NOTE: Keep track that another line was matched.
+        #
+        incr scriptCounts(match)
+
+        #
+        # NOTE: Grab the patch level field.
+        #
+        set field(patchLevel) [lindex $fields 4]
+
+        if {[string length $field(patchLevel)] == 0} then {
+          set field(patchLevel) 0.0.0.0; # no patch level?
+        }
+
+        #
+        # NOTE: Grab the time-stamp field.
+        #
+        set field(timeStamp) [lindex $fields 5]
+
+        if {[string length $field(timeStamp)] == 0} then {
+          set field(timeStamp) 0; #never?
+        }
+
+        #
+        # NOTE: What should the DateTime format be for display?  This
+        #       should be some variation on ISO-8601.
+        #
+        set dateTimeFormat yyyy-MM-ddTHH:mm:ss
+
+        #
+        # NOTE: Does it look like the number of seconds since the epoch
+        #       or some kind of date/time string?
+        #
+        if {[string is integer -strict $field(timeStamp)]} then {
+          set field(dateTime) [clock format \
+              $field(timeStamp) -format $dateTimeFormat]
+        } else {
+          set field(dateTime) [clock format \
+              [clock scan $field(timeStamp)] -format $dateTimeFormat]
+        }
+
+        #
+        # NOTE: For build lines, compare the patch level from the line
+        #       to the one we are currently using using a simple patch
+        #       level comparison.
+        #
+        if {$checkBuild || $checkPlugin} then {
+          #
+          # NOTE: Compare patch level from this line against the one
+          #       associated with the target product.
+          #
+          set compare [package \
+              vcompare $field(patchLevel) $updatePatchLevel]
+        } else {
+          #
+          # NOTE: This is not a build line, no match.
+          #
+          set compare -1; # force less than as fake result
+        }
+
+        #
+        # NOTE: For script lines, use regular expression matching.
+        #
+        if {$checkScript} then {
+          #
+          # NOTE: Use [catch] here to prevent raising a script error due
+          #       to a malformed patch level regular expression.
+          #
+          if {[catch {
+            regexp -nocase -- $field(patchLevel) $updatePatchLevel
+          } match]} then {
+            #
+            # NOTE: The patch level from the script line was most likely
+            #       not a valid regular expression.
+            #
+            set match false
+          }
+        } else {
+          #
+          # NOTE: This is not a script line, so no match.
+          #
+          set match false
+        }
+
+        #
+        # NOTE: Are we interested in further processing this line?
+        #
+        # HACK: For plugins, process any line for the current patch
+        #       level -OR- higher.
+        #
+        if {($checkBuild && $compare > 0) ||
+            ($checkScript && $match) ||
+            ($checkPlugin && $compare > 0) ||
+            ($checkPlugin && $compare == 0 && \
+             ![isUpdateInstalled [makeUpdateId Plugin $field(publicKeyToken) \
+             $field(name) $field(culture) $field(patchLevel)]])} then {
+          #
+          # NOTE: Grab the base URI field (i.e. may be a mirror site).
+          #       Then, if set, use it as the base URI for the build
+          #       and/or script.  Fallback to using the default base
+          #       URI for builds (or scripts) when the base URI field
+          #       is not present.
+          #
+          set field(baseUri) [lindex $fields 6]
+
+          if {$checkBuild || $checkPlugin} then {
+            if {[string length $field(baseUri)] > 0} then {
+              set buildUri $field(baseUri)
+            } else {
+              set buildUri [getDownloadBaseUri]; # primary site.
+            }
+          }
+
+          if {$checkScript} then {
+            if {[string length $field(baseUri)] > 0} then {
+              set scriptUri $field(baseUri)
+            } else {
+              set scriptUri [getScriptBaseUri]; # primary site.
+            }
+          }
+
+          #
+          # NOTE: Grab the md5, sha1, and sha512 fields.  These will only
+          #       be used (and validated) if a script update is processed
+          #       (below).  However, they will always be included in the
+          #       result if the build is a later version.
+          #
+          set field(md5) [lindex $fields 7]
+          set field(sha1) [lindex $fields 8]
+          set field(sha512) [lindex $fields 9]
+
+          #
+          # NOTE: Grab the notes field (which may be empty) and unescape
+          #       any reserved characters within it.  The notes may end
+          #       up being included in the result returned to the caller
+          #       and in that case they will be [list] escaped instead.
+          #
+          set field(notes) [lindex $fields 10]
+
+          if {[string length $field(notes)] > 0} then {
+            set field(notes) [unescapeUpdateNotes $field(notes)]
+          }
+
+          #
+          # NOTE: The update patch level from the line is greater, we
+          #       are out-of-date.  Return the result of our checking
+          #       now.
+          #
+          if {$checkBuild || $checkPlugin} then {
+            #
+            # NOTE: Are we supposed to prompt the interactive user, if
+            #       any, to upgrade now?
+            #
+            set text [appendArgs \
+                $updateUriType " " $updateType " " \
+                $field(patchLevel) ", dated " $field(dateTime) \
+                ", is newer than the running " $updateType " " \
+                $updatePatchLevel ", dated " $updateDateTime \
+                ", based on the data from " $updateBaseUri]
+
+            if {$prompt && [isInteractive]} then {
+              #
+              # NOTE: Is the [object] command available?  If not, this
+              #       cannot be done.
+              #
+              if {[llength [info commands object]] > 0} then {
+                #
+                # BUGFIX: Only prompt to run the updater tool if this is
+                #         the default AppDomain for the process -AND- it
+                #         is the first Interpreter in that AppDomain.
+                #
+                if {[object invoke Utility IsDefaultAppDomain] && \
+                    [object invoke -flags +NonPublic \
+                    Eagle._Components.Private.GlobalState \
+                    IsFirstInterpreter ""]} then {
+                  #
+                  # BUGFIX: Do not bother with this if the updater tool
+                  #         is unavailable -OR- is manually forbidden.
+                  #         This is checked by using what-if parameter
+                  #         for the [runUpdateAndExit] procedure.
+                  #
+                  if {[catch {
+                    runUpdateAndExit $automatic true
+                  } result] == 0} then {
+                    if {!$quiet} then {
+                      tqputs $channel [appendArgs \
+                          "---- updater executable command line: " \
+                          $result \n]
+                    }
+
+                    set messageCaption [appendArgs \
+                        [info engine Name] " (" [lindex [info level 0] 0] \
+                        " script)"]
+
+                    set messageText [appendArgs \
+                        "The " $text \n\n "Run the updater tool now?"]
+
+                    if {$automatic} then {
+                      append messageText \n\n \
+                          "WARNING: The updater tool process will be " \
+                          "run in automatic mode and there will be no " \
+                          "further prompts."
+                    }
+
+                    if {[object invoke -flags +NonPublic \
+                        Eagle._Components.Private.WindowOps YesOrNo \
+                        $messageText $messageCaption false]} then {
+                      #
+                      # NOTE: Ok, run the updater tool now and then exit.
+                      #
+                      runUpdateAndExit $automatic
+                    }
+                  }
+                }
+              }
+            }
+
+            #
+            # NOTE: If we get to this point, the user has opted to not run
+            #       the updater tool -OR- it cannot be run for some reason.
+            #
+            return [list \
+                $text [list uri $buildUri patchLevel $field(patchLevel) \
+                notes $field(notes) md5 $field(md5) sha1 $field(sha1) \
+                sha512 $field(sha512)]]
+          }
+
+          #
+          # NOTE: The script patch level from this line matches the current
+          #       engine patch level exactly.  Therefore, the script should
+          #       be evaluated if it can be authenticated.
+          #
+          if {$checkScript} then {
+            #
+            # NOTE: Next, verify the script has a valid base URI.  For update
+            #       scripts, this must be the location where the update script
+            #       data can be downloaded.
+            #
+            if {[string length $scriptUri] == 0} then {
+              if {!$quiet} then {
+                tqputs $channel [appendArgs \
+                    "---- invalid baseUri value for update script " \
+                    "line: " $line \n]
+              }
+
+              incr scriptCounts(invalid); continue
+            }
+
+            #
+            # NOTE: Next, grab md5 field and see if it looks valid.  Below,
+            #       the value of this field will be compared to that of the
+            #       actual MD5 hash of the downloaded script data.
+            #
+            if {[string length $field(md5)] == 0} then {
+              if {!$quiet} then {
+                tqputs $channel [appendArgs \
+                    "---- invalid md5 value for update script " \
+                    "line: " $line \n]
+              }
+
+              incr scriptCounts(invalid); continue
+            }
+
+            #
+            # NOTE: Next, grab sha1 field and see if it looks valid.  Below,
+            #       the value of this field will be compared to that of the
+            #       actual SHA1 hash of the downloaded script data.
+            #
+            if {[string length $field(sha1)] == 0} then {
+              if {!$quiet} then {
+                tqputs $channel [appendArgs \
+                    "---- invalid sha1 value for update script " \
+                    "line: " $line \n]
+              }
+
+              incr scriptCounts(invalid); continue
+            }
+
+            #
+            # NOTE: Next, grab sha512 field and see if it looks valid.  Below,
+            #       the value of this field will be compared to that of the
+            #       actual SHA512 hash of the downloaded script data.
+            #
+            if {[string length $field(sha512)] == 0} then {
+              if {!$quiet} then {
+                tqputs $channel [appendArgs \
+                    "---- invalid sha512 value for update script " \
+                    "line: " $line \n]
+              }
+
+              incr scriptCounts(invalid); continue
+            }
+
+            #
+            # NOTE: Next, show the extra information associated with this
+            #       update script, if any.
+            #
+            if {!$quiet} then {
+              tqputs $channel [appendArgs \
+                  "---- fetching update script from \"" $scriptUri \
+                  "\" (" $field(dateTime) ") with notes:\n"]
+
+              set trimNotes [string trim $field(notes)]
+
+              tqputs $channel [appendArgs \
+                  [expr {[string length $trimNotes] > 0 ? $trimNotes : \
+                  "<none>"}] "\n---- end of update script notes\n"]
+            }
+
+            #
+            # NOTE: Next, attempt to fetch the update script data.
+            #
+            set code [catch {getUpdateScriptData $scriptUri} result]
+
+            if {$code == 0} then {
+              #
+              # NOTE: Success, set the script data from the result.
+              #
+              set scriptData $result
+            } else {
+              #
+              # NOTE: Failure, report the error message to the log.
+              #
+              if {!$quiet} then {
+                tqputs $channel [appendArgs \
+                    "---- failed to fetch update script: " $result \n]
+              }
+
+              incr scriptCounts(fail); continue
+            }
+
+            #
+            # NOTE: Next, verify that the md5, sha1, and sha512 hashes of
+            #       the raw script data match what was specified in the
+            #       md5, sha1, and sha512 fields.
+            #
+            set md5 [hash normal md5 $scriptData]
+
+            if {![string equal -nocase $field(md5) $md5]} then {
+              if {!$quiet} then {
+                tqputs $channel [appendArgs \
+                    "---- wrong md5 value \"" $md5 \
+                    "\" for update script line: " $line \n]
+              }
+
+              incr scriptCounts(bad); continue
+            }
+
+            set sha1 [hash normal sha1 $scriptData]
+
+            if {![string equal -nocase $field(sha1) $sha1]} then {
+              if {!$quiet} then {
+                tqputs $channel [appendArgs \
+                    "---- wrong sha1 value \"" $sha1 \
+                    "\" for update script line: " $line \n]
+              }
+
+              incr scriptCounts(bad); continue
+            }
+
+            set sha512 [hash normal sha512 $scriptData]
+
+            if {![string equal -nocase $field(sha512) $sha512]} then {
+              if {!$quiet} then {
+                tqputs $channel [appendArgs \
+                    "---- wrong sha512 value \"" $sha512 \
+                    "\" for update script line: " $line \n]
+              }
+
+              incr scriptCounts(bad); continue
+            }
+
+            #
+            # NOTE: Everything looks good.  Therefore, evaluate the update
+            #       script and print the result.
+            #
+            if {!$quiet} then {
+              tqputs $channel [appendArgs \
+                  "---- evaluating update script from \"" $scriptUri \
+                  \"...\n]
+            }
+
+            #
+            # NOTE: Reset the variables that will be used to contain the
+            #       result of the update script.
+            #
+            set code 0; set result ""
+
+            #
+            # NOTE: Must manually override the file name to be returned by
+            #       [info script] to refer back to the original script base
+            #       URI.
+            #
+            set pushed false
+
+            if {[llength [info commands object]] > 0} then {
+              object invoke -flags +NonPublic Interpreter.GetActive \
+                  PushScriptLocation $scriptUri true pushed
+            }
+
+            try {
+              #
+              # NOTE: Evaluate the update script in the context of the
+              #       caller.
+              #
+              set code [catch {uplevel 1 $scriptData} result]
+            } finally {
+              if {[llength [info commands object]] > 0} then {
+                #
+                # NOTE: Reset manual override of the script file name to
+                #       be returned by [info script].
+                #
+                object invoke -flags +NonPublic Interpreter.GetActive \
+                    PopScriptLocation true pushed
+              }
+            }
+
+            #
+            # NOTE: Keep track of number of update scripts that generate
+            #       Ok and Error return codes.
+            #
+            if {$code == 0} then {
+              incr scriptCounts(ok)
+            } else {
+              incr scriptCounts(error)
+            }
+
+            if {!$quiet} then {
+              host result $code $result
+              tqputs $channel "\n---- end of update script results\n"
+            }
+          }
+        } elseif {($checkBuild || $checkPlugin) && $compare < 0} then {
+          #
+          # NOTE: The patch level from the line is less, we are more
+          #       up-to-date than the latest version?
+          #
+          return [list [appendArgs \
+              "running " $updateType " " $updatePatchLevel ", dated " \
+              $updateDateTime ", is newer than the " $updateUriType " " \
+              $updateType " " $field(patchLevel) ", dated " \
+              $field(dateTime) ", based on the data " "from " \
+              $updateBaseUri]]
+        } elseif {$checkBuild || $checkPlugin} then {
+          #
+          # NOTE: The patch levels are equal, we are up-to-date.
+          #
+          return [list [appendArgs \
+              "running " $updateType " " $updatePatchLevel ", dated " \
+              $updateDateTime ", is the " $updateUriType " " $updateType \
+              ", based on the data from " $updateBaseUri]]
+        }
+      }
+    }
+
+    #
+    # NOTE: Figure out what the final result should be.  If we get to this
+    #       point when checking for a new build, something must have gone
+    #       awry.  Otherwise, report the number of update scripts that were
+    #       successfully processed.
+    #
+    if {$wantScripts} then {
+      set scriptCounts(total) [expr [join [array values scriptCounts] +]]
+
+      if {$scriptCounts(total) > 0} then {
+        return [list [appendArgs \
+            "processed " $scriptCounts(total) " update scripts: " [array \
+            get scriptCounts]]]
+      } else {
+        return [list "no update scripts were processed"]
+      }
+    } else {
+      if {$scriptCounts(match) > 0} then {
+        set error [appendArgs \
+            "matched " $scriptCounts(match) " running " $updateType \
+            "; however, none was fully processed"]
+      } else {
+        set error [appendArgs \
+            "missing public key token \"" $updatePublicKeyToken "\", " \
+            $updateType " name \"" $updateName "\", and culture \"" \
+            $updateCulture \"]
+      }
+
+      return [list [appendArgs \
+          "could not determine if running " $updateType " is the latest " \
+          $updateType ": " $error]]
+    }
+  }
+
+  #
+  # NOTE: Provide the Eagle "update" package to the interpreter.
+  #
+  package provide Eagle.Update \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

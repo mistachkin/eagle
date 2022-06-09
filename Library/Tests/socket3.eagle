@@ -1,0 +1,451 @@
+###############################################################################
+#
+# socket3.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test socket-3.1 {open/puts/read/close socket} -setup {
+  unset -nocomplain s t z
+} -body {
+  if {[isEagle]} then {
+    set s [socket -sendtimeout $test_timeout $test_host 80]
+  } else {
+    set s [socket $test_host 80]
+  }
+
+  fconfigure $s -translation binary
+
+  set t [time {
+    puts -nonewline $s [appendArgs "GET / HTTP/1.1\r\nHOST: " \
+        $test_host \r\n\r\n]
+
+    flush $s
+  }]
+
+  tputs $test_channel [appendArgs "---- done sending to \"" \
+      $test_host "\" in " $t \n]
+
+  set t [time {
+    #
+    # NOTE: It seems this read can return zero bytes in some cases (i.e. deep
+    #       down, the ReadByte method on the NetworkStream object returns -1,
+    #       meaning end-of-stream, immediately).  This only seems to happen
+    #       in the .NET Framework 2.0 RTM on Windows 2000.  There may be some
+    #       underlying bug that prevents the data from being sent or received
+    #       properly via a NetworkStream.
+    #
+    set z [read $s 999999]
+  }]
+
+  tputs $test_channel [appendArgs "---- done receiving from \"" \
+      $test_host "\" in " $t \n]
+
+  close $s; unset s
+
+  set z
+} -cleanup {
+  if {[info exists s]} then {catch {close $s}}
+  unset -nocomplain s t z
+} -constraints {command.socket compile.NETWORK internet_eagle.to} -match \
+regexp -result {(?s)<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4\.01\
+Transitional//EN" "http://www\.w3\.org/TR/html4/loose\.dtd">.*</html>}}
+
+###############################################################################
+
+runTest {test socket-3.2 {Dns using AsyncCallback} -setup {
+  proc asyncCallback { ar } {
+    set result [list]
+
+    try {
+      set ipHostEntry [object invoke -alias System.Net.Dns \
+          EndGetHostEntry $ar]
+
+      if {[string length $ipHostEntry] > 0} then {
+        lappend result [$ipHostEntry HostName]
+        set addresses [$ipHostEntry AddressList]
+
+        object foreach -alias address $addresses {
+          #
+          # HACK: Check for an IPv4 address and add it to the result.
+          #
+          if {[string length $address] >= 0} then {
+            set address2 [getStringFromObjectHandle $address]
+
+            if {[regexp -- {^\d+\.\d+\.\d+\.\d+$} $address2]} then {
+              lappend result $address2
+            }
+          }
+        }
+      }
+    } finally {
+      unset -nocomplain ar; # dispose
+      after $::test_timeout; set ::result $result
+    }
+  }
+} -body {
+  set ar [object invoke System.Net.Dns BeginGetHostEntry $test_host \
+      asyncCallback null]
+
+  after 0 nop; vwait ::result; set ::result
+} -cleanup {
+  rename asyncCallback ""
+
+  catch {object removecallback asyncCallback}
+
+  unset -nocomplain ::result
+  unset -nocomplain ar; # dispose
+} -constraints {eagle command.object compile.NETWORK network_eagle.to} -time \
+true -match regexp -result [appendArgs ^ [string map [list . \\.] $test_host] \
+" " \\d+\\.\\d+\\.\\d+\\.\\d+\$]}
+
+###############################################################################
+
+runTest {test socket-3.3 {uri upload -inline} -setup {
+  #
+  # HACK: We do not want to bother using HTTPS for this test.
+  #
+  set uri [string map [list https: http:] \
+      [file join $test_repository_url test_env]]
+
+  set request [list var1 val1 var2 val2]
+} -body {
+  set response [uri upload -inline -data $request $uri]
+
+  expr {[regexp -line -- {^var1 = val1  <br />$} $response] && \
+      [regexp -line -- {^var2 = val2  <br />$} $response]}
+} -cleanup {
+  unset -nocomplain response request uri
+} -constraints {eagle compile.NETWORK internet_eagle.to fossil_repository_url\
+variable_test_repository_url} -time true -result {True}}
+
+###############################################################################
+
+runTest {test socket-3.4 {uri download -inline} -setup {
+  #
+  # HACK: We do not want to bother using HTTPS for this test.
+  #
+  set uri [string map [list https: http:] \
+      [file join $test_repository_url test_env]]
+} -body {
+  regexp -line -- {^g\.zPath = test_env<br />$} [uri download -inline $uri]
+} -cleanup {
+  unset -nocomplain uri
+} -constraints {eagle compile.NETWORK internet_eagle.to fossil_repository_url\
+variable_test_repository_url} -time true -result {1}}
+
+###############################################################################
+
+runTest {test socket-3.50 {uri upload -inline w/custom WebClient} -setup {
+  set interp [interp create]
+
+  if {[object invoke Eagle._Tests.Default \
+      TestHasScriptNewWebClientCallback $interp]} then {
+    error "web client creation callback is already set"
+  }
+
+  set error null
+
+  set code [object invoke Eagle._Tests.Default \
+      TestSetScriptNewWebClientCallback $interp true true error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  if {![object invoke Eagle._Tests.Default \
+      TestHasScriptNewWebClientCallback $interp]} then {
+    error "web client creation callback is not set"
+  }
+
+  #
+  # HACK: We do not want to bother using HTTPS for this test.
+  #
+  set uri [string map [list https: http:] \
+      [file join $test_repository_url test_env]]
+
+  set request [list var1 val1 var2 val2]
+} -body {
+  interp set $interp test_timeout $test_timeout
+  interp set $interp request $request
+  interp set $interp uri $uri
+
+  set response [interp eval $interp {
+    set script [object create String {
+      if {[getStringFromObjectHandle methodName] eq "GetWebRequest"} then {
+        webRequest KeepAlive false
+        webRequest Timeout $test_timeout
+        webRequest UserAgent [version]
+      }
+    }]
+
+    uri upload -inline -webclientdata $script -data $request $uri
+  }]
+
+  expr {[regexp -line -- {^var1 = val1  <br />$} $response] && \
+      [regexp -line -- {^var2 = val2  <br />$} $response]}
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain response request uri error code interp
+} -constraints {eagle command.object compile.NETWORK internet_eagle.to\
+fossil_repository_url variable_test_repository_url compile.TEST\
+Eagle._Tests.Default.TestHasScriptNewWebClientCallback\
+Eagle._Tests.Default.TestSetScriptNewWebClientCallback} -time true -result \
+{True}}
+
+###############################################################################
+
+runTest {test socket-4.51 {custom WebClient creation failure} -setup {
+  set interp [interp create]
+
+  if {[object invoke Eagle._Tests.Default \
+      TestHasErrorNewWebClientCallback $interp]} then {
+    error "web client creation callback is already set"
+  }
+
+  set error null
+
+  set code [object invoke Eagle._Tests.Default \
+      TestSetScriptNewWebClientCallback $interp true false error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  if {![object invoke Eagle._Tests.Default \
+      TestHasErrorNewWebClientCallback $interp]} then {
+    error "web client creation callback is not set"
+  }
+
+  #
+  # HACK: We do not want to bother using HTTPS for this test.
+  #
+  set uri [string map [list https: http:] \
+      [file join $test_repository_url test_env]]
+
+  set request [list var1 val1 var2 val2]
+} -body {
+  interp set $interp test_timeout $test_timeout
+  interp set $interp request $request
+  interp set $interp uri $uri
+
+  list [catch {
+    set response [interp eval $interp {
+      set script [object create String [string trim {
+        web client use has been disabled
+      }]]
+
+      uri upload -inline -webclientdata $script -data $request $uri
+    }]
+  } error] $error
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain response request uri error code interp
+} -constraints {eagle command.object compile.NETWORK internet_eagle.to\
+fossil_repository_url variable_test_repository_url compile.TEST\
+Eagle._Tests.Default.TestHasErrorNewWebClientCallback\
+Eagle._Tests.Default.TestSetScriptNewWebClientCallback} -time true -result {1\
+{web client use has been disabled}}}
+
+###############################################################################
+
+runTest {test socket-5.50 {custom WebClient creation failure} -setup {
+  set interp [interp create]
+
+  if {[object invoke Eagle._Tests.Default \
+      TestHasErrorNewWebClientCallback $interp]} then {
+    error "web client creation callback is already set"
+  }
+
+  set error null
+
+  set code [object invoke Eagle._Tests.Default \
+      TestSetScriptNewWebClientCallback $interp true false error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  if {![object invoke Eagle._Tests.Default \
+      TestHasErrorNewWebClientCallback $interp]} then {
+    error "web client creation callback is not set"
+  }
+
+  #
+  # HACK: We do not want to bother using HTTPS for this test.
+  #
+  set uri [string map [list https: http:] \
+      [file join $test_repository_url test_env]]
+
+  set request [list var1 val1 var2 val2]
+} -body {
+  interp set $interp test_timeout $test_timeout
+  interp set $interp request $request
+  interp set $interp uri $uri
+
+  list [catch {
+    set response [interp eval $interp {
+      uri upload -inline -data $request $uri
+    }]
+  } error] $error [catch {
+    set response [interp eval $interp {
+      uri download -inline $uri
+    }]
+  } error] $error
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain response request uri error code interp
+} -constraints {eagle command.object compile.NETWORK internet_eagle.to\
+fossil_repository_url variable_test_repository_url compile.TEST\
+Eagle._Tests.Default.TestHasErrorNewWebClientCallback\
+Eagle._Tests.Default.TestSetScriptNewWebClientCallback} -time true -result {1\
+{creation of web client forbidden} 1 {creation of web client forbidden}}}
+
+###############################################################################
+
+runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
+  unset -nocomplain s t z
+  unset -nocomplain noBlock useRead results stalls
+  unset -nocomplain zzz hash pattern dummy body
+} -body {
+  set pattern(1) {^HTTP/1\.1 200 OK\r\n}
+
+  set pattern(2) {(?s)(<!DOCTYPE HTML PUBLIC\
+      "-//W3C//DTD HTML 4\.01\
+      Transitional//EN"\
+      "http://www\.w3\.org/TR/html4/loose\.dtd">.*</html>)}
+
+  set hash(uri) [hash normal sha1 [string trimright \
+      [uri download -inline [appendArgs http:// $test_host :80]]]]
+
+  foreach noBlock [list false true] {
+    foreach useRead [list false true] {
+      set s [socket -sendtimeout $test_timeout \
+          -availabletimeout $test_timeout $test_host 80]
+
+      fconfigure $s -translation binary
+
+      set t [time {
+        puts -nonewline $s [appendArgs "GET / HTTP/1.1\r\nHOST: " \
+            $test_host \r\n\r\n]
+
+        flush $s
+      }]
+
+      tputs $test_channel [appendArgs "---- done sending to \"" \
+          $test_host "\" in " $t \n]
+
+      fconfigure $s -translation crlf
+
+      set stalls 0; set z ""
+
+      if {$noBlock} then {
+        if {$useRead} then {
+          set t [time {
+            while {![eof $s]} {
+              if {[catch {read -noblock $s} zzz]} then {
+                incr stalls; continue
+              }
+              append z $zzz
+            }
+          }]
+
+          set z [string map [list \n \r\n] $z]; # normalize
+        } else {
+          set t [time {
+            while {![eof $s]} {
+              if {[catch {gets -noblock $s} zzz]} then {
+                incr stalls; continue
+              }
+              append z $zzz \r\n
+            }
+          }]
+        }
+      } else {
+        if {$useRead} then {
+          set t [time {
+            while {![eof $s]} {
+              if {[catch {read $s} zzz]} then {
+                incr stalls; continue
+              }
+              append z $zzz
+            }
+          }]
+
+          set z [string map [list \n \r\n] $z]; # normalize
+        } else {
+          set t [time {
+            while {![eof $s]} {
+              if {[catch {gets $s} zzz]} then {
+                incr stalls; continue
+              }
+              append z $zzz \r\n
+            }
+          }]
+        }
+      }
+
+      set z [string trimright $z]; # normalize
+
+      # writeFile [file join \
+      #     [getTemporaryPath] [appendArgs z- $noBlock - $useRead .txt]] $z
+
+      tputs $test_channel [appendArgs "---- done receiving from \"" \
+          $test_host "\" in " $t " with " $stalls " stalls using the \"" \
+          [expr {$useRead ? "read" : "gets"}] "\" command in \"" \
+          [expr {$noBlock ? "non-blocking" : "blocking"}] "\" mode\n"]
+
+      if {[regexp -- $pattern(1) $z]} then {
+        if {[regexp -- $pattern(2) $z dummy body]} then {
+          set z $body
+        } else {
+          tputs $test_channel "---- missing response HTML body\n"
+        }
+      } else {
+        tputs $test_channel "---- missing response HTTP header\n"
+      }
+
+      set hash(socket) [hash normal sha1 $z]
+
+      if {$hash(socket) eq $hash(uri)} then {
+        lappend results [list Ok noBlock $noBlock useRead $useRead]
+      } else {
+        lappend results [list Fail noBlock $noBlock useRead $useRead]
+
+        tputs $test_channel [appendArgs \
+            "---- mismatched content hash: " $hash(socket) \
+            " versus " $hash(uri) \n]
+      }
+
+      close $s; unset s
+    }
+  }
+
+  set results
+} -cleanup {
+  if {[info exists s]} then {catch {close $s}}
+  unset -nocomplain s t z
+  unset -nocomplain noBlock useRead results stalls
+  unset -nocomplain zzz hash pattern dummy body
+} -constraints {eagle command.socket compile.NETWORK internet_eagle.to} \
+-result {{Ok noBlock false useRead false} {Ok noBlock false useRead true} {Ok\
+noBlock true useRead false} {Ok noBlock true useRead true}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,402 @@
+###############################################################################
+#
+# init.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Interpreter Initialization File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This is the procedure that detects whether or not we are
+  #       running in Eagle (otherwise, we are running in vanilla Tcl).
+  #       This procedure must function correctly in both Tcl and Eagle
+  #       and must return non-zero only when running in Eagle.  This
+  #       procedure must be defined in this script file because it is
+  #       needed while this script file is being evaluated.  The same
+  #       procedure is also defined in the "platform.eagle" file.
+  #
+  # <bootstrap>
+  proc isEagle {} {
+    #
+    # NOTE: Nothing too fancy or expensive should be done in here.  In
+    #       theory, use of this routine should be rare; however, in
+    #       practice, this routine is actually used quite a bit (e.g.
+    #       by the test suite).
+    #
+    return [expr {[info exists ::tcl_platform(engine)] && \
+        [string compare -nocase eagle $::tcl_platform(engine)] == 0}]
+  }
+
+  #
+  # NOTE: This procedure is designed to "load" (i.e. [source]) other script
+  #       files that logically belong to the package defined in this script
+  #       file.  Upon success, an empty string will be returned.  A script
+  #       error may be raised.  This should work properly in both Tcl and
+  #       Eagle.  This procedure must be defined in this script file because
+  #       it is needed while this script file is being evaluated.
+  #
+  # <bootstrap>
+  proc loadScripts { directory fileNamesOnly } {
+    #
+    # NOTE: Does the directory specified by the caller contain information
+    #       useful in locating the script file?
+    #
+    if {[string length $directory] == 0 || $directory eq "."} then {
+      #
+      # NOTE: The directory specified by the caller contains no useful
+      #       information, use the Tcl library directory instead, if
+      #       possible.
+      #
+      if {[info exists ::tcl_library] && \
+          [string length $::tcl_library] > 0 && \
+          [file isdirectory $::tcl_library]} then {
+        #
+        # NOTE: Ok, use the Tcl library directory.
+        #
+        set directory $::tcl_library
+      }
+    }
+
+    #
+    # NOTE: Start out with the [source] command.
+    #
+    set baseCommand source
+
+    #
+    # NOTE: When using Eagle, use the -withinfo option to preserve the
+    #       location information for procedures defined in the specified
+    #       script file.
+    #
+    if {[isEagle]} then {
+      lappend baseCommand -withinfo true --
+    }
+
+    #
+    # NOTE: Load each script file specified by the caller, in the exact
+    #       order they were specified.
+    #
+    foreach fileNameOnly $fileNamesOnly {
+      #
+      # NOTE: Start with the base [source] command, maybe with some
+      #       options.
+      #
+      set fileCommand $baseCommand
+
+      #
+      # NOTE: Add the qualified file name, which may or may not be fully
+      #       qualified.
+      #
+      lappend fileCommand [file join $directory $fileNameOnly]
+
+      #
+      # NOTE: Evaluate the resulting command in the callers context.
+      #
+      uplevel 1 $fileCommand
+    }
+
+    #
+    # NOTE: Success, return an empty string.
+    #
+    return ""
+  }
+
+  #
+  # NOTE: This procedure is designed to "load" (i.e. [source]) other script
+  #       files that logically belong to the package defined in this script
+  #       file.  Upon success, an empty string will be returned.  A script
+  #       error may be raised.  This should work properly in both Tcl and
+  #       Eagle.  This procedure must be defined in this script file because
+  #       it is needed while this script file is being evaluated.  If there
+  #       exists a global array element no($fileNameOnly) corresponding to a
+  #       particular script file to be loaded, it will be skipped.
+  #
+  # <bootstrap>
+  proc maybeLoadScripts { directory fileNamesOnly } {
+    set matchFileNames [list]
+
+    foreach fileNameOnly $fileNamesOnly {
+      if {![info exists ::no($fileNameOnly)]} then {
+        lappend matchFileNames $fileNameOnly
+      }
+    }
+
+    return [uplevel 1 [list loadScripts $directory $matchFileNames]]
+  }
+
+  if {![interp issafe] && ([isEagle] ? ![interp issdk] : true)} then {
+    #
+    # NOTE: Load the extra script library files that contain commonly used
+    #       procedures that are shared between native Tcl and Eagle.
+    #
+    if {![info exists ::no(maybeLoadScripts,shared)]} then {
+      maybeLoadScripts [file dirname [info script]] [list \
+          auxiliary.eagle database.eagle exec.eagle file1.eagle \
+          file2.eagle file3.eagle info.eagle list.eagle \
+          pkgt.eagle platform.eagle testlog.eagle unzip.eagle]
+    }
+
+    #
+    # NOTE: Load the extra script library files that contain procedures that
+    #       require a specific language (i.e. either native Tcl or Eagle).
+    #
+    if {[isEagle]} then {
+      if {![info exists ::no(maybeLoadScripts,engine)] && \
+          ![info exists ::no(maybeLoadScripts,eagle)]} then {
+        maybeLoadScripts [file dirname [info script]] [list \
+            compat.eagle csharp.eagle object.eagle process.eagle \
+            runopt.eagle unkobj.eagle update.eagle]
+      }
+    } else {
+      if {![info exists ::no(maybeLoadScripts,engine)] && \
+          ![info exists ::no(maybeLoadScripts,tcl)]} then {
+        maybeLoadScripts [file dirname [info script]] [list shim.eagle]
+      }
+    }
+  }
+
+  if {[isEagle]} then {
+    ###########################################################################
+    ############################ BEGIN Eagle ONLY #############################
+    ###########################################################################
+
+    #
+    # NOTE: This procedure uses the [source] command to evaluate a script
+    #       file while preserving the location information for procedures
+    #       defined with it.
+    #
+    # <pkgIndex>
+    proc sourceWithInfo { args } {
+      catch {
+        set savedCacheFlags None
+
+        object invoke -flags +NonPublic Interpreter.GetActive \
+            BeginNoArgumentCache savedCacheFlags
+      }
+
+      try {
+        catch {
+          set savedInterpreterStateFlags None
+
+          object invoke -flags +NonPublic Interpreter.GetActive \
+              BeginArgumentLocation savedInterpreterStateFlags
+        }
+
+        try {
+          set command [list source]; eval lappend command $args
+
+          return [uplevel 1 $command]
+        } finally {
+          catch {
+            object invoke -flags +NonPublic Interpreter.GetActive \
+                EndArgumentLocation savedInterpreterStateFlags
+          }
+        }
+      } finally {
+        catch {
+          object invoke -flags +NonPublic Interpreter.GetActive \
+              EndNoArgumentCache savedCacheFlags
+        }
+      }
+    }
+
+    if {![interp issafe] && ![interp issdk]} then {
+      #
+      # NOTE: This is the [unknown] command for Eagle.  It will normally be
+      #       executed by the script engine when a command is not found.
+      #       By default, it will simply raise a script error; however, if
+      #       the "eagleUnknownObjectInvoke" runtime option is set, it will
+      #       first attempt to use the (unknown) command name as the name
+      #       of a CLR type.
+      #
+      # <create>
+      proc unknown { name args } {
+        #
+        # NOTE: This is an [unknown] procedure that normally produces an
+        #       appropriate error message; however, it can optionally try
+        #       to invoke a static object method.
+        #
+        # TODO: Add support for auto-loading packages here in the future?
+        #
+        if {[llength [info commands hasRuntimeOption]] > 0 && \
+            [hasRuntimeOption eagleUnknownObjectInvoke] && \
+            [llength [info commands object]] > 0 && \
+            [llength [info commands unknownObjectInvoke]] > 0} then {
+          #
+          # NOTE: In the context of the caller, attempt to invoke a static
+          #       object method using the specified arguments (which may
+          #       contain variable names).
+          #
+          if {[catch {
+            eval unknownObjectInvoke 1 [list $name] $args
+          } result] == 0} then {
+            #
+            # NOTE: The static object method was invoked successfully.
+            #       Return its result.
+            #
+            return -code ok $result
+          } elseif {[string length $result] > 0} then {
+            #
+            # NOTE: Attempting to invoke the static object method raised
+            #       an error.  Re-raise it now.  If no error message was
+            #       provided, fallback on the default (below).
+            #
+            return -code error $result
+          }
+        }
+
+        return -code error [appendArgs "invalid command name \"" $name \"]
+      }
+    } else {
+      #
+      # NOTE: This is the [unknown] command for Eagle.  It will normally be
+      #       executed by the script engine when a command is not found.
+      #       It will simply raise a script error.  This procedure is also
+      #       defined in "safe.eagle".
+      #
+      # <create>
+      proc unknown { name args } {
+        #
+        # NOTE: This is an [unknown] procedure that produces an appropriate
+        #       error message.
+        #
+        # TODO: Add support for auto-loading packages here in the future?
+        #
+        # NOTE: This command cannot use [appendArgs] because that procedure
+        #       is defined in another file that is never loaded into "safe"
+        #       interpreters.
+        #
+        return -code error "invalid command name \"$name\""
+      }
+    }
+
+    #
+    # NOTE: This namespace and the procedure defined within it are used for
+    #       compatibility with native Tcl.
+    #
+    namespace eval ::tcl::tm {
+      #
+      # NOTE: Ideally, this procedure should be created in the "::tcl::tm"
+      #       namespace.
+      #
+      # <create>
+      proc ::tcl::tm::UnknownHandler { original name args } {
+        #
+        # NOTE: Do nothing except call the original handler.
+        #
+        uplevel 1 $original [::linsert $args 0 $name]
+      }
+    }
+
+    #
+    # NOTE: This procedure is normally executed by the package management
+    #       subsystem of Eagle when a package is requested that cannot be
+    #       found.  By default, it will force a scan of all known package
+    #       indexes.
+    #
+    # <create>
+    proc tclPkgUnknown { name args } {
+      #
+      # NOTE: Force a rescan of "pkgIndex" files.  This must be done in
+      #       the global scope so that the special global variable 'dir'
+      #       set by the package index loading subsystem can be accessed.
+      #
+      uplevel #0 [list package scan -host -normal -refresh]
+    }
+
+    #
+    # NOTE: This procedure marks a procedure for "fast" execution; for now,
+    #       this means disabling anything that makes variable access slower
+    #       while the target procedure is executing.
+    #
+    # <experimental>
+    proc makeProcedureFast { name fast } {
+      #
+      # NOTE: This should work properly in Eagle only.
+      #
+      catch {
+        uplevel 1 [list object invoke -flags +NonPublic \
+            Interpreter.GetActive MakeProcedureFast $name $fast]
+      }
+    }
+
+    #
+    # NOTE: This procedure marks a variable for "fast" access; for now, this
+    #       means disabling anything that makes variable access slower while
+    #       the target variable is being read, set, or unset.
+    #
+    # <experimental>
+    proc makeVariableFast { name fast } {
+      #
+      # NOTE: This should work properly in Eagle only.
+      #
+      catch {
+        uplevel 1 [list object invoke -flags +NonPublic \
+            Interpreter.GetActive MakeVariableFast $name $fast]
+      }
+    }
+
+    #
+    # NOTE: Add script library files borrowed from native Tcl.
+    #
+    if {![interp issafe] && ![interp issdk]} then {
+      maybeLoadScripts [file dirname [info script]] [list word.tcl]
+    }
+
+    ###########################################################################
+    ############################# END Eagle ONLY ##############################
+    ###########################################################################
+  } else {
+    ###########################################################################
+    ############################# BEGIN Tcl ONLY ##############################
+    ###########################################################################
+
+    #
+    # NOTE: Exports the necessary commands from this package and import them
+    #       into the global namespace.
+    #
+    if {[llength [info commands exportAndImportPackageCommands]] > 0} then {
+      exportAndImportPackageCommands [namespace current] [list \
+          isEagle loadScripts maybeLoadScripts isWindows isInteractive \
+          haveGaruda isTclThread isMono isDotNetCore isSameFileName \
+          getEnvironmentVariable combineFlags getCompileInfo getPlatformInfo \
+          getPluginName getPluginPath getPackageInstallPath appendArgs \
+          lappendArgs getDictionaryValue getColumnValue getRowColumnValue \
+          vwaitLocked tqputs tqlog makeBinaryChannel makeAsciiChannel \
+          makeUnicodeChannel makeLogChannel readFile readSharedFile writeFile \
+          appendFile appendLogFile appendSharedFile appendSharedLogFile \
+          readAsciiFile writeAsciiFile readUnicodeFile \
+          writeUnicodeFile getDirResultPath addToPath removeFromPath \
+          getShellExecutableName getRuntimeCommandLine execShell \
+          maybeGetExitCode lshuffle ldifference filter map reduce \
+          getLengthModifier debug findDirectories findDirectoriesRecursive \
+          findFiles findFilesRecursive copyFilesRecursive \
+          exportAndImportPackageCommands setupUnzipVars unzipMustBeInstalled \
+          extractZipArchive] false false
+    }
+
+    ###########################################################################
+    ############################## END Tcl ONLY ###############################
+    ###########################################################################
+  }
+
+  #
+  # NOTE: Provide the Eagle "library" package to the interpreter.
+  #
+  package provide Eagle.Library \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

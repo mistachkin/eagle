@@ -1,0 +1,118 @@
+/L20"Eagle" Line Comment = # String Chars = " Escape Char = \ DisableMLS File Extensions = EAGLE
+/Delimiters = ~!@%^&*()+=|\/{}[]:;"'	<> ,?#
+/Function String = "^{proc^}^{nproc^} ^([a-zA-Z_0-9]++ {[ a-zA-Z_0-9{}]++^)"
+/Indent Strings = "{"
+/Unindent Strings = "}"
+/Open Brace Strings = "{" "(" "["
+/Close Brace Strings = "}" ")" "]"
+/Open Fold Strings = "{"
+/Close Fold Strings = "}"
+/C1"Tcl Commands" STYLE_COMMAND
+after append apply array
+bgerror break
+catch cd clock close concat continue
+else elseif encoding eof error eval exec exit expr
+fblocked fconfigure fcopy file finally flush for foreach format fpclassify
+gets glob global
+if incr info interp
+join
+lappend lassign lindex linsert list llength lmap load lrange lrepeat lreplace lreverse lsearch lset lsort
+namespace
+open
+package pid proc puts pwd
+read regexp regsub rename return
+seek set socket source split string subst switch
+tell then throw time try
+unload unset update uplevel upvar
+variable
+vwait
+while
+/C2"Eagle Commands" STYLE_COMMAND
+Eagle_Nop
+base64
+callback
+debug do downlevel
+getf guid
+hash host
+invoke
+kill
+lget library lremove
+nop nproc
+object
+parse
+scope setf sql
+tcl test1 test2 throw time truncate
+unsetf uri
+version
+xml
+/C3"Eagle Procedures" STYLE_COMMAND
+addRuntimeOption addToPath appendArgs appendFile appendLogFile appendSharedFile appendSharedLogFile
+canGetManagedType checkForEngine checkForPlugin checkForUpdate combineFlags compileCSharp compileViaCSharpCodeProvider compileViaDotNetCoreCSharp compilerParameterToArguments copyFilesRecursive csharpLog
+doesCompileCSharpWork downloadAndExtractNativeTclKitDll downloadAndExtractPackageClientToolset downloadAndExtractSecurityToolset downloadAndExtractUpdate downloadExampleScript downloadPackageIndexScript
+escapeUpdateNotes evalAsync evaluateInRemoteSandbox execShell exportAndImportPackageCommands extractCSharpErrors extractCSharpWarnings extractZipArchive
+fetchUpdate filter findDirectories findDirectoriesRecursive findFiles findFilesRecursive formatCompilerArgument
+getAuxiliaryBaseUri getBasePath getColumnValue getCompileInfo getCSharpCompilerOptions getCSharpTestProgram getDefaultValue getDictionaryValue getDirResultPath getDotNetCoreCSharpCommandArgs getDotNetCoreSdkPath getDotNetStandardReferencePath getDownloadBaseUri getEnvironmentVariable getFetchUpdateArgs getHostSize getLengthModifier getPackageInstallPath getPlatformInfo getPluginFlags getPluginName getPluginPath getProcesses getReturnType getRowColumnValue getRuntimeCommandLine getScriptBaseUri getShellExecutableName getStringFromObjectHandle getUpdateBaseUri getUpdateData getUpdateFileName getUpdatePathAndQuery getUpdateScriptData
+hasRuntimeOption haveGaruda
+isAdministrator isDotNetCore isEagle isInteractive isManagedType isMono isNonNullObjectHandle isObjectHandle isSameFileName isTclThread isUpdateInstalled isWindows
+lappendArgs ldifference listExampleScripts loadPackageClientToolset loadScripts lshuffle
+makeAsciiChannel makeBinaryChannel makeLogChannel makeProcedureFast makeUnicodeChannel makeUpdateId makeVariableFast map markUpdateInstalled matchEngineCulture matchEngineName matchEnginePublicKeyToken matchUpdateCulture matchUpdateName matchUpdatePublicKeyToken maybeGetExitCode maybeLoadScripts
+parray pdict
+readAsciiFile readFile readSharedFile readUnicodeFile reduce regexpEscapeAll removeFromPath removeRuntimeOption requestLicenseCertificate runDotNetCSharpCommand runUpdateAndExit
+setupPackageToolsetVars setupUnzipVars sourceWithInfo
+tcl::tm::UnknownHandler tclLog tclPkgUnknown tcl_endOfWord tcl_startOfNextWord tcl_startOfPreviousWord tcl_wordBreakAfter tcl_wordBreakBefore test tqlog tqputs
+unescapeUpdateNotes unknown unknownObjectInvoke unzipMustBeInstalled
+vwaitLocked
+waitForProcesses writeAsciiFile writeFile writeUnicodeFile
+/C4"Tcl Variables" STYLE_VARIABLE
+argc argv argv0 auto_index auto_path
+env errorCode errorInfo
+tcl_interactive tcl_library tcl_nonwordchars tcl_patchLevel tcl_platform tcl_precision tcl_rcFileName tcl_version tcl_wordchars
+/C5"Eagle Variables" STYLE_VARIABLE
+auto_source_path
+eagle_debugger eagle_paths eagle_platform eagle_shell eagle_tests
+null
+tcl_interactiveLoops tcl_shellLibrary
+/C6"Variables" STYLE_VARIABLE
+** $
+/C7"Expression Operators" STYLE_OPERATOR
+!
+%
+&
+*
++
+-
+/
+:
+<
+=
+>
+?
+^
+|
+~
+eq
+in
+ne ni
+/C8"Expression Functions" STYLE_FUNCTION
+abs acos asin atan atan2
+bool
+ceil cos cosh
+datetime decimal double
+e epsilon exp
+flags floor fmod
+hypot
+int isfinite isinf isnan isnormal issubnormal isunordered
+list log log10 log2 logx
+max min
+nop
+pi pow
+rand random randstr round round2 round3
+sign sin sinh sqrt srand
+tan tanh timespan truncate typeof
+wide
+/C9"Expression Constants" STYLE_KEYWORD
+false
+no
+off on
+true
+yes

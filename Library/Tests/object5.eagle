@@ -1,0 +1,188 @@
+###############################################################################
+#
+# object5.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to hash table ordering differences, some tests are disabled on
+#       Mono.
+###############################################################################
+
+if {[isEagle]} then {
+  unset -nocomplain -purge -- object5Var; set object5Var(1) 1
+  set vflags [lindex [lindex [debug variable object5Var] 2] end]
+  unset -nocomplain -purge -- object5Var
+} else {
+  set vflags ""
+}
+
+###############################################################################
+
+runTest {test object-5.1.1 {debugger introspection and automation} -body {
+  set foo(foo) [object create System.Int32]
+  set foo(bar) [object create System.Int32]
+  set foo(splog) [object create System.String foobar]
+
+  debug variable -empty -elements -links foo
+} -cleanup {
+  unset -nocomplain foo
+} -constraints [fixConstraints {eagle command.object dotNetOrDotNetCore\
+!compile.NATIVE !compile.TCL !compile.DEBUGGER !compile.DEBUGGER_ARGUMENTS}] \
+-match regexp -result [string map [list <flags> $vflags] [appendArgs \
+{^\{Variable \{\}\} \{\} \{Flags \{<flags>\}\} \{Name foo\} \{ThreadId <null>\}\
+\{\} \{Frame \{\}\} \{\} \{\{Name #0\} global\} \{\{Flags #0\} \{NoFree,\
+Global\}\} \{\} \{Traces 1\} \{\} \{Interpreter ObjectTraceCallback\} \{\}\
+\{Array \{\}\} \{\} \{Value \{Count 3 Capacity \d+\}\} \{DefaultValue <null>\}\
+\{Searches 0\} \{\} \{Elements \{\}\} \{\} \{\{foo \(Type\)\} System\.String\}\
+\{\{foo \(Value\)\} System#Int32#\d+\} \{\{foo \(Alias\)\} <null>\} \{\{foo\
+\(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\} \{\{foo\
+\(ObjectFlags\)\} Default\} \{\{foo \(ObjectType\)\} Eagle\._Objects\.Default\}\
+\{\{foo \(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
+[getRuntimeAssemblyName]] {\}\} \{\{foo \(ToString\)\} 0\} \{\{bar \(Type\)\}\
+System\.String\} \{\{bar \(Value\)\} System#Int32#\d+\} \{\{bar \(Alias\)\}\
+<null>\} \{\{bar \(ReferenceCount\)\} 1\} \{\{bar \(TemporaryReferenceCount\)\}\
+0\} \{\{bar \(ObjectFlags\)\} Default\} \{\{bar \(ObjectType\)\}\
+Eagle\._Objects\.Default\} \{\{bar \(ValueType\)\} \{System\.Int32,\
+} [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{bar \(ToString\)\}\
+0\} \{\{splog \(Type\)\} System\.String\} \{\{splog \(Value\)\}\
+System#String#\d+\} \{\{splog \(Alias\)\} <null>\} \{\{splog\
+\(ReferenceCount\)\} 1\} \{\{splog \(TemporaryReferenceCount\)\} 0\} \{\{splog\
+\(ObjectFlags\)\} Default\} \{\{splog \(ObjectType\)\}\
+Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\} \{System\.String,\
+} [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{splog\
+\(ToString\)\} foobar\}$}]]}
+
+###############################################################################
+
+runTest {test object-5.1.2 {debugger introspection and automation} -body {
+  set foo(foo) [object create System.Int32]
+  set foo(bar) [object create System.Int32]
+  set foo(splog) [object create System.String foobar]
+
+  debug variable -empty -elements -links foo
+} -cleanup {
+  unset -nocomplain foo
+} -constraints [fixConstraints {eagle command.object dotNetOrDotNetCore\
+compile.NATIVE compile.TCL !compile.DEBUGGER !compile.DEBUGGER_ARGUMENTS}] \
+-match regexp -result [string map [list <flags> $vflags] [appendArgs \
+{^\{Variable \{\}\} \{\} \{Flags \{<flags>\}\} \{Name foo\} \{ThreadId <null>\}\
+\{\} \{Frame \{\}\} \{\} \{\{Name #0\} global\} \{\{Flags #0\} \{NoFree,\
+Global\}\} \{\} \{Traces 1\} \{\} \{Interpreter ObjectTraceCallback\} \{\}\
+\{Array \{\}\} \{\} \{Value \{Count 3 Capacity \d+\}\} \{DefaultValue <null>\}\
+\{Searches 0\} \{\} \{Elements \{\}\} \{\} \{\{foo \(Type\)\} System\.String\}\
+\{\{foo \(Value\)\} System#Int32#\d+\} \{\{foo \(Alias\)\} <null>\} \{\{foo\
+\(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\} \{\{foo\
+\(ObjectFlags\)\} Default\} \{\{foo \(InterpName\)\} <null>\} \{\{foo\
+\(ObjectType\)\} Eagle\._Objects\.Default\} \{\{foo \(ValueType\)\}\
+\{System\.Int32, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{\{foo \(ToString\)\} 0\} \{\{bar \(Type\)\} System\.String\} \{\{bar\
+\(Value\)\} System#Int32#\d+\} \{\{bar \(Alias\)\} <null>\} \{\{bar\
+\(ReferenceCount\)\} 1\} \{\{bar \(TemporaryReferenceCount\)\} 0\} \{\{bar\
+\(ObjectFlags\)\} Default\} \{\{bar \(InterpName\)\} <null>\} \{\{bar\
+\(ObjectType\)\} Eagle\._Objects\.Default\} \{\{bar \(ValueType\)\}\
+\{System\.Int32, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{\{bar \(ToString\)\} 0\} \{\{splog \(Type\)\} System\.String\} \{\{splog\
+\(Value\)\} System#String#\d+\} \{\{splog \(Alias\)\} <null>\} \{\{splog\
+\(ReferenceCount\)\} 1\} \{\{splog \(TemporaryReferenceCount\)\} 0\} \{\{splog\
+\(ObjectFlags\)\} Default\} \{\{splog \(InterpName\)\} <null>\} \{\{splog\
+\(ObjectType\)\} Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\}\
+\{System\.String, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{\{splog \(ToString\)\} foobar\}$}]]}
+
+###############################################################################
+
+runTest {test object-5.1.3 {debugger introspection and automation} -body {
+  set foo(foo) [object create System.Int32]
+  set foo(bar) [object create System.Int32]
+  set foo(splog) [object create System.String foobar]
+
+  debug variable -empty -elements -links foo
+} -cleanup {
+  unset -nocomplain foo
+} -constraints [fixConstraints {eagle command.object dotNetOrDotNetCore\
+!compile.NATIVE !compile.TCL compile.DEBUGGER compile.DEBUGGER_ARGUMENTS}] \
+-match regexp -result [string map [list <flags> $vflags] [appendArgs \
+{^\{Variable \{\}\} \{\} \{Flags \{<flags>\}\} \{Name foo\} \{ThreadId <null>\}\
+\{\} \{Frame \{\}\} \{\} \{\{Name #0\} global\} \{\{Flags #0\} \{NoFree,\
+Global\}\} \{\} \{Traces 1\} \{\} \{Interpreter ObjectTraceCallback\} \{\}\
+\{Array \{\}\} \{\} \{Value \{Count 3 Capacity \d+\}\} \{DefaultValue <null>\}\
+\{Searches 0\} \{\} \{Elements \{\}\} \{\} \{\{foo \(Type\)\} System\.String\}\
+\{\{foo \(Value\)\} System#Int32#\d+\} \{\{foo \(Alias\)\} <null>\} \{\{foo\
+\(ReferenceCount\)\} 1\} \{\{foo \(TemporaryReferenceCount\)\} 0\} \{\{foo\
+\(ObjectFlags\)\} Default\} \{\{foo \(ExecuteArguments\)\} \{object create\
+System\.Int32\}\} \{\{foo \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{foo\
+\(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
+[getRuntimeAssemblyName]] {\}\} \{\{foo \(ToString\)\} 0\} \{\{bar \(Type\)\}\
+System\.String\} \{\{bar \(Value\)\} System#Int32#\d+\} \{\{bar \(Alias\)\}\
+<null>\} \{\{bar \(ReferenceCount\)\} 1\} \{\{bar \(TemporaryReferenceCount\)\}\
+0\} \{\{bar \(ObjectFlags\)\} Default\} \{\{bar \(ExecuteArguments\)\} \{object\
+create System\.Int32\}\} \{\{bar \(ObjectType\)\} Eagle\._Objects\.Default\}\
+\{\{bar \(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
+[getRuntimeAssemblyName]] {\}\} \{\{bar \(ToString\)\} 0\} \{\{splog \(Type\)\}\
+System\.String\} \{\{splog \(Value\)\} System#String#\d+\} \{\{splog\
+\(Alias\)\} <null>\} \{\{splog \(ReferenceCount\)\} 1\} \{\{splog\
+\(TemporaryReferenceCount\)\} 0\} \{\{splog \(ObjectFlags\)\} Default\}\
+\{\{splog \(ExecuteArguments\)\} \{object create System\.String foobar\}\}\
+\{\{splog \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\}\
+\{System\.String, } [assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\}\
+\{\{splog \(ToString\)\} foobar\}$}]]}
+
+###############################################################################
+
+runTest {test object-5.1.4 {debugger introspection and automation} -body {
+  set foo(foo) [object create System.Int32]
+  set foo(bar) [object create System.Int32]
+  set foo(splog) [object create System.String foobar]
+
+  debug variable -empty -elements -links foo
+} -cleanup {
+  unset -nocomplain foo
+} -constraints {eagle command.object dotNetOrDotNetCore compile.NATIVE\
+compile.TCL compile.DEBUGGER compile.DEBUGGER_ARGUMENTS} -match regexp -result \
+[string map [list <flags> $vflags] [appendArgs {^\{Variable \{\}\} \{\} \{Flags\
+\{<flags>\}\} \{Name foo\} \{ThreadId <null>\} \{\} \{Frame \{\}\} \{\}\
+\{\{Name #0\} global\} \{\{Flags #0\} \{NoFree, Global\}\} \{\} \{Traces 1\}\
+\{\} \{Interpreter ObjectTraceCallback\} \{\} \{Array \{\}\} \{\} \{Value\
+\{Count 3 Capacity \d+\}\} \{DefaultValue <null>\} \{Searches 0\} \{\}\
+\{Elements \{\}\} \{\} \{\{foo \(Type\)\} System\.String\} \{\{foo \(Value\)\}\
+System#Int32#\d+\} \{\{foo \(Alias\)\} <null>\} \{\{foo \(ReferenceCount\)\}\
+1\} \{\{foo \(TemporaryReferenceCount\)\} 0\} \{\{foo \(ObjectFlags\)\}\
+Default\} \{\{foo \(InterpName\)\} <null>\} \{\{foo \(ExecuteArguments\)\}\
+\{object create System\.Int32\}\} \{\{foo \(ObjectType\)\}\
+Eagle\._Objects\.Default\} \{\{foo \(ValueType\)\} \{System\.Int32, } \
+[assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{foo \(ToString\)\}\
+0\} \{\{bar \(Type\)\} System\.String\} \{\{bar \(Value\)\} System#Int32#\d+\}\
+\{\{bar \(Alias\)\} <null>\} \{\{bar \(ReferenceCount\)\} 1\} \{\{bar\
+\(TemporaryReferenceCount\)\} 0\} \{\{bar \(ObjectFlags\)\} Default\} \{\{bar\
+\(InterpName\)\} <null>\} \{\{bar \(ExecuteArguments\)\} \{object create\
+System\.Int32\}\} \{\{bar \(ObjectType\)\} Eagle\._Objects\.Default\} \{\{bar\
+\(ValueType\)\} \{System\.Int32, } [assemblyNameToRegexp \
+[getRuntimeAssemblyName]] {\}\} \{\{bar \(ToString\)\} 0\} \{\{splog \(Type\)\}\
+System\.String\} \{\{splog \(Value\)\} System#String#\d+\} \{\{splog\
+\(Alias\)\} <null>\} \{\{splog \(ReferenceCount\)\} 1\} \{\{splog\
+\(TemporaryReferenceCount\)\} 0\} \{\{splog \(ObjectFlags\)\} Default\}\
+\{\{splog \(InterpName\)\} <null>\} \{\{splog \(ExecuteArguments\)\} \{object\
+create System\.String foobar\}\} \{\{splog \(ObjectType\)\}\
+Eagle\._Objects\.Default\} \{\{splog \(ValueType\)\} \{System\.String, } \
+[assemblyNameToRegexp [getRuntimeAssemblyName]] {\}\} \{\{splog \(ToString\)\}\
+foobar\}$}]]}
+
+###############################################################################
+
+unset -nocomplain vflags
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

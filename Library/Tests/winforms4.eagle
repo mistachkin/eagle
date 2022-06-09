@@ -1,0 +1,82 @@
+###############################################################################
+#
+# winforms4.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: On Mono 3.0.2 beta, these tests do not function properly due to
+#       a total failure to load the System.Windows.Forms assembly, resulting
+#       from incorrect DLL mappings in the "etc/mono/config" configuration
+#       file copied by the installer.  Attempts to load and/or use Windows
+#       Forms functionality will result in a very complex looking exception,
+#       with the innermost exception being very similar to the following:
+#
+#       System.DllNotFoundException: /tmp/install/lib/libgdiplus.so
+#
+#       The workaround to "fix" this issue on Windows is to simply remove
+#       the both "gdiplus" related lines from the configuration file.
+#
+#       See: https://bugzilla.xamarin.com/show_bug.cgi?id=8309
+###############################################################################
+
+if {[isEagle]} then {
+  set engineName [info engine]
+} else {
+  set engineName Tcl; # NOTE: Native Tcl.
+}
+
+###############################################################################
+
+runTest {test winForms-4.1 {create and show a form with script event} -body {
+  set assembly [object load -import System.Windows.Forms]
+  set form [object create -alias Form]
+
+  set text [appendArgs $engineName " Test Form Title"]
+  $form Text $text
+  set text [$form Text]
+
+  set callback [list lappend x test]
+  $form add_Click $callback
+  $form Show
+
+  set x [list]
+
+  $form -flags +NonPublic OnClick [set eventArgs [object create EventArgs]]
+
+  foreach y $x {
+    if {[string first # $y] != -1} then {
+      object dispose $y; # force dispose
+    }
+  }
+
+  list $text $x
+} -cleanup {
+  cleanupWinForms
+
+  catch {object removecallback $callback}
+
+  unset -nocomplain y x callback eventArgs text form assembly
+} -constraints {eagle command.object compile.WINFORMS winForms\
+monoMatchFramework} -match regexp -result [appendArgs "^\\{" $engineName \
+" Test Form Title\\} \\{test System#Windows#Forms#Form#\\d+\
+System#EventArgs#\\d+\\}\$"]}
+
+###############################################################################
+
+unset -nocomplain engineName
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

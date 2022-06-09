@@ -1,0 +1,664 @@
+###############################################################################
+#
+# file3.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle File 3 Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure uses the type of the specified path to figure out
+  #       the (possibly normalized) path to add to the finder results.
+  #
+  proc getDirResultPath { pattern path } {
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #       Is the result path itself already absolute?
+    #
+    if {[file pathtype $path] eq "absolute"} then {
+      #
+      # NOTE: Ok, the result path is already absolute.
+      #       Normalize and return it.
+      #
+      return [file normalize $path]
+    } elseif {[file pathtype $pattern] eq "absolute"} then {
+      #
+      # NOTE: The pattern refers to an absolute path.  Strip
+      #       the final part of the pattern and join it with
+      #       the result path (which we already know is not
+      #       absolute).
+      #
+      return [file normalize [file join [file dirname $pattern] $path]]
+    } else {
+      #
+      # NOTE: Neither the result path nor the input pattern
+      #       contain an absolute path; therefore, use the
+      #       current directory to hang the result path on.
+      #
+      return [file normalize [file join [pwd] $path]]
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a list of directories matching the pattern
+  #       specified.  It does not recurse into sub-directories.
+  #
+  proc findDirectories { pattern } {
+    if {[isEagle]} then {
+      #
+      # NOTE: Block non-Windows platforms since this is Windows specific.
+      #
+      if {![isWindows]} then {
+        error "not supported on this operating system"
+      }
+
+      #
+      # NOTE: This should work properly in Eagle only.
+      #
+      set dir ""; set result [list]
+
+      #
+      # HACK: Optimize the variable access in this procedure to be
+      #       as fast as possible.
+      #
+      makeVariableFast dir true; makeVariableFast result true
+
+      #
+      # NOTE: We will need to grab the ComSpec environment variable.
+      #
+      global env
+
+      foreach dir [split [exec -unicode $env(ComSpec) /u /c dir \
+          /ad /b [appendArgs \" [file nativename $pattern] \"]] \n] {
+        set dir [string trim $dir]
+
+        if {[string length $dir] > 0} then {
+          set dir [getDirResultPath $pattern $dir]
+
+          if {[lsearch -variable -exact -nocase result $dir] == -1} then {
+            lappend result $dir
+          }
+        }
+      }
+
+      foreach dir [split [exec -unicode $env(ComSpec) /u /c dir \
+          /ahd /b [appendArgs \" [file nativename $pattern] \"]] \n] {
+        set dir [string trim $dir]
+
+        if {[string length $dir] > 0} then {
+          set dir [getDirResultPath $pattern $dir]
+
+          if {[lsearch -variable -exact -nocase result $dir] == -1} then {
+            lappend result $dir
+          }
+        }
+      }
+
+      return $result
+    } else {
+      #
+      # NOTE: This should work properly in Tcl only.
+      #
+      eval lappend result [glob -nocomplain -types {d} \
+          [file normalize $pattern]]
+
+      eval lappend result [glob -nocomplain -types {d hidden} \
+          [file normalize $pattern]]
+
+      return $result
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a list of directories matching the pattern
+  #       specified.  It recurses into sub-directories.
+  #
+  proc findDirectoriesRecursive { pattern } {
+    if {[isEagle]} then {
+      #
+      # NOTE: Block non-Windows platforms since this is Windows specific.
+      #
+      if {![isWindows]} then {
+        error "not supported on this operating system"
+      }
+
+      #
+      # NOTE: This should work properly in Eagle only.
+      #
+      set dir ""; set result [list]
+
+      #
+      # HACK: Optimize the variable access in this procedure to be
+      #       as fast as possible.
+      #
+      makeVariableFast dir true; makeVariableFast result true
+
+      #
+      # NOTE: We will need to grab the ComSpec environment variable.
+      #
+      global env
+
+      foreach dir [split [exec -unicode $env(ComSpec) /u /c dir \
+          /ad /s /b [appendArgs \" [file nativename $pattern] \"]] \n] {
+        set dir [string trim $dir]
+
+        if {[string length $dir] > 0} then {
+          set dir [getDirResultPath $pattern $dir]
+
+          if {[lsearch -variable -exact -nocase result $dir] == -1} then {
+            lappend result $dir
+          }
+        }
+      }
+
+      foreach dir [split [exec -unicode $env(ComSpec) /u /c dir \
+          /ahd /s /b [appendArgs \" [file nativename $pattern] \"]] \n] {
+        set dir [string trim $dir]
+
+        if {[string length $dir] > 0} then {
+          set dir [getDirResultPath $pattern $dir]
+
+          if {[lsearch -variable -exact -nocase result $dir] == -1} then {
+            lappend result $dir
+          }
+        }
+      }
+
+      return $result
+    } else {
+      #
+      # NOTE: Block non-Windows platforms since this is Windows specific.
+      #
+      if {![isWindows]} then {
+        error "not supported on this operating system"
+      }
+
+      #
+      # NOTE: This should work properly in Tcl only.
+      #
+      set result [list]
+
+      #
+      # NOTE: We will need to grab the ComSpec environment variable.
+      #
+      global env
+
+      #
+      # NOTE: We will also need to check the Tcl version.
+      #
+      global tcl_version
+
+      catch {
+        foreach dir [split [exec $env(ComSpec) /c dir /ad /s /b \
+            [file nativename $pattern]] \n] {
+          set dir [string trim $dir]
+
+          if {[string length $dir] > 0} then {
+            set dir [getDirResultPath $pattern $dir]
+
+            #
+            # HACK: The -nocase option to [lsearch] is only available
+            #       starting with Tcl 8.5.
+            #
+            if {$tcl_version >= 8.5} then {
+              if {[lsearch -exact -nocase $result $dir] == -1} then {
+                lappend result $dir
+              }
+            } else {
+              if {[lsearch -exact [string tolower $result] \
+                  [string tolower $dir]] == -1} then {
+                lappend result $dir
+              }
+            }
+          }
+        }
+      }
+
+      catch {
+        foreach dir [split [exec $env(ComSpec) /c dir /ahd /s /b \
+            [file nativename $pattern]] \n] {
+          set dir [string trim $dir]
+
+          if {[string length $dir] > 0} then {
+            set dir [getDirResultPath $pattern $dir]
+
+            #
+            # HACK: The -nocase option to [lsearch] is only available
+            #       starting with Tcl 8.5.
+            #
+            if {$tcl_version >= 8.5} then {
+              if {[lsearch -exact -nocase $result $dir] == -1} then {
+                lappend result $dir
+              }
+            } else {
+              if {[lsearch -exact [string tolower $result] \
+                  [string tolower $dir]] == -1} then {
+                lappend result $dir
+              }
+            }
+          }
+        }
+      }
+
+      return $result
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a list of files matching the pattern
+  #       specified.  It does not recurse into sub-directories.
+  #
+  proc findFiles { pattern } {
+    if {[isEagle]} then {
+      #
+      # NOTE: Block non-Windows platforms since this is Windows specific.
+      #
+      if {![isWindows]} then {
+        error "not supported on this operating system"
+      }
+
+      #
+      # NOTE: This should work properly in Eagle only.
+      #
+      set fileName ""; set result [list]
+
+      #
+      # HACK: Optimize the variable access in this procedure to be
+      #       as fast as possible.
+      #
+      makeVariableFast fileName true; makeVariableFast result true
+
+      #
+      # NOTE: We will need to grab the ComSpec environment variable.
+      #
+      global env
+
+      foreach fileName [split [exec -unicode $env(ComSpec) /u /c dir \
+          /a-d /b [appendArgs \" [file nativename $pattern] \"]] \n] {
+        set fileName [string trim $fileName]
+
+        if {[string length $fileName] > 0} then {
+          set fileName [getDirResultPath $pattern $fileName]
+
+          if {[lsearch -variable -exact -nocase result $fileName] == -1} then {
+            lappend result $fileName
+          }
+        }
+      }
+
+      foreach fileName [split [exec -unicode $env(ComSpec) /u /c dir \
+          /ah-d /b [appendArgs \" [file nativename $pattern] \"]] \n] {
+        set fileName [string trim $fileName]
+
+        if {[string length $fileName] > 0} then {
+          set fileName [getDirResultPath $pattern $fileName]
+
+          if {[lsearch -variable -exact -nocase result $fileName] == -1} then {
+            lappend result $fileName
+          }
+        }
+      }
+
+      return $result
+    } else {
+      #
+      # NOTE: This should work properly in Tcl only.
+      #
+      eval lappend result [glob -nocomplain -types {f} \
+          [file normalize $pattern]]
+
+      eval lappend result [glob -nocomplain -types {f hidden} \
+          [file normalize $pattern]]
+
+      return $result
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a list of files matching the pattern
+  #       specified.  It recurses into sub-directories.
+  #
+  proc findFilesRecursive { pattern } {
+    if {[isEagle]} then {
+      #
+      # NOTE: Block non-Windows platforms since this is Windows specific.
+      #
+      if {![isWindows]} then {
+        error "not supported on this operating system"
+      }
+
+      #
+      # NOTE: This should work properly in Eagle only.
+      #
+      set fileName ""; set result [list]
+
+      #
+      # HACK: Optimize the variable access in this procedure to be
+      #       as fast as possible.
+      #
+      makeVariableFast fileName true; makeVariableFast result true
+
+      #
+      # NOTE: We will need to grab the ComSpec environment variable.
+      #
+      global env
+
+      foreach fileName [split [exec -unicode $env(ComSpec) /u /c dir \
+          /a-d /s /b [appendArgs \" [file nativename $pattern] \"]] \n] {
+        set fileName [string trim $fileName]
+
+        if {[string length $fileName] > 0} then {
+          set fileName [getDirResultPath $pattern $fileName]
+
+          if {[lsearch -variable -exact -nocase result $fileName] == -1} then {
+            lappend result $fileName
+          }
+        }
+      }
+
+      foreach fileName [split [exec -unicode $env(ComSpec) /u /c dir \
+          /ah-d /s /b [appendArgs \" [file nativename $pattern] \"]] \n] {
+        set fileName [string trim $fileName]
+
+        if {[string length $fileName] > 0} then {
+          set fileName [getDirResultPath $pattern $fileName]
+
+          if {[lsearch -variable -exact -nocase result $fileName] == -1} then {
+            lappend result $fileName
+          }
+        }
+      }
+
+      return $result
+    } else {
+      #
+      # NOTE: Block non-Windows platforms since this is Windows specific.
+      #
+      if {![isWindows]} then {
+        error "not supported on this operating system"
+      }
+
+      #
+      # NOTE: This should work properly in Tcl only.
+      #
+      set result [list]
+
+      #
+      # NOTE: We will need to grab the ComSpec environment variable.
+      #
+      global env
+
+      #
+      # NOTE: We will also need to check the Tcl version.
+      #
+      global tcl_version
+
+      catch {
+        foreach fileName [split [exec $env(ComSpec) /c dir /a-d /s /b \
+            [file nativename $pattern]] \n] {
+          set fileName [string trim $fileName]
+
+          if {[string length $fileName] > 0} then {
+            set fileName [getDirResultPath $pattern $fileName]
+
+            #
+            # HACK: The -nocase option to [lsearch] is only available
+            #       starting with Tcl 8.5.
+            #
+            if {$tcl_version >= 8.5} then {
+              if {[lsearch -exact -nocase $result $fileName] == -1} then {
+                lappend result $fileName
+              }
+            } else {
+              if {[lsearch -exact [string tolower $result] \
+                  [string tolower $fileName]] == -1} then {
+                lappend result $fileName
+              }
+            }
+          }
+        }
+      }
+
+      catch {
+        foreach fileName [split [exec $env(ComSpec) /c dir /ah-d /s /b \
+            [file nativename $pattern]] \n] {
+          set fileName [string trim $fileName]
+
+          if {[string length $fileName] > 0} then {
+            set fileName [getDirResultPath $pattern $fileName]
+
+            #
+            # HACK: The -nocase option to [lsearch] is only available
+            #       starting with Tcl 8.5.
+            #
+            if {$tcl_version >= 8.5} then {
+              if {[lsearch -exact -nocase $result $fileName] == -1} then {
+                lappend result $fileName
+              }
+            } else {
+              if {[lsearch -exact [string tolower $result] \
+                  [string tolower $fileName]] == -1} then {
+                lappend result $fileName
+              }
+            }
+          }
+        }
+      }
+
+      return $result
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to copy all files matching the specified
+  #       source directory and patterns to the destination directory.  This
+  #       procedure may raise script errors.
+  #
+  proc copyFilesRecursive {
+          sourceDirectory targetDirectory {patterns ""} {options ""} } {
+    #
+    # NOTE: Block non-Windows platforms since this is Windows specific.
+    #
+    if {![isWindows]} then {
+      error "not supported on this operating system"
+    }
+
+    #
+    # NOTE: Start out with the [exec] command and the necessary options
+    #       to the command.
+    #
+    if {[isEagle]} then {
+      set command [list exec -exitcode exitCode -- robocopy]
+    } else {
+      set command [list exec -- robocopy]
+    }
+
+    #
+    # NOTE: Add the source and target directory names.  These are always
+    #       required.
+    #
+    if {[isEagle]} then {
+      lappend command [appendArgs \" [file nativename $sourceDirectory] \"]
+      lappend command [appendArgs \" [file nativename $targetDirectory] \"]
+    } else {
+      lappend command [file nativename $sourceDirectory]
+      lappend command [file nativename $targetDirectory]
+    }
+
+    #
+    # NOTE: If there are patterns specified, add them now.  By default,
+    #       all files are copied (i.e. "*.*").
+    #
+    if {[llength $patterns] > 0} then {
+      eval lappend command $patterns
+    }
+
+    #
+    # NOTE: Should the default Robocopy options be excluded?  Generally,
+    #       these options should not be excluded.  All matching files
+    #       are copied, using restartable mode, and using extra options
+    #       when running as administrator to enable copying more files
+    #       and metadata, e.g. using backup mode and copying the extra
+    #       file security information.
+    #
+    if {[lsearch -exact $options -nocopyopts] == -1} then {
+      lappend command /E
+
+      if {[isEagle] && [isAdministrator]} then {
+        lappend command /ZB /COPYALL
+      } else {
+        lappend command /Z
+      }
+
+      lappend command /DCOPY:T
+    }
+
+    #
+    # NOTE: Should we override the default number of retries per file?
+    #       If no retry related option is found, the Robocopy default
+    #       behavior will be used (i.e. 1 million retries per file).
+    #
+    if {[set index [lsearch -glob $options -retries:*]] != -1} then {
+      #
+      # NOTE: Grab the retry option name/value from the list of options
+      #       and attempt to extract the integer number of retries from
+      #       it.
+      #
+      set value [lindex $options $index]
+
+      if {[regexp -- {^-retries:(\d+)$} $value dummy retries] && \
+          [string is integer -strict $retries] && $retries >= 0} then {
+        #
+        # NOTE: Use the specified number of retries.  This value will
+        #       be greater than or equal to zero and within the range
+        #       of a 32-bit integer.
+        #
+        lappend command [appendArgs /R: $retries]
+      } else {
+        #
+        # NOTE: The specified number of retries is somehow invalid.
+        #
+        error "number of retries must be a positive integer"
+      }
+    } elseif {[lsearch -exact $options -retry] == -1} then {
+      #
+      # NOTE: Fallback to setting retry count to zero, which is used
+      #       to disable per-file retries.
+      #
+      lappend command /R:0
+    }
+
+    #
+    # NOTE: By default, do not process file system junctions.  This
+    #       is used to avoid the possibility of infinite loops when
+    #       traversing the file system (i.e. because it is trivial
+    #       to utilize file system junctions in order to construct
+    #       directory trees that loop back upon themselves).
+    #
+    if {[lsearch -exact $options -junctions] == -1} then {
+      lappend command /XJ
+    }
+
+    #
+    # NOTE: By default, do not purge any files that happen to be in
+    #       the target directory.
+    #
+    if {[lsearch -exact $options -purge] != -1} then {
+      lappend command /PURGE
+    }
+
+    #
+    # NOTE: By default, do not produce a verbose log files in the
+    #       temporary directory.
+    #
+    if {[lsearch -exact $options -logging] != -1} then {
+      lappend command /X /V /FP /NP
+
+      package require Eagle.Test
+      set logFileName [getTemporaryFileName]
+
+      if {[isEagle]} then {
+        lappend command [appendArgs \
+            \"/LOG: [file nativename $logFileName] \"]
+      } else {
+        lappend command [appendArgs \
+            /LOG: [file nativename $logFileName]]
+      }
+    }
+
+    #
+    # NOTE: Upon success, the exit code from Robocopy will be between
+    #       zero and seven.  If the exit code is eight or greater, it
+    #       has somehow failed and that error must be reported to the
+    #       caller via raising a script error.
+    #
+    if {[isEagle]} then {
+      #
+      # NOTE: Execute the resulting [exec] command in our context and
+      #       capture the results.
+      #
+      set result [eval $command]
+
+      if {[info exists exitCode] && $exitCode in \
+          [list Success Failure Exception 0 1 2 3 4 5 6 7]} then {
+        #
+        # NOTE: Return the captured output from the Robocopy command,
+        #       whatever it was.  Generally, this will either be the
+        #       summary and details of the files copied -OR- the log
+        #       file name.
+        #
+        return $result
+      } else {
+        #
+        # NOTE: Raise a script error, using the captured errors from
+        #       the Robocopy command, whatever it was.
+        #
+        error [appendArgs \
+            "command \"" $command "\" error: " $result]
+      }
+    } else {
+      #
+      # NOTE: Execute the resulting [exec] command in our context and
+      #       capture the results.
+      #
+      if {[catch $command result] == 0 || ([info exists ::errorCode] && \
+          [maybeGetExitCode $::errorCode 8] < 8)} then {
+        #
+        # NOTE: Return the captured output from the Robocopy command,
+        #       whatever it was.  Generally, this will either be the
+        #       summary and details of the files copied -OR- the log
+        #       file name.
+        #
+        return $result
+      } else {
+        #
+        # NOTE: Raise a script error, using the captured errors from
+        #       the Robocopy command, whatever it was.
+        #
+        error [appendArgs \
+            "command \"" $command "\" error: " $result]
+      }
+    }
+  }
+
+  #
+  # NOTE: Provide the Eagle "file finder" package to the interpreter.
+  #
+  package provide Eagle.File.Finder \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

@@ -1,0 +1,1501 @@
+###############################################################################
+#
+# expr.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test expr-1.0 {extremely improbable pathological case} -body {
+  list [expr {wide(11)*(2*3**2*5*(2**4*3**2*(2**2*7**2+1)*4001+1)+1)}] \
+      [expr {11*(2*3**2*5*(2**4*3**2*(2**2*7**2+1)*wide(4001)+1)+1)}]
+} -constraints {eagle} -result {17876084809 112365365321}}
+
+###############################################################################
+
+runTest {test expr-1.1 {expression types} -body {
+  list [expr {typeof(wide(2))}] [expr {typeof([expr {wide(2)}])}] \
+      [expr {typeof([set y [set x [expr {wide(2)}]]])}]
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle} -result {wide wide wide}}
+
+###############################################################################
+
+runTest {test expr-1.2 {exponentiation operator} -body {
+  list [expr {2 ** 2}] [expr {-2 ** 2}] [expr {-2 ** -2}] [expr {1.2 ** 2}] \
+      [expr {-1.2 ** 2}] [expr {2.0 ** -2}] [expr {-2.0 ** -3}]
+} -constraints {tcl85Feature} -result {4 4 0 1.44 1.44 0.25 -0.125}}
+
+###############################################################################
+
+runTest {test expr-1.3 {string/list operators} -body {
+  list [expr {int("0x1" eq "1")}] \
+      [expr {int("0x1" == "1")}] \
+      [expr {int("0x1" ne "1")}] \
+      [expr {int("0x1" != "1")}] \
+      [expr {int("0b1" eq "1")}] \
+      [expr {int("0b1" == "1")}] \
+      [expr {int("0b1" ne "1")}] \
+      [expr {int("0b1" != "1")}] \
+      [expr {int("0x1" in "1")}] \
+      [expr {int("0x1" ni "1")}] \
+      [expr {int("1" in "1")}] \
+      [expr {int("1" ni "1")}] \
+      [expr {int("0x1" in "1")}] \
+      [expr {int("0x1" ni "1")}] \
+      [expr {int("1" in [list 1 2 3 4 5])}] \
+      [expr {int("1" ni [list 1 2 3 4 5])}] \
+      [expr {int("0x1" in [list 1 2 3 4 5])}] \
+      [expr {int("0x1" ni [list 1 2 3 4 5])}]
+} -constraints {tcl85Feature} -result {0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1}}
+
+###############################################################################
+
+runTest {test expr-1.4 {left shift operator "int(2) << x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -32} {$i <= 32} {incr i} {
+    lappend result [expr {2 << $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {tcl84} -result {2 4 8 16 32 64 128 256 512 1024 2048 4096 8192\
+16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216\
+33554432 67108864 134217728 268435456 536870912 1073741824 -2147483648 0 2 4 8\
+16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288\
+1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456\
+536870912 1073741824 -2147483648 0 0}}
+
+###############################################################################
+
+runTest {test expr-1.5 {right shift operator "int(2) >> x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -32} {$i <= 32} {incr i} {
+    lappend result [expr {2 >> $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {tcl84} -result {2 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0 0 0 0 0 0 0 0 2 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0}}
+
+###############################################################################
+
+runTest {test expr-1.6 {left shift operator "wide(2) << x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -64} {$i <= 64} {incr i} {
+    lappend result [expr {wide(2) << $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {tcl84} -result {0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144\
+524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728\
+268435456 536870912 1073741824 2147483648 4294967296 8589934592 17179869184\
+34359738368 68719476736 137438953472 274877906944 549755813888 1099511627776\
+2199023255552 4398046511104 8796093022208 17592186044416 35184372088832\
+70368744177664 140737488355328 281474976710656 562949953421312 1125899906842624\
+2251799813685248 4503599627370496 9007199254740992 18014398509481984\
+36028797018963968 72057594037927936 144115188075855872 288230376151711744\
+576460752303423488 1152921504606846976 2305843009213693952 4611686018427387904\
+-9223372036854775808 0 0}}
+
+###############################################################################
+
+runTest {test expr-1.7 {right shift operator "wide(2) >> x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -64} {$i <= 64} {incr i} {
+    lappend result [expr {wide(2) >> $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {tcl84} -result {0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+2 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}}
+
+###############################################################################
+
+runTest {test expr-1.8 {left shift operator "int(0xDEADF00D) << x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -32} {$i <= 32} {incr i} {
+    lappend result [expr {0xDEADF00D << $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {tcl84} -result {0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0 0 0 0 0 0 0 0 3735941133 7471882266 14943764532 29887529064 59775058128\
+119550116256 239100232512 478200465024 956400930048 1912801860096 3825603720192\
+7651207440384 15302414880768 30604829761536 61209659523072 122419319046144\
+244838638092288 489677276184576 979354552369152 1958709104738304\
+3917418209476608 7834836418953216 15669672837906432 31339345675812864\
+62678691351625728 125357382703251456 250714765406502912 501429530813005824\
+1002859061626011648 2005718123252023296 4011436246504046592 8022872493008093184\
+-2400999087693365248}}
+
+###############################################################################
+
+runTest {test expr-1.9 {right shift operator "int(0xDEADF00D) >> x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -32} {$i <= 32} {incr i} {
+    lappend result [expr {0xDEADF00D >> $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {tcl84} -result {0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0 0 0 0 0 0 0 0 3735941133 1867970566 933985283 466992641 233496320 116748160\
+58374080 29187040 14593520 7296760 3648380 1824190 912095 456047 228023 114011\
+57005 28502 14251 7125 3562 1781 890 445 222 111 55 27 13 6 3 1 0}}
+
+###############################################################################
+
+runTest {test expr-1.10 {left shift operator "wide(0xDEADF00D) << x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -64} {$i <= 64} {incr i} {
+    lappend result [expr {wide(0xDEADF00D) << $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {tcl84} -result {0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+3735941133 7471882266 14943764532 29887529064 59775058128 119550116256\
+239100232512 478200465024 956400930048 1912801860096 3825603720192\
+7651207440384 15302414880768 30604829761536 61209659523072 122419319046144\
+244838638092288 489677276184576 979354552369152 1958709104738304\
+3917418209476608 7834836418953216 15669672837906432 31339345675812864\
+62678691351625728 125357382703251456 250714765406502912 501429530813005824\
+1002859061626011648 2005718123252023296 4011436246504046592 8022872493008093184\
+-2400999087693365248 -4801998175386730496 8842747722936090624\
+-761248627837370368 -1522497255674740736 -3044994511349481472\
+-6089989022698962944 6266766028311625728 -5913212017086300160\
+6620320039536951296 -5206103994635649024 8034536084438253568\
+-2377671904833044480 -4755343809666088960 8936056454377373696\
+-574631164954804224 -1149262329909608448 -2298524659819216896\
+-4597049319638433792 -9194098639276867584 58546795155816448\
+117093590311632896 234187180623265792 468374361246531584 936748722493063168\
+1873497444986126336 3746994889972252672 7493989779944505344\
+-3458764513820540928 -6917529027641081856 4611686018427387904\
+-9223372036854775808 0}}
+
+###############################################################################
+
+runTest {test expr-1.11 {right shift operator "wide(0xDEADF00D) >> x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -64} {$i <= 64} {incr i} {
+    lappend result [expr {wide(0xDEADF00D) >> $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {tcl84} -result {0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+3735941133 1867970566 933985283 466992641 233496320 116748160 58374080 29187040\
+14593520 7296760 3648380 1824190 912095 456047 228023 114011 57005 28502 14251\
+7125 3562 1781 890 445 222 111 55 27 13 6 3 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}}
+
+###############################################################################
+
+runTest {test expr-1.12 {left rotate operator "int(2) <<< x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -32} {$i <= 32} {incr i} {
+    lappend result [expr {2 <<< $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {eagle} -result {2 4 8 16 32 64 128 256 512 1024 2048 4096 8192\
+16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216\
+33554432 67108864 134217728 268435456 536870912 1073741824 -2147483648 1 2 4 8\
+16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288\
+1048576 2097152 4194304 8388608 16777216 33554432 67108864 134217728 268435456\
+536870912 1073741824 -2147483648 1 2}}
+
+###############################################################################
+
+runTest {test expr-1.13 {right rotate operator "int(2) >>> x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -32} {$i <= 32} {incr i} {
+    lappend result [expr {2 >>> $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {eagle} -result {2 1 -2147483648 1073741824 536870912 268435456\
+134217728 67108864 33554432 16777216 8388608 4194304 2097152 1048576 524288\
+262144 131072 65536 32768 16384 8192 4096 2048 1024 512 256 128 64 32 16 8 4 2\
+1 -2147483648 1073741824 536870912 268435456 134217728 67108864 33554432\
+16777216 8388608 4194304 2097152 1048576 524288 262144 131072 65536 32768 16384\
+8192 4096 2048 1024 512 256 128 64 32 16 8 4 2}}
+
+###############################################################################
+
+runTest {test expr-1.14 {left rotate operator "wide(2) <<< x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -64} {$i <= 64} {incr i} {
+    lappend result [expr {wide(2) <<< $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {eagle} -result {2 4 8 16 32 64 128 256 512 1024 2048 4096 8192\
+16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216\
+33554432 67108864 134217728 268435456 536870912 1073741824 2147483648\
+4294967296 8589934592 17179869184 34359738368 68719476736 137438953472\
+274877906944 549755813888 1099511627776 2199023255552 4398046511104\
+8796093022208 17592186044416 35184372088832 70368744177664 140737488355328\
+281474976710656 562949953421312 1125899906842624 2251799813685248\
+4503599627370496 9007199254740992 18014398509481984 36028797018963968\
+72057594037927936 144115188075855872 288230376151711744 576460752303423488\
+1152921504606846976 2305843009213693952 4611686018427387904\
+-9223372036854775808 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384\
+32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216\
+33554432 67108864 134217728 268435456 536870912 1073741824 2147483648\
+4294967296 8589934592 17179869184 34359738368 68719476736 137438953472\
+274877906944 549755813888 1099511627776 2199023255552 4398046511104\
+8796093022208 17592186044416 35184372088832 70368744177664 140737488355328\
+281474976710656 562949953421312 1125899906842624 2251799813685248\
+4503599627370496 9007199254740992 18014398509481984 36028797018963968\
+72057594037927936 144115188075855872 288230376151711744 576460752303423488\
+1152921504606846976 2305843009213693952 4611686018427387904\
+-9223372036854775808 1 2}}
+
+###############################################################################
+
+runTest {test expr-1.15 {right rotate operator "wide(2) >>> x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -64} {$i <= 64} {incr i} {
+    lappend result [expr {wide(2) >>> $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {eagle} -result {2 1 -9223372036854775808 4611686018427387904\
+2305843009213693952 1152921504606846976 576460752303423488 288230376151711744\
+144115188075855872 72057594037927936 36028797018963968 18014398509481984\
+9007199254740992 4503599627370496 2251799813685248 1125899906842624\
+562949953421312 281474976710656 140737488355328 70368744177664 35184372088832\
+17592186044416 8796093022208 4398046511104 2199023255552 1099511627776\
+549755813888 274877906944 137438953472 68719476736 34359738368 17179869184\
+8589934592 4294967296 2147483648 1073741824 536870912 268435456 134217728\
+67108864 33554432 16777216 8388608 4194304 2097152 1048576 524288 262144 131072\
+65536 32768 16384 8192 4096 2048 1024 512 256 128 64 32 16 8 4 2 1\
+-9223372036854775808 4611686018427387904 2305843009213693952\
+1152921504606846976 576460752303423488 288230376151711744 144115188075855872\
+72057594037927936 36028797018963968 18014398509481984 9007199254740992\
+4503599627370496 2251799813685248 1125899906842624 562949953421312\
+281474976710656 140737488355328 70368744177664 35184372088832 17592186044416\
+8796093022208 4398046511104 2199023255552 1099511627776 549755813888\
+274877906944 137438953472 68719476736 34359738368 17179869184 8589934592\
+4294967296 2147483648 1073741824 536870912 268435456 134217728 67108864\
+33554432 16777216 8388608 4194304 2097152 1048576 524288 262144 131072 65536\
+32768 16384 8192 4096 2048 1024 512 256 128 64 32 16 8 4 2}}
+
+###############################################################################
+
+runTest {test expr-1.16 {left rotate operator "int(0xDEADF00D) <<< x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -32} {$i <= 32} {incr i} {
+    lappend result [expr {0xDEADF00D <<< $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {eagle} -result {-2400999087693365248 -4801998175386730495\
+8842747722936090627 -761248627837370362 -1522497255674740723\
+-3044994511349481445 -6089989022698962889 6266766028311625839\
+-5913212017086299938 6620320039536951741 -5206103994635648134\
+8034536084438255349 -2377671904833040918 -4755343809666081835\
+8936056454377387947 -574631164954775722 -1149262329909551443\
+-2298524659819102885 -4597049319638205769 -9194098639276411537\
+58546795156728543 117093590313457086 234187180626914172 468374361253828344\
+936748722507656688 1873497445015313376 3746994890030626752 7493989780061253504\
+-3458764513587044608 -6917529027174089215 4611686019361373187\
+-9223372034986805242 3735941133 7471882266 14943764532 29887529064 59775058128\
+119550116256 239100232512 478200465024 956400930048 1912801860096 3825603720192\
+7651207440384 15302414880768 30604829761536 61209659523072 122419319046144\
+244838638092288 489677276184576 979354552369152 1958709104738304\
+3917418209476608 7834836418953216 15669672837906432 31339345675812864\
+62678691351625728 125357382703251456 250714765406502912 501429530813005824\
+1002859061626011648 2005718123252023296 4011436246504046592 8022872493008093184\
+-2400999087693365248}}
+
+###############################################################################
+
+runTest {test expr-1.17 {right rotate operator "int(0xDEADF00D) >>> x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -32} {$i <= 32} {incr i} {
+    lappend result [expr {0xDEADF00D >>> $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {eagle} -result {-2400999087693365248 8022872493008093184\
+4011436246504046592 2005718123252023296 1002859061626011648 501429530813005824\
+250714765406502912 125357382703251456 62678691351625728 31339345675812864\
+15669672837906432 7834836418953216 3917418209476608 1958709104738304\
+979354552369152 489677276184576 244838638092288 122419319046144 61209659523072\
+30604829761536 15302414880768 7651207440384 3825603720192 1912801860096\
+956400930048 478200465024 239100232512 119550116256 59775058128 29887529064\
+14943764532 7471882266 3735941133 -9223372034986805242 4611686019361373187\
+-6917529027174089215 -3458764513587044608 7493989780061253504\
+3746994890030626752 1873497445015313376 936748722507656688 468374361253828344\
+234187180626914172 117093590313457086 58546795156728543 -9194098639276411537\
+-4597049319638205769 -2298524659819102885 -1149262329909551443\
+-574631164954775722 8936056454377387947 -4755343809666081835\
+-2377671904833040918 8034536084438255349 -5206103994635648134\
+6620320039536951741 -5913212017086299938 6266766028311625839\
+-6089989022698962889 -3044994511349481445 -1522497255674740723\
+-761248627837370362 8842747722936090627 -4801998175386730495\
+-2400999087693365248}}
+
+###############################################################################
+
+runTest {test expr-1.18 {left rotate operator "wide(0xDEADF00D) <<< x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -64} {$i <= 64} {incr i} {
+    lappend result [expr {wide(0xDEADF00D) <<< $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {eagle} -result {3735941133 7471882266 14943764532 29887529064\
+59775058128 119550116256 239100232512 478200465024 956400930048 1912801860096\
+3825603720192 7651207440384 15302414880768 30604829761536 61209659523072\
+122419319046144 244838638092288 489677276184576 979354552369152\
+1958709104738304 3917418209476608 7834836418953216 15669672837906432\
+31339345675812864 62678691351625728 125357382703251456 250714765406502912\
+501429530813005824 1002859061626011648 2005718123252023296 4011436246504046592\
+8022872493008093184 -2400999087693365248 -4801998175386730495\
+8842747722936090627 -761248627837370362 -1522497255674740723\
+-3044994511349481445 -6089989022698962889 6266766028311625839\
+-5913212017086299938 6620320039536951741 -5206103994635648134\
+8034536084438255349 -2377671904833040918 -4755343809666081835\
+8936056454377387947 -574631164954775722 -1149262329909551443\
+-2298524659819102885 -4597049319638205769 -9194098639276411537\
+58546795156728543 117093590313457086 234187180626914172 468374361253828344\
+936748722507656688 1873497445015313376 3746994890030626752 7493989780061253504\
+-3458764513587044608 -6917529027174089215 4611686019361373187\
+-9223372034986805242 3735941133 7471882266 14943764532 29887529064 59775058128\
+119550116256 239100232512 478200465024 956400930048 1912801860096 3825603720192\
+7651207440384 15302414880768 30604829761536 61209659523072 122419319046144\
+244838638092288 489677276184576 979354552369152 1958709104738304\
+3917418209476608 7834836418953216 15669672837906432 31339345675812864\
+62678691351625728 125357382703251456 250714765406502912 501429530813005824\
+1002859061626011648 2005718123252023296 4011436246504046592 8022872493008093184\
+-2400999087693365248 -4801998175386730495 8842747722936090627\
+-761248627837370362 -1522497255674740723 -3044994511349481445\
+-6089989022698962889 6266766028311625839 -5913212017086299938\
+6620320039536951741 -5206103994635648134 8034536084438255349\
+-2377671904833040918 -4755343809666081835 8936056454377387947\
+-574631164954775722 -1149262329909551443 -2298524659819102885\
+-4597049319638205769 -9194098639276411537 58546795156728543 117093590313457086\
+234187180626914172 468374361253828344 936748722507656688 1873497445015313376\
+3746994890030626752 7493989780061253504 -3458764513587044608\
+-6917529027174089215 4611686019361373187 -9223372034986805242 3735941133}}
+
+###############################################################################
+
+runTest {test expr-1.19 {right rotate operator "wide(0xDEADF00D) >>> x"} -setup {
+  unset -nocomplain result
+} -body {
+  for {set i -64} {$i <= 64} {incr i} {
+    lappend result [expr {wide(0xDEADF00D) >>> $i}]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain result i
+} -constraints {eagle} -result {3735941133 -9223372034986805242\
+4611686019361373187 -6917529027174089215 -3458764513587044608\
+7493989780061253504 3746994890030626752 1873497445015313376 936748722507656688\
+468374361253828344 234187180626914172 117093590313457086 58546795156728543\
+-9194098639276411537 -4597049319638205769 -2298524659819102885\
+-1149262329909551443 -574631164954775722 8936056454377387947\
+-4755343809666081835 -2377671904833040918 8034536084438255349\
+-5206103994635648134 6620320039536951741 -5913212017086299938\
+6266766028311625839 -6089989022698962889 -3044994511349481445\
+-1522497255674740723 -761248627837370362 8842747722936090627\
+-4801998175386730495 -2400999087693365248 8022872493008093184\
+4011436246504046592 2005718123252023296 1002859061626011648 501429530813005824\
+250714765406502912 125357382703251456 62678691351625728 31339345675812864\
+15669672837906432 7834836418953216 3917418209476608 1958709104738304\
+979354552369152 489677276184576 244838638092288 122419319046144 61209659523072\
+30604829761536 15302414880768 7651207440384 3825603720192 1912801860096\
+956400930048 478200465024 239100232512 119550116256 59775058128 29887529064\
+14943764532 7471882266 3735941133 -9223372034986805242 4611686019361373187\
+-6917529027174089215 -3458764513587044608 7493989780061253504\
+3746994890030626752 1873497445015313376 936748722507656688 468374361253828344\
+234187180626914172 117093590313457086 58546795156728543 -9194098639276411537\
+-4597049319638205769 -2298524659819102885 -1149262329909551443\
+-574631164954775722 8936056454377387947 -4755343809666081835\
+-2377671904833040918 8034536084438255349 -5206103994635648134\
+6620320039536951741 -5913212017086299938 6266766028311625839\
+-6089989022698962889 -3044994511349481445 -1522497255674740723\
+-761248627837370362 8842747722936090627 -4801998175386730495\
+-2400999087693365248 8022872493008093184 4011436246504046592\
+2005718123252023296 1002859061626011648 501429530813005824 250714765406502912\
+125357382703251456 62678691351625728 31339345675812864 15669672837906432\
+7834836418953216 3917418209476608 1958709104738304 979354552369152\
+489677276184576 244838638092288 122419319046144 61209659523072 30604829761536\
+15302414880768 7651207440384 3825603720192 1912801860096 956400930048\
+478200465024 239100232512 119550116256 59775058128 29887529064 14943764532\
+7471882266 3735941133}}
+
+###############################################################################
+
+runTest {test expr-1.20 {invalid math function} -setup {
+  unset -nocomplain error
+} -body {
+  list [catch {expr {baz()}} error] $error
+} -cleanup {
+  unset -nocomplain error
+} -constraints {eagle} -result {1 {invalid function name "baz"}}}
+
+###############################################################################
+
+runTest {test expr-1.21 {shimmer one-element list for [expr]} -body {
+  expr {[regexp -inline -- {\d+} 65756] - 1}
+} -result {65755}}
+
+###############################################################################
+
+runTest {test expr-1.22 {bareword prefixed by a non-numeric} -body {
+  list [catch {expr {nancy}} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {tcl84} -match glob -result \
+{1 {syntax error in expression "nancy"*}}}
+
+###############################################################################
+
+runTest {test expr-1.23 {[if] alone, empty result if nothing done} -setup {
+  unset -nocomplain x y
+  set x foo
+} -body {
+  if {$x eq "bar"} then {
+    set y test
+  }
+} -cleanup {
+  unset -nocomplain x y
+} -result {}}
+
+###############################################################################
+
+runTest {test expr-1.24 {[if], empty result if nothing done} -setup {
+  unset -nocomplain x y
+} -body {
+  set x foo
+
+  if {$x eq "bar"} then {
+    set y test
+  }
+} -cleanup {
+  unset -nocomplain x y
+} -result {}}
+
+###############################################################################
+
+runTest {test expr-1.25 {[if] in [eval], empty result if nothing done} -setup {
+  unset -nocomplain x y
+} -body {
+  eval {
+    set x foo
+
+    if {$x eq "bar"} then {
+      set y test
+    }
+  }
+} -cleanup {
+  unset -nocomplain x y
+} -result {}}
+
+###############################################################################
+
+runTest {test expr-1.26 {[if] in [proc], empty result if nothing done} -setup {
+  proc bar { y } {
+    set x $y
+
+    if {$x eq "bar"} then {
+      set y test
+    }
+  }
+} -body {
+  list [bar foo] [bar bar]
+} -cleanup {
+  rename bar ""
+} -result {{} test}}
+
+###############################################################################
+
+set line [list 954 1 6 4 2 3 13 32 18 24 45 16 914 10 74 8 -1]; # sciuridae
+
+###############################################################################
+
+runTest {test expr-1.27.1 {expression of randomness} -body {
+  set z 0.0
+
+  foreach y $line {
+    switch -exact -- $y {
+      1 {
+        set z [expr {$z + 2}]
+      }
+      2 {
+        set z [expr {$z - 1.5}]
+      }
+      3 {
+        set z [expr {$z * 2}]
+      }
+      4 {
+        set z [expr {$z / 1.5}]
+      }
+      954 {
+        expr {srand(int($z))}
+      }
+      default {
+        if {$y % 2 == 0} then {
+          set z [expr {$z + rand() * $y}]
+        } else {
+          set z [expr {$z - rand() * $y}]
+        }
+      }
+    }
+  }
+
+  set z
+} -cleanup {
+  unset -nocomplain y z
+} -constraints {tcl tcl84} -result {129.684154974}}
+
+###############################################################################
+
+runTest {test expr-1.27.2 {expression of randomness} -body {
+  set z 0.0
+
+  foreach y $line {
+    switch -exact -- $y {
+      1 {
+        set z [expr {$z + 2}]
+      }
+      2 {
+        set z [expr {$z - 1.5}]
+      }
+      3 {
+        set z [expr {$z * 2}]
+      }
+      4 {
+        set z [expr {$z / 1.5}]
+      }
+      954 {
+        expr {srand(int($z))}
+      }
+      default {
+        if {$y % 2 == 0} then {
+          set z [expr {$z + rand() * $y}]
+        } else {
+          set z [expr {$z - rand() * $y}]
+        }
+      }
+    }
+  }
+
+  set z
+} -cleanup {
+  unset -nocomplain y z
+} -constraints {tcl tcl85OrHigher} -result {129.68415497446006}}
+
+###############################################################################
+
+#
+# NOTE: The .NET Core 3.0 floating point code seems to produce different
+#       output precision.
+#
+runTest {test expr-1.27.3 {expression of randomness} -body {
+  set z 0.0
+
+  foreach y $line {
+    switch -exact -- $y {
+      1 {
+        set z [expr {$z + 2}]
+      }
+      2 {
+        set z [expr {$z - 1.5}]
+      }
+      3 {
+        set z [expr {$z * 2}]
+      }
+      4 {
+        set z [expr {$z / 1.5}]
+      }
+      954 {
+        expr {srand(int($z))}
+      }
+      default {
+        if {$y % 2 == 0} then {
+          set z [expr {$z + rand() * $y}]
+        } else {
+          set z [expr {$z - rand() * $y}]
+        }
+      }
+    }
+  }
+
+  set z
+} -cleanup {
+  unset -nocomplain y z
+} -constraints {eagle dotNetOrDotNetCore} -match regexp -result \
+{^919\.697353249585(?:3)?$}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* The Mono random number generator seems to produce different
+#       output on OpenBSD.
+#
+runTest {test expr-1.27.4 {expression of randomness} -body {
+  set z 0.0
+
+  foreach y $line {
+    switch -exact -- $y {
+      1 {
+        set z [expr {$z + 2}]
+      }
+      2 {
+        set z [expr {$z - 1.5}]
+      }
+      3 {
+        set z [expr {$z * 2}]
+      }
+      4 {
+        set z [expr {$z / 1.5}]
+      }
+      954 {
+        expr {srand(int($z))}
+      }
+      default {
+        if {$y % 2 == 0} then {
+          set z [expr {$z + rand() * $y}]
+        } else {
+          set z [expr {$z - rand() * $y}]
+        }
+      }
+    }
+  }
+
+  set z
+} -cleanup {
+  unset -nocomplain y z
+} -constraints {eagle mono} -match regexp -result \
+{^(?:657\.533938022551|808\.083724868833|919\.697353249585)$}}
+
+###############################################################################
+
+unset -nocomplain line
+
+###############################################################################
+
+runTest {test expr-1.28 {int/wide literal type handling} -body {
+  list [expr {9223372036854775807}] [expr {9223372036854775807 + 1}] \
+      [expr {9223372036854775807 - 1}] [expr {-9223372036854775808}] \
+      [expr {-9223372036854775808 + 1}] [expr {-9223372036854775808 - 1}]
+} -constraints {tcl84} -result {9223372036854775807 -9223372036854775808\
+9223372036854775806 -9223372036854775808 -9223372036854775807\
+9223372036854775807}}
+
+###############################################################################
+
+runTest {test expr-1.29 {int/wide operand type handling} -body {
+  list [expr {(0xffffffff | (int(0x7fffffff) << 32))}] \
+      [expr {(0xffffffff | (wide(0x7fffffff) << 32))}]
+} -constraints {tcl84} -result {4294967295 9223372036854775807}}
+
+###############################################################################
+
+runTest {test expr-1.30 {int/wide type conversion handling} -body {
+  list [expr {int(-1)}] [expr {wide(-1)}] \
+      [expr {int(0x7fffffff)}] [expr {wide(0x7fffffff)}] \
+      [expr {int(0x80000000)}] [expr {wide(0x80000000)}] \
+      [expr {int(0xffffffff)}] [expr {wide(0xffffffff)}]
+} -constraints [fixConstraints {!intIsWide}] -result \
+{-1 -1 2147483647 2147483647 -2147483648 2147483648 -1 4294967295}}
+
+###############################################################################
+
+runTest {test expr-1.31 {int/wide operand type handling} -body {
+  list [expr {-9223372036854775808 & (0xffffffff | (0x7fffffff << 32))}] \
+      [expr {-9223372036854775808 & (0xffffffff | (wide(0x7fffffff) << 32))}] \
+      [expr {-9223372036854775808 & \
+          (wide(0xffffffff) | (wide(0x7fffffff) << 32))}] \
+      [expr {-9223372036854775808 & \
+          wide(wide(0xffffffff) | (wide(0x7fffffff) << 32))}]
+} -result {0 0 0 0}}
+
+###############################################################################
+
+runTest {test expr-1.32 {signed wide detection during parsing} -body {
+  list [expr {typeof(9223372036854775807+0)}] \
+      [expr {typeof(-9223372036854775808+0)}]
+} -constraints {eagle} -result {wide wide}}
+
+###############################################################################
+
+runTest {test expr-1.33 {list of number types} -body {
+  lsort [object invoke -flags +NonPublic Value numberTypes.ToString]
+} -constraints {eagle command.object} -result \
+{Eagle._Components.Public.MatchMode Eagle._Components.Public.ReturnCode\
+System.Boolean System.Byte System.Char System.Decimal System.Double System.Enum\
+System.Int16 System.Int32 System.Int64 System.MidpointRounding System.SByte\
+System.Single System.UInt16 System.UInt32 System.UInt64}}
+
+###############################################################################
+
+runTest {test expr-1.34 {list of integral types} -body {
+  lsort [object invoke -flags +NonPublic Value integralTypes.ToString]
+} -constraints {eagle command.object} -result \
+{Eagle._Components.Public.MatchMode Eagle._Components.Public.ReturnCode\
+System.Boolean System.Byte System.Char System.Enum System.Int16 System.Int32\
+System.Int64 System.MidpointRounding System.SByte System.UInt16 System.UInt32\
+System.UInt64}}
+
+###############################################################################
+
+runTest {test expr-1.35 {list of other types} -body {
+  lsort [object invoke -flags +NonPublic Value otherTypes.ToString]
+} -constraints {eagle command.object} -result \
+{Eagle._Components.Public.Interpreter Eagle._Containers.Public.EnumList\
+Eagle._Containers.Public.ReturnCodeList\
+Eagle._Containers.Public.StringDictionary Eagle._Containers.Public.StringList\
+Eagle._Containers.Public.TypeList Eagle._Interfaces.Public.IAlias\
+Eagle._Interfaces.Public.ICallFrame Eagle._Interfaces.Public.ICallback\
+Eagle._Interfaces.Public.IExecute Eagle._Interfaces.Public.IIdentifier\
+Eagle._Interfaces.Public.INamespace Eagle._Interfaces.Public.IObject\
+Eagle._Interfaces.Public.IOption Eagle._Interfaces.Public.IPlugin\
+Eagle._Interfaces.Public.IRuleSet\
+System.DateTime System.Globalization.CultureInfo System.Guid\
+System.Security.SecureString System.String System.Text.Encoding\
+System.TimeSpan System.Type System.Uri System.Version}}
+
+###############################################################################
+
+runTest {test expr-1.36 {list of integer types} -body {
+  lsort [object invoke -flags +NonPublic Value integerTypes.ToString]
+} -constraints {eagle command.object} -result {System.Int32}}
+
+###############################################################################
+
+runTest {test expr-1.37 {list of floating point types} -body {
+  lsort [object invoke -flags +NonPublic Value floatTypes.ToString]
+} -constraints {eagle command.object} -result {System.Double}}
+
+###############################################################################
+
+runTest {test expr-1.38 {list of non-integral types} -body {
+  lsort [object invoke -flags +NonPublic Value nonIntegralTypes.ToString]
+} -constraints {eagle command.object} -result \
+{System.Decimal System.Double System.Single}}
+
+###############################################################################
+
+runTest {test expr-1.39 {list of all "value" types} -body {
+  lsort [object invoke -flags +NonPublic Value allTypes.ToString]
+} -constraints {eagle command.object} -result \
+{Eagle._Components.Public.Interpreter Eagle._Components.Public.MatchMode\
+Eagle._Components.Public.ReturnCode Eagle._Containers.Public.EnumList\
+Eagle._Containers.Public.ReturnCodeList\
+Eagle._Containers.Public.StringDictionary Eagle._Containers.Public.StringList\
+Eagle._Containers.Public.TypeList Eagle._Interfaces.Public.IAlias\
+Eagle._Interfaces.Public.ICallFrame Eagle._Interfaces.Public.ICallback\
+Eagle._Interfaces.Public.IExecute Eagle._Interfaces.Public.IIdentifier\
+Eagle._Interfaces.Public.INamespace Eagle._Interfaces.Public.IObject\
+Eagle._Interfaces.Public.IOption Eagle._Interfaces.Public.IPlugin\
+Eagle._Interfaces.Public.IRuleSet\
+System.Boolean System.Byte System.Char System.DateTime System.Decimal\
+System.Double System.Enum System.Globalization.CultureInfo System.Guid\
+System.Int16 System.Int32 System.Int64 System.MidpointRounding System.SByte\
+System.Security.SecureString System.Single System.String System.Text.Encoding\
+System.TimeSpan System.Type System.UInt16 System.UInt32 System.UInt64\
+System.Uri System.Version}}
+
+###############################################################################
+
+runTest {test expr-1.40.1 {named System.Single values} -body {
+  set x [object invoke -flags +NonPublic Value namedSingles]
+  set y [object create StringList $x]
+  lsort [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle command.object} -constraintExpression \
+{(![haveConstraint dotNetCore] || [haveConstraint windows]) && \
+(![haveConstraint osVersion.WindowsNT_10.0] || [haveConstraint mono])} -result \
+{{[+Inf, Infinity]} {[+Infinity, Infinity]} {[-Inf, -Infinity]} {[-Infinity,\
+-Infinity]} {[Inf, Infinity]} {[Infinity, Infinity]} {[NaN, NaN]}}}
+
+###############################################################################
+
+runTest {test expr-1.40.2 {named System.Single values} -body {
+  set x [object invoke -flags +NonPublic Value namedSingles]
+  set y [object create StringList $x]
+  lsort [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle command.object} -constraintExpression {([haveConstraint \
+dotNetCore] && ![haveConstraint windows]) || ([haveConstraint \
+osVersion.WindowsNT_10.0] && ![haveConstraint mono])} -result "\{\[+Inf,\
+\u221E\]\} \{\[+Infinity, \u221E\]\} \{\[-Inf, -\u221E\]\} \{\[-Infinity,\
+-\u221E\]\} \{\[Inf, \u221E\]\} \{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\}"}
+
+###############################################################################
+
+runTest {test expr-1.41.1 {named System.Double values} -body {
+  set x [object invoke -flags +NonPublic Value namedDoubles]
+  set y [object create StringList $x]
+  lsort [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle command.object} -constraintExpression \
+{(![haveConstraint dotNetCore] || [haveConstraint windows]) && \
+(![haveConstraint osVersion.WindowsNT_10.0] || [haveConstraint mono])} -result \
+{{[+Inf, Infinity]} {[+Infinity, Infinity]} {[-Inf, -Infinity]} {[-Infinity,\
+-Infinity]} {[Inf, Infinity]} {[Infinity, Infinity]} {[NaN, NaN]}}}
+
+###############################################################################
+
+runTest {test expr-1.41.2 {named System.Double values} -body {
+  set x [object invoke -flags +NonPublic Value namedDoubles]
+  set y [object create StringList $x]
+  lsort [getStringFromObjectHandle $y]
+} -cleanup {
+  unset -nocomplain x y
+} -constraints {eagle command.object} -constraintExpression {([haveConstraint \
+dotNetCore] && ![haveConstraint windows]) || ([haveConstraint \
+osVersion.WindowsNT_10.0] && ![haveConstraint mono])} -result "\{\[+Inf,\
+\u221E\]\} \{\[+Infinity, \u221E\]\} \{\[-Inf, -\u221E\]\} \{\[-Infinity,\
+-\u221E\]\} \{\[Inf, \u221E\]\} \{\[Infinity, \u221E\]\} \{\[NaN, NaN\]\}"}
+
+###############################################################################
+
+runTest {test expr-1.42 {bad tcl_precision value} -setup {
+  #
+  # NOTE: Most of this test must be evaluated in a different interpreter
+  #       because the underlying issue being tested for can result in an
+  #       imbalanced interpreter call stack.
+  #
+  set i [interp create]
+} -body {
+  foreach p [list -2 -1 0 1 10 17 18 27 28 30 0] {
+    #
+    # NOTE: Set the numeric precision for the child interpreter.
+    #
+    interp eval $i [list set tcl_precision $p]
+
+    foreach v [list double(1.123456789) decimal(1.123456789)] {
+      #
+      # NOTE: Copy the $v variable to the child interpreter.
+      #
+      interp eval $i [list set v $v]
+
+      #
+      # NOTE: Capture result from attempting to evaluate the expression
+      #       in the child interpreter.
+      #
+      lappend result [interp eval $i [list catch {expr 1+$v}]]
+
+      #
+      # NOTE: Check that the call frame is what it should be (i.e. the
+      #       global call frame).
+      #
+      lappend result [interp eval $i {
+        #
+        # NOTE: This script fragment returns non-zero if the current frame
+        #       is actually the global frame (i.e. and NOT simply a linked
+        #       frame that simply points to the global frame).
+        #
+        set globalFrame [object invoke -flags +NonPublic \
+            -objectflags +NoDispose Interpreter.GetActive GlobalFrame]
+
+        set currentFrame [object invoke -flags +NonPublic \
+            -objectflags +NoDispose Interpreter.GetActive CurrentFrame]
+
+        return [object invoke Object ReferenceEquals $currentFrame \
+            $globalFrame]
+      }]
+    }
+  }
+
+  set result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain result v p i
+} -constraints {eagle command.object} -isolationLevel Interpreter -result \
+{0 True 0 True 0 True 0 True 0 True 0 True 0 True 0 True 0 True 0 True 1 True 0\
+True 1 True 0 True 1 True 0 True 1 True 0 True 1 True 1 True 0 True 0 True}}
+
+###############################################################################
+
+runTest {test expr-1.43 {interesting corner case} -setup {
+  set r [list]; set x 833855397
+} -body {
+  foreach a [list a b c] {
+    incr x; set x [expr {$x * $x}]; incr x; lappend r $x
+  }
+  set r
+} -cleanup {
+  unset -nocomplain a x r
+} -constraints {tcl84} -result {833855397 833855397 833855397}}
+
+###############################################################################
+
+proc matchBadTypeError { result } {
+  if {[string is integer -strict $result]} then {
+    return $result
+  }
+
+  if {[isEagle]} then {
+    if {[string match \
+        {unsupported operand type for operator "*" (*)} $result]} then {
+      return badType
+    } else {
+      return $result
+    }
+  } else {
+    if {[string match \
+        {can't use floating-point value as operand of "*"} $result]} then {
+      return badType
+    } else {
+      return $result
+    }
+  }
+}
+
+###############################################################################
+
+runTest {test expr-1.44 {integers required for left and right shift} -setup {
+  unset -nocomplain result
+} -body {
+  list [catch {expr {120 << 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120 >> 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120.123 << 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120.123 >> 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {int(120) << 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {int(120) >> 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {double(120) << 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {double(120) >> 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120 << 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120 >> 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120.123 << 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120.123 >> 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {int(120) << 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {int(120) >> 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {double(120) << 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {double(120) >> 1.456}} result] \
+      [matchBadTypeError $result]
+} -cleanup {
+  unset -nocomplain result
+} -result {0 240 0 60 1 badType 1 badType 0 240 0 60 1 badType 1 badType 1\
+badType 1 badType 1 badType 1 badType 1 badType 1 badType 1 badType 1 badType}}
+
+###############################################################################
+
+runTest {test expr-1.45 {integers required for left and right rotate} -setup {
+  unset -nocomplain result code
+} -body {
+  list [catch {expr {120 <<< 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120 >>> 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120.123 <<< 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120.123 >>> 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {int(120) <<< 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {int(120) >>> 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {double(120) <<< 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {double(120) >>> 1}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120 <<< 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120 >>> 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120.123 <<< 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {120.123 >>> 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {int(120) <<< 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {int(120) >>> 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {double(120) <<< 1.456}} result] \
+      [matchBadTypeError $result] \
+      [catch {expr {double(120) >>> 1.456}} result] \
+      [matchBadTypeError $result]
+} -cleanup {
+  unset -nocomplain result code
+} -constraints {eagle} -result {0 240 0 60 1 badType 1 badType 0 240 0 60 1\
+badType 1 badType 1 badType 1 badType 1 badType 1 badType 1 badType 1 badType 1\
+badType 1 badType}}
+
+###############################################################################
+
+rename matchBadTypeError ""
+
+###############################################################################
+
+runTest {test expr-461.1 {tests for TIP #461} -body {
+  list [expr {int("4" ge "123")}] [expr {int("4" gt "123")}] \
+      [expr {int("123" le "4")}] [expr {int("123" lt "4")}] \
+      [expr {int("123" ge "4")}] [expr {int("123" gt "4")}] \
+      [expr {int("4" le "123")}] [expr {int("4" lt "123")}]
+} -constraints {tip461} -result {1 1 1 1 0 0 0 0}}
+
+###############################################################################
+
+runTest {test expr-471.1 {String.Compare bug} -body {
+  list [expr {int("" eq "\x00")}] \
+      [expr {int("" eq "\x00\x00")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-471.2 {String.Compare bug} -body {
+  list [expr {int("" eq "\x01")}] \
+      [expr {int("" eq "\x01\x01")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-471.3 {String.Compare bug} -body {
+  list [expr {int("\x00" eq "\x00\x00")}] \
+      [expr {int("\x00\x00" eq "\x00\x00\x00")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-471.4 {String.Compare bug} -body {
+  list [expr {int("\x01" eq "\x01\x01")}] \
+      [expr {int("\x01\x01" eq "\x01\x01\x01")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-472.1 {String.Compare bug} -body {
+  list [expr {int("test\x00" eq "test")}] \
+      [expr {int("test" eq "test\x00")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-472.2 {String.Compare bug} -body {
+  list [expr {int("test\x01" eq "test")}] \
+      [expr {int("test" eq "test\x01")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-472.3 {String.Compare bug} -body {
+  list [expr {int("\x00test" eq "test")}] \
+      [expr {int("test" eq "\x00test")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-472.4 {String.Compare bug} -body {
+  list [expr {int("\x01test" eq "test")}] \
+      [expr {int("test" eq "\x01test")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-473.1 {String.Compare bug} -body {
+  list [expr {int("t\x00zst" eq "tzst")}] \
+      [expr {int("tzst" eq "t\x00zst")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-473.2 {String.Compare bug} -body {
+  list [expr {int("t\x01zst" eq "tzst")}] \
+      [expr {int("tzst" eq "t\x01zst")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-473.3 {String.Compare bug} -body {
+  list [expr {int("t\x00zst" < "tzst")}] \
+      [expr {int("tzst" < "t\x00zst")}]
+} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-473.4 {String.Compare bug} -body {
+  list [expr {int("t\x01zst" < "tzst")}] \
+      [expr {int("tzst" < "t\x01zst")}]
+} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-473.5 {String.Compare bug} -body {
+  list [expr {int("t\x00zst" > "tzst")}] \
+      [expr {int("tzst" > "t\x00zst")}]
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test expr-473.6 {String.Compare bug} -body {
+  list [expr {int("t\x01zst" > "tzst")}] \
+      [expr {int("tzst" > "t\x01zst")}]
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test expr-473.7 {String.Compare bug} -body {
+  list [expr {int("t\x00zst" lt "tzst")}] \
+      [expr {int("tzst" lt "t\x00zst")}]
+} -constraints {tip461} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-473.8 {String.Compare bug} -body {
+  list [expr {int("t\x01zst" lt "tzst")}] \
+      [expr {int("tzst" lt "t\x01zst")}]
+} -constraints {tip461} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-473.9 {String.Compare bug} -body {
+  list [expr {int("t\x00zst" gt "tzst")}] \
+      [expr {int("tzst" gt "t\x00zst")}]
+} -constraints {tip461} -result {0 1}}
+
+###############################################################################
+
+runTest {test expr-473.10 {String.Compare bug} -body {
+  list [expr {int("t\x01zst" gt "tzst")}] \
+      [expr {int("tzst" gt "t\x01zst")}]
+} -constraints {tip461} -result {0 1}}
+
+###############################################################################
+
+runTest {test expr-474.1 {String.Compare bug} -body {
+  list [expr {int("" eq "\u0000")}] \
+      [expr {int("" eq "\u0000\u0000")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-474.2 {String.Compare bug} -body {
+  list [expr {int("\u0000" eq "\u0000\u0000")}] \
+      [expr {int("\u0000\u0000" eq "\u0000\u0000\u0000")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-475.1 {String.Compare bug} -body {
+  list [expr {int("test\u0000" eq "test")}] \
+      [expr {int("test" eq "test\u0000")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-475.2 {String.Compare bug} -body {
+  list [expr {int("\u0000test" eq "test")}] \
+      [expr {int("test" eq "\u0000test")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-476.1 {String.Compare bug} -body {
+  list [expr {int("t\u0000zst" eq "tzst")}] \
+      [expr {int("tzst" eq "t\u0000zst")}]
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test expr-476.2 {String.Compare bug} -body {
+  list [expr {int("t\u0000zst" < "tzst")}] \
+      [expr {int("tzst" < "t\u0000zst")}]
+} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-476.3 {String.Compare bug} -body {
+  list [expr {int("t\u0001zst" < "tzst")}] \
+      [expr {int("tzst" < "t\u0001zst")}]
+} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-476.4 {String.Compare bug} -body {
+  list [expr {int("t\u0000zst" > "tzst")}] \
+      [expr {int("tzst" > "t\u0000zst")}]
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test expr-476.5 {String.Compare bug} -body {
+  list [expr {int("t\u0001zst" > "tzst")}] \
+      [expr {int("tzst" > "t\u0001zst")}]
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test expr-476.6 {String.Compare bug} -body {
+  list [expr {int("t\u0000zst" lt "tzst")}] \
+      [expr {int("tzst" lt "t\u0000zst")}]
+} -constraints {tip461} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-476.7 {String.Compare bug} -body {
+  list [expr {int("t\u0001zst" lt "tzst")}] \
+      [expr {int("tzst" lt "t\u0001zst")}]
+} -constraints {tip461} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-476.8 {String.Compare bug} -body {
+  list [expr {int("t\u0000zst" gt "tzst")}] \
+      [expr {int("tzst" gt "t\u0000zst")}]
+} -constraints {tip461} -result {0 1}}
+
+###############################################################################
+
+runTest {test expr-476.9 {String.Compare bug} -body {
+  list [expr {int("t\u0001zst" gt "tzst")}] \
+      [expr {int("tzst" gt "t\u0001zst")}]
+} -constraints {tip461} -result {0 1}}
+
+###############################################################################
+
+runTest {test expr-501.0 {literal bool only} -body {
+  list [expr {true}] [expr {false}] [expr {True}] [expr {False}] \
+      [expr {TRUE}] [expr {FALSE}]
+} -constraints {eagle} -result {true false True False TRUE FALSE}}
+
+###############################################################################
+
+runTest {test expr-501.1 {literal bool} -body {
+  list [expr {true+0}] [expr {false+0}]
+} -constraints {eagle} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-501.2 {literal bool} -body {
+  list [expr {true+1}] [expr {false+1}]
+} -constraints {eagle} -result {2 1}}
+
+###############################################################################
+
+runTest {test expr-501.3 {literal bool} -body {
+  list [expr {0+true}] [expr {0+false}]
+} -constraints {eagle} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-502.0.1 {bool math function and literal} -body {
+  list [expr {bool(true)}] [expr {bool(false)}]
+} -constraints {tcl tip182} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-502.0.2 {bool math function and literal} -body {
+  list [expr {bool(true)}] [expr {bool(false)}]
+} -constraints {eagle tip182} -result {True False}}
+
+###############################################################################
+
+runTest {test expr-502.1 {bool math function and literal} -body {
+  list [expr {bool(true)+0}] [expr {bool(false)+0}]
+} -constraints {tip182} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-502.2 {bool math function and literal} -body {
+  list [expr {bool(true)+1}] [expr {bool(false)+1}]
+} -constraints {tip182} -result {2 1}}
+
+###############################################################################
+
+runTest {test expr-502.3 {bool math function and literal} -body {
+  list [expr {0+bool(true)}] [expr {0+bool(false)}]
+} -constraints {tip182} -result {1 0}}
+
+###############################################################################
+
+runTest {test expr-601.1 {isfinite function} -body {
+  list [expr {int(isfinite(1.0))}] \
+      [expr {int(isfinite(-1.0))}] \
+      [expr {int(isfinite(0.0))}] \
+      [expr {int(isfinite(-0.0))}] \
+      [expr {int(isfinite(1/Inf))}] \
+      [expr {int(isfinite(-1/Inf))}] \
+      [expr {int(isfinite(1e-314))}] \
+      [expr {int(isfinite(inf))}] \
+      [expr {int(isfinite(-inf))}] \
+      [expr {int(isfinite(NaN))}]
+} -constraints {tip521} -result {1 1 1 1 1 1 1 0 0 0}}
+
+###############################################################################
+
+runTest {test expr-601.2 {isinf function} -body {
+  list [expr {int(isinf(1.0))}] \
+      [expr {int(isinf(-1.0))}] \
+      [expr {int(isinf(0.0))}] \
+      [expr {int(isinf(-0.0))}] \
+      [expr {int(isinf(1/Inf))}] \
+      [expr {int(isinf(-1/Inf))}] \
+      [expr {int(isinf(1e-314))}] \
+      [expr {int(isinf(inf))}] \
+      [expr {int(isinf(-inf))}] \
+      [expr {int(isinf(NaN))}]
+} -constraints {tip521} -result {0 0 0 0 0 0 0 1 1 0}}
+
+###############################################################################
+
+runTest {test expr-601.3 {isnan function} -body {
+  list [expr {int(isnan(1.0))}] \
+      [expr {int(isnan(-1.0))}] \
+      [expr {int(isnan(0.0))}] \
+      [expr {int(isnan(-0.0))}] \
+      [expr {int(isnan(1/Inf))}] \
+      [expr {int(isnan(-1/Inf))}] \
+      [expr {int(isnan(1e-314))}] \
+      [expr {int(isnan(inf))}] \
+      [expr {int(isnan(-inf))}] \
+      [expr {int(isnan(NaN))}]
+} -constraints {tip521} -result {0 0 0 0 0 0 0 0 0 1}}
+
+###############################################################################
+
+runTest {test expr-601.4 {isnormal function} -body {
+  list [expr {int(isnormal(1.0))}] \
+      [expr {int(isnormal(-1.0))}] \
+      [expr {int(isnormal(0.0))}] \
+      [expr {int(isnormal(-0.0))}] \
+      [expr {int(isnormal(1/Inf))}] \
+      [expr {int(isnormal(-1/Inf))}] \
+      [expr {int(isnormal(1e-314))}] \
+      [expr {int(isnormal(inf))}] \
+      [expr {int(isnormal(-inf))}] \
+      [expr {int(isnormal(NaN))}]
+} -constraints {tip521} -result {1 1 0 0 0 0 0 0 0 0}}
+
+###############################################################################
+
+runTest {test expr-601.5 {issubnormal function} -body {
+  list [expr {int(issubnormal(1.0))}] \
+      [expr {int(issubnormal(-1.0))}] \
+      [expr {int(issubnormal(0.0))}] \
+      [expr {int(issubnormal(-0.0))}] \
+      [expr {int(issubnormal(1/Inf))}] \
+      [expr {int(issubnormal(-1/Inf))}] \
+      [expr {int(issubnormal(1e-314))}] \
+      [expr {int(issubnormal(inf))}] \
+      [expr {int(issubnormal(-inf))}] \
+      [expr {int(issubnormal(NaN))}]
+} -constraints {tip521} -result {0 0 0 0 0 0 1 0 0 0}}
+
+###############################################################################
+
+runTest {test expr-601.6 {isunordered function} -body {
+  list [expr {int(isunordered(0,1.0))}] \
+      [expr {int(isunordered(0,-1.0))}] \
+      [expr {int(isunordered(0,0.0))}] \
+      [expr {int(isunordered(0,-0.0))}] \
+      [expr {int(isunordered(0,1/Inf))}] \
+      [expr {int(isunordered(0,-1/Inf))}] \
+      [expr {int(isunordered(0,1e-314))}] \
+      [expr {int(isunordered(0,inf))}] \
+      [expr {int(isunordered(0,-inf))}] \
+      [expr {int(isunordered(0,0))}] \
+      [expr {int(isunordered(0,NaN))}] \
+      [expr {int(isunordered(NaN,0))}] \
+      [expr {int(isunordered(NaN,NaN))}]
+} -constraints {tip521} -result {0 0 0 0 0 0 0 0 0 0 1 1 1}}
+
+###############################################################################
+
+runTest {test expr-700.1 {fpclassify command} -body {
+  list [fpclassify 1.0] \
+      [fpclassify -1.0] \
+      [fpclassify 0.0] \
+      [fpclassify -0.0] \
+      [fpclassify [expr {1 / Inf}]] \
+      [fpclassify [expr {-1 / Inf}]] \
+      [fpclassify 1e-314] \
+      [fpclassify inf] \
+      [fpclassify -inf] \
+      [fpclassify NaN]
+} -constraints {tip521} -result \
+{normal normal zero zero zero zero subnormal infinite infinite nan}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

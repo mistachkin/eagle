@@ -1,0 +1,12 @@
+<UserSettings>
+	<ApplicationIdentity version="14.0"/>
+	<ToolsOptions/>
+	<Category name="Debugger" Category="{EEDBF29A-5C8B-4E01-827C-263382C18CFE}" Package="{C9DD4A57-47FB-11D2-83E7-00C04F9902C1}" RegisteredName="Debugger" PackageName="Visual Studio Debugger">
+		<PropertyValue name="JustMyCode">0</PropertyValue>
+		<PropertyValue name="UseDocumentChecksum">0</PropertyValue>
+		<PropertyValue name="FrameworkSourceStepping">0</PropertyValue>
+		<PropertyValue name="UseSourceServer">1</PropertyValue>
+		<PropertyValue name="ShowSourceServerDiagnostics">1</PropertyValue>
+		<PropertyValue name="SymbolPath">http://referencesource.microsoft.com/symbols;http://nuget.smbsrc.net;http://msdl.microsoft.com/download/symbols</PropertyValue>
+	</Category>
+</UserSettings>

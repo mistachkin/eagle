@@ -1,0 +1,50 @@
+###############################################################################
+#
+# uplevel5.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+set ::uplevel5 ""
+
+proc absNonZeroUplevel { lvl a } {
+  return [uplevel $lvl [list set a]]
+}
+
+proc nestedAbsNonZeroUplevel { b } {
+  uplevel 1 [list absNonZeroUplevel #2 $b]
+}
+
+set x [clock seconds]
+
+###############################################################################
+
+runTest {test uplevel-15.1 {nested absolute non-zero uplevel} -body {
+  append ::uplevel5 [absNonZeroUplevel #1 $::x]
+  append ::uplevel5 [nestedAbsNonZeroUplevel $::x]
+  return $::uplevel
+} -returnCodes 1 -result {bad level "#2"}}
+
+###############################################################################
+
+rename absNonZeroUplevel ""
+rename nestedAbsNonZeroUplevel ""
+
+unset -nocomplain x
+unset -nocomplain ::uplevel5
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

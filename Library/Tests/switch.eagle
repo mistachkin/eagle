@@ -1,0 +1,139 @@
+###############################################################################
+#
+# switch.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test switch-10.1 {switch -exact} -body {
+  switch -exact -- foo {
+    foo {
+      return foo
+    }
+    bar {
+      return bar
+    }
+    default {
+      return default
+    }
+  }
+} -result foo}
+
+###############################################################################
+
+runTest {test switch-10.2 {switch -glob} -body {
+  switch -glob -- foo {
+    f* {
+      return foo
+    }
+    * {
+      return bar
+    }
+    default {
+      return default
+    }
+  }
+} -result foo}
+
+###############################################################################
+
+runTest {test switch-10.3 {switch -glob -subst -nocase single} -body {
+  set foo F*
+
+  switch -glob -subst -nocase -- foo {
+    $foo {
+      return foo
+    }
+    * {
+      return bar
+    }
+    default {
+      return default
+    }
+  }
+} -cleanup {
+  unset -nocomplain foo
+} -constraints {eagle} -result foo}
+
+###############################################################################
+
+runTest {test switch-10.4 {switch -glob -subst -nocase multiple} -body {
+  set foo F*
+  set bar B*
+
+  switch -glob -subst -nocase -- bar {
+    $foo {
+      return foo
+    }
+    $bar {
+      return bar
+    }
+    default {
+      return default
+    }
+  }
+} -cleanup {
+  unset -nocomplain foo bar
+} -constraints {eagle} -result {bar}}
+
+###############################################################################
+
+runTest {test switch-10.5 {switch -glob -subst -nocase default} -body {
+  set foo F*
+  set bar B*
+
+  switch -glob -subst -nocase -- "not found" {
+    $foo {
+      return foo
+    }
+    $bar {
+      return bar
+    }
+    default {
+      return default
+    }
+  }
+} -cleanup {
+  unset -nocomplain foo bar
+} -constraints {eagle} -result default}
+
+###############################################################################
+
+runTest {test switch-10.6 {switch -regexp -subst -nocase} -body {
+  set foo F*
+  set bar B*
+  set pat {\w+ \d+}
+
+  switch -regexp -subst -nocase -- "this 1234" {
+    $pat {
+      return [list matched $pat]
+    }
+    $foo {
+      return foo
+    }
+    $bar {
+      return bar
+    }
+    default {
+      return default
+    }
+  }
+} -cleanup {
+  unset -nocomplain foo bar pat
+} -constraints {eagle} -result {matched {\w+ \d+}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

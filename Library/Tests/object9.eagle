@@ -1,0 +1,49 @@
+###############################################################################
+#
+# object9.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=471255
+###############################################################################
+
+runTest {test object-9.1 {"fragile" overload resolution failure} -body {
+  set type [object invoke \
+      -create Utility GetType Eagle._Components.Public.Engine]
+
+  object invoke -parametertypes [list System.Object] -tostring Utility \
+      GetObjectId $type
+} -cleanup {
+  unset -nocomplain type
+} -constraints {eagle command.object} -result \
+{00000000-0000-0000-0000-000000000000}}
+
+###############################################################################
+
+runTest {test object-9.2 {"fragile" overload resolution success} -body {
+  set type [object invoke \
+      -create Utility GetType Eagle._Components.Public.Engine]
+
+  object invoke -parametertypes [list System.Reflection.MemberInfo] -tostring \
+      Utility GetObjectId $type
+} -cleanup {
+  unset -nocomplain type
+} -constraints {eagle command.object monoBug22} -result \
+{204a6f65-204d-6973-7461-63686b696e20}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

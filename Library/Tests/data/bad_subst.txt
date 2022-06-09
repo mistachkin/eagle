@@ -1,0 +1,2 @@
+
+[join [list blah {            ${test2(2)} 0 $test ""] $test]

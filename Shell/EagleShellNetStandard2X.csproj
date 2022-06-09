@@ -1,0 +1,498 @@
+<Project ToolsVersion="15.0">
+  <!--
+  ******************************************************************************
+  **                     Import .NET Core SDK Properties                      **
+  ******************************************************************************
+  -->
+
+  <!--
+      WARNING: This project cannot use the recommended pattern of having the
+               "Project" element simply include the "Sdk" attribute, due to
+               the "BuildDependsOn" property not being honored, see:
+
+               https://github.com/Microsoft/msbuild/issues/1680
+
+               Instead, the .NET Core SDK properties file is imported here
+               and the corresponding targets file is imported right before
+               resetting the "BuildDependsOn" property to include targets
+               necessary for this project.
+  -->
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <!--
+  ******************************************************************************
+  **        .NET Standard 2.x Specific Eagle Preset Property Overrides        **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <EagleNetStandard20>true</EagleNetStandard20>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **          Project / .NET Standard 2.x Specific Property Presets           **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <EagleDir>$(MSBuildProjectDirectory)\..</EagleDir>
+  </PropertyGroup>
+  <Import Project="$(EagleDir)\Targets\Eagle.Presets.targets" />
+
+  <!--
+  ******************************************************************************
+  **                       Project Specific Properties                        **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{2DFC90BA-FB7C-48F8-AC25-98934540C0F0}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>EagleShell</RootNamespace>
+    <AssemblyName>EagleShell</AssemblyName>
+    <BaseAddress>1630535680</BaseAddress>
+    <EagleProjectName>Eagle Shell</EagleProjectName>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **             Project / .NET Standard 2.x Specific Properties              **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        TODO: The "TargetFramework" value here may need to be updated to deal
+              with versions of MSBuild that do not support the "netcoreapp2.0"
+              target framework, e.g. MSBuild version 16.0, per:
+
+              https://github.com/Microsoft/msbuild/pull/3528
+    -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <TargetFramework Condition="'$(TargetFramework)' == '' And '$(EagleNetStandard21)' == 'false'">netcoreapp2.0</TargetFramework>
+    <TargetFramework Condition="'$(TargetFramework)' == '' And '$(EagleNetStandard21)' != 'false'">netcoreapp3.0</TargetFramework>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Deterministic>False</Deterministic>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <UseAppHost>false</UseAppHost>
+    <EagleBaseIntermediateOutputPath Condition="'$(EagleBaseIntermediateOutputPath)' == ''">false</EagleBaseIntermediateOutputPath>
+    <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == '' And '$(EagleNetStandard21)' == 'false'">NetStandard20</EagleConfigurationSuffix>
+    <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == '' And '$(EagleNetStandard21)' != 'false'">NetStandard21</EagleConfigurationSuffix>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **           .NET Standard 2.x Specific Eagle Property Overrides            **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        WARNING: These settings are required to disable features that are not
+                 present in the .NET Standard 2.x.  Please do not change these
+                 values unless you know what you are doing.
+    -->
+    <EagleAppDomains Condition="'$(EagleAppDomains)' == ''">false</EagleAppDomains>
+    <EagleCasPolicy Condition="'$(EagleCasPolicy)' == ''">false</EagleCasPolicy>
+    <EagleConfiguration Condition="'$(EagleConfiguration)' == ''">false</EagleConfiguration>
+    <EagleDrawing Condition="'$(EagleDrawing)' == ''">false</EagleDrawing>
+    <EagleEmit Condition="'$(EagleEmit)' == ''">false</EagleEmit>
+    <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">false</EagleIsolatedInterpreters>
+    <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">false</EagleIsolatedPlugins>
+    <EagleRemoting Condition="'$(EagleRemoting)' == ''">false</EagleRemoting>
+    <EagleWinForms Condition="'$(EagleWinForms)' == ''">false</EagleWinForms>
+
+    <!--
+        NOTE: Due to issues with the robustness of reflection support on .NET
+              Core, statically refer to the Eagle core library.
+    -->
+    <EagleStatic Condition="'$(EagleStatic)' == ''">true</EagleStatic>
+    <EagleDynamic Condition="'$(EagleDynamic)' == ''">false</EagleDynamic>
+    <EagleShellStartupObject Condition="'$(EagleShellStartupObject)' == ''">Eagle._Shell.StaticCommandLine</EagleShellStartupObject>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **       .NET Standard 2.x Specific Eagle Platform Property Overrides       **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        NOTE: When building for a non-Windows platform, the following should
+              be uncommented.
+    -->
+    <!--
+    <EagleWindows Condition="'$(EagleWindows)' == ''">false</EagleWindows>
+    <EagleUnix Condition="'$(EagleUnix)' == ''">true</EagleUnix>
+    -->
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                    .NET Standard 2.x Specific Targets                    **
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx20ForNetStandard2X"
+          Condition="'$(EagleDetectNetFx20ForNetStandard2X)' != 'false'">
+    <CreateProperty Condition="((('$(MSBuildToolsVersion)' == '' Or
+                                  '$(MSBuildToolsVersion)' == '2.0' Or
+                                  '$(MSBuildToolsVersion)' == '3.5') And
+                                 '$(TargetFrameworkVersion)' == '') Or
+                                '$(TargetFrameworkVersion)' == 'v2.0') And
+                               '$(TargetFramework)' != 'netstandard2.0' And
+                               '$(TargetFramework)' != 'netstandard2.1' And
+                               '$(TargetFramework)' != 'netcoreapp2.0' And
+                               '$(TargetFramework)' != 'netcoreapp2.1' And
+                               '$(TargetFramework)' != 'netcoreapp2.2' And
+                               '$(TargetFramework)' != 'netcoreapp3.0' And
+                               '$(TargetFramework)' != 'netcoreapp3.1'"
+                    Value="$(DefineConstants);NET_20">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+
+    <CreateProperty Condition="((('$(MSBuildToolsVersion)' != '' And
+                                  '$(MSBuildToolsVersion)' != '2.0' And
+                                  '$(MSBuildToolsVersion)' != '3.5') Or
+                                 '$(TargetFrameworkVersion)' != '') And
+                                '$(TargetFrameworkVersion)' != 'v2.0') And
+                               '$(TargetFramework)' != 'netstandard2.0' And
+                               '$(TargetFramework)' != 'netstandard2.1' And
+                               '$(TargetFramework)' != 'netcoreapp2.0' And
+                               '$(TargetFramework)' != 'netcoreapp2.1' And
+                               '$(TargetFramework)' != 'netcoreapp2.2' And
+                               '$(TargetFramework)' != 'netcoreapp3.0' And
+                               '$(TargetFramework)' != 'netcoreapp3.1'"
+                    Value="false">
+      <Output TaskParameter="Value" PropertyName="EagleDetectNetFx20Sp" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx40ForNetStandard2X"
+          Condition="'$(EagleDetectNetFx40ForNetStandard2X)' != 'false'">
+    <CreateProperty Condition="'$(TargetFramework)' == 'netstandard2.0' Or
+                               '$(TargetFramework)' == 'netstandard2.1' Or
+                               '$(TargetFramework)' == 'netcoreapp2.0' Or
+                               '$(TargetFramework)' == 'netcoreapp2.1' Or
+                               '$(TargetFramework)' == 'netcoreapp2.2' Or
+                               '$(TargetFramework)' == 'netcoreapp3.0' Or
+                               '$(TargetFramework)' == 'netcoreapp3.1'"
+                    Value="$(DefineConstants);NET_40">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx461ForNetStandard2X"
+          Condition="'$(EagleDetectNetFx461ForNetStandard2X)' != 'false'">
+    <CreateProperty Condition="'$(TargetFramework)' == 'netstandard2.0' Or
+                               '$(TargetFramework)' == 'netstandard2.1' Or
+                               '$(TargetFramework)' == 'netcoreapp2.0' Or
+                               '$(TargetFramework)' == 'netcoreapp2.1' Or
+                               '$(TargetFramework)' == 'netcoreapp2.2' Or
+                               '$(TargetFramework)' == 'netcoreapp3.0' Or
+                               '$(TargetFramework)' == 'netcoreapp3.1'"
+                    Value="$(DefineConstants);NET_461">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  **                         Import Eagle Build Types                         **
+  ******************************************************************************
+  -->
+
+  <Import Project="$(EagleDir)\Targets\Eagle.Builds.targets" />
+
+  <!--
+  ******************************************************************************
+  **                      Import Eagle Default Settings                       **
+  ******************************************************************************
+  -->
+
+  <Import Project="$(EagleDir)\Targets\Eagle.Settings.targets" />
+
+  <!--
+  ******************************************************************************
+  ** .NET Standard 2.x Specific Eagle Strong Name Signing Property Overrides  **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(AssemblyOriginatorKeyFile)' != '' And
+                            Exists('$(AssemblyOriginatorKeyFile)')">
+    <!--
+        NOTE: Apparently, the .NET Core build system sets the SignAssembly
+              property to false; therefore, reset it to true.  Also, delay
+              signing is currently non-functional due to the inability to
+              run the strong name signing tool (sn.exe).  It behaves badly
+              when run against a .NET Core assembly.
+    -->
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>false</DelaySign>
+
+    <!--
+        TODO: Why is this needed?  It seems that public signing is quite
+              similar to delay signing.  Why is this necessary when not
+              running on Windows?
+    -->
+    <PublicSign Condition="'$(OS)' != 'Windows_NT'">true</PublicSign>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                Convert Eagle Settings To MSBuild Settings                **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(EagleOnlyNetFx20)' != 'false'">
+    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>$(EagleShellStartupObject)</StartupObject>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleBinaryOutputPath)' != ''">
+    <OutputPath>$(EagleBinaryOutputPath)</OutputPath>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                Project Configuration Specific Properties                 **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                Project Source Code Files (Unconditional)                 **
+  ******************************************************************************
+  -->
+
+  <ItemGroup>
+    <Compile Include="Components\Private\DefineConstants.cs" />
+    <Compile Include="Components\Private\PatchLevel.cs" />
+    <Compile Include="Components\Private\Shell.cs" />
+    <Compile Include="Components\Private\ShellOps.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+
+  <!--
+  ******************************************************************************
+  **                     Project Miscellaneous Data Files                     **
+  ******************************************************************************
+  -->
+
+  <ItemGroup>
+    <None Include="Configurations\no_EagleShell.exe.config" />
+    <None Include="Configurations\no_EagleShell.exe.mda.config" />
+    <None Include="Configurations\no_EagleShell.settings.json" />
+    <None Include="Resources\Eagle32.png" />
+    <None Include="Resources\manifest.xml" />
+  </ItemGroup>
+
+  <!--
+  ******************************************************************************
+  **           Project Compile-Time Options (i.e. Define Constants)           **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup Condition="'$(EagleOnlyNetFx20)' != 'false'">
+    <DefineConstants>$(DefineConstants);NET_20_ONLY</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleOfficial)' != 'false'">
+    <DefineConstants>$(DefineConstants);OFFICIAL</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleStable)' != 'false'">
+    <DefineConstants>$(DefineConstants);STABLE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EaglePatchLevel)' != 'false'">
+    <DefineConstants>$(DefineConstants);PATCHLEVEL</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleAssemblyDateTime)' != 'false'">
+    <DefineConstants>$(DefineConstants);ASSEMBLY_DATETIME</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleAssemblyRelease)' != 'false'">
+    <DefineConstants>$(DefineConstants);ASSEMBLY_RELEASE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleSourceId)' != 'false'">
+    <DefineConstants>$(DefineConstants);SOURCE_ID</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleSourceTimeStamp)' != 'false'">
+    <DefineConstants>$(DefineConstants);SOURCE_TIMESTAMP</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleAssemblyText)' != 'false'">
+    <DefineConstants>$(DefineConstants);ASSEMBLY_TEXT</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleAssemblyStrongNameTag)' != 'false'">
+    <DefineConstants>$(DefineConstants);ASSEMBLY_STRONG_NAME_TAG</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleStatic)' != 'false'">
+    <DefineConstants>$(DefineConstants);STATIC</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleDynamic)' != 'false'">
+    <DefineConstants>$(DefineConstants);DYNAMIC</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleTest)' != 'false'">
+    <DefineConstants>$(DefineConstants);TEST</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleConsole)' != 'false'">
+    <DefineConstants>$(DefineConstants);CONSOLE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleDeadCode)' != 'false'">
+    <DefineConstants>$(DefineConstants);DEAD_CODE</DefineConstants>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                  Eagle Core Library Project References                   **
+  ******************************************************************************
+  -->
+
+  <ItemGroup Condition="'$(EagleSolution)' != 'false' And '$(EagleStatic)' != 'false'">
+    <ProjectReference Include="..\Library\EagleNetStandard2X.csproj">
+      <Project>{77102511-793A-4F72-96E8-0705C60C0718}</Project>
+      <Name>EagleNetStandard2X</Name>
+      <Private>False</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleSolution)' == 'false' And '$(EagleStatic)' != 'false'">
+    <Reference Include="Eagle">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>$(EagleLkgDir)\bin\Eagle.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <!--
+  ******************************************************************************
+  **                    .NET Framework Assembly References                    **
+  ******************************************************************************
+  -->
+
+  <ItemGroup Condition="'$(EagleNetStandard20)' == 'false'">
+    <Reference Include="System" />
+  </ItemGroup>
+
+  <!--
+  ******************************************************************************
+  **                       Import .NET Core SDK Targets                       **
+  ******************************************************************************
+  -->
+
+  <!--
+      WARNING: This project cannot use the recommended pattern of having the
+               "Project" element simply include the "Sdk" attribute, see the
+               comment at the top of this file for more information.
+  -->
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+  <!--
+  ******************************************************************************
+  **   .NET Standard 2.x Specific Eagle Strong Name Signing Property Fixes    **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        NOTE: Delay signing is currently non-functional due to the inability
+              to run the strong name signing tool (sn.exe).  It behaves badly
+              when run against a .NET Core assembly.
+
+        HACK: Apparently, the .NET Core SDK targets file wants to reset this
+              to an empty string.  That will not work here; therefore, reset
+              it.
+    -->
+    <DelaySign>false</DelaySign>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  **                        Import Eagle Build Targets                        **
+  ******************************************************************************
+  -->
+
+  <Import Project="$(EagleDir)\Targets\Eagle.targets" />
+
+  <!--
+  ******************************************************************************
+  **                  Add Targets To BuildDependsOn Property                  **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <BuildDependsOn>
+      EagleDetectUserBuilds;
+      EagleDetectUserSettings;
+      EagleDetectBuildTool;
+      EagleDetectOperatingSystem;
+      EagleDetectArchitecture;
+      $(BuildDependsOn);
+      EagleAuthenticodeSign;
+      EagleCopyResourcePngs;
+      EagleCopySQLite3;
+      EagleCopySystemDataSQLite;
+      CopyConfigurations;
+    </BuildDependsOn>
+    <CleanDependsOn>
+      $(CleanDependsOn);
+      CleanConfigurations;
+      CleanDoneFiles;
+    </CleanDependsOn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleRunTests)' != 'false'">
+    <BuildDependsOn>
+      $(BuildDependsOn);
+      EagleRunTestsForNetStandard2X;
+    </BuildDependsOn>
+  </PropertyGroup>
+  <PropertyGroup>
+    <BuildDependsOn>
+      $(BuildDependsOn);
+      GetDoneFiles;
+      UpdateDoneFiles;
+    </BuildDependsOn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EagleShell)' == 'false'">
+    <!--
+        NOTE: We cannot build this project without the shell support
+              enabled; therefore, skip building it altogether.
+    -->
+    <BuildDependsOn>
+      MissingShell
+    </BuildDependsOn>
+  </PropertyGroup>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

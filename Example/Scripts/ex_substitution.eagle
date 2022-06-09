@@ -1,0 +1,4 @@
+
+set x 1; # 1
+
+puts "variable: $x, command: [set x], backslash: \""

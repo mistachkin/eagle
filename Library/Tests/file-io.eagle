@@ -1,0 +1,2112 @@
+###############################################################################
+#
+# file-io.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=473899
+#       See: https://bugzilla.novell.com/show_bug.cgi?id=478489
+###############################################################################
+
+catch {unset x0}
+append x0 \x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F
+append x0 \x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F
+append x0 \x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2A\x2B\x2C\x2D\x2E\x2F
+append x0 \x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\x3A\x3B\x3C\x3D\x3E\x3F
+append x0 \x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4A\x4B\x4C\x4D\x4E\x4F
+append x0 \x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5A\x5B\x5C\x5D\x5E\x5F
+append x0 \x60\x61\x62\x63\x64\x65\x66\x67\x68\x69\x6A\x6B\x6C\x6D\x6E\x6F
+append x0 \x70\x71\x72\x73\x74\x75\x76\x77\x78\x79\x7A\x7B\x7C\x7D\x7E\x7F
+append x0 \x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8A\x8B\x8C\x8D\x8E\x8F
+append x0 \x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9A\x9B\x9C\x9D\x9E\x9F
+append x0 \xA0\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA8\xA9\xAA\xAB\xAC\xAD\xAE\xAF
+append x0 \xB0\xB1\xB2\xB3\xB4\xB5\xB6\xB7\xB8\xB9\xBA\xBB\xBC\xBD\xBE\xBF
+append x0 \xC0\xC1\xC2\xC3\xC4\xC5\xC6\xC7\xC8\xC9\xCA\xCB\xCC\xCD\xCE\xCF
+append x0 \xD0\xD1\xD2\xD3\xD4\xD5\xD6\xD7\xD8\xD9\xDA\xDB\xDC\xDD\xDE\xDF
+append x0 \xE0\xE1\xE2\xE3\xE4\xE5\xE6\xE7\xE8\xE9\xEA\xEB\xEC\xED\xEE\xEF
+append x0 \xF0\xF1\xF2\xF3\xF4\xF5\xF6\xF7\xF8\xF9\xFA\xFB\xFC\xFD\xFE\xFF
+
+###############################################################################
+
+catch {unset x1}
+append x1 \x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F
+append x1 \x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F
+append x1 \x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2A\x2B\x2C\x2D\x2E\x2F
+append x1 \x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\x3A\x3B\x3C\x3D\x3E\x3F
+append x1 \x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x4A\x4B\x4C\x4D\x4E\x4F
+append x1 \x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5A\x5B\x5C\x5D\x5E\x5F
+append x1 \x60\x61\x62\x63\x64\x65\x66\x67\x68\x69\x6A\x6B\x6C\x6D\x6E\x6F
+append x1 \x70\x71\x72\x73\x74\x75\x76\x77\x78\x79\x7A\x7B\x7C\x7D\x7E\x7F
+append x1 \x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F
+append x1 \x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F
+append x1 \x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F
+append x1 \x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F
+append x1 \x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F
+append x1 \x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F
+append x1 \x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F
+append x1 \x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F\x3F
+
+###############################################################################
+
+catch {unset x2}
+append x2 \u0100\u0302\u0504\u0706\u0908\u0B0A\u0D0C\u0F0E
+append x2 \u1110\u1312\u1514\u1716\u1918\u1B1A\u1D1C\u1F1E
+append x2 \u2120\u2322\u2524\u2726\u2928\u2B2A\u2D2C\u2F2E
+append x2 \u3130\u3332\u3534\u3736\u3938\u3B3A\u3D3C\u3F3E
+append x2 \u4140\u4342\u4544\u4746\u4948\u4B4A\u4D4C\u4F4E
+append x2 \u5150\u5352\u5554\u5756\u5958\u5B5A\u5D5C\u5F5E
+append x2 \u6160\u6362\u6564\u6766\u6968\u6B6A\u6D6C\u6F6E
+append x2 \u7170\u7372\u7574\u7776\u7978\u7B7A\u7D7C\u7F7E
+append x2 \u8180\u8382\u8584\u8786\u8988\u8B8A\u8D8C\u8F8E
+append x2 \u9190\u9392\u9594\u9796\u9998\u9B9A\u9D9C\u9F9E
+append x2 \uA1A0\uA3A2\uA5A4\uA7A6\uA9A8\uABAA\uADAC\uAFAE
+append x2 \uB1B0\uB3B2\uB5B4\uB7B6\uB9B8\uBBBA\uBDBC\uBFBE
+append x2 \uC1C0\uC3C2\uC5C4\uC7C6\uC9C8\uCBCA\uCDCC\uCFCE
+append x2 \uD1D0\uD3D2\uD5D4\uD7D6\uD9D8\uDBDA\uDDDC\uDFDE
+append x2 \uE1E0\uE3E2\uE5E4\uE7E6\uE9E8\uEBEA\uEDEC\uEFEE
+append x2 \uF1F0\uF3F2\uF5F4\uF7F6\uF9F8\uFBFA\uFDFC\uFFFE
+
+###############################################################################
+
+catch {unset x3}
+append x3 \u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007
+append x3 \u0008\u0009\u000A\u000B\u000C\u000D\u000E\u000F
+append x3 \u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017
+append x3 \u0018\u0019\u001A\u001B\u001C\u001D\u001E\u001F
+append x3 \u0020\u0021\u0022\u0023\u0024\u0025\u0026\u0027
+append x3 \u0028\u0029\u002A\u002B\u002C\u002D\u002E\u002F
+append x3 \u0030\u0031\u0032\u0033\u0034\u0035\u0036\u0037
+append x3 \u0038\u0039\u003A\u003B\u003C\u003D\u003E\u003F
+append x3 \u0040\u0041\u0042\u0043\u0044\u0045\u0046\u0047
+append x3 \u0048\u0049\u004A\u004B\u004C\u004D\u004E\u004F
+append x3 \u0050\u0051\u0052\u0053\u0054\u0055\u0056\u0057
+append x3 \u0058\u0059\u005A\u005B\u005C\u005D\u005E\u005F
+append x3 \u0060\u0061\u0062\u0063\u0064\u0065\u0066\u0067
+append x3 \u0068\u0069\u006A\u006B\u006C\u006D\u006E\u006F
+append x3 \u0070\u0071\u0072\u0073\u0074\u0075\u0076\u0077
+append x3 \u0078\u0079\u007A\u007B\u007C\u007D\u007E\u007F
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+append x3 \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD
+
+###############################################################################
+
+catch {unset x4}
+append x4 \u0100\u0302\u0504\u0706\u0908\u0B0A\u0D0C\u0F0E
+append x4 \u1110\u1312\u1514\u1716\u1918\u1B1A\u1D1C\u1F1E
+append x4 \u2120\u2322\u2524\u2726\u2928\u2B2A\u2D2C\u2F2E
+append x4 \u3130\u3332\u3534\u3736\u3938\u3B3A\u3D3C\u3F3E
+append x4 \u4140\u4342\u4544\u4746\u4948\u4B4A\u4D4C\u4F4E
+append x4 \u5150\u5352\u5554\u5756\u5958\u5B5A\u5D5C\u5F5E
+append x4 \u6160\u6362\u6564\u6766\u6968\u6B6A\u6D6C\u6F6E
+append x4 \u7170\u7372\u7574\u7776\u7978\u7B7A\u7D7C\u7F7E
+append x4 \u8180\u8382\u8584\u8786\u8988\u8B8A\u8D8C\u8F8E
+append x4 \u9190\u9392\u9594\u9796\u9998\u9B9A\u9D9C\u9F9E
+append x4 \uA1A0\uA3A2\uA5A4\uA7A6\uA9A8\uABAA\uADAC\uAFAE
+append x4 \uB1B0\uB3B2\uB5B4\uB7B6\uB9B8\uBBBA\uBDBC\uBFBE
+append x4 \uC1C0\uC3C2\uC5C4\uC7C6\uC9C8\uCBCA\uCDCC\uCFCE
+append x4 \uD1D0\uD3D2\uD5D4\uD7D6\uFFFD\uDBDA\uDDDC\uFFFD
+append x4 \uE1E0\uE3E2\uE5E4\uE7E6\uE9E8\uEBEA\uEDEC\uEFEE
+append x4 \uF1F0\uF3F2\uF5F4\uF7F6\uF9F8\uFBFA\uFDFC\uFFFE
+
+###############################################################################
+#
+# NOTE: These encodings work for these tests in both Tcl and Eagle.
+#
+# fconfigure $fd -encoding binary
+# fconfigure $fd -encoding identity
+# fconfigure $fd -encoding iso8859-1
+#
+###############################################################################
+#
+# NOTE: These encodings work for these tests in Eagle only (they are not
+#       present in Tcl).
+#
+# fconfigure $fd -encoding channelDefault
+# fconfigure $fd -encoding default
+# fconfigure $fd -encoding null
+# fconfigure $fd -encoding onebyte
+# fconfigure $fd -encoding systemDefault
+# fconfigure $fd -encoding tcl
+# fconfigure $fd -encoding tclDefault
+# fconfigure $fd -encoding textDefault
+# fconfigure $fd -encoding scriptDefault
+#
+###############################################################################
+#
+# NOTE: These encodings do not "work" for these tests in Eagle due to how the
+#       underlying .NET encodings behave in the face of invalid code points.
+#
+# fconfigure $fd -encoding ascii; # invalid code points become '\u3F'.
+# fconfigure $fd -encoding utf-8; # invalid code points become '\uFFFD'.
+#
+###############################################################################
+#
+# NOTE: This encoding does not "work" for these tests because it produces one
+#       character for every two bytes, ignoring invalid code points (fake
+#       UCS-2).
+#
+# fconfigure $fd -encoding twobyte; # bytes "\x00\x01" becomes '\u0100'.
+#
+###############################################################################
+
+runTest {test fileIO-1.1 {binary file data, encoding omitted} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.2 {binary file data, 'iso8859-1' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  set encoding [expr {[isMono] ? "iso-8859-1" : "iso8859-1"}]
+  fconfigure $fd -encoding $encoding -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain encoding fd z
+} -constraints {file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.3 {binary file data, 'Binary' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding binary -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.4 {binary file data, 'Identity' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding identity -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.5 {binary file data, 'default' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding default -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x3 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.6 {binary file data, 'null' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding null -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.7 {binary file data, 'OneByte' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding onebyte -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.8 {binary file data, 'TwoByte' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding twobyte -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x2 $z] == 0)}; # SEE NOTES ABOVE.
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.9 {binary file data, 'Tcl' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding tcl -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x3 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.10 {binary file data, 'channelDefault' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding channeldefault -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test does not work on Mono due to bug #473899, which is
+#       still present as of version 4.4.
+#
+runTest {test fileIO-1.11 {binary file data, 'systemDefault' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding systemdefault -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x4 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle monoBug44 file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.12 {binary file data, 'tclDefault' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding tcldefault -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.13 {binary file data, 'textDefault' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding textDefault -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x3 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+runTest {test fileIO-1.14 {binary file data, 'scriptDefault' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding scriptDefault -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+#
+# HACK: This test cannot have the same result in Tcl and Eagle because the Tcl
+#       encoding subsystem appears to ignore invalid utf-8 code points and the
+#       Encoding class in the .NET Framework does not.
+#
+runTest {test fileIO-1.15.1 {binary file data, 'utf-8' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding utf-8 -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {tcl file_file.dat} -result {1}}
+
+###############################################################################
+
+#
+# HACK: This test cannot have the same result in Tcl and Eagle because the Tcl
+#       encoding subsystem appears to ignore invalid utf-8 code points and the
+#       Encoding class in the .NET Framework does not.
+#
+runTest {test fileIO-1.15.2 {binary file data, 'utf-8' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding utf-8 -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {0}}
+
+###############################################################################
+
+#
+# HACK: This test cannot have the same result in Tcl and Eagle because the Tcl
+#       encoding subsystem appears to ignore invalid utf-8 code points and the
+#       Encoding class in the .NET Framework does not.
+#
+runTest {test fileIO-1.15.3 {binary file data, 'utf-8' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding utf-8 -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x3 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+#
+# HACK: This test cannot have the same result in Tcl and Eagle because the Tcl
+#       encoding subsystem appears to ignore invalid ASCII code points and the
+#       Encoding class in the .NET Framework does not.
+#
+runTest {test fileIO-1.16.1 {binary file data, 'ascii' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding ascii -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {tcl file_file.dat} -result {1}}
+
+###############################################################################
+
+#
+# HACK: This test cannot have the same result in Tcl and Eagle because the Tcl
+#       encoding subsystem appears to ignore invalid ASCII code points and the
+#       Encoding class in the .NET Framework does not.
+#
+runTest {test fileIO-1.16.2 {binary file data, 'ascii' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding ascii -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x1 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle file_file.dat} -result {1}}
+
+###############################################################################
+
+#
+# HACK: This test cannot have the same result in Tcl and Eagle because the Tcl
+#       encoding subsystem appears to ignore invalid Unicode code points and
+#       the Encoding class in the .NET Framework does not.
+#
+runTest {test fileIO-1.17.1 {binary file data, 'unicode' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding unicode -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x0 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {tcl file_file.dat} -result {1}}
+
+###############################################################################
+
+#
+# HACK: This test cannot have the same result in Tcl and Eagle because the Tcl
+#       encoding subsystem appears to ignore invalid Unicode code points and
+#       the Encoding class in the .NET Framework does not.
+#
+# HACK: *MONO* This test does not work on Mono due to bug #473899, which is
+#       still present as of version 4.4.
+#
+runTest {test fileIO-1.17.2 {binary file data, 'unicode' encoding} -body {
+  set fd [open [file join $test_data_path file.dat] RDONLY]
+  fconfigure $fd -encoding unicode -translation binary
+  set z [read $fd]
+  close $fd
+  expr {int([string compare $x4 $z] == 0)}
+} -cleanup {
+  catch {close $fd}
+  unset -nocomplain fd z
+} -constraints {eagle monoBug44 file_file.dat} -result {1}}
+
+###############################################################################
+
+unset -nocomplain x0 x1 x2 x3 x4
+
+###############################################################################
+
+#
+# HACK: *MONO* This test does not work on Mono due to bug #478489, which is
+#       still present as of version 6.0.
+#
+# HACK: Due to a change (bug?) in the .NET Framework 4.6.2 (and higher?),
+#       this test is disabled for those cases.
+#
+runTest {test fileIO-2.1.1 {file dirname} -body {
+  list [file dirname .] [file dirname ..] [file dirname :C/] \
+      [file dirname C:/] [file dirname C:\\] [file dirname C:\\foo] \
+      [file dirname C:\\foo\\bar] [file dirname foo] [file dirname foo/bar] \
+      [file dirname foo\\bar]
+} -constraints {windows monoBug612} -constraintExpression \
+{![haveConstraint targetFramework.NETFramework.Version.v4.6.2] && \
+![haveConstraint targetFramework.NETFramework.Version.v4.7] && \
+![haveConstraint targetFramework.NETFramework.Version.v4.7.1] && \
+![haveConstraint targetFramework.NETFramework.Version.v4.7.2] && \
+![haveConstraint targetFramework.NETFramework.Version.v4.8] && \
+![haveConstraint dotNetCore]} -result \
+{. . . C:/ C:/ C:/ C:/foo . foo foo}}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test does not work on Mono due to bug #478489, which is
+#       still present as of version 6.0.
+#
+# TODO: Verify that this test does not work correctly when running via .NET
+#       Core on a non-Windows system.
+#
+runTest {test fileIO-2.1.2 {file dirname} -body {
+  list [file dirname .] [file dirname ..] [file dirname :C/] \
+      [file dirname /] [file dirname \\] [file dirname \\foo] \
+      [file dirname \\foo\\bar] [file dirname foo] [file dirname foo/bar] \
+      [file dirname foo\\bar]
+} -constraints [fixConstraints {!windows monoBug612 !dotNetCore}] -result \
+{. . . / . . . . foo .}}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test does not work on Mono due to bug #478489, which is
+#       still present as of version 5.14.
+#
+# HACK: Due to a change (bug?) in the .NET Framework 4.6.2 (and higher?),
+#       this test has a different expected result for its third call to
+#       the [file dirname] sub-command.
+#
+runTest {test fileIO-2.1.3 {file dirname} -body {
+  list [file dirname .] [file dirname ..] [file dirname :C/] \
+      [file dirname C:/] [file dirname C:\\] [file dirname C:\\foo] \
+      [file dirname C:\\foo\\bar] [file dirname foo] [file dirname foo/bar] \
+      [file dirname foo\\bar]
+} -constraints {windows monoBug514} -constraintExpression \
+{[haveConstraint targetFramework.NETFramework.Version.v4.6.2] || \
+[haveConstraint targetFramework.NETFramework.Version.v4.7] || \
+[haveConstraint targetFramework.NETFramework.Version.v4.7.1] || \
+[haveConstraint targetFramework.NETFramework.Version.v4.7.2] || \
+[haveConstraint targetFramework.NETFramework.Version.v4.8] || \
+[haveConstraint dotNetCore]} -result {. . :C C:/ C:/ C:/ C:/foo . foo foo}}
+
+###############################################################################
+
+runTest {test fileIO-3.1.1 {file tail} -body {
+  list [file tail C:/] [file tail C:\\] [file tail C:/foo] [file tail C:\\foo] \
+      [file tail C:/foo/bar] [file tail C:\\foo\\bar]
+} -constraints {windows} -result {{} {} foo foo bar bar}}
+
+###############################################################################
+
+runTest {test fileIO-3.1.2 {file tail} -body {
+  list [file tail /] [file tail \\] [file tail /foo] [file tail \\foo] \
+      [file tail /foo/bar] [file tail \\foo\\bar]
+} -constraints [fixConstraints {!windows}] -result \
+{{} \\ foo {\foo} bar {\foo\bar}}}
+
+###############################################################################
+
+runTest {test fileIO-4.1.1 {file normalize, trailing slashes} -body {
+  list [file normalize $base_path] [file normalize [appendArgs $base_path /]] \
+      [file normalize [appendArgs $base_path \\]]
+} -constraints {windows} -result [list $base_path $base_path $base_path]}
+
+###############################################################################
+
+runTest {test fileIO-4.1.2 {file normalize, trailing slashes} -body {
+  list [file normalize $base_path] [file normalize [appendArgs $base_path /]] \
+      [file normalize [appendArgs $base_path \\]]
+} -constraints [fixConstraints {!windows}] -result [list $base_path $base_path \
+[appendArgs $base_path \\]]}
+
+###############################################################################
+
+runTest {test fileIO-4.2 {relativefilename direct ok} -body {
+  package relativefilename [file join $tcl_library init.eagle]
+} -constraints {eagle tcl_library_external} -result {init.eagle}}
+
+###############################################################################
+
+runTest {test fileIO-4.3 {relativefilename nested ok} -body {
+  package relativefilename [file join $tcl_library one two three.eagle]
+} -constraints {eagle tcl_library_external} -result {one/two/three.eagle}}
+
+###############################################################################
+
+#
+# HACK: Due to the "pkgIndex.eagle" file for Kapok ending up in the Eagle
+#       binary directory, this test cannot pass when running on the .NET
+#       Core runtime.
+#
+runTest {test fileIO-4.4 {relativefilename direct error} -body {
+  package relativefilename init.eagle
+} -constraints [fixConstraints {eagle !dotNetCore}] -returnCodes 1 -match \
+regexp -result {^package index matching directory ".*?" not found$}}
+
+###############################################################################
+
+runTest {test fileIO-4.5 {relativefilename direct mismatch error} -body {
+  package relativefilename [file join [appendArgs $tcl_library 1] init.eagle]
+} -constraints {eagle} -returnCodes 1 -match regexp -result {^package index\
+matching directory ".*?" not found$}}
+
+###############################################################################
+
+runTest {test fileIO-4.6 {relativefilename nested error} -body {
+  package relativefilename [file join [file dirname $tcl_library] \
+      one two three.eagle]
+} -constraints {eagle} -returnCodes 1 -match regexp -result {^package index\
+matching directory ".*?" not found$}}
+
+###############################################################################
+
+runTest {test fileIO-4.7 {relativefilename nested mismatch error} -body {
+  package relativefilename [file join [file dirname [appendArgs \
+      $tcl_library 1]] one two three.eagle]
+} -constraints {eagle} -returnCodes 1 -match regexp -result {^package index\
+matching directory ".*?" not found$}}
+
+###############################################################################
+
+runTest {test fileIO-4.8 {file readable/writable/executable success} -body {
+  set fileName(1) [info script]
+
+  set fileName(2) [file join $test_data_path [appendArgs \
+      not-found [clock seconds] .txt]]
+
+  list [expr {int([file readable $fileName(1)])}] \
+       [expr {int([file writable $fileName(1)])}] \
+       [expr {int([file executable $fileName(1)])}] \
+       [expr {int([file readable $fileName(2)])}] \
+       [expr {int([file writable $fileName(2)])}] \
+       [expr {int([file executable $fileName(2)])}]
+} -cleanup {
+  unset -nocomplain fileName
+} -match regexp -result {^1 (?:0|1) (?:0|1) 0 0 0$}}
+
+###############################################################################
+
+runTest {test fileIO-4.9 {file readable/writable/executable failure} -body {
+  if {[info exists env(SystemDrive)]} then {
+    set fileName(1) [file join $env(SystemDrive) pagefile.sys]
+  } else {
+    set fileName(1) C:/pagefile.sys
+  }
+
+  list [expr {int([file readable $fileName(1)])}] \
+       [expr {int([file writable $fileName(1)])}] \
+       [expr {int([file executable $fileName(1)])}]
+} -cleanup {
+  unset -nocomplain fileName
+} -constraints {windows} -result {0 0 0}}
+
+###############################################################################
+
+runTest {test fileIO-5.1.1 {file normalize /} -body {
+  file normalize /
+} -constraints {windows monoBug46} -result [string range [pwd] 0 2]}
+
+###############################################################################
+
+runTest {test fileIO-5.1.2 {file normalize /} -body {
+  file normalize /
+} -constraints [fixConstraints {!windows}] -result {/}}
+
+###############################################################################
+
+runTest {test fileIO-5.2.1 {file normalize .} -body {
+  file normalize .
+} -constraints {windows} -result [pwd]}
+
+###############################################################################
+
+runTest {test fileIO-5.2.2 {file normalize .} -body {
+  file normalize .
+} -constraints [fixConstraints {!windows}] -result [pwd]}
+
+###############################################################################
+
+runTest {test fileIO-5.3.1 {file normalize ""} -body {
+  file normalize ""
+} -constraints {windows} -result {}}
+
+###############################################################################
+
+runTest {test fileIO-5.3.2 {file normalize ""} -body {
+  file normalize ""
+} -constraints [fixConstraints {!windows}] -result {}}
+
+###############################################################################
+
+if {[info exists env(Eagle_HOME)]} then {
+  set home $env(Eagle_HOME)
+} elseif {[info exists env(HOME)]} then {
+  set home $env(HOME)
+} else {
+  set home ""
+}
+
+###############################################################################
+
+if {[string length $home] > 0} then {
+  if {[info exists test_home_path]} then {
+    if {[isEagle]} then {
+      if {[file same $home $test_home_path]} then {
+        tputs $test_channel "---- matched HOME environment variable\n"
+      } else {
+        tputs $test_channel [appendArgs \
+            "---- mismatched HOME environment variable, actual value \"" \
+            $home "\" should match \"" $test_home_path \"\n]
+      }
+    } elseif {[isWindows]} then {
+      if {[string equal -nocase [file normalize $home] $test_home_path]} then {
+        tputs $test_channel "---- matched HOME environment variable\n"
+      } else {
+        tputs $test_channel [appendArgs \
+            "---- mismatched HOME environment variable, actual value \"" \
+            $home "\" should match \"" $test_home_path \"\n]
+      }
+    } else {
+      if {[string equal [file normalize $home] $test_home_path]} then {
+        tputs $test_channel "---- matched HOME environment variable\n"
+      } else {
+        tputs $test_channel [appendArgs \
+            "---- mismatched HOME environment variable, actual value \"" \
+            $home "\" should match \"" $test_home_path \"\n]
+      }
+    }
+  }
+
+  #############################################################################
+
+  runTest {test fileIO-5.4.1 {file normalize ~} -body {
+    file normalize ~
+  } -constraints {windows} -result [string map [list \\ /] $home]}
+
+  #############################################################################
+
+  runTest {test fileIO-5.4.2 {file normalize ~} -body {
+    file normalize ~
+  } -constraints [fixConstraints {!windows}] -result $home}
+
+  #############################################################################
+
+  runTest {test fileIO-5.5.1 {file normalize ~/Documents/no.way} -body {
+    file normalize ~/Documents/no.way
+  } -constraints {windows file_HomeDocuments} -result \
+      [string map [list \\ /] [file join $home Documents no.way]]}
+
+  #############################################################################
+
+  runTest {test fileIO-5.5.2 {file normalize ~/Documents/no.way} -body {
+    file normalize ~/Documents/no.way
+  } -constraints [fixConstraints {!windows file_HomeDocuments}] -result \
+      [file join $home Documents no.way]}
+
+  #############################################################################
+
+  runTest {test fileIO-5.6.1 {file normalize ~/Documents} -body {
+    file normalize ~/Documents
+  } -constraints {windows file_HomeDocuments} -result \
+      [string map [list \\ /] [file join $home Documents]]}
+
+  #############################################################################
+
+  runTest {test fileIO-5.6.2 {file normalize ~/Documents} -body {
+    file normalize ~/Documents
+  } -constraints [fixConstraints {!windows file_HomeDocuments}] -result \
+      [file join $home Documents]}
+} else {
+  tputs $test_channel "---- no HOME environment variable, tests skipped\n"
+}
+
+###############################################################################
+
+unset -nocomplain home
+
+###############################################################################
+
+runTest {test fileIO-5.7 {file normalize with extra slashes} -body {
+  file normalize C://does//not//exist
+} -constraints {windows} -result {C:/does/not/exist}}
+
+###############################################################################
+
+runTest {test fileIO-5.8 {file normalize with extra backslashes} -body {
+  file normalize C:\\\\does\\\\not\\\\exist
+} -constraints {windows} -result {C:/does/not/exist}}
+
+###############################################################################
+
+if {[isEagle] && [haveConstraint tclShell] && \
+    [canExecTclShell] && ![info exists no(evalWithTclShell)]} then {
+  proc checkEqual { list tclList } {
+    set result [string equal $list $tclList]
+
+    if {!$result} then {
+      tputs $::test_channel [appendArgs \
+          "---- glob result list \"" $list \
+          "\" does not match the native Tcl glob result list \"" \
+          $tclList \"\n]
+
+      if {$tclList eq "error" || [string match "error: *" $tclList]} then {
+        #
+        # BUGBUG: For some reason, native Tcl 8.6 (?) on Linux started
+        #         returning an error for some [glob] tests.  For now,
+        #         issue a warning in the log file and continue by faking
+        #         a match.
+        #
+        tputs $::test_channel \
+            "---- native Tcl glob returned error (?), faking match...\n"
+
+        set result True
+      }
+
+      if {[string length $tclList] == 0 && [string length $list] > 0} then {
+        #
+        # BUGBUG: For some reason, native Tcl 8.6.5 (?) on Linux started
+        #         returning an empty list for some [glob] tests.  For now,
+        #         issue a warning in the log file and continue by faking
+        #         a match.
+        #
+        tputs $::test_channel \
+            "---- native Tcl glob returned nothing (?), faking match...\n"
+
+        set result True
+      }
+    }
+
+    return $result
+  }
+
+  #############################################################################
+
+  #
+  # NOTE: Save the current directory and reset it to the directory that
+  #       contains the Eagle shell binary.  This is needed just in case
+  #       this was not done by the runtime itself (e.g. Mono).
+  #
+  set savedPwd [pwd]; cd $core_bin_path
+
+  try {
+    #
+    # NOTE: These tests were originally designed to be run from within the
+    #       build directory itself.  If they are not being run from there
+    #       now, issue a warning.
+    #
+    if {![haveConstraint quiet] && (![file exists BuildTasks] || \
+        [lsearch -glob -inverse -- [list Debug* Release*] \
+        [file tail [file dirname [pwd]]]] == -1)} then {
+      tputs $test_channel [appendArgs \
+          "==== WARNING: tests do not appear to be running from the build " \
+          "directory and this may cause code coverage issues\n"]
+    }
+
+    ###########################################################################
+
+    proc getAssemblyFileRootNameOnly {} {
+      if {[isEagle]} then {
+        return [file rootname [file tail [lindex [info assembly] end]]]
+      } else {
+        return Eagle; # NOTE: Not really used.
+      }
+    }
+
+    ###########################################################################
+
+    tputs $test_channel [appendArgs \
+        "---- running \[glob\] tests with current directory \"" [pwd] \"...\n]
+
+    ###########################################################################
+
+    set patterns [list \
+        [list {} {} ~] \
+        [list {1 2 4 6 7 10} {knownIncompatibility} ""] \
+        [list {} {} .] \
+        [list {3 5} {knownIncompatibility} ..] \
+        [list {1 2 3 4 5 6 7 10} {knownIncompatibility} ...] \
+        [list {} {} *] \
+        [list {} {} .*] \
+        [list {} {} *.*] \
+        [list {} {} *.*.*] \
+        [list {} {} 0] \
+        [list {} {} B] \
+        [list {} {} b] \
+        [list {} {} E] \
+        [list {} {} e] \
+        [list {} {} Z] \
+        [list {} {} z] \
+        [list {} {} [appendArgs notfound [pid]]] \
+        [list {} {} [appendArgs *notfound [pid] *]] \
+        [list {} {} [appendArgs .notfound [pid]]] \
+        [list {} {} [appendArgs ..notfound [pid]]] \
+        [list {} {} "BuildTasks{,.not}"] \
+        [list {} {} "Ea*{.exe,.pdb}"] \
+        [list {} {} "Ea*{,.exe,.pdb}"] \
+        [list {} {} "Ea*{.exe,.pdb,}"] \
+        [list {} {} "Ea*{}"] \
+        [list {} {} "Ea*{Name}*e"] \
+        [list {} {} "S*{.exe}"] \
+        [list {} {} [appendArgs [getAssemblyFileRootNameOnly] "{.dll,.pdb}"]] \
+        [list {} {} "System.Data.SQLite{.exe}"]]
+
+    ###########################################################################
+
+    rename getAssemblyFileRootNameOnly ""
+
+    ###########################################################################
+
+    #
+    # NOTE: The previously saved process identifier must be reset, due
+    #       to use of the [evalWithTclShell] script library procedure,
+    #       because it uses [exec].  Normally, there are tests below
+    #       this [for] loop point that end up resetting it via their
+    #       use of the [getVolumeSerialNumber] test procedure; however,
+    #       they may end up being skipped due to test constraints, etc.
+    #
+    for {set index(0) 0} {$index(0) < [llength $patterns]} {incr index(0)} {
+      set indexes [lindex [lindex $patterns $index(0)] 0]
+      set constraint [lindex [lindex $patterns $index(0)] 1]
+      set pattern [lindex [lindex $patterns $index(0)] 2]
+
+      #########################################################################
+
+      set index(2) [expr {$index(0) + 1}]
+      set index(1) 0; incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # NOTE: These are the "glob-99.*.1" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" only"] -body {
+        checkEqual [lsort [glob -noerror $pattern]] [lsort \
+            [evalWithTclShell [list glob -nocomplain $pattern] \
+            false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+          $thisConstraint] -result {True}}
+
+      #########################################################################
+
+      incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # NOTE: These are the "glob-99.*.2" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" with -directory"] -body {
+        checkEqual [lsort [glob -noerror -directory . $pattern]] [lsort \
+            [evalWithTclShell [list glob -nocomplain -directory . $pattern] \
+            false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+          $thisConstraint] -result {True}}
+
+      #########################################################################
+
+      incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # NOTE: These are the "glob-99.*.3" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" with -path"] -body {
+        checkEqual [lsort [glob -noerror -path . $pattern]] [lsort \
+            [evalWithTclShell [list glob -nocomplain -path . $pattern] \
+            false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+          $thisConstraint] -result {True}}
+
+      #########################################################################
+
+      incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # NOTE: These are the "glob-99.*.4" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" with -directory and -tails"] -body {
+        checkEqual [lsort [glob -noerror -directory . -tails $pattern]] \
+            [lsort [evalWithTclShell [list glob -nocomplain -directory . \
+            -tails $pattern] false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+          $thisConstraint] -result {True}}
+
+      #########################################################################
+
+      incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # NOTE: These are the "glob-99.*.5" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" with -path and -tails"] -body {
+        checkEqual [lsort [glob -noerror -path . -tails $pattern]] \
+            [lsort [evalWithTclShell [list glob -nocomplain -path . \
+            -tails $pattern] false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+          $thisConstraint] -result {True}}
+
+      #########################################################################
+
+      incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # MONO: Due to a Mono bug, this test is disabled on Mono; however, not
+      #       all patterns cause this test to fail there.  The patterns with
+      #       indexes 3, 4, 6, 7, 10-17, 19, and 20 all fail as of Mono 4.6.
+      #       Earlier versions of Mono (e.g. from the 2.x series) do not seem
+      #       to fail this test.
+      #
+      # NOTE: The "monoBug516" constraint here may not be 100% accurate.  It
+      #       seems that catching IOException within GetGlobFileSystemInfos
+      #       clears the issue as of Mono 5.18 -AND- may have caused previous
+      #       versions to work correctly as well.
+      #
+      # NOTE: These are the "glob-99.*.6" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" with -join (all)"] -body {
+        checkEqual [lsort [glob -noerror -join $pattern *]] [lsort \
+            [evalWithTclShell [list glob -nocomplain -join $pattern *] \
+            false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug516} \
+          $thisConstraint] -result {True}}
+
+      #########################################################################
+
+      incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # MONO: Due to a Mono bug, this test is disabled on Mono; however, not
+      #       all patterns cause this test to fail there.  The patterns with
+      #       indexes 6, 7, 10-17, 19, and 20 all fail as of Mono 4.6.
+      #       Earlier versions of Mono (e.g. from the 2.x series) do not seem
+      #       to fail this test.
+      #
+      # NOTE: The "monoBug516" constraint here may not be 100% accurate.  It
+      #       seems that catching IOException within GetGlobFileSystemInfos
+      #       clears the issue as of Mono 5.18 -AND- may have caused previous
+      #       versions to work correctly as well.
+      #
+      # NOTE: These are the "glob-99.*.7" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" with -join (some)"] -body {
+        checkEqual [lsort [glob -noerror -join $pattern E*]] [lsort \
+            [evalWithTclShell [list glob -nocomplain -join $pattern E*] \
+            false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug516} \
+          $thisConstraint] -result {True}}
+
+      #########################################################################
+
+      incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # MONO: Due to a Mono bug, this test is disabled on Mono; however, not
+      #       all patterns cause this test to fail there.  The patterns with
+      #       indexes 6, 7, 10-17, 19, and 20 all fail as of Mono 4.6.
+      #       Earlier versions of Mono (e.g. from the 2.x series) do not seem
+      #       to fail this test.
+      #
+      # NOTE: The "monoBug516" constraint here may not be 100% accurate.  It
+      #       seems that catching IOException within GetGlobFileSystemInfos
+      #       clears the issue as of Mono 5.18 -AND- may have caused previous
+      #       versions to work correctly as well.
+      #
+      # NOTE: These are the "glob-99.*.8" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" with -join (none)"] -body {
+        checkEqual [lsort [glob -noerror -join $pattern ZZ]] [lsort \
+            [evalWithTclShell [list glob -nocomplain -join $pattern ZZ] \
+            false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug516} \
+          $thisConstraint] -result {True}}
+
+      #########################################################################
+
+      incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # NOTE: These are the "glob-99.*.9" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" with -types {f}"] -body {
+        checkEqual [lsort [glob -noerror -types {f} $pattern]] [lsort \
+            [evalWithTclShell [list glob -nocomplain -types {f} $pattern] \
+            false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+          $thisConstraint] -result {True}}
+
+      #########################################################################
+
+      incr index(1)
+      set thisConstraint [expr {$index(1) in $indexes ? $constraint : ""}]
+
+      #
+      # NOTE: These are the "glob-99.*.10" tests.
+      #
+      runTest {test [appendArgs glob-99. $index(2) . $index(1)] [appendArgs \
+          "pattern \"" $pattern "\" with -types {d}"] -body {
+        checkEqual [lsort [glob -noerror -types {d} $pattern]] [lsort \
+            [evalWithTclShell [list glob -nocomplain -types {d} $pattern] \
+            false "" [getTclShellVerbosity]]]
+      } -cleanup {
+        catch {info previouspid true}
+      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+          $thisConstraint] -result {True}}
+    }
+  } finally {
+    #
+    # NOTE: Restore the saved current directory and then uset the variable
+    #       that was used to hold it.
+    #
+    cd $savedPwd; unset savedPwd
+  }
+
+  #############################################################################
+
+  unset -nocomplain thisConstraint pattern constraint indexes index patterns
+
+  #############################################################################
+
+  runTest {test glob-100.1 {pattern for root (Windows)} -body {
+    checkEqual [lsort [glob -noerror C:/*]] [lsort \
+        [evalWithTclShell [list glob -nocomplain C:/*] \
+        false "" [getTclShellVerbosity]]]
+  } -cleanup {
+    catch {info previouspid true}
+  } -constraints {eagle windows tclShell monoBug48} -result {True}}
+
+  #############################################################################
+
+  runTest {test glob-100.2 {pattern for root (non-Windows)} -body {
+    checkEqual [lsort [glob -noerror /*]] [lsort \
+        [evalWithTclShell [list glob -nocomplain /*] \
+        false "" [getTclShellVerbosity]]]
+  } -cleanup {
+    catch {info previouspid true}
+  } -constraints {eagle tclShell monoBug46} -result {True}}
+
+  #############################################################################
+
+  rename checkEqual ""
+}
+
+###############################################################################
+
+catch {unset x5}
+append x5 one \r two \n three \r\n four
+
+###############################################################################
+
+catch {unset x6}
+append x6 one \n two \r three \r\n four
+
+###############################################################################
+
+catch {unset x7}
+append x7 one \r\n two \r three \n four
+
+###############################################################################
+
+catch {unset x8}
+append x8 one \n\r two \r three \n four
+
+###############################################################################
+
+proc readFileWithTranslation { fileName translation } {
+  set channel [open $fileName RDONLY]
+  fconfigure $channel -encoding binary -translation $translation
+  set result [read $channel]
+  close $channel
+  return $result
+}
+
+###############################################################################
+
+runTest {test fileIO-6.0 {read x5 text w/binary translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-6.0.txt]
+} -body {
+  writeFile $fileName $x5
+  readFileWithTranslation $fileName binary
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result $x5}
+
+###############################################################################
+
+runTest {test fileIO-6.1 {read x6 text w/binary translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-6.1.txt]
+} -body {
+  writeFile $fileName $x6
+  readFileWithTranslation $fileName binary
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result $x6}
+
+###############################################################################
+
+runTest {test fileIO-6.2 {read x7 text w/binary translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-6.2.txt]
+} -body {
+  writeFile $fileName $x7
+  readFileWithTranslation $fileName binary
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result $x7}
+
+###############################################################################
+
+runTest {test fileIO-6.3 {read x8 text w/binary translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-6.3.txt]
+} -body {
+  writeFile $fileName $x8
+  readFileWithTranslation $fileName binary
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result $x8}
+
+###############################################################################
+
+runTest {test fileIO-7.0 {read x5 text w/auto translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-7.0.txt]
+} -body {
+  writeFile $fileName $x5
+  readFileWithTranslation $fileName auto
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n \r \n] $x5]}
+
+###############################################################################
+
+runTest {test fileIO-7.1 {read x6 text w/auto translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-7.1.txt]
+} -body {
+  writeFile $fileName $x6
+  readFileWithTranslation $fileName auto
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n \r \n] $x6]}
+
+###############################################################################
+
+runTest {test fileIO-7.2 {read x7 text w/auto translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-7.2.txt]
+} -body {
+  writeFile $fileName $x7
+  readFileWithTranslation $fileName auto
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n \r \n] $x7]}
+
+###############################################################################
+
+runTest {test fileIO-7.3 {read x8 text w/auto translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-7.3.txt]
+} -body {
+  writeFile $fileName $x8
+  readFileWithTranslation $fileName auto
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n \r \n] $x8]}
+
+###############################################################################
+
+runTest {test fileIO-8.0 {read x5 text w/cr translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-8.0.txt]
+} -body {
+  writeFile $fileName $x5
+  readFileWithTranslation $fileName cr
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n\n \r \n] $x5]}
+
+###############################################################################
+
+runTest {test fileIO-8.1 {read x6 text w/cr translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-8.1.txt]
+} -body {
+  writeFile $fileName $x6
+  readFileWithTranslation $fileName cr
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n\n \r \n] $x6]}
+
+###############################################################################
+
+runTest {test fileIO-8.2 {read x7 text w/cr translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-8.2.txt]
+} -body {
+  writeFile $fileName $x7
+  readFileWithTranslation $fileName cr
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n\n \r \n] $x7]}
+
+###############################################################################
+
+runTest {test fileIO-8.3 {read x8 text w/cr translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-8.3.txt]
+} -body {
+  writeFile $fileName $x8
+  readFileWithTranslation $fileName cr
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n\n \r \n] $x8]}
+
+###############################################################################
+
+runTest {test fileIO-9.0 {read x5 text w/lf translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-9.0.txt]
+} -body {
+  writeFile $fileName $x5
+  readFileWithTranslation $fileName lf
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result $x5}
+
+###############################################################################
+
+runTest {test fileIO-9.1 {read x6 text w/lf translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-9.1.txt]
+} -body {
+  writeFile $fileName $x6
+  readFileWithTranslation $fileName lf
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result $x6}
+
+###############################################################################
+
+runTest {test fileIO-9.2 {read x7 text w/lf translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-9.2.txt]
+} -body {
+  writeFile $fileName $x7
+  readFileWithTranslation $fileName lf
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result $x7}
+
+###############################################################################
+
+runTest {test fileIO-9.3 {read x8 text w/lf translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-9.3.txt]
+} -body {
+  writeFile $fileName $x8
+  readFileWithTranslation $fileName lf
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result $x8}
+
+###############################################################################
+
+runTest {test fileIO-10.0 {read x5 text w/crlf translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-10.0.txt]
+} -body {
+  writeFile $fileName $x5
+  readFileWithTranslation $fileName crlf
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n] $x5]}
+
+###############################################################################
+
+runTest {test fileIO-10.1 {read x6 text w/crlf translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-10.1.txt]
+} -body {
+  writeFile $fileName $x6
+  readFileWithTranslation $fileName crlf
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n] $x6]}
+
+###############################################################################
+
+runTest {test fileIO-10.2 {read x7 text w/crlf translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-10.2.txt]
+} -body {
+  writeFile $fileName $x7
+  readFileWithTranslation $fileName crlf
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n] $x7]}
+
+###############################################################################
+
+runTest {test fileIO-10.3 {read x8 text w/crlf translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-10.3.txt]
+} -body {
+  writeFile $fileName $x8
+  readFileWithTranslation $fileName crlf
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -result [string map [list \r\n \n] $x8]}
+
+###############################################################################
+
+runTest {test fileIO-11.0 {read x5 text w/platform translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-11.0.txt]
+} -body {
+  writeFile $fileName $x5
+  readFileWithTranslation $fileName platform
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result [string map [list \r\n \n] $x5]}
+
+###############################################################################
+
+runTest {test fileIO-11.1 {read x6 text w/platform translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-11.1.txt]
+} -body {
+  writeFile $fileName $x6
+  readFileWithTranslation $fileName platform
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result [string map [list \r\n \n] $x6]}
+
+###############################################################################
+
+runTest {test fileIO-11.2 {read x7 text w/platform translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-11.2.txt]
+} -body {
+  writeFile $fileName $x7
+  readFileWithTranslation $fileName platform
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result [string map [list \r\n \n] $x7]}
+
+###############################################################################
+
+runTest {test fileIO-11.3 {read x8 text w/platform translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-11.3.txt]
+} -body {
+  writeFile $fileName $x8
+  readFileWithTranslation $fileName platform
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result [string map [list \r\n \n] $x8]}
+
+###############################################################################
+
+runTest {test fileIO-12.0 {read x5 text w/protocol translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-12.0.txt]
+} -body {
+  writeFile $fileName $x5
+  readFileWithTranslation $fileName protocol
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result $x5}
+
+###############################################################################
+
+runTest {test fileIO-12.1 {read x6 text w/protocol translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-12.1.txt]
+} -body {
+  writeFile $fileName $x6
+  readFileWithTranslation $fileName protocol
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result $x6}
+
+###############################################################################
+
+runTest {test fileIO-12.2 {read x7 text w/protocol translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-12.2.txt]
+} -body {
+  writeFile $fileName $x7
+  readFileWithTranslation $fileName protocol
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result $x7}
+
+###############################################################################
+
+runTest {test fileIO-12.3 {read x8 text w/protocol translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-12.3.txt]
+} -body {
+  writeFile $fileName $x8
+  readFileWithTranslation $fileName protocol
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result $x8}
+
+###############################################################################
+
+runTest {test fileIO-13.0 {read x5 text w/environment translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-13.0.txt]
+} -body {
+  writeFile $fileName $x5
+  readFileWithTranslation $fileName environment
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result \
+[expr {[isWindows] ? [string map [list \r\n \n] $x5] : $x5}]}
+
+###############################################################################
+
+runTest {test fileIO-13.1 {read x6 text w/environment translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-13.1.txt]
+} -body {
+  writeFile $fileName $x6
+  readFileWithTranslation $fileName environment
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result \
+[expr {[isWindows] ? [string map [list \r\n \n] $x6] : $x6}]}
+
+###############################################################################
+
+runTest {test fileIO-13.2 {read x7 text w/environment translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-13.2.txt]
+} -body {
+  writeFile $fileName $x7
+  readFileWithTranslation $fileName environment
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result \
+[expr {[isWindows] ? [string map [list \r\n \n] $x7] : $x7}]}
+
+###############################################################################
+
+runTest {test fileIO-13.3 {read x8 text w/environment translation} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-13.3.txt]
+} -body {
+  writeFile $fileName $x8
+  readFileWithTranslation $fileName environment
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle} -result \
+[expr {[isWindows] ? [string map [list \r\n \n] $x8] : $x8}]}
+
+###############################################################################
+
+rename readFileWithTranslation ""
+
+###############################################################################
+
+unset -nocomplain x5 x6 x7 x8
+
+###############################################################################
+
+proc getDevice { path } {
+  if {[string length $path] == 0} then {
+    return -1
+  }
+
+  set drive [string tolower [string range $path 0 1]]
+
+  if {[string length $drive] != 2} then {
+    return -2
+  }
+
+  if {![string is lower -strict [string index $drive 0]]} then {
+    return -3
+  }
+
+  if {[string index $drive 1] ne ":"} then {
+    return -4
+  }
+
+  if {[isEagle]} then {
+    return [expr {[string index $drive 0] - [string ordinal a 0]}]
+  } else {
+    return [expr {[scan [string index $drive 0] %c] - [scan a %c]}]
+  }
+}
+
+###############################################################################
+
+proc checkForReparsePoints { path } {
+  if {[isWindows] && [isTestAdministrator] && [canExecFsUtil]} then {
+    set procName [lindex [info level [info level]] 0]
+
+    if {[canTestExec $procName]} then {
+      set newPath $path
+
+      while {1} {
+        set oldPath $newPath
+        set fragments [file split $newPath]
+
+        set fragmentCount [llength $fragments]
+        set fragmentIndex [expr {$fragmentCount - 1}]
+
+        for {} {$fragmentIndex > 0} {incr fragmentIndex -1} {
+          set newPath [eval \
+              file join [lrange $fragments 0 $fragmentIndex]]
+
+          set result [testExec fsutil.exe [list] \
+              reparsepoint query [appendArgs \" [file nativename \
+              $newPath] \"]]
+
+          set pattern {^Substitute Name:\s+((?:\\\?\?\\)?[A-Z]:\\.*)$}
+
+          if {[regexp \
+              -line -nocase -skip 1 -- $pattern $result newPath]} then {
+            if {[string range $newPath 0 3] eq "\\??\\"} then {
+              set newPath [string range $newPath 4 end]
+            }
+
+            set newPath [eval file join [list $newPath] [lrange \
+                $fragments [expr {$fragmentIndex + 1}] end]]
+
+            break
+          } elseif {[haveConstraint \
+              Eagle._Tests.Default.TestProcessReparseData]} then {
+            set pattern [appendArgs \
+                {\n[0-9A-F]{4}:} [string repeat {(?:\s+([0-9A-F]{2}))?} \
+                16]]
+
+            set matches [regexp -all -inline -nocase -skip 1 -noempty \
+                -- $pattern $result]
+
+            if {[llength $matches] > 0} then {
+              set bytes [list]
+
+              foreach match $matches {
+                lappend bytes [appendArgs 0x $match]
+              }
+
+              set result null
+
+              set code [object invoke \
+                  Eagle._Tests.Default TestProcessReparseData $bytes \
+                  null result]
+
+              if {$code eq "Ok"} then {
+                set newPath [getStringFromObjectHandle $result]
+
+                if {[string range $newPath 0 3] eq "\\??\\"} then {
+                  set newPath [string range $newPath 4 end]
+                }
+
+                set newPath [eval file join [list $newPath] [lrange \
+                    $fragments [expr {$fragmentIndex + 1}] end]]
+
+                break
+              }
+            }
+          }
+        }
+
+        if {$fragmentIndex == 0} then {
+          set newPath $oldPath; break
+        }
+      }
+
+      return $newPath
+    }
+  }
+
+  return $path
+}
+
+###############################################################################
+
+#
+# NOTE: *MONO* It seems that some versions of Mono cannot handle executing a
+#       child shell process here.  This seems to work when executed by itself
+#       on Mono 4.0; however, it hangs the test suite.
+#
+proc getVolumeSerialNumber { path {decimal false} } {
+  if {[isWindows] && [info exists ::env(ComSpec)]} then {
+    set procName [lindex [info level [info level]] 0]
+
+    if {[canTestExec $procName]} then {
+      #
+      # NOTE: Check if the path contains any reparse points (junctions),
+      #       which could cause the file to be on a different drive with
+      #       a different volume serial number.
+      #
+      set newPath [file nativename [checkForReparsePoints $path]]
+
+      #
+      # NOTE: Do not normalize the path passed to the child shell process.
+      #
+      if {[isEagle]} then {
+        set result [testExec $::env(ComSpec) [list] /c dir [appendArgs \" \
+            $newPath \"]]
+      } else {
+        set result [testExec $::env(ComSpec) [list] /c dir $newPath]
+      }
+
+      catch {info previouspid true}
+      set pattern {Volume Serial Number is ([0-9A-F]{4}-[0-9A-F]{4})\s}
+
+      if {[regexp -nocase -- $pattern $result dummy vsn]} then {
+        if {$decimal} then {
+          set newVsn [volumeSerialNumberToDecimal $vsn]
+        } else {
+          set newVsn $vsn
+        }
+
+        tputs $::test_channel [appendArgs \
+            "---- volume serial number for path \"" $path "\" ==> \"" \
+            $newPath "\" is \"" $newVsn \"\n]
+
+        return $newVsn
+      }
+    }
+  }
+
+  return ""
+}
+
+###############################################################################
+
+proc volumeSerialNumberToDecimal { vsn } {
+  return [expr {"0x[string map [list - {}] $vsn]" + 0}]
+}
+
+###############################################################################
+
+unset -nocomplain fileData fileName
+
+set fileName(1) [info script]
+set fileData(1,dev) [getDevice $fileName(1)]
+set fileData(1,rdev) [getVolumeSerialNumber $fileName(1) true]
+set fileData(1,mode) 33206; # BUGBUG: Non-portable?
+set fileData(1,size) [file size $fileName(1)]
+set fileData(1,atime) [file atime $fileName(1)]
+set fileData(1,ctime) [expr {[isEagle] ? [file ctime $fileName(1)] : 0}]
+set fileData(1,mtime) [file mtime $fileName(1)]
+
+set fileName(2) [file dirname [info script]]
+set fileData(2,dev) [getDevice $fileName(2)]
+set fileData(2,rdev) [getVolumeSerialNumber $fileName(2) true]
+set fileData(2,mode) 16895; # BUGBUG: Non-portable?
+set fileData(2,size) [expr {[isWindows] ? [file size $fileName(2)] : 0}]
+set fileData(2,atime) [file atime $fileName(2)]
+set fileData(2,ctime) [expr {[isEagle] ? [file ctime $fileName(2)] : 0}]
+set fileData(2,mtime) [file mtime $fileName(2)]
+
+set fileName(3) [getShellExecutableName]; # NOTE: Might be DLL on .NET Core.
+set fileData(3,dev) [getDevice $fileName(3)]
+set fileData(3,rdev) [getVolumeSerialNumber $fileName(3) true]
+set fileData(3,mode) [expr {[isDotNetCore] ? 33206 : 33279}]; # BUGBUG: Non-portable?
+set fileData(3,size) [file size $fileName(3)]
+set fileData(3,atime) [file atime $fileName(3)]
+set fileData(3,ctime) [expr {[isEagle] ? [file ctime $fileName(3)] : 0}]
+set fileData(3,mtime) [file mtime $fileName(3)]
+
+###############################################################################
+
+runTest {test fileIO-14.1 {file stat normal file} -body {
+  file stat $fileName(1) stat
+
+  #
+  # HACK: Make the test results easier to deal with, part 1.
+  #
+  set stat(ino) [expr {[info exists stat(ino)] && \
+      [string is wideinteger -strict $stat(ino)] && $stat(ino) != 0}]
+  set stat(nlink) [expr {[info exists stat(nlink)] && \
+      [string is wideinteger -strict $stat(nlink)] && $stat(nlink) > 0}]
+
+  #
+  # HACK: Make the test results easier to deal with, part 2.
+  #
+  set stat(uid) 0
+  set stat(gid) 0
+
+  testArrayGet stat
+} -cleanup {
+  catch {info previouspid true}; # NOTE: Redundant (getVolumeSerialNumber).
+
+  unset -nocomplain stat
+} -constraints \
+{eagle monoBug44 testExec windows compile.NATIVE compile.WINDOWS} -result \
+[list atime $fileData(1,atime) ctime $fileData(1,ctime) dev $fileData(1,dev) \
+gid 0 ino True mode $fileData(1,mode) mtime $fileData(1,mtime) nlink True rdev \
+$fileData(1,rdev) size $fileData(1,size) type file uid 0]}
+
+###############################################################################
+
+runTest {test fileIO-14.2 {file stat directory} -body {
+  file stat $fileName(2) stat
+
+  #
+  # HACK: Make the test results easier to deal with, part 1.
+  #
+  set stat(ino) [expr {[info exists stat(ino)] && \
+      [string is wideinteger -strict $stat(ino)] && $stat(ino) != 0}]
+  set stat(nlink) [expr {[info exists stat(nlink)] && \
+      [string is wideinteger -strict $stat(nlink)] && $stat(nlink) > 0}]
+
+  #
+  # HACK: Make the test results easier to deal with, part 2.
+  #
+  set stat(uid) 0
+  set stat(gid) 0
+
+  testArrayGet stat
+} -cleanup {
+  catch {info previouspid true}; # NOTE: Redundant (getVolumeSerialNumber).
+
+  unset -nocomplain stat
+} -constraints \
+{eagle monoBug44 testExec windows compile.NATIVE compile.WINDOWS} -result \
+[list atime $fileData(2,atime) ctime $fileData(2,ctime) dev $fileData(2,dev) \
+gid 0 ino True mode $fileData(2,mode) mtime $fileData(2,mtime) nlink True rdev \
+$fileData(2,rdev) size $fileData(2,size) type directory uid 0]}
+
+###############################################################################
+
+runTest {test fileIO-14.3 {file stat executable file} -body {
+  file stat $fileName(3) stat
+
+  #
+  # HACK: Make the test results easier to deal with, part 1.
+  #
+  set stat(ino) [expr {[info exists stat(ino)] && \
+      [string is wideinteger -strict $stat(ino)] && $stat(ino) != 0}]
+  set stat(nlink) [expr {[info exists stat(nlink)] && \
+      [string is wideinteger -strict $stat(nlink)] && $stat(nlink) > 0}]
+
+  #
+  # HACK: Make the test results easier to deal with, part 2.
+  #
+  set stat(uid) 0
+  set stat(gid) 0
+
+  testArrayGet stat
+} -cleanup {
+  catch {info previouspid true}; # NOTE: Redundant (getVolumeSerialNumber).
+
+  unset -nocomplain stat
+} -constraints \
+{eagle monoBug44 testExec windows compile.NATIVE compile.WINDOWS} -result \
+[list atime $fileData(3,atime) ctime $fileData(3,ctime) dev $fileData(3,dev) \
+gid 0 ino True mode $fileData(3,mode) mtime $fileData(3,mtime) nlink True rdev \
+$fileData(3,rdev) size $fileData(3,size) type file uid 0]}
+
+###############################################################################
+
+runTest {test fileIO-14.4 {file lstat normal file} -body {
+  file lstat $fileName(1) stat
+
+  #
+  # HACK: Make the test results easier to deal with, part 1.
+  #
+  set stat(ino) [expr {[info exists stat(ino)] && \
+      [string is wideinteger -strict $stat(ino)] && $stat(ino) != 0}]
+  set stat(nlink) [expr {[info exists stat(nlink)] && \
+      [string is wideinteger -strict $stat(nlink)] && $stat(nlink) > 0}]
+
+  #
+  # HACK: Make the test results easier to deal with, part 2.
+  #
+  set stat(uid) 0
+  set stat(gid) 0
+
+  testArrayGet stat
+} -cleanup {
+  catch {info previouspid true}; # NOTE: Redundant (getVolumeSerialNumber).
+
+  unset -nocomplain stat
+} -constraints \
+{eagle monoBug44 testExec windows compile.NATIVE compile.WINDOWS} -result \
+[list atime $fileData(1,atime) ctime $fileData(1,ctime) dev $fileData(1,dev) \
+gid 0 ino True mode $fileData(1,mode) mtime $fileData(1,mtime) nlink True rdev \
+$fileData(1,rdev) size $fileData(1,size) type file uid 0]}
+
+###############################################################################
+
+runTest {test fileIO-14.5 {file lstat directory} -body {
+  file lstat $fileName(2) stat
+
+  #
+  # HACK: Make the test results easier to deal with, part 1.
+  #
+  set stat(ino) [expr {[info exists stat(ino)] && \
+      [string is wideinteger -strict $stat(ino)] && $stat(ino) != 0}]
+  set stat(nlink) [expr {[info exists stat(nlink)] && \
+      [string is wideinteger -strict $stat(nlink)] && $stat(nlink) > 0}]
+
+  #
+  # HACK: Make the test results easier to deal with, part 2.
+  #
+  set stat(uid) 0
+  set stat(gid) 0
+
+  testArrayGet stat
+} -cleanup {
+  catch {info previouspid true}; # NOTE: Redundant (getVolumeSerialNumber).
+
+  unset -nocomplain stat
+} -constraints \
+{eagle monoBug44 testExec windows compile.NATIVE compile.WINDOWS} -result \
+[list atime $fileData(2,atime) ctime $fileData(2,ctime) dev $fileData(2,dev) \
+gid 0 ino True mode $fileData(2,mode) mtime $fileData(2,mtime) nlink True rdev \
+$fileData(2,rdev) size $fileData(2,size) type directory uid 0]}
+
+###############################################################################
+
+runTest {test fileIO-14.6 {file lstat executable file} -body {
+  file lstat $fileName(3) stat
+
+  #
+  # HACK: Make the test results easier to deal with, part 1.
+  #
+  set stat(ino) [expr {[info exists stat(ino)] && \
+      [string is wideinteger -strict $stat(ino)] && $stat(ino) != 0}]
+  set stat(nlink) [expr {[info exists stat(nlink)] && \
+      [string is wideinteger -strict $stat(nlink)] && $stat(nlink) > 0}]
+
+  #
+  # HACK: Make the test results easier to deal with, part 2.
+  #
+  set stat(uid) 0
+  set stat(gid) 0
+
+  testArrayGet stat
+} -cleanup {
+  catch {info previouspid true}; # NOTE: Redundant (getVolumeSerialNumber).
+
+  unset -nocomplain stat
+} -constraints \
+{eagle monoBug44 testExec windows compile.NATIVE compile.WINDOWS} -result \
+[list atime $fileData(3,atime) ctime $fileData(3,ctime) dev $fileData(3,dev) \
+gid 0 ino True mode $fileData(3,mode) mtime $fileData(3,mtime) nlink True rdev \
+$fileData(3,rdev) size $fileData(3,size) type file uid 0]}
+
+###############################################################################
+
+unset -nocomplain fileData fileName
+
+###############################################################################
+
+rename volumeSerialNumberToDecimal ""
+rename getVolumeSerialNumber ""
+rename checkForReparsePoints ""
+rename getDevice ""
+
+###############################################################################
+
+if {[isEagle]} then {
+  proc writeFileWithTruncate { fileName length } {
+    set channel [open $fileName WRONLY]
+    set result [truncate $channel $length]
+    close $channel
+    return $result
+  }
+}
+
+###############################################################################
+
+runTest {test fileIO-15.1 {truncate command} -setup {
+  set fileName [file join [getTemporaryPath] fileIO-15.1.txt]
+} -body {
+  writeFile $fileName "this is a test."
+  writeFileWithTruncate $fileName 4
+  readFile $fileName
+} -cleanup {
+  catch {file delete $fileName}
+
+  unset -nocomplain fileName
+} -constraints {eagle command.truncate} -result {this}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename writeFileWithTruncate ""
+}
+
+###############################################################################
+
+runTest {test fileIO-16.1 {file pathtype sub-command} -body {
+  set results [list]
+
+  foreach path [list \
+      C: C:/ C:. C:/. / ./ file.ext ./file.ext /file.ext C:./   \
+      C:/./ C:./file.ext C:/./file.ext C:/file.ext some/path    \
+      some/path/to/file.ext C:some/path C:some/path/to/file.ext \
+      C:/some/path C:/some/path/to/file.ext] {
+    lappend results [file pathtype $path]
+
+    if {[string first / $path] != -1} then {
+      lappend results [file pathtype [file nativename $path]]
+    }
+  }
+
+  set results
+} -cleanup {
+  unset -nocomplain results path
+} -constraints {windows} -result {volumerelative absolute absolute\
+volumerelative absolute absolute volumerelative volumerelative relative\
+relative relative relative relative volumerelative volumerelative\
+volumerelative volumerelative absolute absolute volumerelative volumerelative\
+absolute absolute absolute absolute relative relative relative relative\
+volumerelative volumerelative volumerelative volumerelative absolute absolute\
+absolute absolute}}
+
+###############################################################################
+
+runTest {test fileDrive-1.1 {file drive error handling} -body {
+  file drive //abcd
+} -constraints {eagle} -returnCodes 1 -result [expr {
+  ![haveConstraint compile.MONO] && ![isMono] && [isWindows] ? \
+      "unrecognized path" : "not implemented"
+}]}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

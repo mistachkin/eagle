@@ -1,0 +1,32 @@
+###############################################################################
+#
+# Dockerfile-release --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+FROM mcr.microsoft.com/dotnet/sdk:3.1
+
+ADD EagleShell.runtimeconfig.json .
+
+RUN mkdir -p /eagle-bin && \
+    cd /eagle-bin && \
+    curl --location https://urn.to/r/eagle_bin_docker_tgz | tar zx && \
+    useradd eagle && \
+    mkdir -p /opt/eagle && \
+    cp -R /eagle-bin/Eagle/* /opt/eagle && \
+    cp /EagleShell.runtimeconfig.json /opt/eagle/bin && \
+    chown -R eagle:eagle /opt/eagle && \
+    rm -rf /eagle-bin /EagleShell.runtimeconfig.json
+
+USER eagle
+
+CMD ["dotnet", "exec", "/opt/eagle/bin/EagleShell.dll"]

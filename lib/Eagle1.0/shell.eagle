@@ -1,0 +1,148 @@
+###############################################################################
+#
+# shell.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Shell Initialization File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  if {[isEagle]} then {
+    ###########################################################################
+    ############################ BEGIN Eagle ONLY #############################
+    ###########################################################################
+
+    #
+    # NOTE: Commands specific to initializing the Eagle interactive shell
+    #       environment should be placed here.
+    #
+    proc help { args } {
+      # <help>
+      # Displays interactive command help using the interactive "#help"
+      # command.
+      # </help>
+
+      host result Break [appendArgs \
+          "\nFor interactive help please use: #help " $args \
+          "\nFor commercial support, please use: #support\n"]
+
+      catch {
+        object invoke Interpreter.GetActive Host.WriteLine \
+            "\nPlease press any key to continue...\n"
+
+        set key null; object invoke Interpreter.GetActive \
+            Host.ReadKey true key
+      }
+
+      eval lappend command #help $args; debug icommand $command
+    }
+
+    proc quit { args } {
+      # <help>
+      # Can be used to exit the interactive shell.  It does this by calling
+      # the built-in [exit] command.  It is allowed to perform cleanup and
+      # maintenance tasks.
+      # </help>
+
+      catch {
+        host result Break [appendArgs \
+            "WARNING: This command is not (simply) a synonym for the " \
+            "built-in [exit] command, primarily because it is allowed " \
+            "to perform additional cleanup and maintenance tasks."]
+      }
+
+      eval exit $args
+    }
+
+    proc #support {} {
+      # <help>
+      # Shows the requirements for obtaining commercial support and/or
+      # redirects to the appropriate web site using the default browser.
+      # </help>
+
+      if {[catch {package require Licensing.Core} error(1)] == 0} then {
+        #
+        # NOTE: Use the command provided by the "Core" plugin to obtain
+        #       the support URI.
+        #
+        if {[catch {set uri [support]} error(2)] == 0} then {
+          #
+          # NOTE: Make sure the URI is actually valid.
+          #
+          if {[string length $uri] > 0} then {
+            exec -shell $uri &; return
+          } else {
+            set error(3) "invalid support URI was returned"
+          }
+        }
+      }
+
+      set fileName [file tempname]; set fileData ""
+
+      foreach varName [lsort [info vars]] {
+        if {$varName in [list fileData]} then {
+          continue
+        }
+
+        if {[array exists $varName]} then {
+          append fileData [appendArgs \n \
+              [list array set $varName [array get $varName]]]
+        } else {
+          append fileData [appendArgs \n \
+              [list set $varName [set $varName]]]
+        }
+      }
+
+      append fileData \n; writeFile $fileName $fileData
+      set ::eagle_shell(errorFileName) $fileName
+
+      error [appendArgs \
+          "\n\nIn order to obtain commercial support, at least " \
+          "one of the\nfollowing requirements must be met:\n\n" \
+          "\t1. Valid, non-expired commercial license agreement\n" \
+          "\t   for Eagle Enterprise Edition.\n\n" \
+          "\t2. Valid, non-expired commercial support contract\n" \
+          "\t   for Eagle Standard Edition.\n\n" \
+          "The original error information was saved to the file:\n\n" \
+          [string repeat - 60] \n $fileName \n [string repeat - 60] \
+          "\n\nPlease provide this file when contacting support."]
+    }
+
+    ###########################################################################
+    ############################# END Eagle ONLY ##############################
+    ###########################################################################
+  } else {
+    ###########################################################################
+    ############################# BEGIN Tcl ONLY ##############################
+    ###########################################################################
+
+    #
+    # NOTE: Commands specific to initializing the Tcl interactive shell
+    #       environment should be placed here.
+    #
+
+    ###########################################################################
+    ############################## END Tcl ONLY ###############################
+    ###########################################################################
+  }
+
+  #
+  # NOTE: Provide the Eagle "shell" package to the interpreter.
+  #
+  package provide Eagle.Shell \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

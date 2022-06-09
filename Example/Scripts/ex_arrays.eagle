@@ -1,0 +1,8 @@
+
+set y(1) 1
+
+puts $y(1); # 1
+
+set y(two) 2
+
+puts $y(two); # 2

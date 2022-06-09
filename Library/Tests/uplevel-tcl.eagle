@@ -1,0 +1,233 @@
+###############################################################################
+#
+# uplevel-tcl.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc a {x y} {
+  newset z [expr $x+$y]
+  return $z
+}
+proc newset {name value} {
+  uplevel set $name $value
+  uplevel 1 {uplevel 1 {set xyz 22}}
+}
+
+###############################################################################
+
+runTest {test uplevel-1.1 {simple operation} {
+  set xyz 0
+  a 22 33
+} 55}
+
+###############################################################################
+
+runTest {test uplevel-1.2 {command is another uplevel command} {
+  set xyz 0
+  a 22 33
+  set xyz
+} 22}
+
+###############################################################################
+
+proc a1 {} {
+  b1
+  global a a1
+  set a $x
+  set a1 $y
+}
+
+proc b1 {} {
+  c1
+  global b b1
+  set b $x
+  set b1 $y
+}
+
+proc c1 {} {
+  uplevel 1 set x 111
+  uplevel #2 set y 222
+  uplevel 2 set x 333
+  uplevel #1 set y 444
+  uplevel 3 set x 555
+  uplevel #0 set y 777
+}
+
+catch {a1}
+
+###############################################################################
+
+runTest {test uplevel-2.1 {relative and absolute uplevel} {set a} 333}
+
+###############################################################################
+
+runTest {test uplevel-2.2 {relative and absolute uplevel} {set a1} 444}
+
+###############################################################################
+
+runTest {test uplevel-2.3 {relative and absolute uplevel} {set b} 111}
+
+###############################################################################
+
+runTest {test uplevel-2.4 {relative and absolute uplevel} {set b1} 222}
+
+###############################################################################
+
+runTest {test uplevel-2.5 {relative and absolute uplevel} {set x} 555}
+
+###############################################################################
+
+runTest {test uplevel-2.6 {relative and absolute uplevel} {set y} 777}
+
+###############################################################################
+
+runTest {test uplevel-3.1 {uplevel to same level} {
+  set x 33
+  uplevel #0 set x 44
+  set x
+} 44}
+
+###############################################################################
+
+runTest {test uplevel-3.2 {uplevel to same level} {
+  set x 33
+  uplevel 0 set x
+} 33}
+
+###############################################################################
+
+runTest {test uplevel-3.3 {uplevel to same level} {
+  set y xxx
+  proc a1 {} {set y 55; uplevel 0 set y 66; return $y}
+  a1
+} 66}
+
+###############################################################################
+
+runTest {test uplevel-3.4 {uplevel to same level} {
+  set y zzz
+  proc a1 {} {set y 55; uplevel #1 set y}
+  a1
+} 55}
+
+###############################################################################
+
+runTest {test uplevel-4.1 {error: non-existent level} {
+  list [catch c1 msg] $msg
+} {1 {bad level "#2"}}}
+
+###############################################################################
+
+runTest {test uplevel-4.2 {error: non-existent level} -body {
+  proc c2 {} {uplevel 3 {set a b}}
+  list [catch c2 msg] $msg
+} -cleanup {
+  rename c2 ""
+} -result {1 {bad level "3"}}}
+
+###############################################################################
+
+proc a2 {} {
+  uplevel a3
+}
+
+proc a3 {} {
+  global x y
+  set x [info level]
+  set y [info level 1]
+}
+
+catch {a2}
+
+###############################################################################
+
+runTest {test uplevel-5.1 {info level} {set x} 1}
+
+###############################################################################
+
+runTest {test uplevel-5.2 {info level} {set y} a3}
+
+###############################################################################
+#
+# These tests verify that upleveled scripts run in the correct level and access
+# the proper variables.
+#
+###############################################################################
+
+runTest {test uplevel-7.2 {var access, no LVT in upper level} -setup {
+  set x 1
+  unset -nocomplain y z
+} -body {
+  proc foo {} {
+    set x 2 
+    set y 2
+    uplevel 1 {
+      set x 3
+      set y 3
+      set z 3
+    }
+  }
+  foo
+  list $x $y $z
+} -cleanup {
+  rename foo {}
+  unset -nocomplain x y z
+} -result {3 3 3}}
+
+###############################################################################
+
+runTest {test uplevel-7.3 {var access, LVT in upper level} -setup {
+  proc moo {} {
+    set x 1; #var in LVT
+    unset -nocomplain y z
+    foo
+    list $x $y $z
+  }
+} -body {
+  proc foo {} {
+    set x 2 
+    set y 2
+    uplevel 1 {
+      set x 3
+      set y 3
+      set z 3
+    }
+  }
+  foo
+  moo
+} -cleanup {
+  rename foo {}
+  rename moo {}
+} -result {3 3 3}}
+
+###############################################################################
+
+unset -nocomplain a a1 b b1 msg x y z xyz
+
+rename a ""
+
+rename a1 ""
+rename b1 ""
+rename c1 ""
+
+rename a2 ""
+rename a3 ""
+
+rename newset ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

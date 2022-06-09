@@ -1,0 +1,1261 @@
+###############################################################################
+#
+# object8.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test object-8.1 {static/private object methods} -body {
+  set interp [object invoke Interpreter GetActive]
+
+  list [expr {[object invoke -flags {+NonPublic +Static} \
+      Eagle._Components.Private.NativeStack GetNativeStackPointer] != 0}] \
+      $interp [object invoke -flags {+NonPublic} $interp Cancel] \
+      [object dispose $interp] [unset interp] [llength [info objects]]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle command.object native windows referenceCounts\
+compile.NATIVE compile.WINDOWS} -match regexp -result \
+{^True Interpreter#\d+ False removed \{\} 1$}}
+
+###############################################################################
+
+runTest {test object-8.2 {static/private object methods} -body {
+  set interp [object invoke Interpreter GetActive]
+
+  list $interp [catch {object invoke -flags {+NonPublic} $interp Cancel true} \
+      msg] $msg [object dispose $interp] [unset interp] [llength [info objects]]
+} -cleanup {
+  unset -nocomplain x msg
+} -constraints {eagle command.object referenceCounts} -noCancel true -match \
+regexp -result {^Interpreter#\d+ 1 \{eval canceled\} removed \{\} 1$}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  proc myDynCallback1 { objs } {
+    if {[llength $objs] == 0} then {
+      return ""
+    }
+
+    if {$objs eq "null"} then {
+      return null
+    }
+
+    #
+    # HACK: Force eventual opaque object handle cleanup for all
+    #       arguments.
+    #
+    for {set index 0} {$index < [llength $objs]} {incr index} {
+      set arg($index) [lindex $objs $index]
+    }
+
+    if {[llength $objs] == 1} then {
+      set obj [lindex $objs 0]
+
+      if {[isNonNullObjectHandle $obj]} then {
+        if {[object invoke $obj GetType.IsArray]} then {
+          set result [list]
+
+          for {set index 0} {$index < [$obj Length]} {incr index} {
+            set value [$obj -create -alias GetValue $index]
+
+            if {[string length $value] > 0} then {
+              lappend result [getStringFromObjectHandle $value]
+            } else {
+              lappend result null
+            }
+          }
+
+          return $result
+        } else {
+          return [getStringFromObjectHandle $obj]
+        }
+      }
+    }
+
+    #
+    # NOTE: Handle special case of third argument being "three", which
+    #       means we need to change that variable value in the callers
+    #       context.
+    #
+    set maybeVarName [lindex $objs 2]
+
+    if {[string match eagle_vars_byref_* $maybeVarName]} then {
+      #
+      # HACK: Must hard-code to global call frame here because of the
+      #       [myDynCallback3] procedure (or other future intermediate
+      #       procedures) for this test case.
+      #
+      upvar #0 $maybeVarName three; set three threeVal
+    }
+
+    return $objs
+  }
+
+  proc myDynCallback2 { args } {
+    set arg0 [lindex $args 0]
+    set arg1 [lindex $args 1]
+
+    set cmp [object invoke -create Int32 Parse \
+        [string compare -nocase $arg0 $arg1]]
+
+    return $cmp
+  }
+
+  proc myDynCallback3 { args } {
+    return [myDynCallback1 $args]
+  }
+
+  proc myDynCallback4 { value } {
+    if {[isNonNullObjectHandle $value]} then {
+      set int [object invoke -create Int32 Parse \
+          [expr {[getStringFromObjectHandle $value] * 3}]]
+
+      return $int
+    } else {
+      return null
+    }
+  }
+
+  proc checkResult1 { value {msg1 ""} {msg2 ""} {msg3 ""} {msg4 ""} } {
+    if {[string length $value] == 0} then {
+      return ""
+    }
+
+    if {$value eq "null"} then {
+      return null
+    }
+
+    if {[isNonNullObjectHandle $value]} then {
+      set newValue [getStringFromObjectHandle $value]
+      catch {object dispose $value}
+    } else {
+      set newValue $value
+    }
+
+    if {[string length $msg1] > 0 && \
+        [string first $msg1 $newValue] != -1} then {
+      return True
+    }
+
+    if {[string length $msg2] > 0 && \
+        [string first $msg2 $newValue] != -1} then {
+      return True
+    }
+
+    if {[string length $msg3] > 0 && \
+        [string first $msg3 $newValue] != -1} then {
+      return True
+    }
+
+    if {[string length $msg4] > 0 && \
+        [string first $msg4 $newValue] != -1} then {
+      return True
+    }
+
+    if {[regexp -- \
+        {^(?:System#String#\d+)(?: System#String#\d+)*$} $newValue]} then {
+      set result [list]
+
+      foreach element $newValue {
+        lappend result [checkResult1 $element]
+      }
+
+      return $result
+    }
+
+    return $newValue
+  }
+}
+
+###############################################################################
+
+runTest {test object-8.100 {dynamic delegates (instance)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set msg(1,1) "Error binding to target method."
+
+  set msg(1,2) {Cannot bind to the target method because its\
+      signature or security transparency is not compatible with\
+      that of the delegate type.}
+
+  set msg(1,3) {TestCallDynamicCallback1"\
+      argument #0 "callback" with value "myDynCallback1" to type\
+      "Eagle._Components.Public.Delegates.DynamicInvokeCallback"}
+
+  set msg(2) {TestCallDynamicCallback2"\
+      requires exactly 3 arguments and 1 was supplied}
+
+  set msg(3) {TestCallDynamicCallback2"\
+      requires exactly 3 arguments and 2 were supplied}
+
+  set msg(4) {TestCallDynamicCallback2"\
+      argument #0 "callback" with value "myDynCallback2" to type\
+      "Eagle._Tests.Default+TwoArgsDelegate"}
+
+  set msg(5) {TestCallDynamicCallback2"\
+      requires exactly 3 arguments and 4 were supplied}
+
+  set msg(6) {TestCallDynamicCallback3"\
+      requires exactly 4 arguments and 1 was supplied}
+
+  set msg(7) {TestCallDynamicCallback3"\
+      requires exactly 4 arguments and 2 were supplied}
+
+  set msg(8) {TestCallDynamicCallback3"\
+      requires exactly 4 arguments and 3 were supplied}
+
+  set msg(9) {TestCallDynamicCallback3"\
+      argument #0 "callback" with value "myDynCallback3" to type\
+      "Eagle._Tests.Default+ThreeArgsDelegate"}
+
+  set msg(10) {TestCallDynamicCallback4"\
+      requires exactly 2 arguments and 1 was supplied}
+
+  set msg(11) {TestCallDynamicCallback4"\
+      requires exactly 2 arguments and 3 were supplied}
+
+  set msg(12) {TestCallDynamicCallback4"\
+      requires exactly 2 arguments and 4 were supplied}
+
+  set msg(13) {TestCallDynamicCallback4"\
+      argument #0 "callback" with value "myDynCallback4" to type\
+      "Eagle._Tests.Default+OneArgNullableIntDelegate"}
+
+  set three four
+} -body {
+  list [catch {
+    catch {object removecallback myDynCallback1}
+    $test TestCallDynamicCallback1 myDynCallback1
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback myDynCallback1}
+    $test TestCallDynamicCallback1 myDynCallback1 one
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback myDynCallback1}
+    $test TestCallDynamicCallback1 myDynCallback1 1 two
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback myDynCallback1}
+    list [$test TestCallDynamicCallback1 myDynCallback1 1 2 three] $three
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback myDynCallback2}
+    $test TestCallDynamicCallback2 myDynCallback2
+  } error] [checkResult1 $error $msg(2)] [catch {
+    catch {object removecallback myDynCallback2}
+    $test TestCallDynamicCallback2 myDynCallback2 one
+  } error] [checkResult1 $error $msg(3)] [catch {
+    catch {object removecallback myDynCallback2}
+    $test TestCallDynamicCallback2 myDynCallback2 1 two
+  } error] [checkResult1 $error $msg(4)] [catch {
+    catch {object removecallback myDynCallback2}
+    list [$test TestCallDynamicCallback2 myDynCallback2 1 2 three] $three
+  } error] [checkResult1 $error $msg(5)] [catch {
+    catch {object removecallback myDynCallback3}
+    $test TestCallDynamicCallback3 myDynCallback3
+  } error] [checkResult1 $error $msg(6)] [catch {
+    catch {object removecallback myDynCallback3}
+    $test TestCallDynamicCallback3 myDynCallback3 one
+  } error] [checkResult1 $error $msg(7)] [catch {
+    catch {object removecallback myDynCallback3}
+    $test TestCallDynamicCallback3 myDynCallback3 1 two
+  } error] [checkResult1 $error $msg(8)] [catch {
+    catch {object removecallback myDynCallback3}
+    list [$test TestCallDynamicCallback3 myDynCallback3 1 2 three] $three
+  } error] [checkResult1 $error $msg(9)] [catch {
+    catch {object removecallback myDynCallback4}
+    $test TestCallDynamicCallback4 myDynCallback4
+  } error] [checkResult1 $error $msg(10)] [catch {
+    catch {object removecallback myDynCallback4}
+    $test TestCallDynamicCallback4 myDynCallback4 null
+  } error] [checkResult1 $error $msg(13)] [catch {
+    catch {object removecallback myDynCallback4}
+    $test TestCallDynamicCallback4 myDynCallback4 1
+  } error] [checkResult1 $error $msg(13)] [catch {
+    catch {object removecallback myDynCallback4}
+    $test TestCallDynamicCallback4 myDynCallback4 1 2
+  } error] [checkResult1 $error $msg(11)] [catch {
+    catch {object removecallback myDynCallback4}
+    $test TestCallDynamicCallback4 myDynCallback4 1 2 three
+  } error] [checkResult1 $error $msg(12)] [catch {
+    catch {object removecallback myDynCallback1}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback1 myDynCallback1
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback1}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback1 myDynCallback1 one
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback1}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback1 myDynCallback1 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback1}
+    list [$test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback1 myDynCallback1 1 2 three] $three
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback2}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback2 myDynCallback2
+  } error] [checkResult1 $error $msg(2)] [catch {
+    catch {object removecallback myDynCallback2}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback2 myDynCallback2 one
+  } error] [checkResult1 $error $msg(3)] [catch {
+    catch {object removecallback myDynCallback2}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback2 myDynCallback2 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback2}
+    list [$test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback2 myDynCallback2 1 2 three] $three
+  } error] [checkResult1 $error $msg(5)] [catch {
+    catch {object removecallback myDynCallback3}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback3 myDynCallback3
+  } error] [checkResult1 $error $msg(6)] [catch {
+    catch {object removecallback myDynCallback3}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback3 myDynCallback3 one
+  } error] [checkResult1 $error $msg(7)] [catch {
+    catch {object removecallback myDynCallback3}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback3 myDynCallback3 1 two
+  } error] [checkResult1 $error $msg(8)] [catch {
+    catch {object removecallback myDynCallback3}
+    list [$test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback3 myDynCallback3 1 2 three] $three
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback4}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback4 myDynCallback4
+  } error] [checkResult1 $error $msg(10)] [catch {
+    catch {object removecallback myDynCallback4}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback4 myDynCallback4 null
+  } error] [checkResult1 $error $msg(9)] [catch {
+    catch {object removecallback myDynCallback4}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback4 myDynCallback4 1
+  } error] [checkResult1 $error $msg(9)] [catch {
+    catch {object removecallback myDynCallback4}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback4 myDynCallback4 1 2
+  } error] [checkResult1 $error $msg(11)] [catch {
+    catch {object removecallback myDynCallback4}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback4 myDynCallback4 1 2 three
+  } error] [checkResult1 $error $msg(12)]
+} -cleanup {
+  #
+  # HACK: This call to [object dispose] is necessary because we do not
+  #       actually have a script-visible opaque object handle to the
+  #       Int32 created and returned by [myDynCallback2].  This is due
+  #       to the script calling into TestCallDynamicCallback2, which
+  #       eventually returns -1, not the created opaque object handle.
+  #
+  catch {eval object dispose [lrange [lsort [info objects]] 0 end-1]}
+
+  catch {object removecallback myDynCallback4}
+  catch {object removecallback myDynCallback3}
+  catch {object removecallback myDynCallback2}
+  catch {object removecallback myDynCallback1}
+
+  unset -nocomplain error three msg test
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallDynamicCallback1\
+Eagle._Tests.Default.TestCallDynamicCallback2\
+Eagle._Tests.Default.TestCallDynamicCallback3\
+Eagle._Tests.Default.TestCallDynamicCallback4\
+} -result {1 True 1 True 1 True 1 True 1 True 1 True 1 True 1 True 1 True 1\
+True 1 True 1 True 1 True 1 True 1 True 1 True 1 True 0 {} 0 one 0 {1 two} 0\
+{{1 2 three} four} 1 True 1 True 0 -1 1 True 1 True 1 True 1 True 0 {{}\
+threeVal} 1 True 0 {} 0 3 1 True 1 True}}
+
+###############################################################################
+
+runTest {test object-8.101 {dynamic delegates (static)} -setup {
+  set msg(1,1) "Error binding to target method."
+
+  set msg(1,2) {Cannot bind to the target method because its\
+      signature or security transparency is not compatible with\
+      that of the delegate type.}
+
+  set msg(1,3) {TestCallStaticDynamicCallback1"\
+      argument #0 "callback" with value "myDynCallback1" to type\
+      "Eagle._Components.Public.Delegates.DynamicInvokeCallback"}
+
+  set msg(2) {TestCallStaticDynamicCallback2"\
+      requires exactly 3 arguments and 1 was supplied}
+
+  set msg(3) {TestCallStaticDynamicCallback2"\
+      requires exactly 3 arguments and 2 were supplied}
+
+  set msg(4) {TestCallStaticDynamicCallback2"\
+      argument #0 "callback" with value "myDynCallback2" to type\
+      "Eagle._Tests.Default+TwoArgsDelegate"}
+
+  set msg(5) {TestCallStaticDynamicCallback2"\
+      requires exactly 3 arguments and 4 were supplied}
+
+  set msg(6) {TestCallStaticDynamicCallback3"\
+      requires exactly 4 arguments and 1 was supplied}
+
+  set msg(7) {TestCallStaticDynamicCallback3"\
+      requires exactly 4 arguments and 2 were supplied}
+
+  set msg(8) {TestCallStaticDynamicCallback3"\
+      requires exactly 4 arguments and 3 were supplied}
+
+  set msg(9) {TestCallStaticDynamicCallback3"\
+      argument #0 "callback" with value "myDynCallback3" to type\
+      "Eagle._Tests.Default+ThreeArgsDelegate"}
+
+  set msg(10) {TestCallStaticDynamicCallback4"\
+      requires exactly 2 arguments and 1 was supplied}
+
+  set msg(11) {TestCallStaticDynamicCallback4"\
+      requires exactly 2 arguments and 3 were supplied}
+
+  set msg(12) {TestCallStaticDynamicCallback4"\
+      requires exactly 2 arguments and 4 were supplied}
+
+  set msg(13) {TestCallStaticDynamicCallback4"\
+      argument #0 "callback" with value "myDynCallback4" to type\
+      "Eagle._Tests.Default+OneArgNullableIntDelegate"}
+
+  set three four
+} -body {
+  list [catch {
+    catch {object removecallback myDynCallback1}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback1 myDynCallback1
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback myDynCallback1}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback1 myDynCallback1 one
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback myDynCallback1}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback1 myDynCallback1 1 two
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback myDynCallback1}
+    list [object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback1 myDynCallback1 1 2 three] $three
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback myDynCallback2}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback2 myDynCallback2
+  } error] [checkResult1 $error $msg(2)] [catch {
+    catch {object removecallback myDynCallback2}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback2 myDynCallback2 one
+  } error] [checkResult1 $error $msg(3)] [catch {
+    catch {object removecallback myDynCallback2}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback2 myDynCallback2 1 two
+  } error] [checkResult1 $error $msg(4)] [catch {
+    catch {object removecallback myDynCallback2}
+    list [object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback2 myDynCallback2 1 2 three] $three
+  } error] [checkResult1 $error $msg(5)] [catch {
+    catch {object removecallback myDynCallback3}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback3 myDynCallback3
+  } error] [checkResult1 $error $msg(6)] [catch {
+    catch {object removecallback myDynCallback3}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback3 myDynCallback3 one
+  } error] [checkResult1 $error $msg(7)] [catch {
+    catch {object removecallback myDynCallback3}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback3 myDynCallback3 1 two
+  } error] [checkResult1 $error $msg(8)] [catch {
+    catch {object removecallback myDynCallback3}
+    list [object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback3 myDynCallback3 1 2 three] $three
+  } error] [checkResult1 $error $msg(9)] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4
+  } error] [checkResult1 $error $msg(10)] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4 null
+  } error] [checkResult1 $error $msg(13)] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4 1
+  } error] [checkResult1 $error $msg(13)] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4 1 2
+  } error] [checkResult1 $error $msg(11)] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4 1 2 three
+  } error] [checkResult1 $error $msg(12)] [catch {
+    catch {object removecallback myDynCallback1}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback1 myDynCallback1
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback1}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback1 myDynCallback1 one
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback1}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback1 myDynCallback1 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback1}
+    list [object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback1 myDynCallback1 1 2 three] $three
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback2}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback2 myDynCallback2
+  } error] [checkResult1 $error $msg(2)] [catch {
+    catch {object removecallback myDynCallback2}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback2 myDynCallback2 one
+  } error] [checkResult1 $error $msg(3)] [catch {
+    catch {object removecallback myDynCallback2}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback2 myDynCallback2 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback2}
+    list [object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback2 myDynCallback2 1 2 three] $three
+  } error] [checkResult1 $error $msg(5)] [catch {
+    catch {object removecallback myDynCallback3}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback3 myDynCallback3
+  } error] [checkResult1 $error $msg(6)] [catch {
+    catch {object removecallback myDynCallback3}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback3 myDynCallback3 one
+  } error] [checkResult1 $error $msg(7)] [catch {
+    catch {object removecallback myDynCallback3}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback3 myDynCallback3 1 two
+  } error] [checkResult1 $error $msg(8)] [catch {
+    catch {object removecallback myDynCallback3}
+    list [object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback3 myDynCallback3 1 2 three] $three
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4
+  } error] [checkResult1 $error $msg(10)] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4 null
+  } error] [checkResult1 $error $msg(13)] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4 1
+  } error] [checkResult1 $error $msg(13)] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4 1 2
+  } error] [checkResult1 $error $msg(11)] [catch {
+    catch {object removecallback myDynCallback4}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback4 myDynCallback4 1 2 three
+  } error] [checkResult1 $error $msg(12)]
+} -cleanup {
+  #
+  # HACK: This call to [object dispose] is necessary because we do not
+  #       actually have a script-visible opaque object handle to the
+  #       Int32 created and returned by [myDynCallback2].  This is due
+  #       to the script calling into TestCallDynamicCallback2, which
+  #       eventually returns -1, not the created opaque object handle.
+  #
+  catch {eval object dispose [lrange [lsort [info objects]] 0 end-1]}
+
+  catch {object removecallback myDynCallback4}
+  catch {object removecallback myDynCallback3}
+  catch {object removecallback myDynCallback2}
+  catch {object removecallback myDynCallback1}
+
+  unset -nocomplain error three msg
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallStaticDynamicCallback1\
+Eagle._Tests.Default.TestCallStaticDynamicCallback2\
+Eagle._Tests.Default.TestCallStaticDynamicCallback3\
+Eagle._Tests.Default.TestCallStaticDynamicCallback4} -result {1 True 1 True 1\
+True 1 True 1 True 1 True 1 True 1 True 1 True 1 True 1 True 1 True 1 True 1\
+True 1 True 1 True 1 True 0 {} 0 one 0 {1 two} 0 {{1 2 three} four} 1 True 1\
+True 0 -1 1 True 1 True 1 True 1 True 0 {{} threeVal} 1 True 0 {} 0 3 1 True 1\
+True}}
+
+###############################################################################
+
+runTest {test object-8.102 {dynamic invoke w/delegate (instance)} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  set callback(1) [list -returntype Object -parametertypes \
+      [list Object\[\]] myDynCallback1]
+
+  set callback(2) [list -returntype Int32 -parametertypes \
+      [list String String] myDynCallback2]
+
+  set callback(3) [list -returntype Void -parametertypes \
+      [list Object\[\]] myDynCallback3]
+
+  set callback(4) [list -returntype Nullable`1\[System.Int32\] \
+      -parametertypes [list Nullable`1\[System.Int32\]] myDynCallback4]
+
+  set num(1) [object invoke -create Int32 Parse 1]
+  set num(2) [object invoke -create Int32 Parse 2]
+  set num(3) [object invoke -create Int32 Parse 3]
+
+  set msg(1,1) "Parameter count mismatch."
+  set msg(1,2) "Number of parameter does not match expected count."
+
+  set msg(1,3) \
+      "Number of parameters specified does not match the expected number."
+
+  set three four
+} -body {
+  list [catch {
+    catch {object removecallback [lindex $callback(1) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(1)
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(1) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(1) one
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(1) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(1) 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(1) end]}
+    list [$test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(1) 1 2 three] $three
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(2) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(2)
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(2) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(2) one
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(2) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(2) 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(2) end]}
+    list [$test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(2) 1 2 three] $three
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(3) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(3)
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(3) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(3) one
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(3) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(3) 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(3) end]}
+    list [$test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(3) 1 2 three] $three
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(4)
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(4) null
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(4) $num(1)
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(4) $num(1) $num(2)
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    $test -marshalflags +DynamicCallback \
+        TestCallDynamicCallback0 $callback(4) $num(1) $num(2) $num(3)
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)]
+} -cleanup {
+  #
+  # HACK: This call to [object dispose] is necessary because we do not
+  #       actually have a script-visible opaque object handle to the
+  #       Int32 created and returned by [myDynCallback2].  This is due
+  #       to the script calling into TestCallDynamicCallback2, which
+  #       eventually returns -1, not the created opaque object handle.
+  #
+  catch {eval object dispose [lrange [lsort [info objects]] 0 end-1]}
+
+  catch {object removecallback $callback(4)}
+  catch {object removecallback $callback(3)}
+  catch {object removecallback $callback(2)}
+  catch {object removecallback $callback(1)}
+
+  unset -nocomplain error three num msg callback test
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallDynamicCallback0} -result {0 {} 0 one 0 {1 two} 0\
+{{1 2 three} four} 1 True 1 True 0 -1 1 True 0 {} 0 {} 0 {} 0 {{} four} 1 True\
+0 {} 0 3 1 True 1 True}}
+
+###############################################################################
+
+runTest {test object-8.103 {dynamic invoke w/delegate (static)} -setup {
+  set callback(1) [list -returntype Object -parametertypes \
+      [list Object\[\]] myDynCallback1]
+
+  set callback(2) [list -returntype Int32 -parametertypes \
+      [list String String] myDynCallback2]
+
+  set callback(3) [list -returntype Void -parametertypes \
+      [list Object\[\]] myDynCallback3]
+
+  set callback(4) [list -returntype Nullable`1\[System.Int32\] \
+      -parametertypes [list Nullable`1\[System.Int32\]] myDynCallback4]
+
+  set num(1) [object invoke -create Int32 Parse 1]
+  set num(2) [object invoke -create Int32 Parse 2]
+  set num(3) [object invoke -create Int32 Parse 3]
+
+  set msg(1,1) "Parameter count mismatch."
+  set msg(1,2) "Number of parameter does not match expected count."
+
+  set msg(1,3) \
+      "Number of parameters specified does not match the expected number."
+
+  set three four
+} -body {
+  list [catch {
+    catch {object removecallback [lindex $callback(1) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(1)
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(1) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(1) one
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(1) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(1) 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(1) end]}
+    list [object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(1) 1 2 three] $three
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(2) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(2)
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(2) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(2) one
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(2) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(2) 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(2) end]}
+    list [object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(2) 1 2 three] $three
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(3) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(3)
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(3) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(3) one
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(3) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(3) 1 two
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(3) end]}
+    list [object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(3) 1 2 three] $three
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(4)
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(4) null
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(4) $num(1)
+  } error] [checkResult1 $error] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(4) $num(1) $num(2)
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    catch {object removecallback [lindex $callback(4) end]}
+    object invoke -marshalflags +DynamicCallback Eagle._Tests.Default \
+        TestCallStaticDynamicCallback0 $callback(4) $num(1) $num(2) $num(3)
+  } error] [checkResult1 $error $msg(1,1) $msg(1,2) $msg(1,3)]
+} -cleanup {
+  #
+  # HACK: This call to [object dispose] is necessary because we do not
+  #       actually have a script-visible opaque object handle to the
+  #       Int32 created and returned by [myDynCallback2].  This is due
+  #       to the script calling into TestCallDynamicCallback2, which
+  #       eventually returns -1, not the created opaque object handle.
+  #
+  catch {eval object dispose [lrange [lsort [info objects]] 0 end-1]}
+
+  catch {object removecallback $callback(4)}
+  catch {object removecallback $callback(3)}
+  catch {object removecallback $callback(2)}
+  catch {object removecallback $callback(1)}
+
+  unset -nocomplain error three num msg callback
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallStaticDynamicCallback0} -result {0 {} 0 one 0 {1\
+two} 0 {{1 2 three} four} 1 True 1 True 0 -1 1 True 0 {} 0 {} 0 {} 0 {{} four}\
+1 True 0 {} 0 3 1 True 1 True}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename checkResult1 ""
+  rename myDynCallback4 ""
+  rename myDynCallback3 ""
+  rename myDynCallback2 ""
+  rename myDynCallback1 ""
+}
+
+###############################################################################
+
+runTest {test object-8.104 {use custom pre-existing delegates} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+} -body {
+  set index 0; set callbacks [object invoke \
+      -create $test TestGetDynamicCallbacks]
+
+  object foreach callback $callbacks {
+    set parameter($index) $callback; incr index
+  }
+
+  set result [list]
+
+  lappend result [object invoke \
+      $test TestCallDynamicCallback0 $parameter(0) zero]
+
+  lappend result [object invoke \
+      $test TestCallDynamicCallback1 $parameter(1) one]
+
+  lappend result [object invoke \
+      $test TestCallDynamicCallback2 $parameter(2) two 3]
+
+  set three four
+
+  lappend result [object invoke \
+      $test TestCallDynamicCallback3 $parameter(3) 1 2 three]
+
+  lappend result $three
+
+  set value null
+
+  lappend result [object invoke \
+      $test TestCallDynamicCallback4 $parameter(4) $value]
+
+  set value 2
+
+  lappend result [object invoke \
+      $test TestCallDynamicCallback4 $parameter(4) $value]
+
+  set result
+} -cleanup {
+  unset -nocomplain value three result parameter index callback callbacks test
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallDynamicCallback0\
+Eagle._Tests.Default.TestCallDynamicCallback1\
+Eagle._Tests.Default.TestCallDynamicCallback2\
+Eagle._Tests.Default.TestCallDynamicCallback3\
+Eagle._Tests.Default.TestCallDynamicCallback4\
+Eagle._Tests.Default.TestGetDynamicCallbacks} -result {{instance, object[1]}\
+{instance, object[1]} 33 {} {instance, object[1], 2, "four"} {} 4}}
+
+###############################################################################
+
+runTest {test object-8.105 {use custom pre-existing static delegates} -body {
+  set index 0; set callbacks [object invoke \
+      -create Eagle._Tests.Default TestGetStaticDynamicCallbacks]
+
+  object foreach callback $callbacks {
+    set parameter($index) $callback; incr index
+  }
+
+  set result [list]
+
+  lappend result [object invoke \
+      Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+      $parameter(0) zero]
+
+  lappend result [object invoke \
+      Eagle._Tests.Default TestCallStaticDynamicCallback1 \
+      $parameter(1) one]
+
+  lappend result [object invoke \
+      Eagle._Tests.Default TestCallStaticDynamicCallback2 \
+      $parameter(2) two 3]
+
+  set three four
+
+  lappend result [object invoke \
+      Eagle._Tests.Default TestCallStaticDynamicCallback3 \
+      $parameter(3) 1 2 three]
+
+  lappend result $three
+
+  set value null
+
+  lappend result [object invoke \
+      Eagle._Tests.Default TestCallStaticDynamicCallback4 \
+      $parameter(4) $value]
+
+  set value 2
+
+  lappend result [object invoke \
+      Eagle._Tests.Default TestCallStaticDynamicCallback4 \
+      $parameter(4) $value]
+
+  set result
+} -cleanup {
+  unset -nocomplain value three result parameter index callback callbacks
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallStaticDynamicCallback0\
+Eagle._Tests.Default.TestCallStaticDynamicCallback1\
+Eagle._Tests.Default.TestCallStaticDynamicCallback2\
+Eagle._Tests.Default.TestCallStaticDynamicCallback3\
+Eagle._Tests.Default.TestCallStaticDynamicCallback4\
+Eagle._Tests.Default.TestGetStaticDynamicCallbacks} -result {{static,\
+object[1]} {static, object[1]} 33 {} {static, object[1], 2, "four"} {} 4}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  proc myDynCallback0 { args } {
+    set result $args
+
+    if {[llength $result] == 1} then {
+      set arg [lindex $result 0]
+
+      if {[isNonNullObjectHandle $arg]} then {
+        set result [getStringFromObjectHandle $arg]
+      }
+    }
+
+    set result [string tolower [hash normal sha1 $result]]
+    puts stdout $result; return $result
+  }
+
+  proc myDynCallbackR { obj } {
+    if {[string length $obj] > 0} then {
+      set type [getStringFromObjectHandle $obj]
+    } else {
+      set type null
+    }
+
+    switch -exact -- $type {
+      good {
+        return [object create Eagle._Tests.Default]
+      }
+      bad {
+        return [object create String $type]
+      }
+      "" {
+        return empty
+      }
+      null {
+        return null
+      }
+    }
+  }
+
+  proc checkError1 { value {msg1 ""} {msg2 ""} {msg3 ""} } {
+    if {[string length $value] == 0} then {
+      return ""
+    }
+
+    if {$value eq "null"} then {
+      return null
+    }
+
+    if {[string length $msg1] > 0 && \
+        [string first $msg1 $value] != -1} then {
+      return True
+    }
+
+    if {[string length $msg2] > 0 && \
+        [string first $msg2 $value] != -1} then {
+      return True
+    }
+
+    if {[string length $msg3] > 0 && \
+        [string first $msg3 $value] != -1} then {
+      return True
+    }
+
+    return $value
+  }
+}
+
+###############################################################################
+
+#
+# WARNING: This must be done outside the context of an active test to work
+#          properly because the test suite redefines the [puts] command
+#          while tests are active.
+#
+if {[isEagle]} then {debug vout stdout true}
+
+###############################################################################
+
+runTest {test object-8.106 {dynamic delegate no args no return} -body {
+  list [object invoke -marshalflags +DynamicCallback \
+      Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+      [list -returntype Void myDynCallback0]] \
+      [object invoke -marshalflags +DynamicCallback \
+      Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+      [list -returntype Void -parametertypes [list] myDynCallback0]]
+} -cleanup {
+  catch {
+    object removecallback [list -returntype Void myDynCallback0]
+  }
+
+  catch {
+    object removecallback [list \
+        -returntype Void -parametertypes [list] myDynCallback0]
+  }
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallStaticDynamicCallback0} -output \
+{d8c20d23e7b154312a2bbcd4d85af455130466e6
+da39a3ee5e6b4b0d3255bfef95601890afd80709
+} -result {{} {}}}
+
+###############################################################################
+
+if {[isEagle]} then {debug vout stdout false}
+
+###############################################################################
+
+runTest {test object-8.107 {dynamic delegate no args string return} -body {
+  list [object invoke -marshalflags +DynamicCallback \
+      Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+      [list -returntype String -parametertypes [list] myDynCallback0]] \
+      [object invoke -marshalflags +DynamicCallback \
+      Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+      [list -returntype String myDynCallback0]]
+} -cleanup {
+  catch {
+    object removecallback [list \
+        -returntype String -parametertypes [list] myDynCallback0]
+  }
+
+  catch {
+    object removecallback [list -returntype String myDynCallback0]
+  }
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallStaticDynamicCallback0} -result \
+{da39a3ee5e6b4b0d3255bfef95601890afd80709\
+d8c20d23e7b154312a2bbcd4d85af455130466e6}}
+
+###############################################################################
+
+runTest {test object-8.108 {dynamic delegate string arg class return} -setup {
+  set msg(1,1) {System.InvalidCastException: Unable to cast object\
+      of type 'System.String' to type 'Eagle._Tests.Default'.}
+
+  set msg(1,2) {System.InvalidCastException: Cannot cast from source\
+      type to destination type.}
+
+  set msg(1,3) {System.InvalidCastException: Specified cast is not valid.}
+} -body {
+  list [catch {
+    object invoke -marshalflags +DynamicCallback \
+        Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+        [list -returntype Eagle._Tests.Default -parametertypes \
+        [list String] myDynCallbackR] good
+  } error] $error [object dispose $error] [catch {
+    object invoke -marshalflags +DynamicCallback \
+        Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+        [list -returntype Eagle._Tests.Default -parametertypes \
+        [list String] myDynCallbackR] bad
+  } error] [checkError1 $error $msg(1,1) $msg(1,2) $msg(1,3)] [catch {
+    object invoke -marshalflags +DynamicCallback \
+        Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+        [list -returntype Eagle._Tests.Default -parametertypes \
+        [list String] myDynCallbackR] null
+  } error] $error [catch {
+    object invoke -marshalflags +DynamicCallback \
+        Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+        [list -returntype Eagle._Tests.Default -parametertypes \
+        [list String] myDynCallbackR] ""
+  } error] [checkError1 $error $msg(1,1) $msg(1,2) $msg(1,3)]
+} -cleanup {
+  #
+  # HACK: This call to [object dispose] is necessary because we do not
+  #       actually have a script-visible opaque object handle to the
+  #       String created and returned by [myDynCallbackR].  This is due
+  #       to the script calling into TestCallStaticDynamicCallback0,
+  #       which eventually returns the wrong type, causing an exception
+  #       in the caller prior to being able to capture the resulting
+  #       opaque object handle.
+  #
+  catch {eval object dispose [lrange [lsort [info objects]] 0 end-1]}
+
+  catch {
+    object removecallback [list \
+        -returntype Eagle._Tests.Default -parametertypes \
+        [list String] myDynCallbackR]
+  }
+
+  unset -nocomplain msg error
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallStaticDynamicCallback0} -match regexp -result \
+{^0 Default#\d+ \{disposed removed\} 1 True 0 \{\} 1 True$}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  rename checkError1 ""
+  rename myDynCallbackR ""
+  rename myDynCallback0 ""
+}
+
+###############################################################################
+
+runTest {test object-8.109 {callback option argument handling} -setup {
+  set msg(1) {"Eagle._Tests.Default.TestCallStaticDynamicCallback0"\
+      argument #0 "callback" with value "-returntype\
+      Eagle._Tests.Default -parametertypes String --" to type\
+      "System.Delegate": Eagle._Components.Public.ScriptException:\
+      wrong # args: should be "?options? arg ?arg ...?"}
+} -body {
+  list [catch {
+    object invoke -marshalflags +DynamicCallback \
+        Eagle._Tests.Default TestCallStaticDynamicCallback0 \
+        [list -returntype Eagle._Tests.Default -parametertypes \
+        [list String] --] nope
+  } error] [expr {[string first $msg(1) $error] != -1}]
+} -cleanup {
+  unset -nocomplain msg error
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallStaticDynamicCallback0} -match regexp -result \
+{^1 True$}}
+
+###############################################################################
+
+runTest {test object-8.110 {callback argument error handling} -setup {
+  proc removeBs { value } {
+    return [subst -nocommands -novariables $value]
+  }
+
+  set msg(1) [removeBs \
+      {"Eagle._Tests.Default.TestCallStaticDynamicCallback0"\
+      argument #0 "callback" with value "\{" to type\
+      "System.Delegate": Eagle._Components.Public.ScriptException:\
+      unmatched open brace in list}]
+} -body {
+  list [catch {
+    object invoke -marshalflags +DynamicCallback \
+        Eagle._Tests.Default TestCallStaticDynamicCallback0 \{ nope
+  } error] [expr {[string first $msg(1) [removeBs $error]] != -1}]
+} -cleanup {
+  unset -nocomplain msg error
+
+  rename removeBs ""
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestCallStaticDynamicCallback0} -match regexp -result \
+{^1 True$}}
+
+###############################################################################
+
+runTest {test object-8.201 {SimpleCallback handling} -setup {
+  set savedNewInterpreterCallback [object invoke \
+      Interpreter NewInterpreterCallback]
+
+  if {![isNonNullObjectHandle $savedNewInterpreterCallback]} then {
+    set savedNewInterpreterCallback null
+  }
+
+  object invoke -flags +NonPublic Eagle._Tests.Default \
+      calledMethods null
+
+  set test [object create Eagle._Tests.Default]
+} -body {
+  object invoke -marshalflags +SimpleCallback Interpreter \
+      NewInterpreterCallback [list -bindingflags +NonPublic \
+      $test TestPrivateInstanceNewInterpreterCallback]
+
+  set interp(1) [interp create -noinitialize -nosecurity]
+
+  object invoke -marshalflags +SimpleCallback Interpreter \
+      NewInterpreterCallback [list $test \
+      TestPublicInstanceNewInterpreterCallback]
+
+  set interp(2) [interp create -noinitialize -nosecurity]
+
+  object invoke -marshalflags +SimpleCallback Interpreter \
+      NewInterpreterCallback [list -bindingflags +NonPublic \
+      Eagle._Tests.Default \
+      TestPrivateStaticNewInterpreterCallback]
+
+  set interp(3) [interp create -noinitialize -nosecurity]
+
+  object invoke -marshalflags +SimpleCallback Interpreter \
+      NewInterpreterCallback [list Eagle._Tests.Default \
+      TestPublicStaticNewInterpreterCallback]
+
+  set interp(4) [interp create -noinitialize -nosecurity]
+
+  string trim [string map [list \r\n \n] [object invoke -flags \
+      +NonPublic Eagle._Tests.Default calledMethods.ToString]]
+} -cleanup {
+  catch {interp delete $interp(4)}
+  catch {interp delete $interp(3)}
+  catch {interp delete $interp(2)}
+  catch {interp delete $interp(1)}
+
+  catch {
+    object invoke Interpreter NewInterpreterCallback \
+        $savedNewInterpreterCallback
+  }
+
+  unset -nocomplain interp test savedNewInterpreterCallback
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestPrivateInstanceNewInterpreterCallback\
+Eagle._Tests.Default.TestPublicInstanceNewInterpreterCallback\
+Eagle._Tests.Default.TestPrivateStaticNewInterpreterCallback\
+Eagle._Tests.Default.TestPublicStaticNewInterpreterCallback} -match regexp \
+-result {^TestPrivateInstanceNewInterpreterCallback: interpreter = "\d+"
+TestPublicInstanceNewInterpreterCallback: interpreter = "\d+"
+TestPrivateStaticNewInterpreterCallback: interpreter = "\d+"
+TestPublicStaticNewInterpreterCallback: interpreter = "\d+"$}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

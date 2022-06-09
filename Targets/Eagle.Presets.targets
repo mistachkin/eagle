@@ -1,0 +1,104 @@
+<!--
+ *
+ * Eagle.Presets.targets -
+ *
+ * WARNING: Contains more evil MSBuild hacks than your doctor recommended.
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+  ******************************************************************************
+  **                          Load Per-User Settings                          **
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: If the per-user settings file exists, import it now.  The contained
+            settings, if any, will override the default ones provided below.
+  -->
+  <Import Condition="'$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Targets\Eagle.Presets.targets.user')"
+          Project="$(EagleDir)\Targets\Eagle.Presets.targets.user" />
+
+  <!--
+  ******************************************************************************
+  **                   Target Framework Control Properties                    **
+  ******************************************************************************
+  -->
+
+  <PropertyGroup>
+    <!--
+        NOTE: Building for .NET Standard 2.0?  By default, this is disabled.
+              If this is enabled, features that are not present in the .NET
+              Standard will be unavailable.  When building for .NET Standard,
+              this is not the only setting that must be used.  The following
+              settings must also be set to the following values:
+
+              /property:EagleAppDomains=false
+              /property:EagleCasPolicy=false
+              /property:EagleConfiguration=false
+              /property:EagleDrawing=false
+              /property:EagleEmit=false
+              /property:EagleIsolatedInterpreters=false
+              /property:EagleIsolatedPlugins=false
+              /property:EagleRemoting=false
+              /property:EagleWinForms=false
+
+              Additionally, when building to support non-Windows platforms,
+              the following settings must be set:
+
+              /property:EagleWindows=false
+              /property:EagleUnix=true
+
+        HACK: *SPECIAL* Since this property may be needed *before* the build
+              types targets file (i.e. "Eagle.Builds.targets") is loaded when
+              building projects targeting the .NET Standard, automatically set
+              it here if the build type targets the .NET Standard 2.0.  This
+              will not override a value set manually via the command line -OR-
+              the default value set in the block just above this one.
+    -->
+    <!--
+    <EagleNetStandard20 Condition="'$(EagleBuildType)' == 'NetStandard20' And '$(EagleNetStandard20)' == ''">true</EagleNetStandard20>
+    -->
+    <EagleNetStandard20 Condition="'$(EagleNetStandard20)' == ''">false</EagleNetStandard20>
+
+    <!--
+        NOTE: Building for .NET Standard 2.1?  By default, this is disabled.
+              Also, for this to have any effect, it must be combined with the
+              EagleNetStandard20 property (just above).  If this is enabled,
+              some functionality unavailable in the .NET Standard 2.0 -AND-
+              available in the .NET Standard 2.1 may be used.
+
+        HACK: *SPECIAL* Since this property may be needed *before* the build
+              types targets file (i.e. "Eagle.Builds.targets") is loaded when
+              building projects targeting the .NET Standard, automatically set
+              it here if the build type targets the .NET Standard 2.1.  This
+              will not override a value set manually via the command line -OR-
+              the default value set in the block just above this one.
+    -->
+    <EagleNetStandard21 Condition="'$(EagleBuildType)' == 'NetStandard21' And '$(EagleNetStandard21)' == ''">true</EagleNetStandard21>
+    <EagleNetStandard21 Condition="'$(EagleNetStandard21)' == ''">false</EagleNetStandard21>
+
+    <!--
+        NOTE: When building for the .NET Standard 2.x, enable features that rely
+              on extra APIs provided by the .NET Core 2.0?  By default, this is
+              enabled.  If this is disabled, some features will be unavailable.
+    -->
+    <EagleNetCore20 Condition="'$(EagleBuildType)' == '' And '$(EagleNetCore20)' == ''">true</EagleNetCore20>
+
+    <!--
+        NOTE: When building for the .NET Standard 2.x, enable features that rely
+              on extra APIs provided by the .NET Core 3.0?  By default, this is
+              enabled.  If this is disabled, some features will be unavailable.
+    -->
+    <EagleNetCore30 Condition="'$(EagleBuildType)' == '' And '$(EagleNetCore30)' == ''">true</EagleNetCore30>
+  </PropertyGroup>
+</Project>

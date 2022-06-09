@@ -1,0 +1,130 @@
+###############################################################################
+#
+# uplevel3a.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+set ::uplevel3a ""
+
+proc p1 {} {p2}
+proc p2 {} {p3a}
+
+proc p3a {} {
+  uplevel 1 p3b
+
+  uplevel ##0 {
+    #
+    # NOTE: Should be "p2" or "p1" (from inside runAllTests proc).
+    #
+    uplevel ##3 {append ::uplevel3a [info level -1]}
+  }
+}
+
+proc p3b {} {
+  uplevel ##0 {
+    #
+    # NOTE: Should be "p2" or "p1" (from inside runAllTests proc).
+    #
+    uplevel ##3 {append ::uplevel3a [info level -1]}
+
+    #
+    # NOTE: Should be "p3a" or "p2" (from inside runAllTests proc).
+    #
+    uplevel ##4 {append ::uplevel3a [info level -1]}
+  }
+}
+
+###############################################################################
+
+if {[isEagle]} then {
+  #
+  # NOTE: *WARNING* Cannot use [runTest] to do this.  We are looking
+  #       at ALL the call frames and using the test suite procs would
+  #       interfere with the test results.
+  #
+  # \
+  runTest ; # fake out runAllTests proc.
+
+  set result [test2 uplevel-13a.1 {nested absolute uplevel} -body {
+    set code [catch p1 msg]; set ::uplevel3a
+  } -cleanup {
+    unset -nocomplain msg
+  } -constraints {eagle testCallStack} -match regexp \
+      -result {^p1p2p1|p2p3ap2$}]
+
+  if {[info exists code] && [info exists result]} then {
+    #
+    # NOTE: Did the test raise an actual error?
+    #
+    set error [expr {$code == 0 ? false : true}]
+
+    #
+    # NOTE: Did the test return success and still fail (i.e. it had the
+    #       incorrect result)?
+    #
+    if {$code == 0 && [regexp -- {\s==== (.*?) FAILED\s} $result]} then {
+      set code 1
+    }
+
+    #
+    # NOTE: Display and/or log the results for the test that we just
+    #       completed.
+    #
+    if {[shouldWriteTestData $code]} then {
+      tresult $code $result
+    } else {
+      tlog $result
+    }
+
+    #
+    # NOTE: If the test failed with an actual error (i.e. not just a
+    #       test failure), make sure we do not obscure the error
+    #       message with test suite output.
+    #
+    if {$error} then {
+      tputs $test_channel \n; # emit a blank line.
+    }
+
+    #
+    # NOTE: If this test failed and the stop-on-failure flag is set,
+    #       raise an error now.  If we are being run from inside
+    #       runAllTests, this will also serve to signal it to stop
+    #       processing further test files.
+    #
+    if {$code != 0 && [isStopOnFailure]} then {
+      tresult Error "OVERALL RESULT: STOP-ON-FAILURE\n"
+
+      error ""; # no message
+    }
+
+    unset -nocomplain code error
+  }
+
+  unset -nocomplain result
+}
+
+###############################################################################
+
+rename p1 ""
+rename p2 ""
+rename p3a ""
+rename p3b ""
+
+unset -nocomplain ::uplevel3a
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

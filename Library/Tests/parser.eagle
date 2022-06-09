@@ -1,0 +1,427 @@
+###############################################################################
+#
+# parser.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test parser-1.1 {parsing commands and comments} -setup {
+  if {![isEagle]} then {proc nop {args} {}}
+} -body {
+#
+# comment
+# \
+this is still a comment.
+
+nop;nop
+
+  nop {
+
+
+
+}
+  ;	clock seconds; # this is another comment.
+} -cleanup {
+  if {![isEagle]} then {rename nop ""}
+} -match regexp -result {^\d+$}}
+
+###############################################################################
+
+#
+# TODO: This test is limited to debug builds only because release builds do
+#       not appear to actually reach the native stack limit (not to mention
+#       the fact that release builds take an extremely long time while
+#       processing this test).
+#
+runTest {test parser-1.2 {parsing deeply nested commands} -setup {
+  proc foo {} {
+    return foo
+  }
+} -body {
+  set x [appendArgs [string repeat \[ 24000] foo [string repeat \] 24000]]
+  eval $x
+} -cleanup {
+  unset -nocomplain x
+
+  rename foo ""
+} -constraints \
+{native windows compile.NATIVE compile.WINDOWS intel.32bit debug tclCrash\
+stackIntensive} -returnCodes 1 -result {out of stack space (infinite loop?)}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.1 {truncated escape} -body {
+  parse command -characters 1 {\u12345}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 1} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type\
+SimpleWord} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
+1} {ViaSource False} {Start 0} {Length 1} {Components 1} {Text \\} {ClientData\
+{}} {IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 1}\
+{Components 0} {Text \\} {ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.2 {truncated escape} -body {
+  parse command -characters 2 {\u12345}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 2} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 2} {Components 1} {Text {\u}} {ClientData\
+{}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
+{FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 2}\
+{Components 0} {Text {\u}} {ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.3 {truncated escape} -body {
+  parse command -characters 3 {\u12345}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 3} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 3} {Components 1} {Text {\u1}} {ClientData\
+{}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
+{FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 3}\
+{Components 0} {Text {\u1}} {ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.4 {truncated escape} -body {
+  parse command -characters 4 {\u12345}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 4} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 4} {Components 1} {Text {\u12}} {ClientData\
+{}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
+{FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 4}\
+{Components 0} {Text {\u12}} {ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.5 {truncated escape} -body {
+  parse command -characters 5 {\u12345}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 5} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 5} {Components 1} {Text {\u123}}\
+{ClientData {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags\
+None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
+{Length 5} {Components 0} {Text {\u123}} {ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.6 {truncated escape} -body {
+  parse command -characters 6 {\u12345}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 6} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 6} {Components 1} {Text {\u1234}}\
+{ClientData {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags\
+None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
+{Length 6} {Components 0} {Text {\u1234}} {ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.7 {truncated escape} -body {
+  parse command -characters 7 {\u12345}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 7} {CommandWords 1} {Tokens 3} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 7} {Components 2} {Text {\u12345}}\
+{ClientData {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags\
+None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
+{Length 6} {Components 0} {Text {\u1234}} {ClientData {}} {IsImmutable False}\
+{Type Text} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
+1} {ViaSource False} {Start 6} {Length 1} {Components 0} {Text 5} {ClientData\
+{}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.8 {truncated escape} -body {
+  parse command -characters 1 {\x12X}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 1} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type\
+SimpleWord} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
+1} {ViaSource False} {Start 0} {Length 1} {Components 1} {Text \\} {ClientData\
+{}} {IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 1}\
+{Components 0} {Text \\} {ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.9 {truncated escape} -body {
+  parse command -characters 2 {\x12X}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 2} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 2} {Components 1} {Text {\x}} {ClientData\
+{}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
+{FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 2}\
+{Components 0} {Text {\x}} {ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.10 {truncated escape} -body {
+  parse command -characters 3 {\x12X}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 3} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 3} {Components 1} {Text {\x1}} {ClientData\
+{}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
+{FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 3}\
+{Components 0} {Text {\x1}} {ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.11 {truncated escape} -body {
+  parse command -characters 4 {\x12X}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False} {IsImmutable False}\
+{EngineFlags None} {SubstitutionFlags Default} {FileName {}} {CurrentLine 1}\
+{CommentStart -1} {CommentLength 0} {CommandStart 0} {CommandLength 4}\
+{CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word} {SyntaxType None}\
+{Flags None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start\
+0} {Length 4} {Components 1} {Text {\x12}} {ClientData {}} {IsImmutable False}\
+{Type Backslash} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1}\
+{EndLine 1} {ViaSource False} {Start 0} {Length 4} {Components 0} {Text {\x12}}\
+{ClientData {}}}}
+
+###############################################################################
+
+#
+# NOTE: *MONO* Disabled due to Enum.ToString() differences.
+#
+runTest {test parser-20.12 {truncated escape} -body {
+  parse command -characters 5 {\x12X}
+} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
+{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
+{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 5} {CommandWords 1} {Tokens 3} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 5} {Components 2} {Text {\x12X}}\
+{ClientData {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags\
+None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
+{Length 4} {Components 0} {Text {\x12}} {ClientData {}} {IsImmutable False}\
+{Type Text} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
+1} {ViaSource False} {Start 4} {Length 1} {Components 0} {Text X} {ClientData\
+{}}}}
+
+###############################################################################
+
+runTest {test parser-6.1 {backslash (\\) via native utility} -setup {
+  unset -nocomplain code list error
+} -body {
+  set list null; set error null
+
+  set code [object invoke -flags +NonPublic \
+      Eagle._Components.Private.NativeUtility SplitList \
+      \\\\ list error]
+
+  list $code $list $error
+} -cleanup {
+  unset -nocomplain code list error
+} -constraints {eagle command.object nativeUtility} -result {Ok {\\} {}}}
+
+###############################################################################
+
+runTest {test parser-6.2 {binary (\B11111111) via native utility} -setup {
+  unset -nocomplain code list error
+} -body {
+  set list null; set error null
+
+  set code [object invoke -flags +NonPublic \
+      Eagle._Components.Private.NativeUtility SplitList \
+      \\B11111111 list error]
+
+  list $code $list $error
+} -cleanup {
+  unset -nocomplain code list error
+} -constraints {eagle command.object nativeUtility} -result "Ok \xFF {}"}
+
+###############################################################################
+
+runTest {test parser-6.3 {octal (\o377) via native utility} -setup {
+  unset -nocomplain code list error
+} -body {
+  set list null; set error null
+
+  set code [object invoke -flags +NonPublic \
+      Eagle._Components.Private.NativeUtility SplitList \
+      \\o377 list error]
+
+  list $code $list $error
+} -cleanup {
+  unset -nocomplain code list error
+} -constraints {eagle command.object nativeUtility} -result "Ok \xFF {}"}
+
+###############################################################################
+
+#
+# HACK: For Eagle, fake the [scan] functionality required by the test.
+#
+if {[isEagle] && [llength [info commands scan]] == 0} then {
+  proc scan { string format } {
+    if {[string length $string] == 0} then {return ""}
+    if {$format ne "%c"} then {error "format not implemented"}
+    return [string ordinal $string 0]
+  }
+
+  set added_scan_proc true
+}
+
+###############################################################################
+
+runTest {test parser-7.1 {Unicode escape (\u1234)} -body {
+  scan \u1234 %c
+} -result {4660}}
+
+###############################################################################
+
+runTest {test parser-7.2 {Unicode escape (\U1234)} -setup {
+  unset -nocomplain x
+} -body {
+  set x \U1234
+  list [scan [string index $x 0] %c] [scan [string index $x 1] %c]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {tcl86Feature} -result {4660 {}}}
+
+###############################################################################
+
+runTest {test parser-7.3 {Unicode escape (\U10FFFF)} -setup {
+  unset -nocomplain x
+} -body {
+  set x \U10FFFF
+  list [scan [string index $x 0] %c] [scan [string index $x 1] %c]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle} -result {65535 16}}
+
+###############################################################################
+
+runTest {test parser-7.4 {Unicode escape (\U12345678)} -setup {
+  unset -nocomplain x
+} -body {
+  set x \U12345678
+  list [scan [string index $x 0] %c] [scan [string index $x 1] %c]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle} -result {22136 4660}}
+
+###############################################################################
+
+runTest {test parser-7.5 {binary escape (\B1010101010)} -body {
+  scan \B1010101010 %c
+} -constraints {eagle} -result {170}}
+
+###############################################################################
+
+runTest {test parser-7.6 {octal escape (\o012345)} -body {
+  scan \o012345 %c
+} -constraints {eagle} -result {229}}
+
+###############################################################################
+
+runTest {test parser-7.7 {hexadecimal escape (\xEA)} -body {
+  scan \xEA %c
+} -result {234}}
+
+###############################################################################
+
+#
+# HACK: This produces the "wrong" result compared with native Tcl, due
+#       to differences in how UTF-8 versus UTF-16 strings are handled
+#       between the two.
+#
+runTest {test parser-7.8 {hexadecimal escape (\xEAF0)} -body {
+  scan \xEAF0 %c
+} -constraints {eagle} -result {240}}
+
+###############################################################################
+
+#
+# HACK: This produces the "wrong" result compared with native Tcl, due
+#       to differences in how UTF-8 versus UTF-16 strings are handled
+#       between the two.
+#
+runTest {test parser-7.9 {hexadecimal escape (\x0A1B2C3D)} -body {
+  scan \x0A1B2C3D %c
+} -constraints {eagle} -result {61}}
+
+###############################################################################
+
+if {[isEagle] && [llength [info commands scan]] == 1 && \
+    [info exists added_scan_proc]} then {
+  #
+  # NOTE: Remove the [scan] helper procedure that we added above.
+  #
+  rename scan ""; unset added_scan_proc
+}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

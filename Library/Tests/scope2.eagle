@@ -1,0 +1,41 @@
+###############################################################################
+#
+# scope2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test scope-7.1 {clone/incr inside proc} -setup {
+  proc bar { name a } {
+    set c 9
+    scope create -open -clone -args $name
+    if {![info exists b]} then { set b 0 }
+    incr b $c
+    return [list [info level] [info level [info level]] $b]
+    # scope close; # always implied
+  }
+} -body {
+  set s bar
+  list [bar $s i] [bar $s i] [bar $s i]
+} -cleanup {
+  catch {scope destroy $s}
+  unset -nocomplain s i
+  rename bar ""
+} -constraints {eagle} -result {{2 {bar bar i} 9} {2 {bar bar i} 18}\
+{2 {bar bar i} 27}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ *
+ * test.wxs -
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="32559C62-B1B1-4086-AB15-0059DE1CC6C1"
+           Name="Test Product"
+           Language="1033"
+           Version="1.0.0.0"
+           Manufacturer="Eagle Development Team"
+           UpgradeCode="BE0B4547-0AD4-4AF5-B355-0F1269B79FC5">
+    <Package Description="Test Eagle Preprocessor Extension for WiX"
+             InstallerVersion="200"
+             Compressed="yes" />
+
+    <Media Id="1" Cabinet="test.cab" EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Component Id="Test.ProductComponent"
+                 Guid="{487685E9-FE00-414A-B5C3-2F8679900A12}">
+        <File Id="Test.ProductFile"
+              Name="test.txt"
+              Source="Files\test.txt"
+              KeyPath="yes" />
+      </Component>
+    </Directory>
+
+    <Feature Id="Test.ProductFeature" Level="1">
+      <ComponentRef Id="Test.ProductComponent" />
+    </Feature>
+
+    <!--
+        NOTE: This is an example of how to refer to and fetch the value of an
+              Eagle variable from the WiX preprocessor.  The only limitation is
+              that the value of array elements must be fetched using a somewhat
+              non-natural syntax [for Tcl and Eagle] because of how WiX parses
+              references to extension variables and functions.  The "[" and "]"
+              characters are used to indicate the "(" and ")" characters,
+              respectively.
+    -->
+    <Property Id="BuildOperatingSystem"
+              Value="$(eagle.tcl_platform[os])" />
+
+    <!--
+        NOTE: This is an example of how to invoke an Eagle command using the WiX
+              preprocessor function syntax.  In this case, the final command to
+              be invoked will be: [set dir <directory_containing_this_file>].
+    -->
+    <Property Id="BuildSourceFileDir"
+              Value="$(eagle.set(dir,$(sys.SOURCEFILEDIR)))" />
+
+    <!--
+        NOTE: Here is another Eagle command example.  This time, we want to put
+              the daily build number into a WiX property value.
+    -->
+    <Property Id="BuildNumber"
+              Value="$(eagle.clock(build))" />
+
+    <!--
+        NOTE: This is an example of how to evaluate an Eagle script using the
+              WiX custom "pragma" XML processing instruction.  This is only
+              supported by WiX version 3.5 or higher.
+    -->
+    <?pragma eagle.EvaluateScript
+      #
+      # NOTE: This is a fairly trivial example of how to do something useful in
+      #       an Eagle script that is being evaluated from inside the WiX
+      #       preprocessor.  The final result of this script will be inserted
+      #       as raw XML into the XML document at this location.
+      #
+      source [file normalize [file join $dir Scripts test.eagle]]
+      makeProperty BuildUserName $env(USERNAME); # define a WiX property
+    ?>
+
+    <!--
+        NOTE: This is another example of how to evaluate an Eagle script using
+              the WiX custom "pragma" XML processing instruction.  This is only
+              supported by WiX version 3.5 or higher.
+    -->
+    <?pragma eagle.EvaluateScript
+      #
+      # NOTE: This demonstrates how to load a binary plugin into an isolated
+      #       application domain when the default application domain exists
+      #       in a completely unrelated directory.
+      #
+      if {[catch {
+        #
+        # NOTE: First, modify the plugin flags for the interpreter to force
+        #       isolated mode to be enabled for all newly loaded plugins.  If
+        #       the isolated plugins feature is missing, the error will be
+        #       caught by the surrounding [catch] and the bulk of this script
+        #       will be skipped.
+        #
+        object invoke -flags +NonPublic Interpreter.GetActive \
+            PluginFlags [appendArgs [object invoke -flags +NonPublic \
+            Interpreter.GetActive PluginFlags] " +Isolated -VerifyCoreAssembly"]
+
+        #
+        # NOTE: Next, double-check that the plugin flags have been modified
+        #       using a convenience method in the dedicated test class.  If
+        #       the class or method is missing, the error will be caught by
+        #       the surrounding [catch] and the bulk of this script will be
+        #       skipped.
+        #
+        object invoke Eagle._Tests.Default TestArePluginsIsolated ""
+      } result] == 0 && $result} then {
+        #
+        # NOTE: This procedure is designed to resolve the Eagle core library
+        #       assembly in the default load context.  This is needed because
+        #       the isolated plugin makes various cross-domain calls back to
+        #       the default application domain that refer to types contained
+        #       in the Eagle core library assembly, which was loaded by WiX
+        #       into the LoadFrom context.  Unfortunately, this cross-domain
+        #       remoting appears to require the Eagle core library assembly
+        #       to be loaded in the default load context, which is normally
+        #       "impossible" because it does not exist inside of the default
+        #       application domain base directory (i.e. the WiX installation
+        #       directory).
+        #
+        proc assemblyResolve { sender e } {
+          if {[isNonNullObjectHandle $e]} then {
+            if {[$e Name] eq [lindex [info assembly] 0]} then {
+              set assembly [object invoke -flags +NonPublic \
+                  Eagle._Components.Private.GlobalState GetAssembly]
+
+              return $assembly
+            }
+          }
+
+          return null
+        }
+
+        #
+        # NOTE: Add our AssemblyResolve event handler.  For this to actually
+        #       work, the added ability to marshal arbitrary delegate types
+        #       is required (e.g. Beta 34+) because this event handler type
+        #       has a return type (i.e. because it does not strictly conform
+        #       to the EventHandler delegate method signature).
+        #
+        object invoke -marshalflags +DynamicCallback \
+            AppDomain.CurrentDomain add_AssemblyResolve assemblyResolve
+
+        #
+        # NOTE: Attempt to load the "Sample.Class3" plugin.  This may fail,
+        #       for a number of different reasons.  If it succeeds, add the
+        #       output of [info loaded] to the WiX object file.
+        #
+        package require Sample.Class3
+        makeProperty BuildInfoLoaded [info loaded]; # define a WiX property
+      }
+    ?>
+  </Product>
+</Wix>

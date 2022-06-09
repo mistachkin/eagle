@@ -1,0 +1,38 @@
+###############################################################################
+#
+# tcl-cancel.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test tclCancel-1.1 {Tcl TIP #285 integration} -setup {
+  unset -nocomplain interp
+  tclLoadForTest tcl_loaded
+  set interp [tcl create]
+} -body {
+  after 1000 [list tcl cancel -unwind $interp]
+  tcl eval $interp {while {1} {eagle update; update}}
+} -cleanup {
+  if {[info exists interp]} then {tcl delete $interp}
+  tclUnloadForTest false tcl_loaded
+  unset -nocomplain interp
+} -constraints \
+{eagle native dynamic tclLibrary86 command.tcl compile.NATIVE compile.TCL\
+primaryThread} \
+-returnCodes 1 -result {eval unwound}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,718 @@
+after	after milliseconds
+after	after milliseconds ?options? arg ?arg ...?
+after active	after active
+after cancel	after cancel arg ?arg ...?
+after clear	after clear
+after counts	after counts
+after dump	after dump
+after enable	after enable ?enabled?
+after flags	after flags ?flags?
+after idle	after idle ?options? arg ?arg ...?
+after info	after info ?id?
+append	append varName ?value ...?
+apply	apply lambdaExpr ?arg1 arg2 ...?
+array anymore	array anymore arrayName searchId
+array copy	array copy ?options? source destination
+array default	#exists get set unset
+array default exists	array default exists arrayName
+array default get	array default get arrayName
+array default set	array default set arrayName value
+array default unset	array default unset arrayName
+array donesearch	array donesearch arrayName searchId
+array exists	array exists arrayName
+array for	array for {keyVarName valueVarName} arrayName script
+array foreach	array foreach varList arrayName ?varList arrayName ...? script
+array get	array get arrayName ?pattern?
+array lmap	array lmap varList arrayName ?varList arrayName ...? script
+array names	array names arrayName ?mode? ?pattern?
+array nextelement	array nextelement arrayName searchId
+array random	array random ?options? arrayName ?pattern?
+array set	array set arrayName list
+array size	array size arrayName
+array startsearch	array startsearch arrayName
+array unset	array unset arrayName ?pattern?
+array values	array values arrayName ?mode? ?pattern?
+base64 decode	base64 decode ?options? string
+base64 encode	base64 encode ?options? string
+bgerror	bgerror message
+break	break ?string?
+callback clear	callback clear
+callback count	callback count
+callback dequeue	callback dequeue ?options?
+callback enqueue	callback enqueue name ?arg ...?
+callback execute	callback execute
+callback list	callback list ?pattern?
+catch	catch script ?resultVarName? ?optionsVarName?
+cd	cd ?dirName?
+clock buildnumber	clock buildnumber ?options? ?dateString?
+clock clicks	clock clicks ?options?
+clock days	clock days ?options? ?dateString?
+clock duration	clock duration startDateString endDateString
+clock filetime	clock filetime fileTimeValue ?-format string? ?-gmt boolean? ?-epoch dateString?
+clock format	clock format clockValue ?-format string? ?-gmt boolean? ?-epoch dateString?
+clock isvalid	clock isvalid dateString
+clock microseconds	clock microseconds ?epoch?
+clock milliseconds	clock milliseconds ?epoch?
+clock now	clock now ?-gmt boolean?
+clock scan	clock scan dateString ?-base clockValue? ?-format string? ?-gmt boolean? ?-epoch dateString?
+clock seconds	clock seconds ?epoch?
+clock start	clock start
+clock stop	clock stop startCount
+close	close channelId
+concat	concat ?arg arg ...?
+continue	continue ?string?
+debug break	debug break ?options?
+debug breakpoints	debug breakpoints ?pattern?
+debug cacheconfiguration	debug cacheconfiguration ?settings? ?level?
+debug callback	debug callback ?{}|arg ...?
+debug cleanup	debug cleanup ?flags?
+debug collect	debug collect ?flags?
+debug complaint	debug complaint
+debug emergency	debug emergency ?options? ?level?
+debug enable	debug enable ?enabled?
+debug eval	debug eval arg ?arg ...?
+debug exception	debug exception ?options?
+debug execute	debug execute name ?enabled?
+debug function	debug function name ?enabled?
+debug gcmemory	debug gcmemory ?collect?
+debug halt	debug halt ?result?
+debug history	debug history ?enabled?
+debug icommand	debug icommand ?command?
+debug interactive	debug interactive ?enabled?
+debug invoke	debug invoke ?level? cmd ?arg ...?
+debug iqueue	debug iqueue ?options? ?command?
+debug iresult	debug iresult ?result?
+debug levels	debug levels
+debug lockloop	debug lockloop enabled
+debug log	debug log ?options? message
+debug memory	debug memory
+debug oncancel	debug oncancel ?enabled?
+debug onerror	debug onerror ?enabled?
+debug onexecute	debug onexecute ?enabled?
+debug onexit	debug onexit ?enabled?
+debug onreturn	debug onreturn ?enabled?
+debug ontest	debug ontest ?enabled?
+debug ontoken	debug ontoken ?enabled?
+debug operator	debug operator name ?enabled?
+debug output	debug output message
+debug paths	debug paths ?flags?
+debug pluginexecute	debug pluginexecute name request
+debug pluginflags	debug pluginflags ?flags?
+debug procedureflags	debug procedureflags procName ?flags?
+debug purge	debug purge
+debug readonly	debug readonly kind enabled ?pattern?
+debug ready	debug ready ?isolated?
+debug refreshautopath	debug refreshautopath ?verbose?
+debug restore	debug restore ?strict?
+debug resume	debug resume
+debug run	debug run arg ?arg ...?
+debug runtimeoption	debug runtimeoption has name
+debug runtimeoverride	debug runtimeoverride name
+debug secureeval	debug secureeval ?options? path arg ?arg ...?
+debug self	debug self ?debug? ?force?
+debug setup	debug setup ?create? ?isolated? ?createFlags? ?initializeFlags? ?scriptFlags? ?interpreterFlags?
+debug shell	debug shell ?options? ?arg ...?
+debug stack	debug stack ?force?
+debug status	debug status
+debug step	debug step ?enabled?
+debug steps	debug steps ?integer?
+debug subst	debug subst ?-nobackslashes? ?-nocommands? ?-novariables? string
+debug suspend	debug suspend
+debug sysmemory	debug sysmemory
+debug test	debug test ?name? ?enabled?
+debug testpath	debug testpath ?path?
+debug token	debug token fileName startLine endLine ?enabled?
+debug trace	debug trace ?options? ?message?
+debug types	debug types ?types?
+debug undelete	debug undelete ?pattern?
+debug variable	debug variable ?options? varName
+debug vout	debug vout ?channelId? ?enabled?
+debug watch	debug watch ?varName? ?types?
+do	do script clause test
+downlevel	downlevel arg ?arg ...?
+encoding convertfrom	encoding convertfrom ?encoding? data
+encoding convertto	encoding convertto ?encoding? data
+encoding getstring	encoding getstring object ?encoding?
+encoding names	encoding names ?system? ?pattern?
+encoding system	encoding system ?encoding?
+eof	eof channelId
+error	error message ?errorInfo? ?errorCode? ?returnCode?
+eval	eval arg ?arg ...?
+exec	exec ?options? arg ?arg ...?
+exit	exit ?options? ?returnCode?
+expr	expr arg ?arg ...?
+fblocked	fblocked channelId
+fconfigure	fconfigure channelId ?optionName? ?value?
+fcopy	fcopy input output ?-size size? ?-command callback?
+file atime	file atime name ?time?
+file attributes	file attributes name ?option? ?value? ?option value ...?
+file channels	file channels ?pattern?
+file cleanup	file cleanup ?options? ?path?
+file copy	file copy ?options? source ?source ...? target
+file ctime	file ctime name ?time?
+file delete	file delete ?options? file ?file ...?
+file dirname	file dirname name
+file drive	file drive ?name?
+file executable	file executable name
+file exists	file exists name
+file extension	file extension name
+file glob	file glob ?options? ?pattern?
+file information	file information ?-directory boolean? ?--? name
+file isdirectory	file isdirectory name
+file isfile	file isfile name
+file join	file join name ?name ...?
+file list	file list ?directory? ?pattern?
+file lstat	file lstat name varName
+file magic	file magic fileName
+file mkdir	file mkdir dir ?dir ...?
+file mtime	file mtime name ?time?
+file nativename	file nativename name
+file normalize	file normalize name
+file objectid	file objectid ?options? name
+file owned	file owned name ?verbose?
+file pathtype	file pathtype name
+file readable	file readable name
+file rename	file rename ?options? source ?source ...? target
+file rights	file rights name
+file rmdir	file rmdir dir ?dir ...?
+file rootname	file rootname name
+file rootpath	file rootpath name
+file same	file same name1 name2
+file sddl	file sddl name ?sddl?
+file separator	file separator ?name?
+file size	file size name
+file split	file split name
+file stat	file stat name varName
+file system	file system ?name?
+file tail	file tail name
+file tempname	file tempname
+file temppath	file temppath
+file touch	file touch path
+file type	file type name
+file under	file under name1 name2
+file validname	file validname path ?pathType?
+file version	file version ?options? name
+file volumes	file volumes
+file writable	file writable name
+flush	flush channelId
+for	for start test next script ?end?
+foreach	foreach varList list ?varList list ...? script
+format	format formatString ?arg ...?
+fpclassify	fpclassify value
+getf	getf varName
+gets	gets ?options? channelId ?varName?
+glob	glob ?options? pattern ?pattern ...?
+global	global varName ?varName ...?
+guid compare	guid compare guid1 guid2
+guid isnull	guid isnull guid
+guid isvalid	guid isvalid guid
+guid new	guid new
+guid null	guid null
+hash keyed	hash keyed ?options? algorithm string ?key?
+hash list	hash list ?type?
+hash mac	hash mac ?options? algorithm string ?key?
+hash normal	hash normal ?options? algorithm string
+host beep	host beep ?options?
+host boxstyle	host boxstyle ?style?
+host cancel	host cancel ?force?
+host clear	host clear
+host close	host close
+host color	host color ?options?
+host echo	host echo ?enabled?
+host errchan	host errchan ?channel?
+host exit	host exit ?force?
+host flags	host flags
+host inchan	host inchan ?channel?
+host isopen	host isopen
+host mode	host mode channel ?mode?
+host namedcolor	host namedcolor ?options?
+host open	host open
+host outchan	host outchan ?channel?
+host outputstyle	host outputstyle ?style?
+host pause	host pause
+host position	host position ?options?
+host query	host query
+host readchar	host readchar
+host readkey	host readkey ?intercept?
+host readline	host readline ?nullOk?
+host redirected	host redirected channel
+host reset	host reset ?options?
+host result	host result code result ?errorLine?
+host screen	#active create delete exists list peek pop push
+host screen active	host screen active
+host screen create	host screen create
+host screen delete	host screen delete name ?active?
+host screen exists	host screen exists name ?primary?
+host screen list	host screen list ?pattern? ?primary?
+host screen peek	host screen peek
+host screen pop	host screen pop
+host screen push	host screen push name
+host size	host size ?options?
+host sleep	host sleep milliseconds
+host title	host title ?title?
+host write	host write value ?newLine?
+host writebox	host writebox ?options? string
+if	if expr1 ?then? body1 elseif expr2 ?then? body2 elseif ... ?else? ?bodyN?
+incr	incr varName ?increment?
+info active	info active ?pattern?
+info administrator	info administrator
+info appdomain	info appdomain
+info args	info args procName ?defaults?
+info assembly	info assembly ?entry?
+info base	info base
+info binary	info binary ?forceDefault?
+info bindertypes	info bindertypes ?pattern?
+info body	info body procName ?showLines? ?useLocation?
+info callbacks	info callbacks ?pattern?
+info channels	info channels ?pattern?
+info clr	info clr ?refresh?
+info cmdcount	info cmdcount ?path? ?command?
+info cmdline	info cmdline
+info cmdtype	info cmdtype commandName
+info commands	info commands ?options? ?pattern?
+info complete	info complete script
+info connections	info connections ?pattern?
+info context	info context
+info culture	info culture ?name?
+info cultures	info cultures ?pattern?
+info default	info default procName arg varName
+info delegates	info delegates ?pattern?
+info engine	info engine ?attribute? ?refresh? ?all?
+info ensembles	info ensembles ?pattern?
+info exists	info exists varName
+info externals	info externals
+info frame	info frame ?refresh?
+info framework	info framework ?refresh?
+info frameworkextra	info frameworkextra ?refresh?
+info functions	info functions ?options? ?pattern?
+info globals	info globals ?pattern?
+info hostname	info hostname ?refresh?
+info hwnd	info hwnd handle
+info identifier	info identifier name ?kind? ?full?
+info interactive	info interactive
+info interps	info interps ?pattern? ?all?
+info lastinput	info lastinput
+info level	info level ?number? ?fullName?
+info levelid	info levelid ?number? ?fullName?
+info library	info library ?refresh?
+info linkedname	info linkedname varName
+info loaded	info loaded ?options? ?interp? ?pattern?
+info locals	info locals ?pattern?
+info modules	info modules ?pattern?
+info nameofexecutable	info nameofexecutable
+info newline	info newline
+info nprocs	info nprocs ?pattern?
+info objects	info objects ?pattern?
+info operands	info operands name
+info operators	info operators ?options? ?pattern?
+info os	info os ?refresh?
+info patchlevel	info patchlevel ?refresh?
+info path	info path type
+info pid	info pid
+info plugin	info plugin name
+info pluginflags	info pluginflags name
+info policies	info policies ?pattern?
+info ppid	info ppid
+info previouspid	info previouspid ?reset?
+info processors	info processors
+info procs	info procs ?pattern?
+info programextension	info programextension
+info ptid	info ptid ?native?
+info runtime	info runtime ?refresh?
+info runtimeversion	info runtimeversion ?refresh? ?build? ?extra?
+info script	info script ?fileName?
+info setup	info setup ?verbose?
+info sharedlibextension	info sharedlibextension
+info shelllibrary	info shelllibrary ?refresh?
+info source	info source ?procName? ?full?
+info subcommands	info subcommands ?options? name ?pattern?
+info syntax	info syntax ?name?
+info sysvars	info sysvars ?pattern?
+info tclversion	info tclversion ?refresh?
+info tid	info tid ?native?
+info transactions	info transactions ?pattern?
+info user	info user
+info varlinks	info varlinks ?pattern?
+info vars	info vars ?options? ?pattern?
+info whitespace	info whitespace
+info windows	info windows ?pattern? or info windows ?full? ?pattern?
+info windowtext	info windowtext handle
+interp addcommands	interp addcommands ?options? path pattern
+interp alias	interp alias childPath childCmd ?parentPath parentCmd? ?arg ...?
+interp aliases	interp aliases ?path? ?pattern? ?all?
+interp bgerror	interp bgerror path ?cmdPrefix?
+interp callbacklimit	interp callbacklimit path ?limit?
+interp cancel	interp cancel ?-unwind? ?--? ?path? ?result?
+interp children	interp children ?path?
+interp create	interp create ?-safe? ?--? ?path?
+interp delete	interp delete ?path ...?
+interp enabled	interp enabled ?path? ?enabled?
+interp eval	interp eval path arg ?arg ...?
+interp eventlimit	interp eventlimit path ?limit?
+interp exists	interp exists ?path?
+interp expose	interp expose path hiddenCmdName ?cmdName?
+interp exposed	interp exposed path
+interp expr	interp expr path arg ?arg ...?
+interp finallytimeout	interp finallytimeout ?path? ?newValue?
+interp hidden	interp hidden path
+interp hide	interp hide path cmdName ?hiddenCmdName?
+interp immutable	interp immutable ?path? ?immutable?
+interp invokehidden	interp invokehidden path ?options? cmd ?arg ..?
+interp isolated	interp isolated ?path?
+interp issafe	interp issafe ?path?
+interp issdk	interp issdk ?path? ?sdkType?
+interp isstandard	interp isstandard ?path?
+interp makesafe	interp makesafe ?path? ?safe? ?all?
+interp makestandard	interp makestandard ?path? ?standard? ?all?
+interp marktrusted	interp marktrusted path
+interp nopolicy	interp nopolicy path name
+interp parent	interp parent ?path?
+interp policy	interp policy ?options? path script
+interp proclimit	interp proclimit path ?limit?
+interp queue	interp queue path ?options? arg ?arg ...?
+interp readonly	interp readonly ?path? ?readonly?
+interp readorgetscriptfile	interp readorgetscriptfile ?options? path fileName
+interp readylimit	interp readylimit path ?limit?
+interp recursionlimit	interp recursionlimit path ?limit?
+interp rename	interp rename ?options? path oldName newName
+interp resetcancel	interp resetcancel path ?options?
+interp resultlimit	interp resultlimit path ?limit?
+interp service	interp service path ?options?
+interp set	interp set interp varName ?newValue?
+interp shareinterp	interp shareinterp interp objectName
+interp shareobject	interp shareobject interp objectName
+interp sleeptime	interp sleeptime ?path? ?newValue?
+interp source	interp source ?options? path fileName
+interp stub	interp stub ?options? path name
+interp subcommand	interp subcommand ?options? path cmdName subCmdName ?command?
+interp subst	interp subst ?options? path string
+interp target	interp target path alias
+interp timeout	interp timeout ?path? ?newValue?
+interp unset	interp unset interp varName
+interp varlimit	interp varlimit path ?limit?
+interp watchdog	interp watchdog ?path? ?enabled? ?flags? ?type?
+invoke	invoke ?level? cmd ?arg ...?
+join	join list ?joinString?
+kill	kill ?-all? ?-force? ?--? process
+lappend	lappend varName ?value ...?
+lassign	lassign list varName ?varName ...?
+lget	lget varName ?index ...?
+library call	library call ?options? delegate ?arg ...?
+library certificate	library certificate ?options? fileName
+library checkload	library checkload ?options? fileName
+library declare	library declare ?options?
+library handle	library handle fileName
+library info	#delegate module
+library info delegate	library info delegate object
+library info module	library info module object
+library load	library load ?options? fileName
+library matcharchitecture	library matcharchitecture fileName
+library resolve	library resolve ?options? delegate
+library test	library test ?fileName?
+library undeclare	library undeclare delegate
+library unload	library unload module
+library unresolve	library unresolve ?options? delegate
+library verifyarchitecture	library verifyarchitecture fileName
+lindex	lindex list ?index ...?
+linsert	linsert list index value ?value ...?
+list	list ?arg arg ...?
+llength	llength list
+lmap	lmap varList list ?varList list ...? script
+load	load ?options? fileName ?packageName? ?interp?
+lrange	lrange list first last
+lremove	lremove list index ?index...?
+lrepeat	lrepeat count value ?value ...?
+lreplace	lreplace list first last ?value ...?
+lreverse	lreverse list
+lsearch	lsearch ?options? list pattern
+lset	lset varName index ?index...? value
+lsort	lsort ?options? list
+namespace children	namespace children ?name? ?pattern?
+namespace code	namespace code script
+namespace current	namespace current
+namespace delete	namespace delete ?name name ...?
+namespace descendants	namespace descendants ?name? ?pattern?
+namespace enable	namespace enable ?enabled? ?force?
+namespace eval	namespace eval name arg ?arg ...?
+namespace exists	namespace exists name
+namespace export	namespace export ?-clear? ?pattern pattern ...?
+namespace forget	namespace forget ?pattern pattern ...?
+namespace import	namespace import ?-force? ?pattern pattern ...?
+namespace info	namespace info name
+namespace inscope	namespace inscope name arg ?arg...?
+namespace mappings	namespace mappings
+namespace name	namespace name name
+namespace origin	namespace origin name
+namespace parent	namespace parent ?name?
+namespace qualifiers	namespace qualifiers string
+namespace rename	namespace rename oldName newName
+namespace tail	namespace tail string
+namespace unknown	namespace unknown ?script?
+namespace which	namespace which ?-command? ?-variable? name
+nop	nop
+nproc	nproc name args body
+object addreference	object addreference object
+object alias	object alias ?options? object
+object aliasnamespaces	object aliasnamespaces ?pattern?
+object assemblies	object assemblies ?pattern?
+object callbackflags	object callbackflags name ?flags?
+object certificate	object certificate ?options? assembly
+object cleanup	object cleanup ?options?
+object create	object create ?options? typeName ?arg ...?
+object declare	object declare ?options? ?name name ...?
+object dispose	object dispose ?options? object ?object ...?
+object exists	object exists object
+object flags	object flags object ?flags?
+object foreach	object foreach varName object body
+object fromvar	object fromvar ?options? varName
+object get	object get ?options? type url ?state?
+object hash	object hash assembly
+object import	object import ?options? ?name name ...?
+object interfaces	object interfaces ?pattern?
+object invoke	object invoke ?options? object member ?arg ...?
+object invokeall	object invokeall ?options? object memberAndArgs ?memberAndArgs ...?
+object invokeraw	object invokeraw ?options? object member ?arg ...?
+object isnull	object isnull ?options? object
+object isoftype	object isoftype ?options? object type
+object list	object list ?pattern?
+object lmap	object lmap varName object body
+object load	object load ?options? assembly
+object members	object members ?options? object
+object namespaces	object namespaces ?pattern?
+object referencecount	object referencecount object
+object removecallback	object removecallback name
+object removereference	object removereference object
+object resolve	object resolve assembly
+object search	object search ?options? typeName
+object strongname	object strongname assembly
+object type	object type ?options? ?fromName toName...? fromName toName
+object types	object types ?pattern?
+object unalias	object unalias object
+object unaliasnamespace	object unaliasnamespace ?options?
+object undeclare	object undeclare ?options?
+object unimport	object unimport ?options?
+object untype	object untype ?options?
+object verifyall	object verifyall ?strict?
+open	open fileName ?access? ?permissions? ?type? ?options?
+package forget	package forget ?package package ...?
+package ifneeded	package ifneeded package version ?script?
+package indexes	package indexes ?pattern?
+package info	package info name
+package loaded	package loaded ?pattern?
+package names	package names ?pattern?
+package pending	package pending ?name?
+package present	package present ?-exact? package ?version?
+package provide	package provide package ?version?
+package relativefilename	package relativefilename fileName ?type?
+package require	package require ?-exact? package ?version?
+package reset	package reset
+package scan	package scan ?options? ?dir dir ...?
+package unknown	package unknown ?command?
+package vcompare	package vcompare version1 version2
+package versions	package versions package
+package vloaded	package vloaded ?pattern?
+package vsatisfies	package vsatisfies version1 version2
+package vsort	package vsort version1 version2
+package withdraw	package withdraw package ?version?
+parse command	parse command ?options? text
+parse expression	parse expression ?options? text
+parse options	parse options ?options? optionList argumentList
+parse script	parse script ?options? text
+pid	pid ?channelId?
+proc	proc name args body
+puts	puts ?-nonewline? ?channelId? string
+pwd	pwd
+read	read ?options? channelId ?numChars?
+regexp	regexp ?switches? exp string ?matchVar? ?subMatchVar subMatchVar ...?
+regsub	regsub ?switches? exp string subSpec ?varName?
+rename	rename ?options? oldName newName
+return	return ?-code code? ?-errorinfo info? ?-errorcode code? ?string?
+scope close	scope close ?options? ?name?
+scope create	scope create ?options? ?name?
+scope current	scope current
+scope destroy	scope destroy name
+scope eval	scope eval ?options? name arg ?arg ...?
+scope exists	scope exists name
+scope global	scope global ?options? ?name?
+scope list	scope list ?pattern?
+scope lock	scope lock ?options? name
+scope open	scope open ?options? ?name?
+scope set	scope set name varName ?value?
+scope unlock	scope unlock ?options? name
+scope unset	scope unset name varName
+scope update	scope update ?options? ?name?
+scope vars	scope vars name ?pattern?
+seek	seek channelId offset ?origin?
+set	set varName ?newValue?
+setf	setf varFlags varName ?newValue?
+socket	socket ?-myaddr addr? ?-myport myport? ?-async? host port
+socket	socket -server command ?-myaddr addr? port
+source	source ?options? fileName
+split	split string ?splitChars? ?options?
+sql close	sql close connection
+sql connection	sql connection connection
+sql execute	sql execute ?options? connection string ?{paramName ?paramType? ?paramValue? ?paramSize? ?paramValueFlags?} ...?
+sql open	sql open ?options? connectionString
+sql transaction	#begin commit rollback
+sql transaction begin	sql transaction ?options? begin object
+sql transaction commit	sql transaction ?options? commit object
+sql transaction rollback	sql transaction ?options? rollback object
+sql types	sql types ?pattern?
+string bytelength	string bytelength string ?encoding?
+string cat	string cat ?arg ...?
+string character	string character integer
+string compare	string compare ?options? string1 string2
+string ends	string ends ?options? suffix string
+string equal	string equal ?options? string1 string2
+string first	string first ?options? needleString haystackString ?startIndex?
+string format	string format format ?arg ...?
+string index	string index string charIndex
+string is	#array boolean byte command datetime decimal dict directory double element false file guid identifier integer interpreter list none number numeric object path real scalar single timespan true type uri value variant version wideinteger alnum alpha ascii asciialnum asciialpha asciidigit control digit graph hexadecimal lower print punct reserved space upper wordchar xdigit
+string is alnum	string is ?not? alnum ?-strict? ?-failindex varName? string
+string is alpha	string is ?not? alpha ?-strict? ?-failindex varName? string
+string is array	string is ?not? array ?-strict? ?-failindex varName? string
+string is ascii	string is ?not? ascii ?-strict? ?-failindex varName? string
+string is asciialnum	string is ?not? asciialnum ?-strict? ?-failindex varName? string
+string is asciialpha	string is ?not? asciialpha ?-strict? ?-failindex varName? string
+string is asciidigit	string is ?not? asciidigit ?-strict? ?-failindex varName? string
+string is boolean	string is ?not? boolean ?-strict? ?-failindex varName? string
+string is byte	string is ?not? byte ?-strict? ?-failindex varName? string
+string is command	string is ?not? command ?-strict? ?-failindex varName? string
+string is control	string is ?not? control ?-strict? ?-failindex varName? string
+string is datetime	string is ?not? datetime ?-strict? ?-failindex varName? string
+string is decimal	string is ?not? decimal ?-strict? ?-failindex varName? string
+string is dict	string is ?not? dict ?-strict? ?-failindex varName? string
+string is digit	string is ?not? digit ?-strict? ?-failindex varName? string
+string is directory	string is ?not? directory ?-strict? ?-failindex varName? string
+string is double	string is ?not? double ?-strict? ?-failindex varName? string
+string is element	string is ?not? element ?-strict? ?-failindex varName? string
+string is false	string is ?not? false ?-strict? ?-failindex varName? string
+string is file	string is ?not? file ?-strict? ?-failindex varName? string
+string is graph	string is ?not? graph ?-strict? ?-failindex varName? string
+string is guid	string is ?not? guid ?-strict? ?-failindex varName? string
+string is hexadecimal	string is ?not? hexadecimal ?-strict? ?-failindex varName? string
+string is identifier	string is ?not? identifier ?-strict? ?-failindex varName? string
+string is integer	string is ?not? integer ?-strict? ?-failindex varName? string
+string is interpreter	string is ?not? interpreter ?-strict? ?-failindex varName? string
+string is list	string is ?not? list ?-strict? ?-failindex varName? string
+string is lower	string is ?not? lower ?-strict? ?-failindex varName? string
+string is none	string is ?not? none ?-strict? ?-failindex varName? string
+string is number	string is ?not? number ?-strict? ?-failindex varName? string
+string is numeric	string is ?not? numeric ?-strict? ?-failindex varName? string
+string is object	string is ?not? object ?-strict? ?-failindex varName? string
+string is path	string is ?not? path ?-strict? ?-failindex varName? string
+string is print	string is ?not? print ?-strict? ?-failindex varName? string
+string is punct	string is ?not? punct ?-strict? ?-failindex varName? string
+string is real	string is ?not? real ?-strict? ?-failindex varName? string
+string is reserved	string is ?not? reserved ?-strict? ?-failindex varName? string
+string is scalar	string is ?not? scalar ?-strict? ?-failindex varName? string
+string is single	string is ?not? single ?-strict? ?-failindex varName? string
+string is space	string is ?not? space ?-strict? ?-failindex varName? string
+string is timespan	string is ?not? timespan ?-strict? ?-failindex varName? string
+string is true	string is ?not? true ?-strict? ?-failindex varName? string
+string is type	string is ?not? type ?-strict? ?-failindex varName? string
+string is upper	string is ?not? upper ?-strict? ?-failindex varName? string
+string is uri	string is ?not? uri ?-strict? ?-failindex varName? string
+string is value	string is ?not? value ?-strict? ?-failindex varName? string
+string is variant	string is ?not? variant ?-strict? ?-failindex varName? string
+string is version	string is ?not? version ?-strict? ?-failindex varName? string
+string is wideinteger	string is ?not? wideinteger ?-strict? ?-failindex varName? string
+string is wordchar	string is ?not? wordchar ?-strict? ?-failindex varName? string
+string is xdigit	string is ?not? xdigit ?-strict? ?-failindex varName? string
+string last	string last ?options? needleString haystackString ?startIndex?
+string length	string length string
+string map	string map ?options? charMap string
+string match	string match ?options? pattern string
+string ordinal	string ordinal string charIndex
+string range	string range string first last
+string repeat	string repeat string count
+string replace	string replace string first last ?string?
+string reverse	string reverse string
+string starts	string starts ?options? prefix string
+string tolower	string tolower ?options? string ?first? ?last?
+string totitle	string totitle ?options? string ?first? ?last?
+string toupper	string toupper ?options? string ?first? ?last?
+string trim	string trim string ?chars?
+string trimleft	string trimleft string ?chars?
+string trimright	string trimright string ?chars?
+string wordend	string wordend string index
+string wordstart	string wordstart string index
+subst	subst ?-nobackslashes? ?-nocommands? ?-novariables? string
+switch	switch ?switches? string {pattern body ... ?default body?}
+switch	switch ?switches? string pattern body ... ?default body?
+tcl active	tcl active interp
+tcl available	tcl available ?options? ?path? ?pattern?
+tcl build	tcl build
+tcl cancel	tcl cancel ?options? path ?result?
+tcl canceled	tcl canceled interp
+tcl command	#create delete exists list
+tcl command create	tcl command create ?options? srcCmd interp targetCmd
+tcl command delete	tcl command delete interp targetCmd
+tcl command exists	tcl command exists interp targetCmd
+tcl command list	tcl command list ?pattern?
+tcl complete	tcl complete command
+tcl convert	tcl convert interp string type
+tcl create	tcl create ?options?
+tcl delete	tcl delete interp
+tcl errorline	tcl errorline interp ?line?
+tcl eval	tcl eval ?options? interp arg ?arg ...?
+tcl exceptions	tcl exceptions ?exceptions?
+tcl exists	tcl exists interp
+tcl expr	tcl expr ?options? interp arg ?arg ...?
+tcl find	tcl find ?options? ?path? ?pattern?
+tcl interps	tcl interps ?pattern?
+tcl load	tcl load ?options? ?path?
+tcl module	tcl module ?full?
+tcl preserve	tcl preserve interp
+tcl primary	tcl primary
+tcl queue	tcl queue ?options? interp arg ?arg ...?
+tcl ready	tcl ready ?interp?
+tcl recordandeval	tcl recordandeval ?options? interp arg ?arg ...?
+tcl release	tcl release interp
+tcl resetcancel	tcl resetcancel ?options? interp
+tcl result	tcl result interp
+tcl select	tcl select ?options? ?path?
+tcl set	tcl set interp varName ?newValue?
+tcl source	tcl source ?options? interp fileName
+tcl subst	tcl subst ?options? interp string
+tcl threads	tcl threads ?pattern?
+tcl types	tcl types interp
+tcl unload	tcl unload
+tcl unset	tcl unset interp varName
+tcl update	tcl update ?options?
+tcl versionrange	tcl versionrange ?options?
+tell	tell channelId
+test1	test1 name description constraints body result
+test2	test2 name description ?options?
+throw	throw message ?returnCode? ?innerException?
+time	time script ?count? ?options?
+truncate	truncate channelId ?length?
+try	try script ?finally script?
+unload	unload ?options? fileName ?packageName? ?interp?
+unset	unset ?options? ?varName varName ...?
+unsetf	unsetf varFlags ?varName varName ...?
+update	update ?mask?
+uplevel	uplevel ?level? arg ?arg ...?
+upvar	upvar ?level? otherVar localVar ?otherVar localVar ...?
+uri compare	uri compare ?options? uri1 uri2
+uri create	uri create scheme host ?options?
+uri download	uri download ?options? uri ?argument?
+uri escape	uri escape type string
+uri host	uri host uri
+uri isvalid	uri isvalid uri ?kind?
+uri join	uri join name ?name ...?
+uri offline	uri offline ?enabled?
+uri parse	uri parse uri
+uri ping	uri ping hostOrUri timeout
+uri scheme	uri scheme name
+uri security	uri security
+uri softwareupdates	uri softwareupdates ?trusted? ?exclusive?
+uri unescape	uri unescape string
+uri upload	uri upload ?options? uri ?argument?
+variable	variable ?name value...? name ?value?
+version	version ?flags?
+vwait	vwait ?options? varName
+while	while test script
+xml deserialize	xml deserialize ?options? type xml
+xml serialize	xml serialize ?options? type object
+xml validate	xml validate schemaXml documentXml

@@ -1,0 +1,34 @@
+###############################################################################
+#
+# lsort.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test lsort-99.1 {simple list sort} -setup {
+  set list [list a b c d e f g h i j k l m n o p q r s t u v w x y z \
+                 A B C D E F G H I J K L M N O P Q R S T U V W X Y Z \
+                 0 1 2 3 4 5 6 7 8 9 1.2 2.33 1.11 0.0 001 00A Aa aa Zz]
+} -body {
+  list [llength $list] [lsort $list]
+} -cleanup {
+  unset list
+} -result {71 {0 0.0 001 00A 1 1.11 1.2 2 2.33 3 4 5 6 7 8 9 A Aa B C D E F G\
+H I J K L M N O P Q R S T U V W X Y Z Zz a aa b c d e f g h i j k l m n o p q\
+r s t u v w x y z}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

@@ -1,0 +1,221 @@
+###############################################################################
+#
+# parser5.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test parser-5.1 {scripting of expression parser} -body {
+  parse expression {2 + (2 / 1) ** 3 + [clock seconds]}
+} -constraints {eagle} -match regexp -result {^\{NotReady False\} \{IsImmutable\
+False\} \{EngineFlags None\} \{SubstitutionFlags (?:All|Default)\} \{FileName\
+\{\}\} \{CurrentLine 1\} \{CommentStart -1\} \{CommentLength 0\} \{CommandStart\
+-1\} \{CommandLength 0\} \{CommandWords 0\} \{Tokens 18\} \{Lexeme\
+(?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
+None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
+\{ViaSource False\} \{Start 0\} \{Length 34\} \{Components 17\} \{Text \{2 \+\
+\(2 / 1\) \*\* 3 \+ \[clock seconds\]\}\} \{ClientData \{\}\} \{Lexeme Plus\}\
+\{IsImmutable False\} \{Type Operator\} \{SyntaxType None\} \{Flags None\}\
+\{FileName \{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start\
+17\} \{Length 1\} \{Components 0\} \{Text \+\} \{ClientData \{\}\} \{Lexeme\
+(?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
+None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
+\{ViaSource False\} \{Start 0\} \{Length 16\} \{Components 13\} \{Text \{2 \+\
+\(2 / 1\) \*\* 3\}\} \{ClientData \{\}\} \{Lexeme Plus\} \{IsImmutable False\}\
+\{Type Operator\} \{SyntaxType None\} \{Flags None\} \{FileName \{\}\}\
+\{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start 2\} \{Length 1\}\
+\{Components 0\} \{Text \+\} \{ClientData \{\}\} \{Lexeme (?:Unknown|Minimum)\}\
+\{IsImmutable False\} \{Type SubExpression\} \{SyntaxType None\} \{Flags None\}\
+\{FileName \{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start 0\}\
+\{Length 1\} \{Components 1\} \{Text 2\} \{ClientData \{\}\} \{Lexeme Literal\}\
+\{IsImmutable False\} \{Type Text\} \{SyntaxType None\} \{Flags None\}\
+\{FileName \{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start 0\}\
+\{Length 1\} \{Components 0\} \{Text 2\} \{ClientData \{\}\} \{Lexeme\
+(?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
+None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
+\{ViaSource False\} \{Start 4\} \{Length 12\} \{Components 9\} \{Text \{\(2 /\
+1\) \*\* 3\}\} \{ClientData \{\}\} \{Lexeme Exponent\} \{IsImmutable False\}\
+\{Type Operator\} \{SyntaxType None\} \{Flags None\} \{FileName \{\}\}\
+\{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start 12\} \{Length 2\}\
+\{Components 0\} \{Text \*\*\} \{ClientData \{\}\} \{Lexeme\
+(?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
+None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
+\{ViaSource False\} \{Start 5\} \{Length 5\} \{Components 5\} \{Text \{2 /\
+1\}\} \{ClientData \{\}\} \{Lexeme Divide\} \{IsImmutable False\} \{Type\
+Operator\} \{SyntaxType None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\}\
+\{EndLine 1\} \{ViaSource False\} \{Start 7\} \{Length 1\} \{Components 0\}\
+\{Text /\} \{ClientData \{\}\} \{Lexeme (?:Unknown|Minimum)\} \{IsImmutable\
+False\} \{Type SubExpression\} \{SyntaxType None\} \{Flags None\} \{FileName\
+\{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start 5\} \{Length\
+1\} \{Components 1\} \{Text 2\} \{ClientData \{\}\} \{Lexeme Literal\}\
+\{IsImmutable False\} \{Type Text\} \{SyntaxType None\} \{Flags None\}\
+\{FileName \{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start 5\}\
+\{Length 1\} \{Components 0\} \{Text 2\} \{ClientData \{\}\} \{Lexeme\
+(?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
+None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
+\{ViaSource False\} \{Start 9\} \{Length 1\} \{Components 1\} \{Text 1\}\
+\{ClientData \{\}\} \{Lexeme Literal\} \{IsImmutable False\} \{Type Text\}\
+\{SyntaxType None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine\
+1\} \{ViaSource False\} \{Start 9\} \{Length 1\} \{Components 0\} \{Text 1\}\
+\{ClientData \{\}\} \{Lexeme (?:Unknown|Minimum)\} \{IsImmutable False\} \{Type\
+SubExpression\} \{SyntaxType None\} \{Flags None\} \{FileName \{\}\}\
+\{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start 15\} \{Length 1\}\
+\{Components 1\} \{Text 3\} \{ClientData \{\}\} \{Lexeme Literal\}\
+\{IsImmutable False\} \{Type Text\} \{SyntaxType None\} \{Flags None\}\
+\{FileName \{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start\
+15\} \{Length 1\} \{Components 0\} \{Text 3\} \{ClientData \{\}\} \{Lexeme\
+(?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
+None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
+\{ViaSource False\} \{Start 19\} \{Length 15\} \{Components 1\} \{Text\
+\{\[clock seconds\]\}\} \{ClientData \{\}\} \{Lexeme (?:Unknown|Minimum)\}\
+\{IsImmutable False\} \{Type Command\} \{SyntaxType None\} \{Flags None\}\
+\{FileName \{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start\
+19\} \{Length 15\} \{Components 0\} \{Text \{\[clock seconds\]\}\} \{ClientData\
+\{\}\}$}}
+
+###############################################################################
+
+runTest {test parser-5.2 {scripting of expression parser} -body {
+  parse expression {2 + 2}
+} -constraints {eagle} -match regexp -result {^\{NotReady False\} \{IsImmutable\
+False\} \{EngineFlags None\} \{SubstitutionFlags (?:All|Default)\} \{FileName\
+\{\}\} \{CurrentLine 1\} \{CommentStart -1\} \{CommentLength 0\} \{CommandStart\
+-1\} \{CommandLength 0\} \{CommandWords 0\} \{Tokens 6\} \{Lexeme\
+(?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
+None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
+\{ViaSource False\} \{Start 0\} \{Length 5\} \{Components 5\} \{Text \{2 \+\
+2\}\} \{ClientData \{\}\} \{Lexeme Plus\} \{IsImmutable False\} \{Type\
+Operator\} \{SyntaxType None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\}\
+\{EndLine 1\} \{ViaSource False\} \{Start 2\} \{Length 1\} \{Components 0\}\
+\{Text \+\} \{ClientData \{\}\} \{Lexeme (?:Unknown|Minimum)\} \{IsImmutable\
+False\} \{Type SubExpression\} \{SyntaxType None\} \{Flags None\} \{FileName\
+\{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start 0\} \{Length\
+1\} \{Components 1\} \{Text 2\} \{ClientData \{\}\} \{Lexeme Literal\}\
+\{IsImmutable False\} \{Type Text\} \{SyntaxType None\} \{Flags None\}\
+\{FileName \{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start 0\}\
+\{Length 1\} \{Components 0\} \{Text 2\} \{ClientData \{\}\} \{Lexeme\
+(?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
+None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
+\{ViaSource False\} \{Start 4\} \{Length 1\} \{Components 1\} \{Text 2\}\
+\{ClientData \{\}\} \{Lexeme Literal\} \{IsImmutable False\} \{Type Text\}\
+\{SyntaxType None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine\
+1\} \{ViaSource False\} \{Start 4\} \{Length 1\} \{Components 0\} \{Text 2\}\
+\{ClientData \{\}\}$}}
+
+###############################################################################
+
+runTest {test parser-5.98 {scripting of script parser} -body {
+  parse script -roundtrip true {set a 1; puts $b; set c [set a]; set d \\}
+} -constraints {eagle} -result {{IsImmutable False} {Type Separator}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 0}\
+{ViaSource False} {Start 0} {Length 8} {Components 1} {Text {set a 1;}}\
+{ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 3} {Components 0}\
+{Text set} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 4} {Length 1} {Components 0}\
+{Text a} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 6} {Length 1} {Components 0}\
+{Text 1} {ClientData {}}
+{IsImmutable False} {Type Separator} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 0} {ViaSource False} {Start 9} {Length 8}\
+{Components 2} {Text {puts $b;}} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 9} {Length 4} {Components 0}\
+{Text puts} {ClientData {}}
+{IsImmutable False} {Type Variable} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 14} {Length 2}\
+{Components 1} {Text {$b}} {ClientData {}}
+{IsImmutable False} {Type Separator} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 0} {ViaSource False} {Start 18} {Length 14}\
+{Components 3} {Text {set c [set a];}} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 18} {Length 3} {Components\
+0} {Text set} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 22} {Length 1} {Components\
+0} {Text c} {ClientData {}}
+{IsImmutable False} {Type Command} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 24} {Length 7} {Components\
+0} {Text {[set a]}} {ClientData {}}
+{IsImmutable False} {Type Separator} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 0} {ViaSource False} {Start 33} {Length 8}\
+{Components 4} {Text {set d \\}} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 33} {Length 3} {Components\
+0} {Text set} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 37} {Length 1} {Components\
+0} {Text d} {ClientData {}}
+{IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 39} {Length 2}\
+{Components 0} {Text {\\}} {ClientData {}}}}
+
+###############################################################################
+
+runTest {test parser-5.99 {scripting of script parser} -body {
+  parse script -roundtrip true {set a 1; puts $b(2); set c [set a]; set d \\}
+} -constraints {eagle} -result {{IsImmutable False} {Type Separator}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 0}\
+{ViaSource False} {Start 0} {Length 8} {Components 1} {Text {set a 1;}}\
+{ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 3} {Components 0}\
+{Text set} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 4} {Length 1} {Components 0}\
+{Text a} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 6} {Length 1} {Components 0}\
+{Text 1} {ClientData {}}
+{IsImmutable False} {Type Separator} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 0} {ViaSource False} {Start 9} {Length 11}\
+{Components 2} {Text {puts $b(2);}} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 9} {Length 4} {Components 0}\
+{Text puts} {ClientData {}}
+{IsImmutable False} {Type Variable} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 14} {Length 5}\
+{Components 2} {Text {$b(2)}} {ClientData {}}
+{IsImmutable False} {Type Separator} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 0} {ViaSource False} {Start 21} {Length 14}\
+{Components 3} {Text {set c [set a];}} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 21} {Length 3} {Components\
+0} {Text set} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 25} {Length 1} {Components\
+0} {Text c} {ClientData {}}
+{IsImmutable False} {Type Command} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 27} {Length 7} {Components\
+0} {Text {[set a]}} {ClientData {}}
+{IsImmutable False} {Type Separator} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 0} {ViaSource False} {Start 36} {Length 8}\
+{Components 4} {Text {set d \\}} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 36} {Length 3} {Components\
+0} {Text set} {ClientData {}}
+{IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName {}}\
+{StartLine 1} {EndLine 1} {ViaSource False} {Start 40} {Length 1} {Components\
+0} {Text d} {ClientData {}}
+{IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None} {FileName\
+{}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 42} {Length 2}\
+{Components 0} {Text {\\}} {ClientData {}}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

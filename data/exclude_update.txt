@@ -1,0 +1,6 @@
+\Certificates\
+\Configurations\
+\Obfuscated\
+\Original\
+\Plugin1.0\
+\Unobfuscated\

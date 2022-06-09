@@ -1,0 +1,5 @@
+
+set dir [file normalize [file dirname [info script]]]
+
+source [file join [file dirname [file dirname $dir]] \
+    Library Tests data xaml2.eagle]

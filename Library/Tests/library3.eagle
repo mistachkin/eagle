@@ -1,0 +1,462 @@
+###############################################################################
+#
+# library3.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+# MONO: Due to a Mono bug, some tests are disabled on Mono.
+###############################################################################
+
+if {[isEagle] && \
+    [haveConstraint dynamic] && \
+    [haveConstraint native] && \
+    [haveConstraint compile.EMIT] && \
+    [haveConstraint compile.NATIVE] && \
+    [haveConstraint compile.LIBRARY] && \
+    [haveConstraint compile.TCL] && \
+    [haveConstraint command.library] && \
+    [haveConstraint command.object] && \
+    [haveConstraint command.tcl]} then {
+  #
+  # NOTE: Keep track of the number of times that Tcl_Finalize is called by
+  #       the tests in this file using an environment variable that has a
+  #       random suffix so it can be updated from within the isolated test
+  #       interpreters.
+  #
+  unset -nocomplain tclFinalizeListName tclUnloadListName
+
+  set tclFinalizeListName [appendArgs \
+      Tcl_Finalize_ [string trim [expr {random()}] -]]
+
+  set tclUnloadListName [appendArgs \
+      Tcl_Unload_ [string trim [expr {random()}] -]]
+
+  #############################################################################
+
+  unset -nocomplain tclModuleError
+
+  if {[tcl ready]} then {
+    if {[catch {set savedTclModule [tcl module]} tclModuleError]} then {
+      set savedTclModule ""
+
+      if {![info exists no(warningForTclModule)] && \
+          ![haveConstraint quiet]} then {
+        tputs $test_channel [appendArgs \
+            "==== WARNING: failed to query native Tcl module: " \
+            $tclModuleError \n]
+      }
+    }
+  } else {
+    set savedTclModule ""
+  }
+
+  unset -nocomplain tclExitUnloadFlagsError
+
+  if {[catch {
+    unset -nocomplain savedTclExitUnloadFlags
+    set savedTclExitUnloadFlags [object invoke -flags +NonPublic \
+        Interpreter.GetActive tclExitUnloadFlags]
+  } tclExitUnloadFlagsError]} then {
+    if {![info exists no(warningForTclExitUnloadFlags)] && \
+        ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "==== WARNING: failed to save unload flags for Tcl exit: " \
+          $tclExitUnloadFlagsError \n]
+    }
+  }
+
+  unset -nocomplain tclExitUnloadFlagsError
+
+  if {[catch {
+    #
+    # HACK: Temporarily alter the Tcl API "exit" unload flags for the active
+    #       interpreter.  We need this in order to be sure that the library
+    #       module handle is freed (i.e. since, for safety reasons, the exit
+    #       handler must now assume it is always being called via Tcl_Exit
+    #       and it cannot actually free the library module handle in that
+    #       case).
+    #
+    object invoke -flags +NonPublic \
+        Interpreter.GetActive tclExitUnloadFlags FreeLibrary
+  } tclExitUnloadFlagsError]} then {
+    if {![info exists no(warningForTclExitUnloadFlags)] && \
+        ![haveConstraint quiet]} then {
+      tputs $test_channel [appendArgs \
+          "==== WARNING: failed to set unload flags for Tcl exit: " \
+          $tclExitUnloadFlagsError \n]
+    }
+  }
+} else {
+  unset -nocomplain tclFinalizeListName tclUnloadListName savedTclModule
+
+  set tclFinalizeListName ""
+  set tclUnloadListName ""
+  set savedTclModule ""
+}
+
+###############################################################################
+
+runTest {test library-3.1 {declare and call Tcl functions} -setup [subst \
+    -nocommands -nobackslashes {
+  #
+  # NOTE: Make sure the Tcl environment variable names for the isolated
+  #       interpreter matches the parent interpreter.
+  #
+  set tclFinalizeListName {$tclFinalizeListName}
+  set tclUnloadListName {$tclUnloadListName}
+
+  #
+  # NOTE: Make sure the saved Tcl module file name for the isolated
+  #       interpreter matches the parent interpreter.
+  #
+  set savedTclModule {$savedTclModule}
+}] -body {
+  set tcls [tcl find -architecture --]
+
+  if {[llength $tcls] > 0} then {
+    set dll [lindex $tcls 0]
+
+    if {[string length $savedTclModule] > 0 && \
+        [file normalize $dll] ne [file normalize $savedTclModule]} then {
+      error [appendArgs \
+          "cannot load native Tcl module: candidate file name \"" $dll \
+          "\" does not match pre-loaded file name \"" $savedTclModule \"]
+    }
+
+    set added [addToPath [file nativename [file dirname $dll]]]
+
+    set m4 [library load [file tail $dll]]; # test load via PATH
+
+    if {$added} then {removeFromPath [file nativename [file dirname $dll]]}
+
+    set d1 [library declare -module $m4 -functionname \
+        Tcl_CreateInterp -callingconvention cdecl -returntype IntPtr]
+
+    set d2 [library declare -module $m4 -functionname \
+        Tcl_Eval -callingconvention cdecl -charset ansi -returntype \
+        ReturnCode -parametertypes [list IntPtr String]]
+
+    set d3 [library declare -module $m4 -functionname \
+        Tcl_GetStringResult -callingconvention cdecl -returntype \
+        IntPtr -parametertypes [list IntPtr]]
+
+    set d4 [library declare -module $m4 -functionname \
+        Tcl_DeleteInterp -callingconvention cdecl -parametertypes \
+        [list IntPtr]]
+
+    set d5 [library declare -module $m4 -functionname \
+        Tcl_Finalize -callingconvention cdecl]
+
+    set i1 [library call -create $d1]; # Tcl_CreateInterp
+
+    set code [library call $d2 $i1 {array names env}]; # Tcl_Eval
+
+    set result [object invoke -nocase \
+        System.Runtime.InteropServices.Marshal \
+        PtrToStringAnsi [set zz [library call -create $d3 $i1]]]
+
+    unset zz
+
+    library call $d4 $i1; # Tcl_DeleteInterp
+    unset i1
+
+    library call $d5; # Tcl_Finalize
+    lappend env($tclFinalizeListName) library-3.1
+
+    list $code [expr {[llength $result] > 0}] [unset result] \
+      [llength [info delegates]] [llength [info modules]] \
+      [library undeclare $d5] [library undeclare $d4] \
+      [library undeclare $d3] [library undeclare $d2] \
+      [library undeclare $d1] [library unload $m4] \
+      [llength [info delegates]] [llength [info modules]] \
+      [llength [info objects]] \
+      [expr {[llength [lappend env($tclUnloadListName) library-3.1]] > 0}]
+  } else {
+    list "Tcl is not available"
+  }
+} -cleanup {
+  unset -nocomplain tcls added dll m4 d1 d2 d3 d4 d5 i1 code result zz
+  unset -nocomplain savedTclModule tclUnloadListName tclFinalizeListName
+} -constraints {eagle command.object native dynamic referenceCounts tclLibrary\
+command.library compile.EMIT compile.NATIVE compile.LIBRARY monoCrash48} \
+-isolationLevel Maximum -result {Ok True {} 5 1 {} {} {} {} {} {} 0 0 1 True}}
+
+###############################################################################
+
+if {[isEagle] && \
+    [haveConstraint dynamic] && \
+    [haveConstraint native] && \
+    [haveConstraint compile.EMIT] && \
+    [haveConstraint compile.NATIVE] && \
+    [haveConstraint compile.LIBRARY] && \
+    [haveConstraint compile.TCL] && \
+    [haveConstraint command.library] && \
+    [haveConstraint command.object] && \
+    [haveConstraint command.tcl]} then {
+  if {[info exists savedTclExitUnloadFlags]} then {
+    unset -nocomplain tclExitUnloadFlagsError
+
+    if {[catch {
+      object invoke -flags +NonPublic \
+          Interpreter.GetActive tclExitUnloadFlags $savedTclExitUnloadFlags
+    } tclExitUnloadFlagsError]} then {
+      if {![info exists no(warningForTclExitUnloadFlags)] && \
+          ![haveConstraint quiet]} then {
+        tputs $test_channel [appendArgs \
+            "==== WARNING: failed to restore unload flags for Tcl exit: " \
+            $tclExitUnloadFlagsError \n]
+      }
+    }
+  }
+
+  #
+  # HACK: Is the native Tcl module loaded at this point?  Also, did the above
+  #       test (i.e. "library-3.1") not call FreeLibrary twice for any reason
+  #       (e.g. it was skipped, it failed, etc)?  If not, make sure to unload
+  #       the native Tcl module now.  This is necessary because that test has
+  #       code which causes the FreeLibrary method to be called twice, thereby
+  #       completely unloading the native Tcl module from memory.  When it is
+  #       skipped, any pre-loaded native Tcl module will still be loaded when
+  #       the next test (i.e. "library-3.2") runs, which will cause subsequent
+  #       failures in other native Tcl integration subsystem tests, due to the
+  #       native Tcl module being finalized without being fully unloaded.
+  #
+  if {[tcl ready] && \
+      (![info exists env($tclFinalizeListName)] || \
+       [lsearch -exact -- $env($tclFinalizeListName) library-3.1] == -1 || \
+       ![info exists env($tclUnloadListName)] || \
+       [lsearch -exact -- $env($tclUnloadListName) library-3.1] == -1)} then {
+    #
+    # NOTE: Attempt to unload the native Tcl module, catching and reporting
+    #       any error.
+    #
+    unset -nocomplain tclUnloadError
+
+    if {[catch {tclUnloadForTest true} tclUnloadError]} then {
+      if {![info exists no(warningForTclUnload)] && \
+          ![haveConstraint quiet]} then {
+        tputs $test_channel [appendArgs \
+            "==== WARNING: failed to forcibly unload native Tcl module: " \
+            $tclUnloadError \n]
+      }
+    }
+  }
+}
+
+###############################################################################
+
+#
+# HACK: We need to set an actual variable with the value of the quiet
+#       constraint so that the [subst] invocation for the setup script for
+#       the next test can use it to set the quiet mode for the isolated
+#       interpreter created by that test.
+#
+unset -nocomplain quiet
+set quiet [haveConstraint quiet]
+
+###############################################################################
+
+unset -nocomplain test_log_if
+set test_log_if [expr {[info exists test_log] ? $test_log : ""}]
+
+###############################################################################
+
+if {[isEagle] && \
+    [haveConstraint dynamic] && \
+    [haveConstraint native] && \
+    [haveConstraint compile.EMIT] && \
+    [haveConstraint compile.NATIVE] && \
+    [haveConstraint compile.LIBRARY] && \
+    [haveConstraint compile.TCL] && \
+    [haveConstraint command.library] && \
+    [haveConstraint command.object] && \
+    [haveConstraint command.tcl]} then {
+  if {[catch {
+    object invoke -flags +NonPublic Interpreter.GetActive TclFindFlags
+  } tclFindFlags]} then {
+    set tclFindFlags Default
+  }
+} else {
+  set tclFindFlags ""
+}
+
+###############################################################################
+
+runTest {test library-3.2 {Tcl exit handler interaction} -setup [subst \
+    -nocommands -nobackslashes {
+  #
+  # NOTE: Check if the parent interpreter has the "quiet" test constraint
+  #       enabled via the value of the $quiet variable that was magically
+  #       "transferred" from the parent interpreter to this isolated test
+  #       interpreter via the enclosing [subst] invocation.  If so, enable
+  #       quiet mode and disable the default background error handler for
+  #       this isolated test interpreter to prevent superfluous console
+  #       output.
+  #
+  if {$quiet} then {
+    object invoke Eagle._Tests.Default TestSetQuiet "" true
+  }
+
+  #
+  # NOTE: Check for and load the Eagle test package, if necessary.
+  #
+  if {[catch {package present Eagle.Test}]} then {
+    package require Eagle.Test
+  }
+
+  #
+  # NOTE: Set the channel to use for test output, if necessary.
+  #
+  if {![info exists test_channel]} then {
+    set test_channel {$test_channel}
+  }
+
+  #
+  # NOTE: Set the log file name to use for test output, if necessary.
+  #
+  if {![info exists test_log]} then {
+    set test_log {$test_log_if}
+  }
+
+  #
+  # NOTE: Make sure the Tcl environment variable names for the isolated
+  #       interpreter matches the parent interpreter.
+  #
+  set tclFinalizeListName {$tclFinalizeListName}
+  set tclUnloadListName {$tclUnloadListName}
+
+  #
+  # NOTE: Make sure the Tcl find flags for the isolated interpreter
+  #       match the parent interpreter.
+  #
+  object invoke -flags +NonPublic \
+      Interpreter.GetActive TclFindFlags {$tclFindFlags}
+}] -body {
+  tclLoadForTest; # pre-load if necessary.
+
+  set tcls [tcl find -architecture --]
+
+  if {[llength $tcls] > 0} then {
+    set dll [tcl module]; # must use the same one we actually just loaded.
+
+    set added [addToPath [file nativename [file dirname $dll]]]
+
+    set m4 [library load [file tail $dll]]; # test load via PATH
+
+    if {$added} then {
+      removeFromPath [file nativename [file dirname $dll]]
+    }
+
+    set d1 [library declare -module $m4 -functionname \
+        Tcl_CreateInterp -callingconvention cdecl -returntype IntPtr]
+
+    set d2 [library declare -module $m4 -functionname \
+        Tcl_Eval -callingconvention cdecl -charset ansi -returntype \
+        ReturnCode -parametertypes [list IntPtr String]]
+
+    set d3 [library declare -module $m4 -functionname \
+        Tcl_GetStringResult -callingconvention cdecl -returntype \
+        IntPtr -parametertypes [list IntPtr]]
+
+    set d4 [library declare -module $m4 -functionname \
+        Tcl_DeleteInterp -callingconvention cdecl -parametertypes \
+        [list IntPtr]]
+
+    set d5 [library declare -module $m4 -functionname \
+        Tcl_Finalize -callingconvention cdecl]
+
+    set i1 [library call -create $d1]; # Tcl_CreateInterp
+
+    set code [library call $d2 $i1 {array names env}]; # Tcl_Eval
+
+    set result [object invoke -nocase \
+        System.Runtime.InteropServices.Marshal \
+        PtrToStringAnsi [set zz [library call -create $d3 $i1]]]
+
+    unset zz
+
+    library call $d4 $i1; # Tcl_DeleteInterp
+    unset i1
+
+    #
+    # HACK: Temporarily alter the Tcl API object unload flags for the active
+    #       interpreter.  We need this in order to be sure that the library
+    #       module handle is freed (i.e. since, for safety reasons, the exit
+    #       handler must now assume it is always being called via Tcl_Exit
+    #       and it cannot actually free the library module handle in that
+    #       case).  We should not need to restore these flags after the test
+    #       because the Tcl API object for the active interpreter should be
+    #       destroyed as soon as Tcl_Finalize is called.
+    #
+    object invoke -flags +NonPublic Interpreter.GetActive.tclApi \
+        unloadFlags {FromExitHandler FreeLibrary}
+
+    library call $d5; # Tcl_Finalize
+    lappend env($tclFinalizeListName) library-3.2
+
+    list $code [expr {[llength $result] > 0}] [unset result] \
+      [llength [info delegates]] [llength [info modules]] \
+      [library undeclare $d5] [library undeclare $d4] \
+      [library undeclare $d3] [library undeclare $d2] \
+      [library undeclare $d1] [library unload $m4] \
+      [llength [info delegates]] [llength [info modules]] \
+      [llength [info objects]] [catch {tclUnloadForTest true} msg] $msg \
+      [expr {[llength [lappend env($tclUnloadListName) library-3.2]] > 0}]
+  } else {
+    list "Tcl is not available"
+  }
+} -cleanup {
+  unset -nocomplain tcls added dll m4 d1 d2 d3 d4 d5 i1 code result zz msg
+  unset -nocomplain tclUnloadListName tclFinalizeListName
+} -constraints {eagle command.object native dynamic referenceCounts tclLibrary\
+monoBug20 monoCrash48 command.library compile.EMIT compile.NATIVE\
+compile.LIBRARY primaryThread Eagle._Tests.Default.TestSetQuiet} \
+-isolationLevel Maximum -result {Ok True {} 5 1 {} {} {} {} {} {} 0 0 1 1\
+{invalid Tcl API object} True}}
+
+###############################################################################
+
+unset -nocomplain tclFindFlags
+unset -nocomplain test_log_if
+unset -nocomplain quiet
+
+###############################################################################
+
+if {[isEagle] && \
+    [haveConstraint dynamic] && \
+    [haveConstraint native] && \
+    [haveConstraint compile.EMIT] && \
+    [haveConstraint compile.NATIVE] && \
+    [haveConstraint compile.LIBRARY] && \
+    [haveConstraint compile.TCL] && \
+    [haveConstraint command.library] && \
+    [haveConstraint command.object] && \
+    [haveConstraint command.tcl]} then {
+  unset -nocomplain tclUnloadError
+  unset -nocomplain tclExitUnloadFlagsError
+  unset -nocomplain savedTclExitUnloadFlags
+  unset -nocomplain tclModuleError
+  unset -nocomplain savedTclModule
+  unset -nocomplain env($tclUnloadListName) tclUnloadListName
+  unset -nocomplain env($tclFinalizeListName) tclFinalizeListName
+} else {
+  unset -nocomplain savedTclModule
+  unset -nocomplain tclUnloadListName
+  unset -nocomplain tclFinalizeListName
+}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

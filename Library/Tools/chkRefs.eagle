@@ -1,0 +1,181 @@
+###############################################################################
+#
+# chkRefs.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Assembly Reference Verification Tool
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+package require Eagle
+package require Eagle.Test
+
+proc usage { error } {
+  if {[string length $error] > 0} then {puts stdout $error}
+
+  puts stdout "usage:\
+[file tail [getShellExecutableName]]\
+[file tail [info script]] <directory>"
+
+  #
+  # NOTE: Indicate to the caller, if any, that we have failed.
+  #
+  exit 1
+}
+
+if {$argc == 1} then {
+  set directory [lindex $argv 0]
+
+  if {[string length $directory] == 0} then {
+    usage "invalid directory specified"
+  }
+
+  if {![file isdirectory $directory]} then {
+    usage [appendArgs \
+        "directory \"" $directory "\" does not exist"]
+  }
+
+  set script [info script]
+  set path [file dirname $script]
+  set rootName [file rootname [file tail $script]]
+
+  if {![info exists getRefs]} then {
+    if {[info exists env(GetRefsTool)]} then {
+      set getRefs $env(GetRefsTool)
+    }
+
+    if {![info exists getRefs] || ![file exists $getRefs]} then {
+      set getRefs [file join $path GetRefs.exe]
+    }
+  }
+
+  if {![info exists strict]} then {
+    set strict false
+  }
+
+  if {![info exists quiet]} then {
+    set quiet false
+  }
+
+  if {![info exists referencesFileName]} then {
+    set referencesFileName [file join \
+        $path data [appendArgs $rootName .lst]]
+  }
+
+  source $referencesFileName
+
+  if {![array exists references]} then {
+    usage "list of assembly references is missing"
+  }
+
+  set fileNames [list]
+
+  foreach extension [list dll exe] {
+    eval lappend fileNames [findFilesRecursive \
+        [file join $directory [appendArgs *. $extension]]]
+  }
+
+  set exitCode 0
+  set directory [file normalize $directory]
+  set directoryLength [string length $directory]
+
+  foreach fileName $fileNames {
+    if {[isStableEagleRelease 47 true]} then {
+      set underDirectory [string starts $directory \
+          $fileName]
+    } else {
+      set underDirectory [expr {
+        [string range $fileName 0 [expr \
+            {$directoryLength - 1}]] eq $directory
+      }]
+    }
+
+    if {!$underDirectory} then {
+      if {!$quiet} then {
+        puts stdout [appendArgs \
+            "WARNING: Assembly \"" $fileName \
+            "\" does not reside under directory \"" \
+            $directory "\", skipped."]
+      }
+
+      continue
+    }
+
+    set referenceFileName [string range \
+        $fileName [expr {$directoryLength + 1}] end]
+
+    set referenceFileName [string map \
+        [list netstandard2.0/ "" netstandard2.1/ "" \
+              netcoreapp2.0/  "" netcoreapp3.0/  ""] \
+        $referenceFileName]
+
+    if {![info exists references($referenceFileName)]} then {
+      if {!$quiet} then {
+        puts stdout [appendArgs \
+            "WARNING: Assembly \"" $referenceFileName \
+            "\" has no established references, skipped."]
+      }
+
+      continue
+    }
+
+    set wantReferences [subst -nocommands -nobackslashes \
+        $references($referenceFileName)]
+
+    unset references($referenceFileName)
+
+    if {[catch {
+      exec -success Success -nocarriagereturns -trimall -- \
+          $getRefs [appendArgs \" [file nativename $fileName] \"]
+    } result] == 0} then {
+      set haveReferences [subst -nocommands -nobackslashes \
+          [split $result \n]]
+    } else {
+      puts stdout [appendArgs \
+          "ERROR: Assembly \"" $referenceFileName \
+          "\" introspection error: " $result \n]
+
+      set exitCode 1
+      continue
+    }
+
+    foreach wantReference $wantReferences {
+      if {[lsearch -exact -- $haveReferences $wantReference] == -1} then {
+        puts stdout [appendArgs \
+            "ERROR: Assembly \"" $referenceFileName \
+            "\" has MISSING reference \"" $wantReference "\"."]
+
+        set exitCode 1
+      }
+    }
+
+    foreach haveReference $haveReferences {
+      if {[lsearch -exact -- $wantReferences $haveReference] == -1} then {
+        puts stdout [appendArgs \
+            "ERROR: Assembly \"" $referenceFileName \
+            "\" has EXTRA reference \"" $haveReference "\"."]
+
+        set exitCode 1
+      }
+    }
+  }
+
+  if {$strict && [array size references] > 0} then {
+    puts stdout [appendArgs \
+        "ERROR: Some assembly references not consumed: \n\t" [join \
+        [lsort [array names references]] \n\t]]
+
+    set exitCode 1
+  }
+
+  exit $exitCode
+} else {
+  usage ""
+}

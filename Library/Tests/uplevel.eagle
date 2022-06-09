@@ -1,0 +1,377 @@
+###############################################################################
+#
+# uplevel.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test downlevel-1.1 {basic downlevel} -setup {
+  proc deepdown {} {
+    lappend a 1
+    uplevel 1 {
+      lappend a 2
+      downlevel {
+        lappend a 3
+        uplevel #0 {
+          lappend a 4
+          downlevel {
+            lappend a 5
+          }
+        }
+      }
+    }
+    return $a
+  }
+
+  unset -nocomplain a
+} -body {
+  set a [list 0]; list [deepdown] $a
+} -cleanup {
+  rename deepdown ""
+
+  unset -nocomplain a
+} -constraints {eagle} -result {{1 3 5} {0 2 4}}}
+
+###############################################################################
+
+runTest {test downlevel-1.2 {downlevel w/info level} -setup {
+  proc deepdown {} {
+    lappend a [info level]; # 1
+    uplevel 1 {
+      lappend a [info level]; # 0
+      downlevel {
+        lappend a [info level]; # 1
+        uplevel #0 {
+          lappend a [info level]; # 0
+          downlevel {
+            lappend a [info level]; # 1
+          }
+        }
+      }
+    }
+    return $a
+  }
+
+  unset -nocomplain a
+} -body {
+  set a [list [info level]]; list [deepdown] $a
+} -cleanup {
+  rename deepdown ""
+
+  unset -nocomplain a
+} -constraints {eagle} -result {{1 1 1} {0 0 0}}}
+
+###############################################################################
+
+runTest {test downlevel-1.3 {downlevel w/info level X} -setup {
+  proc deepdown {} {
+    lappend a [info level [info level]]; # 1
+    uplevel 1 {
+      downlevel {
+        lappend a [info level [info level]]; # 1
+        uplevel #0 {
+          downlevel {
+            lappend a [info level [info level]]; # 1
+          }
+        }
+      }
+    }
+    return $a
+  }
+
+  unset -nocomplain a
+} -body {
+  set a [list]; list [deepdown] $a
+} -cleanup {
+  rename deepdown ""
+
+  unset -nocomplain a
+} -constraints {eagle} -result {{deepdown deepdown deepdown} {}}}
+
+###############################################################################
+
+runTest {test downlevel-1.4 {downlevel w/info levelid} -setup {
+  proc deepdown {} {
+    lappend a [info levelid]
+    uplevel 1 {
+      lappend a [info levelid]
+      downlevel {
+        lappend a [info levelid]
+        uplevel #0 {
+          lappend a [info levelid]
+          downlevel {
+            lappend a [info levelid]
+          }
+        }
+      }
+    }
+    return $a
+  }
+
+  unset -nocomplain a
+} -body {
+  set a [list [info levelid]]; list [deepdown] $a
+} -cleanup {
+  rename deepdown ""
+
+  unset -nocomplain a
+} -constraints {eagle testCallStack} -match regexp -result \
+{^\{(?:3|4) (?:3|4) (?:3|4)\} \{0 0 0\}$}}
+
+###############################################################################
+
+runTest {test downlevel-1.5 {downlevel w/info level & two procs} -setup {
+  proc deepdown1 {} {
+    lappend ::a [info level]; # 1
+    deepdown2
+    uplevel 1 {
+      lappend ::a [info level]; # 0
+      deepdown2
+      downlevel {
+        lappend ::a [info level]; # 1
+        deepdown2
+        uplevel #0 {
+          lappend ::a [info level]; # 0
+          deepdown2
+          downlevel {
+            lappend ::a [info level]; # 1
+            deepdown2
+          }
+        }
+      }
+    }
+    return ""
+  }
+
+  proc deepdown2 {} {
+    lappend ::a [info level]; # 2 ==> 1
+    uplevel 1 {
+      lappend ::a [info level]; # 1 ==> 0
+      downlevel {
+        lappend ::a [info level]; # 2 ==> 1
+        uplevel #0 {
+          lappend ::a [info level]; # 0 ==> 0
+          downlevel {
+            lappend ::a [info level]; # 2 ==> 1
+          }
+        }
+      }
+    }
+    return ""
+  }
+
+  unset -nocomplain a
+} -body {
+  deepdown1; set a
+} -cleanup {
+  rename deepdown2 ""
+  rename deepdown1 ""
+
+  unset -nocomplain a
+} -constraints {eagle} -result {1 2 1 2 0 2 0 1 0 1 0 1 1 1 0 1 0 1 0 1 0 1 0 1\
+1 1 0 1 0 1}}
+
+###############################################################################
+
+runTest {test downlevel-1.6 {downlevel w/info level X & two procs} -setup {
+  proc deepdown1 {} {
+    lappend ::a [info level [info level]]; # deepdown1
+    deepdown2; # deepdown2 (x3)
+    uplevel 1 {
+      deepdown2; # deepdown2 (x3)
+      downlevel {
+        lappend ::a [info level [info level]]; # deepdown1
+        deepdown2; # deepdown2 (x3)
+        uplevel #0 {
+          deepdown2; # deepdown2 (x3)
+          downlevel {
+            lappend ::a [info level [info level]]; # deepdown1
+            deepdown2; # deepdown2 (x3)
+          }
+        }
+      }
+    }
+    return ""
+  }
+
+  proc deepdown2 {} {
+    lappend ::a [info level [info level]]; # deepdown2
+    uplevel 1 {
+      downlevel {
+        lappend ::a [info level [info level]]; # deepdown2
+        uplevel #0 {
+          downlevel {
+            lappend ::a [info level [info level]]; # deepdown2
+          }
+        }
+      }
+    }
+    return ""
+  }
+
+  unset -nocomplain a
+} -body {
+  deepdown1; set a
+} -cleanup {
+  rename deepdown2 ""
+  rename deepdown1 ""
+
+  unset -nocomplain a
+} -constraints {eagle} -result {deepdown1 deepdown2 deepdown2 deepdown2\
+deepdown2 deepdown2 deepdown2 deepdown1 deepdown2 deepdown2 deepdown2 deepdown2\
+deepdown2 deepdown2 deepdown1 deepdown2 deepdown2 deepdown2}}
+
+###############################################################################
+
+set ::uplevel1 ""
+
+proc foo { a } {
+  append ::uplevel1 "foo start\n"
+  append ::uplevel1 [lindex [info level 0] 0] \n; # foo
+  global x
+  set x 1
+  set z [expr {$a + $x}]
+  bar [expr {$a + 1}]
+  append ::uplevel1 "foo end\n"
+}
+
+proc bar { b } {
+  append ::uplevel1 "bar start\n"
+  append ::uplevel1 [lindex [info level 0] 0] \n; # bar
+  append ::uplevel1 "locals = [info locals]\n"; # b
+  append ::uplevel1 "globals = [info globals x]\n"; # x
+
+  uplevel 1 {
+    append ::uplevel1 [lindex [info level 0] 0] \n; # foo
+  }
+
+  uplevel 1 {
+    append ::uplevel1 [lindex [info level 0] 0] \n; # foo
+
+    set error ""
+
+    catch {
+      uplevel 1 {
+        append ::uplevel1 [info level] \n; # 0
+        append ::uplevel1 [lindex [info level [info level]] 0] \n; # error
+      }
+    } error
+
+    append ::uplevel1 $error \n; # bad level "0"
+    unset error
+
+    uplevel 1 {
+      uplevel #0 {
+        append ::uplevel1 [info level] \n; # 0
+      }
+
+      catch {
+        uplevel #1 {
+          append ::uplevel1 "FAIL [info level]\n"
+        }
+      }
+
+      catch {
+        uplevel #2 {
+          append ::uplevel1 "FAIL [info level]\n"
+        }
+      }
+    }
+  }
+
+  uplevel 2 {
+    set error ""
+
+    catch {
+      append ::uplevel1 [info level] \n; # 0
+      append ::uplevel1 [lindex [info level [info level]] 0] \n; # error
+    } error
+
+    append ::uplevel1 $error \n; # bad level "0"
+    unset error
+  }
+
+  uplevel #0 {
+    set error ""
+
+    catch {
+      append ::uplevel1 [info level] \n; # 0
+      append ::uplevel1 [lindex [info level [info level]] 0] \n; # error
+    } error
+
+    append ::uplevel1 $error \n; # bad level "0"
+    unset error
+  }
+
+  append ::uplevel1 "bar end" \n
+}
+
+###############################################################################
+#                               EXPECTED RESULTS                              #
+###############################################################################
+#
+# foo start
+# foo
+# bar start
+# bar
+# locals = b
+# globals = x
+# foo
+# foo
+# 0
+# bad level "0"
+# 0
+# 0
+# bad level "0"
+# 0
+# bad level "0"
+# bar end
+# foo end
+#
+###############################################################################
+
+runTest {test uplevel-11.1 {basic uplevel} -body {
+  foo 1; return $::uplevel1
+} -cleanup {
+  unset -nocomplain x
+} -result {foo start
+foo
+bar start
+bar
+locals = b
+globals = x
+foo
+foo
+0
+bad level "0"
+0
+0
+bad level "0"
+0
+bad level "0"
+bar end
+foo end
+}}
+
+###############################################################################
+
+rename foo ""
+rename bar ""
+
+unset -nocomplain ::uplevel1
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

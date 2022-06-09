@@ -1,0 +1,39 @@
+###############################################################################
+#
+# tcl-reset-cancel.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test tclResetCancel-1.1 {Tcl TIP #285, no reset ok} -setup {
+  unset -nocomplain interp
+  tclLoadForTest tcl_loaded
+  set interp [tcl create]
+} -body {
+  after 1000 [list tcl cancel $interp]
+  catch {tcl eval $interp {while {1} {update; eagle update}}}
+  tcl eval $interp pid
+} -cleanup {
+  if {[info exists interp]} then {tcl delete $interp}
+  tclUnloadForTest false tcl_loaded
+  unset -nocomplain interp
+} -constraints \
+{eagle native dynamic tclLibrary86 command.tcl compile.NATIVE compile.TCL\
+primaryThread} \
+-result [pid]}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

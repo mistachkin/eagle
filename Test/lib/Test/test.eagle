@@ -1,0 +1,39 @@
+###############################################################################
+#
+# test.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Test Shell Initialization File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  proc formatTestStatus { id name result } {
+    return [string trim [appendArgs TEST " Id " \
+        [string toupper $id] " \"" $name "\": " $result]]
+  }
+
+  proc formatTestItem { id name result } {
+    return [string trim [appendArgs [string toupper $id] \
+        \t $name \t\t $result]]
+  }
+
+  #
+  # NOTE: Provide the package to the interpreter.
+  #
+  package provide Eagle.Test.Shell \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

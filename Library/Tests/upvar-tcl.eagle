@@ -1,0 +1,533 @@
+###############################################################################
+#
+# upvar-tcl.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test upvar-1.1 {reading variables with upvar} -body {
+  proc p1 {a b} {set c 22; set d 33; p2}
+  proc p2 {} {upvar a x1 b x2 c x3 d x4; set a abc; list $x1 $x2 $x3 $x4 $a}
+  p1 foo bar
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+} -result {foo bar 22 33 abc}}
+
+###############################################################################
+
+runTest {test upvar-1.2 {reading variables with upvar} -body {
+  proc p1 {a b} {set c 22; set d 33; p2}
+  proc p2 {} {p3}
+  proc p3 {} {upvar 2 a x1 b x2 c x3 d x4; set a abc; list $x1 $x2 $x3 $x4 $a}
+  p1 foo bar
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+  rename p3 ""
+} -result {foo bar 22 33 abc}}
+
+###############################################################################
+
+runTest {test upvar-1.3 {reading variables with upvar} -body {
+  proc p1 {a b} {set c 22; set d 33; p2}
+  proc p2 {} {p3}
+  proc p3 {} {
+    upvar #1 a x1 b x2 c x3 d x4
+    set a abc
+    list $x1 $x2 $x3 $x4 $a
+  }
+  p1 foo bar
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+  rename p3 ""
+} -result {foo bar 22 33 abc}}
+
+###############################################################################
+
+runTest {test upvar-1.4 {reading variables with upvar} -body {
+  set x1 44
+  set x2 55
+  proc p1 {} {p2}
+  proc p2 {} {
+    upvar 2 x1 x1 x2 a
+    upvar #0 x1 b
+    set c $b
+    incr b 3
+    list $x1 $a $b
+  }
+  p1
+} -cleanup {
+  unset -nocomplain x1 x2
+  rename p1 ""
+  rename p2 ""
+} -result {47 55 47}}
+
+###############################################################################
+
+runTest {test upvar-1.5 {reading array elements with upvar} -body {
+  proc p1 {} {set a(0) zeroth; set a(1) first; p2}
+  proc p2 {} {upvar a(0) x; set x}
+  p1
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+} -result {zeroth}}
+
+###############################################################################
+
+runTest {test upvar-2.1 {writing variables with upvar} -body {
+  proc p1 {a b} {set c 22; set d 33; p2; list $a $b $c $d}
+  proc p2 {} {
+    upvar a x1 b x2 c x3 d x4
+    set x1 14
+    set x4 88
+  }
+  p1 foo bar
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+} -result {14 bar 22 88}}
+
+###############################################################################
+
+runTest {test upvar-2.2 {writing variables with upvar} -body {
+  set x1 44
+  set x2 55
+  proc p1 {x1 x2} {
+    upvar #0 x1 a
+    upvar x2 b
+    set a $x1
+    set b $x2
+  }
+  p1 newbits morebits
+  list $x1 $x2
+} -cleanup {
+  unset -nocomplain x1 x2
+  rename p1 ""
+} -result {newbits morebits}}
+
+###############################################################################
+
+runTest {test upvar-2.3 {writing variables with upvar} -body {
+  catch {unset x1}
+  catch {unset x2}
+  proc p1 {x1 x2} {
+    upvar #0 x1 a
+    upvar x2 b
+    set a $x1
+    set b $x2
+  }
+  p1 newbits morebits
+  list [catch {set x1} msg] $msg [catch {set x2} msg] $msg
+} -cleanup {
+  unset -nocomplain msg x1 x2
+  rename p1 ""
+} -result {0 newbits 0 morebits}}
+
+###############################################################################
+
+runTest {test upvar-2.4 {writing array elements with upvar} -body {
+  proc p1 {} {set a(0) zeroth; set a(1) first; list [p2] $a(0)}
+  proc p2 {} {upvar a(0) x; set x xyzzy}
+  p1
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+} -result {xyzzy xyzzy}}
+
+###############################################################################
+
+runTest {test upvar-3.1 {unsetting variables with upvar} -body {
+  proc p1 {a b} {set c 22; set d 33; p2; lsort [info vars]}
+  proc p2 {} {
+    upvar 1 a x1 d x2
+    unset x1 x2
+  }
+  p1 foo bar
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+} -result {b c}}
+
+###############################################################################
+
+runTest {test upvar-3.2 {unsetting variables with upvar} -body {
+  proc p1 {a b} {set c 22; set d 33; p2; lsort [info vars]}
+  proc p2 {} {
+    upvar 1 a x1 d x2
+    unset x1 x2
+    set x2 28
+  }
+  p1 foo bar
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+} -result {b c d}}
+
+###############################################################################
+
+runTest {test upvar-3.3 {unsetting variables with upvar} -body {
+  set x1 44
+  set x2 55
+  proc p1 {} {p2}
+  proc p2 {} {
+    upvar 2 x1 a
+    upvar #0 x2 b
+    unset a b
+  }
+  p1
+  list [info exists x1] [info exists x2]
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test upvar-3.4 {unsetting variables with upvar} -body {
+  set x1 44
+  set x2 55
+  proc p1 {} {
+    upvar x1 a x2 b
+    unset a b
+    set b 118
+  }
+  p1
+  list [info exists x1] [catch {set x2} msg] $msg
+} -cleanup {
+  unset -nocomplain msg x1 x2
+  rename p1 ""
+} -result {0 0 118}}
+
+###############################################################################
+
+runTest {test upvar-3.5 {unsetting array elements with upvar} -body {
+  proc p1 {} {
+    set a(0) zeroth
+    set a(1) first
+    set a(2) second
+    p2
+    array names a
+  }
+  proc p2 {} {upvar a(0) x; unset x}
+  p1
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+} -result {1 2}}
+
+###############################################################################
+
+runTest {test upvar-3.6 {unsetting/resetting array elements with upvar} -body {
+  proc p1 {} {
+    set a(0) zeroth
+    set a(1) first
+    set a(2) second
+    p2
+    list [array names a] [catch {set a(0)} msg] $msg
+  }
+  proc p2 {} {upvar a(0) x; unset x; set x 12345}
+  p1
+} -cleanup {
+  rename p1 ""
+  rename p2 ""
+} -result {{0 1 2} 0 12345}}
+
+###############################################################################
+
+runTest {test upvar-4.1 {nested upvars} -body {
+  set x1 88
+  proc p1 {a b} {set c 22; set d 33; p2}
+  proc p2 {} {global x1; upvar c x2; p3}
+  proc p3 {} {
+    upvar x1 a x2 b
+    list $a $b
+  }
+  p1 14 15
+} -cleanup {
+  unset -nocomplain x1
+  rename p1 ""
+  rename p2 ""
+  rename p3 ""
+} -result {88 22}}
+
+###############################################################################
+
+runTest {test upvar-4.2 {nested upvars} -body {
+  set x1 88
+  proc p1 {a b} {set c 22; set d 33; p2; list $a $b $c $d}
+  proc p2 {} {global x1; upvar c x2; p3}
+  proc p3 {} {
+    upvar x1 a x2 b
+    set a foo
+    set b bar
+  }
+  list [p1 14 15] $x1
+} -cleanup {
+  unset -nocomplain x1
+  rename p1 ""
+  rename p2 ""
+  rename p3 ""
+} -result {{14 15 bar 33} foo}}
+
+###############################################################################
+
+runTest {test upvar-6.1 {retargeting an upvar} -body {
+  proc p1 {} {
+    set a(0) zeroth
+    set a(1) first
+    set a(2) second
+    p2
+  }
+  proc p2 {} {
+    upvar a x
+    set result {}
+    foreach i [array names x] {
+      upvar a($i) x
+      lappend result $x
+    }
+    lsort $result
+  }
+  p1
+} -cleanup {
+  unset -nocomplain x1
+  rename p1 ""
+  rename p2 ""
+} -result {first second zeroth}}
+
+###############################################################################
+
+runTest {test upvar-6.2 {retargeting an upvar} -body {
+  set x 44
+  set y abcde
+  proc p1 {} {
+    global x
+    set result $x
+    upvar y x
+    lappend result $x
+  }
+  p1
+} -cleanup {
+  unset -nocomplain x y
+  rename p1 ""
+} -result {44 abcde}}
+
+###############################################################################
+
+runTest {test upvar-6.3 {retargeting an upvar} -body {
+  set x 44
+  set y abcde
+  proc p1 {} {
+    upvar y x
+    lappend result $x
+    global x
+    lappend result $x
+  }
+  p1
+} -cleanup {
+  unset -nocomplain x y
+  rename p1 ""
+} -result {abcde 44}}
+
+###############################################################################
+
+runTest {test upvar-7.1 {upvar to same level} -body {
+  set x 44
+  set y 55
+  catch {unset uv}
+  upvar #0 x uv
+  set uv abc
+  upvar 0 y uv
+  set uv xyzzy
+  list $x $y
+} -cleanup {
+  unset -nocomplain uv x y
+} -result {abc xyzzy}}
+
+###############################################################################
+
+runTest {test upvar-7.2 {upvar to same level} -body {
+  set x 1234
+  set y 4567
+  proc p1 {x y} {
+    upvar 0 x uv
+    set uv $y
+    return "$x $y"
+  }
+  p1 44 89
+} -cleanup {
+  unset -nocomplain x y
+  rename p1 ""
+} -result {89 89}}
+
+###############################################################################
+
+runTest {test upvar-7.3 {upvar to same level} -body {
+  set x 1234
+  set y 4567
+  proc p1 {x y} {
+    upvar #1 x uv
+    set uv $y
+    return "$x $y"
+  }
+  p1 xyz abc
+} -cleanup {
+  unset -nocomplain x y
+  rename p1 ""
+} -result {abc abc}}
+
+###############################################################################
+
+runTest {test upvar-7.4 {upvar to same level: deleting variable table} -body {
+  proc tt {} {upvar #1 toto loc;  return $loc}
+  list [catch tt msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+  rename tt ""
+} -result {1 {can't read "loc": no such variable}}}
+
+###############################################################################
+
+runTest {test upvar-7.5 {potential memory leak deleting variable table} -body {
+  proc leak {} {
+    array set foo {1 2 3 4}
+    upvar 0 foo(1) bar
+  }
+  leak
+} -cleanup {
+  rename leak ""
+} -result {}}
+
+###############################################################################
+
+runTest {test upvar-8.1 {errors in upvar command} -body {
+  list [catch upvar msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -result {1 {wrong # args: should be "upvar ?level? otherVar localVar\
+?otherVar localVar ...?"}}}
+
+###############################################################################
+
+runTest {test upvar-8.2 {errors in upvar command} -body {
+  list [catch {upvar 1} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -result {1 {wrong # args: should be "upvar ?level? otherVar localVar\
+?otherVar localVar ...?"}}}
+
+###############################################################################
+
+runTest {test upvar-8.3.1 {errors in upvar command} -body {
+  proc p1 {} {upvar a b c}
+  list [catch p1 msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+  rename p1 ""
+} -constraints [fixConstraints {!tcl86}] -result \
+{1 {wrong # args: should be "upvar ?level? otherVar localVar ?otherVar\
+localVar ...?"}}}
+
+###############################################################################
+
+runTest {test upvar-8.3.2 {errors in upvar command} -body {
+  proc p1 {} {upvar a b c}
+  list [catch p1 msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+  rename p1 ""
+} -constraints {tcl86} -result {1 {bad level "a"}}}
+
+###############################################################################
+
+runTest {test upvar-8.4 {errors in upvar command} -body {
+  proc p1 {} {upvar 0 b b}
+  list [catch p1 msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+  rename p1 ""
+} -result {1 {can't upvar from variable to itself}}}
+
+###############################################################################
+
+runTest {test upvar-8.5 {errors in upvar command} -body {
+  proc p1 {} {upvar 0 a b; upvar 0 b a}
+  list [catch p1 msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+  rename p1 ""
+} -result {1 {can't upvar from variable to itself}}}
+
+###############################################################################
+
+runTest {test upvar-8.6 {errors in upvar command} -body {
+  proc p1 {} {set a 33; upvar b a}
+  list [catch p1 msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+  rename p1 ""
+} -result {1 {variable "a" already exists}}}
+
+###############################################################################
+
+runTest {test upvar-8.8 {create nested array with upvar} -body {
+  proc p1 {} {upvar x(a) b; set b(2) 44}
+  catch {unset x}
+  list [catch p1 msg] $msg
+} -cleanup {
+  unset -nocomplain msg x
+  rename p1 ""
+} -result {1 {can't set "b(2)": variable isn't array}}}
+
+###############################################################################
+
+runTest {test upvar-8.10 {will create alias for new array element} -body {
+  catch {unset upvarArray}
+  array set upvarArray {}
+  catch {upvar 0 upvarArray(elem) upvarArrayElemAlias}
+} -cleanup {
+  #
+  # HACK: Re-target the variable link so that we can clean it up.
+  #
+  unset -nocomplain upvarArray
+  upvar #0 zzzz upvarArrayElemAlias
+  set upvarArrayElemAlias zzzz; unset -nocomplain upvarArrayElemAlias
+} -constraints {eagle} -result {0}}
+
+###############################################################################
+
+runTest {test upvar-8.11.1 {will not create var that looks like array} -body {
+  catch {unset upvarArray}
+  array set upvarArray {}
+  upvar 0 upvarArray(elem) upvarArrayElemAlias(elem)
+} -cleanup {
+  unset -nocomplain upvarArray
+} -constraints [fixConstraints {!tcl84}] -returnCodes 1 -match glob -result *}
+
+###############################################################################
+
+runTest {test upvar-8.11.2 {will not create var that looks like array} -body {
+  catch {unset upvarArray}
+  array set upvarArray {}
+  upvar 0 upvarArray(elem) upvarArrayElemAlias(elem)
+} -cleanup {
+  unset -nocomplain upvarArray
+} -constraints {eagle} -returnCodes 1 -match glob -result *}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

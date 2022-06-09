@@ -1,0 +1,270 @@
+###############################################################################
+#
+# info.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Information Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure returns the list of options that were used when
+  #       compiling the Eagle core library.
+  #
+  proc getCompileInfo {} {
+    #
+    # NOTE: Return the important compile-time information for use by the
+    #       setup or other callers.
+    #
+    return [expr {[isEagle] ? [lappend result \
+        TimeStamp $::eagle_platform(timeStamp) \
+        ImageRuntimeVersion $::eagle_platform(imageRuntimeVersion) \
+        ModuleVersionId $::eagle_platform(moduleVersionId) \
+        CompileOptions $::eagle_platform(compileOptions)] : ""}]
+  }
+
+  #
+  # NOTE: This procedure returns the specified Eagle platform information,
+  #       if available; otherwise a default value is returned instead.
+  #
+  proc getPlatformInfo { name {default ""} } {
+    #
+    # NOTE: Return the important platform information for use by the test
+    #       suite or other callers.
+    #
+    return [expr {[isEagle] && [info exists ::eagle_platform($name)] && \
+        [string length [string trim $::eagle_platform($name)]] > 0 ? \
+        $::eagle_platform($name) : $default}]
+  }
+
+  #
+  # NOTE: This procedure returns the name of the first loaded plugin that
+  #       matches the specified pattern.
+  #
+  proc getPluginName { pattern } {
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #
+    foreach loaded [info loaded] {
+      if {[regexp -- $pattern [lindex $loaded end]]} then {
+        return [lindex $loaded 1]
+      }
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure returns the fully qualified file name of the first
+  #       loaded plugin that matches the specified pattern.
+  #
+  proc getPluginPath { pattern } {
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #
+    foreach loaded [info loaded] {
+      if {[regexp -- $pattern [lindex $loaded end]]} then {
+        return [lindex $loaded 0]
+      }
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure returns the fully qualified directory name where new
+  #       packages targeting the interpreter should be installed.  The return
+  #       values of this procedure are subject to change in future releases.
+  #
+  proc getPackageInstallPath { {packageName ""} {temporaryPrefix ""} } {
+    #
+    # NOTE: Skip using the Tcl library location if that has been explicitly
+    #       forbidden.
+    #
+    if {![info exists ::no(getPackageInstallPath)]} then {
+      #
+      # NOTE: First, check if the Tcl library variable exists and its location
+      #       exists.  The location may refer to a file.
+      #
+      global tcl_library
+
+      if {[info exists tcl_library]} then {
+        #
+        # NOTE: What is the parent directory for the Tcl library location?  If
+        #       the Tcl library location was a file, it should be a directory;
+        #       if it was already a directory, it should still be one.  Either
+        #       way, the new (directory) location must be writable.
+        #
+        set directory [file dirname $tcl_library]
+
+        if {[file exists $directory] && [file isdirectory $directory] && \
+            [file writable $directory]} then {
+          #
+          # HACK: Use a common root directory for all "dynamically" installed
+          #       packages.
+          #
+          set directory [file join $directory install]
+          file mkdir $directory
+
+          #
+          # NOTE: Ok, all checks passed, return the location.  Callers of this
+          #       procedure should generally not put files directly within it;
+          #       instead, they should create a sub-directory within it, named
+          #       appropriately.  If a package name was supplied by the caller
+          #       it will be used.  In that case, the resulting directory will
+          #       be created if necessary.
+          #
+          if {[string length $packageName] > 0} then {
+            set directory [file join $directory $packageName]
+            file mkdir $directory
+          }
+
+          if {[llength [info commands pkgInstallLog]] > 0} then {
+            pkgInstallLog {install persistent} $packageName $directory
+          }
+
+          return $directory
+        }
+      }
+    }
+
+    #
+    # NOTE: Next, since the fallback location requires the test package, load
+    #       it now.
+    #
+    package require Eagle.Test
+
+    #
+    # NOTE: Return the temporary directory as the fallback location.  Callers
+    #       of this procedure should generally not put files directly within
+    #       it; instead, they should create a sub-directory within it, named
+    #       appropriately.  If a temporary prefix was supplied by the caller
+    #       it will be used.  In that case, the resulting directory will be
+    #       created if necessary.
+    #
+    set directory [getTemporaryPath]
+
+    if {[string length $temporaryPrefix] > 0} then {
+      set directory [file join \
+          $directory [appendArgs $temporaryPrefix - \
+          [pid] - [string trim [clock seconds] -]]]
+
+      file mkdir $directory
+    }
+
+    set directory [file join $directory install]
+    file mkdir $directory
+
+    if {[string length $packageName] > 0} then {
+      set directory [file join $directory $packageName]
+      file mkdir $directory
+    }
+
+    if {[llength [info commands pkgInstallLog]] > 0} then {
+      pkgInstallLog {install temporary} $packageName $directory
+    }
+
+    return $directory
+  }
+
+  #
+  # NOTE: This procedure returns the Eagle core library base path, e.g. a
+  #       value like "C:\Eagle" when loaded from "C:\Eagle\bin\Eagle.dll".
+  #
+  proc getBasePath {} {
+    set assembly [object invoke -flags +NonPublic \
+        Eagle._Components.Private.GlobalState GetAssembly]
+
+    return [object invoke -flags +NonPublic \
+        Eagle._Components.Private.PathOps GetBasePath $assembly \
+        [file dirname [lindex [info assembly] 1]]]
+  }
+
+  #
+  # NOTE: This procedure returns the flags for the first loaded plugin that
+  #       matches the specified pattern.
+  #
+  proc getPluginFlags { pattern } {
+    foreach loaded [info loaded] {
+      set plugin [lindex $loaded end]
+
+      if {[regexp -- $pattern $plugin]} then {
+        return [string map [list , " "] \
+            [getDictionaryValue [info plugin $plugin] flags]]
+      }
+    }
+
+    return [list]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the Eagle Native Package for
+  #       Tcl (Garuda) is loaded into the primary native Tcl interpreter.
+  #
+  proc haveGaruda { {varName ""} } {
+    #
+    # NOTE: Check for a variable name to place the Garuda package Id into.
+    #
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName packageId
+    }
+
+    #
+    # NOTE: Is the Eagle Package for Tcl (Garuda) available?  This check
+    #       is different in Eagle and Tcl.
+    #
+    if {[isEagle]} then {
+      return [expr {[llength [info commands tcl]] > 0 && [tcl ready] && \
+          [catch {tcl eval [tcl primary] {package present Garuda}}] == 0 && \
+          [catch {tcl eval [tcl primary] {garuda packageid}} packageId] == 0}]
+    } else {
+      return [expr {[catch {package present Garuda}] == 0 && \
+          [catch {garuda packageid} packageId] == 0}]
+    }
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified name represents
+  #       a thread managed by the native Tcl integration subsystem of Eagle.
+  #
+  proc isTclThread { name } {
+    #
+    # NOTE: For now, this check only works in Eagle.
+    #
+    set result false
+
+    if {[isEagle]} then {
+      catch {
+        if {[llength [info commands tcl]] > 0 && [tcl ready] && \
+            [lsearch -exact -- [tcl threads] $name] != -1} then {
+          #
+          # NOTE: The name specified by the caller appears in the
+          #       list of Tcl threads for this Eagle interpreter.
+          #
+          set result true
+        }
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: Provide the Eagle "info" package to the interpreter.
+  #
+  package provide Eagle.Information \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}

@@ -1,0 +1,247 @@
+###############################################################################
+#
+# unzip.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Unzip Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure sets up the default values for all configuration
+  #       parameters used by this package.  If the force argument is non-zero,
+  #       any existing values will be overwritten and set back to their
+  #       default values.
+  #
+  proc setupUnzipVars { force } {
+    #
+    # NOTE: Using the [getAuxiliaryBaseUri] procedure requires the update
+    #       package.
+    #
+    # NOTE: The base URI used to build the URIs for the unzip command line
+    #       tool downloads.
+    #
+    variable baseUri; # DEFAULT: [getAuxiliaryBaseUri] -OR- https://urn.to/r
+
+    if {$force || ![info exists baseUri]} then {
+      if {[isEagle]} then {
+        set baseUri [getAuxiliaryBaseUri]
+      } else {
+        set baseUri https://urn.to/r
+      }
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where the unzip command
+    #       line tool may be downloaded.
+    #
+    variable unzipUrn; # DEFAULT: unzip
+
+    if {$force || ![info exists unzipUrn]} then {
+      set unzipUrn unzip
+    }
+
+    #
+    # NOTE: The URI where the unzip command line tool may be downloaded.
+    #
+    variable unzipUri; # DEFAULT: ${baseUri}/${unzipUrn}
+
+    if {$force || ![info exists unzipUri]} then {
+      set unzipUri {${baseUri}/${unzipUrn}}
+    }
+
+    #
+    # NOTE: The command to use when attempting to verify that UnZip is
+    #       installed locally.
+    #
+    variable unzipInstalledCommand; # DEFAULT: unzip
+
+    if {$force || ![info exists unzipInstalledCommand]} then {
+      set unzipInstalledCommand unzip
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that UnZip is installed locally.
+    #
+    variable unzipInstalledPattern; # DEFAULT: ^UnZip ..., by Info-ZIP\.
+
+    if {$force || ![info exists unzipInstalledPattern]} then {
+      set unzipInstalledPattern \
+          {^UnZip \d+\.\d+ of \d{1,2} \w+ \d{4},[\w\s\.]* by Info-ZIP\.}
+    }
+
+    #
+    # NOTE: The command to use when attempting to unzip an archive.
+    #
+    variable unzipExtractCommand; # DEFAULT: unzip ...
+
+    if {$force || ![info exists unzipExtractCommand]} then {
+      set unzipExtractCommand {unzip -n {${fileName}} -d {${directory}}}
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that an implementation of the
+  #       unzip command line tool is installed locally.  There are no
+  #       arguments.  Script errors are raised if any problems are found.
+  #       The return value is undefined.
+  #
+  proc unzipMustBeInstalled {} {
+    variable unzipInstalledCommand
+    variable unzipInstalledPattern
+
+    set message {
+      Cannot use UnZip: it does not appear to be installed.
+
+      UnZip may be downloaded from "https://www.info-zip.org/"
+      and then installed by copying the (single) UnZip binary to
+      a directory that lies somewhere along the executable search
+      path.
+
+      Alternatively, it may be possible to install UnZip via the
+      package management subsystem included with your operating
+      system.
+    }
+
+    if {[isEagle]} then {
+      if {[catch {
+        eval exec -success Success $unzipInstalledCommand
+      } result]} then {
+        error $message
+      }
+    } else {
+      if {[catch {
+        eval exec $unzipInstalledCommand
+      } result]} then {
+        error $message
+      }
+    }
+
+    if {![info exists result] || \
+        ![regexp -- $unzipInstalledPattern $result]} then {
+      error "cannot use UnZip: unknown or unsupported version"
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure attempts to use the unzip command line tool in order
+  #       to extract a ZIP archive file.  The archiveFileName argument is the
+  #       ZIP archive file to extract.  The extractRootDirectory argument is
+  #       the location of a directory that should contain a new temporary
+  #       extraction directory.  The actual temporary extraction directory is
+  #       returned.
+  #
+  proc extractZipArchive { archiveFileName extractRootDirectory rootOnly } {
+    setupUnzipVars false
+
+    variable baseUri
+    variable unzipExtractCommand
+    variable unzipUri
+    variable unzipUrn
+    variable unzipVersionCommand
+
+    set fileName [file nativename $archiveFileName]
+
+    if {$rootOnly} then {
+      set extractDirectory $extractRootDirectory
+    } else {
+      set extractDirectory [file join $extractRootDirectory \
+          [appendArgs ea-uz-xa- [pid] - [string trim [clock seconds] -]]]
+    }
+
+    set directory [file nativename $extractDirectory]
+
+    if {[isEagle]} then {
+      #
+      # HACK: On Windows only, when the unzip command line tool does
+      #       not appear to be installed, attempt to download it to a
+      #       temporary directory and use it from there.  In theory,
+      #       if this procedure is called multiple times, this should
+      #       only be necessary the first time.
+      #
+      if {[isWindows] && [catch {unzipMustBeInstalled}]} then {
+        set uri [subst $unzipUri]
+        set exeFileName [file tempname]
+
+        uri download $uri $exeFileName
+
+        #
+        # NOTE: *SECURITY* The downloaded unzip command line tool must
+        #       be signed; otherwise, it will be deleted and a script
+        #       error will be raised.
+        #
+        if {[catch {library certificate $exeFileName}]} then {
+          if {![info exists ::no(deleteExtractZipArchiveFile)]} then {
+            catch {file delete $exeFileName}
+          }
+
+          error "cannot use UnZip: downloaded file was not properly signed"
+        }
+
+        #
+        # NOTE: Create a brand new temporary directory, underneath the
+        #       extraction root directory, that will be added to the
+        #       executable search path and move the downloaded file to
+        #       it.
+        #
+        set exeDirectory [file join $extractRootDirectory \
+            [appendArgs ea-uz-xt- [pid] - [string trim [clock seconds] -]]]
+
+        file mkdir $exeDirectory
+        file copy $exeFileName [file join $exeDirectory unzip.exe]
+
+        if {![info exists ::no(deleteExtractZipArchiveFile)]} then {
+          catch {file delete $exeFileName}
+        }
+
+        addToPath $exeDirectory
+      }
+
+      unzipMustBeInstalled
+
+      set fileName [appendArgs \" $fileName \"]
+      set directory [appendArgs \" $directory \"]
+
+      if {[catch {
+        eval exec -success Success [subst $unzipExtractCommand]
+      } error]} then {
+        error [appendArgs \
+            "could not extract archive " $fileName ": " $error]
+      }
+    } else {
+      unzipMustBeInstalled
+
+      if {[catch {
+        eval exec [subst $unzipExtractCommand]
+      } error]} then {
+        error [appendArgs \
+            "could not extract archive \"" $fileName "\": " $error]
+      }
+    }
+
+    return $extractDirectory
+  }
+
+  #
+  # NOTE: Provide the Eagle "unzip" package to the interpreter.
+  #
+  package provide Eagle.Unzip \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

@@ -1,0 +1,95 @@
+###############################################################################
+#
+# xaml2.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+#
+# WARNING: This is not a test, it is a stand-alone "demo".
+#
+###############################################################################
+
+unset -nocomplain xaml assembly1 assembly2 assembly3 xmlReader xamlObject \
+    application dispatcherCallback
+
+###############################################################################
+
+set xaml [file join [file normalize [file dirname [info script]]] \
+    FontViewer.xaml]
+
+if {![file exists $xaml]} then {
+  error [appendArgs "Cannot find file \"" $xaml "\"."]
+}
+
+object import System.IO; # StringReader
+
+set assembly1 [object load System.Xml]
+
+object import System.Xml; # XmlReader
+
+set assembly2 [object load PresentationFramework]
+set assembly3 [object load PresentationCore]
+
+object import System.Windows; # Application
+object import System.Windows.Markup; # XamlReader
+
+set xmlReader [object invoke XmlReader Create $xaml]
+set xamlObject [object invoke XamlReader Load $xmlReader]
+
+###############################################################################
+
+set application [object invoke Application Current]
+
+if {[string length $application] > 0} then {
+  #
+  # NOTE: Apparently, this class does not currently implement IDisposable;
+  #       therefore, this is not required.  This is here primarily to express
+  #       our intent (i.e. that we do not actually own this object and should
+  #       not dispose it).
+  #
+  object flags $application +NoDispose
+} else {
+  set application [object create Application]
+}
+
+###############################################################################
+
+if {[object invoke $application CheckAccess]} then {
+  #
+  # NOTE: Technically, we do not need to use the dispatcher object here;
+  #       however, it helps us to test the ability of the core marshaller
+  #       to deal with the generic "System.Delegate" type.
+  #
+  set dispatcherCallback [list apply [list [list application xamlObject] {
+    object invoke $application Run $xamlObject
+  }] $application $xamlObject]
+
+  object invoke $application Dispatcher.Invoke $dispatcherCallback
+} else {
+  object invoke $xamlObject ShowDialog
+}
+
+###############################################################################
+
+if {[info exists dispatcherCallback]} then {
+  catch {object removecallback $dispatcherCallback}
+  unset dispatcherCallback
+}
+
+object unimport -importpattern System.Windows.Markup
+object unimport -importpattern System.Windows
+object unimport -importpattern System.Xml
+object unimport -importpattern System.IO
+
+###############################################################################
+
+unset -nocomplain xaml assembly1 assembly2 assembly3 xmlReader xamlObject \
+    application dispatcherCallback

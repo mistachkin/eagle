@@ -1,0 +1,131 @@
+###############################################################################
+#
+# list.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle List Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure appends all of its arguments as list elements and
+  #       returns the resulting list.
+  #
+  proc lappendArgs { args } {
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #
+    set result [list]; eval lappend result $args
+  }
+
+  #
+  # NOTE: This procedure pseudo-randomly shuffles the specified list value
+  #       and returns the resulting list.
+  #
+  proc lshuffle { list } {
+    #
+    # NOTE: This code for this algorithm was stolen from the Tcl library
+    #       struct package and modified to conform with the Eagle style
+    #       guide.
+    #
+    set result $list
+
+    for {set length [llength $result]} \
+        {$length > 1} {lset result $index $element} {
+      set index [expr {int(rand() * $length)}]
+      set element [lindex $result [incr length -1]]
+      lset result $length [lindex $result $index]
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure returns a list of elements that are present in the
+  #       first list argument and missing from the second list argument -AND-
+  #       elements that are present in the second list argument and missing
+  #       from the first list argument.
+  #
+  proc ldifference { list1 list2 } {
+    set result [list]
+
+    foreach element $list1 {
+      if {[lsearch -exact $list2 $element] == -1} then {
+        lappend result $element
+      }
+    }
+
+    foreach element $list2 {
+      if {[lsearch -exact $list1 $element] == -1} then {
+        lappend result $element
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure returns a list of elements from the specified list
+  #       that cause the specified script to return non-zero.
+  #
+  proc filter { list script } {
+    set result [list]
+
+    foreach item $list {
+      if {[uplevel 1 $script [list $item]]} then {
+        lappend result $item
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure returns a list of elements from the specified list,
+  #       each one having possibly been transformed by the specified script.
+  #
+  proc map { list script } {
+    set result [list]
+
+    foreach item $list {
+      lappend result [uplevel 1 $script [list $item]]
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure returns a value that is determined by evaluating the
+  #       specified script against the result value produced so far and each
+  #       element of the specified list.
+  #
+  proc reduce { list script } {
+    set result ""
+
+    foreach item $list {
+      set result [uplevel 1 $script [list $result] [list $item]]
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: Provide the Eagle "list" package to the interpreter.
+  #
+  package provide Eagle.List \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

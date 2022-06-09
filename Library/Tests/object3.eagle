@@ -1,0 +1,872 @@
+###############################################################################
+#
+# object3.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test object-3.1 {object usage with indexed properties} -body {
+  list [set x [object create Eagle._Tests.Default]] [object invoke $x Item 0] \
+      [object invoke $x Item 0 1] [object invoke $x Item 0 "foo"] [object \
+      invoke $x Item 0 "foo" 1] [object dispose $x]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle command.object compile.TEST Eagle._Tests.Default.get_Item\
+Eagle._Tests.Default.set_Item} -match regexp -result \
+{^Default#\d+ 0 \{\} 1 \{\} \{disposed removed\}$}}
+
+###############################################################################
+
+runTest {test object-3.2 {simple object invokeall} -body {
+  set x [object create System.Int32]; # NOTE: Immutable zero.
+
+  set cmd1 {Format this}
+  set cmd2 {Format that}
+
+  list [object invokeall System.String $cmd1 $cmd2] \
+      [object invokeall -keepresults System.String $cmd1 $cmd2] \
+      [object invokeall -invoke System.String Format this] \
+      [object invokeall $x ToString ToString] \
+      [object invokeall -keepresults $x ToString ToString] \
+      [object invokeall -invoke $x ToString] \
+      [catch {object invokeall -nocomplain System.String {Foo}} msg1] $msg1 \
+      [catch {object invokeall -nocomplain $x {Foo}} msg2] $msg2
+} -cleanup {
+  unset -nocomplain msg2 msg1 cmd2 cmd1 x
+} -constraints {eagle command.object} -result \
+{{Ok 0} {Ok this Ok that} this {Ok 0} {Ok 0 Ok 0} 0 0 {Error 1} 0 {Error 1}}}
+
+###############################################################################
+
+runTest {test object-3.3 {-alias, -aliasall, -invoke, and -invokeall} -body {
+  set x [object create -alias System.Int32]; # NOTE: Immutable zero.
+  set y [object create -alias -aliasall System.Int32]; # NOTE: Immutable zero.
+
+  list [$x ToString] \
+      [$x ToString X] \
+      [$x -invoke ToString X] \
+      [$x -invokeall ToString ToString ToString] \
+      [$x -invokeall -keepresults ToString ToString ToString] \
+      [catch {$x ToString ToString ToString} msg1] $msg1 \
+      [$y ToString] \
+      [$y -keepresults ToString] \
+      [$y -invoke ToString X] \
+      [$y -invoke -keepresults ToString X] \
+      [$y ToString ToString ToString] \
+      [$y -keepresults ToString ToString ToString] \
+      [$y -invokeall ToString ToString ToString] \
+      [$y -invokeall -keepresults ToString ToString ToString] \
+      [catch {$y ToString X} msg2] $msg2
+} -cleanup {
+  unset -nocomplain msg2 msg1 y x
+} -constraints [fixConstraints {eagle command.object monoBug30 !guru.enabled}] \
+-match regexp -result {^0 0 0 \{Ok 0\} \{Ok 0 Ok 0 Ok 0\} 1 \{method #\d+\
+"System#Int32#\d+\.ToString" requires at most 0 arguments and 2 were supplied\}\
+\{Ok 0\} \{Ok 0\} 0 0 \{Ok 0\} \{Ok 0 Ok 0 Ok 0\} \{Ok 0\} \{Ok 0 Ok 0 Ok 0\} 1\
+\{type "System\.Int32" member "X" matching member types "Field, Method,\
+Property" and flags "Instance, Static, Public, FlattenHierarchy" not found\}$}}
+
+###############################################################################
+
+runTest {test object-3.4 {object type name lookups} -body {
+  object type dict [appendArgs System.Collections.Generic.Dictionary \
+      `2\[System.String,System.String\]]
+
+  list [object types] [set x [object create -alias dict]] [$x Add foo bar] \
+      [$x Count] [unset x]
+} -cleanup {
+  object untype -typepattern dict
+
+  unset -nocomplain x
+} -constraints {eagle command.object} -match regexp -result [appendArgs \
+{^\{dict \{System\.Collections\.Generic\.Dictionary`2\[System\.String} \
+{,System\.String\]\}\} \{System#Collections#Generic#Dictionary`2\[\[} \
+{System#String, } [string map [list . #] [getRuntimeAssemblyName]]\
+{\],\[System#String, } [string map [list . #] [getRuntimeAssemblyName]]\
+{\]\]#\d+\} \{\} 1 \{\}$}]}
+
+###############################################################################
+
+runTest {test object-3.5 {object create/invoke with method index} -body {
+  list [catch {object invoke -index -1 Int32 Parse 123} result] $result \
+      [catch {object invoke -index 0 Int32 Parse 123} result] $result \
+      [catch {object invoke -index 1 Int32 Parse 123} result] $result \
+      [catch {object create -index -1 Int32} result] $result \
+      [catch {object create -index 0 Int32} result] $result \
+      [catch {object create -index 1 Int32} result] $result \
+      [catch {object invoke -index -1 String Compare foo foo} result] $result \
+      [catch {object invoke -index 0 String Compare foo foo} result] $result \
+      [catch {object invoke -index 1 String Compare foo foo} result] $result \
+      [catch {object create -index -1 String foo} result] $result \
+      [catch {object create -index 0 String foo} result] $result \
+      [catch {object create -index 1 String foo} result] $result
+} -cleanup {
+  unset -nocomplain result
+} -constraints {eagle command.object} -match regexp -result {0 123 0 123 1\
+\{method "Parse" of object "Int32" not found, invalid method index 1, must be\
+0\} 0 System#Int32#\d+ 1 \{type "System\.Int32" constructor not found, cannot\
+specify method index 0 for primitive type\} 1 \{type "System\.Int32"\
+constructor not found, cannot specify method index 1 for primitive type\} 0 0 0\
+0 1 \{method "Compare" of object "String" not found, invalid method index 1,\
+must be 0\} 0 System#String#\d+ 0 System#String#\d+ 1 \{type "System\.String"\
+constructor not found, invalid method index 1, must be 0\}}}
+
+###############################################################################
+
+runTest {test object-3.6 {nested list "good" return values} -body {
+  list [set w [object create Eagle._Tests.Default]] \
+      [set x [object invoke $w TestStringIListReturnValue true]] \
+      [set y [object invoke $w TestStringIListReturnValue true 1 2 3 \
+          "foo bar"]] \
+      [set z [object invoke $w TestStringIListIListIListReturnValue \
+          true 1 2 3 "foo bar"]]
+} -cleanup {
+  unset -nocomplain w x y z
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestStringIListReturnValue\
+Eagle._Tests.Default.TestStringIListIListIListReturnValue} -match regexp \
+-result {^Default#\d+ \{\} \{1 2 3 \{foo bar\}\} \{\{\{1 2 3 \{foo bar\}\} \{1\
+2 3 \{foo bar\}\} \{1 2 3 \{foo bar\}\}\} \{\{1 2 3 \{foo bar\}\} \{1 2 3 \{foo\
+bar\}\} \{1 2 3 \{foo bar\}\}\} \{\{1 2 3 \{foo bar\}\} \{1 2 3 \{foo bar\}\}\
+\{1 2 3 \{foo bar\}\}\}\}$}}
+
+###############################################################################
+
+runTest {test object-3.7 {nested list "bad" return values} -body {
+  list [set x [object create Eagle._Tests.Default]] \
+      [set y [object invoke $x TestStringIListReturnValue false 1 2 3 \
+          "foo bar"]] \
+      [set z [object invoke $x TestStringIListIListIListReturnValue \
+          false 1 2 3 "foo bar"]]
+} -cleanup {
+  unset -nocomplain x y z
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestStringIListReturnValue\
+Eagle._Tests.Default.TestStringIListIListIListReturnValue} -match regexp \
+-result [appendArgs {^Default#\d+ \{System\.Collections\.Generic\.List`1} \
+{\[System.String\]\} \{System\.Collections\.Generic\.List`1\[} \
+{System\.Collections\.Generic\.IList`1\[System\.Collections\.Generic\.IList`1} \
+{\[System\.String\]\]\]\}$}]}
+
+###############################################################################
+
+runTest {test object-3.8 {implicit fixup of List<byte>} -body {
+  set x [object invoke Eagle._Tests.Default TestByteList]
+} -cleanup {
+  unset -nocomplain x
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestByteList} -result \
+{1 2 3 4 5 6 7 8 9 10}}
+
+###############################################################################
+
+runTest {test object-3.9 {implicit fixup of List<int>} -body {
+  set x [object invoke Eagle._Tests.Default TestIntList]
+} -cleanup {
+  unset -nocomplain x
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestIntList} -result \
+{1 2 3 4 5 6 7 8 9 10}}
+
+###############################################################################
+
+runTest {test object-3.10 {implicit fixup of List<long>} -body {
+  set x [object invoke Eagle._Tests.Default TestLongList]
+} -cleanup {
+  unset -nocomplain x
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestLongList} -result \
+{1 2 3 4 5 6 7 8 9 10}}
+
+###############################################################################
+
+runTest {test object-3.11 {fixup infinite recursion prevention} -body {
+  set x [object invoke Eagle._Tests.Default TestDerivedList]
+} -cleanup {
+  unset -nocomplain x
+} -constraints \
+{eagle command.object compile.TEST Eagle._Tests.Default.TestDerivedList} \
+-match regexp -result {^DerivedList#\d+$}}
+
+###############################################################################
+
+runTest {test object-3.12 {generic non-list return values} -body {
+  list [set x [object create Eagle._Tests.Default]] \
+      [set y [object invoke $x TestStringIDictionaryReturnValue false 1 2 3 \
+          "foo bar"]] \
+      [set z [object invoke $x TestStringIDictionaryReturnValue true 1 2 3 \
+          "foo bar"]]
+} -cleanup {
+  unset -nocomplain x y z
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestStringIDictionaryReturnValue} -match regexp -result \
+[appendArgs {^Default#\d+ \{System#Collections#Generic#Dictionary`2\[\[} \
+{System#String, } [string map [list . #] [getRuntimeAssemblyName]] {\],\[} \
+{System#String, } [string map [list . #] [getRuntimeAssemblyName]] {\]\]#\d+\}\
+GenericDictionary`2#\d+$}]}
+
+###############################################################################
+
+runTest {test object-3.13 {generic non-list return values} -body {
+  set stringType [appendArgs {System.String, } [getRuntimeAssemblyName]]
+
+  set type [appendArgs "Eagle._Tests.Default+GenericDictionary`2\[\[" \
+      $stringType "\],\[" $stringType "\]\]"]
+
+  list [set x [object create StringList one two three four]] \
+      [set y [object create StringList 1 2 3 4]] \
+      [set z [object create $type $x $y]] [lsort \
+      [getStringFromObjectHandle $z]]
+} -cleanup {
+  unset -nocomplain stringType type x y z
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestStringIDictionaryReturnValue} -match regexp -result \
+{^StringList#\d+ StringList#\d+ GenericDictionary`2#\d+ \{\{four 4\} \{one 1\}\
+\{three 3\} \{two 2\}\}$}}
+
+###############################################################################
+
+runTest {test object-3.14 {-chained and -lastresult options} -setup {
+  set x(1) [object create -alias -aliasall Eagle._Tests.Default 0 true]
+  set x(2) [object invoke $x(1) TestReturnOfSelf false]
+} -body {
+  set code [catch {
+    $x(1) -chained {TestReturnOfSelf false} {TestReturnOfSelf false}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained {TestReturnOfSelf false} {TestReturnOfSelf true}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained {TestReturnOfSelf true} {TestReturnOfSelf false}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained {TestReturnOfSelf true} {TestReturnOfSelf true}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained \
+        {TestReturnOfSelf false} {TestReturnOfSelf false} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained \
+        {TestReturnOfSelf false} {TestReturnOfSelf true} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained \
+        {TestReturnOfSelf true} {TestReturnOfSelf false} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained \
+        {TestReturnOfSelf true} {TestReturnOfSelf true} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained -lastresult \
+        {TestReturnOfSelf false} {TestReturnOfSelf false}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained -lastresult \
+        {TestReturnOfSelf false} {TestReturnOfSelf true}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained -lastresult \
+        {TestReturnOfSelf true} {TestReturnOfSelf false}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained -lastresult \
+        {TestReturnOfSelf true} {TestReturnOfSelf true}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained -lastresult \
+        {TestReturnOfSelf false} {TestReturnOfSelf false} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained -lastresult \
+        {TestReturnOfSelf false} {TestReturnOfSelf true} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained -lastresult \
+        {TestReturnOfSelf true} {TestReturnOfSelf false} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -chained -lastresult \
+        {TestReturnOfSelf true} {TestReturnOfSelf true} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set results
+} -cleanup {
+  unset -nocomplain results result code x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestReturnOfSelf} -match regexp -result {^\{0 \{Ok 0\}\}\
+\{0 \{Ok 0\}\} \{1 \{invalid object name\}\} \{1 \{invalid object name\}\} \{0\
+\{Ok 0\}\} \{1 \{invalid object name\}\} \{1 \{invalid object name\}\} \{1\
+\{invalid object name\}\} \{0 Default#\d+\} \{0 \{\}\} \{1 \{invalid object\
+name\}\} \{1 \{invalid object name\}\} \{0 \d+\} \{1 \{invalid object name\}\}\
+\{1 \{invalid object name\}\} \{1 \{invalid object name\}\}$}}
+
+###############################################################################
+
+runTest {test object-3.15 {invokeall and -lastresult, no -chained} -setup {
+  set x(1) [object create -alias -aliasall Eagle._Tests.Default 0 true]
+  set x(2) [object invoke $x(1) TestReturnOfSelf false]
+} -body {
+  set code [catch {
+    $x(1) {TestReturnOfSelf false} {TestReturnOfSelf false}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) {TestReturnOfSelf false} {TestReturnOfSelf true}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) {TestReturnOfSelf true} {TestReturnOfSelf false}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) {TestReturnOfSelf true} {TestReturnOfSelf true}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) {TestReturnOfSelf false} {TestReturnOfSelf false} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) {TestReturnOfSelf false} {TestReturnOfSelf true} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) {TestReturnOfSelf true} {TestReturnOfSelf false} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) {TestReturnOfSelf true} {TestReturnOfSelf true} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -lastresult \
+        {TestReturnOfSelf false} {TestReturnOfSelf false}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -lastresult \
+        {TestReturnOfSelf false} {TestReturnOfSelf true}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -lastresult \
+        {TestReturnOfSelf true} {TestReturnOfSelf false}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -lastresult \
+        {TestReturnOfSelf true} {TestReturnOfSelf true}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -lastresult \
+        {TestReturnOfSelf false} {TestReturnOfSelf false} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -lastresult \
+        {TestReturnOfSelf false} {TestReturnOfSelf true} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -lastresult \
+        {TestReturnOfSelf true} {TestReturnOfSelf false} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set code [catch {
+    $x(1) -lastresult \
+        {TestReturnOfSelf true} {TestReturnOfSelf true} {ToString}
+  } result]
+
+  lappend results [list $code $result]
+
+  set results
+} -cleanup {
+  unset -nocomplain results result code x
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestReturnOfSelf} -match regexp -result {^\{0 \{Ok 0\}\}\
+\{0 \{Ok 0\}\} \{0 \{Ok 0\}\} \{0 \{Ok 0\}\} \{0 \{Ok 0\}\} \{0 \{Ok 0\}\} \{0\
+\{Ok 0\}\} \{0 \{Ok 0\}\} \{0 Default#\d+\} \{0 \{\}\} \{0 Default#\d+\} \{0\
+\{\}\} \{0 \d+\} \{0 \d+\} \{0 \d+\} \{0 \d+\}$}}
+
+###############################################################################
+
+runTest {test object-3.16 {per-parameter marshal flags} -setup {
+  proc maybeExtractError { result } {
+    set index [lsearch -regexp -- $result {5 (?:[^\d]+) 4}]
+
+    if {$index != -1} then {
+      return [lindex $result $index]
+    }
+
+    return $result
+  }
+
+  unset -nocomplain x object error code result
+} -body {
+  set x [object create Int32]
+
+  set object(1) null; set error(1) null
+
+  set code(1) [catch {
+    object invoke -verbose Interpreter.GetActive GetObject \
+        $x Default object(1) error(1)
+  } result(1)]
+
+  set object(2) null; set error(2) null
+
+  set code(2) [catch {
+    object invoke -parametermarshalflags [list NoHandle] \
+        Interpreter.GetActive GetObject \
+        $x Default object(2) error(2)
+  } result(2)]
+
+  list $x $code(1) $object(1) [getStringFromObjectHandle $error(1)] \
+      [maybeExtractError $result(1)] $code(2) $object(2) \
+      [getStringFromObjectHandle $error(2)] $result(2)
+} -cleanup {
+  unset -nocomplain x object error code result
+
+  rename maybeExtractError ""
+} -constraints {eagle command.object} -match regexp -result {^System#Int32#\d+\
+1 null null \{method #\d+ "Interpreter\.GetActive\.GetObject" requires exactly\
+5 arguments and 4 were supplied\} 0 _Object#\d+ \{\} Ok$}}
+
+###############################################################################
+
+runTest {test object-3.17 {the ByRefHandleByValue marshal flag} -setup {
+  set test [object create -alias Eagle._Tests.Default]
+
+  proc resetRawData {} {
+    uplevel 1 {
+      unset -nocomplain rawData1 rawData2 rawData3 rawData4
+
+      set rawData1 null
+      set rawData2 [object create System.Byte\[\] 0]
+      set rawData3 nope1
+      set rawData4(1) nope2
+    }
+  }
+} -body {
+  set code(1) [catch {
+    resetRawData; $test \
+        TestByRefByteArray 2 rawData1
+  } result(1)]
+
+  set code(2) [catch {
+    resetRawData; $test \
+        TestByRefByteArray 2 rawData2
+  } result(2)]
+
+  set code(3) [catch {
+    resetRawData; $test \
+        TestByRefByteArray 2 rawData3
+  } result(3)]
+
+  set code(4) [catch {
+    resetRawData; $test \
+        TestByRefByteArray 2 rawData4
+  } result(4)]
+
+  #############################################################################
+
+  set code(5) [catch {
+    resetRawData; $test \
+        -argumentflags +NoSetVariable \
+        TestByRefByteArray 2 rawData1
+  } result(5)]
+
+  set code(6) [catch {
+    resetRawData; $test \
+        -argumentflags +NoSetVariable \
+        TestByRefByteArray 2 rawData2
+  } result(6)]
+
+  set code(7) [catch {
+    resetRawData; $test \
+        -argumentflags +NoSetVariable \
+        TestByRefByteArray 2 rawData3
+  } result(7)]
+
+  set code(8) [catch {
+    resetRawData; $test \
+        -argumentflags +NoSetVariable \
+        TestByRefByteArray 2 rawData4
+  } result(8)]
+
+  #############################################################################
+
+  set code(9) [catch {
+    resetRawData; $test \
+        -argumentflags {+ArrayAsValue Create} \
+        TestByRefByteArray 2 rawData1
+  } result(9)]
+
+  set code(10) [catch {
+    resetRawData; $test \
+        -argumentflags {+ArrayAsValue Create} \
+        TestByRefByteArray 2 rawData2
+  } result(10)]
+
+  set code(11) [catch {
+    resetRawData; $test \
+        -argumentflags {+ArrayAsValue Create} \
+        TestByRefByteArray 2 rawData3
+  } result(11)]
+
+  set code(12) [catch {
+    resetRawData; $test \
+        -argumentflags {+ArrayAsValue Create} \
+        TestByRefByteArray 2 rawData4
+  } result(12)]
+
+  #############################################################################
+
+  set code(13) [catch {
+    resetRawData; $test \
+        -argumentflags {+ArrayAsValue Create NoSetVariable} \
+        TestByRefByteArray 2 rawData1
+  } result(13)]
+
+  set code(14) [catch {
+    resetRawData; $test \
+        -argumentflags {+ArrayAsValue Create NoSetVariable} \
+        TestByRefByteArray 2 rawData2
+  } result(14)]
+
+  set code(15) [catch {
+    resetRawData; $test \
+        -argumentflags {+ArrayAsValue Create NoSetVariable} \
+        TestByRefByteArray 2 rawData3
+  } result(15)]
+
+  set code(16) [catch {
+    resetRawData; $test \
+        -argumentflags {+ArrayAsValue Create NoSetVariable} \
+        TestByRefByteArray 2 rawData4
+  } result(16)]
+
+  #############################################################################
+
+  set code(17) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        TestByRefByteArray 2 rawData1
+  } result(17)]
+
+  set code(18) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        TestByRefByteArray 2 rawData2
+  } result(18)]
+
+  set code(19) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        TestByRefByteArray 2 rawData3
+  } result(19)]
+
+  set code(20) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        TestByRefByteArray 2 rawData4
+  } result(20)]
+
+  #############################################################################
+
+  set code(21) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags +NoSetVariable \
+        TestByRefByteArray 2 rawData1
+  } result(21)]
+
+  set code(22) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags +NoSetVariable \
+        TestByRefByteArray 2 rawData2
+  } result(22)]
+
+  set code(23) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags +NoSetVariable \
+        TestByRefByteArray 2 rawData3
+  } result(23)]
+
+  set code(24) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags +NoSetVariable \
+        TestByRefByteArray 2 rawData4
+  } result(24)]
+
+  #############################################################################
+
+  set code(25) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags {+ArrayAsValue Create} \
+        TestByRefByteArray 2 rawData1
+  } result(25)]
+
+  set code(26) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags {+ArrayAsValue Create} \
+        TestByRefByteArray 2 rawData2
+  } result(26)]
+
+  set code(27) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags {+ArrayAsValue Create} \
+        TestByRefByteArray 2 rawData3
+  } result(27)]
+
+  set code(28) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags {+ArrayAsValue Create} \
+        TestByRefByteArray 2 rawData4
+  } result(28)]
+
+  #############################################################################
+
+  set code(29) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags {+ArrayAsValue Create NoSetVariable} \
+        TestByRefByteArray 2 rawData1
+  } result(29)]
+
+  set code(30) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags {+ArrayAsValue Create NoSetVariable} \
+        TestByRefByteArray 2 rawData2
+  } result(30)]
+
+  set code(31) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags {+ArrayAsValue Create NoSetVariable} \
+        TestByRefByteArray 2 rawData3
+  } result(31)]
+
+  set code(32) [catch {
+    resetRawData; $test \
+        -marshalflags +ByRefHandleByValue \
+        -argumentflags {+ArrayAsValue Create NoSetVariable} \
+        TestByRefByteArray 2 rawData4
+  } result(32)]
+
+  #############################################################################
+
+  list $code(1) [getFirstLineOfError $result(1)] [testValueGet rawData1] \
+      $code(2) [getFirstLineOfError $result(2)] [testValueGet rawData2] \
+      $code(3) [getFirstLineOfError $result(3)] [testValueGet rawData3] \
+      $code(4) [getFirstLineOfError $result(4)] [testValueGet rawData4] \
+      $code(5) [getFirstLineOfError $result(5)] [testValueGet rawData1] \
+      $code(6) [getFirstLineOfError $result(6)] [testValueGet rawData2] \
+      $code(7) [getFirstLineOfError $result(7)] [testValueGet rawData3] \
+      $code(8) [getFirstLineOfError $result(8)] [testValueGet rawData4] \
+      $code(9) [getFirstLineOfError $result(9)] [testValueGet rawData1] \
+      $code(10) [getFirstLineOfError $result(10)] [testValueGet rawData2] \
+      $code(11) [getFirstLineOfError $result(11)] [testValueGet rawData3] \
+      $code(12) [getFirstLineOfError $result(12)] [testValueGet rawData4] \
+      $code(13) [getFirstLineOfError $result(13)] [testValueGet rawData1] \
+      $code(14) [getFirstLineOfError $result(14)] [testValueGet rawData2] \
+      $code(15) [getFirstLineOfError $result(15)] [testValueGet rawData3] \
+      $code(16) [getFirstLineOfError $result(16)] [testValueGet rawData4] \
+      $code(17) [getFirstLineOfError $result(17)] [testValueGet rawData1] \
+      $code(18) [getFirstLineOfError $result(18)] [testValueGet rawData2] \
+      $code(19) [getFirstLineOfError $result(19)] [testValueGet rawData3] \
+      $code(20) [getFirstLineOfError $result(20)] [testValueGet rawData4] \
+      $code(21) [getFirstLineOfError $result(21)] [testValueGet rawData1] \
+      $code(22) [getFirstLineOfError $result(22)] [testValueGet rawData2] \
+      $code(23) [getFirstLineOfError $result(23)] [testValueGet rawData3] \
+      $code(24) [getFirstLineOfError $result(24)] [testValueGet rawData4] \
+      $code(25) [getFirstLineOfError $result(25)] [testValueGet rawData1] \
+      $code(26) [getFirstLineOfError $result(26)] [testValueGet rawData2] \
+      $code(27) [getFirstLineOfError $result(27)] [testValueGet rawData3] \
+      $code(28) [getFirstLineOfError $result(28)] [testValueGet rawData4] \
+      $code(29) [getFirstLineOfError $result(29)] [testValueGet rawData1] \
+      $code(30) [getFirstLineOfError $result(30)] [testValueGet rawData2] \
+      $code(31) [getFirstLineOfError $result(31)] [testValueGet rawData3] \
+      $code(32) [getFirstLineOfError $result(32)] [testValueGet rawData4]
+} -cleanup {
+  catch {object cleanup}; # NOTE: Kill all transient objects.
+
+  rename resetRawData ""
+
+  unset -nocomplain rawData4 rawData3 rawData2 rawData1
+  unset -nocomplain result code test
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestByRefByteArray} -match regexp -result {^0 \{\} null 0\
+\{\} \{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
+array\} nope1 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
+was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
+\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
+array\} nope1 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
+was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
+\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
+array\} nope1 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
+was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
+\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
+array\} nope1 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
+was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
+\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+\
+"byteArray" with value "rawData3" to type "System\.Byte\[\]&": can't read\
+"rawData3": variable isn't array\} nope1 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
+was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
+\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
+array\} nope1 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
+was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
+\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
+array\} nope1 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
+was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
+\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
+array\} nope1 1 \{could not convert method #\d+\
+"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
+was not in a correct format\.\} \{1 nope2\}$}}
+
+###############################################################################
+
+runTest {test object-3.18 {-returntype option with [object invoke]} -setup {
+  unset -nocomplain convertible
+} -body {
+  set convertible [object invoke -create -alias \
+      -flags {:Static Public GetField} -returntype IConvertible \
+      ReturnCode Ok]
+
+  $convertible ToUInt64 null
+} -cleanup {
+  unset -nocomplain convertible
+} -constraints {eagle command.object} -result {0}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

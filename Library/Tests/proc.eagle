@@ -1,0 +1,452 @@
+###############################################################################
+#
+# proc.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+set x [list]
+for {set i 0} {$i < 1000} {incr i} {lappend x "arg$i[clock seconds]"}
+unset i
+
+###############################################################################
+
+runTest {test proc-1.1 {procedure with large formal argument list} -body {
+  proc bar $x {
+    return [info level [info level]]
+  }
+
+  eval bar $x
+} -cleanup {
+  rename bar ""
+} -result "bar $x"}
+
+unset -nocomplain x
+
+###############################################################################
+
+runTest {test proc-1.2 {procedure with optional args} -body {
+  proc bar {a {b 2}} {
+    return [list $a $b [info level [info level]]]
+  }
+
+  catch {bar} error
+  catch {bar 1 2 3} error2
+
+  list [bar 1] [bar 1 2] $error $error2
+} -cleanup {
+  unset -nocomplain error error2
+  rename bar ""
+} -result {{1 2 {bar 1}} {1 2 {bar 1 2}}\
+{wrong # args: should be "bar a ?b?"}\
+{wrong # args: should be "bar a ?b?"}}}
+
+###############################################################################
+
+runTest {test proc-1.3 {procedure with optional args} -body {
+  proc bar {a {b 2}} {
+    return [list $a $b [info level [info level]]]
+  }
+
+  catch {bar} error
+  catch {bar 1 2 3} error2
+
+  list [bar 1] [bar 1 2] $error $error2
+} -cleanup {
+  unset -nocomplain error error2
+  rename bar ""
+} -result {{1 2 {bar 1}} {1 2 {bar 1 2}}\
+{wrong # args: should be "bar a ?b?"}\
+{wrong # args: should be "bar a ?b?"}}}
+
+###############################################################################
+
+runTest {test proc-1.4 {procedure with optional and variadic args} -body {
+  proc bar {a {b 2} {c 3}} {
+    return [list $a $b $c [info level [info level]]]
+  }
+
+  catch {bar} error
+  catch {bar 1 2 3 4} error2
+
+  list [bar 1] [bar 1 2] [bar 1 2 3] $error $error2
+} -cleanup {
+  unset -nocomplain error error2
+  rename bar ""
+} -result {{1 2 3 {bar 1}} {1 2 3 {bar 1 2}}\
+{1 2 3 {bar 1 2 3}}\
+{wrong # args: should be "bar a ?b? ?c?"}\
+{wrong # args: should be "bar a ?b? ?c?"}}}
+
+###############################################################################
+
+runTest {test proc-1.5.1 {procedure with optional and variadic args} -body {
+  proc bar {a {b 2} {c 3} args} {
+    return [list $a $b $c $args [info level [info level]]]
+  }
+
+  catch {bar} error
+
+  list [bar 1] [bar 1 2] [bar 1 2 3] [bar 1 2 3 4] $error
+} -cleanup {
+  unset -nocomplain error
+  rename bar ""
+} -constraints {tcl tcl84} -result {{1 2 3 {} {bar 1}} {1 2 3 {} {bar 1 2}}\
+{1 2 3 {} {bar 1 2 3}} {1 2 3 4 {bar 1 2 3 4}}\
+{wrong # args: should be "bar a ?b? ?c? args"}}}
+
+###############################################################################
+
+runTest {test proc-1.5.2 {procedure with optional and variadic args} -body {
+  proc bar {a {b 2} {c 3} args} {
+    return [list $a $b $c $args [info level [info level]]]
+  }
+
+  catch {bar} error
+
+  list [bar 1] [bar 1 2] [bar 1 2 3] [bar 1 2 3 4] $error
+} -cleanup {
+  unset -nocomplain error
+  rename bar ""
+} -constraints {tcl85} -result {{1 2 3 {} {bar 1}} {1 2 3 {} {bar 1 2}}\
+{1 2 3 {} {bar 1 2 3}} {1 2 3 4 {bar 1 2 3 4}}\
+{wrong # args: should be "bar a ?b? ?c? ..."}}}
+
+###############################################################################
+
+runTest {test proc-1.5.3 {procedure with optional and variadic args} -body {
+  proc bar {a {b 2} {c 3} args} {
+    return [list $a $b $c $args [info level [info level]]]
+  }
+
+  catch {bar} error
+
+  list [bar 1] [bar 1 2] [bar 1 2 3] [bar 1 2 3 4] $error
+} -cleanup {
+  unset -nocomplain error
+  rename bar ""
+} -constraints {tcl86Feature} -result {{1 2 3 {} {bar 1}} {1 2 3 {} {bar 1 2}}\
+{1 2 3 {} {bar 1 2 3}} {1 2 3 4 {bar 1 2 3 4}}\
+{wrong # args: should be "bar a ?b? ?c? ?arg ...?"}}}
+
+###############################################################################
+
+runTest {test proc-1.6 {procedure with bad optional and variadic args} -body {
+  proc bar {a {b 2} args c} {
+    return [list $a $b $args $c [info level [info level]]]
+  }
+
+  catch {bar} error
+  catch {bar 1} error2
+  catch {bar 1 2} error3
+  catch {bar 1 2 3} error4
+
+  list [bar 1 2 3 4] $error $error2 $error3 $error4
+} -cleanup {
+  unset -nocomplain error error2 error3 error4
+  rename bar ""
+} -constraints {tcl84} -result {{1 2 3 4 {bar 1 2 3 4}}\
+{wrong # args: should be "bar a ?b? args c"}\
+{wrong # args: should be "bar a ?b? args c"}\
+{wrong # args: should be "bar a ?b? args c"}\
+{wrong # args: should be "bar a ?b? args c"}}}
+
+###############################################################################
+
+runTest {test proc-1.7 {rename procedure with leading colons} -setup {
+  namespace eval ::foo {}
+  proc ::foo::bar {args} { return [info level [info level]] }
+} -body {
+  list [foo::bar 1] [::foo::bar 2] [catch {rename ::foo::bar splog} result] \
+      $result [catch {splog 3} result] $result
+} -cleanup {
+  catch {rename splog ""}
+  catch {rename foo::bar ""}
+  catch {namespace delete ::foo}
+
+  unset -nocomplain result
+} -result {{foo::bar 1} {::foo::bar 2} 0 {} 0 {splog 3}}}
+
+###############################################################################
+
+runTest {test proc-1.8 {rename and then remove procedure} -setup {
+  set id [expr {abs([clock clicks])}]
+  proc [appendArgs proc $id] {args} {}
+} -body {
+  rename [appendArgs proc $id] [appendArgs newProc $id]
+  rename [appendArgs newProc $id] ""
+} -cleanup {
+  unset -nocomplain id
+} -result {}}
+
+###############################################################################
+
+runTest {test proc-1.9 {redefine procedure after loading it} -setup {
+  proc testProcedure { args } {
+    source [file join $::test_data_path testProcs.tcl]; # real procedure
+    uplevel 1 testProcedure $args
+  }
+} -body {
+  testProcedure 1 2 3
+} -cleanup {
+  rename testProcedure ""
+} -constraints {file_testProcs.tcl} -result {6}}
+
+###############################################################################
+
+runTest {test proc-2.1 {balanced call stack after body exception} -setup {
+  set interp [interp create]
+  set o null; set error null
+
+  set code [object invoke -alias Value \
+      GetInterpreter "" $interp Default o error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  if {[haveConstraint quiet]} then {
+    object invoke Eagle._Tests.Default TestSetQuiet $interp true
+  }
+
+  interp eval $interp {
+    #
+    # NOTE: This procedure will not actually be executed and the "::failed"
+    #       global variable will not be changed.  The reasoning is that the
+    #       PushScriptLocation method will throw an exception just prior to
+    #       evaluating the body of this procedure.
+    #
+    proc testProcedure { args } {
+      set ::failed $args
+    }
+
+    #
+    # NOTE: This will enable script location management for the interpreter.
+    #       This is actually completely unrelated to this test case except
+    #       that is the only method to consistently inject a thrown exception
+    #       into procedure body evaluation.
+    #
+    after 1000 {
+      object invoke -flags +NonPublic \
+          Interpreter.GetActive interpreterStateFlags \
+          [appendArgs [object invoke -flags +NonPublic \
+          Interpreter.GetActive interpreterStateFlags] \
+          " +ScriptLocation StrictScriptLocation"]
+    }
+
+    #
+    # HACK: Purposely corrupt part of the internal state of the interpreter,
+    #       specifically the stack of script locations.  This is being done
+    #       so an exception will be thrown while evaluating the body of the
+    #       procedure, in order to test call stack balancing semantics.
+    #
+    after 2000 {
+      object invoke -flags +NonPublic \
+          Interpreter.GetActive ScriptLocations null
+    }
+
+    #
+    # NOTE: This will (eventually) cause the [vwait] in primary body script
+    #       to return.
+    #
+    after 3000 [list set ::forever 1]
+  }
+} -body {
+  set failed(before) [interp eval $interp {
+    info exists ::failed
+  }]
+
+  set frame(before) [interp eval $interp {
+    object invoke -flags +NonPublic \
+        Interpreter.GetActive CurrentFrame.FrameId
+  }]
+
+  set locations(before) [$o -flags +NonPublic ScriptLocations]
+
+  set code [catch {interp eval $interp {
+    #
+    # NOTE: This will cause an exception to be thrown just prior to the
+    #       procedure body being evaluated, by the PushScriptLocation
+    #       method.  Additionally, another exception will be thrown from
+    #       within the associated finally block by the PopScriptLocation
+    #       method.  The [vwait] call here allows for the necessary flags
+    #       to be set on the interpreter without exiting the engine.
+    #
+    vwait ::forever; testProcedure 1 2 3
+  }} error]
+
+  $o -flags +NonPublic ScriptLocations $locations(before)
+
+  set frame(after) [interp eval $interp {
+    object invoke -flags +NonPublic \
+        Interpreter.GetActive CurrentFrame.FrameId
+  }]
+
+  set failed(after) [interp eval $interp {
+    info exists ::failed
+  }]
+
+  if {0} then {
+    tputs $test_channel [appendArgs \
+        "---- test \"proc-2.1\" raw exception is: " $error \n]
+  }
+
+  list $code \
+      [regexp {.*\.PushScriptLocation(?: )?\(.*} $error] \
+      [regexp {.*\.PopScriptLocation(?: )?\(.*} $error] \
+      $failed(before) $failed(after) \
+      $frame(before) $frame(after) \
+      [expr {$frame(before) == $frame(after)}]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain error code locations frame failed o interp
+} -constraints {eagle configuration.Debug command.object compile.DEBUGGER\
+compile.BREAKPOINTS Eagle._Tests.Default.TestSetQuiet} -match regexp -result \
+{^1 1 0 0 0 \d+ \d+ True$}}
+
+###############################################################################
+
+runTest {test proc-3.1 {locked procedures} -setup {
+  set interp [interp create -safe]
+} -body {
+  list [catch {interp eval $interp {isEagle}} error] $error [catch {interp \
+      invokehidden $interp debug readonly procedure true isEagle} error] \
+      $error [catch {interp eval $interp {proc isEagle {} {return false}}} \
+      error] $error [catch {interp eval $interp {rename isEagle nope}} error] \
+      $error [catch {interp eval $interp {rename isEagle ""}} error] $error \
+      [catch {interp eval $interp {isEagle}} error] $error [catch {interp \
+      invokehidden $interp debug readonly procedure false isEagle} error] \
+      $error [catch {interp eval $interp {rename isEagle ""}} error] $error \
+      [catch {interp eval $interp {isEagle}} error] $error
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain error interp
+} -constraints {eagle} -result {0 True 0 {locked 1 procedure} 1 {procedure is\
+read-only} 1 {procedure is read-only} 1 {procedure is read-only} 0 True 0\
+{unlocked 1 procedure} 0 {} 1 {invalid command name "isEagle"}}}
+
+###############################################################################
+
+runTest {test nproc-1.1 {nproc command tests} -setup {
+  proc simplifyError { error } {
+    if {[string match "*duplicate argument*" $error]} then {
+      return <duplicate>
+    } elseif {[string match "*unsupported argument*" $error]} then {
+      return <unsupported>
+    } elseif {[string match "*missing argument*" $error]} then {
+      return <missing>
+    } elseif {[string match "*wrong # args*" $error]} then {
+      return <wrong>
+    }
+
+    return $error
+  }
+
+  set procBody {return [info level [info level]]}
+} -body {
+  set nprocs [list \
+      {nproc foo {} $procBody} \
+      {nproc foo { args } $procBody} \
+      {nproc foo { {args 1} } $procBody} \
+      {nproc foo { a } $procBody} \
+      {nproc foo { {a 1} } $procBody} \
+      {nproc foo { a a } $procBody} \
+      {nproc foo { {a 1} {a 2} } $procBody} \
+      {nproc foo { {a 1} b } $procBody} \
+      {nproc foo { a {b 2} } $procBody} \
+      {nproc foo { a args } $procBody} \
+      {nproc foo { {a 1} args } $procBody} \
+      {nproc foo { {a 1} b args } $procBody} \
+      {nproc foo { a {b 2} args } $procBody} \
+      {nproc foo { args a } $procBody} \
+      {nproc foo { args a args } $procBody} \
+      {nproc foo { args {a 1} } $procBody} \
+      {nproc foo { args {a 1} args } $procBody}]
+
+  set calls [list \
+      {foo} \
+      {foo 0} \
+      {foo 0 1} \
+      {foo a} \
+      {foo a {}} \
+      {foo a 0} \
+      {foo a 2 b 1} \
+      {foo a 2 c 3} \
+      {foo a 2 c 3 d 4} \
+      {foo a 2 c 3 d 4 e}]
+
+  set results [list]
+
+  foreach nproc $nprocs {
+    set code [catch $nproc result]
+
+    if {$code == 0} then {
+      lappend results [list $code $result]
+
+      foreach call $calls {
+        set code [catch $call result]
+
+        if {$code == 0} then {
+          lappend results [list $code $result]
+        } else {
+          lappend results [list $code [simplifyError $result]]
+        }
+      }
+    } else {
+      lappend results [list $code [simplifyError $result]]
+    }
+  }
+
+  set results
+} -cleanup {
+  catch {rename foo ""}
+  catch {rename simplifyError ""}
+
+  unset -nocomplain code result results call calls nproc nprocs procBody
+} -constraints {command.nproc} -result \
+{{0 {}} {0 foo} {1 <wrong>} {1 <unsupported>} {1 <wrong>} {1 <unsupported>} {1\
+<unsupported>} {1 <unsupported>} {1 <unsupported>} {1 <unsupported>} {1\
+<wrong>} {0 {}} {0 foo} {1 <wrong>} {0 {foo 0 1}} {1 <wrong>} {0 {foo a {}}} {0\
+{foo a 0}} {0 {foo a 2 b 1}} {0 {foo a 2 c 3}} {0 {foo a 2 c 3 d 4}} {1\
+<wrong>} {0 {}} {0 foo} {1 <wrong>} {0 {foo 0 1}} {1 <wrong>} {0 {foo a {}}} {0\
+{foo a 0}} {0 {foo a 2 b 1}} {0 {foo a 2 c 3}} {0 {foo a 2 c 3 d 4}} {1\
+<wrong>} {0 {}} {1 <missing>} {1 <wrong>} {1 <unsupported>} {1 <wrong>} {0 {foo\
+a {}}} {0 {foo a 0}} {1 <unsupported>} {1 <unsupported>} {1 <unsupported>} {1\
+<wrong>} {0 {}} {0 foo} {1 <wrong>} {1 <unsupported>} {1 <wrong>} {0 {foo a\
+{}}} {0 {foo a 0}} {1 <unsupported>} {1 <unsupported>} {1 <unsupported>} {1\
+<wrong>} {1 <duplicate>} {1 <duplicate>} {0 {}} {1 <missing>} {1 <wrong>} {1\
+<unsupported>} {1 <wrong>} {1 <missing>} {1 <missing>} {0 {foo a 2 b 1}} {1\
+<unsupported>} {1 <unsupported>} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>}\
+{1 <unsupported>} {1 <wrong>} {0 {foo a {}}} {0 {foo a 0}} {0 {foo a 2 b 1}} {1\
+<unsupported>} {1 <unsupported>} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>}\
+{1 <missing>} {1 <wrong>} {0 {foo a {}}} {0 {foo a 0}} {0 {foo a 2 b 1}} {0\
+{foo a 2 c 3}} {0 {foo a 2 c 3 d 4}} {1 <wrong>} {0 {}} {0 foo} {1 <wrong>} {0\
+{foo 0 1}} {1 <wrong>} {0 {foo a {}}} {0 {foo a 0}} {0 {foo a 2 b 1}} {0 {foo a\
+2 c 3}} {0 {foo a 2 c 3 d 4}} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>} {1\
+<missing>} {1 <wrong>} {1 <missing>} {1 <missing>} {0 {foo a 2 b 1}} {1\
+<missing>} {1 <missing>} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>} {1\
+<missing>} {1 <wrong>} {0 {foo a {}}} {0 {foo a 0}} {0 {foo a 2 b 1}} {0 {foo a\
+2 c 3}} {0 {foo a 2 c 3 d 4}} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>} {1\
+<unsupported>} {1 <wrong>} {1 <missing>} {1 <missing>} {1 <unsupported>} {1\
+<unsupported>} {1 <unsupported>} {1 <wrong>} {1 <duplicate>} {0 {}} {1\
+<missing>} {1 <wrong>} {1 <unsupported>} {1 <wrong>} {1 <missing>} {1\
+<missing>} {1 <unsupported>} {1 <unsupported>} {1 <unsupported>} {1 <wrong>} {1\
+<duplicate>}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

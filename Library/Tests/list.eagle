@@ -1,0 +1,690 @@
+###############################################################################
+#
+# list.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test list-1.1.1 {build lists, pre-TIP #148 (Tcl)} -body {
+  list [list [list a b c] [list x y z] [list d e f] [list a b [list a b [list \
+      a b [list a b c]]]] [list 1 2 3] [list 0x1 0x2 0x3] [list \{ \} \[ \]]] \
+      [list [list [list a b c] [list x y z] [list 1 2 3]] [list [list X Y Z] \
+      [list 1 2 3] [list A B C]] [list [list - + ^] [list # # #] \
+      [list $ $ $]]] [list a A b B z f]
+} -constraints {tcl tcl84} -result {{{a b c} {x y z} {d e f}\
+{a b {a b {a b {a b c}}}} {1 2 3} {0x1 0x2 0x3} {\{ \} {[} \]}}\
+{{{a b c} {x y z} {1 2 3}} {{X Y Z} {1 2 3} {A B C}} {{- + ^}\
+{# # #} {{$} {$} {$}}}} {a A b B z f}}}
+
+###############################################################################
+
+runTest {test list-1.1.2 {build lists, post-TIP #148} -body {
+  list [list [list a b c] [list x y z] [list d e f] [list a b [list a b [list \
+      a b [list a b c]]]] [list 1 2 3] [list 0x1 0x2 0x3] [list \{ \} \[ \]]] \
+      [list [list [list a b c] [list x y z] [list 1 2 3]] [list [list X Y Z] \
+      [list 1 2 3] [list A B C]] [list [list - + ^] [list # # #] \
+      [list $ $ $]]] [list a A b B z f]
+} -constraints {tcl85Feature} -result {{{a b c} {x y z} {d e f}\
+{a b {a b {a b {a b c}}}} {1 2 3} {0x1 0x2 0x3} {\{ \} {[} \]}}\
+{{{a b c} {x y z} {1 2 3}} {{X Y Z} {1 2 3} {A B C}} {{- + ^}\
+{{#} # #} {{$} {$} {$}}}} {a A b B z f}}}
+
+###############################################################################
+
+runTest {test lindex-1.1.1 {lindex with bad index} -setup {
+  unset -nocomplain msg
+} -body {
+  list [catch {lindex one 0} msg] $msg \
+      [catch {lindex one bad} msg] $msg \
+      [catch {lindex one 0 end} msg] $msg \
+      [catch {lindex one 0 bad} msg] $msg \
+      [catch {lindex one 0 end end} msg] $msg \
+      [catch {lindex one 0 bad end} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {tcl tcl84} -result \
+{0 one 1 {bad index "bad": must be integer or end?-integer?} 0 one 1 {bad index\
+"bad": must be integer or end?-integer?} 0 one 1 {bad index "bad": must be\
+integer or end?-integer?}}}
+
+###############################################################################
+
+runTest {test lindex-1.1.2 {lindex with bad index} -setup {
+  unset -nocomplain msg
+} -body {
+  list [catch {lindex one 0} msg] $msg \
+      [catch {lindex one bad} msg] $msg \
+      [catch {lindex one 0 end} msg] $msg \
+      [catch {lindex one 0 bad} msg] $msg \
+      [catch {lindex one 0 end end} msg] $msg \
+      [catch {lindex one 0 bad end} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {tcl tcl85} -result \
+{0 one 1 {bad index "bad": must be integer?[+-]integer? or end?[+-]integer?} 0\
+one 1 {bad index "bad": must be integer?[+-]integer? or end?[+-]integer?} 0 one\
+1 {bad index "bad": must be integer?[+-]integer? or end?[+-]integer?}}}
+
+###############################################################################
+
+runTest {test lindex-1.1.3 {lindex with bad index} -setup {
+  unset -nocomplain msg
+} -body {
+  list [catch {lindex one 0} msg] $msg \
+      [catch {lindex one bad} msg] $msg \
+      [catch {lindex one 0 end} msg] $msg \
+      [catch {lindex one 0 bad} msg] $msg \
+      [catch {lindex one 0 end end} msg] $msg \
+      [catch {lindex one 0 bad end} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle} -result {0 one 1 {bad index "bad": must be\
+start|end|count|integer?[+-*/%]start|end|count|integer?} 0 one 1 {bad index\
+"bad": must be start|end|count|integer?[+-*/%]start|end|count|integer?} 0 one 1\
+{bad index "bad": must be\
+start|end|count|integer?[+-*/%]start|end|count|integer?}}}
+
+###############################################################################
+
+runTest {test lindex-2.1 {lindex with index list} -setup {
+  unset -nocomplain msg
+} -body {
+  list [catch {lindex one 0} msg] $msg \
+      [catch {lindex one bad} msg] $msg \
+      [catch {lindex one {0 end}} msg] $msg \
+      [catch {lindex one {0 bad}} msg] $msg \
+      [catch {lindex one {0 end end}} msg] $msg \
+      [catch {lindex one {0 bad end}} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {eagle} -result {0 one 1 {bad index "bad": must be\
+start|end|count|integer?[+-*/%]start|end|count|integer?} 0 {one one} 1 {bad\
+index "0 bad": must be start|end|count|integer?[+-*/%]start|end|count|integer?}\
+0 {one one one} 1 {bad index "0 bad end": must be\
+start|end|count|integer?[+-*/%]start|end|count|integer?}}}
+
+###############################################################################
+
+runTest {test lindex-3.1 {lindex with start index} -setup {
+  unset -nocomplain name list result
+} -body {
+  set list(0) [list]
+  set list(1) [list one]
+  set list(2) [list one 2]
+
+  foreach name [lsort -integer [array names list]] {
+    lappend result [lindex $list($name) start-1]
+    lappend result [lindex $list($name) start-0]
+    lappend result [lindex $list($name) start]
+    lappend result [lindex $list($name) start+0]
+    lappend result [lindex $list($name) start+1]
+    lappend result [lindex $list($name) end-1]
+    lappend result [lindex $list($name) end-0]
+    lappend result [lindex $list($name) end]
+    lappend result [lindex $list($name) end+0]
+    lappend result [lindex $list($name) end+1]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain name list result
+} -constraints {eagle} -result {{} {} {} {} {} {} {} {} {} {} {} one one one {}\
+{} one one one {} {} one one one 2 one 2 2 2 {}}}
+
+###############################################################################
+
+runTest {test lindex-4.1 {lindex with count index} -setup {
+  unset -nocomplain i name list result
+} -body {
+  set result(2) [list]
+
+  set list(0) [list]
+  set list(1) [list one]
+  set list(2) [list one 2]
+
+  foreach name [lsort -integer [array names list]] {
+    lappend result(2) [lindex $list($name) count-1]
+    lappend result(2) [lindex $list($name) count-0]
+    lappend result(2) [lindex $list($name) count]
+    lappend result(2) [lindex $list($name) count+0]
+    lappend result(2) [lindex $list($name) count+1]
+
+    for {set i 0} {$i < max(3, 2 * [llength $list($name)])} {incr i} {
+      catch {lindex $list($name) [appendArgs $i * $i]} result(1)
+      lappend result(2) $result(1)
+
+      catch {lindex $list($name) [appendArgs $i /count]} result(1)
+      lappend result(2) $result(1)
+
+      catch {lindex $list($name) [appendArgs $i %count]} result(1)
+      lappend result(2) $result(1)
+    }
+
+    for {set i 1} {$i < max(3, 2 * [llength $list($name)])} {incr i} {
+      catch {lindex $list($name) [appendArgs count* $i]} result(1)
+      lappend result(2) $result(1)
+
+      catch {lindex $list($name) [appendArgs count/ $i]} result(1)
+      lappend result(2) $result(1)
+
+      catch {lindex $list($name) [appendArgs count% $i]} result(1)
+      lappend result(2) $result(1)
+    }
+  }
+
+  set result(2)
+} -cleanup {
+  unset -nocomplain i name list result
+} -constraints {eagle} -result {{} {} {} {} {} {} {cannot divide 0 by zero (via\
+"/") for index} {cannot divide 0 by zero (via "%") for index} {} {cannot divide\
+1 by zero (via "/") for index} {cannot divide 1 by zero (via "%") for index} {}\
+{cannot divide 2 by zero (via "/") for index} {cannot divide 2 by zero (via\
+"%") for index} {} {} {} {} {} {} one {} {} {} {} one one one {} {} one {} {}\
+one {} {} one {} one {} 2 {} {} {} {} one one one 2 one 2 {} 2 one {} 2 2 {} {}\
+one {} 2 one {} one {}}}
+
+###############################################################################
+
+runTest {test lpermute-1.1 {list permutations} -body {
+  lpermute [list a b c d e]
+} -time true -result {{a b c d e} {a b c e d} {a b d c e} {a b d e c} {a b e c\
+d} {a b e d c} {a c b d e} {a c b e d} {a c d b e} {a c d e b} {a c e b d} {a c\
+e d b} {a d b c e} {a d b e c} {a d c b e} {a d c e b} {a d e b c} {a d e c b}\
+{a e b c d} {a e b d c} {a e c b d} {a e c d b} {a e d b c} {a e d c b} {b a c\
+d e} {b a c e d} {b a d c e} {b a d e c} {b a e c d} {b a e d c} {b c a d e} {b\
+c a e d} {b c d a e} {b c d e a} {b c e a d} {b c e d a} {b d a c e} {b d a e\
+c} {b d c a e} {b d c e a} {b d e a c} {b d e c a} {b e a c d} {b e a d c} {b e\
+c a d} {b e c d a} {b e d a c} {b e d c a} {c a b d e} {c a b e d} {c a d b e}\
+{c a d e b} {c a e b d} {c a e d b} {c b a d e} {c b a e d} {c b d a e} {c b d\
+e a} {c b e a d} {c b e d a} {c d a b e} {c d a e b} {c d b a e} {c d b e a} {c\
+d e a b} {c d e b a} {c e a b d} {c e a d b} {c e b a d} {c e b d a} {c e d a\
+b} {c e d b a} {d a b c e} {d a b e c} {d a c b e} {d a c e b} {d a e b c} {d a\
+e c b} {d b a c e} {d b a e c} {d b c a e} {d b c e a} {d b e a c} {d b e c a}\
+{d c a b e} {d c a e b} {d c b a e} {d c b e a} {d c e a b} {d c e b a} {d e a\
+b c} {d e a c b} {d e b a c} {d e b c a} {d e c a b} {d e c b a} {e a b c d} {e\
+a b d c} {e a c b d} {e a c d b} {e a d b c} {e a d c b} {e b a c d} {e b a d\
+c} {e b c a d} {e b c d a} {e b d a c} {e b d c a} {e c a b d} {e c a d b} {e c\
+b a d} {e c b d a} {e c d a b} {e c d b a} {e d a b c} {e d a c b} {e d b a c}\
+{e d b c a} {e d c a b} {e d c b a}}}
+
+###############################################################################
+
+runTest {test lpermute-1.2 {fast list permutations} -setup {
+  set list(1) [object create -alias StringList a b c d e]
+} -body {
+  set lists(1) [lpermute [getStringFromObjectHandle $list(1)]]
+
+  set lists(2) [object invoke -create -flags +NonPublic \
+      Eagle._Components.Private.ListOps Permute $list(1) null]
+
+  set lists(3) [list]
+
+  object foreach -alias list(2) $lists(2) {
+    lappend lists(3) [getStringFromObjectHandle $list(2)]
+  }
+
+  expr {[llength $lists(1)] == 120 && \
+      [llength $lists(1)] == [llength $lists(3)] && \
+      [lsort $lists(1)] eq [lsort $lists(3)]}
+} -cleanup {
+  unset -nocomplain lists list; # dispose
+} -constraints {eagle command.object} -time true -result {True}}
+
+###############################################################################
+
+runTest {test lpermute-1.3.1 {fast list permutations w/o storage} -setup {
+  set to [object create -alias Eagle._Tests.Default]
+  set list [object create StringList a b c d e f g h i j k]
+} -body {
+  set pair [$to -alias TestPermute $list null]
+  getStringFromObjectHandle $pair
+} -cleanup {
+  unset -nocomplain pair list to; # dispose
+} -constraints [fixConstraints {eagle command.object bigLists timeIntensive\
+processorIntensive fullTest compile.TEST !dotNetCore\
+Eagle._Tests.Default.TestPermute}] -time true -match regexp -result {^39916800\
+(?:1795731456|1165131776|1432209408|1031429041|2016192054)$}}
+
+###############################################################################
+
+runTest {test lpermute-1.3.2 {fast list permutations w/o storage} -setup {
+  set to [object create -alias Eagle._Tests.Default]
+  set list [object create StringList a b c d e f g h i j k]
+} -body {
+  set pair [$to -alias TestPermute $list null]
+  getStringFromObjectHandle $pair
+} -cleanup {
+  unset -nocomplain pair list to; # dispose
+} -constraints {eagle command.object bigLists timeIntensive processorIntensive\
+fullTest compile.TEST dotNetCore Eagle._Tests.Default.TestPermute} -time true \
+-match regexp -result {^39916800 (?:-)?\d+$}}
+
+###############################################################################
+
+runTest {test lpermute-1.4.1 {fast list permutations w/o storage} -setup {
+  set to [object create -alias Eagle._Tests.Default]
+  set list [object create StringList a b c d e]
+} -body {
+  set pair [$to -alias TestPermute $list null]
+  getStringFromObjectHandle $pair
+} -cleanup {
+  unset -nocomplain pair list to; # dispose
+} -constraints [fixConstraints {eagle command.object compile.TEST\
+!dotNetCore Eagle._Tests.Default.TestPermute}] -time true -match regexp \
+-result {^120 (?:832|160768|460800|-1888530029)$}}
+
+###############################################################################
+
+runTest {test lpermute-1.4.2 {fast list permutations w/o storage} -setup {
+  set to [object create -alias Eagle._Tests.Default]
+  set list [object create StringList a b c d e]
+} -body {
+  set pair [$to -alias TestPermute $list null]
+  getStringFromObjectHandle $pair
+} -cleanup {
+  unset -nocomplain pair list to; # dispose
+} -constraints {eagle command.object compile.TEST dotNetCore\
+Eagle._Tests.Default.TestPermute} -time true -match regexp -result {^120\
+(?:-)?\d+$}}
+
+###############################################################################
+
+runTest {test lpermute-1.5 {fast list permutations w/o storage} -setup {
+  proc lpermuteCallback {list} {
+    if {![info exists ::rv]} then {
+      set ::rv [object invoke -create System.Boolean Parse true]
+    }
+    set x [lindex $::pair(1) 0]; incr x
+    set y [lindex $::pair(1) 1]; incr y [$list Count]
+    set ::pair(1) [list $x $y]
+    return $::rv
+  }
+
+  set to [object create -alias Eagle._Tests.Default]
+  set list [object create StringList a b c d e]
+} -body {
+  set pair(1) [list 0 0]
+
+  set pair(2) [$to -marshalflags +dynamiccallback -alias \
+      TestPermute $list lpermuteCallback]
+
+  list $pair(1) [getStringFromObjectHandle $pair(2)]
+} -cleanup {
+  catch {object dispose $rv}
+
+  unset -nocomplain pair rv list to; # dispose
+
+  catch {object removecallback lpermuteCallback}
+
+  rename lpermuteCallback ""
+} -constraints {eagle command.object compile.EMIT compile.TEST\
+Eagle._Tests.Default.TestPermute} -time true -result {{120 600} {0 0}}}
+
+###############################################################################
+
+#
+# HACK: This should be bug-for-bug compatible with Tcl, see:
+#
+#       https://core.tcl.tk/tcl/info/47ac84309b
+#
+runTest {test lreplace-100.1 {[lreplace] ok with empty lists} -setup {
+  set interp [interp create]
+
+  if {[isEagle]} then {
+    interp eval $interp {
+      object invoke -flags +NonPublic Interpreter.GetActive \
+          InterpreterFlags +ReplaceEmptyListOk
+    }
+  }
+} -body {
+  interp eval $interp {
+    list [lreplace {} -1 -1] [lreplace {} 0 0] [lreplace {} 2 2] \
+        [lreplace {} 2 3] [lreplace {} 3 2] [lreplace {} 99 100] \
+        [lreplace {} end end] [lreplace {} end-1 end-1]
+  }
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain interp
+} -result {{} {} {} {} {} {} {} {}}}
+
+###############################################################################
+
+runTest {test lreplace-100.2 {[lreplace] error with empty lists} -setup {
+  set interp [interp create]
+
+  interp eval $interp {
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        InterpreterFlags -ReplaceEmptyListOk
+  }
+} -body {
+  list [catch {interp eval $interp {
+    lreplace {} 0 0
+  }} error] $error
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain error interp
+} -constraints {eagle command.object} -result \
+{1 {list doesn't contain element 0}}}
+
+###############################################################################
+
+runTest {test lreplace-200.1 {lreplace past end-of-list (end)} -setup {
+  unset -nocomplain x y
+} -body {
+  set x [list]; set y [list 1 2 3 4]
+  set x [lreplace $x end end $y]
+  set x [lreplace $x end end $y]
+  set x
+} -cleanup {
+  unset -nocomplain x y
+} -result {{1 2 3 4}}}
+
+###############################################################################
+
+runTest {test lreplace-200.2 {lreplace past end-of-list (1)} -setup {
+  unset -nocomplain x y
+} -body {
+  set x [list]; set y [list 1 2 3 4]
+  set x [lreplace $x end 1 $y]
+  set x [lreplace $x end 1 $y]
+  set x
+} -cleanup {
+  unset -nocomplain x y
+} -result {{1 2 3 4}}}
+
+###############################################################################
+
+runTest {test lreplace-200.3 {lreplace past end-of-list (0)} -setup {
+  unset -nocomplain x y
+} -body {
+  set x [list]; set y [list 1 2 3 4]
+  set x [lreplace $x end 0 $y]
+  set x [lreplace $x end 0 $y]
+  set x
+} -cleanup {
+  unset -nocomplain x y
+} -result {{1 2 3 4}}}
+
+###############################################################################
+
+runTest {test lreplace-200.4 {lreplace past end-of-list (-1)} -setup {
+  unset -nocomplain x y
+} -body {
+  set x [list]; set y [list 1 2 3 4]
+  set x [lreplace $x end -1 $y]
+  set x [lreplace $x end -1 $y]
+  set x
+} -cleanup {
+  unset -nocomplain x y
+} -result {{1 2 3 4} {1 2 3 4}}}
+
+###############################################################################
+
+runTest {test lget-1.1 {lget syntax error} -body {
+  lget
+} -constraints {command.lget} -returnCodes 1 -result \
+{wrong # args: should be "lget varName ?index ...?"}}
+
+###############################################################################
+
+runTest {test lget-1.2 {lget flat-list, out-of-bounds index} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a b c]; lget list -1
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -returnCodes 1 -result \
+{list index out of range}}
+
+###############################################################################
+
+runTest {test lget-1.3 {lget flat-list, out-of-bounds index} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a b c]; lget list 3
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -returnCodes 1 -result \
+{list index out of range}}
+
+###############################################################################
+
+runTest {test lget-1.4 {lget flat-list, whole list} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a b c]; lget list
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {a b c}}
+
+###############################################################################
+
+runTest {test lget-1.5 {lget flat-list, first element} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a b c]; list [lget list 0] [lget list start]
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {a a}}
+
+###############################################################################
+
+runTest {test lget-1.6 {lget flat-list, second element} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a b c]; list [lget list 1] [lget list start+1]
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {b b}}
+
+###############################################################################
+
+runTest {test lget-1.7 {lget flat-list, next-to-last element} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a b c]; lget list end-1
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {b}}
+
+###############################################################################
+
+runTest {test lget-1.8 {lget flat-list, last element} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a b c]; lget list end
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {c}}
+
+###############################################################################
+
+runTest {test lget-1.9 {lget nested-list, out-of-bounds index} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a [list b1 b2 b3] c]; lget list 1 -1
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -returnCodes 1 -result \
+{list index out of range}}
+
+###############################################################################
+
+runTest {test lget-1.10 {lget nested-list, out-of-bounds index} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a [list b1 b2 b3] c]; lget list 1 3
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -returnCodes 1 -result \
+{list index out of range}}
+
+###############################################################################
+
+runTest {test lget-1.11 {lget nested-list, whole list} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a [list b1 b2 b3] c]; lget list
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {a {b1 b2 b3} c}}
+
+###############################################################################
+
+runTest {test lget-1.12 {lget nested-list, whole list element} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a [list b1 b2 b3] c]; lget list 1
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {b1 b2 b3}}
+
+###############################################################################
+
+runTest {test lget-1.13 {lget nested-list, first sub-element} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a [list b1 b2 b3] c]; lget list 1 start
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {b1}}
+
+###############################################################################
+
+runTest {test lget-1.14 {lget nested-list, second sub-element} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a [list b1 b2 b3] c]; lget list 1 1
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {b2}}
+
+###############################################################################
+
+runTest {test lget-1.15 {lget nested-list, next-to-last sub-element} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a [list b1 b2 b3] c]; lget list 1 end-1
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {b2}}
+
+###############################################################################
+
+runTest {test lget-1.16 {lget nested-list, last sub-element} -setup {
+  unset -nocomplain list
+} -body {
+  set list [list a [list b1 b2 b3] c]; lget list 1 end
+} -cleanup {
+  unset -nocomplain list
+} -constraints {command.lget} -result {b3}}
+
+###############################################################################
+
+runTest {test listToEnglish-1.1 {list to english wording} -setup {
+  unset -nocomplain list separator prefix suffix valuePrefix valueSuffix
+
+  set list(0,0) [object create -alias StringList]
+  set list(0,1) [object create -alias StringList]
+  set list(1,0) [object create -alias StringList]
+  set list(1,1) [object create -alias StringList]
+  set list(2,0) [object create -alias StringList]
+  set list(2,1) [object create -alias StringList]
+  set list(3,0) [object create -alias StringList]
+  set list(3,1) [object create -alias StringList]
+
+  $list(1,0) Add one
+  $list(1,1) Add one
+  $list(2,0) Add one
+  $list(2,1) Add one
+  $list(3,0) Add one
+  $list(3,1) Add one
+
+  $list(2,0) Add two
+  $list(2,1) Add two
+  $list(3,0) Add two
+  $list(3,1) Add two
+
+  $list(3,0) Add three
+  $list(3,1) Add three
+
+  $list(0,1) Add null
+  $list(1,1) Add null
+  $list(2,1) Add null
+  $list(3,1) Add null
+
+  $list(0,1) Add ""
+  $list(1,1) Add ""
+  $list(2,1) Add ""
+  $list(3,1) Add ""
+
+  set separator ", "
+  set prefix " "; set suffix "or "
+  set valuePrefix \"; set valueSuffix \"
+} -body {
+  list [object invoke -flags +NonPublic -objecttypes [list String] \
+          Eagle._Components.Private.GenericOps`1 ListToEnglish $list(0,0) \
+          $separator $prefix $suffix $valuePrefix $valueSuffix] \
+      [object invoke -flags +NonPublic -objecttypes [list String] \
+          Eagle._Components.Private.GenericOps`1 ListToEnglish $list(0,1) \
+          $separator $prefix $suffix $valuePrefix $valueSuffix] \
+      [object invoke -flags +NonPublic -objecttypes [list String] \
+          Eagle._Components.Private.GenericOps`1 ListToEnglish $list(1,0) \
+          $separator $prefix $suffix $valuePrefix $valueSuffix] \
+      [object invoke -flags +NonPublic -objecttypes [list String] \
+          Eagle._Components.Private.GenericOps`1 ListToEnglish $list(1,1) \
+          $separator $prefix $suffix $valuePrefix $valueSuffix] \
+      [object invoke -flags +NonPublic -objecttypes [list String] \
+          Eagle._Components.Private.GenericOps`1 ListToEnglish $list(2,0) \
+          $separator $prefix $suffix $valuePrefix $valueSuffix] \
+      [object invoke -flags +NonPublic -objecttypes [list String] \
+          Eagle._Components.Private.GenericOps`1 ListToEnglish $list(2,1) \
+          $separator $prefix $suffix $valuePrefix $valueSuffix] \
+      [object invoke -flags +NonPublic -objecttypes [list String] \
+          Eagle._Components.Private.GenericOps`1 ListToEnglish $list(3,0) \
+          $separator $prefix $suffix $valuePrefix $valueSuffix] \
+      [object invoke -flags +NonPublic -objecttypes [list String] \
+          Eagle._Components.Private.GenericOps`1 ListToEnglish $list(3,1) \
+          $separator $prefix $suffix $valuePrefix $valueSuffix]
+} -cleanup {
+  unset -nocomplain list separator prefix suffix valuePrefix valueSuffix
+} -constraints {eagle command.object monoBug30} -result {{} {} {"one"} {"one"}\
+{"one" or "two"} {"one" or "two"} {"one", "two", or "three"} {"one", "two", or\
+"three"}}}
+
+###############################################################################
+
+runTest {test lremove-1.1 {lremove command ok} -body {
+  list [lremove [list a b c] 0] [lremove [list a b c] 1] \
+      [lremove [list a b c] 2] [lremove [list a b c] end]
+} -constraints {command.lremove} -result {{b c} {a c} {a b} {a b}}}
+
+###############################################################################
+
+runTest {test lremove-1.2 {lremove command error} -setup {
+  unset -nocomplain error
+} -body {
+  list [catch {lremove [list a b c] -1} error] $error \
+      [catch {lremove [list a b c] 3} error] $error
+} -cleanup {
+  unset -nocomplain error
+} -constraints {command.lremove} -result \
+{1 {list index out of range} 1 {list index out of range}}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

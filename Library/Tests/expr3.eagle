@@ -1,0 +1,303 @@
+###############################################################################
+#
+# expr3.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test expr-3.1.1 {deeply nested parenthesis in expression} -body {
+  expr {(2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + 2))))))))))))))))))))))))))))))))) \
+        ))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) \
+        )))))))))))))))))}
+} -constraints {tcl} -result {240}}
+
+###############################################################################
+
+runTest {test expr-3.1.2 {deeply nested parenthesis in expression} -body {
+  expr {(2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + (2 + \
+        (2 + (2 + (2 + (2 + (2 + (2 + (2 + 2))))))))))))))))))))))))))))))))) \
+        ))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) \
+        )))))))))))))))))}
+} -constraints {eagle stackSize.0x1000000} -result {240}}
+
+###############################################################################
+
+runTest {test expr-3.2.1 {big expressions (stack overflow)} -setup {
+  proc stat { list } {
+    expr double([join $list +])
+  }
+
+  proc boom {} {
+    set ::x [list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+
+    while 1 {
+      eval {lappend ::x} $::x; stat $::x
+    }
+  }
+} -body {
+  #
+  # NOTE: We have no way to get the maximum stack size (i.e.
+  #       we are running in Tcl); therefore just make a wild
+  #       guess.
+  #
+  set levels 16384
+
+  list [catch {boom} error] $error [expr {int([llength $::x] >= $levels)}]
+} -cleanup {
+  unset -nocomplain levels error ::x
+
+  rename boom ""
+  rename stat ""
+} -constraints {tcl dotNetCoreOrShell tclCrash} -result \
+{1 {out of stack space (infinite loop?)} 1}}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test is disabled on Mono 3.12.
+#
+runTest {test expr-3.2.2 {big expressions (stack overflow)} -setup {
+  proc stat { list } {
+    expr double([join $list +])
+  }
+
+  proc boom {} {
+    set ::x [list 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+
+    while 1 {
+      eval {lappend ::x} $::x; stat $::x
+    }
+  }
+} -body {
+  #
+  # NOTE: Attempt to estimate the number of nested expression
+  #       levels we should be able to use based on the maximum
+  #       stack size.  On Mono, the stack size specified in
+  #       the PE file does not appear to be honored; however,
+  #       it appears that less space is consumed per stack
+  #       frame.  This test used to assume that the executable
+  #       had been post-processed to increase the stack size
+  #       to 16MB; however, that will not be the case in all
+  #       build configurations.
+  #
+  if {[isMono]} then {
+    #
+    # HACK: Apparently, this needs to change for Mono 4.0?
+    #
+    if {[haveConstraint mono40OrHigher]} then {
+      set stackDivisor 1024
+    } else {
+      set stackDivisor 256
+    }
+  } elseif {[haveConstraint dotNetCore]} {
+    set stackDivisor 1536
+  } elseif {[haveConstraint stackSize.0x1000000]} {
+    set stackDivisor 1024
+  } else {
+    set stackDivisor 2048
+  }
+
+  set levels [expr {
+    [getDictionaryValue [debug stack] maximum] / $stackDivisor
+  }]
+
+  list [catch {boom} error] $error [expr {int([llength $::x] >= $levels)}]
+} -cleanup {
+  unset -nocomplain levels stackDivisor error ::x
+
+  rename boom ""
+  rename stat ""
+} -constraints [fixConstraints {eagle dotNetCoreOrShell native windows\
+compile.NATIVE compile.WINDOWS intel.32bit tclCrash stackIntensive !mono312}] \
+-result {1 {out of stack space (infinite loop?)} 1}}
+
+###############################################################################
+
+runTest {test expr-3.3 {lots of logical OR operators} -setup {
+  proc falseExprLevels {} {
+    if {[isEagle] && [llength [info commands object]] > 0} then {
+      tputs $::test_channel [appendArgs "---- expression nesting levels: " \
+          [object invoke -flags +NonPublic Interpreter.GetActive \
+          ExpressionLevels] \n]
+    }
+
+    return false
+  }
+
+  proc zero { {a 20} } {
+    if {$a == 0} {return 0}
+    return [zero [expr {$a - 1}]]
+  }
+} -body {
+  if {[falseExprLevels] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || \
+      [zero] || [zero] || [zero] || [zero] || [zero] || [zero] || [zero]} then {
+    #
+    # NOTE: This should never be hit.
+    #
+    return true
+  } else {
+    #
+    # NOTE: This should always be hit.
+    #
+    return false
+  }
+} -cleanup {
+  rename falseExprLevels ""
+  rename zero ""
+} -constraints {stackIntensive stackSize.0x1000000} -result {false}}
+
+###############################################################################
+
+runTest {test expr-3.4 {lots of logical AND operators} -setup {
+  proc trueExprLevels {} {
+    if {[isEagle] && [llength [info commands object]] > 0} then {
+      tputs $::test_channel [appendArgs "---- expression nesting levels: " \
+          [object invoke -flags +NonPublic Interpreter.GetActive \
+          ExpressionLevels] \n]
+    }
+
+    return true
+  }
+
+  proc one { {a 20} } {
+    if {$a == 0} {return 1}
+    return [expr {1 + [one [expr {$a - 1}]]}]
+  }
+} -body {
+  if {[trueExprLevels] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one] && \
+      [one] && [one] && [one] && [one] && [one] && [one] && [one]} then {
+    #
+    # NOTE: This should always be hit.
+    #
+    return true
+  } else {
+    #
+    # NOTE: This should never be hit.
+    #
+    return false
+  }
+} -cleanup {
+  rename trueExprLevels ""
+  rename one ""
+} -constraints {stackIntensive stackSize.0x1000000} -result {true}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

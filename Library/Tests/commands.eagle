@@ -1,0 +1,548 @@
+###############################################################################
+#
+# commands.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc isTclKitDll {} {
+  if {[catch {file tail [tcl module]} fileName] == 0 || \
+      [catch {file tail [getDictionaryValue \
+          [tcl select -architecture] fileName]} fileName] == 0} then {
+    if {[string match libtclkit* $fileName]} then {
+      return true
+    }
+  }
+
+  return false
+}
+
+###############################################################################
+
+proc getTclReserved { version } {
+  #
+  # NOTE: From special builds of the native Tcl core library.
+  #
+  set result [list checkmem evalstats memory]
+
+  #
+  # NOTE: From the "auto.tcl" package for native Tcl.
+  #
+  lappend result auto_mkindex auto_mkindex_old auto_reset tcl_findLibrary
+
+  #
+  # NOTE: From the "history.tcl" package for native Tcl.
+  #
+  lappend result history
+
+  #
+  # NOTE: From the "parray.tcl" package for native Tcl.
+  #
+  # TODO: Remove this?
+  #
+  lappend result parray
+
+  #
+  # NOTE: From the "package.tcl" package for native Tcl.
+  #
+  lappend result pkg_mkIndex tclPkgSetup tclPkgUnknown
+
+  #
+  # NOTE: From the "word.tcl" package for native Tcl.
+  #
+  # TODO: Remove these?
+  #
+  lappend result tcl_endOfWord tcl_startOfNextWord tcl_startOfPreviousWord
+  lappend result tcl_wordBreakAfter tcl_wordBreakBefore
+
+  #
+  # NOTE: Determine if we are using (or are going to use) a TclKit that
+  #       has several extra reserved commands to faciliate working with
+  #       an embedded VFS.
+  #
+  if {[isTclKitDll]} then {
+    #
+    # NOTE: From the commands that are always present in the TclKit
+    #       interpreter for embedded VFS handling.
+    #
+    lappend result librarypath loadvfs rechan
+
+    #
+    # NOTE: For Tcl versions less than 8.6, also include the "zlib"
+    #       command.
+    #
+    if {$version < 8.6} then {
+      lappend result zlib
+    }
+
+    #
+    # NOTE: If applicable, from the commands that are always present
+    #       in the TclKit interpreter on Windows.
+    #
+    if {[isWindows]} then {
+      #
+      # NOTE: These commands provide access to some platform-specific
+      #       features of Windows.
+      #
+      lappend result dde registry
+    }
+  }
+
+  return $result
+}
+
+###############################################################################
+
+proc getCmdList84 {} {
+  if {![isEagle]} then {
+    return [list]
+  }
+
+  return [list [list \
+                {missing proc auto_execok} {missing proc auto_import} \
+                {missing proc auto_load} {missing proc auto_load_index} \
+                {missing proc auto_qualify} {missing cmd binary} \
+                {missing cmd case} {missing cmd fileevent} \
+                {missing cmd scan} {missing cmd trace}] \
+                [filter [list {extra cmd apply} {extra cmd base64} \
+                {extra cmd bgerror} \
+                [expr {[llength [info commands callback]] > 0 ? \
+                    {extra cmd callback} : ""}] \
+                {extra cmd debug} {extra cmd do} \
+                {extra cmd downlevel} \
+                {extra cmd fpclassify} \
+                [expr {[llength [info commands getf]] > 0 ? \
+                    {extra cmd getf} : ""}] \
+                {extra cmd guid} {extra cmd hash} \
+                {extra cmd host} {extra cmd invoke} \
+                {extra cmd kill} {extra cmd lassign} \
+                [expr {[llength [info commands lget]] > 0 ? \
+                    {extra cmd lget} : ""}] \
+                [expr {[llength [info commands library]] > 0 ? \
+                    {extra cmd library} : ""}] \
+                {extra cmd lmap} \
+                {extra cmd lremove} {extra cmd lrepeat} \
+                {extra cmd lreverse} {extra cmd nop} \
+                {extra cmd nproc} \
+                [expr {[llength [info commands object]] > 0 ? \
+                    {extra cmd object} : ""}] \
+                {extra cmd parse} \
+                {extra cmd scope} \
+                [expr {[llength [info commands setf]] > 0 ? \
+                    {extra cmd setf} : ""}] \
+                {extra cmd sql} {extra cmd tcl} \
+                {extra cmd test1} {extra cmd test2} \
+                {extra cmd throw} {extra cmd truncate} \
+                {extra cmd try} {extra cmd unload} \
+                [expr {[llength [info commands unsetf]] > 0 ? \
+                    {extra cmd unsetf} : ""}] \
+                {extra cmd uri} {extra cmd version} \
+                [expr {[llength [info commands xml]] > 0 ? \
+                    {extra cmd xml} : ""}]] \
+                {apply [list [list item] {return [expr \
+                    {[string length $item] > 0}]}]}]]
+}
+
+###############################################################################
+
+proc getCmdList85 {} {
+  if {![isEagle]} then {
+    return [list]
+  }
+
+  return [list [list \
+                {missing proc auto_execok} {missing proc auto_import} \
+                {missing proc auto_load} {missing proc auto_load_index} \
+                {missing proc auto_qualify} {missing cmd binary} \
+                {missing cmd case} {missing cmd chan} \
+                {missing cmd dict} {missing cmd fileevent} \
+                {missing cmd scan} {missing cmd trace}] \
+                [filter [list {extra cmd base64} {extra cmd bgerror} \
+                [expr {[llength [info commands callback]] > 0 ? \
+                    {extra cmd callback} : ""}] \
+                {extra cmd debug} {extra cmd do} \
+                {extra cmd downlevel} \
+                {extra cmd fpclassify} \
+                [expr {[llength [info commands getf]] > 0 ? \
+                    {extra cmd getf} : ""}] \
+                {extra cmd guid} {extra cmd hash} \
+                {extra cmd host} {extra cmd invoke} \
+                {extra cmd kill} \
+                [expr {[llength [info commands lget]] > 0 ? \
+                    {extra cmd lget} : ""}] \
+                [expr {[llength [info commands library]] > 0 ? \
+                    {extra cmd library} : ""}] \
+                {extra cmd lmap} {extra cmd lremove} \
+                {extra cmd nop} \
+                {extra cmd nproc} \
+                [expr {[llength [info commands object]] > 0 ? \
+                    {extra cmd object} : ""}] \
+                {extra cmd parse} {extra cmd scope} \
+                [expr {[llength [info commands setf]] > 0 ? \
+                    {extra cmd setf} : ""}] \
+                {extra cmd sql} {extra cmd tcl} \
+                {extra cmd test1} {extra cmd test2} \
+                {extra cmd throw} {extra cmd truncate} \
+                {extra cmd try} \
+                [expr {[llength [info commands unsetf]] > 0 ? \
+                    {extra cmd unsetf} : ""}] \
+                {extra cmd uri} {extra cmd version} \
+                [expr {[llength [info commands xml]] > 0 ? \
+                    {extra cmd xml} : ""}]] \
+                {apply [list [list item] {return [expr \
+                    {[string length $item] > 0}]}]}]]
+}
+
+###############################################################################
+
+proc getCmdList86 {} {
+  if {![isEagle]} then {
+    return [list]
+  }
+
+  set tcl_commands [list]; # NOTE: Unknown.
+
+  if {[haveConstraint testExec] && [haveConstraint tclShell]} then {
+    if {![info exists ::no(getCommandsForTclShell)]} then {
+      if {[catch {
+        getCommandsForTclShell "" [getTclShellVerbosity]
+      } result] == 0 && $result ne "error" && \
+          ![string match "error: *" $result]} then {
+        set tcl_commands $result
+      }
+
+      catch {info previouspid true}
+    }
+  }
+
+  return [list [filter [list \
+                {missing proc auto_execok} {missing proc auto_import} \
+                {missing proc auto_load} {missing proc auto_load_index} \
+                {missing proc auto_qualify} {missing cmd binary} \
+                {missing cmd case} {missing cmd chan} \
+                {missing cmd coroutine} {missing cmd dict} \
+                {missing cmd fileevent} {missing cmd scan} \
+                {missing cmd tailcall} {missing cmd trace} \
+                {missing cmd yield} \
+                [expr {[lsearch $tcl_commands yieldto] != -1 ? \
+                    {missing cmd yieldto} : ""}] \
+                {missing cmd zlib}] {apply [list [list item] {return [expr \
+                    {[string length $item] > 0}]}]}] \
+                [filter [list {extra cmd base64} {extra cmd bgerror} \
+                [expr {[llength [info commands callback]] > 0 ? \
+                    {extra cmd callback} : ""}] \
+                {extra cmd debug} {extra cmd do} \
+                {extra cmd downlevel} \
+                {extra cmd fpclassify} \
+                [expr {[llength [info commands getf]] > 0 ? \
+                    {extra cmd getf} : ""}] \
+                {extra cmd guid} {extra cmd hash} \
+                {extra cmd host} {extra cmd invoke} \
+                {extra cmd kill} \
+                [expr {[llength [info commands lget]] > 0 ? \
+                    {extra cmd lget} : ""}] \
+                [expr {[llength [info commands library]] > 0 ? \
+                    {extra cmd library} : ""}] \
+                [expr {[lsearch $tcl_commands lmap] == -1 ? \
+                    {extra cmd lmap} : ""}] \
+                {extra cmd lremove} {extra cmd nop} \
+                {extra cmd nproc} \
+                [expr {[llength [info commands object]] > 0 ? \
+                    {extra cmd object} : ""}] \
+                {extra cmd parse} \
+                {extra cmd scope} \
+                [expr {[llength [info commands setf]] > 0 ? \
+                    {extra cmd setf} : ""}] \
+                {extra cmd sql} {extra cmd tcl} \
+                {extra cmd test1} {extra cmd test2} \
+                {extra cmd truncate} \
+                [expr {[llength [info commands unsetf]] > 0 ? \
+                    {extra cmd unsetf} : ""}] \
+                {extra cmd uri} {extra cmd version} \
+                [expr {[llength [info commands xml]] > 0 ? \
+                    {extra cmd xml} : ""}]] \
+                {apply [list [list item] {return [expr \
+                    {[string length $item] > 0}]}]}]]
+}
+
+###############################################################################
+
+proc getNopCommandName {} {
+  if {[isEagle]} then {
+    return [appendArgs [getTestAssemblyName] _Nop]
+  } else {
+    return Eagle_Nop; # NOTE: Not really used.
+  }
+}
+
+###############################################################################
+
+runTest {test commands-1.1.1 {commands/procs compared with Tcl 8.4} -setup {
+  tclLoadForTest tcl_loaded
+} -body {
+  set tcl_commands [tcl eval [tcl primary] {lsort [info commands]}]
+  set tcl_procs [tcl eval [tcl primary] {lsort [info procs]}]
+  set tcl_reserved [getTclReserved 8.4]
+
+  set eagle_commands [lsort [info commands]]
+  set eagle_procs [lsort [info procs]]
+  set eagle_aliases [lsort [interp aliases]]
+  set eagle_reserved [list [getNopCommandName] tcltest::testConstraint]
+
+  set eagle_missing [list]
+  set eagle_extra [list]
+
+  foreach tcl_command $tcl_commands {
+    if {$tcl_command ni $tcl_reserved} then {
+      if {$tcl_command ni $eagle_commands} then {
+        lappend eagle_missing [list missing [expr\
+          {$tcl_command in $tcl_procs ? "proc" : "cmd"}] $tcl_command]
+      }
+    }
+  }
+
+  foreach eagle_command $eagle_commands {
+    if {$eagle_command ni $eagle_reserved} then {
+      if {$eagle_command ni $tcl_commands} then {
+        #
+        # NOTE: Disable matching of namespaced commands when namespaces
+        #       are not enabled.
+        #
+        if {[namespace enable] || \
+            [string first :: $eagle_command] == -1} then {
+          #
+          # BUGBUG: We cannot reliably test extra procs while running
+          #         other tests; therefore, just account for extra
+          #         commands.
+          #
+          if {$eagle_command ni $eagle_procs && \
+              $eagle_command ni $eagle_aliases} then {
+            lappend eagle_extra [list extra cmd $eagle_command]
+          }
+        }
+      }
+    }
+  }
+
+  list $eagle_missing $eagle_extra
+} -cleanup {
+  tclUnloadForTest false tcl_loaded
+
+  unset -nocomplain eagle_command eagle_commands eagle_extra eagle_missing \
+      eagle_procs eagle_aliases eagle_reserved tcl_command tcl_commands \
+      tcl_procs tcl_reserved
+} -constraints [fixConstraints {eagle dotNetCoreOrShell native dynamic\
+tclLibrary84 command.tcl compile.EMIT compile.NATIVE compile.LIBRARY\
+compile.TCL primaryThread !security.enabled}] -result [getCmdList84]}
+
+###############################################################################
+
+runTest {test commands-1.1.2 {commands/procs compared with Tcl 8.5} -setup {
+  tclLoadForTest tcl_loaded
+} -body {
+  set tcl_commands [tcl eval [tcl primary] {lsort [info commands]}]
+  set tcl_procs [tcl eval [tcl primary] {lsort [info procs]}]
+  set tcl_reserved [getTclReserved 8.5]
+
+  set eagle_commands [lsort [info commands]]
+  set eagle_procs [lsort [info procs]]
+  set eagle_aliases [lsort [interp aliases]]
+  set eagle_reserved [list [getNopCommandName] tcltest::testConstraint]
+
+  set eagle_missing [list]
+  set eagle_extra [list]
+
+  foreach tcl_command $tcl_commands {
+    if {$tcl_command ni $tcl_reserved} then {
+      if {$tcl_command ni $eagle_commands} then {
+        lappend eagle_missing [list missing [expr\
+          {$tcl_command in $tcl_procs ? "proc" : "cmd"}] $tcl_command]
+      }
+    }
+  }
+
+  foreach eagle_command $eagle_commands {
+    if {$eagle_command ni $eagle_reserved} then {
+      if {$eagle_command ni $tcl_commands} then {
+        #
+        # NOTE: Disable matching of namespaced commands when namespaces
+        #       are not enabled.
+        #
+        if {[namespace enable] || \
+            [string first :: $eagle_command] == -1} then {
+          #
+          # BUGBUG: We cannot reliably test extra procs while running
+          #         other tests; therefore, just account for extra
+          #         commands.
+          #
+          if {$eagle_command ni $eagle_procs && \
+              $eagle_command ni $eagle_aliases} then {
+            lappend eagle_extra [list extra cmd $eagle_command]
+          }
+        }
+      }
+    }
+  }
+
+  list $eagle_missing $eagle_extra
+} -cleanup {
+  tclUnloadForTest false tcl_loaded
+
+  unset -nocomplain eagle_command eagle_commands eagle_extra eagle_missing \
+      eagle_procs eagle_aliases eagle_reserved tcl_command tcl_commands \
+      tcl_procs tcl_reserved
+} -constraints [fixConstraints {eagle dotNetCoreOrShell native dynamic\
+tclLibrary85 command.tcl compile.EMIT compile.NATIVE compile.LIBRARY\
+compile.TCL primaryThread !security.enabled}] -result [getCmdList85]}
+
+###############################################################################
+
+runTest {test commands-1.1.3 {commands/procs compared with Tcl 8.6} -setup {
+  tclLoadForTest tcl_loaded
+} -body {
+  set tcl_commands [tcl eval [tcl primary] {lsort [info commands]}]
+  set tcl_procs [tcl eval [tcl primary] {lsort [info procs]}]
+  set tcl_reserved [getTclReserved 8.6]
+
+  set eagle_commands [lsort [info commands]]
+  set eagle_procs [lsort [info procs]]
+  set eagle_aliases [lsort [interp aliases]]
+  set eagle_reserved [list [getNopCommandName] tcltest::testConstraint]
+
+  set eagle_missing [list]
+  set eagle_extra [list]
+
+  foreach tcl_command $tcl_commands {
+    if {$tcl_command ni $tcl_reserved} then {
+      if {$tcl_command ni $eagle_commands} then {
+        lappend eagle_missing [list missing [expr\
+          {$tcl_command in $tcl_procs ? "proc" : "cmd"}] $tcl_command]
+      }
+    }
+  }
+
+  foreach eagle_command $eagle_commands {
+    if {$eagle_command ni $eagle_reserved} then {
+      if {$eagle_command ni $tcl_commands} then {
+        #
+        # NOTE: Disable matching of namespaced commands when namespaces
+        #       are not enabled.
+        #
+        if {[namespace enable] || \
+            [string first :: $eagle_command] == -1} then {
+          #
+          # BUGBUG: We cannot reliably test extra procs while running
+          #         other tests; therefore, just account for extra
+          #         commands.
+          #
+          if {$eagle_command ni $eagle_procs && \
+              $eagle_command ni $eagle_aliases} then {
+            lappend eagle_extra [list extra cmd $eagle_command]
+          }
+        }
+      }
+    }
+  }
+
+  list $eagle_missing $eagle_extra
+} -cleanup {
+  catch {info previouspid true}; # NOTE: Redundant (getCmdList86).
+
+  tclUnloadForTest false tcl_loaded
+
+  unset -nocomplain eagle_command eagle_commands eagle_extra eagle_missing \
+      eagle_procs eagle_aliases eagle_reserved tcl_command tcl_commands \
+      tcl_procs tcl_reserved
+} -constraints [fixConstraints {eagle dotNetCoreOrShell native dynamic\
+tclLibrary86 tclShell86 command.tcl compile.EMIT compile.NATIVE compile.LIBRARY\
+compile.TCL primaryThread !security.enabled}] -result [getCmdList86]}
+
+###############################################################################
+
+runTest {test commands-1.4 {command groups} -body {
+  set result [list]
+
+  foreach name [lsort [info commands -strict]] {
+    #
+    # NOTE: Skip obsolete commands and the test plugin commands, if present.
+    #
+    if {$name ni [list report [getNopCommandName] getf setf unsetf]} then {
+      set command null; set token 0; set error null
+
+      set code [object invoke Interpreter.GetActive GetCommand \
+          $name NoWrapper token command error]
+
+      if {$code eq "Ok"} then {
+        set group [object invoke -type \
+            Eagle._Interfaces.Public.IIdentifier $command Group]
+
+        if {$group ne "alias"} then {
+          lappend result [list $name $group]
+        }
+      } else {
+        lappend result [list $name error]
+      }
+
+      unset -nocomplain code error token command
+    }
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain code error token command name group result
+} -constraints [fixConstraints {eagle command.object command.callback\
+compile.CALLBACK_QUEUE command.lget command.library compile.EMIT compile.NATIVE\
+compile.LIBRARY command.socket compile.NETWORK command.sql compile.DATA\
+command.tcl compile.TCL command.xml compile.XML !security.enabled\
+monoMatchFramework}] -result {{after event} {append string} {apply procedure}\
+{array variable} {base64 string} {bgerror scriptEnvironment} {break control}\
+{callback event} {catch control} {cd fileSystem} {clock time} {close channel}\
+{concat string} {continue control} {debug debug} {do loop} {downlevel control}\
+{encoding string} {eof channel} {error control} {eval engine} {exec\
+nativeEnvironment} {exit nativeEnvironment} {expr expression} {fblocked\
+channel} {fconfigure channel} {fcopy channel} {file fileSystem} {flush channel}\
+{for loop} {foreach loop} {format string} {fpclassify expression} {gets\
+channel} {glob fileSystem} {global variable} {guid string} {hash string} {host\
+managedEnvironment} {if conditional} {incr expression} {info introspection}\
+{interp scriptEnvironment} {invoke engine} {join string} {kill\
+nativeEnvironment} {lappend list} {lassign list} {lget list} {library\
+nativeEnvironment} {lindex list} {linsert list} {list list} {llength list}\
+{lmap loop} {load managedEnvironment} {lrange list} {lremove list} {lrepeat\
+list} {lreplace list} {lreverse list} {lsearch list} {lset list} {lsort list}\
+{namespace scriptEnvironment} {nop nop} {nproc procedure} {object\
+managedEnvironment} {open fileSystem} {package scriptEnvironment} {parse\
+string} {pid nativeEnvironment} {proc procedure} {puts channel} {pwd\
+fileSystem} {read channel} {regexp string} {regsub string} {rename\
+scriptEnvironment} {return control} {scope variable} {seek channel} {set\
+variable} {socket network} {source engine} {split string} {sql\
+managedEnvironment} {string string} {subst engine} {switch conditional} {tcl\
+nativeEnvironment} {tell channel} {test1 test} {test2 test} {throw control}\
+{time time} {truncate channel} {try control} {unload managedEnvironment} {unset\
+variable} {update event} {uplevel control} {upvar variable} {uri network}\
+{variable variable} {version introspection} {vwait event} {while loop} {xml\
+managedEnvironment}}}
+
+###############################################################################
+
+rename isTclKitDll ""
+rename getTclReserved ""
+rename getCmdList84 ""
+rename getCmdList85 ""
+rename getCmdList86 ""
+rename getNopCommandName ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

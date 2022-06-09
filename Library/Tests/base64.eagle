@@ -1,0 +1,64 @@
+###############################################################################
+#
+# base64.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test base64-1.1 {encode/decode} -body {
+  object invoke System.String Format {this is a test... {0} 0x{0:X}} \
+    [set i [object invoke -create System.Int32 Parse [string ordinal \
+    [base64 decode -encoding unicode [base64 encode -encoding unicode \
+    \u2222]] 0]]]
+} -cleanup {
+  unset -nocomplain i
+} -constraints {eagle command.object} -result {this is a test... 8738 0x2222}}
+
+###############################################################################
+
+runTest {test base64-1.2 {decode length} -body {
+  string length [base64 decode { \
+      TGxhbmZhaXJwd2xsZ3d5bmd5bGxnb2dlcnl \
+      jaHd5cm5kcm9id2xsbGxhbnR5c2lsaW9nb2 \
+      dvZ29jaA==}]
+} -constraints {eagle} -result {58}}
+
+###############################################################################
+
+runTest {test base64-9.12 {Random Self Object} -setup {
+  proc toChars { list {ordinal false} } {
+    set result [list]
+    foreach element $list {
+      if {$ordinal} then {
+        lappend result [appendArgs \\x [format %02X $element]]
+      } else {
+        foreach subElement [split $element ""] {
+          set subElement [string ordinal $subElement 0]
+          lappend result [appendArgs \\x [format %02X $subElement]]
+        }
+      }
+    }
+    return $result
+  }
+} -body {
+  base64 encode [join [lreverse [subst [toChars [split [base64 decode \
+      VGhpcyBpcyBKb2huIEdhbHQgc3BlYWtpbmcu] ""]]]] ""]
+} -cleanup {
+  rename toChars ""
+} -constraints {eagle} -result {LmduaWthZXBzIHRsYUcgbmhvSiBzaSBzaWhU}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

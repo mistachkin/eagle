@@ -1,0 +1,868 @@
+###############################################################################
+#
+# regexp.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test regexp-0.1 {sanity checking} {
+  regexp -inline -- {\w(\w)} " inlined "} {in n}
+}
+
+###############################################################################
+
+runTest {test regexp-0.2 {sanity checking} {
+  regexp -all -inline -- {\w(\w)} " inlined "} {in n li i ne e}
+}
+
+###############################################################################
+
+runTest {test regexp-0.3 {sanity checking} {
+  regexp -start 1 -all -inline -- {\w(\w)} " inlined "} {in n li i ne e}
+}
+
+###############################################################################
+
+runTest {test regexp-0.4 {sanity checking} {
+  regexp -start 2 -all -inline -- {\w(\w)} " inlined "} {nl l in n ed d}
+}
+
+###############################################################################
+
+runTest {test regexp-0.5 {sanity checking} {
+  regexp -start 3 -all -inline -- {\w(\w)} " inlined "} {li i ne e}
+}
+
+###############################################################################
+
+runTest {test regexp-0.6 {sanity checking} {
+  regexp -start 99 -all -inline -- {\w(\w)} " inlined "} {}
+}
+
+###############################################################################
+
+runTest {test regexp-0.7 {sanity checking} {
+  regexp -start -1 -all -inline -- {\w(\w)} " inlined "} {in n li i ne e}
+}
+
+###############################################################################
+
+runTest {test regexp-0.8 {sanity checking} {
+  regexp -all -indices -inline -- {\w(\w)} " inlined "} \
+      {{1 2} {2 2} {3 4} {4 4} {5 6} {6 6}}
+}
+
+###############################################################################
+
+runTest {test regexp-0.9 {sanity checking} {
+  regexp -all -inline {a*} a} {a}
+}
+
+###############################################################################
+
+runTest {test regexp-0.10 {sanity checking} {
+  regexp -all -inline {a*} aaa} {aaa}
+}
+
+###############################################################################
+
+runTest {test regexp-0.11 {sanity checking} {
+  regexp -all -inline {.*} {}} {{}}
+}
+
+###############################################################################
+
+runTest {test regexp-1.1 {basic regexp operation} {
+  regexp ab*c abbbc
+} 1}
+
+###############################################################################
+
+runTest {test regexp-1.2 {basic regexp operation} {
+  regexp ab*c ac
+} 1}
+
+###############################################################################
+
+runTest {test regexp-1.3 {basic regexp operation} {
+  regexp ab*c ab
+} 0}
+
+###############################################################################
+
+runTest {test regexp-1.4 {basic regexp operation} {
+  regexp -- -gorp abc-gorpxxx
+} 1}
+
+###############################################################################
+
+runTest {test regexp-1.5 {basic regexp operation} -body {
+  regexp {^([^ ]*)[ ]*([^ ]*)} "" a
+} -cleanup {
+  unset -nocomplain a
+} -result 1}
+
+###############################################################################
+
+runTest {test regexp-1.6 {basic regexp operation} -body {
+  list [catch {regexp {} abc} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test regexp-1.7 {regexp utf compliance} -body {
+  # if not UTF-8 aware, result is "0 1"
+  set foo "\u4e4eb q"
+  regexp "\u4e4eb q" "a\u4e4eb qw\u5e4e\x4e wq" bar
+  list [string compare $foo $bar] [regexp 4 $bar]
+} -cleanup {
+  unset -nocomplain foo bar
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test regexp-2.1 {getting substrings back from regexp} -body {
+  set foo {}
+  list [regexp ab*c abbbbc foo] $foo
+} -cleanup {
+  unset -nocomplain foo
+} -result {1 abbbbc}}
+
+###############################################################################
+
+runTest {test regexp-2.2 {getting substrings back from regexp} -body {
+  set foo {}
+  set f2 {}
+  list [regexp a(b*)c abbbbc foo f2] $foo $f2
+} -cleanup {
+  unset -nocomplain foo f2
+} -result {1 abbbbc bbbb}}
+
+###############################################################################
+
+runTest {test regexp-2.3 {getting substrings back from regexp} -body {
+  set foo {}
+  set f2 {}
+  list [regexp a(b*)(c) abbbbc foo f2] $foo $f2
+} -cleanup {
+  unset -nocomplain foo f2
+} -result {1 abbbbc bbbb}}
+
+###############################################################################
+
+runTest {test regexp-2.4 {getting substrings back from regexp} -body {
+  set foo {}
+  set f2 {}
+  set f3 {}
+  list [regexp a(b*)(c) abbbbc foo f2 f3] $foo $f2 $f3
+} -cleanup {
+  unset -nocomplain foo f2 f3
+} -result {1 abbbbc bbbb c}}
+
+###############################################################################
+
+runTest {test regexp-2.5 {getting substrings back from regexp} -body {
+  set foo {}; set f1 {}; set f2 {}; set f3 {}; set f4 {}; set f5 {};
+  set f6 {}; set f7 {}; set f8 {}; set f9 {}; set fa {}; set fb {};
+  list [regexp (1*)(2*)(3*)(4*)(5*)(6*)(7*)(8*)(9*)(a*)(b*) \
+      12223345556789999aabbb \
+      foo f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb] $foo $f1 $f2 $f3 $f4 $f5 \
+      $f6 $f7 $f8 $f9 $fa $fb
+} -cleanup {
+  unset -nocomplain foo f1 f2 f3 f4 f5 f6 f7 f8 f9 fa fb
+} -result {1 12223345556789999aabbb 1 222 33 4 555 6 7 8 9999 aa bbb}}
+
+###############################################################################
+
+runTest {test regexp-2.6 {getting substrings back from regexp} -body {
+  set foo 2; set f2 2; set f3 2; set f4 2
+  list [regexp (a)(b)? xay foo f2 f3 f4] $foo $f2 $f3 $f4
+} -cleanup {
+  unset -nocomplain foo f2 f3 f4
+} -result {1 a a {} {}}}
+
+###############################################################################
+
+runTest {test regexp-2.7 {getting substrings back from regexp} -body {
+  set foo 1; set f2 1; set f3 1; set f4 1
+  list [regexp (a)(b)?(c) xacy foo f2 f3 f4] $foo $f2 $f3 $f4
+} -cleanup {
+  unset -nocomplain foo f2 f3 f4
+} -result {1 ac a {} c}}
+
+###############################################################################
+
+runTest {test regexp-2.8 {getting substrings back from regexp} -body {
+  set match {}
+  list [regexp {^a*b} aaaab match] $match
+} -cleanup {
+  unset -nocomplain match
+} -result {1 aaaab}}
+
+###############################################################################
+
+runTest {test regexp-2.9 {getting substrings back from regexp} -body {
+  set foo {}
+  set f2 {}
+  list [regexp f\352te(b*)c f\352tebbbbc foo f2] $foo $f2
+} -cleanup {
+  unset -nocomplain foo f2
+} -result [list 1 f\352tebbbbc bbbb]}
+
+###############################################################################
+
+runTest {test regexp-2.10 {getting substrings back from regexp} -body {
+  set foo {}
+  set f2 {}
+  list [regexp f\352te(b*)c eff\352tebbbbc foo f2] $foo $f2
+} -cleanup {
+  unset -nocomplain foo f2
+} -result [list 1 f\352tebbbbc bbbb]}
+
+###############################################################################
+
+runTest {test regexp-3.1 {indices option to regexp} -body {
+  set foo {}
+  list [regexp -indices ab*c abbbbc foo] $foo
+} -cleanup {
+  unset -nocomplain foo
+} -result {1 {0 5}}}
+
+###############################################################################
+
+runTest {test regexp-3.2 {indices option to regexp} -body {
+  set foo {}
+  set f2 {}
+  list [regexp -indices a(b*)c abbbbc foo f2] $foo $f2
+} -cleanup {
+  unset -nocomplain foo f2
+} -result {1 {0 5} {1 4}}}
+
+###############################################################################
+
+runTest {test regexp-3.3 {indices option to regexp} -body {
+  set foo {}
+  set f2 {}
+  list [regexp -indices a(b*)(c) abbbbc foo f2] $foo $f2
+} -cleanup {
+  unset -nocomplain foo f2
+} -result {1 {0 5} {1 4}}}
+
+###############################################################################
+
+runTest {test regexp-3.4 {indices option to regexp} -body {
+  set foo {}
+  set f2 {}
+  set f3 {}
+  list [regexp -indices a(b*)(c) abbbbc foo f2 f3] $foo $f2 $f3
+} -cleanup {
+  unset -nocomplain foo f2 f3
+} -result {1 {0 5} {1 4} {5 5}}}
+
+###############################################################################
+
+runTest {test regexp-3.5 {indices option to regexp} -body {
+  set foo {}; set f1 {}; set f2 {}; set f3 {}; set f4 {}; set f5 {};
+  set f6 {}; set f7 {}; set f8 {}; set f9 {}
+  list [regexp -indices (1*)(2*)(3*)(4*)(5*)(6*)(7*)(8*)(9*) \
+     12223345556789999 \
+     foo f1 f2 f3 f4 f5 f6 f7 f8 f9] $foo $f1 $f2 $f3 $f4 $f5 \
+     $f6 $f7 $f8 $f9
+} -cleanup {
+  unset -nocomplain foo f1 f2 f3 f4 f5 f6 f7 f8 f9
+} -result \
+{1 {0 16} {0 0} {1 3} {4 5} {6 6} {7 9} {10 10} {11 11} {12 12} {13 16}}}
+
+###############################################################################
+
+runTest {test regexp-3.6 {getting substrings back from regexp} -body {
+  set foo 2; set f2 2; set f3 2; set f4 2
+  list [regexp -indices (a)(b)? xay foo f2 f3 f4] $foo $f2 $f3 $f4
+} -cleanup {
+  unset -nocomplain foo f2 f3 f4
+} -result {1 {1 1} {1 1} {-1 -1} {-1 -1}}}
+
+###############################################################################
+
+runTest {test regexp-3.7 {getting substrings back from regexp} -body {
+  set foo 1; set f2 1; set f3 1; set f4 1
+  list [regexp -indices (a)(b)?(c) xacy foo f2 f3 f4] $foo $f2 $f3 $f4
+} -cleanup {
+  unset -nocomplain foo f2 f3 f4
+} -result {1 {1 2} {1 1} {-1 -1} {2 2}}}
+
+###############################################################################
+
+runTest {test regexp-4.1 {nocase option to regexp} {
+  regexp -nocase foo abcFOo
+} 1}
+
+###############################################################################
+
+runTest {test regexp-4.2 {nocase option to regexp} -body {
+  set f1 22
+  set f2 33
+  set f3 44
+  list [regexp -nocase {a(b*)([xy]*)z} aBbbxYXxxZ22 f1 f2 f3] $f1 $f2 $f3
+} -cleanup {
+  unset -nocomplain f1 f2 f3
+} -result {1 aBbbxYXxxZ Bbb xYXxx}}
+
+###############################################################################
+
+runTest {test regexp-4.3 {nocase option to regexp} {
+  regexp -nocase FOo abcFOo
+} 1}
+
+###############################################################################
+
+set x abcdefghijklmnopqrstuvwxyz1234567890
+set x $x$x$x$x$x$x$x$x$x$x$x$x
+
+runTest {test regexp-4.4 {case conversion in regexp} -body {
+  list [regexp -nocase $x $x foo] $foo
+} -cleanup {
+  unset -nocomplain foo
+} -result "1 $x"}
+
+unset -nocomplain x; # used for result
+
+###############################################################################
+
+runTest {test regexp-5.1 {exercise cache of compiled expressions} {
+  regexp .*a b
+  regexp .*b c
+  regexp .*c d
+  regexp .*d e
+  regexp .*e f
+  regexp .*a bbba
+} 1}
+
+###############################################################################
+
+runTest {test regexp-5.2 {exercise cache of compiled expressions} {
+  regexp .*a b
+  regexp .*b c
+  regexp .*c d
+  regexp .*d e
+  regexp .*e f
+  regexp .*b xxxb
+} 1}
+
+###############################################################################
+
+runTest {test regexp-5.3 {exercise cache of compiled expressions} {
+  regexp .*a b
+  regexp .*b c
+  regexp .*c d
+  regexp .*d e
+  regexp .*e f
+  regexp .*c yyyc
+} 1}
+
+###############################################################################
+
+runTest {test regexp-5.4 {exercise cache of compiled expressions} {
+  regexp .*a b
+  regexp .*b c
+  regexp .*c d
+  regexp .*d e
+  regexp .*e f
+  regexp .*d 1d
+} 1}
+
+###############################################################################
+
+runTest {test regexp-5.5 {exercise cache of compiled expressions} {
+  regexp .*a b
+  regexp .*b c
+  regexp .*c d
+  regexp .*d e
+  regexp .*e f
+  regexp .*e xe
+} 1}
+
+###############################################################################
+
+runTest {test regexp-6.1.1 {regexp errors} -body {
+  list [catch {regexp a} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints [fixConstraints {!tcl86}] -result \
+{1 {wrong # args: should be "regexp ?switches? exp string ?matchVar?\
+?subMatchVar subMatchVar ...?"}}}
+
+###############################################################################
+
+runTest {test regexp-6.1.2 {regexp errors} -body {
+  list [catch {regexp a} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {tcl86} -result \
+{1 {wrong # args: should be "regexp ?-option ...? exp string ?matchVar?\
+?subMatchVar ...?"}}}
+
+###############################################################################
+
+runTest {test regexp-6.2.1 {regexp errors} -body {
+  list [catch {regexp -nocase a} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints [fixConstraints {!tcl86}] -result \
+{1 {wrong # args: should be "regexp ?switches? exp string ?matchVar?\
+?subMatchVar subMatchVar ...?"}}}
+
+###############################################################################
+
+runTest {test regexp-6.2.2 {regexp errors} -body {
+  list [catch {regexp -nocase a} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -constraints {tcl86} -result \
+{1 {wrong # args: should be "regexp ?-option ...? exp string ?matchVar?\
+?subMatchVar ...?"}}}
+
+###############################################################################
+
+runTest {test regexp-6.6 {regexp errors} -body {
+  list [catch {regexp a a f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 \
+      f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 \
+      f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1 f1} msg] $msg
+} -cleanup {
+  unset -nocomplain f1 msg
+} -result {0 1}}
+
+###############################################################################
+
+runTest {test regexp-6.7 {regexp errors} -body {
+  list [catch {regexp [appendArgs (x)(.)(.)(.)(.)(.)(.)(.)(.) \
+      (.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.) \
+      (.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.) \
+      (.)(.)(.)(.)] xyzzy} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test regexp-6.8.1 {regexp errors} -body {
+  catch {unset f1}
+  set f1 44
+  list [catch {regexp abc abc f1(f2)} msg] $msg
+} -cleanup {
+  unset -nocomplain f1 msg
+} -constraints [fixConstraints {!eagle !tcl86}] -result \
+{1 {couldn't set variable "f1(f2)"}}}
+
+###############################################################################
+
+runTest {test regexp-6.8.2 {regexp errors} -body {
+  catch {unset f1}
+  set f1 44
+  list [catch {regexp abc abc f1(f2)} msg] $msg
+} -cleanup {
+  unset -nocomplain f1 msg
+} -constraints {tcl86} -result {1 {can't set "f1(f2)": variable isn't array}}}
+
+###############################################################################
+
+runTest {test regexp-6.8.3 {regexp errors} -body {
+  catch {unset f1}
+  set f1 44
+  list [catch {regexp abc abc f1(f2)} msg] $msg
+} -cleanup {
+  unset -nocomplain f1 msg
+} -constraints {eagle} -result {1 {can't set "f1(f2)": variable isn't array}}}
+
+###############################################################################
+
+# This test crashes on the Mac unless you increase the Stack Space to about 1
+# Meg.  This is probably bigger than most users want...
+# 8.2.3 regexp reduced stack space requirements, but this should be
+# tested again
+runTest {test regexp-12.1 {large number of subexpressions} -body {
+  list [regexp [appendArgs (.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.) \
+      (.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)] abcdefghijklmnopqrstuvwxyz \
+      all a b c d e f g h i j k l m n o p q r s t u v w x y z] $all $a \
+      $b $c $d $e $f $g $h $i $j $k $l $m $n $o $p $q $r $s $t $u $v $w \
+      $x $y $z
+} -cleanup {
+  unset -nocomplain all a b c d e f g h i j k l m n o p q r s t u v w x y z
+} -result {1 abcdefghijklmnopqrstuvwxyz\
+a b c d e f g h i j k l m n o p q r s t u v w x y z}}
+
+###############################################################################
+
+runTest {test regexp-14.1 {CompileRegexp: regexp cache} -body {
+  regexp .*a b
+  regexp .*b c
+  regexp .*c d
+  regexp .*d e
+  regexp .*e f
+  set x .
+  append x *a
+  regexp $x bbba
+} -cleanup {
+  unset -nocomplain x
+} -result 1}
+
+###############################################################################
+
+runTest {test regexp-14.2 {CompileRegexp: regexp cache, different flags} -body {
+  regexp .*a b
+  regexp .*b c
+  regexp .*c d
+  regexp .*d e
+  regexp .*e f
+  set x .
+  append x *a
+  regexp -nocase $x bbba
+} -cleanup {
+  unset -nocomplain x
+} -result 1}
+
+###############################################################################
+
+runTest {test regexp-14.21 {back references, SF bug #1115587} -body {
+  regexp -inline -- {^([bc])\1*$} bbb
+} -result {bbb b}}
+
+###############################################################################
+
+runTest {test regexp-14.22 {back references, SF bug #1115587} -body {
+  regexp -inline -- {^([bc])\1*$} ccc
+} -result {ccc c}}
+
+###############################################################################
+
+runTest {test regexp-14.23 {back references, SF bug #1115587} -body {
+  regexp -inline -- {^([bc])\1*$} bcb
+} -constraints {tclBug} -result {}}
+
+###############################################################################
+
+runTest {test regexp-15.1 {regexp -start} -body {
+  catch {unset x}
+  list [regexp -start -10 {\d} 1abc2de3 x] $x
+} -cleanup {
+  unset -nocomplain x
+} -result {1 1}}
+
+###############################################################################
+
+runTest {test regexp-15.2 {regexp -start} -body {
+  catch {unset x}
+  list [regexp -start 2 {\d} 1abc2de3 x] $x
+} -cleanup {
+  unset -nocomplain x
+} -result {1 2}}
+
+###############################################################################
+
+runTest {test regexp-15.3 {regexp -start} -body {
+  catch {unset x}
+  list [regexp -start 4 {\d} 1abc2de3 x] $x
+} -cleanup {
+  unset -nocomplain x
+} -result {1 2}}
+
+###############################################################################
+
+runTest {test regexp-15.4 {regexp -start} -body {
+  catch {unset x}
+  list [regexp -start 5 {\d} 1abc2de3 x] $x
+} -cleanup {
+  unset -nocomplain x
+} -result {1 3}}
+
+###############################################################################
+
+runTest {test regexp-15.5 {regexp -start, over end of string} -body {
+  catch {unset x}
+  list [regexp -start [string length 1abc2de3] {\d} 1abc2de3 x] [info exists x]
+} -cleanup {
+  unset -nocomplain x
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test regexp-15.6 {regexp -start, loss of ^$ behavior} -body {
+  list [regexp -start 2 {^$} {}]
+} -constraints {tcl} -result {0}}
+
+###############################################################################
+
+runTest {test regexp-17.1 {regexp -inline} {
+  regexp -inline b ababa
+} {b}}
+
+###############################################################################
+
+runTest {test regexp-17.2 {regexp -inline} {
+  regexp -inline (b) ababa
+} {b b}}
+
+###############################################################################
+
+runTest {test regexp-17.3 {regexp -inline -indices} {
+  regexp -inline -indices (b) ababa
+} {{1 1} {1 1}}}
+
+###############################################################################
+
+runTest {test regexp-17.4 {regexp -inline} {
+  regexp -inline {\w(\d+)\w} "   hello 23 there456def "
+} {e456d 456}}
+
+###############################################################################
+
+runTest {test regexp-17.5 {regexp -inline no matches} {
+  regexp -inline {\w(\d+)\w} ""
+} {}}
+
+###############################################################################
+
+runTest {test regexp-17.6 {regexp -inline no matches} {
+  regexp -inline hello goodbye
+} {}}
+
+###############################################################################
+
+runTest {test regexp-17.7 {regexp -inline, no matchvars allowed} -body {
+  list [catch {regexp -inline b abc match} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -result {1 {regexp match variables not allowed when using -inline}}}
+
+###############################################################################
+
+runTest {test regexp-18.1 {regexp -all} {
+  regexp -all b bbbbb
+} {5}}
+
+###############################################################################
+
+runTest {test regexp-18.2 {regexp -all} {
+  regexp -all b abababbabaaaaaaaaaab
+} {6}}
+
+###############################################################################
+
+runTest {test regexp-18.3 {regexp -all -inline} {
+  regexp -all -inline b abababbabaaaaaaaaaab
+} {b b b b b b}}
+
+###############################################################################
+
+runTest {test regexp-18.4 {regexp -all -inline} {
+  regexp -all -inline {\w(\w)} abcdefg
+} {ab b cd d ef f}}
+
+###############################################################################
+
+runTest {test regexp-18.5 {regexp -all -inline} {
+  regexp -all -inline {\w(\w)$} abcdefg
+} {fg g}}
+
+###############################################################################
+
+runTest {test regexp-18.6 {regexp -all -inline} {
+  regexp -all -inline {\d+} 10:20:30:40
+} {10 20 30 40}}
+
+###############################################################################
+
+runTest {test regexp-18.7 {regexp -all -inline} -body {
+  list [catch {regexp -all -inline b abc match} msg] $msg
+} -cleanup {
+  unset -nocomplain msg
+} -result {1 {regexp match variables not allowed when using -inline}}}
+
+###############################################################################
+
+runTest {test regexp-18.8 {regexp -all} {
+  # This should not cause an infinite loop
+  regexp -all -inline {a*} a
+} {a}}
+
+###############################################################################
+
+runTest {test regexp-18.9 {regexp -all} {
+  # Yes, the expected result is {a {}}.  Here's why:
+  # Start at index 0; a* matches the "a" there then stops.
+  # Go to index 1; a* matches the lambda (or {}) there then stops.  Recall
+  #   that a* matches zero or more "a"'s; thus it matches the string "b", as
+  #   there are zero or more "a"'s there.
+  # Go to index 2; this is past the end of the string, so stop.
+  regexp -all -inline {a*} ab
+} {a {}}}
+
+###############################################################################
+
+runTest {test regexp-18.10 {regexp -all} {
+  # Yes, the expected result is {a {} a}.  Here's why:
+  # Start at index 0; a* matches the "a" there then stops.
+  # Go to index 1; a* matches the lambda (or {}) there then stops.   Recall
+  #   that a* matches zero or more "a"'s; thus it matches the string "b", as
+  #   there are zero or more "a"'s there.
+  # Go to index 2; a* matches the "a" there then stops.
+  # Go to index 3; this is past the end of the string, so stop.
+  regexp -all -inline {a*} aba
+} {a {} a}}
+
+###############################################################################
+
+runTest {test regexp-18.11 {regexp -all} {
+  regexp -all -inline {^a} aaaa
+} {a}}
+
+###############################################################################
+
+runTest {test regexp-18.12 {regexp -all -inline -indices} {
+  regexp -all -inline -indices a(b(c)d|e(f)g)h abcdhaefgh
+} {{0 4} {1 3} {2 2} {-1 -1} {5 9} {6 8} {-1 -1} {7 7}}}
+
+###############################################################################
+
+runTest {test regexp-21.13 {multiple matches handle newlines} {
+  regexp -all -inline -indices -line -- ^ "a\nb\nc"
+} {{0 -1} {2 1} {4 3}}}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.1 {regsub -command} -body {
+  regsub -command {.x.} {abcxdef} {string length}
+} -constraints {tip463} -result ab3ef}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.2 {regsub -command} -body {
+  regsub -command {.x.} {abcxdefxghi} {string length}
+} -constraints {tip463} -result ab3efxghi}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.3 {regsub -command} -setup {
+  unset -nocomplain x
+} -body {
+  set x 0
+  regsub -all -command {(?=.)} abcde {apply {args {incr ::x}}}
+} -cleanup {
+  unset -nocomplain x
+} -constraints {tip194 tip463} -result 1a2b3c4d5e}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.4 {regsub -command} -body {
+  regsub -command {.x.} {abcxdef} error
+} -constraints {tip463} -returnCodes error -result cxd}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.5 {regsub -command} -body {
+  regsub -command {(.)(.)} {abcdef} {list ,}
+} -constraints {tip463} -result {, ab a bcdef}}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.6 {regsub -command} -body {
+  regsub -command -all {(.)(.)} {abcdef} {list ,}
+} -constraints {tip463} -result {, ab a b, cd c d, ef e f}}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.7 {regsub -command representation smash} -setup {
+  unset -nocomplain ::s
+} -body {
+  set ::s {123=456 789}
+  regsub -command -all {\d+} $::s {apply {n {
+    expr {[llength $::s] + $n}
+  }}}
+} -cleanup {
+  unset -nocomplain ::s
+} -constraints {tip194 tip463} -result {125=458 791}}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.8 {regsub -command representation smash} -setup {
+  unset -nocomplain ::t
+} -body {
+  set ::t {apply {n {
+    expr {[llength [lindex $::t 1 1 1]] + $n}
+  }}}
+  regsub -command -all {\d+} "123=456 789" $::t
+} -cleanup {
+  unset -nocomplain ::t
+} -constraints {tip194 tip463} -result {131=464 797}}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.10 {regsub -command error cases} -body {
+  regsub -command . abc "def \{ghi"
+} -constraints {tip463} -returnCodes error -result \
+{unmatched open brace in list}}
+
+###############################################################################
+
+#
+# NOTE: Stolen from "regexp.test" in the Tcl source tree.  Modified to fit
+#       the Eagle test suite conventions.
+#
+runTest {test regexp-27.11 {regsub -command error cases} -body {
+  regsub -command . abc {}
+} -constraints {tip463} -returnCodes error -result \
+{command prefix must be a list of at least one element}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

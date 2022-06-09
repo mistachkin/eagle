@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{EF19585B-F20D-4FB4-846E-0972676D1247}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{7125EAF8-B2DB-4D01-AB11-020122EEE41A}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{06FCC0AD-5AD7-4568-A048-34CC70EF355D}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Property Files">
+      <UniqueIdentifier>{ddd58722-c0bb-4602-9292-3dd54af594d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tool Files">
+      <UniqueIdentifier>{a9d5eb81-3584-466c-83b5-650eaa141d68}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\generic\Spilornis.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win\DllMain.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\win\Spilornis.def">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="props\Spilornis.props">
+      <Filter>Property Files</Filter>
+    </None>
+    <None Include="..\Common\Tools\common.tcl">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="..\Common\Tools\getEagle.tcl">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="..\Common\Tools\pkgIndex.tcl">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="Tools\signViaBuild.bat">
+      <Filter>Tool Files</Filter>
+    </None>
+    <None Include="..\Common\Tools\tagViaBuild.tcl">
+      <Filter>Tool Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\generic\pkgVersion.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\rcVersion.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\Spilornis.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\generic\SpilornisInt.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="rc\Spilornis.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

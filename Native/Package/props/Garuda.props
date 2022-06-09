@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ *
+ * Garuda.props -
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="UserMacros">
+    <LINKER_VERSION>1.0</LINKER_VERSION>
+    <MANIFEST_VERSION>1.0.0.0</MANIFEST_VERSION>
+    <COMMON_DEFINES>_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;COBJMACROS;CINTERFACE;CLR_40</COMMON_DEFINES>
+    <TCL_DEFINES>TCL_THREADS;USE_TCL_STUBS</TCL_DEFINES>
+    <DEBUG_DEFINES />
+    <WIN32_WARNINGS>4005;4100;4127;4201</WIN32_WARNINGS>
+    <X64_WARNINGS />
+    <INCLUDE_DIRECTORIES>src\generic;src\win;Tcl\include</INCLUDE_DIRECTORIES>
+    <LIBRARY_DIRECTORIES>Tcl\lib\$(Platform)</LIBRARY_DIRECTORIES>
+    <LIBRARY_ARM_DIRECTORIES>Tcl\lib\$(Platform)\$(PlatformToolset)</LIBRARY_ARM_DIRECTORIES>
+    <OUTPUT_FILE>$(ProjectName)</OUTPUT_FILE>
+    <LOG_DIRECTORY>$(OutDir)</LOG_DIRECTORY>
+    <LOG_FILE>$(LOG_DIRECTORY)\$(ProjectFileName).$(Platform)$(Configuration)Build.log</LOG_FILE>
+    <BASE_ADDRESS_X86>0x5F000000</BASE_ADDRESS_X86>
+    <BASE_ADDRESS_ARM>0x5F000000</BASE_ADDRESS_ARM>
+    <BASE_ADDRESS_X64>0x5F00000000000000</BASE_ADDRESS_X64>
+    <SIGN_BUILD_COMMAND>CALL "$(ProjectDir)Tools\signViaBuild.bat"</SIGN_BUILD_COMMAND>
+    <TAG_BUILD_COMMAND>CALL "$(ProjectDir)..\Common\Tools\tclshViaBuild.bat" "$(ProjectDir)..\Common\Tools\tagViaBuild.tcl" "$(ProjectDir)."</TAG_BUILD_COMMAND>
+    <COPY_LIBRARY_COMMAND>XCOPY "$(ProjectDir)lib" "$(OutDir)" /D /E /V /I /F /H /Y</COPY_LIBRARY_COMMAND>
+  </PropertyGroup>
+  <ItemGroup>
+    <BuildMacro Include="LINKER_VERSION">
+      <Value>$(LINKER_VERSION)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="MANIFEST_VERSION">
+      <Value>$(MANIFEST_VERSION)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="COMMON_DEFINES">
+      <Value>$(COMMON_DEFINES)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="DEBUG_DEFINES">
+      <Value>$(DEBUG_DEFINES)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="WIN32_WARNINGS">
+      <Value>$(WIN32_WARNINGS)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="X64_WARNINGS">
+      <Value>$(X64_WARNINGS)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="INCLUDE_DIRECTORIES">
+      <Value>$(INCLUDE_DIRECTORIES)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="LIBRARY_DIRECTORIES">
+      <Value>$(LIBRARY_DIRECTORIES)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="LIBRARY_ARM_DIRECTORIES">
+      <Value>$(LIBRARY_ARM_DIRECTORIES)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="OUTPUT_FILE">
+      <Value>$(OUTPUT_FILE)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="LOG_FILE">
+      <Value>$(LOG_FILE)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="BASE_ADDRESS_X86">
+      <Value>$(BASE_ADDRESS_X86)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="BASE_ADDRESS_ARM">
+      <Value>$(BASE_ADDRESS_ARM)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="BASE_ADDRESS_X64">
+      <Value>$(BASE_ADDRESS_X64)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="RESOURCE_STAMP_COMMAND">
+      <Value>$(RESOURCE_STAMP_COMMAND)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="SIGN_BUILD_COMMAND">
+      <Value>$(SIGN_BUILD_COMMAND)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="TAG_BUILD_COMMAND">
+      <Value>$(TAG_BUILD_COMMAND)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="COPY_LIBRARY_COMMAND">
+      <Value>$(COPY_LIBRARY_COMMAND)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+  </ItemGroup>
+</Project>

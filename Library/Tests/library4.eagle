@@ -1,0 +1,40 @@
+###############################################################################
+#
+# library4.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test library-4.1 {declare and call NT function} -setup {
+  set m5 [library load ntdll.dll]
+
+  set d6 [library declare -calling cdecl -function NtCurrentTeb -module $m5 \
+      -return intptr]
+} -body {
+  set zz [library call $d6]
+
+  list [expr {$zz != 0}] [expr {$d6 != 0}] [llength [info modules]] \
+      [llength [info delegates]] [library undeclare $d6] [library unload $m5] \
+      [llength [info modules]] [llength [info delegates]] \
+      [llength [info objects]]
+} -cleanup {
+  unset -nocomplain d6 m5 zz
+} -constraints {eagle native dynamic windows referenceCounts intel.32bit\
+command.library compile.EMIT compile.NATIVE compile.LIBRARY} -isolationLevel \
+Maximum -result {True True 1 1 {} {} 0 0 1}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

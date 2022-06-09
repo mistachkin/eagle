@@ -1,0 +1,520 @@
+###############################################################################
+#
+# object.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+runTest {test object-97.0.1 {honor NoDispose with -tostring} -body {
+  set x [object invoke -tostring Interpreter.GetActive Host]
+  object invoke -flags +NonPublic Interpreter.GetActive.Host disposed
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle command.object} -isolationLevel Interpreter -result \
+{False}}
+
+###############################################################################
+
+runTest {test object-97.0.2 {honor NoDispose with -alias fail} -body {
+  catch {object invoke -objectname host -alias Interpreter.GetActive Host} x
+  list [object invoke -flags +NonPublic Interpreter.GetActive.Host disposed] $x
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle command.object} -isolationLevel Interpreter -result \
+{False {can't add "host": something already exists}}}
+
+###############################################################################
+
+runTest {test object-97.1 {simple object usage} -body {
+  list [set x [object create System.Object]] [getStringFromObjectHandle $x] \
+      [object dispose $x] [unset x] [object invoke System.String Format \
+      "this is a test... {0}" [expr {2 + 2}]]
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle command.object} -match regexp -result {^System#Object#\d+\
+System\.Object removed \{\} \{this is a test\.\.\. 4\}$}}
+
+###############################################################################
+
+runTest {test object-97.2 {-alias option overrides opaque handle reuse} -body {
+  #
+  # NOTE: This test is EXEMPT from using [getStringFromObjectHandle].
+  #
+  set x1 [object invoke -create Utility GetType System.String]
+  set x2 [object invoke -create -alias Utility GetType System.String]
+  set x3 [object invoke -create Utility GetType System.String]
+  set x4 [object invoke -create -alias Utility GetType System.String]
+
+  list [catch {$x1 ToString}] \
+      [$x2 ToString] \
+      [catch {$x3 ToString}] \
+      [$x4 ToString] \
+      [expr {$x1 ne $x2}] \
+      [expr {$x1 eq $x3}] \
+      [expr {$x2 eq $x4}]
+} -cleanup {
+  unset -nocomplain x1 x2 x3 x4; # dispose
+} -constraints {eagle command.object} -result \
+{1 System.String 1 System.String True True True}}
+
+###############################################################################
+
+runTest {test object-97.3.1 {assembly qualified member names} -body {
+  set type System.String
+
+  list [testObjectMembers -pattern "* memberName Format" $type] \
+      [testObjectMembers -signatures -qualified -pattern \
+      "* memberName Format *" $type]
+} -cleanup {
+  unset -nocomplain type
+} -constraints {eagle command.object} -constraintExpression {![haveConstraint \
+mono] && ![haveConstraint dotNetCore] && (![haveConstraint dotNet40] || \
+![haveConstraint dotNet46OrHigher])} -result [appendArgs "{{memberType Method\
+memberName Format}} {{memberType Method memberName Format methodType Method\
+methodName Format callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.IFormatProvider, " \
+[getRuntimeAssemblyName] "} {System.String, " [getRuntimeAssemblyName] \
+"} {System.Object\[\], " [getRuntimeAssemblyName] "}}} {memberType Method\
+memberName Format methodType Method methodName Format callingConvention\
+Standard returnType {{System.String, " [getRuntimeAssemblyName] "}}\
+parameterTypes {{System.String, " [getRuntimeAssemblyName] "} {System.Object, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] \
+"} {System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method\
+memberName Format methodType Method methodName Format callingConvention\
+Standard returnType {{System.String, " [getRuntimeAssemblyName] "}}\
+parameterTypes {{System.String, " [getRuntimeAssemblyName] "} {System.Object, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}}}\
+{memberType Method memberName Format methodType Method methodName Format\
+callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] "}}}\
+{memberType Method memberName Format methodType Method methodName Format\
+callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
+[getRuntimeAssemblyName] "} {System.Object\[\], " [getRuntimeAssemblyName] \
+"}}}}"]}
+
+###############################################################################
+
+runTest {test object-97.3.2 {assembly qualified member names} -body {
+  set type System.String
+
+  list [testObjectMembers -pattern "* memberName Format" $type] \
+      [testObjectMembers -signatures -qualified -pattern \
+      "* memberName Format *" $type]
+} -cleanup {
+  unset -nocomplain type
+} -constraints {eagle command.object} -constraintExpression {[haveConstraint \
+mono54OrHigher] || [haveConstraint dotNetCore] || ([haveConstraint dotNet40] \
+&& [haveConstraint dotNet46OrHigher])} -result [appendArgs "{{memberType Method\
+memberName Format}} {{memberType Method memberName Format methodType Method\
+methodName Format callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.IFormatProvider, " \
+[getRuntimeAssemblyName] "} {System.String, " [getRuntimeAssemblyName] \
+"} {System.Object, " [getRuntimeAssemblyName] "} {System.Object, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] \
+"}}} {memberType Method memberName Format methodType Method methodName Format\
+callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.IFormatProvider, " \
+[getRuntimeAssemblyName] "} {System.String, " [getRuntimeAssemblyName] \
+"} {System.Object, " [getRuntimeAssemblyName] "} {System.Object, " \
+[getRuntimeAssemblyName] "}}} {memberType Method memberName Format methodType\
+Method methodName Format callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.IFormatProvider, " \
+[getRuntimeAssemblyName] "} {System.String, " [getRuntimeAssemblyName] \
+"} {System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method\
+memberName Format methodType Method methodName Format callingConvention\
+Standard returnType {{System.String, " [getRuntimeAssemblyName] "}}\
+parameterTypes {{System.IFormatProvider, " [getRuntimeAssemblyName] "}\
+{System.String, " [getRuntimeAssemblyName] "} {System.Object\[\], " \
+[getRuntimeAssemblyName] "}}} {memberType Method memberName Format methodType\
+Method methodName Format callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] \
+"} {System.Object, " [getRuntimeAssemblyName] "} {System.Object, " \
+[getRuntimeAssemblyName] "}}} {memberType Method memberName Format methodType\
+Method methodName Format callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
+[getRuntimeAssemblyName] "} {System.Object, " [getRuntimeAssemblyName] \
+"} {System.Object, " [getRuntimeAssemblyName] "}}} {memberType Method\
+memberName Format methodType Method methodName Format callingConvention\
+Standard returnType {{System.String, " [getRuntimeAssemblyName] "}}\
+parameterTypes {{System.String, " [getRuntimeAssemblyName] "} {System.Object, " \
+[getRuntimeAssemblyName] "}}} {memberType Method memberName Format methodType\
+Method methodName Format callingConvention Standard returnType {{System.String, " \
+[getRuntimeAssemblyName] "}} parameterTypes {{System.String, " \
+[getRuntimeAssemblyName] "} {System.Object\[\], " [getRuntimeAssemblyName] \
+"}}}}"]}
+
+###############################################################################
+
+runTest {test object-97.4 {ScriptEnumerator success} -setup {
+  set type [object invoke -create -alias Utility GetType [appendArgs \
+      Eagle._Components.Private.ScriptEnumerator`1, " " [lindex \
+      [info assembly] 0]]]
+
+  set newType [$type -create MakeGenericType System.Int32]
+
+  set script(moveNext) [object invoke Script Create {
+    incr index; expr {$index >= 0 && $index < [llength $list]}
+  }]
+
+  set script(current) [object invoke Script Create {
+    set obj($index) [object invoke -create Int32 Parse [lindex $list $index]]
+    lappend objs $obj($index); return $obj($index)
+  }]
+
+  set script(reset) [object invoke Script Create {
+    set index -1
+  }]
+} -body {
+  set enumerator [object create -alias $newType "" \
+      $script(moveNext) $script(current) $script(reset)]
+
+  set objs [list]; set list [list 1 2 3 4]; set index -1; set result [list]
+
+  while {[$enumerator MoveNext]} {
+    lappend result [$enumerator Current]
+  }
+
+  $enumerator Reset
+
+  set result
+} -cleanup {
+  unset -nocomplain result obj objs index list enumerator \
+      script newType type
+} -constraints [fixConstraints {eagle command.object !security.enabled}] \
+-result {1 2 3 4}}
+
+###############################################################################
+
+runTest {test object-97.5 {ScriptEnumerator MoveNext failure} -setup {
+  set type [object invoke -create -alias Utility GetType [appendArgs \
+      Eagle._Components.Private.ScriptEnumerator`1, " " [lindex \
+      [info assembly] 0]]]
+
+  set newType [$type -create MakeGenericType System.Int32]
+
+  set script(moveNext) [object invoke Script Create {
+    error "failed to move next"
+  }]
+
+  set script(current) [object invoke Script Create {
+    set obj($index) [object invoke -create Int32 Parse [lindex $list $index]]
+    lappend objs $obj($index); return $obj($index)
+  }]
+
+  set script(reset) [object invoke Script Create {
+    set index -1
+  }]
+} -body {
+  set enumerator [object create -alias $newType "" \
+      $script(moveNext) $script(current) $script(reset)]
+
+  set objs [list]; set list [list 1 2 3 4]; set index -1; set result [list]
+
+  catch {
+    while {[$enumerator MoveNext]} {
+      lappend result [$enumerator Current]
+    }
+
+    $enumerator Reset
+  } msg
+
+  list $result $msg
+} -cleanup {
+  unset -nocomplain msg result obj objs index list enumerator \
+      script newType type
+} -constraints [fixConstraints {eagle command.object !security.enabled}] \
+-match regexp -result {^\{\} \{.* --->\
+Eagle\._Components\.Public\.ScriptException: failed to move next.*\}$}}
+
+###############################################################################
+
+runTest {test object-97.6 {ScriptEnumerator Current failure} -setup {
+  set type [object invoke -create -alias Utility GetType [appendArgs \
+      Eagle._Components.Private.ScriptEnumerator`1, " " [lindex \
+      [info assembly] 0]]]
+
+  set newType [$type -create MakeGenericType System.Int32]
+
+  set script(moveNext) [object invoke Script Create {
+    incr index; expr {$index >= 0 && $index < [llength $list]}
+  }]
+
+  set script(current) [object invoke Script Create {
+    error "failed to get current"
+  }]
+
+  set script(reset) [object invoke Script Create {
+    set index -1
+  }]
+} -body {
+  set enumerator [object create -alias $newType "" \
+      $script(moveNext) $script(current) $script(reset)]
+
+  set objs [list]; set list [list 1 2 3 4]; set index -1; set result [list]
+
+  catch {
+    while {[$enumerator MoveNext]} {
+      lappend result [$enumerator Current]
+    }
+
+    $enumerator Reset
+  } msg
+
+  list $result $msg
+} -cleanup {
+  unset -nocomplain msg result obj objs index list enumerator \
+      script newType type
+} -constraints [fixConstraints {eagle command.object !security.enabled}] \
+-match regexp -result {^\{\} \{.* --->\
+Eagle\._Components\.Public\.ScriptException: failed to get current.*\}$}}
+
+###############################################################################
+
+runTest {test object-97.7 {ScriptEnumerator Reset failure} -setup {
+  set type [object invoke -create -alias Utility GetType [appendArgs \
+      Eagle._Components.Private.ScriptEnumerator`1, " " [lindex \
+      [info assembly] 0]]]
+
+  set newType [$type -create MakeGenericType System.Int32]
+
+  set script(moveNext) [object invoke Script Create {
+    incr index; expr {$index >= 0 && $index < [llength $list]}
+  }]
+
+  set script(current) [object invoke Script Create {
+    set obj($index) [object invoke -create Int32 Parse [lindex $list $index]]
+    lappend objs $obj($index); return $obj($index)
+  }]
+
+  set script(reset) [object invoke Script Create {
+    error "failed to reset"
+  }]
+} -body {
+  set enumerator [object create -alias $newType "" \
+      $script(moveNext) $script(current) $script(reset)]
+
+  set objs [list]; set list [list 1 2 3 4]; set index -1; set result [list]
+
+  catch {
+    while {[$enumerator MoveNext]} {
+      lappend result [$enumerator Current]
+    }
+
+    $enumerator Reset
+  } msg
+
+  list $result $msg
+} -cleanup {
+  unset -nocomplain msg result obj objs index list enumerator \
+      script newType type
+} -constraints [fixConstraints {eagle command.object !security.enabled}] \
+-match regexp -result {^\{1 2 3 4\} \{.* --->\
+Eagle\._Components\.Public\.ScriptException: failed to reset.*\}$}}
+
+###############################################################################
+
+runTest {test object-200.1 {FixupReturnValue alias cleanup w/o Tcl} -body {
+  set result null
+
+  set code [object invoke \
+      Utility FixupReturnValue "" null null null None null \
+      Default null foo test true true true false false result]
+
+  list $code [getStringFromObjectHandle $result] [object dispose $result] \
+      [info objects]
+} -cleanup {
+  unset -nocomplain result code
+} -constraints \
+[fixConstraints {eagle command.object referenceCounts !compile.TCL}] \
+-result {Error {option "-tcl" not supported for this platform} removed null}}
+
+###############################################################################
+
+runTest {test object-300.1 {StickAlias and UnstickAlias flags} -setup {
+  catch {expr {2 / 0}}; # System.DivideByZeroException
+} -body {
+  set e(1) [object invoke \
+      -flags +NonPublic -objectflags +StickAlias \
+      Interpreter.GetActive Exception]
+
+  set e(2) [object invoke $e(1) GetBaseException]
+
+  set e(3) [$e(2) GetBaseException]
+  set e(4) [$e(2) -objectflags +UnstickAlias GetBaseException]
+
+  list [info commands $e(1)] [info commands $e(2)] \
+      [info commands $e(3)] [info commands $e(4)]
+} -cleanup {
+  unset -nocomplain e
+} -constraints {eagle command.object} -match regexp -result \
+{^\{\} System#DivideByZeroException#\d+ System#DivideByZeroException#\d+ \{\}$}}
+
+###############################################################################
+
+runTest {test object-400.1 {[object isoftype] sub-command} -setup {
+  set o(Object) [object create Object]
+  set o(Int32) [object create Int32]
+  set o(Int64) [object create Int64]
+  set o(Boolean) [object create Boolean]
+  set o(System.Boolean) [object create System.Boolean]
+  set o(ClientData) [object create ClientData null]
+  set o(StringList) [object create StringList]
+
+  set t(1) Eagle._Interfaces.Public.IClientData
+  set t(2) System.Collections.Generic.List`1\[System.String\]
+} -body {
+  set result [list]
+
+  foreach name [lsort [array names o]] {
+    lappend result [list $name \
+        [object isoftype null $name] \
+        [object isoftype -assignable null $name] \
+        [object isoftype $o($name) $name] \
+        [object isoftype -assignable $o($name) $name] \
+        [object isoftype $o($name) Object] \
+        [object isoftype -assignable $o($name) Object] \
+        [object isoftype $o($name) ValueType] \
+        [object isoftype -assignable $o($name) ValueType] \
+        [object isoftype $o($name) $t(1)] \
+        [object isoftype -assignable $o($name) $t(1)] \
+        [object isoftype $o($name) $t(2)] \
+        [object isoftype -assignable $o($name) $t(2)]]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain name result o t
+} -constraints {eagle command.object} -result {{Boolean False False True True\
+False True False True False False False False} {ClientData False True True True\
+True True False False True True False False} {Int32 False False True True False\
+True False True False False False False} {Int64 False False True True False\
+True False True False False False False} {Object True True True True True True\
+False False False False False False} {StringList False True True True True True\
+False False False False True True} {System.Boolean False False True True False\
+True False True False False False False}}}
+
+###############################################################################
+
+runTest {test object-400.2 {[object isoftype] sub-command} -setup {
+  set o(Object) [object create Object]
+  set o(Int32) [object create Int32]
+  set o(Int64) [object create Int64]
+  set o(Boolean) [object create Boolean]
+  set o(System.Boolean) [object create System.Boolean]
+  set o(ClientData) [object create ClientData null]
+  set o(StringList) [object create StringList]
+
+  set t(1) Eagle._Interfaces.Public.IClientData
+  set t(2) System.Collections.Generic.List`1\[System.String\]
+} -body {
+  set result [list]
+
+  foreach name [lsort [array names o]] {
+    lappend result [list $name \
+        [object isoftype -nocomplain null $name] \
+        [object isoftype -nocomplain -assignable null $name] \
+        [object isoftype -nocomplain $o($name) $name] \
+        [object isoftype -nocomplain -assignable $o($name) $name] \
+        [object isoftype -nocomplain $o($name) Object] \
+        [object isoftype -nocomplain -assignable $o($name) Object] \
+        [object isoftype -nocomplain $o($name) ValueType] \
+        [object isoftype -nocomplain -assignable $o($name) ValueType] \
+        [object isoftype -nocomplain $o($name) $t(1)] \
+        [object isoftype -nocomplain -assignable $o($name) $t(1)] \
+        [object isoftype -nocomplain $o($name) $t(2)] \
+        [object isoftype -nocomplain -assignable $o($name) $t(2)]]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain name result o t
+} -constraints {eagle command.object} -result {{Boolean False False True True\
+False True False True False False False False} {ClientData False True True True\
+True True False False True True False False} {Int32 False False True True False\
+True False True False False False False} {Int64 False False True True False\
+True False True False False False False} {Object True True True True True True\
+False False False False False False} {StringList False True True True True True\
+False False False False True True} {System.Boolean False False True True False\
+True False True False False False False}}}
+
+###############################################################################
+
+runTest {test object-400.3 {[object isoftype] sub-command errors} -setup {
+  proc verifyTypeError { result typeName } {
+    return [expr {
+      [lsearch -exact -- $result [string map [list %typeName% $typeName] \
+          {object or type %typeName% not found}]] != -1 && \
+      [lsearch -exact -- $result [string map [list %typeName% $typeName] \
+          {expected type value but got %typeName%}]] != -1
+    }]
+  }
+
+  set o(Int32) [object create Int32]
+} -body {
+  list [catch {object isoftype null null} result] $result \
+      [catch {object isoftype -objectvalueflags +AllGetTypeErrors \
+          null ""} result] [verifyTypeError $result <empty>] \
+      [catch {object isoftype "" null} result] $result \
+      [catch {object isoftype "" ""} result] $result \
+      [catch {object isoftype bad bad} result] $result \
+      [catch {object isoftype bad Int32} result] $result \
+      [catch {object isoftype -objectvalueflags +AllGetTypeErrors \
+          $o(Int32) bad} result] [verifyTypeError $result \"bad\"] \
+      [catch {object isoftype $o(Int32) Int32} result] $result
+} -cleanup {
+  unset -nocomplain result o
+
+  rename verifyTypeError ""
+} -constraints {eagle command.object} -result {0 False 1 True 1 {invalid object\
+name <empty>} 1 {invalid object name <empty>} 1 {invalid object name "bad"} 1\
+{invalid object name "bad"} 1 True 0 True}}
+
+###############################################################################
+
+runTest {test object-400.4 {[object isoftype] sub-command errors} -setup {
+  proc verifyTypeError { result typeName } {
+    return [expr {
+      [lsearch -exact -- $result [string map [list %typeName% $typeName] \
+          {object or type %typeName% not found}]] != -1 && \
+      [lsearch -exact -- $result [string map [list %typeName% $typeName] \
+          {expected type value but got %typeName%}]] != -1
+    }]
+  }
+
+  set o(Int32) [object create Int32]
+} -body {
+  list [catch {object isoftype -nocomplain null null} result] $result \
+      [catch {object isoftype -nocomplain null ""} result] \
+          [verifyTypeError $result <empty>] \
+      [catch {object isoftype -nocomplain "" null} result] $result \
+      [catch {object isoftype -nocomplain "" ""} result] $result \
+      [catch {object isoftype -nocomplain bad bad} result] $result \
+      [catch {object isoftype -nocomplain bad Int32} result] $result \
+      [catch {object isoftype -nocomplain $o(Int32) bad} result] \
+          [verifyTypeError $result \"bad\"] \
+      [catch {object isoftype -nocomplain $o(Int32) Int32} result] $result
+} -cleanup {
+  unset -nocomplain result o
+
+  rename verifyTypeError ""
+} -constraints {eagle command.object} -result {0 False 0 False 0 False 0 False\
+0 False 0 False 0 False 0 True}}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

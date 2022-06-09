@@ -1,0 +1,212 @@
+<!--
+ *
+ * Eagle.Sample.targets -
+ *
+ * WARNING: Contains more evil MSBuild hacks than your doctor recommended.
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+  ******************************************************************************
+  **                          Load Per-User Settings                          **
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: If the per-user settings file exists, import it now.  The contained
+            settings, if any, will override the default ones provided below.
+  -->
+  <Import Condition="'$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Targets\Eagle.Sample.targets.user')"
+          Project="$(EagleDir)\Targets\Eagle.Sample.targets.user" />
+
+  <!--
+  ******************************************************************************
+  **                           Eagle Sample Targets                           **
+  ******************************************************************************
+  -->
+
+  <Import Condition="'$(EagleSampleTargets)' != 'false'"
+          Project="Eagle.tasks" />
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: *WARNING* Be sure to update the "Inputs" attribute for the targets
+            EagleSamplePackagesResGen* in this file and the list of files in the
+            file "Sample\Resources\packages.resx" if any files are added to the
+            sample script packages.
+  -->
+  <Target Name="EagleSamplePackagesResGenUnsetReadOnly"
+          Condition="('$(EagleSamplePackagesResGen)' != 'false' Or
+                      '$(EagleSamplePackagesResGenExternals)' != 'false') And
+                     '$(EagleSampleUnsetReadOnly)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(SystemRoot)' != '' And
+                     !HasTrailingSlash('$(SystemRoot)') And
+                     Exists('$(SystemRoot)\System32\attrib.exe')"
+          Inputs="Resources\packages.resx;Resources\sample.eagle"
+          Outputs="Resources\packages.resources">
+    <Exec Condition="Exists('Resources\packages.resources')"
+          Command="&quot;$(SystemRoot)\System32\attrib.exe&quot; -r Resources\packages.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: *WARNING* Be sure to update the "Inputs" attribute for the targets
+            EagleSamplePackagesResGen* in this file and the list of files in the
+            file "Sample\Resources\packages.resx" if any files are added to the
+            sample script packages.
+  -->
+  <Target Name="EagleSamplePackagesResGen"
+          Condition="'$(EagleSamplePackagesResGen)' != 'false'"
+          Inputs="Resources\packages.resx;Resources\sample.eagle"
+          Outputs="Resources\packages.resources">
+    <GenerateResource Sources="Resources\packages.resx"
+                      OutputResources="Resources\packages.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: *WARNING* Be sure to update the "Inputs" attribute for the targets
+            EagleSamplePackagesResGen* in this file and the list of files in the
+            file "Sample\Resources\packages.resx" if any files are added to the
+            sample script packages.
+  -->
+  <Target Name="EagleSamplePackagesResGenExternals"
+          Condition="'$(EagleSamplePackagesResGen)' == 'false' And
+                     '$(EagleSamplePackagesResGenExternals)' != 'false' And
+                     ((('$(MSBuildToolsVersion)' == '4.0' Or
+                        '$(MSBuildToolsVersion)' == '12.0' Or
+                        '$(MSBuildToolsVersion)' == '14.0' Or
+                        '$(MSBuildToolsVersion)' == '15.0' Or
+                        '$(MSBuildToolsVersion)' == 'Current') And
+                       '$(TargetFrameworkVersion)' == '') Or
+                      '$(TargetFrameworkVersion)' == 'v4.0' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8') And
+                     '$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Externals\NETFX\Tools\v4.0\ResGen.exe')"
+          Inputs="Resources\packages.resx;Resources\sample.eagle"
+          Outputs="Resources\packages.resources">
+    <GenerateResource Sources="Resources\packages.resx"
+                      OutputResources="Resources\packages.resources"
+                      SdkToolsPath="$(EagleDir)\Externals\NETFX\Tools\v4.0" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Condition="'$(EagleSampleTargets)' != 'false'"
+          Name="ProcessSampleScripts"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).ProcessSampleScripts.done">
+    <!--
+        NOTE: These scripts could do virtually anything.  Here we demonstrate
+              something that cannot be easily accomplished by using MSBuild
+              alone even though it is fairly trivial.
+    -->
+    <EvaluateExpression Text="2 + 2">
+      <Output TaskParameter="Code" PropertyName="EvaluateExpressionCode" />
+      <Output TaskParameter="Result" PropertyName="EvaluateExpressionResult" />
+    </EvaluateExpression>
+
+    <EvaluateScript Text="return [file version {$(TargetPath)}]">
+      <Output TaskParameter="Code" PropertyName="EvaluateScriptCode1" />
+      <Output TaskParameter="Result" PropertyName="EvaluateScriptResult1" />
+    </EvaluateScript>
+
+    <EvaluateScript Args="one two {three four}" Text="return [list [llength $argv] $argv]">
+      <Output TaskParameter="Code" PropertyName="EvaluateScriptCode2" />
+      <Output TaskParameter="Result" PropertyName="EvaluateScriptResult2" />
+    </EvaluateScript>
+
+    <!--
+        HACK: The [catch] command used here is necessary, in some cases, to
+              prevent a build error due to mismatch between the CLR version
+              of the built Eagle assembly with that of MSBuild, e.g. Eagle
+              built for the .NET Framework 2.0 via an MSBuild built for the
+              .NET Framework 4.0.
+    -->
+    <EvaluateScript Args="High" Text="catch {__task BuildEngine.LogMessageEvent [set e [object create Microsoft.Build.Framework.BuildMessageEventArgs {some high-priority build message} null EagleTasks $argv]]; unset e}">
+      <Output TaskParameter="Code" PropertyName="EvaluateScriptCode3" />
+      <Output TaskParameter="Result" PropertyName="EvaluateScriptResult3" />
+    </EvaluateScript>
+
+    <EvaluateFile Condition="'$(EagleLibraryDir)' != '' And
+                             HasTrailingSlash('$(EagleLibraryDir)') And
+                             Exists('$(EagleLibraryDir)Tests\data\evaluate.eagle')"
+                  Text="$(EagleLibraryDir)Tests\data\evaluate.eagle">
+      <Output TaskParameter="Code" PropertyName="EvaluateFileCode" />
+      <Output TaskParameter="Result" PropertyName="EvaluateFileResult" />
+    </EvaluateFile>
+
+    <SubstituteString Text="[file version {$(TargetPath)}]">
+      <Output TaskParameter="Code" PropertyName="SubstituteStringCode" />
+      <Output TaskParameter="Result" PropertyName="SubstituteStringResult" />
+    </SubstituteString>
+
+    <SubstituteFile Condition="'$(EagleLibraryDir)' != '' And
+                               HasTrailingSlash('$(EagleLibraryDir)') And
+                               Exists('$(EagleLibraryDir)Tests\data\substitute.eagle')"
+                    Text="$(EagleLibraryDir)Tests\data\substitute.eagle">
+      <Output TaskParameter="Code" PropertyName="SubstituteFileCode" />
+      <Output TaskParameter="Result" PropertyName="SubstituteFileResult" />
+    </SubstituteFile>
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).ProcessSampleScripts.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Condition="'$(EagleSampleTargets)' != 'false'"
+          Name="ShowSampleScriptOutput"
+          DependsOnTargets="ProcessSampleScripts"
+          Inputs="$(TargetPath)"
+          Outputs="$(TargetPath).ShowSampleScriptOutput.done">
+    <!--
+        NOTE: Here, we simply display the output variables produced by the
+              ProcessSampleScripts task.
+    -->
+    <Message Text="EvaluateExpression: $(EvaluateExpressionCode) $(EvaluateExpressionResult)" />
+    <Message Text="EvaluateScript1: $(EvaluateScriptCode1) $(EvaluateScriptResult1)" />
+    <Message Text="EvaluateScript2: $(EvaluateScriptCode2) $(EvaluateScriptResult2)" />
+    <Message Text="EvaluateScript3: $(EvaluateScriptCode3) $(EvaluateScriptResult3)" />
+    <Message Text="SubstituteString: $(SubstituteStringCode) $(SubstituteStringResult)" />
+
+    <Message Text="EvaluateFile: $(EvaluateFileCode) $(EvaluateFileResult)" />
+    <Message Text="SubstituteFile: $(SubstituteFileCode) $(SubstituteFileResult)" />
+
+    <Touch AlwaysCreate="true"
+           Files="$(TargetPath).ShowSampleScriptOutput.done" />
+  </Target>
+</Project>

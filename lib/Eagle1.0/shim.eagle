@@ -1,0 +1,53 @@
+###############################################################################
+#
+# shim.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle [Native Tcl] Shim Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure returns the [format] modifier necessary to force
+  #       native Tcl to treat the specified value as a 64-bit integer.
+  #
+  proc getLengthModifier { value {width ""} } {
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #
+    return [appendArgs \
+        $width [expr {int($value) != wide($value) ? "l" : ""}]]
+  }
+
+  #
+  # NOTE: This procedure is used to intercept calls to the Eagle [debug]
+  #       command from native Tcl scripts (e.g. [debug break], etc).  It
+  #       simply prints a diagnostic message.
+  #
+  proc debug { args } {
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #
+    puts stdout [lrange $args 2 end]
+  }
+
+  #
+  # NOTE: Provide the Eagle "Tcl shim" package to the interpreter.
+  #
+  package provide Eagle.Tcl.Shim \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

@@ -1,0 +1,8 @@
+
+debug step; # single step enabled
+
+set x 9; # 9
+
+incr x; # 10
+
+debug step; # single step disabled

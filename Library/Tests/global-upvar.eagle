@@ -1,0 +1,257 @@
+###############################################################################
+#
+# global-upvar.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+proc escapeBs { str } {
+  set result [string map [list \\ \\\\] $str]
+
+  # tputs $::test_channel [appendArgs "---- test pattern string: " $result \n]
+
+  return $result
+}
+
+###############################################################################
+
+proc getVars { after } {
+  #
+  # NOTE: This list could include the global variable "path"; however,
+  #       it does not since we currently [source] the test prologue
+  #       and epilogue files directly rather than using the provided
+  #       runTestPrologue and runTestEpilogue helper procedures.
+  #
+  set result [list "(?:argc argv argv0 )?" \
+                   auto_index auto_path \
+                   auto_source_path base_path \
+                   bin_file bin_path \
+                   core_bin_path core_lib_path \
+                   "(?:eagle_debugger )?" "(?:eagle_paths )?" \
+                   eagle_platform "(?:eagle_shell )?" \
+                   eagle_tests env \
+                   errorCode errorInfo \
+                   key_path lib_path native_lib_path \
+                   "(?:no )?" null \
+                   root_path tcl_interactive \
+                   tcl_interactiveLoops tcl_library \
+                   tcl_nonwordchars tcl_patchLevel \
+                   tcl_platform tcl_precision \
+                   tcl_rcFileName "(?:tcl_shellLibrary )?" \
+                   tcl_version tcl_wordchars \
+                   "(?:test_all_path )?" "(?:test_base_cops )?" \
+                   "(?:test_base_cops_multipliers )?" \
+                   "(?:test_break_on_leak )?" "(?:test_channel )?" \
+                   "(?:test_configuration )?" "(?:test_constraints )?" \
+                   "(?:test_cops )?" "(?:test_data_path )?" \
+                   "(?:test_database )?" "(?:test_database_subst )?" \
+                   "(?:test_database_table )?" "(?:test_database_type )?" \
+                   "(?:test_exit_on_complete )?" "(?:test_file )?" \
+                   "(?:test_flags )?" "(?:test_home_path )?" \
+                   "(?:test_host )?" "(?:test_join_timeout )?" \
+                   "(?:test_listed_leaks )?" "(?:test_log )?" \
+                   "(?:test_log_id )?" "(?:test_log_path )?" \
+                   "(?:test_log_queue )?" "(?:test_log_sentry )?" \
+                   "(?:test_long_timeout )?" "(?:test_machine )?" \
+                   "(?:test_mdas )?" "(?:test_name_prefix )?" \
+                   "(?:test_package_path )?" "(?:test_path )?" \
+                   "(?:test_platform )?" "(?:test_port )?" \
+                   "(?:test_puts_state )?" "(?:test_random_order )?" \
+                   "(?:test_repository_file )?" "(?:test_repository_url )?" \
+                   "(?:test_run_id )?" "(?:test_script )?" \
+                   "(?:test_settings_path )?" "(?:test_statistics )?" \
+                   "(?:test_stop_on_failure )?" "(?:test_stop_on_leak )?" \
+                   "(?:test_stress_count )?" "(?:test_suffix )?" \
+                   "(?:test_suite )?" "(?:test_suite_errors )?" \
+                   "(?:test_suite_file )?" "(?:test_suite_running )?" \
+                   "(?:test_tclsh )?" "(?:test_tclsh_verbose )?" \
+                   "(?:test_threshold )?" "(?:test_timeout )?" \
+                   "(?:test_timestamp )?" "(?:test_uncounted_leaks )?" \
+                   "(?:test_visual_studio )?" "(?:test_verbose )?" \
+                   "(?:test_volume )?" "(?:test_wait )?" \
+                   "(?:test_well_known )?" "(?:test_wix )?" \
+                   mushroomMushroom]
+
+  #
+  # NOTE: If we need the result after the global variable "b" has been added,
+  #       insert it into the proper place in the variable list.
+  #
+  if {$after} then {set result [linsert $result 4 b]}
+
+  #
+  # NOTE: The isolated debugger interpreter does not have the "argc", "argv",
+  #       and "argv0" variables (by design).  The "no" variable may not be
+  #       present if there are no test overrides in place.  The various
+  #       "test_*" variables may not be present if those types of tests have
+  #       been disabled, etc.  Also, we need to make the list of variables we
+  #       created above into one string that will be used as the test result
+  #       regular expression.  The resulting string must have the correct
+  #       spacing for the test to pass.  This is triky because some (or most)
+  #       of the global variables may or may not exist.
+  #
+  set result [string trim [string map [list \
+      "{(?:argc argv argv0 )?} " "(?:argc argv argv0 )?" \
+      "{(?:eagle_debugger )?} " "(?:eagle_debugger )?" \
+      "{(?:eagle_paths )?} " "(?:eagle_paths )?" \
+      "{(?:eagle_shell )?} " "(?:eagle_shell )?" \
+      "{(?:no )?} " "(?:no )?" \
+      "{(?:tcl_shellLibrary )?} " "(?:tcl_shellLibrary )?" \
+      "{(?:test_all_path )?} " "(?:test_all_path )?" \
+      "{(?:test_base_cops )?} " "(?:test_base_cops )?" \
+      "{(?:test_base_cops_multipliers )?} " "(?:test_base_cops_multipliers )?" \
+      "{(?:test_break_on_leak )?} " "(?:test_break_on_leak )?" \
+      "{(?:test_channel )?} " "(?:test_channel )?" \
+      "{(?:test_configuration )?} " "(?:test_configuration )?" \
+      "{(?:test_constraints )?} " "(?:test_constraints )?" \
+      "{(?:test_cops )?} " "(?:test_cops )?" \
+      "{(?:test_data_path )?} " "(?:test_data_path )?" \
+      "{(?:test_database )?} " "(?:test_database )?" \
+      "{(?:test_database_subst )?} " "(?:test_database_subst )?" \
+      "{(?:test_database_table )?} " "(?:test_database_table )?" \
+      "{(?:test_database_type )?} " "(?:test_database_type )?" \
+      "{(?:test_exit_on_complete )?} " "(?:test_exit_on_complete )?" \
+      "{(?:test_file )?} " "(?:test_file )?" \
+      "{(?:test_flags )?} " "(?:test_flags )?" \
+      "{(?:test_home_path )?} " "(?:test_home_path )?" \
+      "{(?:test_host )?} " "(?:test_host )?" \
+      "{(?:test_join_timeout )?} " "(?:test_join_timeout )?" \
+      "{(?:test_listed_leaks )?} " "(?:test_listed_leaks )?" \
+      "{(?:test_log )?} " "(?:test_log )?" \
+      "{(?:test_log_id )?} " "(?:test_log_id )?" \
+      "{(?:test_log_path )?} " "(?:test_log_path )?" \
+      "{(?:test_log_queue )?} " "(?:test_log_queue )?" \
+      "{(?:test_log_sentry )?} " "(?:test_log_sentry )?" \
+      "{(?:test_long_timeout )?} " "(?:test_long_timeout )?" \
+      "{(?:test_machine )?} " "(?:test_machine )?" \
+      "{(?:test_mdas )?} " "(?:test_mdas )?" \
+      "{(?:test_name_prefix )?} " "(?:test_name_prefix )?" \
+      "{(?:test_package_path )?} " "(?:test_package_path )?" \
+      "{(?:test_path )?} " "(?:test_path )?" \
+      "{(?:test_platform )?} " "(?:test_platform )?" \
+      "{(?:test_port )?} " "(?:test_port )?" \
+      "{(?:test_puts_state )?} " "(?:test_puts_state )?" \
+      "{(?:test_random_order )?} " "(?:test_random_order )?" \
+      "{(?:test_repository_file )?} " "(?:test_repository_file )?" \
+      "{(?:test_repository_url )?} " "(?:test_repository_url )?" \
+      "{(?:test_run_id )?} " "(?:test_run_id )?" \
+      "{(?:test_script )?} " "(?:test_script )?" \
+      "{(?:test_settings_path )?} " "(?:test_settings_path )?" \
+      "{(?:test_statistics )?} " "(?:test_statistics )?" \
+      "{(?:test_stop_on_failure )?} " "(?:test_stop_on_failure )?" \
+      "{(?:test_stop_on_leak )?} " "(?:test_stop_on_leak )?" \
+      "{(?:test_stress_count )?} " "(?:test_stress_count )?" \
+      "{(?:test_suffix )?} " "(?:test_suffix )?" \
+      "{(?:test_suite )?} " "(?:test_suite )?" \
+      "{(?:test_suite_errors )?} " "(?:test_suite_errors )?" \
+      "{(?:test_suite_file )?} " "(?:test_suite_file )?" \
+      "{(?:test_suite_running )?} " "(?:test_suite_running )?" \
+      "{(?:test_tclsh )?} " "(?:test_tclsh )?" \
+      "{(?:test_tclsh_verbose )?} " "(?:test_tclsh_verbose )?" \
+      "{(?:test_threshold )?} " "(?:test_threshold )?" \
+      "{(?:test_timeout )?} " "(?:test_timeout )?" \
+      "{(?:test_timestamp )?} " "(?:test_timestamp )?" \
+      "{(?:test_uncounted_leaks )?} " "(?:test_uncounted_leaks )?" \
+      "{(?:test_visual_studio )?} " "(?:test_visual_studio )?" \
+      "{(?:test_verbose )?} " "(?:test_verbose )?" \
+      "{(?:test_volume )?} " "(?:test_volume )?" \
+      "{(?:test_wait )?} " "(?:test_wait )?" \
+      "{(?:test_well_known )?} " "(?:test_well_known )?" \
+      "{(?:test_wix )?} " "(?:test_wix )?"] $result]]
+
+  return $result
+}
+
+###############################################################################
+
+runTest {test upvar-10.1 {info globals with upvar} -setup {
+  unset -nocomplain b result
+
+  proc foo { a } {
+    global b
+
+    set globals [lsort [info globals]]
+    lappend globals mushroomMushroom
+
+    set result [list $globals [bar [expr {$a + 1}]]]
+
+    # tputs $::test_channel [appendArgs "---- test result string: " $result \n]
+
+    return $result
+  }
+
+  proc bar { a } {
+    global b
+
+    set b 1
+
+    upvar 1 a c
+    upvar #0 env(PATH) x
+
+    set globals [lsort [info globals]]
+    lappend globals mushroomMushroom
+
+    return [list $globals $a $c $x]
+  }
+} -body {
+  set result(0) [foo 1]
+
+  set result(1) [lindex $result(0) 0]
+  set result(2) [lindex $result(0) 1]
+  set result(3) [lindex $result(2) 0]
+
+  set result(4) [regexp -- [appendArgs \
+      ^ [escapeBs [getVars false]] \$] $result(1)]
+
+  set result(5) [regexp -- [appendArgs \
+      ^ [escapeBs [getVars true]] \$] $result(3)]
+
+  set result(6) [expr {[lindex $result(2) 1] == 2}]
+  set result(7) [expr {[lindex $result(2) 2] == 1}]
+  set result(8) [string compare [lindex $result(2) 3] $env(PATH)]
+
+  #
+  # NOTE: Is this test going to fail?  If so, log the important state
+  #       information now.
+  #
+  if {!$result(4) || !$result(5) || !$result(6) || \
+      !$result(7) || $result(8) != 0} then {
+    tputs $test_channel [appendArgs "---- RESULT(0): " $result(0) \n]
+    tputs $test_channel [appendArgs "---- RESULT(1): " $result(1) \n]
+    tputs $test_channel [appendArgs "---- RESULT(2): " $result(2) \n]
+    tputs $test_channel [appendArgs "---- RESULT(3): " $result(3) \n]
+    tputs $test_channel [appendArgs "---- RESULT(4): " $result(4) \n]
+    tputs $test_channel [appendArgs "---- RESULT(5): " $result(5) \n]
+    tputs $test_channel [appendArgs "---- RESULT(6): " $result(6) \n]
+    tputs $test_channel [appendArgs "---- RESULT(7): " $result(7) \n]
+    tputs $test_channel [appendArgs "---- RESULT(8): " $result(8) \n]
+    tputs $test_channel [appendArgs "---- PATH: " $env(PATH) \n]
+  }
+
+  list $result(4) $result(5) $result(6) $result(7) $result(8)
+} -cleanup {
+  unset -nocomplain b result
+
+  rename bar ""
+  rename foo ""
+} -constraints {eagle} -result {1 1 True True 0}}
+
+###############################################################################
+
+rename escapeBs ""
+rename getVars ""
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

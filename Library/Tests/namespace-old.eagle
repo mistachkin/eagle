@@ -1,0 +1,148 @@
+###############################################################################
+#
+# namespace-old.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] prologue.eagle]
+
+###############################################################################
+
+#
+# NOTE: We are going to run the tests from the Tcl test suite verbatim.
+#
+# \
+runTest ; # fake out runAllTests proc.
+
+###############################################################################
+
+if {[haveConstraint namespaces]} then {
+  if {[isEagle]} then {
+    if {![info exists no(skipSomeTests)] && \
+        ![info exists no(skipSomeNamespaceOldTests)]} then {
+      set skipNames [list]
+
+      lappend skipNames namespace-old-1.3; # NOTE: Syntax error message.
+      lappend skipNames namespace-old-1.6; # NOTE: Syntax error message.
+      lappend skipNames namespace-old-1.7; # NOTE: Syntax error message.
+      lappend skipNames namespace-old-5.4; # NOTE: Creative reading.
+      lappend skipNames namespace-old-6.12; # NOTE: Creative reading.
+      lappend skipNames namespace-old-6.14; # NOTE: Creative reading.
+      lappend skipNames namespace-old-6.15; # NOTE: Creative reading.
+      lappend skipNames namespace-old-6.17; # NOTE: Syntax error message.
+      lappend skipNames namespace-old-8.1; # NOTE: Needs [trace].
+      lappend skipNames namespace-old-10.2; # NOTE: Syntax error message.
+      lappend skipNames namespace-old-10.3; # NOTE: Syntax error message.
+
+      foreach skipName $skipNames {
+        if {[lsearch -exact $eagle_tests(SkipNames) $skipName] == -1} then {
+          lappend eagle_tests(SkipNames) $skipName
+        }
+      }
+
+      unset -nocomplain skipName
+    }
+  } else {
+    if {![info exists no(skipSomeTests)] && \
+        ![info exists no(skipSomeNamespaceTests)]} then {
+      set skipNames [list]
+
+      if {[haveConstraint tcl86OrHigher]} then {
+        #
+        # NOTE: Do nothing, all applicable tests should pass.
+        #
+      } elseif {[haveConstraint tcl85OrHigher]} then {
+        #
+        # NOTE: Running in Tcl 8.5, some test results differ.
+        #
+        lappend skipNames namespace-old-9.5; # NOTE: Import introspection.
+      } else {
+        #
+        # NOTE: Running in Tcl 8.4, many test results differ.
+        #
+        lappend skipNames namespace-old-5.10; # NOTE: Syntax error message.
+        lappend skipNames namespace-old-5.19; # NOTE: Syntax error message.
+        lappend skipNames namespace-old-6.18; # NOTE: [namespace which] bug.
+        lappend skipNames namespace-old-7.2; # NOTE: Needs in operator.
+        lappend skipNames namespace-old-7.5; # NOTE: Needs in operator.
+        lappend skipNames namespace-old-9.5; # NOTE: Import introspection.
+      }
+
+      #
+      # NOTE: Add any skipped test names for native Tcl now.
+      #
+      if {[llength $skipNames] > 0} then {
+        ::tcltest::configure -skip $skipNames
+      }
+    }
+
+    #
+    # NOTE: Save the "cleanupTests" procedure now and create a stub as we do not
+    #       want the "format.test" file to actually "cleanup" after itself, that
+    #       will be done at the very end.
+    #
+    rename ::tcltest::cleanupTests ::tcltest::savedCleanupTests
+    proc ::tcltest::cleanupTests { args } {}
+  }
+
+  #############################################################################
+
+  #
+  # HACK: All of the tests run by this file require full namespace support.  If
+  #       that is not present, skip the whole file.
+  #
+  tsource [file join $test_path tcl namespace-old.test] false false
+
+  #############################################################################
+
+  if {[isEagle]} then {
+    if {[info exists skipNames]} then {
+      #
+      # NOTE: Remove the test names to be skipped that were added above.
+      #
+      foreach skipName $skipNames {
+        set skipIndex [lsearch -exact $eagle_tests(SkipNames) $skipName]
+
+        if {$skipIndex != -1} then {
+          set eagle_tests(SkipNames) [lreplace $eagle_tests(SkipNames) \
+              $skipIndex $skipIndex]
+        }
+      }
+
+      unset -nocomplain skipNames skipName skipIndex
+    }
+  } else {
+    if {[info exists skipNames]} then {
+      #
+      # NOTE: Remove the test names to be skipped that were added above.
+      #
+      ::tcltest::configure -skip ""
+      unset -nocomplain skipNames
+    }
+
+    #
+    # NOTE: Restore the original "cleanupTests" procedure now.
+    #
+    rename ::tcltest::cleanupTests ""
+    rename ::tcltest::savedCleanupTests ::tcltest::cleanupTests
+  }
+
+  #############################################################################
+
+  unset -nocomplain test_ns_cache_var; # HACK: Cleanup leftovers.
+} else {
+  tputs $test_channel "---- namespaces not available, Tcl tests skipped\n"
+}
+
+###############################################################################
+
+source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

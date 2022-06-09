@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ *
+ * Eagle.xsd -
+ *
+ * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+ *
+ * See the file "license.terms" for information on usage and redistribution of
+ * this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ * RCS: @(#) $Id: $
+ *
+-->
+<xsd:schema xmlns:eagle="https://eagle.to/2009/schema"
+            xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            elementFormDefault="qualified"
+            attributeFormDefault="unqualified"
+            targetNamespace="https://eagle.to/2009/schema">
+  <xsd:simpleType name="blockId"
+                  final="#all">
+    <xsd:restriction base="xsd:string">
+      <xsd:pattern value="^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$" />
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="blockType"
+                  final="#all">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="automatic" />
+      <xsd:enumeration value="text" />
+      <xsd:enumeration value="base64" />
+      <xsd:enumeration value="uri" />
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:complexType name="block"
+                   mixed="true"
+                   final="#all">
+    <xsd:attribute name="id"
+                   type="eagle:blockId"
+                   use="required" />
+
+    <xsd:attribute name="type"
+                   type="eagle:blockType"
+                   use="required" />
+
+    <xsd:attribute name="name"
+                   type="xsd:string"
+                   use="optional" />
+
+    <xsd:attribute name="group"
+                   type="xsd:string"
+                   use="optional" />
+
+    <xsd:attribute name="description"
+                   type="xsd:string"
+                   use="optional" />
+
+    <xsd:attribute name="timeStamp"
+                   type="xsd:dateTime"
+                   use="optional" />
+
+    <xsd:attribute name="publicKeyToken"
+                   type="xsd:hexBinary"
+                   use="optional" />
+
+    <xsd:attribute name="signature"
+                   type="xsd:base64Binary"
+                   use="optional" />
+
+    <!--
+        HACK: If the RelaxedXml property of an interpreter is
+              non-zero, the following comment will be replaced
+              with a "xsd:anyAttribute" element.  This should
+              allow arbitrary extra attributes to be included.
+    -->
+    <!-- {RelaxedXml} -->
+  </xsd:complexType>
+
+  <xsd:complexType name="blocks"
+                   final="#all">
+    <xsd:sequence>
+      <xsd:element name="block"
+                   type="eagle:block"
+                   minOccurs="0"
+                   maxOccurs="unbounded" />
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:element name="blocks"
+               type="eagle:blocks" />
+</xsd:schema>
