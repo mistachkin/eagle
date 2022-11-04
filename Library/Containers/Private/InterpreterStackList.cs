@@ -26,7 +26,10 @@ namespace Eagle._Containers.Private
 {
     [ObjectId("55fbf1be-3c15-470c-acc0-e3ef767c5e54")]
     internal sealed class InterpreterStackList :
-            StackList<IAnyPair<Interpreter, IClientData>>, ICloneable
+            StackList<IAnyPair<Interpreter, IClientData>>
+#if DEAD_CODE
+            , ICloneable
+#endif
     {
         public InterpreterStackList()
             : base()
@@ -65,6 +68,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public InterpreterStackList DeepCopy()
+        {
+            return new InterpreterStackList(this);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public string ToString(string pattern, bool noCase)
         {
             return ParserOps<IAnyPair<Interpreter, IClientData>>.ListToString(
@@ -85,10 +95,14 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        #region Dead Code
+#if DEAD_CODE
         public object Clone()
         {
-            return new InterpreterStackList(this);
+            return DeepCopy();
         }
+#endif
+        #endregion
         #endregion
     }
 }

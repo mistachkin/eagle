@@ -2779,6 +2779,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static void RemoveExitedEventHandler()
+        {
+            AppDomain appDomain = AppDomainOps.GetCurrent();
+
+            if (appDomain != null)
+            {
+                if (!AppDomainOps.IsDefault(appDomain))
+                    appDomain.DomainUnload -= NativeConsole_Exited;
+                else
+                    appDomain.ProcessExit -= NativeConsole_Exited;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static void NativeConsole_Exited(
             object sender, /* in */
             EventArgs e    /* in */
@@ -2806,15 +2821,7 @@ namespace Eagle._Components.Private
             if (cleanupCode != ReturnCode.Ok)
                 MaybeComplain(cleanupCode, cleanupError);
 
-            AppDomain appDomain = AppDomainOps.GetCurrent();
-
-            if (appDomain != null)
-            {
-                if (!AppDomainOps.IsDefault(appDomain))
-                    appDomain.DomainUnload -= NativeConsole_Exited;
-                else
-                    appDomain.ProcessExit -= NativeConsole_Exited;
-            }
+            RemoveExitedEventHandler();
         }
         #endregion
     }

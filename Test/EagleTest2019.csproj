@@ -249,6 +249,7 @@
       EagleDetectNetFx471;
       EagleDetectNetFx472;
       EagleDetectNetFx48;
+      EagleDetectNetFx481;
       $(BuildDependsOn);
       EagleDetectVs2019;
       EagleDetectVcTools2019;

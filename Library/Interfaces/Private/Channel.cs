@@ -53,6 +53,9 @@ namespace Eagle._Interfaces.Private
         bool HitEndOfStream { get; set; }
         bool EndOfStream { get; }
 
+        bool AnyEndOfStream { get; }
+        bool OneEndOfStream { get; }
+
         ///////////////////////////////////////////////////////////////////////
 
         long Length { get; }
@@ -138,9 +141,11 @@ namespace Eagle._Interfaces.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        ByteList TakeBuffer();
-        bool GiveBuffer(ref ByteList buffer);
-        void NewBuffer();
+        int DiscardBuffered();
+        void ResetBuffered();
+        void TakeBuffered(out ByteList buffer, out IntList lineEndings);
+        bool GiveBuffered(ref ByteList buffer, ref IntList lineEndings);
+        void NewBuffered();
 
         ///////////////////////////////////////////////////////////////////////
 

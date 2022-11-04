@@ -124,7 +124,7 @@ runTest {test scope-6.8 {create/destroy while open} -setup {
 } -cleanup {
   catch {scope destroy foo}
   rename foo ""
-} -constraints {eagle} -result {}}
+} -constraints {eagle} -result {{} {}}}
 
 ###############################################################################
 
@@ -218,7 +218,7 @@ runTest {test scope-9.5 {scope destroy current with objects} -body {
 } -cleanup {
   catch {scope destroy foo}
 } -constraints {eagle command.object referenceCounts} -match regexp -result \
-{^1 foo System#Object#\d+ \{\} 1$}}
+{^1 foo System#Object#\d+ \{\{\} \{\}\} 1$}}
 
 ###############################################################################
 
@@ -322,7 +322,7 @@ runTest {test scope-10.1 {scope global} -setup {
 False True} 1 {global scope call frame not set} 0 {{} {} False True} 0 foo 0\
 {foo {} False False} 0 1 0 {foo {} True False} 0 foo 0 {{} foo True False} 0 {}\
 0 {foo {} True False} 0 foo 0 {{} {} False True} 0 {} 0 {foo {} True False} 0\
-foo 0 {{} foo True False} 0 {} 0 {{} {} False True}}}
+foo 0 {{} foo True False} 0 {{} {}} 0 {{} {} False True}}}
 
 ###############################################################################
 

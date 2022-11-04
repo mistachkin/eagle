@@ -22,6 +22,7 @@ using System.Text;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Constants;
+using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
@@ -245,8 +246,11 @@ namespace Eagle._Components.Private
             }
 
 #if NATIVE
-            if (PlatformOps.IsWindowsOperatingSystem() &&
-                !RuntimeOps.IsFileTrusted(fileName, IntPtr.Zero))
+            //
+            // HACK: Will end up using the list of trusted hashes from the
+            //       GlobalState.GetTrustedHashes method only.
+            //
+            if (!RuntimeOps.IsFileTrusted(null, null, fileName, IntPtr.Zero))
             {
 #if DEBUG
                 TraceOps.DebugTrace(String.Format(
@@ -787,6 +791,88 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static StringList GetResourceStreamList(
+            Assembly assembly,
+            string name,
+            Encoding encoding,
+            int minimumCount,
+            int maximumCount,
+            bool readOnly,
+            ref Result error
+            )
+        {
+            Stream stream = GetResourceStream(
+                assembly, name, ref error);
+
+            if (stream != null)
+            {
+                try
+                {
+                    string text = null;
+
+                    if (encoding != null)
+                    {
+                        if (RuntimeOps.ReadStream(
+                                stream, encoding, ref text,
+                                ref error) != ReturnCode.Ok)
+                        {
+                            return null;
+                        }
+                    }
+                    else
+                    {
+                        if (RuntimeOps.ReadStream(
+                                stream, ref text,
+                                ref error) != ReturnCode.Ok)
+                        {
+                            return null;
+                        }
+                    }
+
+                    StringList list = null;
+
+                    if (ParserOps<string>.SplitList(
+                            null, text, 0, Length.Invalid, readOnly,
+                            ref list, ref error) != ReturnCode.Ok)
+                    {
+                        return null;
+                    }
+
+                    int count = list.Count;
+
+                    if ((minimumCount >= 0) &&
+                        (list.Count < minimumCount))
+                    {
+                        error = String.Format(
+                            "list {0} has less than {1} elements",
+                            FormatOps.WrapOrNull(name), minimumCount);
+
+                        return null;
+                    }
+
+                    if ((maximumCount >= 0) &&
+                        (list.Count > maximumCount))
+                    {
+                        error = String.Format(
+                            "list {0} has more than {1} elements",
+                            FormatOps.WrapOrNull(name), maximumCount);
+
+                        return null;
+                    }
+
+                    return list;
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static Stream GetIconStream()
         {
             Assembly assembly = GlobalState.GetAssembly();
@@ -980,7 +1066,6 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Certificate Helper Methods
-#if !NET_STANDARD_20
         public static X509Certificate GetCertificate(
             Assembly assembly
             )
@@ -1021,6 +1106,7 @@ namespace Eagle._Components.Private
         {
             if (assembly != null)
             {
+#if !NET_STANDARD_20
                 Module module = assembly.ManifestModule;
 
                 if (module != null)
@@ -1028,6 +1114,7 @@ namespace Eagle._Components.Private
                     try
                     {
                         certificate = module.GetSignerCertificate();
+
                         return ReturnCode.Ok;
                     }
                     catch (Exception e)
@@ -1039,6 +1126,19 @@ namespace Eagle._Components.Private
                 {
                     error = "invalid module";
                 }
+#else
+                try
+                {
+                    certificate = X509Certificate.CreateFromSignedFile(
+                        assembly.Location);
+
+                    return ReturnCode.Ok;
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+#endif
             }
             else
             {
@@ -1058,7 +1158,6 @@ namespace Eagle._Components.Private
 
             return ReturnCode.Error;
         }
-#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -1104,40 +1203,6 @@ namespace Eagle._Components.Private
                 typeof(AssemblyOps).Name, TracePriority.SecurityError);
 
             return ReturnCode.Error;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-#if !NET_STANDARD_20
-        public static X509Certificate2 GetCertificate2(
-            Assembly assembly
-            )
-        {
-            if (assembly != null)
-            {
-                X509Certificate certificate = null;
-
-                if (GetCertificate(assembly,
-                        ref certificate) == ReturnCode.Ok)
-                {
-                    try
-                    {
-                        return (certificate != null) ?
-                            new X509Certificate2(certificate) : null;
-                    }
-                    catch (Exception e)
-                    {
-                        //
-                        // NOTE: Nothing we can do here except log the failure.
-                        //
-                        TraceOps.DebugTrace(
-                            e, typeof(AssemblyOps).Name,
-                            TracePriority.SecurityError);
-                    }
-                }
-            }
-
-            return null;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1191,7 +1256,6 @@ namespace Eagle._Components.Private
 
             return ReturnCode.Error;
         }
-#endif
         #endregion
     }
 }

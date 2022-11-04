@@ -70,6 +70,16 @@ namespace Eagle._Interfaces.Private
         int PolicyLevels { get; set; }
         int TestLevels { get; set; }
 
+        PolicyDecision CommandInitialDecision { get; set; }
+        PolicyDecision ScriptInitialDecision { get; set; }
+        PolicyDecision FileInitialDecision { get; set; }
+        PolicyDecision StreamInitialDecision { get; set; }
+
+        PolicyDecision CommandFinalDecision { get; set; }
+        PolicyDecision ScriptFinalDecision { get; set; }
+        PolicyDecision FileFinalDecision { get; set; }
+        PolicyDecision StreamFinalDecision { get; set; }
+
         bool Cancel { get; set; }
         bool Unwind { get; set; }
         bool Halt { get; set; }

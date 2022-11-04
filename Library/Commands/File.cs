@@ -28,6 +28,9 @@ using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
+using UnderAnyPair = Eagle._Components.Public.AnyPair<
+    Eagle._Components.Public.PathType, string>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -1389,32 +1392,72 @@ namespace Eagle._Commands
                                     }
                                 case "normalize":
                                     {
-                                        if (arguments.Count == 3)
+                                        if (arguments.Count >= 3)
                                         {
-                                            if (!String.IsNullOrEmpty(arguments[2]))
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-legacy", null),
+                                                Option.CreateEndOfOptions()
+                                            });
+
+                                            int argumentIndex = Index.Invalid;
+
+                                            code = interpreter.GetOptions(
+                                                options, arguments, 0, 2, Index.Invalid, false, ref argumentIndex, ref result);
+
+                                            if (code == ReturnCode.Ok)
                                             {
-                                                bool? unix = null;
+                                                if ((argumentIndex != Index.Invalid) &&
+                                                    ((argumentIndex + 1) == arguments.Count))
+                                                {
+                                                    string path = arguments[argumentIndex];
 
-                                                if (PlatformOps.IsWindowsOperatingSystem())
-                                                    unix = true;
+                                                    if (!String.IsNullOrEmpty(path))
+                                                    {
+                                                        Variant value = null;
+                                                        bool legacyResolve = true; /* COMPAT: Eagle beta. */
 
-                                                string path = null;
+                                                        if (options.IsPresent("-legacy", ref value))
+                                                            legacyResolve = (bool)value.Value;
 
-                                                code = PathOps.NormalizePath(
-                                                    interpreter, null, arguments[2], unix, true,
-                                                    true, true, false, ref path, ref result);
+                                                        bool? unix = null;
 
-                                                if (code == ReturnCode.Ok)
-                                                    result = path;
-                                            }
-                                            else
-                                            {
-                                                result = String.Empty;
+                                                        if (PlatformOps.IsWindowsOperatingSystem())
+                                                            unix = true;
+
+                                                        code = PathOps.NormalizePath(
+                                                            interpreter, null, path, unix,
+                                                            true, true, true, legacyResolve,
+                                                            false, ref path, ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                            result = path;
+                                                    }
+                                                    else
+                                                    {
+                                                        result = String.Empty;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(arguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, arguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"file normalize ?options? name\"";
+                                                    }
+
+                                                    code = ReturnCode.Error;
+                                                }
                                             }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"file normalize name\"";
+                                            result = "wrong # args: should be \"file normalize ?options? name\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -1947,9 +1990,12 @@ namespace Eagle._Commands
                                             {
                                                 if (PathOps.ValidatePathAsFile(path, null, true))
                                                 {
-                                                    FileInfo fileInfo = new FileInfo(path);
+                                                    long size = Size.Invalid;
 
-                                                    result = fileInfo.Length;
+                                                    code = FileOps.GetFileSize(path, ref size, ref result);
+
+                                                    if (code == ReturnCode.Ok)
+                                                        result = size;
                                                 }
                                                 else if (PathOps.ValidatePathAsDirectory(path, null, true))
                                                 {
@@ -2242,16 +2288,116 @@ namespace Eagle._Commands
                                     }
                                 case "under":
                                     {
-                                        if (arguments.Count == 4)
+                                        if (arguments.Count >= 4)
                                         {
-                                            result = PathOps.IsUnderPath(
-                                                interpreter, arguments[2], arguments[3]);
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(typeof(MatchMode), OptionFlags.MustHaveEnumValue, Index.Invalid,
+                                                    Index.Invalid, "-mode", new Variant(MatchMode.None)),
+                                                new Option(typeof(SearchOption), OptionFlags.MustHaveEnumValue, Index.Invalid,
+                                                    Index.Invalid, "-searchoption", new Variant(SearchOption.AllDirectories)),
+                                                new Option(typeof(PathType), OptionFlags.MustHaveEnumValue, Index.Invalid,
+                                                    Index.Invalid, "-pathtype", new Variant(PathType.Under)),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-contains", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-failonerror", null),
+                                                Option.CreateEndOfOptions()
+                                            });
 
-                                            code = ReturnCode.Ok;
+                                            int argumentIndex = Index.Invalid;
+
+                                            code = interpreter.GetOptions(
+                                                options, arguments, 0, 2, Index.Invalid, false, ref argumentIndex, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                if ((argumentIndex != Index.Invalid) &&
+                                                    ((argumentIndex + 2) == arguments.Count))
+                                                {
+                                                    Variant value = null;
+                                                    MatchMode mode = MatchMode.None;
+
+                                                    if (options.IsPresent("-mode", ref value))
+                                                        mode = (MatchMode)value.Value;
+
+                                                    SearchOption searchOption = SearchOption.AllDirectories;
+
+                                                    if (options.IsPresent("-searchoption", ref value))
+                                                        searchOption = (SearchOption)value.Value;
+
+                                                    PathType pathType = PathType.Under;
+
+                                                    if (options.IsPresent("-pathtype", ref value))
+                                                        pathType = (PathType)value.Value;
+
+                                                    bool contains = false;
+
+                                                    if (options.IsPresent("-contains"))
+                                                        contains = true;
+
+                                                    bool failOnError = false;
+
+                                                    if (options.IsPresent("-failonerror"))
+                                                        failOnError = true;
+
+                                                    string path1 = arguments[argumentIndex];
+                                                    string path2 = arguments[argumentIndex + 1];
+
+                                                    if (contains)
+                                                    {
+                                                        List<UnderAnyPair> matches = null;
+                                                        ResultList errors = null;
+
+                                                        code = PathOps.IsNameUnderPath(
+                                                            interpreter, path1, path2,
+                                                            mode, searchOption, pathType,
+                                                            ref matches, ref errors);
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            if (!failOnError || (errors == null))
+                                                            {
+                                                                if (matches != null)
+                                                                    result = new StringList(matches);
+                                                                else
+                                                                    result = null;
+                                                            }
+                                                            else
+                                                            {
+                                                                result = errors;
+                                                                code = ReturnCode.Error;
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            result = errors;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        result = PathOps.IsUnderPath(
+                                                            interpreter, path1, path2);
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(arguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, arguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"file under ?options? name1 name2\"";
+                                                    }
+
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"file under name1 name2\"";
+                                            result = "wrong # args: should be \"file under ?options? name1 name2\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

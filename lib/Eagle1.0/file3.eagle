@@ -21,36 +21,351 @@
 #
 namespace eval ::Eagle {
   #
+  # NOTE: This procedure attempts to emit a Tcl log message based on the
+  #       calling procedure currently being invoked.
+  #
+  proc tclLogForCommand { {command ""} } {
+    set level [info level]; # current procedure
+    set procName [lindex [info level $level] 0]
+    incr level -1; # calling procedure
+
+    if {[string length $command] > 0} then {
+      set suffix [appendArgs \
+          " " [string repeat = $level] "> command \{" \
+          $command \}]
+    } else {
+      set suffix ""
+    }
+
+    catch {
+      tclLog [string trim [appendArgs \
+          $procName " (level " [format %03d $level] ") " \
+          [string repeat - $level] "> \{" [info level \
+          $level] \} $suffix]]
+    }
+  }
+
+  #
+  # NOTE: This procedure figures out extra option values for use with the
+  #       "dir" command of the Windows command shell based on which types
+  #       of paths are being saught.
+  #
+  proc populateTypesForComSpecDir { dirVarName fileVarName } {
+    upvar 1 $dirVarName dirTypes
+    upvar 1 $fileVarName fileTypes
+
+    set dirTypes(visible) {/ad}
+    set dirTypes(hidden) {/ahd}
+
+    set fileTypes(visible) {/a-d}
+    set fileTypes(hidden) {/ah-d}
+  }
+
+  #
+  # NOTE: This procedure figures out what the -types option values should
+  #       be to locate both visible and hidden directories and/or files.
+  #
+  proc populateTypesForGlob { dirVarName fileVarName } {
+    upvar 1 $dirVarName dirTypes
+    upvar 1 $fileVarName fileTypes
+
+    set dirTypes(visible) {d}
+    set fileTypes(visible) {f}
+
+    if {[isEagle]} then {
+      #
+      # HACK: Using "hiddenonly" requires release Beta 51 or later.
+      #
+      set dirTypes(hidden) {d system hidden hiddenonly}
+      set fileTypes(hidden) {f system hidden hiddenonly}
+    } else {
+      set dirTypes(hidden) {d hidden}
+      set fileTypes(hidden) {f hidden}
+    }
+  }
+
+  #
   # NOTE: This procedure uses the type of the specified path to figure out
   #       the (possibly normalized) path to add to the finder results.
   #
   proc getDirResultPath { pattern path } {
-    #
-    # NOTE: This should work properly in both Tcl and Eagle.
-    #       Is the result path itself already absolute?
-    #
     if {[file pathtype $path] eq "absolute"} then {
-      #
-      # NOTE: Ok, the result path is already absolute.
-      #       Normalize and return it.
-      #
       return [file normalize $path]
-    } elseif {[file pathtype $pattern] eq "absolute"} then {
-      #
-      # NOTE: The pattern refers to an absolute path.  Strip
-      #       the final part of the pattern and join it with
-      #       the result path (which we already know is not
-      #       absolute).
-      #
-      return [file normalize [file join [file dirname $pattern] $path]]
     } else {
       #
-      # NOTE: Neither the result path nor the input pattern
-      #       contain an absolute path; therefore, use the
-      #       current directory to hang the result path on.
+      # BUGBUG: There is not much we can do here that would be correct in
+      #         all situations.  The problem is that the Windows command
+      #         shell "dir" command does not return enough relative path
+      #         information when invoked without the sub-directories flag.
       #
-      return [file normalize [file join [pwd] $path]]
+      if {[hasRuntimeOption getDirResultJoinPath]} then {
+        if {[string is path -strict $pattern] || \
+            [string is component -strict $pattern]} then {
+          if {[file pathtype $pattern] eq "absolute"} then {
+            set newPath [file normalize $pattern]
+          } else {
+            set newPath [file normalize [file join [pwd] $pattern]]
+          }
+
+          if {![file exists $newPath]} then {
+            set newPath [file normalize [file join $newPath $path]]
+          }
+        } else {
+          set newPath [file normalize [file join [pwd] $path]]
+        }
+
+        if {[file exists $newPath]} then {
+          return $newPath
+        }
+      }
+
+      if {[hasRuntimeOption getDirResultErrorPath]} then {
+        error [appendArgs \
+            "could not handle relative path \"" $path \
+            "\" resulting from pattern \"" $pattern \"]
+      }
+
+      return $path
     }
+  }
+
+  #
+  # NOTE: This procedure attempts to normalize the specified path in a way
+  #       that (ideally) should not raise a script error.
+  #
+  proc fileNormalizeForGlob { path } {
+    if {[isEagle]} then {
+      #
+      # HACK: Possibly disable the legacy path resolution to avoid raising
+      #       any script errors.
+      #
+      # TODO: This is (probably) not quite robust enough to handle all of
+      #       the possible corner cases.
+      #
+      if {[string is path -strict $path] || \
+          [string is component -strict $path]} then {
+        return [file normalize -legacy true $path]
+      } else {
+        return [file normalize -legacy false $path]
+      }
+    } else {
+      #
+      # BUGBUG: Can this really not raise a script error in Tcl?
+      #
+      return [file normalize $path]
+    }
+  }
+
+  #
+  # NOTE: This procedure performs [glob] using specified types, directory,
+  #       and pattern.
+  #
+  proc performGlob { types directory pattern } {
+    if {[hasRuntimeOption tracePerformGlob]} then {
+      tclLogForCommand
+    }
+
+    return [glob -nocomplain -types \
+        $types [fileNormalizeForGlob [file join $directory $pattern]]]
+  }
+
+  #
+  # NOTE: This procedure works around the lack of the -nocase option to the
+  #       native Tcl interpreter for versions before 8.5.  It should not be
+  #       used by external callers.
+  #
+  proc maybeAppendPathResult { listVarName element } {
+    upvar 1 $listVarName list
+
+    if {[isEagle]} then {
+      if {[lsearch -variable -exact -nocase list $element] == -1} then {
+        lappend list $element
+      }
+    } else {
+      if {[info exists ::tcl_version] && $::tcl_version >= 8.5} then {
+        if {![info exists list] || \
+            [lsearch -exact -nocase $list $element] == -1} then {
+          lappend list $element
+        }
+      } else {
+        if {![info exists list] || [lsearch -exact [string \
+            tolower $list] [string tolower $element]] == -1} then {
+          lappend list $element
+        }
+      }
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure attempts to find files and directories within a
+  #       specific parent directory.  It can optionally use recursion to
+  #       traverse into sub-directories matching a specific pattern.  It
+  #       can find visible items, hidden items, or both.  To find both,
+  #       an empty string should be passed for the "hidden" argument.
+  #
+  proc findViaGlob {
+          directory traversePattern wantPattern wantDirs wantFiles hidden
+          recursive {callback ""} } {
+    populateTypesForGlob dirTypes fileTypes
+
+    set result [list]
+
+    foreach type [list visible hidden] {
+      set wantHidden [expr {
+        $type eq "hidden" ? "true" : "false"
+      }]
+
+      if {[string length $hidden] == 0 || \
+          [string is $wantHidden -strict $hidden]} then {
+        if {$recursive && \
+            [string length $traversePattern] > 0 && \
+            [info exists dirTypes($type)]} then {
+          if {[catch {
+            performGlob $dirTypes($type) $directory \
+                $traversePattern
+          } list] == 0} then {
+            foreach subDirectory $list {
+              eval lappend result [findViaGlob \
+                  $subDirectory $traversePattern \
+                  $wantPattern $wantDirs $wantFiles \
+                  $hidden $recursive $callback]
+            }
+          }
+        }
+
+        if {[string length $wantPattern] > 0} then {
+          if {$wantDirs && \
+              [info exists dirTypes($type)]} then {
+            if {[catch {
+              performGlob $dirTypes($type) $directory \
+                  $wantPattern
+            } list] == 0} then {
+              if {[string length $callback] == 0} then {
+                eval lappend result $list
+              } else {
+                foreach element $list {
+                  if {[$callback $callback \
+                      $type directory $element]} then {
+                    lappend result $element
+                  }
+                }
+              }
+            }
+          }
+
+          if {$wantFiles && \
+              [info exists fileTypes($type)]} then {
+            if {[catch {
+              performGlob $fileTypes($type) $directory \
+                  $wantPattern
+            } list] == 0} then {
+              if {[string length $callback] == 0} then {
+                eval lappend result $list
+              } else {
+                foreach element $list {
+                  if {[$callback $callback \
+                      $type file $element]} then {
+                    lappend result $element
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure attempts to find files and directories within a
+  #       specific parent directory.  It can optionally use recursion to
+  #       traverse into sub-directories matching a specific pattern.  It
+  #       can find visible items, hidden items, or both.  To find both,
+  #       an empty string should be passed for the "hidden" argument.
+  #
+  proc findViaComSpecDir { pattern wantDirs wantFiles hidden recursive } {
+    set result [list]
+
+    if {[info exists ::env(ComSpec)]} then {
+      set path ""
+
+      if {[isEagle]} then {
+        makeVariableFast result true; makeVariableFast path true
+      }
+
+      set types [list]
+
+      if {[string length $hidden] > 0} then {
+        if {[string is false -strict $hidden]} then {
+          lappend types visible
+        }
+
+        if {[string is true -strict $hidden]} then {
+          lappend types hidden
+        }
+      } else {
+        lappend types visible hidden
+      }
+
+      set subTypes [list]
+
+      if {$wantDirs} then {lappend subTypes directory}
+      if {$wantFiles} then {lappend subTypes file}
+
+      populateTypesForComSpecDir dirTypes fileTypes
+
+      foreach type $types {
+        foreach subType $subTypes {
+          set wantVarName [expr {
+            $subType eq "directory" ? \
+                [appendArgs dirTypes( $type )] : \
+                [appendArgs fileTypes( $type )]
+          }]
+
+          if {[info exists $wantVarName]} then {
+            set command [list exec]
+
+            if {[isEagle]} then {lappend command -unicode}
+
+            lappend command $::env(ComSpec)
+
+            if {[isEagle]} then {lappend command /u}
+
+            lappend command /c dir /b
+            if {$recursive} then {lappend command /s}
+            lappend command [set $wantVarName]
+
+            if {[isEagle]} then {
+              lappend command [appendArgs \
+                  \" [file nativename $pattern] \"]
+            } else {
+              lappend command [file nativename $pattern]
+            }
+
+            if {[hasRuntimeOption traceFindViaComSpecDir]} then {
+              tclLogForCommand $command
+            }
+
+            if {[catch $command exec] == 0} then {
+              foreach path [split $exec \n] {
+                set path [string trim $path]
+
+                if {[string length $path] > 0} then {
+                  set path [getDirResultPath $pattern $path]
+                  maybeAppendPathResult result $path
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return $result
   }
 
   #
@@ -58,66 +373,25 @@ namespace eval ::Eagle {
   #       specified.  It does not recurse into sub-directories.
   #
   proc findDirectories { pattern } {
-    if {[isEagle]} then {
-      #
-      # NOTE: Block non-Windows platforms since this is Windows specific.
-      #
-      if {![isWindows]} then {
-        error "not supported on this operating system"
+    if {![info exists ::no(findForEagle)] && [isEagle]} then {
+      if {[hasRuntimeOption findViaGlob] || ![isWindows] || \
+          ![info exists ::env(ComSpec)]} then {
+        return [findViaGlob \
+            [file dirname $pattern] * [file tail $pattern] \
+            true false "" false]
+      } else {
+        return [findViaComSpecDir $pattern true false "" false]
       }
-
-      #
-      # NOTE: This should work properly in Eagle only.
-      #
-      set dir ""; set result [list]
-
-      #
-      # HACK: Optimize the variable access in this procedure to be
-      #       as fast as possible.
-      #
-      makeVariableFast dir true; makeVariableFast result true
-
-      #
-      # NOTE: We will need to grab the ComSpec environment variable.
-      #
-      global env
-
-      foreach dir [split [exec -unicode $env(ComSpec) /u /c dir \
-          /ad /b [appendArgs \" [file nativename $pattern] \"]] \n] {
-        set dir [string trim $dir]
-
-        if {[string length $dir] > 0} then {
-          set dir [getDirResultPath $pattern $dir]
-
-          if {[lsearch -variable -exact -nocase result $dir] == -1} then {
-            lappend result $dir
-          }
-        }
-      }
-
-      foreach dir [split [exec -unicode $env(ComSpec) /u /c dir \
-          /ahd /b [appendArgs \" [file nativename $pattern] \"]] \n] {
-        set dir [string trim $dir]
-
-        if {[string length $dir] > 0} then {
-          set dir [getDirResultPath $pattern $dir]
-
-          if {[lsearch -variable -exact -nocase result $dir] == -1} then {
-            lappend result $dir
-          }
-        }
-      }
-
-      return $result
     } else {
-      #
-      # NOTE: This should work properly in Tcl only.
-      #
-      eval lappend result [glob -nocomplain -types {d} \
-          [file normalize $pattern]]
+      populateTypesForGlob dirTypes fileTypes
 
-      eval lappend result [glob -nocomplain -types {d hidden} \
-          [file normalize $pattern]]
+      set result [list]
+
+      eval lappend result [glob -nocomplain -types \
+          $dirTypes(visible) [fileNormalizeForGlob $pattern]]
+
+      eval lappend result [glob -nocomplain -types \
+          $dirTypes(hidden) [fileNormalizeForGlob $pattern]]
 
       return $result
     }
@@ -128,133 +402,13 @@ namespace eval ::Eagle {
   #       specified.  It recurses into sub-directories.
   #
   proc findDirectoriesRecursive { pattern } {
-    if {[isEagle]} then {
-      #
-      # NOTE: Block non-Windows platforms since this is Windows specific.
-      #
-      if {![isWindows]} then {
-        error "not supported on this operating system"
-      }
-
-      #
-      # NOTE: This should work properly in Eagle only.
-      #
-      set dir ""; set result [list]
-
-      #
-      # HACK: Optimize the variable access in this procedure to be
-      #       as fast as possible.
-      #
-      makeVariableFast dir true; makeVariableFast result true
-
-      #
-      # NOTE: We will need to grab the ComSpec environment variable.
-      #
-      global env
-
-      foreach dir [split [exec -unicode $env(ComSpec) /u /c dir \
-          /ad /s /b [appendArgs \" [file nativename $pattern] \"]] \n] {
-        set dir [string trim $dir]
-
-        if {[string length $dir] > 0} then {
-          set dir [getDirResultPath $pattern $dir]
-
-          if {[lsearch -variable -exact -nocase result $dir] == -1} then {
-            lappend result $dir
-          }
-        }
-      }
-
-      foreach dir [split [exec -unicode $env(ComSpec) /u /c dir \
-          /ahd /s /b [appendArgs \" [file nativename $pattern] \"]] \n] {
-        set dir [string trim $dir]
-
-        if {[string length $dir] > 0} then {
-          set dir [getDirResultPath $pattern $dir]
-
-          if {[lsearch -variable -exact -nocase result $dir] == -1} then {
-            lappend result $dir
-          }
-        }
-      }
-
-      return $result
+    if {[hasRuntimeOption findViaGlob] || ![isWindows] || \
+        ![info exists ::env(ComSpec)]} then {
+      return [findViaGlob \
+          [file dirname $pattern] * [file tail $pattern] \
+          true false "" true]
     } else {
-      #
-      # NOTE: Block non-Windows platforms since this is Windows specific.
-      #
-      if {![isWindows]} then {
-        error "not supported on this operating system"
-      }
-
-      #
-      # NOTE: This should work properly in Tcl only.
-      #
-      set result [list]
-
-      #
-      # NOTE: We will need to grab the ComSpec environment variable.
-      #
-      global env
-
-      #
-      # NOTE: We will also need to check the Tcl version.
-      #
-      global tcl_version
-
-      catch {
-        foreach dir [split [exec $env(ComSpec) /c dir /ad /s /b \
-            [file nativename $pattern]] \n] {
-          set dir [string trim $dir]
-
-          if {[string length $dir] > 0} then {
-            set dir [getDirResultPath $pattern $dir]
-
-            #
-            # HACK: The -nocase option to [lsearch] is only available
-            #       starting with Tcl 8.5.
-            #
-            if {$tcl_version >= 8.5} then {
-              if {[lsearch -exact -nocase $result $dir] == -1} then {
-                lappend result $dir
-              }
-            } else {
-              if {[lsearch -exact [string tolower $result] \
-                  [string tolower $dir]] == -1} then {
-                lappend result $dir
-              }
-            }
-          }
-        }
-      }
-
-      catch {
-        foreach dir [split [exec $env(ComSpec) /c dir /ahd /s /b \
-            [file nativename $pattern]] \n] {
-          set dir [string trim $dir]
-
-          if {[string length $dir] > 0} then {
-            set dir [getDirResultPath $pattern $dir]
-
-            #
-            # HACK: The -nocase option to [lsearch] is only available
-            #       starting with Tcl 8.5.
-            #
-            if {$tcl_version >= 8.5} then {
-              if {[lsearch -exact -nocase $result $dir] == -1} then {
-                lappend result $dir
-              }
-            } else {
-              if {[lsearch -exact [string tolower $result] \
-                  [string tolower $dir]] == -1} then {
-                lappend result $dir
-              }
-            }
-          }
-        }
-      }
-
-      return $result
+      return [findViaComSpecDir $pattern true false "" true]
     }
   }
 
@@ -263,66 +417,25 @@ namespace eval ::Eagle {
   #       specified.  It does not recurse into sub-directories.
   #
   proc findFiles { pattern } {
-    if {[isEagle]} then {
-      #
-      # NOTE: Block non-Windows platforms since this is Windows specific.
-      #
-      if {![isWindows]} then {
-        error "not supported on this operating system"
+    if {![info exists ::no(findForEagle)] && [isEagle]} then {
+      if {[hasRuntimeOption findViaGlob] || ![isWindows] || \
+          ![info exists ::env(ComSpec)]} then {
+        return [findViaGlob \
+            [file dirname $pattern] * [file tail $pattern] \
+            false true "" false]
+      } else {
+        return [findViaComSpecDir $pattern false true "" false]
       }
-
-      #
-      # NOTE: This should work properly in Eagle only.
-      #
-      set fileName ""; set result [list]
-
-      #
-      # HACK: Optimize the variable access in this procedure to be
-      #       as fast as possible.
-      #
-      makeVariableFast fileName true; makeVariableFast result true
-
-      #
-      # NOTE: We will need to grab the ComSpec environment variable.
-      #
-      global env
-
-      foreach fileName [split [exec -unicode $env(ComSpec) /u /c dir \
-          /a-d /b [appendArgs \" [file nativename $pattern] \"]] \n] {
-        set fileName [string trim $fileName]
-
-        if {[string length $fileName] > 0} then {
-          set fileName [getDirResultPath $pattern $fileName]
-
-          if {[lsearch -variable -exact -nocase result $fileName] == -1} then {
-            lappend result $fileName
-          }
-        }
-      }
-
-      foreach fileName [split [exec -unicode $env(ComSpec) /u /c dir \
-          /ah-d /b [appendArgs \" [file nativename $pattern] \"]] \n] {
-        set fileName [string trim $fileName]
-
-        if {[string length $fileName] > 0} then {
-          set fileName [getDirResultPath $pattern $fileName]
-
-          if {[lsearch -variable -exact -nocase result $fileName] == -1} then {
-            lappend result $fileName
-          }
-        }
-      }
-
-      return $result
     } else {
-      #
-      # NOTE: This should work properly in Tcl only.
-      #
-      eval lappend result [glob -nocomplain -types {f} \
-          [file normalize $pattern]]
+      populateTypesForGlob dirTypes fileTypes
 
-      eval lappend result [glob -nocomplain -types {f hidden} \
-          [file normalize $pattern]]
+      set result [list]
+
+      eval lappend result [glob -nocomplain -types \
+          $fileTypes(visible) [fileNormalizeForGlob $pattern]]
+
+      eval lappend result [glob -nocomplain -types \
+          $fileTypes(hidden) [fileNormalizeForGlob $pattern]]
 
       return $result
     }
@@ -333,133 +446,13 @@ namespace eval ::Eagle {
   #       specified.  It recurses into sub-directories.
   #
   proc findFilesRecursive { pattern } {
-    if {[isEagle]} then {
-      #
-      # NOTE: Block non-Windows platforms since this is Windows specific.
-      #
-      if {![isWindows]} then {
-        error "not supported on this operating system"
-      }
-
-      #
-      # NOTE: This should work properly in Eagle only.
-      #
-      set fileName ""; set result [list]
-
-      #
-      # HACK: Optimize the variable access in this procedure to be
-      #       as fast as possible.
-      #
-      makeVariableFast fileName true; makeVariableFast result true
-
-      #
-      # NOTE: We will need to grab the ComSpec environment variable.
-      #
-      global env
-
-      foreach fileName [split [exec -unicode $env(ComSpec) /u /c dir \
-          /a-d /s /b [appendArgs \" [file nativename $pattern] \"]] \n] {
-        set fileName [string trim $fileName]
-
-        if {[string length $fileName] > 0} then {
-          set fileName [getDirResultPath $pattern $fileName]
-
-          if {[lsearch -variable -exact -nocase result $fileName] == -1} then {
-            lappend result $fileName
-          }
-        }
-      }
-
-      foreach fileName [split [exec -unicode $env(ComSpec) /u /c dir \
-          /ah-d /s /b [appendArgs \" [file nativename $pattern] \"]] \n] {
-        set fileName [string trim $fileName]
-
-        if {[string length $fileName] > 0} then {
-          set fileName [getDirResultPath $pattern $fileName]
-
-          if {[lsearch -variable -exact -nocase result $fileName] == -1} then {
-            lappend result $fileName
-          }
-        }
-      }
-
-      return $result
+    if {[hasRuntimeOption findViaGlob] || ![isWindows] || \
+        ![info exists ::env(ComSpec)]} then {
+      return [findViaGlob \
+          [file dirname $pattern] * [file tail $pattern] \
+          false true "" true]
     } else {
-      #
-      # NOTE: Block non-Windows platforms since this is Windows specific.
-      #
-      if {![isWindows]} then {
-        error "not supported on this operating system"
-      }
-
-      #
-      # NOTE: This should work properly in Tcl only.
-      #
-      set result [list]
-
-      #
-      # NOTE: We will need to grab the ComSpec environment variable.
-      #
-      global env
-
-      #
-      # NOTE: We will also need to check the Tcl version.
-      #
-      global tcl_version
-
-      catch {
-        foreach fileName [split [exec $env(ComSpec) /c dir /a-d /s /b \
-            [file nativename $pattern]] \n] {
-          set fileName [string trim $fileName]
-
-          if {[string length $fileName] > 0} then {
-            set fileName [getDirResultPath $pattern $fileName]
-
-            #
-            # HACK: The -nocase option to [lsearch] is only available
-            #       starting with Tcl 8.5.
-            #
-            if {$tcl_version >= 8.5} then {
-              if {[lsearch -exact -nocase $result $fileName] == -1} then {
-                lappend result $fileName
-              }
-            } else {
-              if {[lsearch -exact [string tolower $result] \
-                  [string tolower $fileName]] == -1} then {
-                lappend result $fileName
-              }
-            }
-          }
-        }
-      }
-
-      catch {
-        foreach fileName [split [exec $env(ComSpec) /c dir /ah-d /s /b \
-            [file nativename $pattern]] \n] {
-          set fileName [string trim $fileName]
-
-          if {[string length $fileName] > 0} then {
-            set fileName [getDirResultPath $pattern $fileName]
-
-            #
-            # HACK: The -nocase option to [lsearch] is only available
-            #       starting with Tcl 8.5.
-            #
-            if {$tcl_version >= 8.5} then {
-              if {[lsearch -exact -nocase $result $fileName] == -1} then {
-                lappend result $fileName
-              }
-            } else {
-              if {[lsearch -exact [string tolower $result] \
-                  [string tolower $fileName]] == -1} then {
-                lappend result $fileName
-              }
-            }
-          }
-        }
-      }
-
-      return $result
+      return [findViaComSpecDir $pattern false true "" true]
     }
   }
 

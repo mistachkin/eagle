@@ -72,7 +72,8 @@ namespace Eagle._Components.Private
         private bool blockingMode; // are we synchronous?
         private bool appendMode; // are we always in append mode?
         private bool autoFlush; // always flush after a [puts]?
-        private bool hitEndOfStream; // did we hit the end of the stream?
+        private bool rawEndOfStream; // ignore buffer data for end-of-stream?
+        private bool hitEndOfStream; // did we hit the end-of-stream?
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -104,6 +105,7 @@ namespace Eagle._Components.Private
             this.nullEncoding = false;
             this.appendMode = false;
             this.autoFlush = false;
+            this.rawEndOfStream = false;
             this.clientData = clientData;
         }
 #endif
@@ -121,6 +123,7 @@ namespace Eagle._Components.Private
             bool nullEncoding,                /* in */
             bool appendMode,                  /* in */
             bool autoFlush,                   /* in */
+            bool rawEndOfStream,              /* in */
             IClientData clientData            /* in */
             )
             : this()
@@ -133,6 +136,7 @@ namespace Eagle._Components.Private
             this.nullEncoding = nullEncoding;
             this.appendMode = appendMode;
             this.autoFlush = autoFlush;
+            this.rawEndOfStream = rawEndOfStream;
             this.clientData = clientData;
         }
 
@@ -144,6 +148,7 @@ namespace Eagle._Components.Private
             bool nullEncoding,     /* in */
             bool appendMode,       /* in */
             bool autoFlush,        /* in */
+            bool rawEndOfStream,   /* in */
             IClientData clientData /* in */
             )
             : this()
@@ -153,6 +158,7 @@ namespace Eagle._Components.Private
             this.nullEncoding = nullEncoding;
             this.appendMode = appendMode;
             this.autoFlush = autoFlush;
+            this.rawEndOfStream = rawEndOfStream;
             this.clientData = clientData;
         }
         #endregion
@@ -188,7 +194,7 @@ namespace Eagle._Components.Private
                 null, streamFlags, StreamTranslation.auto,
                 StreamTranslation.auto, encoding,
                 DefaultInputNullEncoding, false, false,
-                null);
+                false, null);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -206,7 +212,7 @@ namespace Eagle._Components.Private
                 null, streamFlags, StreamTranslation.auto,
                 StreamTranslation.auto, encoding,
                 DefaultOutputNullEncoding, false, autoFlush,
-                null);
+                false, null);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -224,7 +230,7 @@ namespace Eagle._Components.Private
                 null, streamFlags, StreamTranslation.auto,
                 StreamTranslation.auto, encoding,
                 DefaultErrorNullEncoding, false, autoFlush,
-                null);
+                false, null);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -235,18 +241,145 @@ namespace Eagle._Components.Private
             bool nullEncoding,     /* in */
             bool appendMode,       /* in */
             bool autoFlush,        /* in */
+            bool rawEndOfStream,   /* in */
             IClientData clientData /* in */
             )
         {
             return new Channel(
-                stream, encoding, nullEncoding, appendMode, autoFlush,
-                clientData);
+                stream, encoding, nullEncoding, appendMode,
+                autoFlush, rawEndOfStream, clientData);
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        private bool PrivateCanSeek
+        {
+            get
+            {
+                ChannelStream stream = GetStreamFromContext();
+
+                return (stream != null) ? stream.CanSeek : false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool HasNoneEmptyBufferForContext
+        {
+            get
+            {
+                if (!rawEndOfStream &&
+                    HasContext && !HasEmptyBufferForContext)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool PrivateHitEndOfStream
+        {
+            get { return hitEndOfStream; }
+            set { hitEndOfStream = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool PrivateEndOfStream
+        {
+            get
+            {
+                ChannelStream stream = GetStreamFromContext();
+
+                if (stream == null)
+                    return false;
+
+                return (stream.Position >= stream.Length);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool PrivateAnyEndOfStream
+        {
+            get
+            {
+                ChannelStream stream = GetStreamFromContext();
+
+                if (stream == null)
+                    return false;
+
+                if (stream.CanSeek &&
+                    (stream.Position >= stream.Length))
+                {
+                    return true;
+                }
+
+                if (hitEndOfStream)
+                    return true;
+
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool PrivateOneEndOfStream
+        {
+            get
+            {
+                ChannelStream stream = GetStreamFromContext();
+
+                if (stream == null)
+                    return false;
+
+                if (stream.CanSeek)
+                    return (stream.Position >= stream.Length);
+                else
+                    return hitEndOfStream;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool PrivateHasBuffer
+        {
+            get
+            {
+                if (context == null)
+                    return false;
+
+                return context.HasBuffer;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool HasContext
+        {
+            get { return (context != null); }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool HasEmptyBufferForContext
+        {
+            get
+            {
+                return (context != null) ?
+                    context.HasEmptyBuffer : false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private ChannelStream GetStreamFromContext()
         {
             return (context != null) ? context.ChannelStream : null;
@@ -255,7 +388,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private ChannelStream PartialCloneStreamFromContext(
-            Stream stream
+            Stream stream /* in */
             )
         {
             return (context != null) ?
@@ -264,27 +397,88 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private ByteList TakeBufferFromContext()
+        private int DiscardForContext()
         {
-            return (context != null) ?
-                context.TakeBuffer() : null;
+            int result;
+
+            if (context != null)
+            {
+                result = 0;
+                result += context.DiscardBuffer();
+                result += context.DiscardLineEndings();
+            }
+            else
+            {
+                result = Count.Invalid;
+            }
+
+            return result;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private bool GiveBufferToContext(
-            ref ByteList buffer /* in, out */
+        private void ResetForContext()
+        {
+            if (context != null)
+            {
+                /* IGNORED */
+                context.TakeBuffer();
+
+                /* IGNORED */
+                context.TakeLineEndings();
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void TakeFromContext(
+            out ByteList buffer,
+            out IntList lineEndings
             )
         {
-            return (context != null) ?
-                context.GiveBuffer(ref buffer) : false;
+            if (context != null)
+            {
+                buffer = context.TakeBuffer();
+                lineEndings = context.TakeLineEndings();
+            }
+            else
+            {
+                buffer = null;
+                lineEndings = null;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private void NewBufferForContext()
+        private bool GiveToContext(
+            ref ByteList buffer,    /* in, out */
+            ref IntList lineEndings /* in, out */
+            )
         {
-            if (context != null) context.NewBuffer();
+            if (context != null)
+            {
+                if (context.GiveBuffer(ref buffer))
+                {
+                    /* IGNORED */
+                    context.GiveLineEndings(
+                        ref lineEndings);
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void NewForContext()
+        {
+            if (context != null)
+            {
+                context.NewBuffer();
+                context.NewLineEndings();
+            }
         }
         #endregion
 
@@ -439,9 +633,7 @@ namespace Eagle._Components.Private
             {
                 CheckDisposed();
 
-                ChannelStream stream = GetStreamFromContext();
-
-                return (stream != null) ? stream.CanSeek : false;
+                return PrivateCanSeek;
             }
         }
 
@@ -463,8 +655,21 @@ namespace Eagle._Components.Private
 
         public bool HitEndOfStream
         {
-            get { CheckDisposed(); return hitEndOfStream; }
-            set { CheckDisposed(); hitEndOfStream = value; }
+            get
+            {
+                CheckDisposed();
+
+                if (HasNoneEmptyBufferForContext)
+                    return false;
+
+                return PrivateHitEndOfStream;
+            }
+            set
+            {
+                CheckDisposed();
+
+                PrivateHitEndOfStream = value;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -475,10 +680,40 @@ namespace Eagle._Components.Private
             {
                 CheckDisposed();
 
-                ChannelStream stream = GetStreamFromContext();
+                if (HasNoneEmptyBufferForContext)
+                    return false;
 
-                return (stream != null) ?
-                    (stream.Position >= stream.Length) : false;
+                return PrivateEndOfStream;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool AnyEndOfStream
+        {
+            get
+            {
+                CheckDisposed();
+
+                if (HasNoneEmptyBufferForContext)
+                    return false;
+
+                return PrivateAnyEndOfStream;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool OneEndOfStream
+        {
+            get
+            {
+                CheckDisposed();
+
+                if (HasNoneEmptyBufferForContext)
+                    return false;
+
+                return PrivateOneEndOfStream;
             }
         }
 
@@ -728,15 +963,18 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        hitEndOfStream = true; /* NOTE: No more data. */
+                        PrivateHitEndOfStream = true; /* NOTE: No more data. */
                         break;
                     }
                 }
                 while ((count == Count.Invalid) || (readCount < count));
 
-                TranslateEndOfLine(
-                    StreamDirection.Input, list, ref list); // TEST: This.
+                ByteList newList = null;
 
+                TranslateEndOfLine(
+                    StreamDirection.Input, list, ref newList); // TEST: This.
+
+                list = newList;
                 code = ReturnCode.Ok;
             }
             else
@@ -797,7 +1035,10 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            ByteList buffer = TakeBufferFromContext();
+            ByteList buffer;
+            IntList lineEndings;
+
+            TakeFromContext(out buffer, out lineEndings);
 
             if (buffer == null)
             {
@@ -805,8 +1046,14 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            bool populated = stream.PopulateBuffer(
-                ref buffer); /* throw */
+            bool populated;
+            bool ignoreLineEnding = false;
+
+        repopulate:
+
+            populated = stream.PopulateBuffer(
+                ignoreLineEnding, useAnyEndOfLineChar, ref buffer,
+                ref lineEndings); /* throw */
 
             if (buffer == null)
             {
@@ -816,13 +1063,22 @@ namespace Eagle._Components.Private
 
             byte[] bytes = ArrayOps.GetArray<byte>(buffer, true);
 
-            if (!populated && (bytes.Length == 0))
+            if (!populated &&
+                ((bytes == null) || (bytes.Length == 0)))
             {
-                GiveBufferToContext(ref buffer);
+                if (!ignoreLineEnding && PrivateAnyEndOfStream)
+                {
+                    ignoreLineEnding = true;
+                    lineEndings = null;
+
+                    goto repopulate;
+                }
+
+                GiveToContext(ref buffer, ref lineEndings);
 
 #if NETWORK
                 if (stream.AvailableTimeout == 0)
-                    hitEndOfStream = true;
+                    PrivateHitEndOfStream = true;
 #endif
 
                 error = "no bytes read and none available";
@@ -831,16 +1087,26 @@ namespace Eagle._Components.Private
 
         retry:
 
+            List<byte> localList; /* REUSED */
+
             if (endOfLine != null)
             {
                 ByteList newEndOfLine = null;
 
-                TranslateEndOfLine(
-                    StreamDirection.Input, new ByteList(endOfLine),
-                    ref newEndOfLine);
+                TranslateEndOfLine(StreamDirection.InputEolOnly,
+                    new ByteList(endOfLine), ref newEndOfLine);
 
-                int lastIndex = ChannelOps.FindEndOfLine<byte>(bytes,
-                    newEndOfLine, 0, count, useAnyEndOfLineChar);
+                int lastIndex;
+
+                if (lineEndings != null)
+                {
+                    lastIndex = ChannelOps.FindEndOfLine(lineEndings);
+                }
+                else
+                {
+                    lastIndex = ChannelOps.FindEndOfLine<byte>(bytes,
+                        newEndOfLine, 0, count, useAnyEndOfLineChar);
+                }
 
                 if (lastIndex == Index.Invalid)
                 {
@@ -851,26 +1117,36 @@ namespace Eagle._Components.Private
                 if (list == null)
                     list = new ByteList();
 
-                List<byte> localList = list;
+                localList = list;
+
                 int lastLength = lastIndex;
 
                 if (keepEndOfLineChars)
                     lastLength += newEndOfLine.Count;
 
+                /* IGNORED */
                 ArrayOps.AppendArray<byte>(
                     bytes, 0, lastLength, ref localList);
 
                 lastIndex += newEndOfLine.Count;
 
-                if (!ArrayOps.SetArray<byte>(
+                if (ArrayOps.SetArray<byte>(
                         buffer, ref bytes, lastIndex))
                 {
+                    /* NO RESULT */
+                    ListOps.Adjust(
+                        lineEndings, -lastIndex,
+                        Index.Invalid, null);
+                }
+                else
+                {
                     buffer.Clear();
+
+                    if (lineEndings != null)
+                        lineEndings.Clear();
                 }
 
-                GiveBufferToContext(ref buffer);
-
-                return ReturnCode.Ok;
+                GiveToContext(ref buffer, ref lineEndings);
             }
             else if (count != Count.Invalid)
             {
@@ -882,17 +1158,29 @@ namespace Eagle._Components.Private
                 if (list == null)
                     list = new ByteList();
 
-                List<byte> localList = list;
+                localList = list;
 
+                /* IGNORED */
                 ArrayOps.AppendArray<byte>(
                     bytes, 0, count, ref localList);
 
-                ArrayOps.SetArray<byte>(
-                    buffer, ref bytes, count);
+                if (ArrayOps.SetArray<byte>(
+                        buffer, ref bytes, count))
+                {
+                    /* NO RESULT */
+                    ListOps.Adjust(
+                        lineEndings, -count,
+                        Index.Invalid, null);
+                }
+                else
+                {
+                    buffer.Clear();
 
-                GiveBufferToContext(ref buffer);
+                    if (lineEndings != null)
+                        lineEndings.Clear();
+                }
 
-                return ReturnCode.Ok;
+                GiveToContext(ref buffer, ref lineEndings);
             }
             else
             {
@@ -910,11 +1198,12 @@ namespace Eagle._Components.Private
                 }
 
                 buffer = null;
+                lineEndings = null;
 
-                NewBufferForContext();
-
-                return ReturnCode.Ok;
+                NewForContext();
             }
+
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1047,31 +1336,53 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public ByteList TakeBuffer()
+        public int DiscardBuffered()
         {
             CheckDisposed();
 
-            return TakeBufferFromContext();
+            return DiscardForContext();
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public bool GiveBuffer(
-            ref ByteList buffer
+        public void ResetBuffered()
+        {
+            CheckDisposed();
+
+            ResetForContext();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void TakeBuffered(
+            out ByteList buffer,
+            out IntList lineEndings
             )
         {
             CheckDisposed();
 
-            return GiveBufferToContext(ref buffer);
+            TakeFromContext(out buffer, out lineEndings);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public void NewBuffer()
+        public bool GiveBuffered(
+            ref ByteList buffer,
+            ref IntList lineEndings
+            )
         {
             CheckDisposed();
 
-            NewBufferForContext();
+            return GiveToContext(ref buffer, ref lineEndings);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void NewBuffered()
+        {
+            CheckDisposed();
+
+            NewForContext();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1707,10 +2018,42 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Allocate an output buffer of equal
-            //       length to the input buffer.
+            // NOTE: What is the base stream direction (i.e.
+            //       without any extra flags)?
             //
-            byte[] buffer = new byte[inputLength];
+            StreamDirection baseDirection =
+                direction & StreamDirection.BaseMask;
+
+            //
+            // NOTE: The output length is based on the input
+            //       length; for output, it may require each
+            //       line-ending to be doubled.
+            //
+            int outputLength;
+
+            if (baseDirection == StreamDirection.Output)
+            {
+                outputLength = ChannelOps.EstimateOutputCount(
+                    inputBuffer, 0, inputLength);
+            }
+            else if (baseDirection == StreamDirection.Input)
+            {
+                outputLength = inputLength;
+            }
+            else
+            {
+                //
+                // TODO: This is an invalid base direction.
+                //       For now, garbage in, garbage out.
+                //
+                outputBuffer = new byte[0];
+                return;
+            }
+
+            //
+            // NOTE: Allocate an output buffer.
+            //
+            byte[] buffer = new byte[outputLength];
 
             //
             // NOTE: Use the underlying stream to perform
@@ -1719,17 +2062,15 @@ namespace Eagle._Components.Private
             //       the stream direction is neither Input
             //       only nor Output only, we do nothing.
             //
-            int outputLength;
-
-            if (direction == StreamDirection.Output)
+            if (baseDirection == StreamDirection.Output)
             {
                 outputLength = stream.TranslateOutputEndOfLine(
-                    inputBuffer, buffer, 0, inputLength);
+                    inputBuffer, buffer, direction, 0, inputLength);
             }
-            else if (direction == StreamDirection.Input)
+            else if (baseDirection == StreamDirection.Input)
             {
                 outputLength = stream.TranslateInputEndOfLine(
-                    inputBuffer, buffer, 0, inputLength);
+                    inputBuffer, buffer, direction, 0, inputLength);
             }
             else
             {
@@ -1769,7 +2110,12 @@ namespace Eagle._Components.Private
                 direction, inputBuffer, ref outputBuffer);
 
             if (outputBuffer != null)
-                outputList = new ByteList(outputBuffer);
+            {
+                if (outputList != null)
+                    outputList.AddRange(outputBuffer);
+                else
+                    outputList = new ByteList(outputBuffer);
+            }
         }
         #endregion
 

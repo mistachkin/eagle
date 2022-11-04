@@ -20,7 +20,7 @@
   <Profile>Color</Profile>
   <Text>puts stdout "this is the pre-init script."</Text>
   <LibraryPath>%EAGLE%\lib\Eagle1.0</LibraryPath>
-  <RuleSet>{1 Include Command Glob None o*} {2 Exclude Command Exact None open}</RuleSet>
+  <RuleSet>{id 1 type Include kind Command mode Glob regExOptions None patterns o*} {id 2 type Exclude kind Command mode Exact regExOptions None patterns open}</RuleSet>
   <Args>a b c d</Args>
   <CreateFlags>Default</CreateFlags>
   <HostCreateFlags>Default</HostCreateFlags>

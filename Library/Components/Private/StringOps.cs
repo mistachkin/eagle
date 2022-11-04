@@ -208,15 +208,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Radix Regular Expressions
+        private static readonly Regex base16RegEx = RegExOps.Create(
+            "^(?:0x)?(?:[0-9A-F][0-9A-F])*$", RegexOptions.IgnoreCase);
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private const int Base26GroupsPerLine = 25;
 
         private static readonly Regex base26RegEx = RegExOps.Create(
-            "^[A-Z\\s]*$", RegexOptions.IgnoreCase);
+            "^(?:[A-Z\\s][A-Z\\s])*$", RegexOptions.IgnoreCase);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static readonly Regex base64RegEx = RegExOps.Create(
-            "^[0-9A-Z+/\\r\\n]*={0,2}$", RegexOptions.IgnoreCase);
+            "^(?:[0-9A-Z+/]{4})*(?:[0-9A-Z+/]{3}=|[0-9A-Z+/]{2}==)?$",
+            RegexOptions.IgnoreCase);
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static readonly Regex hexadecimalBytesRegEx = RegExOps.Create(
+            "^(?:0x[0-9A-F]{2}(?:\\s+0x[0-9A-F]{2})*)?$", RegexOptions.IgnoreCase);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1284,7 +1295,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static Encoding GuessEncoding(
-            byte[] bytes
+            byte[] bytes,
+            ref int preambleSize
             )
         {
             InitializePreambleEncodings();
@@ -1304,8 +1316,13 @@ namespace Eagle._Components.Private
                     if (preamble == null)
                         continue;
 
-                    if (ArrayOps.Equals(bytes, preamble, preamble.Length))
+                    int localPreambleSize = preamble.Length;
+
+                    if (ArrayOps.Equals(bytes, preamble, localPreambleSize))
+                    {
+                        preambleSize = localPreambleSize;
                         return anyPair.Y;
+                    }
                 }
 
                 return null;
@@ -1319,7 +1336,21 @@ namespace Eagle._Components.Private
             EncodingType type
             )
         {
-            Encoding encoding = GuessEncoding(bytes);
+            int preambleSize = 0;
+
+            return GuessOrGetEncoding(bytes, type, ref preambleSize);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static Encoding GuessOrGetEncoding(
+            byte[] bytes,
+            EncodingType type,
+            ref int preambleSize
+            )
+        {
+            Encoding encoding = GuessEncoding(
+                bytes, ref preambleSize);
 
             if (encoding != null)
                 return encoding;
@@ -2011,15 +2042,143 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static void CalculateIndent(
+            string value,
+            int startIndex,
+            int indentSpaces,
+            ref string indent
+            )
+        {
+            if (value != null)
+            {
+                int index = startIndex;
+                int length = value.Length;
+
+                for (; index < length; index++)
+                {
+                    if (!Parser.IsWhiteSpace(
+                            value[index]))
+                    {
+                        index--; /* NON-SPACE */
+                        break;
+                    }
+                }
+
+                if (index > startIndex)
+                {
+                    index -= indentSpaces;
+
+                    if (index > startIndex)
+                    {
+                        indent = StrRepeat(
+                            index - startIndex,
+                            Characters.Space);
+                    }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool IsMultiLine(
             string value
+            )
+        {
+            int indentSpaces = 0;
+            string newLine = null;
+            string indent = null;
+
+            return IsMultiLine(
+                value, indentSpaces, ref newLine, ref indent);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsMultiLine(
+            string value,
+            int indentSpaces,
+            ref string newLine,
+            ref string indent
             )
         {
             if (String.IsNullOrEmpty(value))
                 return false;
 
-            return (value.IndexOfAny(
-                Characters.LineTerminatorChars) != Index.Invalid);
+            int startIndex = value.IndexOf(
+                Characters.DosNewLine);
+
+            if (startIndex != Index.Invalid)
+            {
+                newLine = Characters.DosNewLine;
+
+                CalculateIndent(
+                    value, startIndex, indentSpaces,
+                    ref indent);
+
+                return true;
+            }
+
+            startIndex = value.IndexOf(
+                Characters.AcornOsNewLine);
+
+            if (startIndex != Index.Invalid)
+            {
+                newLine = Characters.AcornOsNewLine;
+
+                CalculateIndent(
+                    value, startIndex, indentSpaces,
+                    ref indent);
+
+                return true;
+            }
+
+            startIndex = value.IndexOfAny(
+                Characters.LineTerminatorChars);
+
+            if (startIndex == Index.Invalid)
+                return false;
+
+            newLine = value[startIndex].ToString();
+
+            CalculateIndent(
+                value, startIndex, indentSpaces,
+                ref indent);
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsMultiLine(
+            StringBuilder builder,
+            int indentSpaces,
+            ref string newLine,
+            ref string indent
+            )
+        {
+            if (builder == null)
+                return false;
+
+            return IsMultiLine(
+                builder.ToString(), indentSpaces, ref newLine,
+                ref indent);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsBase16(
+            string text
+            )
+        {
+            if (!String.IsNullOrEmpty(text) && (base16RegEx != null))
+            {
+                Match match = base16RegEx.Match(text.Trim());
+
+                if ((match != null) && match.Success)
+                    return true;
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2041,13 +2200,79 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static int LengthWithoutSpaces(
+            ref string text /* in, out */
+            )
+        {
+            if (text == null)
+                return Length.Invalid;
+
+            int length = text.Length;
+
+            if (text.IndexOfAny(
+                    Characters.WhiteSpaceChars) == Index.Invalid)
+            {
+                return length;
+            }
+
+            int result = 0;
+            StringBuilder builder = NewStringBuilder(length);
+
+            for (int index = 0; index < length; index++)
+            {
+                char character = text[index];
+
+                if (Parser.IsWhiteSpace(character))
+                    continue;
+
+                builder.Append(character);
+                result++;
+            }
+
+            text = builder.ToString();
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool IsBase64(
             string text
             )
         {
-            if (!String.IsNullOrEmpty(text) && (base64RegEx != null))
+            int length;
+
+            if (!IsNullOrEmpty(text, out length))
             {
-                Match match = base64RegEx.Match(text.Trim());
+                //
+                // HACK: In the worst cases, we have to calculate the
+                //       length without any whitespace, which can be
+                //       expensive because the entire string must be
+                //       (re-)examined to exclude non-whitespace.
+                //
+                if ((LengthWithoutSpaces(ref text) % 4) == 0) /* O(N) */
+                {
+                    if (base64RegEx != null)
+                    {
+                        Match match = base64RegEx.Match(text);
+
+                        if ((match != null) && match.Success)
+                            return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsHexadecimalBytes(
+            string text
+            )
+        {
+            if (!String.IsNullOrEmpty(text) && (hexadecimalBytesRegEx != null))
+            {
+                Match match = hexadecimalBytesRegEx.Match(text.Trim());
 
                 if ((match != null) && match.Success)
                     return true;
@@ -2065,8 +2290,23 @@ namespace Eagle._Components.Private
             ref Result error
             )
         {
-            if (IsBase64(value))
+            if (IsHexadecimalBytes(value))
             {
+                return ArrayOps.GetBytesFromDelimitedString(
+                    value, cultureInfo, ref bytes, ref error);
+            }
+            else if (IsBase16(value))
+            {
+                return ArrayOps.GetBytesFromHexadecimalString(
+                    value, cultureInfo, ref bytes, ref error);
+            }
+            else if (IsBase64(value))
+            {
+                //
+                // HACK: Given that the IsBase64 method returned
+                //       true, this block should not actually be
+                //       able to throw an exception.
+                //
                 try
                 {
                     bytes = Convert.FromBase64String(value);
@@ -2080,8 +2320,8 @@ namespace Eagle._Components.Private
             }
             else
             {
-                return ArrayOps.GetBytesFromString(
-                    value, cultureInfo, ref bytes, ref error);
+                error = "unknown bytes string format";
+                return ReturnCode.Error;
             }
         }
 
@@ -3352,6 +3592,7 @@ namespace Eagle._Components.Private
                 {
                     switch (text[index])
                     {
+                        case Characters.Null:
                         case Characters.Bell:
                         case Characters.Backspace:
                         case Characters.HorizontalTab:
@@ -3489,6 +3730,9 @@ namespace Eagle._Components.Private
             bool noArrows = FlagOps.HasFlags(
                 flags, WhiteSpaceFlags.NoArrows, true);
 
+            bool @null = FlagOps.HasFlags(
+                flags, WhiteSpaceFlags.Null, true);
+
             bool bell = FlagOps.HasFlags(
                 flags, WhiteSpaceFlags.Bell, true);
 
@@ -3528,6 +3772,13 @@ namespace Eagle._Components.Private
                 {
                     switch (builder[index])
                     {
+                        case Characters.Null:           /* TERMINATOR */
+                            {
+                                if (!@null)
+                                    continue;
+
+                                break;
+                            }
                         case Characters.Bell:           /* AUDIBLE */
                             {
                                 if (!bell)
@@ -3599,6 +3850,31 @@ namespace Eagle._Components.Private
                 {
                     switch (builder[index])
                     {
+                        case Characters.Null:           /* TERMINATOR */
+                            {
+                                if (!@null)
+                                    continue;
+
+                                if (unicode)
+                                {
+                                    //
+                                    // TODO: This will likely not show up
+                                    //       correctly in the console window;
+                                    //       however, it's a bit better than
+                                    //       nothing.
+                                    //
+                                    builder[index] = Characters.Angzarr;
+                                }
+                                else if (extended)
+                                {
+                                    builder[index] = Characters.VisualNull;
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
                         case Characters.Bell:           /* AUDIBLE */
                             {
                                 if (!bell)

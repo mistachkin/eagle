@@ -1348,6 +1348,8 @@ namespace Eagle._Components.Private
                                         if (!absolute && (count++ == level))
                                             return ReturnCode.Ok;
 
+                                        thisFrame.InitializeMarks();
+
                                         thisFrame.SetMark(mark, markFlags, markName,
                                             currentFrame);
 
@@ -1507,7 +1509,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Push / Peek / Pop Methods
-        public static CallFrameFlags GetFlagsNoThrow(
+        public static CallFrameFlags? GetFlagsNoThrow(
             ICallFrame frame
             )
         {
@@ -1523,7 +1525,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return CallFrameFlags.None;
+            return null;
         }
 
         ///////////////////////////////////////////////////////////////////////

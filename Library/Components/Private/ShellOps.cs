@@ -1122,6 +1122,7 @@ namespace Eagle._Components.Private
             ref IInteractiveHost interactiveHost, /* in, out */
             ref int index,                        /* in, out */
             out string arg,                       /* out */
+            out bool gotArg,                      /* out */
             out string savedArg,                  /* out */
             ref IList<string> argv,               /* in, out */
             ref Result result,                    /* in, out */
@@ -1130,9 +1131,15 @@ namespace Eagle._Components.Private
             )
         {
             if (MaybeGetArgument(argv, index, noTrim, out arg))
+            {
+                gotArg = true;
                 savedArg = arg;
+            }
             else
+            {
+                gotArg = false;
                 savedArg = null;
+            }
 
             ReturnCode code;
             int savedIndex = index;
@@ -1541,14 +1548,16 @@ namespace Eagle._Components.Private
                 "savedArg = {1}, arg = {2}, localCode = {3}, " +
                 "localResult = {4}, errorLine = {5}, " +
                 "errorInfo = {6}, strict = {7}, whatIf = {8}, " +
-                "argv = {9}, interactiveHost = {10}, quiet = {11}",
+                "argv = {9}, interactiveHost = {10}, quiet = {11}, " +
+                "result = {12}",
                 FormatOps.InterpreterNoThrow(interpreter),
                 FormatOps.WrapOrNull(true, true, savedArg),
                 FormatOps.WrapOrNull(true, true, arg), localCode,
                 FormatOps.WrapOrNull(true, true, localResult),
                 errorLine, errorInfo, strict, whatIf,
                 FormatOps.WrapOrNull(true, true, argv),
-                FormatOps.WrapOrNull(interactiveHost), quiet),
+                FormatOps.WrapOrNull(interactiveHost), quiet,
+                FormatOps.WrapOrNull(true, true, result)),
                 typeof(ShellOps).Name, TracePriority.ShellError);
 
             if (interpreter == null)
@@ -2201,6 +2210,62 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if !NET_STANDARD_20 && THREADING
+        public static void CheckForUpdate(
+            Interpreter interpreter,
+            IInteractiveLoopData loopData,
+            bool missing
+            )
+        {
+            ThreadOps.QueueUserWorkItem(delegate(object state)
+            {
+                //
+                // HACK: Prior to evaluating the script that is used to
+                //       check for updates, make sure to set the value
+                //       (in the registry) to keep track of last update
+                //       check.  This must be done before evaluating the
+                //       script because the script itself may [exit].
+                //
+                // HACK: This is not done if there is (apparently?) no
+                //       setup information present.
+                //
+                if (!missing)
+                    SetupOps.MarkCheckCoreUpdatesNow();
+
+                //
+                // NOTE: Check for an update to the core library now,
+                //       specifically the appropriate setup package.
+                //
+                ReturnCode code;
+                int errorLine = 0;
+                Result result = null;
+
+                code = CheckForUpdate(
+                    interpreter, new UpdateData((string)null,
+                    ActionType.CheckForUpdate, ReleaseType.Setup,
+                    UpdateType.Engine, false, true, true, true),
+                    loopData.Debug, ref errorLine, ref result);
+
+                TraceOps.DebugTrace(String.Format(
+                    "CheckForUpdate: missing = {0}, code = {1}, " +
+                    "errorLine = {2}, result = {3}", missing, code,
+                    errorLine, FormatOps.WrapOrNull(result)),
+                    typeof(ShellOps).Name, TracePriority.SetupDebug);
+
+                //
+                // BUGFIX: If the update checking script (somehow) set
+                //         the exit flag for the interpreter, bail out
+                //         before entering the actual interactive loop
+                //         and without displaying any debugging related
+                //         information.
+                //
+                Interpreter.CheckExit(interpreter, loopData);
+            });
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode CheckForUpdate(
             Interpreter interpreter,
             IUpdateData updateData,
@@ -2617,7 +2682,7 @@ namespace Eagle._Components.Private
             // PHASE 0: Parameter validation.
             ///////////////////////////////////////////////////////////////////
 
-            if ((thread == null) || !thread.IsAlive)
+            if (!ThreadOps.IsAlive(thread))
             {
                 error = String.Format(
                     "interactive loop thread {0} is not alive",

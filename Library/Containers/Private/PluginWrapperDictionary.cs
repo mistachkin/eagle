@@ -103,6 +103,7 @@ namespace Eagle._Containers.Private
             bool notHasAll,
             string pattern,
             bool noCase,
+            bool full,
             ref StringList list,
             ref Result error
             )

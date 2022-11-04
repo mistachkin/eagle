@@ -89,6 +89,13 @@
 
     <!--
         NOTE: When building for the .NET Standard 2.x, enable features that rely
+              on extra package or framework references?  By default, this is
+              enabled.  If this is disabled, some features will be unavailable.
+    -->
+    <EagleNetCoreReferences Condition="'$(EagleBuildType)' == '' And '$(EagleNetCoreReferences)' == ''">true</EagleNetCoreReferences>
+
+    <!--
+        NOTE: When building for the .NET Standard 2.x, enable features that rely
               on extra APIs provided by the .NET Core 2.0?  By default, this is
               enabled.  If this is disabled, some features will be unavailable.
     -->

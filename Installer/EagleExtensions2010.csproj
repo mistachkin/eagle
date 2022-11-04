@@ -143,26 +143,27 @@
       CleanDoneFiles;
     </CleanDependsOn>
   </PropertyGroup>
-  <PropertyGroup Condition="(!Exists('$(EagleDir)\Externals\WiX\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleDir)\Externals\WiX\WiX.dll')) And
-                            (!Exists('$(EagleWix30Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleWix30Directory)\bin\WiX.dll')) And
-                            (!Exists('$(EagleWix35Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleWix35Directory)\bin\WiX.dll')) And
-                            (!Exists('$(EagleWix36Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleWix36Directory)\bin\WiX.dll')) And
-                            (!Exists('$(EagleWix37Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleWix37Directory)\bin\WiX.dll')) And
-                            (!Exists('$(EagleWix38Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleWix38Directory)\bin\WiX.dll')) And
-                            (!Exists('$(EagleWix39Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleWix39Directory)\bin\WiX.dll')) And
-                            (!Exists('$(EagleWix310Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleWix310Directory)\bin\WiX.dll')) And
-                            (!Exists('$(EagleWix311Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleWix311Directory)\bin\WiX.dll')) And
-                            (!Exists('$(EagleWixDirectory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
-                             !Exists('$(EagleWixDirectory)\bin\WiX.dll'))">
+  <PropertyGroup Condition="((!Exists('$(EagleDir)\Externals\WiX\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleDir)\Externals\WiX\WiX.dll')) And
+                             (!Exists('$(EagleWix30Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleWix30Directory)\bin\WiX.dll')) And
+                             (!Exists('$(EagleWix35Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleWix35Directory)\bin\WiX.dll')) And
+                             (!Exists('$(EagleWix36Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleWix36Directory)\bin\WiX.dll')) And
+                             (!Exists('$(EagleWix37Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleWix37Directory)\bin\WiX.dll')) And
+                             (!Exists('$(EagleWix38Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleWix38Directory)\bin\WiX.dll')) And
+                             (!Exists('$(EagleWix39Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleWix39Directory)\bin\WiX.dll')) And
+                             (!Exists('$(EagleWix310Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleWix310Directory)\bin\WiX.dll')) And
+                             (!Exists('$(EagleWix311Directory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleWix311Directory)\bin\WiX.dll')) And
+                             (!Exists('$(EagleWixDirectory)\SDK\Microsoft.Deployment.WindowsInstaller.dll') Or
+                              !Exists('$(EagleWixDirectory)\bin\WiX.dll'))) And
+                            '$(MissingWix)' != 'false'">
     <!--
         NOTE: We cannot build this project without the necessary reference
               assemblies; therefore, skip building it altogether.

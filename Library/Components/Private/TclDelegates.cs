@@ -74,6 +74,7 @@ namespace Eagle._Components.Private.Tcl.Delegates
     internal
 #endif
     delegate ReturnCode Tcl_FindCallback(
+        ITclManager tclManager,
         FindFlags flags,
         FindFlags allFlags,
         Tcl_FindCallback callback,

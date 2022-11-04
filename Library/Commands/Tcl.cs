@@ -2080,7 +2080,7 @@ namespace Eagle._Commands
                                                             if (!allErrors)
                                                                 errors = new ResultList(ResultFlags.FullListMask);
 
-                                                            code = TclWrapper.Select(
+                                                            code = TclWrapper.Select(interpreter,
                                                                 flags, builds, minimumVersion, maximumVersion,
                                                                 ref build, ref errors);
 

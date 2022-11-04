@@ -206,6 +206,22 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public void TryLockWithWait(
+            ref bool locked
+            )
+        {
+            CheckDisposed();
+
+            if (syncRoot == null)
+                return;
+
+            PrivateTryLock(ThreadOps.GetTimeout(
+                null, null, TimeoutType.WaitLock),
+                ref locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public void TryLock(
             int timeout,
             ref bool locked
@@ -1367,6 +1383,8 @@ namespace Eagle._Components.Private.Tcl
 
             if (interpreter != null)
             {
+                bool noAbort = interpreter.InternalNoThreadAbort;
+
                 if (tclApi != null)
                 {
                     ReturnCode code = ReturnCode.Ok;
@@ -1433,7 +1451,7 @@ namespace Eagle._Components.Private.Tcl
                         // NOTE: If necessary, terminate the thread that is holding on to
                         //       the Tcl interpreter.
                         //
-                        if ((thread != null) && thread.IsAlive)
+                        if (ThreadOps.IsAlive(thread))
                         {
                             EventWaitHandle doneEvent = null;
 
@@ -1479,7 +1497,8 @@ namespace Eagle._Components.Private.Tcl
                                 //
                                 // NOTE: Wait a bit for the thread to exit.
                                 //
-                                if (!thread.Join(ThreadOps.DefaultJoinTimeout))
+                                if (!thread.Join(ThreadOps.DefaultJoinTimeout) &&
+                                    ThreadOps.IsAlive(thread) && !noAbort)
                                 {
                                     //
                                     // NOTE: Finally, just abort it.
@@ -2816,7 +2835,7 @@ namespace Eagle._Components.Private.Tcl
                                                 "completed event {0} at {1} in {2} on thread {3}: " +
                                                 "code = {4}, result = {5}",
                                                 FormatOps.DisplayName(EntityOps.GetNameNoThrow(
-                                                @event)), TimeOps.GetUtcNow(), FormatOps.Performance(
+                                                @event)), TimeOps.GetUtcNow(), FormatOps.PerformanceMicroseconds(
                                                 performanceClientData),
                                                 GlobalState.GetCurrentNativeThreadId(), code,
                                                 FormatOps.WrapOrNull(true, true, result)),

@@ -40,10 +40,10 @@ if {![info exists no([file tail [info script]])]} then {
   #
   # NOTE: Make sure all the variables used by this epilogue are unset.
   #
-  unset -nocomplain haveStartSentry operationCount memory stack name \
-      count passedOrSkipped passedSkippedOrDisabled percent exitCode \
-      milliseconds code dictionary error usageKind usageType pair \
-      usageData key value cmdType usage
+  unset -nocomplain haveStartSentry operationCount memory stack \
+      name count percent exitCode milliseconds code dictionary \
+      error usageKind usageType pair usageData key value cmdType \
+      usage
 
   #
   # HACK: Maybe process events for a little while on this thread to
@@ -393,95 +393,23 @@ if {![info exists no([file tail [info script]])]} then {
     unset trackBugs
 
     #
-    # NOTE: Has the test pass threshold been set?  If so, is it set to
-    #       the default value?
+    # NOTE: Check the overall test suite results and report them now.
     #
-    # HACK: If the test suite error message exists, the entire run will be
-    #       considered a "failure", without regard for the pass percentage
-    #       or the configured test pass threshold.
-    #
-    if {![info exists test_threshold] || $test_threshold == 100} then {
-      #
-      # NOTE: The test pass threshold is set to the default value (100%).
-      #       Check to make sure that all tests pass and then set the
-      #       exit code to success; otherwise, we set it to failure.
-      #
-      set passedSkippedOrDisabled [expr {$eagle_tests(Passed) + \
-          $eagle_tests(Skipped) + $eagle_tests(Disabled)}]
-
-      if {![info exists test_suite_errors] && \
-          ([info exists no(failLogStartSentry)] || $haveStartSentry) && \
-          $passedSkippedOrDisabled == $eagle_tests(Total)} then {
-        set exitCode Success
-
-        tresult Ok [appendArgs \
-            "OVERALL RESULT: " [getTestSuiteFullName] \n]
-
-        if {$eagle_tests(Total) > 0} then {
-          tresult Ok "OVERALL RESULT: SUCCESS\n"
-        } else {
-          tresult Ok "OVERALL RESULT: NONE\n"
-        }
-      } else {
-        set exitCode Failure
-
-        tresult Error [appendArgs \
-            "OVERALL RESULT: " [getTestSuiteFullName] \n]
-
-        if {[info exists test_suite_errors]} then {
-          tresult Error [appendArgs "OVERALL ERRORS: " \
-              [expr {[llength $test_suite_errors] > 0 ? \
-              $test_suite_errors : "<empty>"}] \n]
-        }
-
-        tresult Error "OVERALL RESULT: FAILURE\n"
-      }
-
-      unset passedSkippedOrDisabled
-    } else {
-      #
-      # NOTE: They specified a non-default test pass threshold.  Check to
-      #       make sure that we meet or exceed the requirement and then
-      #       set the exit code to success; otherwise, set it to failure.
-      #
-      if {![info exists test_suite_errors] && \
-          ([info exists no(failLogStartSentry)] || $haveStartSentry) && \
-          $percent >= $test_threshold} then {
-        set exitCode Success
-
-        tresult Ok [appendArgs \
-            "OVERALL RESULT: " [getTestSuiteFullName] \n]
-
-        if {$eagle_tests(Total) > 0} then {
-          tresult Ok [appendArgs \
-              "OVERALL RESULT: SUCCESS (" \
-              $percent "% >= " $test_threshold %)\n]
-        } else {
-          tresult Ok [appendArgs \
-              "OVERALL RESULT: NONE (" \
-              $percent "% >= " $test_threshold %)\n]
-        }
-      } else {
-        set exitCode Failure
-
-        tresult Error [appendArgs \
-            "OVERALL RESULT: " [getTestSuiteFullName] \n]
-
-        if {[info exists test_suite_errors]} then {
-          tresult Error [appendArgs "OVERALL ERRORS: " \
-              [expr {[llength $test_suite_errors] > 0 ? \
-              $test_suite_errors : "<empty>"}] \n]
-        }
-
-        tresult Error [appendArgs \
-            "OVERALL RESULT: FAILURE (" \
-            $percent "% < " $test_threshold %)\n]
-      }
-    }
-
-    unset percent
+    set success [testCheckOverallResult \
+        $test_channel $percent $haveStartSentry exitCode]
 
     tputs $test_channel \n; # NOTE: Blank line.
+
+    #
+    # NOTE: Attempt to log the overall test suite results with the test
+    #       server, as long as we are not forbidden from doing so.
+    #
+    if {![info exists no(logRemoteTestResults)] && \
+        ![info exists no(eagleLogRemoteTestResults)]} then {
+      catch {logRemoteTestResults $success}; # NOTE: Server errors, etc.
+    }
+
+    unset percent success
   } else {
     tputs $test_channel \n; # NOTE: Blank line.
 
@@ -528,88 +456,23 @@ if {![info exists no([file tail [info script]])]} then {
     }
 
     #
-    # NOTE: Has the test pass threshold been set?  If so, is it set to
-    #       the default value?
+    # NOTE: Check the overall test suite results and report them now.
     #
-    if {![info exists test_threshold] || $test_threshold == 100} then {
-      #
-      # NOTE: The test pass threshold is set to the default value (100%).
-      #       Check to make sure that all tests pass and then set the
-      #       exit code to success; otherwise, we set it to failure.
-      #
-      set passedOrSkipped [expr {$::tcltest::numTests(Passed) + \
-          $::tcltest::numTests(Skipped)}]
-
-      if {![info exists test_suite_errors] && \
-          ([info exists no(failLogStartSentry)] || $haveStartSentry) && \
-          $passedOrSkipped == $::tcltest::numTests(Total)} then {
-        set exitCode 0; # Success.
-
-        tputs $test_channel [appendArgs \
-            "OVERALL RESULT: " [getTestSuiteFullName] \n]
-
-        if {$::tcltest::numTests(Total) > 0} then {
-          tputs $test_channel "OVERALL RESULT: SUCCESS\n"
-        } else {
-          tputs $test_channel "OVERALL RESULT: NONE\n"
-        }
-      } else {
-        set exitCode 1; # Failure.
-
-        tputs $test_channel [appendArgs \
-            "OVERALL RESULT: " [getTestSuiteFullName] \n]
-
-        if {[info exists test_suite_errors]} then {
-          tputs $test_channel [appendArgs "OVERALL ERRORS: " \
-              [expr {[llength $test_suite_errors] > 0 ? \
-              $test_suite_errors : "<empty>"}] \n]
-        }
-
-        tputs $test_channel "OVERALL RESULT: FAILURE\n"
-      }
-
-      unset passedOrSkipped
-    } else {
-      #
-      # NOTE: They specified a non-default test pass threshold.  Check to
-      #       make sure that we meet or exceed the requirement and then
-      #       set the exit code to success; otherwise, set it to failure.
-      #
-      if {![info exists test_suite_errors] && \
-          ([info exists no(failLogStartSentry)] || $haveStartSentry) && \
-          $percent >= $test_threshold} then {
-        set exitCode 0; # Success.
-
-        tputs $test_channel [appendArgs \
-            "OVERALL RESULT: " [getTestSuiteFullName] \n]
-
-        if {$::tcltest::numTests(Total) > 0} then {
-          tputs $test_channel [appendArgs \
-              "OVERALL RESULT: SUCCESS (" $percent "% >= " $test_threshold %)\n]
-        } else {
-          tputs $test_channel [appendArgs \
-              "OVERALL RESULT: NONE (" $percent "% >= " $test_threshold %)\n]
-        }
-      } else {
-        set exitCode 1; # Failure.
-
-        tputs $test_channel [appendArgs \
-            "OVERALL RESULT: " [getTestSuiteFullName] \n]
-
-        if {[info exists test_suite_errors]} then {
-          tputs $test_channel [appendArgs "OVERALL ERRORS: " \
-              [expr {[llength $test_suite_errors] > 0 ? \
-              $test_suite_errors : "<empty>"}] \n]
-        }
-
-        tputs $test_channel [appendArgs \
-            "OVERALL RESULT: FAILURE (" $percent "% < " $test_threshold %)\n]
-      }
-    }
-
-    unset percent
+    set success [testCheckOverallResult \
+        $test_channel $percent $haveStartSentry exitCode]
 
     tputs $test_channel \n; # NOTE: Blank line.
+
+    #
+    # NOTE: Attempt to log the overall test suite results with the test
+    #       server, as long as we are not forbidden from doing so.
+    #
+    if {![info exists no(logRemoteTestResults)] && \
+        ![info exists no(tclLogRemoteTestResults)]} then {
+      logRemoteTestResults $success; # NOTE: Server errors, etc.
+    }
+
+    unset percent success
   }
 
   #

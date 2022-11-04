@@ -249,6 +249,7 @@
       EagleDetectNetFx471;
       EagleDetectNetFx472;
       EagleDetectNetFx48;
+      EagleDetectNetFx481;
       $(BuildDependsOn);
       EagleSetStack2013;
       EagleSetStackExternals;

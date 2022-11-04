@@ -50,7 +50,8 @@ runTest {test debug-2.35 {IScriptLocation stack balance} -setup {
   catch {file delete $fileName}
 
   unset -nocomplain i fileName
-} -constraints {eagle command.object compile.DEBUGGER compile.BREAKPOINTS} \
+} -constraints \
+{eagle command.object compile.DEBUGGER compile.DEBUGGER_BREAKPOINTS} \
 -result {}}
 
 ###############################################################################

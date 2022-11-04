@@ -197,7 +197,7 @@ runTest {test host-1.3 {breaking infinite sleep} -setup [subst \
 
   set ::result [list]
   startThread $t; syncThread $t; $t Interrupt
-  if {[joinThread $t]} then {unset t}
+  if {[joinThread $t effective]} then {unset t}
 
   if {[string first ThreadInterruptedException $::result] != -1} then {
     return True

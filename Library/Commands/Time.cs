@@ -223,7 +223,7 @@ namespace Eagle._Commands
                                         {
                                             long stopCount = PerformanceOps.GetCount();
 
-                                            if (PerformanceOps.GetMilliseconds(
+                                            if (PerformanceOps.GetMillisecondsFromCount(
                                                     startCount, stopCount, 1) >= timeout)
                                             {
                                                 break;
@@ -315,7 +315,7 @@ namespace Eagle._Commands
                                     if (statistics)
                                     {
                                         //
-                                        // HACK: *SECURITY* These calls to GetMicroseconds are
+                                        // HACK: *SECURITY* These calls to GetMicroseconds* are
                                         //       EXEMPT from timing side-channel mitigation
                                         //       because the PerformanceWithStatistics method
                                         //       does its own timing side-channel mitigation.
@@ -325,10 +325,10 @@ namespace Eagle._Commands
                                     else
                                     {
                                         double averageMicroseconds = (resultIterations != 0) ?
-                                            PerformanceOps.GetMicroseconds(startCount,
+                                            PerformanceOps.GetMicrosecondsFromCount(startCount,
                                                 stopCount, resultIterations, obfuscate) : 0;
 
-                                        result = FormatOps.Performance(averageMicroseconds);
+                                        result = FormatOps.PerformanceMicroseconds(averageMicroseconds);
                                     }
 
                                     //

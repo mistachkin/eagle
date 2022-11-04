@@ -9,22 +9,14 @@
  * RCS: @(#) $Id: $
  */
 
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using System;
 using Eagle._Attributes;
-using Eagle._Components.Public;
 
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("83ce9774-7280-40bc-8cf2-134b19b657f7")]
-    public interface IRule
+    public interface IRule : IRuleData, ICloneable
     {
-        long Id { get; }
-        RuleType Type { get; }
-        IdentifierKind Kind { get; }
-        MatchMode Mode { get; }
-        RegexOptions RegExOptions { get; }
-        IEnumerable<string> Patterns { get; }
-        IComparer<string> Comparer { get; }
+        void SetId(long? id);
     }
 }

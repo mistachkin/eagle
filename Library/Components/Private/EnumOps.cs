@@ -96,6 +96,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        internal const char SelectTableOperator = Characters.Slash;
         internal const char AddFlagOperator = Characters.PlusSign;
         internal const char RemoveFlagOperator = Characters.MinusSign;
         internal const char SetFlagOperator = Characters.EqualSign;
@@ -525,6 +526,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool ShouldTreatAsWideInteger(
+            object value /* in */
+            )
+        {
+            if (value == null)
+                return TreatNullAsWideInteger; /* NOTE: Per framework classes. */
+
+            Type type = value.GetType();
+
+            if ((type == null) || !type.IsValueType)
+                return false;
+
+            return ShouldTreatAsWideInteger(type);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool ShouldTreatAsWideInteger(
             Type type /* in */
             )
         {
@@ -597,6 +615,51 @@ namespace Eagle._Components.Private
                 else
                     enumValues = new UlongList(newEnumValues);
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string BadFlagsOperatorError(
+            Type enumType,
+            char @operator
+            )
+        {
+            return String.Format(
+                "bad {0} flags operator {1}, must " +
+                "be {2}, {3}, {4}, {5}, {6}, or {7}",
+                FormatOps.TypeName(enumType),
+                FormatOps.WrapOrNull(@operator),
+                FormatOps.WrapOrNull(SelectTableOperator),
+                FormatOps.WrapOrNull(AddFlagOperator),
+                FormatOps.WrapOrNull(RemoveFlagOperator),
+                FormatOps.WrapOrNull(SetFlagOperator),
+                FormatOps.WrapOrNull(SetAddFlagOperator),
+                FormatOps.WrapOrNull(KeepFlagOperator));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string BadValueError(
+            Type enumType,
+            string enumName
+            )
+        {
+            return ScriptOps.BadValue(
+                null, String.Format("{0} value", FormatOps.TypeName(
+                enumType)), enumName, Enum.GetNames(enumType), null,
+                null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string CountMismatchError(
+            int count1,
+            int count2
+            )
+        {
+            return String.Format(
+                "count mismatch, enumeration names {0} " +
+                "versus enumeration values {1}", count1, count2);
         }
         #endregion
 
@@ -1387,10 +1450,7 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
-                    error = ScriptOps.BadValue(
-                        null, String.Format("{0} value",
-                        FormatOps.TypeName(enumType)), value,
-                        Enum.GetNames(enumType), null, null);
+                    error = BadValueError(enumType, value);
                 }
             }
             catch (Exception e)
@@ -1763,13 +1823,12 @@ namespace Eagle._Components.Private
                 return null;
             }
 
-            if (enumNames.Count != enumValues.Count)
-            {
-                error = String.Format(
-                    "count mismatch, enumeration names " +
-                    "{0} versus enumeration values {1}",
-                    enumNames.Count, enumValues.Count);
+            int count1 = enumNames.Count;
+            int count2 = enumValues.Count;
 
+            if (count1 != count2)
+            {
+                error = CountMismatchError(count1, count2);
                 return null;
             }
 
@@ -1924,11 +1983,7 @@ namespace Eagle._Components.Private
                 }
                 else if (errorOnNotFound)
                 {
-                    error = ScriptOps.BadValue(
-                        null, String.Format("{0} value",
-                        FormatOps.TypeName(enumType)), enumName,
-                        Enum.GetNames(enumType), null, null);
-
+                    error = BadValueError(enumType, enumName);
                     goto error;
                 }
             }
@@ -1980,11 +2035,7 @@ namespace Eagle._Components.Private
 
             if (String.IsNullOrEmpty(value))
             {
-                error = ScriptOps.BadValue(
-                    null, String.Format("{0} value",
-                    FormatOps.TypeName(enumType)), value,
-                    Enum.GetNames(enumType), null, null);
-
+                error = BadValueError(enumType, value);
                 return null;
             }
 
@@ -2029,6 +2080,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private ToUIntOrULong Methods
+        private static ulong? ToUIntOrULong(
+            object value /* in */
+            ) /* SAFE */
+        {
+            return ToUIntOrULong(value, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ulong? ToUIntOrULong(
+            object value,           /* in */
+            CultureInfo cultureInfo /* in: OPTIONAL */
+            ) /* SAFE */
+        {
+            if (value is Enum)
+                return ToUIntOrULong((Enum)value, cultureInfo);
+
+            return ShouldTreatAsWideInteger(value) ?
+                ConversionOps.ToULong(value, cultureInfo) :
+                ConversionOps.ToUInt(value, cultureInfo);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ulong ToUIntOrULong(
+            Enum value,             /* in */
+            CultureInfo cultureInfo /* in: OPTIONAL */
+            ) /* SAFE */
+        {
+            return ShouldTreatAsWideInteger(value) ?
+                ToULong(value, cultureInfo) :
+                ToUInt(value, cultureInfo);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private ToInt / ToUInt Methods
         private static int ToInt(
             Type enumType,          /* in */
@@ -2058,6 +2147,18 @@ namespace Eagle._Components.Private
         {
             return ToUInt(
                 (value != null) ? value.GetType() : null, value, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static uint ToUInt(
+            Enum value,             /* in */
+            CultureInfo cultureInfo /* in: OPTIONAL */
+            ) /* LOSSY */
+        {
+            return ToUInt(
+                (value != null) ? value.GetType() : null, value,
+                cultureInfo);
         }
         #endregion
 
@@ -2210,6 +2311,18 @@ namespace Eagle._Components.Private
             return ToULong(
                 (value != null) ? value.GetType() : null, value, null);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ulong ToULong(
+            Enum value,             /* in */
+            CultureInfo cultureInfo /* in: OPTIONAL */
+            ) /* SAFE */
+        {
+            return ToULong(
+                (value != null) ? value.GetType() : null, value,
+                cultureInfo);
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -2235,8 +2348,7 @@ namespace Eagle._Components.Private
             Enum value /* in */
             ) /* SAFE */
         {
-            return ShouldTreatAsWideInteger(value) ?
-                ToULong(value) : ToUInt(value);
+            return ToUIntOrULong(value, null);
         }
         #endregion
 
@@ -2273,6 +2385,7 @@ namespace Eagle._Components.Private
 
                 switch (@operator)
                 {
+                    case SelectTableOperator:
                     case AddFlagOperator:
                     case RemoveFlagOperator:
                     case SetFlagOperator:
@@ -2290,16 +2403,8 @@ namespace Eagle._Components.Private
                             // NOTE: Any other operator character
                             //       is invalid.
                             //
-                            error = String.Format(
-                                "bad {0} flags operator {1}, must " +
-                                "be {2}, {3}, {4}, {5}, or {6}",
-                                FormatOps.TypeName(enumType),
-                                FormatOps.WrapOrNull(@operator),
-                                FormatOps.WrapOrNull(AddFlagOperator),
-                                FormatOps.WrapOrNull(RemoveFlagOperator),
-                                FormatOps.WrapOrNull(SetFlagOperator),
-                                FormatOps.WrapOrNull(SetAddFlagOperator),
-                                FormatOps.WrapOrNull(KeepFlagOperator));
+                            error = BadFlagsOperatorError(
+                                enumType, @operator);
 
                             return false;
                         }
@@ -2439,6 +2544,13 @@ namespace Eagle._Components.Private
         {
             switch (@operator)
             {
+                case SelectTableOperator:
+                    {
+                        //
+                        // NOTE: Do nothing.
+                        //
+                        break;
+                    }
                 case AddFlagOperator:
                     {
                         //
@@ -2508,16 +2620,8 @@ namespace Eagle._Components.Private
                         //
                         // NOTE: Any other operator character is invalid.
                         //
-                        error = String.Format(
-                            "bad {0} flags operator {1}, must " +
-                            "be {2}, {3}, {4}, {5}, or {6}",
-                            FormatOps.TypeName(enumType),
-                            FormatOps.WrapOrNull(@operator),
-                            FormatOps.WrapOrNull(AddFlagOperator),
-                            FormatOps.WrapOrNull(RemoveFlagOperator),
-                            FormatOps.WrapOrNull(SetFlagOperator),
-                            FormatOps.WrapOrNull(SetAddFlagOperator),
-                            FormatOps.WrapOrNull(KeepFlagOperator));
+                        error = BadFlagsOperatorError(
+                            enumType, @operator);
 
                         operand1EnumValue = null;
                         break;
@@ -2930,6 +3034,721 @@ namespace Eagle._Components.Private
 
                 return oldEnumValue;
             }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public TryParseTables Methods
+        public static ReturnCode FillTables(
+            Type enumType,                 /* in */
+            ref ObjectDictionary[] tables, /* in, out */
+            ref Result error               /* out */
+            )
+        {
+            StringList enumNames = null;
+            UlongList enumValues = null;
+
+            if (GetNamesAndValues(
+                    enumType, ref enumNames, ref enumValues,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            int?[] parameterIndexes = null;
+
+            if (AttributeOps.GetParameterIndexes(
+                    enumType, enumNames, ref parameterIndexes,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            return FillTables(
+                enumType, enumNames, enumValues, parameterIndexes,
+                ref tables, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TryParseTables(
+            Interpreter interpreter,       /* in: OPTIONAL */
+            Type enumType,                 /* in */
+            string value,                  /* in */
+            CultureInfo cultureInfo,       /* in: OPTIONAL */
+            bool noCase,                   /* in */
+            bool errorOnEmptyList,         /* in */
+            bool errorOnNotFound,          /* in */
+            ref ObjectDictionary[] tables, /* in, out */
+            ref Result error               /* out */
+            )
+        {
+            StringList enumNames = null;
+            UlongList enumValues = null;
+
+            if (GetNamesAndValues(
+                    enumType, ref enumNames, ref enumValues,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            int?[] parameterIndexes = null;
+
+            if (AttributeOps.GetParameterIndexes(
+                    enumType, enumNames, ref parameterIndexes,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            return TryParseTables(
+                interpreter, enumType, value, enumNames, enumValues,
+                parameterIndexes, cultureInfo, noCase, errorOnEmptyList,
+                errorOnNotFound, ref tables, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode SetParameterValuesFromTables(
+            ObjectDictionary[] tables, /* in */
+            ulong[] parameterValues,   /* in */
+            CultureInfo cultureInfo,   /* in: OPTIONAL */
+            bool errorOnBadValue,      /* in */
+            ref Result error           /* out */
+            )
+        {
+            if (tables == null)
+            {
+                error = "invalid enumeration tables";
+                return ReturnCode.Error;
+            }
+
+            if (parameterValues == null)
+            {
+                error = "invalid parameter values";
+                return ReturnCode.Error;
+            }
+
+            Array.Clear(parameterValues, 0, parameterValues.Length);
+
+            for (int index = 0; index < tables.Length; index++)
+            {
+                ObjectDictionary table = tables[index];
+
+                if (table == null)
+                    continue;
+
+                foreach (KeyValuePair<string, object> pair in table)
+                {
+                    ulong? ulongValue = EnumOps.ToUIntOrULong(
+                        pair.Value, cultureInfo);
+
+                    if (ulongValue == null)
+                    {
+                        if (errorOnBadValue)
+                        {
+                            error = String.Format(
+                                "bad value of type {0} for {1}",
+                                FormatOps.TypeName(typeof(ulong)),
+                                FormatOps.WrapOrNull(pair.Key));
+
+                            return ReturnCode.Error;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    parameterValues[index] |= (ulong)ulongValue;
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private TryParseTables Methods
+        private static ReturnCode FillTables(
+            Type enumType,                 /* in */
+            StringList enumNames,          /* in */
+            UlongList enumValues,          /* in */
+            int?[] parameterIndexes,       /* in */
+            ref ObjectDictionary[] tables, /* in, out */
+            ref Result error               /* out */
+            )
+        {
+            if (enumNames == null)
+            {
+                error = "invalid enumeration names";
+                return ReturnCode.Error;
+            }
+
+            if (enumValues == null)
+            {
+                error = "invalid enumeration values";
+                return ReturnCode.Error;
+            }
+
+            int count1 = enumNames.Count;
+            int count2 = enumValues.Count;
+
+            if (count1 != count2)
+            {
+                error = CountMismatchError(count1, count2);
+                return ReturnCode.Error;
+            }
+
+            if (parameterIndexes == null)
+            {
+                error = "invalid parameter indexes";
+                return ReturnCode.Error;
+            }
+
+            for (int index = 0; index < count1; index++)
+            {
+                string enumName = enumNames[index];
+
+                ObjectDictionary table = GetTable(
+                    ref tables, parameterIndexes,
+                    index);
+
+                if (table == null)
+                    continue;
+
+                table[enumName] = enumValues[index];
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode AddToTable(
+            Interpreter interpreter,       /* in: OPTIONAL */
+            Type enumType,                 /* in */
+            StringList enumNames,          /* in */
+            UlongList enumValues,          /* in */
+            int?[] parameterIndexes,       /* in */
+            string pattern,                /* in: OPTIONAL */
+            bool noCase,                   /* in */
+            ref ObjectDictionary[] tables, /* in, out */
+            ref Result error               /* out */
+            )
+        {
+            if (enumNames == null)
+            {
+                error = "invalid enumeration names";
+                return ReturnCode.Error;
+            }
+
+            if (enumValues == null)
+            {
+                error = "invalid enumeration values";
+                return ReturnCode.Error;
+            }
+
+            int count1 = enumNames.Count;
+            int count2 = enumValues.Count;
+
+            if (count1 != count2)
+            {
+                error = CountMismatchError(count1, count2);
+                return ReturnCode.Error;
+            }
+
+            if (parameterIndexes == null)
+            {
+                error = "invalid parameter indexes";
+                return ReturnCode.Error;
+            }
+
+            for (int index = 0; index < count1; index++)
+            {
+                string enumName = enumNames[index];
+
+                if (enumName == null)
+                    continue;
+
+                if ((pattern == null) || Parser.StringMatch(
+                        interpreter, enumName, 0, pattern, 0,
+                        noCase))
+                {
+                    ObjectDictionary table = GetTable(
+                        ref tables, parameterIndexes,
+                        index);
+
+                    if (table == null)
+                    {
+                        error = String.Format(
+                            "missing table for {0} name {1}",
+                            FormatOps.TypeName(enumType),
+                            FormatOps.WrapOrNull(enumName));
+
+                        return ReturnCode.Error;
+                    }
+
+                    table[enumName] = enumValues[index];
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void KeepFromTable(
+            Interpreter interpreter, /* in: OPTIONAL */
+            ObjectDictionary table,  /* in, out */
+            string pattern,          /* in: OPTIONAL */
+            bool noCase              /* in */
+            )
+        {
+            if (table != null)
+            {
+                IntDictionary matches = new IntDictionary();
+                StringList keys = new StringList(table.Keys);
+                int count; /* REUSED */
+
+                foreach (string key in keys) /* PASS #1: Gather. */
+                {
+                    if (key == null)
+                        continue;
+
+                    if ((pattern == null) || Parser.StringMatch(
+                            interpreter, key, 0, pattern, 0,
+                            noCase))
+                    {
+                        if (matches.TryGetValue(key, out count))
+                            count++;
+                        else
+                            count = 1;
+
+                        matches[key] = count;
+                    }
+                }
+
+                foreach (string key in keys) /* PASS #2: Remove? */
+                {
+                    if (!matches.TryGetValue(
+                            key, out count) || (count <= 0))
+                    {
+                        table.Remove(key);
+                    }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void RemoveFromTable(
+            Interpreter interpreter, /* in: OPTIONAL */
+            ObjectDictionary table,  /* in, out */
+            string pattern,          /* in: OPTIONAL */
+            bool noCase              /* in */
+            )
+        {
+            if (table != null)
+            {
+                IntDictionary matches = new IntDictionary();
+                StringList keys = new StringList(table.Keys);
+                int count; /* REUSED */
+
+                foreach (string key in keys) /* PASS #1: Gather. */
+                {
+                    if (key == null)
+                        continue;
+
+                    if ((pattern == null) || Parser.StringMatch(
+                            interpreter, key, 0, pattern, 0,
+                            noCase))
+                    {
+                        if (matches.TryGetValue(key, out count))
+                            count++;
+                        else
+                            count = 1;
+
+                        matches[key] = count;
+                    }
+                }
+
+                foreach (string key in keys) /* PASS #2: Remove? */
+                {
+                    if (matches.TryGetValue(
+                            key, out count) && (count > 0))
+                    {
+                        table.Remove(key);
+                    }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int FindName(
+            Interpreter interpreter, /* in: OPTIONAL */
+            StringList enumNames,    /* in */
+            string pattern,          /* in */
+            bool noCase              /* in */
+            )
+        {
+            if (enumNames != null)
+            {
+                int count = enumNames.Count;
+
+                for (int index = 0; index < count; index++)
+                {
+                    if ((pattern == null) || Parser.StringMatch(
+                            interpreter, enumNames[index], 0,
+                            pattern, 0, noCase))
+                    {
+                        return index;
+                    }
+                }
+            }
+
+            return Index.Invalid;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ObjectDictionary GetTable(
+            ref ObjectDictionary[] tables, /* in, out */
+            int?[] parameterIndexes,       /* in */
+            int index                      /* in */
+            )
+        {
+            if (parameterIndexes == null)
+                return null;
+
+            int parameterLength = parameterIndexes.Length;
+
+            if ((index < 0) || (index >= parameterLength))
+                return null;
+
+            int? parameterIndex = parameterIndexes[index];
+
+            if (parameterIndex == null)
+                return null;
+
+            int? maximumParameterIndex = MathOps.Max(
+                parameterIndexes);
+
+            if (maximumParameterIndex == null)
+                return null;
+
+            if (tables == null)
+            {
+                tables = new ObjectDictionary[
+                    (int)maximumParameterIndex + 1];
+            }
+
+            int tableIndex = (int)parameterIndex;
+            int length = tables.Length;
+
+            if ((tableIndex < 0) || (tableIndex >= length))
+                return null;
+
+            ObjectDictionary table = tables[tableIndex];
+
+            if (table == null)
+            {
+                table = new ObjectDictionary();
+                tables[tableIndex] = table;
+            }
+
+            return table;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode TryParseTables(
+            Interpreter interpreter,       /* in: OPTIONAL */
+            Type enumType,                 /* in */
+            string value,                  /* in */
+            StringList enumNames,          /* in */
+            UlongList enumValues,          /* in */
+            int?[] parameterIndexes,       /* in */
+            CultureInfo cultureInfo,       /* in: OPTIONAL */
+            bool noCase,                   /* in */
+            bool errorOnEmptyList,         /* in */
+            bool errorOnNotFound,          /* in */
+            ref ObjectDictionary[] tables, /* in, out */
+            ref Result error               /* out */
+            )
+        {
+            if (enumType == null)
+            {
+                error = "invalid type";
+                return ReturnCode.Error;
+            }
+
+            if (!enumType.IsEnum)
+            {
+                error = String.Format(
+                    "type {0} is not an enumeration",
+                    FormatOps.TypeName(enumType));
+
+                return ReturnCode.Error;
+            }
+
+            if (String.IsNullOrEmpty(value))
+            {
+                error = String.Format(
+                    "invalid {0} value",
+                    FormatOps.TypeName(enumType));
+
+                return ReturnCode.Error;
+            }
+
+            if (enumNames == null)
+            {
+                error = "invalid enumeration names";
+                return ReturnCode.Error;
+            }
+
+            if (enumValues == null)
+            {
+                error = "invalid enumeration values";
+                return ReturnCode.Error;
+            }
+
+            int count1 = enumNames.Count;
+            int count2 = enumValues.Count;
+
+            if (count1 != count2)
+            {
+                error = CountMismatchError(count1, count2);
+                return ReturnCode.Error;
+            }
+
+            if (parameterIndexes == null)
+            {
+                error = "invalid parameter indexes";
+                return ReturnCode.Error;
+            }
+
+            string newValue = FixupFlagsString(value);
+            StringList list = null;
+
+            if (ParserOps<string>.SplitList(
+                    interpreter, newValue, 0, Length.Invalid,
+                    true, ref list, ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (list.Count == 0)
+            {
+                if (errorOnEmptyList)
+                {
+                    error = "empty modifiers list";
+                    return ReturnCode.Error;
+                }
+                else
+                {
+                    return ReturnCode.Ok;
+                }
+            }
+
+            StringComparison comparisonType =
+                SharedStringOps.GetSystemComparisonType(noCase);
+
+            ObjectDictionary table = null;
+            bool haveTable = false;
+            char @operator = DefaultFlagOperator;
+
+            foreach (string element in list)
+            {
+                if (String.IsNullOrEmpty(element))
+                    continue;
+
+                string enumName = element.Trim();
+
+                if (String.IsNullOrEmpty(enumName))
+                    continue;
+
+                char character = enumName[0];
+
+                if (!Parser.IsIdentifier(character))
+                {
+                    @operator = character;
+
+                    enumName = enumName.Substring(1).Trim();
+
+                    if (String.IsNullOrEmpty(enumName))
+                        continue;
+                }
+
+                int index; /* REUSED */
+                string pattern; /* REUSED */
+                bool exact;
+
+                if (@operator == SelectTableOperator)
+                {
+                    if (tables == null)
+                    {
+                        error = "invalid enumeration tables";
+                        return ReturnCode.Error;
+                    }
+
+                    pattern = enumName;
+                    index = Index.Invalid;
+
+                    if (Value.GetIndex(
+                            pattern, tables.Length,
+                            ValueFlags.AnyInteger,
+                            cultureInfo, ref index,
+                            ref error) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+
+                    table = GetTable(
+                        ref tables, parameterIndexes,
+                        index);
+
+                    if (table == null)
+                    {
+                        error = String.Format(
+                            "missing table for {0} index {1}",
+                            FormatOps.TypeName(enumType),
+                            FormatOps.WrapOrNull(pattern));
+
+                        return ReturnCode.Error;
+                    }
+
+                    haveTable = true;
+                    @operator = DefaultFlagOperator;
+
+                    continue;
+                }
+                else
+                {
+                    index = enumNames.IndexOf(
+                        enumName, 0, comparisonType);
+
+                    if (index != Index.Invalid)
+                    {
+                        exact = true;
+                    }
+                    else
+                    {
+                        exact = false;
+
+                        index = FindName(
+                            interpreter, enumNames, enumName,
+                            noCase);
+                    }
+
+                    if (index != Index.Invalid)
+                    {
+                        pattern = enumName;
+                        enumName = enumNames[index];
+
+                        if (!haveTable || (table == null))
+                        {
+                            table = GetTable(
+                                ref tables, parameterIndexes,
+                                index);
+
+                            if (table == null)
+                            {
+                                error = String.Format(
+                                    "missing table for {0} name {1}",
+                                    FormatOps.TypeName(enumType),
+                                    FormatOps.WrapOrNull(enumName));
+
+                                return ReturnCode.Error;
+                            }
+                        }
+                    }
+                    else if (errorOnNotFound)
+                    {
+                        error = BadValueError(
+                            enumType, enumName);
+
+                        return ReturnCode.Error;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
+
+                switch (@operator)
+                {
+                    case AddFlagOperator:
+                        {
+                            if (exact)
+                            {
+                                object enumValue = TryGet(
+                                    enumType, enumValues[index],
+                                    ref error);
+
+                                if (enumValue == null)
+                                    return ReturnCode.Error;
+
+                                table[enumName] = enumValue;
+                            }
+                            else if (AddToTable(
+                                    interpreter, enumType,
+                                    enumNames, enumValues,
+                                    parameterIndexes, pattern,
+                                    noCase, ref tables,
+                                    ref error) != ReturnCode.Ok)
+                            {
+                                return ReturnCode.Error;
+                            }
+
+                            break;
+                        }
+                    case RemoveFlagOperator:
+                        {
+                            RemoveFromTable(
+                                interpreter, table,
+                                pattern, noCase);
+
+                            break;
+                        }
+                    case SetFlagOperator:
+                        {
+                            table.Clear();
+
+                            goto case AddFlagOperator;
+                        }
+                    case SetAddFlagOperator:
+                        {
+                            table.Clear();
+                            @operator = AddFlagOperator;
+
+                            goto case AddFlagOperator;
+                        }
+                    case KeepFlagOperator:
+                        {
+                            KeepFromTable(
+                                interpreter, table,
+                                pattern, noCase);
+
+                            break;
+                        }
+                    default:
+                        {
+                            error = BadFlagsOperatorError(
+                                enumType, @operator);
+
+                            return ReturnCode.Error;
+                        }
+                }
+
+                haveTable = false;
+            }
+
+            return ReturnCode.Ok;
         }
         #endregion
     }

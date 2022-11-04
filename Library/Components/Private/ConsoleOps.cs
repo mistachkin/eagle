@@ -459,7 +459,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region System.Console Support Methods (.NET Framework 2.0 - 4.8)
+        #region System.Console Support Methods (.NET Framework 2.0 - 4.8.1)
         //
         // NOTE: This method is used to support the [host open], [host close],
         //       and [host screen] sub-commands as well as the IDebugHost.Exit

@@ -23,9 +23,12 @@ REM SET __ECHO2=ECHO
 REM SET __ECHO3=ECHO
 IF NOT DEFINED _AECHO (SET _AECHO=REM)
 IF NOT DEFINED _CECHO (SET _CECHO=REM)
+IF NOT DEFINED _CECHO2 (SET _CECHO2=REM)
+IF NOT DEFINED _CECHO3 (SET _CECHO3=REM)
 IF NOT DEFINED _VECHO (SET _VECHO=REM)
 
 SET PIPE=^|
+SET _CPIPE=^^^|
 IF DEFINED __ECHO SET PIPE=^^^|
 
 %_AECHO% Running %0 %*
@@ -114,6 +117,7 @@ IF NOT DEFINED PATCHLEVEL (
 
 CALL :fn_ResetErrorLevel
 
+%_CECHO2% PUSHD "%ROOT%"
 %__ECHO2% PUSHD "%ROOT%"
 
 IF ERRORLEVEL 1 (
@@ -173,11 +177,24 @@ IF EXIST "%TEMP%\Eagle_%CONFIGURATION%" (
   )
 )
 
+IF NOT DEFINED NOUPDATETEST (
+  IF /I NOT "%RELEASETYPE%" == "Binary" (
+    SET NOUPDATETEST=1
+    SET SET_NOUPDATETEST=1
+  )
+)
+
+%_CECHO3% CALL "%TOOLS%\update.bat" "%TEMP%\Eagle_%CONFIGURATION%\Eagle" "%CONFIGURATION%"
 %__ECHO3% CALL "%TOOLS%\update.bat" "%TEMP%\Eagle_%CONFIGURATION%\Eagle" "%CONFIGURATION%"
 
 IF ERRORLEVEL 1 (
   ECHO Could not update binary files.
   GOTO errors
+)
+
+IF DEFINED SET_NOUPDATETEST (
+  CALL :fn_UnsetVariable NOUPDATETEST
+  CALL :fn_UnsetVariable SET_NOUPDATETEST
 )
 
 %__ECHO2% PUSHD "%TEMP%\Eagle_%CONFIGURATION%"
@@ -220,6 +237,7 @@ IF DEFINED BinRarFile (
 
 IF NOT DEFINED NOSIGN (
   IF DEFINED BinRarFile (
+    %_CECHO3% CALL "%TOOLS%\signFile.bat" "%BinRarFile%.rar" "Eagle Binary Distribution"
     %__ECHO3% CALL "%TOOLS%\signFile.bat" "%BinRarFile%.rar" "Eagle Binary Distribution"
     IF ERRORLEVEL 1 GOTO errors
   )
@@ -243,6 +261,7 @@ IF DEFINED BinRarFile (
   )
 
   IF EXIST "%SfxBinary%" (
+    %_CECHO% ECHO F %_CPIPE% XCOPY "%SfxBinary%" "%ProgramFiles%\WinRAR\Default.SFX" %FFLAGS% %DFLAGS%
     %__ECHO% ECHO F %PIPE% XCOPY "%SfxBinary%" "%ProgramFiles%\WinRAR\Default.SFX" %FFLAGS% %DFLAGS%
 
     IF ERRORLEVEL 1 (
@@ -260,11 +279,13 @@ IF DEFINED BinRarFile (
   )
 
   IF NOT DEFINED NOSIGN (
+    %_CECHO3% CALL "%TOOLS%\signFile.bat" "%BinRarFile%.exe" "Eagle Binary Distribution"
     %__ECHO3% CALL "%TOOLS%\signFile.bat" "%BinRarFile%.exe" "Eagle Binary Distribution"
     IF ERRORLEVEL 1 GOTO errors
 
     IF NOT DEFINED NOSIGCHECK (
       %_AECHO% Checking signatures on file "%BinRarFile%.exe"...
+      %_CECHO% SigCheck.exe "%BinRarFile%.exe" %_CPIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
       %__ECHO% SigCheck.exe "%BinRarFile%.exe" %PIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
 
       IF ERRORLEVEL 1 (
@@ -280,6 +301,7 @@ IF DEFINED BinRarFile (
 
 :skip_sfx
 
+%_CECHO2% POPD
 %__ECHO2% POPD
 
 IF ERRORLEVEL 1 (
@@ -287,6 +309,7 @@ IF ERRORLEVEL 1 (
   GOTO errors
 )
 
+%_CECHO2% POPD
 %__ECHO2% POPD
 
 IF ERRORLEVEL 1 (

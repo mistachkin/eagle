@@ -798,6 +798,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region IMaybeDisposed Members
+        public override bool Disposed
+        {
+            get { return disposed; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region IDisposable "Pattern" Members
         private bool disposed;
         private void CheckDisposed() /* throw */

@@ -965,6 +965,11 @@ namespace Eagle._Components.Private
             result.Add("shell", new StringList());
             result.Add("state", new StringList());
             result.Add("diagnostic", new StringList());
+
+#if NATIVE && TCL
+            result.Add("tcl", new StringList());
+#endif
+
             result.Add("trace", new StringList());
             result.Add("update", new StringList());
             result.Add("view", new StringList());
@@ -1061,6 +1066,7 @@ namespace Eagle._Components.Private
 #if HISTORY
             result["history"].Add("histclear");
             result["history"].Add("histfile");
+            result["history"].Add("histinfo");
             result["history"].Add("histload");
             result["history"].Add("histsave");
 
@@ -1169,6 +1175,7 @@ namespace Eagle._Components.Private
             result["state"].Add("relimit");
             result["state"].Add("restc");
             result["state"].Add("intsec");
+            result["state"].Add("fmkeys");
 
 #if NOTIFY && NOTIFY_ARGUMENTS
             result["state"].Add("restm");
@@ -1246,6 +1253,21 @@ namespace Eagle._Components.Private
             result["view"].Add("vinfo");
 
             result["view"].Sort();
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Native Tcl Related Commands
+#if NATIVE && TCL
+#if NATIVE_PACKAGE
+            result["tcl"].Add("npinfo");
+#endif
+
+            result["tcl"].Add("tclinterp");
+            result["tcl"].Add("tclsh");
+
+            result["tcl"].Sort();
+#endif
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1816,22 +1838,22 @@ namespace Eagle._Components.Private
 
             localCodes[0] = interpreter.ListCommands(
                 CommandFlags.None, CommandFlags.None, false, false,
-                pattern, false, false, ref localNames[0]);
+                pattern, false, false, false, ref localNames[0]);
 
             localCodes[1] = interpreter.ListProcedures(
                 ProcedureFlags.None, ProcedureFlags.None, false, false,
-                pattern, false, false, ref localNames[1]);
+                pattern, false, false, false, ref localNames[1]);
 
             localCodes[2] = interpreter.ListIExecutes(
                 pattern, false, false, ref localNames[2]);
 
             localCodes[3] = interpreter.ListHiddenCommands(
                 CommandFlags.None, CommandFlags.None, false, false,
-                pattern, false, false, ref localNames[3]);
+                pattern, false, false, false, ref localNames[3]);
 
             localCodes[4] = interpreter.ListHiddenProcedures(
                 ProcedureFlags.None, ProcedureFlags.None, false, false,
-                pattern, false, false, ref localNames[4]);
+                pattern, false, false, false, ref localNames[4]);
 
             localCodes[5] = interpreter.ListHiddenIExecutes(
                 pattern, false, false, ref localNames[5]);
@@ -2076,10 +2098,11 @@ namespace Eagle._Components.Private
 
             string flagHelp = String.Format(
                 "Where \"flags\" is a list of zero or more values, separated by " +
-                "spaces or commas, which may be prefixed by {0} (add), {1} " +
-                "(remove), {2} (set), {3} (set, then add), or {4} (keep).  " +
-                "If no prefix is specified, {5} (set, then add) is assumed.  " +
-                "Available flags are: {6}.",
+                "spaces or commas, which may be prefixed by {0} (select table), " +
+                "{1} (add), {2} (remove), {3} (set), {4} (set, then add), or {5} " +
+                "(keep).  If no prefix is specified, {6} (set, then add) will be " +
+                "assumed.  Available flags are: {7}.",
+                FormatOps.WrapOrNull(EnumOps.SelectTableOperator),
                 FormatOps.WrapOrNull(EnumOps.AddFlagOperator),
                 FormatOps.WrapOrNull(EnumOps.RemoveFlagOperator),
                 FormatOps.WrapOrNull(EnumOps.SetFlagOperator),
@@ -2340,6 +2363,10 @@ namespace Eagle._Components.Private
                 new StringPair(null,
                     "Displays the flags for the interactive interpreter and the flags that were passed to this " +
                     "interactive debuggging session."));
+
+            result.Add("fmkeys",
+                new StringPair("?force?",
+                    "Fetches an official key ring from the configured remote URI and merges it into the local script key ring."));
 
             result.Add("fresc",
                 new StringPair(null,
@@ -2889,9 +2916,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static string GetVersionLine(
-            Assembly assembly, /* in */
-            string fileName,   /* in */
-            bool compactMode   /* in */
+            Interpreter interpreter, /* in */
+            Assembly assembly,       /* in */
+            string fileName,         /* in */
+            bool compactMode         /* in */
             )
         {
             if (assembly == null)
@@ -2909,7 +2937,8 @@ namespace Eagle._Components.Private
                 assembly);
 
             string certificateSubject = RuntimeOps.GetCertificateSubject(
-                fileName, certificateSubjectPrefix, true, true, true);
+                interpreter, fileName, certificateSubjectPrefix, true,
+                true, true);
 
             return String.Format(
                 compactMode ? bannerCompactFormat : bannerFormat,
@@ -2978,18 +3007,25 @@ namespace Eagle._Components.Private
                     ConsoleColor bannerBackgroundColor = _ConsoleColor.Default;
 
                     interpreter.GetHostColors(
-                        displayHost, ColorName.Banner, false, ref bannerForegroundColor,
+                        displayHost, ColorName.Banner,
+                        false, ref bannerForegroundColor,
                         ref bannerBackgroundColor);
 
                     Assembly assembly = GlobalState.GetAssembly();
-                    string fileName = (assembly != null) ? assembly.Location : null;
-                    string value = GetVersionLine(assembly, fileName, compactMode);
+
+                    string fileName = (assembly != null) ?
+                        assembly.Location : null;
+
+                    string value = GetVersionLine(
+                        interpreter, assembly, fileName, compactMode);
+
                     bool wrote = false;
 
                     if (!String.IsNullOrEmpty(value))
                     {
                         if (!HostTryWriteColor(
-                                displayHost, value, true, bannerForegroundColor,
+                                displayHost, value, true,
+                                bannerForegroundColor,
                                 bannerBackgroundColor))
                         {
                             return false;
@@ -3008,7 +3044,8 @@ namespace Eagle._Components.Private
                                 return false;
 
                             if (!HostTryWriteColor(
-                                    displayHost, value, true, bannerForegroundColor,
+                                    displayHost, value, true,
+                                    bannerForegroundColor,
                                     bannerBackgroundColor))
                             {
                                 return false;
@@ -3028,7 +3065,8 @@ namespace Eagle._Components.Private
                                 return false;
 
                             if (!HostTryWriteColor(
-                                    displayHost, value, true, bannerForegroundColor,
+                                    displayHost, value, true,
+                                    bannerForegroundColor,
                                     bannerBackgroundColor))
                             {
                                 return false;
@@ -3078,7 +3116,7 @@ namespace Eagle._Components.Private
 
                     if (!noTrusted)
                     {
-                        bool trusted = (RuntimeOps.GetFileTrusted(fileName) != null);
+                        bool trusted = (RuntimeOps.GetFileTrusted(interpreter, fileName) != null);
 
                         if (trusted || !compactMode)
                         {
@@ -3897,6 +3935,12 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, CommandLineOption.Step));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
+                                "{0}-{1} <enable> : Enables or disables relaxed unknown argument\n" +
+                                "{0}                          handling for the interactive loop and then\n" +
+                                "{0}                          continues processing arguments.",
+                                Characters.HorizontalTab, CommandLineOption.StopOnUnknown));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
                                 "{0}-{1} [pattern] [all] [argument ...] : Runs the specified test(s) or\n" +
                                 "{0}                                       the full test suite(s) if no\n" +
                                 "{0}                                       pattern is supplied and then\n" +
@@ -4137,6 +4181,13 @@ namespace Eagle._Components.Private
                                 "{0}value cannot be converted to instance flags, it will be ignored.",
                                 Characters.HorizontalTab, EnvVars.InterpreterFlags));
                             displayHost.WriteLine();
+#if ISOLATED_PLUGINS
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], enables\n" +
+                                "{0}plugin isolation for the interpreter.",
+                                Characters.HorizontalTab, EnvVars.Isolated));
+                            displayHost.WriteLine();
+#endif
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], various\n" +
                                 "{0}time measurements will be made to help troubleshoot performance issues.",
@@ -4173,7 +4224,7 @@ namespace Eagle._Components.Private
                                 "{0}calls into the garbage collector will be disabled.",
                                 Characters.HorizontalTab, EnvVars.NeverGC));
                             displayHost.WriteLine();
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything],\n" +
                                 "{0}internal calls into the garbage collector will never compact the large\n" +
@@ -4340,6 +4391,11 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, EnvVars.NoTrusted));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], the\n" +
+                                "{0}lists of trusted hashes will not be used when making trust decisions.",
+                                Characters.HorizontalTab, EnvVars.NoTrustedHashes));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], checking\n" +
                                 "{0}for updates will be disabled.  This restriction only applies automatic\n" +
                                 "{0}checks within the core library itself.",
@@ -4419,6 +4475,14 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, EnvVars.ScriptTrace));
                             displayHost.WriteLine();
 #endif
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], script\n" +
+                                "{0}signing policies and core script certificates will be enabled for the\n" +
+                                "{0}interpreter, using plugins that belong to the security package (e.g.\n" +
+                                "{0}Harpy and Badge).  If any of the necessary plugins are unavailable, an\n" +
+                                "{0}error is generated.",
+                                Characters.HorizontalTab, EnvVars.Security));
+                            displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], trace\n" +
                                 "{0}listeners appropriate to the current debug mode will be setup.",
@@ -4545,6 +4609,14 @@ namespace Eagle._Components.Private
                                 "{0}functionality to be disabled and/or malfunction.",
                                 Characters.HorizontalTab, EnvVars.TreatAsMono));
                             displayHost.WriteLine();
+#if NATIVE && WINDOWS && !ENTERPRISE_LOCKDOWN
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], it will\n" +
+                                "{0}be interpreted as a list of flags to use when determining if assembly\n" +
+                                "{0}files should be trusted.",
+                                Characters.HorizontalTab, EnvVars.TrustFlags));
+                            displayHost.WriteLine();
+#endif
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], the\n" +
                                 "{0}existing console will be used, if available (i.e. by attaching to it).",
@@ -4857,6 +4929,67 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static bool? WriteOptions(
+            IInteractiveHost interactiveHost, /* in */
+            IEnumerable<string> options,      /* in */
+            int perLine,                      /* in */
+            bool newLine                      /* in */
+            )
+        {
+            if (interactiveHost == null)
+                return null;
+
+            if (options == null)
+                return null;
+
+            int maximumLength = ListOps.GetMaximumLength(options);
+
+            int itemsPerLine = GetItemsPerLine(
+                null, 0, maximumLength, perLine, optionWidth);
+
+            if (newLine)
+                interactiveHost.WriteLine();
+
+            interactiveHost.WriteLine("Compiled with options:");
+            interactiveHost.WriteLine();
+
+            int count = 0;
+
+            foreach (string option in options)
+            {
+                if (!String.IsNullOrEmpty(option))
+                {
+                    //
+                    // HACK: Right align the option within this
+                    //       column.
+                    //
+                    interactiveHost.Write(Characters.HorizontalTab);
+
+                    interactiveHost.Write(String.Format(
+                        optionFormat.Replace(lengthPlaceholder,
+                        maximumLength.ToString()), option));
+
+                    if ((++count % itemsPerLine) == 0)
+                    {
+                        interactiveHost.WriteLine();
+                        count = 0;
+                    }
+                }
+            }
+
+            if (count > 0)
+            {
+                interactiveHost.WriteLine();
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode WriteVersion(
             Interpreter interpreter, /* in */
             bool showBanner,         /* in */
@@ -5091,54 +5224,12 @@ namespace Eagle._Components.Private
 
                         if (showOptions)
                         {
-                            StringList options = DefineConstants.OptionList;
-
-                            if (options != null)
-                            {
-                                int optionMaximumLength = ListOps.GetMaximumLength(
-                                    options);
-
-                                int optionItemsPerLine = GetItemsPerLine(
-                                    null, 0, optionMaximumLength, OptionsPerLine,
-                                    optionWidth);
-
-                                if (showBanner || showLegalese || showSource ||
-                                    showUpdate || showContext || wrotePlugin)
-                                {
-                                    displayHost.WriteLine();
-                                }
-
-                                displayHost.WriteLine("Compiled with options:");
-                                displayHost.WriteLine();
-
-                                int count = 0;
-
-                                foreach (string option in options)
-                                {
-                                    if (!String.IsNullOrEmpty(option))
-                                    {
-                                        //
-                                        // HACK: Right align the option within this column.
-                                        //
-                                        displayHost.Write(Characters.HorizontalTab);
-                                        displayHost.Write(String.Format(
-                                            optionFormat.Replace(lengthPlaceholder,
-                                            optionMaximumLength.ToString()), option));
-
-                                        if ((++count % optionItemsPerLine) == 0)
-                                        {
-                                            displayHost.WriteLine();
-                                            count = 0;
-                                        }
-                                    }
-                                }
-
-                                if (count > 0)
-                                {
-                                    displayHost.WriteLine();
-                                    count = 0;
-                                }
-                            }
+                            /* IGNORED */
+                            WriteOptions(
+                                displayHost, DefineConstants.OptionList,
+                                OptionsPerLine, showBanner || showLegalese ||
+                                showSource || showUpdate || showContext ||
+                                wrotePlugin);
                         }
 
                         result = String.Empty;

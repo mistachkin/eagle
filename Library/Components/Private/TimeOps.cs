@@ -31,7 +31,12 @@ namespace Eagle._Components.Private
 
         private static readonly int DaysInNormalYear = 365; // NOTE: Non-leap years only.
 
-        private static readonly int TicksPerMicrosecond = 10;
+#if NETWORK
+        private static readonly int MillisecondsPerSecond = 1000;
+#endif
+
+        private static readonly int TicksPerMicrosecond =
+            (int)TimeSpan.TicksPerMillisecond / 1000;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -45,6 +50,13 @@ namespace Eagle._Components.Private
         public static DateTime GetUtcNow()
         {
             return DateTime.UtcNow;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static long GetUtcNowTicks()
+        {
+            return DateTime.UtcNow.Ticks;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -238,7 +250,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static bool DateTimeToMilliSeconds(
+        public static bool DateTimeToMilliseconds(
             ref long milliseconds,
             DateTime dateTime,
             DateTime epoch
@@ -280,9 +292,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if NETWORK
+        public static void UnixMillisecondsOrSecondsToDateTime(
+            double milliseconds,
+            ref DateTime dateTime,
+            ref double value,
+            ref string units
+            )
+        {
+            MillisecondsOrSecondsToDateTime(
+                milliseconds, ref dateTime, ref value, ref units,
+                UnixEpoch);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void MillisecondsOrSecondsToDateTime(
+            double milliseconds,
+            ref DateTime dateTime,
+            ref double value,
+            ref string units,
+            DateTime epoch
+            )
+        {
+            if (Math.IEEERemainder(
+                    milliseconds, MillisecondsPerSecond) == 0.0)
+            {
+                value = milliseconds / MillisecondsPerSecond;
+                dateTime = epoch.AddSeconds(value);
+                units = "seconds";
+            }
+            else
+            {
+                value = milliseconds;
+                dateTime = epoch.AddMilliseconds(value);
+                units = "milliseconds";
+            }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Dead Code
 #if DEAD_CODE
-        private static bool MilliSecondsToDateTime(
+        private static bool MillisecondsToDateTime(
             long milliseconds,
             ref DateTime dateTime,
             DateTime epoch

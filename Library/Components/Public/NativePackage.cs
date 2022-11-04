@@ -1538,9 +1538,8 @@ namespace Eagle._Components.Public
                             //
                             //       Verbose | Initialize | Debugger |
                             //       NoIsolated | NoTitle | NoIcon |
-                            //       NoCancel | StrictAutoPath |
-                            //       SetArguments | UseNamespaces |
-                            //       NoMonitorPlugin
+                            //       NoCancel | SetArguments |
+                            //       UseNamespaces | NoMonitorPlugin
                             //
                             CreateFlags createFlags =
                                 Interpreter.GetStartupCreateFlags(

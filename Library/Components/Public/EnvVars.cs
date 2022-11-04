@@ -43,6 +43,11 @@ namespace Eagle._Components.Public
         public static readonly string ScriptTrace = "ScriptTrace";
 #endif
 
+#if ISOLATED_PLUGINS
+        public static readonly string Isolated = "Isolated";
+#endif
+
+        public static readonly string Security = "Security";
         public static readonly string ResultStack = "ResultStack";
         public static readonly string SetupTrace = "SetupTrace";
         public static readonly string TraceStack = "TraceStack";
@@ -109,6 +114,7 @@ namespace Eagle._Components.Public
         public static readonly string NoVerbose = "NoVerbose";
         public static readonly string NoVerified = "NoVerified";
         public static readonly string NoTrusted = "NoTrusted";
+        public static readonly string NoTrustedHashes = "NoTrustedHashes";
         public static readonly string NoUpdates = "NoUpdates";
         public static readonly string DefaultQuiet = "DefaultQuiet";
         public static readonly string Quiet = "Quiet";
@@ -128,7 +134,7 @@ namespace Eagle._Components.Public
         public static readonly string NetworkTimeout = "NetworkTimeout";
 #endif
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         public static readonly string NeverCompactForGC = "NeverCompactForGC";
 #endif
 
@@ -154,6 +160,10 @@ namespace Eagle._Components.Public
 
         public static readonly string TreatAsDotNetCore = "TreatAsDotNetCore";
         public static readonly string TreatAsMono = "TreatAsMono";
+
+#if NATIVE && WINDOWS && !ENTERPRISE_LOCKDOWN
+        public static readonly string TrustFlags = "TrustFlags";
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

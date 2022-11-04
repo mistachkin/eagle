@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -52,6 +53,7 @@ namespace Eagle._Components.Private
             totalInteractiveInputs = 0;
 
 #if SHELL
+            shellArguments = null;
             shellCallbackData = null;
             interactiveLoopData = null;
             updateData = null;
@@ -194,6 +196,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        private IList<string> shellArguments;
+        public IList<string> ShellArguments
+        {
+            get { CheckDisposed(); return shellArguments; }
+            set { CheckDisposed(); shellArguments = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private IShellCallbackData shellCallbackData;
         public IShellCallbackData ShellCallbackData
         {
@@ -337,6 +348,7 @@ namespace Eagle._Components.Private
                     totalInteractiveInputs = 0;
 
 #if SHELL
+                    shellArguments = null;
                     shellCallbackData = null;
                     interactiveLoopData = null;
                     updateData = null;

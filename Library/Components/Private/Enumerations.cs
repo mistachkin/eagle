@@ -14,6 +14,152 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Private
 {
+    //
+    // WARNING: This enumeration is for use by the WinTrustOps class only.
+    //          PLEASE DO NOT USE.  It is subject to change at any time.
+    //
+    [Flags()]
+    [ObjectId("cf362264-3ad5-4edf-9e57-e77482586361")]
+    internal enum TrustValues : uint
+    {
+#if NATIVE && WINDOWS
+        // WINTRUST_DATA.dwUIChoice
+
+        [ParameterIndex(0)]
+        WTD_UI_ALL = 1,
+
+        [ParameterIndex(0)]
+        WTD_UI_NONE = 2,
+
+        [ParameterIndex(0)]
+        WTD_UI_NOBAD = 3,
+
+        [ParameterIndex(0)]
+        WTD_UI_NOGOOD = 4,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        // WINTRUST_DATA.fdwRevocationChecks
+
+        [ParameterIndex(1)]
+        WTD_REVOKE_NONE = 0,
+
+        [ParameterIndex(1)]
+        WTD_REVOKE_WHOLECHAIN = 1,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        // WINTRUST_DATA.dwProvFlags
+
+        [ParameterIndex(2)]
+        WTD_NONE = 0x0,
+
+        [ParameterIndex(2)]
+        WTD_USE_IE4_TRUST_FLAG = 0x1,
+
+        [ParameterIndex(2)]
+        WTD_NO_IE4_CHAIN_FLAG = 0x2,
+
+        [ParameterIndex(2)]
+        WTD_NO_POLICY_USAGE_FLAG = 0x4,
+
+        [ParameterIndex(2)]
+        WTD_REVOCATION_CHECK_NONE = 0x10,
+
+        [ParameterIndex(2)]
+        WTD_REVOCATION_CHECK_END_CERT = 0x20,
+
+        [ParameterIndex(2)]
+        WTD_REVOCATION_CHECK_CHAIN = 0x40,
+
+        [ParameterIndex(2)]
+        WTD_REVOCATION_CHECK_CHAIN_EXCLUDE_ROOT = 0x80,
+
+        [ParameterIndex(2)]
+        WTD_SAFER_FLAG = 0x100,
+
+        [ParameterIndex(2)]
+        WTD_HASH_ONLY_FLAG = 0x200,
+
+        [ParameterIndex(2)]
+        WTD_USE_DEFAULT_OSVER_CHECK = 0x400,
+
+        [ParameterIndex(2)]
+        WTD_LIFETIME_SIGNING_FLAG = 0x800,
+
+        [ParameterIndex(2)]
+        WTD_CACHE_ONLY_URL_RETRIEVAL = 0x1000,
+
+        [ParameterIndex(2)]
+        WTD_DISABLE_MD2_MD4 = 0x2000,
+
+        [ParameterIndex(2)]
+        WTD_MOTW = 0x4000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        // WINTRUST_DATA.dwUIContext
+
+        [ParameterIndex(3)]
+        WTD_UICONTEXT_EXECUTE = 0,
+
+        [ParameterIndex(3)]
+        WTD_UICONTEXT_INSTALL = 1,
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is the number of "uint" parameters needed to fill up the
+        //       WINTRUST_DATA structure passed into the WinVerifyTrust API.
+        //
+        PARAMETER_COUNT = 4
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [ObjectId("5ec24744-3bc0-4787-9ab5-0ee4a7a2d3ac")]
+    internal enum BufferStats
+    {
+        Length = 0,
+        CrCount = 1,
+        LfCount = 2,
+        CrLfCount = 3,
+        LineCount = 4
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("2c24c473-85b2-48d4-b9cb-d6741c7c9870")]
+    internal enum VerifyFlags
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        GlobalAssemblyCache = 0x2,
+        IgnoreNull = 0x4,
+
+        StopOnError = 0x8,
+        StopOnNull = 0x10,
+
+        VerifyChain = 0x20,
+        NoVerifyChain = 0x40,
+        VerboseResults = 0x80,
+
+        ForDefault = 0x1000,
+        ForMaximum = 0x2000,
+
+        StopMask = StopOnError | StopOnNull,
+        MaximumMask = GlobalAssemblyCache | VerifyChain | VerboseResults,
+        AllMask = StopMask | MaximumMask | NoVerifyChain | VerboseResults,
+
+        Maximum = MaximumMask | ForMaximum,
+        Default = StopMask | ForDefault,
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     [ObjectId("35f46c6a-66ce-4de5-9979-553a915b5965")]
     internal enum DebugPathFlags
     {
@@ -614,6 +760,10 @@ namespace Eagle._Components.Private
         ForResult = 0x8000000,             /* For use by the Result class. */
         ForWebOps = 0x10000000,            /* For use by the WebOps class. */
 
+#if NATIVE && WINDOWS
+        ForWinTrustOps = 0x20000000,       /* For use by the WinTrustOps class. */
+#endif
+
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
@@ -675,6 +825,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        WinTrustOps = StandardMask | ForWinTrustOps,
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if NATIVE && WINDOWS
         NativeConsole = StandardMask | ForNativeConsole,
 #endif
 
@@ -722,7 +878,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         NeverCompact = 0x100,
         AlwaysCompact = 0x200,
         MaybeCompact = 0x400,
@@ -736,7 +892,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         WhenPossibleCompact = AlwaysCompact,
         MaybeWhenPossibleCompact = MaybeCompact,
 #else
@@ -943,7 +1099,7 @@ namespace Eagle._Components.Private
                                           * to push or pop a script location
                                           * when they are not available (i.e.
                                           * null). */
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
         ArgumentLocation = 0x800,        /* Keep track of Argument locations. */
         ArgumentLocationLock = 0x1000,   /* Do not modify the ArgumentLocation
                                           * flag automatically (e.g. via the

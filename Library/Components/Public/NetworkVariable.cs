@@ -1265,6 +1265,21 @@ namespace Eagle._Components.Public
 
                 if (data != null)
                 {
+#if TEST
+                    localError = null;
+
+                    if (WebOps.SetSecurityProtocol(
+                            false, ref localError) != ReturnCode.Ok)
+                    {
+                        if (localError != null)
+                            error = localError;
+                        else
+                            error = "could not set security protocol (1)";
+
+                        return null;
+                    }
+#endif
+
                     localError = null;
 
                     byte[] bytes = WebOps.MakeRequest(
@@ -1295,6 +1310,21 @@ namespace Eagle._Components.Public
                 }
                 else
                 {
+#if TEST
+                    localError = null;
+
+                    if (WebOps.SetSecurityProtocol(
+                            false, ref localError) != ReturnCode.Ok)
+                    {
+                        if (localError != null)
+                            error = localError;
+                        else
+                            error = "could not set security protocol (2)";
+
+                        return null;
+                    }
+#endif
+
                     localError = null;
 
                     string text = WebOps.MakeRequest(
@@ -1406,7 +1436,7 @@ namespace Eagle._Components.Public
             {
                 TraceOps.DebugTrace(String.Format(
                     "DecodeWebResult: interpreter = {0}, text = {1}",
-                    FormatOps.WrapOrNull(interpreter),
+                    FormatOps.InterpreterNoThrow(interpreter),
                     FormatOps.WrapOrNull(true, false, text)),
                     typeof(NetworkVariable).Name,
                     TracePriority.NetworkDebug);

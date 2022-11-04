@@ -158,7 +158,7 @@ namespace Eagle._Components.Private
         {
             stopCount = PerformanceOps.GetCount();
 
-            microseconds += PerformanceOps.GetMicroseconds(
+            microseconds += PerformanceOps.GetMicrosecondsFromCount(
                 startCount, stopCount, iterations, false); /* EXEMPT */
 
             if (!quiet)
@@ -182,7 +182,7 @@ namespace Eagle._Components.Private
         #region System.Object Overrides
         public override string ToString()
         {
-            return FormatOps.Performance(microseconds);
+            return FormatOps.PerformanceMicroseconds(microseconds);
         }
         #endregion
     }

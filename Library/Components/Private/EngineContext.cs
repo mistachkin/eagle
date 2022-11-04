@@ -92,6 +92,16 @@ namespace Eagle._Components.Private
             policyLevels = 0;
             testLevels = 0;
 
+            commandInitialDecision = PolicyDecision.None;
+            scriptInitialDecision = PolicyDecision.None;
+            fileInitialDecision = PolicyDecision.None;
+            streamInitialDecision = PolicyDecision.None;
+
+            commandFinalDecision = PolicyDecision.None;
+            scriptFinalDecision = PolicyDecision.None;
+            fileFinalDecision = PolicyDecision.None;
+            streamFinalDecision = PolicyDecision.None;
+
             cancel = false;
             unwind = false;
             halt = false;
@@ -494,6 +504,78 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private PolicyDecision commandInitialDecision;
+        public PolicyDecision CommandInitialDecision
+        {
+            get { CheckDisposed(); return commandInitialDecision; }
+            set { CheckDisposed(); commandInitialDecision = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private PolicyDecision scriptInitialDecision;
+        public PolicyDecision ScriptInitialDecision
+        {
+            get { CheckDisposed(); return scriptInitialDecision; }
+            set { CheckDisposed(); scriptInitialDecision = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private PolicyDecision fileInitialDecision;
+        public PolicyDecision FileInitialDecision
+        {
+            get { CheckDisposed(); return fileInitialDecision; }
+            set { CheckDisposed(); fileInitialDecision = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private PolicyDecision streamInitialDecision;
+        public PolicyDecision StreamInitialDecision
+        {
+            get { CheckDisposed(); return streamInitialDecision; }
+            set { CheckDisposed(); streamInitialDecision = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private PolicyDecision commandFinalDecision;
+        public PolicyDecision CommandFinalDecision
+        {
+            get { CheckDisposed(); return commandFinalDecision; }
+            set { CheckDisposed(); commandFinalDecision = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private PolicyDecision scriptFinalDecision;
+        public PolicyDecision ScriptFinalDecision
+        {
+            get { CheckDisposed(); return scriptFinalDecision; }
+            set { CheckDisposed(); scriptFinalDecision = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private PolicyDecision fileFinalDecision;
+        public PolicyDecision FileFinalDecision
+        {
+            get { CheckDisposed(); return fileFinalDecision; }
+            set { CheckDisposed(); fileFinalDecision = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private PolicyDecision streamFinalDecision;
+        public PolicyDecision StreamFinalDecision
+        {
+            get { CheckDisposed(); return streamFinalDecision; }
+            set { CheckDisposed(); streamFinalDecision = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private bool cancel;
         public bool Cancel
         {
@@ -890,6 +972,16 @@ namespace Eagle._Components.Private
                     securityLevels = 0;
                     policyLevels = 0;
                     testLevels = 0;
+
+                    commandInitialDecision = PolicyDecision.None;
+                    scriptInitialDecision = PolicyDecision.None;
+                    fileInitialDecision = PolicyDecision.None;
+                    streamInitialDecision = PolicyDecision.None;
+
+                    commandFinalDecision = PolicyDecision.None;
+                    scriptFinalDecision = PolicyDecision.None;
+                    fileFinalDecision = PolicyDecision.None;
+                    streamFinalDecision = PolicyDecision.None;
 
                     cancel = false;
                     unwind = false;

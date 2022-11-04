@@ -42,6 +42,7 @@ namespace Eagle._Containers.Private
             bool notHasAll,
             string pattern,
             bool noCase,
+            bool full,
             ref StringList list,
             ref Result error
             )
@@ -55,20 +56,27 @@ namespace Eagle._Containers.Private
             if ((hasFlags == OperatorFlags.None) &&
                 (notHasFlags == OperatorFlags.None))
             {
-                inputList = new StringList();
-
-                foreach (KeyValuePair<string, _Wrappers.Operator> pair in this)
+                if (full)
                 {
-                    _Wrappers.Operator @operator = pair.Value;
+                    inputList = new StringList();
 
-                    if (@operator == null)
-                        continue;
+                    foreach (KeyValuePair<string, _Wrappers.Operator> pair in this)
+                    {
+                        IOperator @operator = pair.Value;
 
-                    inputList.Add(StringList.MakeList(
-                        @operator.Lexeme.ToString(),
-                        @operator.Operands.ToString(),
-                        @operator.Flags.ToString(),
-                        pair.Key));
+                        if (@operator == null)
+                            continue;
+
+                        inputList.Add(StringList.MakeList(
+                            @operator.Lexeme.ToString(),
+                            @operator.Operands.ToString(),
+                            @operator.Flags.ToString(),
+                            pair.Key));
+                    }
+                }
+                else
+                {
+                    inputList = new StringList(this.Keys);
                 }
             }
             else
@@ -77,7 +85,7 @@ namespace Eagle._Containers.Private
 
                 foreach (KeyValuePair<string, _Wrappers.Operator> pair in this)
                 {
-                    _Wrappers.Operator @operator = pair.Value;
+                    IOperator @operator = pair.Value;
 
                     if (@operator == null)
                         continue;
@@ -89,11 +97,18 @@ namespace Eagle._Containers.Private
                         ((notHasFlags == OperatorFlags.None) ||
                             !FlagOps.HasFlags(flags, notHasFlags, notHasAll)))
                     {
-                        inputList.Add(StringList.MakeList(
-                            @operator.Lexeme.ToString(),
-                            @operator.Operands.ToString(),
-                            @operator.Flags.ToString(),
-                            pair.Key));
+                        if (full)
+                        {
+                            inputList.Add(StringList.MakeList(
+                                @operator.Lexeme.ToString(),
+                                @operator.Operands.ToString(),
+                                @operator.Flags.ToString(),
+                                pair.Key));
+                        }
+                        else
+                        {
+                            inputList.Add(pair.Key);
+                        }
                     }
                 }
             }

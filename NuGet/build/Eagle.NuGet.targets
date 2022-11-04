@@ -44,10 +44,6 @@
                      Exists('$(OutDir)')"
           Inputs="@(SpilornisFiles)"
           Outputs="@(SpilornisFiles -> '$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')">
-    <!--
-        NOTE: Copy "Spilornis.dll" and all related files, for every
-              supported architecture, to the build output directory.
-    -->
     <Copy SourceFiles="@(SpilornisFiles)"
           DestinationFiles="@(SpilornisFiles -> '$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
@@ -61,10 +57,6 @@
                      '$(OutDir)' != '' And
                      HasTrailingSlash('$(OutDir)') And
                      Exists('$(OutDir)')">
-    <!--
-        NOTE: Delete "Spilornis.dll" and all related files, for every
-              supported architecture, from the build output directory.
-    -->
     <Delete Files="@(SpilornisFiles -> '$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 

@@ -112,6 +112,9 @@ namespace Eagle._Commands
                                 InterpreterFlags.CaptureTestTraces, true);
 #endif
 
+                            bool noChangeReturnCode = ScriptOps.HasFlags(interpreter,
+                                InterpreterFlags.NoChangeTestReturnCode, true);
+
                             ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if TEST
@@ -574,12 +577,18 @@ namespace Eagle._Commands
                                             //       they are specially highlighted by [host result]
                                             //       when it is called from [runTest].
                                             //
-                                            if (skip)
-                                                code = ReturnCode.Break;
-                                            else if (ignore)
-                                                code = ReturnCode.Continue;
-                                            else if (whatIf)
-                                                code = ReturnCode.WhatIf;
+                                            // HACK: If the "NoChangeReturnCode" option is enabled,
+                                            //       do *NOT* change the raw return code.
+                                            //
+                                            if (!noChangeReturnCode)
+                                            {
+                                                if (skip)
+                                                    code = ReturnCode.Break;
+                                                else if (ignore)
+                                                    code = ReturnCode.Continue;
+                                                else if (whatIf)
+                                                    code = ReturnCode.WhatIf;
+                                            }
 
                                             //
                                             // NOTE: The result is the complete output produced by the

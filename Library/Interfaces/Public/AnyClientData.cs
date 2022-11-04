@@ -16,11 +16,18 @@ namespace Eagle._Interfaces.Public
     [ObjectId("4669f1ff-0fb8-4628-bf4f-1ac1637ecc2f")]
     public interface IAnyClientData :
             IClientData, IAnyData, IAnyTypeData, IAnyValueTypeData,
-            ISynchronize
+            ISynchronize, IMaybeDisposed
     {
+        IAnyClientData Attached { get; }
+        IAnyClientData Root { get; }
+
         bool AttachTo(IAnyClientData anyClientData);
         bool DetachFrom(IAnyClientData anyClientData);
 
         int ReplaceData(IAnyClientData anyClientData);
+
+        IStringList ToList();
+        IStringList ToList(string pattern, bool noCase);
+        IStringList ToList(string pattern, bool empty, bool noCase);
     }
 }

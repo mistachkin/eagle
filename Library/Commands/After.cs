@@ -471,8 +471,8 @@ namespace Eagle._Commands
                                                 bool noGlobalCancel = FlagOps.HasFlags(
                                                     eventWaitFlags, EventWaitFlags.NoGlobalCancel, true);
 
-                                                code = EventOps.Wait(
-                                                    interpreter, null, PerformanceOps.GetMicroseconds(
+                                                code = EventOps.Wait(interpreter, null,
+                                                    PerformanceOps.GetMicrosecondsFromMilliseconds(
                                                     milliseconds), null, false, false, noCancel,
                                                     noGlobalCancel, ref result);
 

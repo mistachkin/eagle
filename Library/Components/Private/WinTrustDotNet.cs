@@ -12,6 +12,7 @@
 using System;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
@@ -31,19 +32,22 @@ namespace Eagle._Components.Private
 
         #region Public Methods
         public static bool IsFileTrusted(
-            string fileName,    /* in */
-            IntPtr fileHandle,  /* in */
-            bool userInterface, /* in */
-            bool userPrompt,    /* in */
-            bool revocation,    /* in */
-            bool install        /* in */
+            Interpreter interpreter,  /* in */
+            StringList trustedHashes, /* in */
+            string fileName,          /* in */
+            IntPtr fileHandle,        /* in */
+            bool userInterface,       /* in */
+            bool userPrompt,          /* in */
+            bool revocation,          /* in */
+            bool install              /* in */
             )
         {
             /* !SUCCESS */
             int returnValue = (int)ERROR_SUCCESS + 1;
             Result error = null;
 
-            if ((IsFileTrusted(fileName,
+            if ((IsFileTrusted(
+                    interpreter, trustedHashes, fileName,
                     fileHandle, userInterface, userPrompt,
                     revocation, install, ref returnValue,
                     ref error) == ReturnCode.Ok) &&
@@ -62,25 +66,33 @@ namespace Eagle._Components.Private
 
         #region Private Methods
         private static ReturnCode IsFileTrusted(
-            string fileName,     /* in */
-            IntPtr fileHandle,   /* in: NOT USED */
-            bool userInterface,  /* in: NOT USED */
-            bool userPrompt,     /* in: NOT USED */
-            bool revocation,     /* in: NOT USED */
-            bool install,        /* in: NOT USED */
-            ref int returnValue, /* out */
-            ref Result error     /* out */
+            Interpreter interpreter,  /* in */
+            StringList trustedHashes, /* in */
+            string fileName,          /* in */
+            IntPtr fileHandle,        /* in: NOT USED */
+            bool userInterface,       /* in: NOT USED */
+            bool userPrompt,          /* in: NOT USED */
+            bool revocation,          /* in: NOT USED */
+            bool install,             /* in: NOT USED */
+            ref int returnValue,      /* out */
+            ref Result error          /* out */
             )
         {
+            ReturnCode code;
+
             if (String.IsNullOrEmpty(fileName))
             {
                 error = "invalid file name";
+                code = ReturnCode.Error;
+
                 goto done;
             }
 
             if (!CommonOps.Runtime.IsDotNetCore())
             {
                 error = "not supported on this platform";
+                code = ReturnCode.Error;
+
                 goto done;
             }
 
@@ -92,21 +104,46 @@ namespace Eagle._Components.Private
             //         running on Windows.  This method should not be
             //         called when running on Windows.
             //
-            error = "no implementation available on this platform";
+            if (!CommonOps.Environment.DoesVariableExist(
+                    EnvVars.NoTrustedHashes))
+            {
+                if (PolicyOps.IsTrustedFile(
+                        interpreter, trustedHashes,
+                        fileName, ref error))
+                {
+                    returnValue = (int)ERROR_SUCCESS;
+                    code = ReturnCode.Ok;
+                }
+                else
+                {
+                    code = ReturnCode.Error;
+                }
+            }
+            else
+            {
+                error = "trusted hashes are disabled";
+                code = ReturnCode.Error;
+            }
 
         done:
 
+            TracePriority priority = (code == ReturnCode.Ok) ?
+                TracePriority.SecurityDebug2 : TracePriority.SecurityError;
+
             TraceOps.DebugTrace(String.Format(
-                "IsFileTrusted: file {0} trust failure, " +
-                "userInterface = {1}, revocation = {2}, " +
-                "install = {3}, returnValue = {4}, error = {5}",
-                FormatOps.WrapOrNull(fileName),
+                "IsFileTrusted: file {0} check {1}, " +
+                "interpreter = {2}, trustedHashes = {3}, " +
+                "userInterface = {4}, revocation = {5}, " +
+                "install = {6}, returnValue = {7}, " +
+                "error = {8}", FormatOps.WrapOrNull(fileName),
+                (code == ReturnCode.Ok) ? "success" : "failure",
+                FormatOps.InterpreterNoThrow(interpreter),
+                FormatOps.WrapOrNull(trustedHashes),
                 userInterface, revocation, install,
                 returnValue, FormatOps.WrapOrNull(error)),
-                typeof(WinTrustDotNet).Name,
-                TracePriority.SecurityError);
+                typeof(WinTrustDotNet).Name, priority);
 
-            return ReturnCode.Error;
+            return code;
         }
         #endregion
     }

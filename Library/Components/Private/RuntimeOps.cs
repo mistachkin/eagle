@@ -115,6 +115,12 @@ namespace Eagle._Components.Private
         #region Native Pointer Handling
         private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Compile Options Constants
+        private const string ThreadingDefineName = "THREADING";
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -705,7 +711,7 @@ namespace Eagle._Components.Private
             //
             if ((FlagOps.HasFlags(flags, ReadyFlags.NoPoolStack, true) ||
                 !FlagOps.HasFlags(flags, ReadyFlags.ForcePoolStack, true)) &&
-                Thread.CurrentThread.IsThreadPoolThread)
+                ThreadOps.IsCurrentPool())
             {
                 return false;
             }
@@ -1997,6 +2003,7 @@ namespace Eagle._Components.Private
         //          Native Utility Library (Spilornis) is trusted.
         //
         public static bool ShouldTrustNativeLibrary(
+            Interpreter interpreter,
             string fileName
             )
         {
@@ -2008,8 +2015,9 @@ namespace Eagle._Components.Private
             //       "Eagle Native Utility Library" (Spilornis) *IS* considered
             //       to be part of the "Eagle Core Library".
             //
-            if (!ShouldCheckCoreFileTrusted() ||
-                !IsFileTrusted(GlobalState.GetAssemblyLocation(), IntPtr.Zero))
+            if (!ShouldCheckCoreFileTrusted() || !IsFileTrusted(
+                    interpreter, null, GlobalState.GetAssemblyLocation(),
+                    IntPtr.Zero))
             {
                 return true;
             }
@@ -2019,7 +2027,7 @@ namespace Eagle._Components.Private
             //       it to load.
             //
             if (!ShouldCheckFileTrusted() ||
-                IsFileTrusted(fileName, IntPtr.Zero))
+                IsFileTrusted(interpreter, null, fileName, IntPtr.Zero))
             {
                 return true;
             }
@@ -2034,6 +2042,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsFileTrusted(
+            Interpreter interpreter,
+            StringList trustedHashes,
             byte[] bytes
             )
         {
@@ -2063,7 +2073,9 @@ namespace Eagle._Components.Private
                 {
                     stream.Write(bytes, 0, bytes.Length); /* throw */
 
-                    return IsFileTrusted(fileName, stream.Handle);
+                    return IsFileTrusted(
+                        interpreter, trustedHashes, fileName,
+                        stream.Handle);
                 }
             }
             catch (Exception e)
@@ -2100,17 +2112,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsFileTrusted(
+            Interpreter interpreter,
+            StringList trustedHashes,
             string fileName,
             IntPtr fileHandle
             )
         {
             return IsFileTrusted(
-                fileName, fileHandle, false, false, true, false);
+                interpreter, trustedHashes, fileName, fileHandle, false,
+                false, true, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static bool IsFileTrusted(
+            Interpreter interpreter,
+            StringList trustedHashes,
             string fileName,
             IntPtr fileHandle,
             bool userInterface,
@@ -2124,8 +2141,17 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region .NET Core Support
-#if NET_STANDARD_20
-            if (CommonOps.Runtime.IsDotNetCore())
+#if !NATIVE
+            bool treatAsDotNetCore = false;
+
+        nonNative:
+#endif
+
+            if (
+#if !NATIVE
+                treatAsDotNetCore ||
+#endif
+                CommonOps.Runtime.IsDotNetCore())
             {
 #if NATIVE
                 if (PlatformOps.IsWindowsOperatingSystem())
@@ -2133,7 +2159,8 @@ namespace Eagle._Components.Private
 #endif
 
                 if (WinTrustDotNet.IsFileTrusted(
-                        fileName, fileHandle, userInterface, userPrompt,
+                        interpreter, trustedHashes, fileName,
+                        fileHandle, userInterface, userPrompt,
                         revocation, install))
                 {
                     TraceOps.DebugTrace(String.Format(
@@ -2157,7 +2184,6 @@ namespace Eagle._Components.Private
                     return false;
                 }
             }
-#endif
             #endregion
 
             ///////////////////////////////////////////////////////////////////
@@ -2203,9 +2229,7 @@ namespace Eagle._Components.Private
 
             #region .NET Framework Support
 #if NATIVE
-#if NET_STANDARD_20 || (MONO && MONO_BUILD)
         native:
-#endif
 
             if (WinTrustOps.IsFileTrusted(
                     fileName, fileHandle, userInterface, userPrompt,
@@ -2244,23 +2268,27 @@ namespace Eagle._Components.Private
             //       if we took a dependency on the .NET Framework 3.5
             //       or higher?
             //
-            return false;
+            treatAsDotNetCore = true;
+            goto nonNative;
 #endif
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetVendor(
+            Interpreter interpreter,
             bool noCache
             )
         {
-            return GetCertificateSubject(GlobalState.GetAssemblyLocation(),
-                null, ShouldCheckCoreFileTrusted(), true, noCache);
+            return GetCertificateSubject(
+                interpreter, GlobalState.GetAssemblyLocation(), null,
+                ShouldCheckCoreFileTrusted(), true, noCache);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetCertificateSubject(
+            Interpreter interpreter,
             string fileName,
             string prefix,
             bool trusted,
@@ -2275,8 +2303,8 @@ namespace Eagle._Components.Private
                 if (CertificateOps.GetCertificate2(
                         fileName, noCache, ref certificate2) == ReturnCode.Ok)
                 {
-                    if ((certificate2 != null) &&
-                        IsFileTrusted(fileName, IntPtr.Zero))
+                    if ((certificate2 != null) && IsFileTrusted(
+                            interpreter, null, fileName, IntPtr.Zero))
                     {
                         StringBuilder result = StringOps.NewStringBuilder();
 
@@ -3978,12 +4006,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetFileTrusted(
+            Interpreter interpreter,
             string fileName
             )
         {
             if (GetCertificateSubject(
-                    fileName, null, ShouldCheckFileTrusted(), true,
-                    true) != null)
+                    interpreter, fileName, null, ShouldCheckFileTrusted(),
+                    true, true) != null)
             {
                 return Vars.Version.TrustedValue;
             }
@@ -4119,10 +4148,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void AddCoreVersionInformation(
-            Assembly assembly,  /* in */
-            string fileName,    /* in */
-            bool safe,          /* in */
-            ref StringList list /* in, out */
+            Interpreter interpreter, /* in */
+            Assembly assembly,       /* in */
+            string fileName,         /* in */
+            bool safe,               /* in */
+            ref StringList list      /* in, out */
             )
         {
             if (list == null)
@@ -4130,7 +4160,7 @@ namespace Eagle._Components.Private
 
             list.Add(GlobalState.GetPackageName());
             list.Add(GlobalState.GetAssemblyVersionString());
-            list.Add(GetFileTrusted(fileName));
+            list.Add(GetFileTrusted(interpreter, fileName));
             list.Add(GetGenuine());
 
             if (safe)
@@ -4264,6 +4294,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: For use by the Utility class only.
+        //
+        public static bool HaveThreading(
+            Interpreter interpreter /* in: NOT USED */
+            )
+        {
+            return HaveDefineConstant(ThreadingDefineName);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HaveDefineConstant(
+            string name /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(name))
+                return false;
+
+            StringList options = DefineConstants.OptionList;
+
+            if (options == null)
+                return false;
+
+            return options.Contains(
+                name, StringComparison.OrdinalIgnoreCase);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode GetVersion(
             Interpreter interpreter,   /* in */
             VersionFlags versionFlags, /* in */
@@ -4274,7 +4334,7 @@ namespace Eagle._Components.Private
 
             if (FlagOps.HasFlags(versionFlags, VersionFlags.Core, true))
             {
-                AddCoreVersionInformation(
+                AddCoreVersionInformation(interpreter,
                     GlobalState.GetAssembly(),
                     GlobalState.GetAssemblyLocation(),
                     (interpreter != null) ?
@@ -4979,7 +5039,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static PluginFlags GetSkipCheckPluginFlags()
+        private static PluginFlags GetSkipCheckPluginFlags()
         {
             PluginFlags result = PluginFlags.None;
 
@@ -5106,6 +5166,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static PluginFlags GetAssemblyPluginFlags(
+            Interpreter interpreter,
+            StringList trustedHashes,
+            Assembly assembly,
+            byte[] assemblyBytes
+            )
+        {
+            return GetAssemblyPluginFlags(
+                interpreter, trustedHashes, assembly, assemblyBytes,
+                GetSkipCheckPluginFlags());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static PluginFlags GetAssemblyPluginFlags(
+            Interpreter interpreter,
+            StringList trustedHashes,
             Assembly assembly,
             byte[] assemblyBytes,
             PluginFlags pluginFlags
@@ -5181,7 +5257,8 @@ namespace Eagle._Components.Private
                         //       system [via the Win32 native API
                         //       WinVerifyTrust].
                         //
-                        if (IsFileTrusted(assemblyBytes))
+                        if (IsFileTrusted(
+                                interpreter, trustedHashes, assemblyBytes))
                         {
                             result |= PluginFlags.Trusted;
                         }
@@ -5199,6 +5276,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static PluginFlags GetAssemblyPluginFlags(
+            Interpreter interpreter,
+            StringList trustedHashes,
+            Assembly assembly
+            )
+        {
+            return GetAssemblyPluginFlags(interpreter,
+                trustedHashes, assembly, GetSkipCheckPluginFlags());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static PluginFlags GetAssemblyPluginFlags(
+            Interpreter interpreter,
+            StringList trustedHashes,
             Assembly assembly,
             PluginFlags pluginFlags
             )
@@ -5254,7 +5345,6 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
-#if !NET_STANDARD_20
             //
             // NOTE: Check if the plugin has an Authenticode signature.
             //
@@ -5278,7 +5368,9 @@ namespace Eagle._Components.Private
                     //       system [via the Win32 native API
                     //       WinVerifyTrust].
                     //
-                    if (IsFileTrusted(assembly.Location, IntPtr.Zero))
+                    if (IsFileTrusted(
+                            interpreter, trustedHashes, assembly.Location,
+                            IntPtr.Zero))
                     {
                         result |= PluginFlags.Trusted;
                     }
@@ -5288,11 +5380,60 @@ namespace Eagle._Components.Private
                     result |= PluginFlags.SkipTrusted;
                 }
             }
-#endif
 
             ///////////////////////////////////////////////////////////////////
 
             return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static StringList CombineOrCopyTrustedHashes(
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool noGlobal            /* in */
+            )
+        {
+            StringList trustedHashes1 = null;
+
+            if (interpreter != null)
+            {
+                bool locked = false;
+
+                try
+                {
+                    interpreter.InternalHardTryLock(
+                        ref locked); /* TRANSACTIONAL */
+
+                    if (locked)
+                    {
+                        trustedHashes1 =
+                            interpreter.InternalTrustedHashes;
+                    }
+                }
+                finally
+                {
+                    interpreter.InternalExitLock(
+                        ref locked); /* TRANSACTIONAL */
+                }
+            }
+
+            StringList trustedHashes2 = noGlobal ?
+                null : GlobalState.CopyTrustedHashes();
+
+            if ((trustedHashes1 != null) || (trustedHashes2 != null))
+            {
+                StringList trustedHashes3 = new StringList();
+
+                if (trustedHashes1 != null)
+                    trustedHashes3.AddRange(trustedHashes1);
+
+                if (trustedHashes2 != null)
+                    trustedHashes3.AddRange(trustedHashes2);
+
+                return trustedHashes3;
+            }
+
+            return null;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5376,6 +5517,7 @@ namespace Eagle._Components.Private
 #endif
 
                 object helper = Interpreter.GetReflectionHelper(
+                    CombineOrCopyTrustedHashes(interpreter, false),
                     fileName, null, pluginFlags, pluginLoaderFlags,
                     ref @delegate, ref error);
 
@@ -5447,6 +5589,7 @@ namespace Eagle._Components.Private
 #endif
 
                 object helper = Interpreter.GetReflectionHelper(
+                    CombineOrCopyTrustedHashes(interpreter, false),
                     assemblyBytes, null, pluginFlags, pluginLoaderFlags,
                     ref @delegate, ref error);
 
@@ -5574,6 +5717,7 @@ namespace Eagle._Components.Private
 #endif
 
                 object helper = Interpreter.GetReflectionHelper(
+                    CombineOrCopyTrustedHashes(interpreter, false),
                     fileName, patterns, pluginFlags, pluginLoaderFlags,
                     ref @delegate, ref error);
 
@@ -5647,6 +5791,7 @@ namespace Eagle._Components.Private
 #endif
 
                 object helper = Interpreter.GetReflectionHelper(
+                    CombineOrCopyTrustedHashes(interpreter, false),
                     assemblyBytes, patterns, pluginFlags, pluginLoaderFlags,
                     ref @delegate, ref error);
 
@@ -8413,13 +8558,13 @@ namespace Eagle._Components.Private
 
                 TraceOps.DebugTrace(
                     e, typeof(RuntimeOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
             }
             catch (ThreadInterruptedException e)
             {
                 TraceOps.DebugTrace(
                     e, typeof(RuntimeOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
             }
             catch (Exception e)
             {

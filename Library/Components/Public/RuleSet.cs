@@ -36,6 +36,15 @@ namespace Eagle._Components.Public
     [ObjectId("2d251f5e-a5b7-40f2-a991-d06f9bcb78cb")]
     public sealed class RuleSet : IRuleSet, IDisposable
     {
+        #region Private Constants
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool DefaultAllowMissing = false;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Data
         private readonly object syncRoot = new object();
 
@@ -51,8 +60,21 @@ namespace Eagle._Components.Public
 
         #region Static "Factory" Methods
         public static IRuleSet Create(
-            string value,            /* in */
+            string text,             /* in */
             CultureInfo cultureInfo, /* in */
+            ref Result error         /* out */
+            )
+        {
+            return Create(
+                text, cultureInfo, DefaultAllowMissing, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IRuleSet Create(
+            string text,             /* in */
+            CultureInfo cultureInfo, /* in */
+            bool allowMissing,       /* in */
             ref Result error         /* out */
             )
         {
@@ -63,12 +85,12 @@ namespace Eagle._Components.Public
             {
                 ruleSet = new RuleSet();
 
-                if (value != null)
+                if (text != null)
                 {
                     StringList list = null;
 
                     if (ParserOps<string>.SplitList(
-                            null, value, 0, Length.Invalid, false,
+                            null, text, 0, Length.Invalid, false,
                             ref list, ref error) != ReturnCode.Ok)
                     {
                         return null;
@@ -80,7 +102,8 @@ namespace Eagle._Components.Public
                             continue;
 
                         IRule rule = Rule.Create(
-                            element, cultureInfo, ref error);
+                            element, cultureInfo, allowMissing,
+                            ref error);
 
                         if (rule == null)
                             return null;
@@ -278,6 +301,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private long GetId(
+            long? id /* in: OPTIONAL */
+            )
+        {
+            if (id != null)
+                return (long)id;
+
+            return NextId();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private long GetId(
+            IRule rule /* in: OPTIONAL */
+            )
+        {
+            if (rule != null)
+            {
+                long? id = rule.Id;
+
+                if (id != null)
+                    return (long)id;
+
+                id = NextId();
+                rule.SetId(id);
+
+                return (long)id;
+            }
+
+            return NextId();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private IComparer<string> GetComparer(
             IRule rule /* in: OPTIONAL */
             )
@@ -309,7 +366,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private IRule Add(
-            long id,                      /* in */
+            long? id,                     /* in */
             RuleType type,                /* in */
             IdentifierKind kind,          /* in */
             MatchMode mode,               /* in */
@@ -320,7 +377,7 @@ namespace Eagle._Components.Public
             )
         {
             return Add(new Rule(
-                id, type, kind, mode, regExOptions, patterns,
+                GetId(id), type, kind, mode, regExOptions, patterns,
                 comparer), ref error);
         }
 
@@ -349,7 +406,7 @@ namespace Eagle._Components.Public
                 // HACK: Always overwrite instead of
                 //       purely adding, just in case.
                 //
-                rules[rule.Id] = rule;
+                rules[GetId(rule)] = rule;
                 return rule;
             }
         }
@@ -375,7 +432,7 @@ namespace Eagle._Components.Public
                     return false;
                 }
 
-                if (!rules.Remove(rule.Id))
+                if (!rules.Remove(GetId(rule)))
                 {
                     error = "could not remove rule";
                     return false;
@@ -458,14 +515,18 @@ namespace Eagle._Components.Public
                         }
                     }
 
-                    if (rule.Id != id)
+                    long? ruleId = rule.Id;
+
+                    if ((ruleId == null) ||
+                        ((long)ruleId != id))
                     {
                         if (errors == null)
                             errors = new ResultList();
 
                         errors.Add(String.Format(
                             "rule #{0} mismatches #{1}",
-                            rule.Id, id));
+                            FormatOps.WrapOrNull(rule.Id),
+                            id));
 
                         if (stopOnError)
                         {
@@ -594,14 +655,18 @@ namespace Eagle._Components.Public
                         }
                     }
 
-                    if (rule.Id != id)
+                    long? ruleId = rule.Id;
+
+                    if ((ruleId == null) ||
+                        ((long)ruleId != id))
                     {
                         if (errors == null)
                             errors = new ResultList();
 
                         errors.Add(String.Format(
                             "rule #{0} mismatches #{1}",
-                            rule.Id, id));
+                            FormatOps.WrapOrNull(rule.Id),
+                            id));
 
                         if (stopOnError)
                         {
@@ -729,15 +794,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IRuleSet Members
+        #region IRuleSetData Members
         public IComparer<string> Comparer
         {
             get { CheckDisposed(); return comparer; }
             set { CheckDisposed(); comparer = value; }
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IRuleSet Members
         public bool IsEmpty()
         {
             CheckDisposed();
@@ -767,6 +834,50 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public IEnumerable<IRule> CopyRules(
+            ref Result error /* out */
+            )
+        {
+            CheckDisposed();
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (rules == null)
+                {
+                    error = "rules unavailable";
+                    return null;
+                }
+
+                IList<IRule> result = new List<IRule>();
+                LongList ids = new LongList(rules.Keys);
+
+                ids.Sort(); /* O(N) */
+
+                foreach (long id in ids)
+                {
+                    IRule rule;
+
+                    if (!rules.TryGetValue(id, out rule))
+                        continue;
+
+                    if (rule == null)
+                        continue;
+
+                    IRule newRule = rule.Clone() as IRule;
+
+                    if (newRule == null)
+                        continue;
+
+                    newRule.SetId(null);
+                    result.Add(newRule);
+                }
+
+                return result;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public IRule BuildAndAddRule(
             RuleType type,       /* in */
             IdentifierKind kind, /* in */
@@ -779,7 +890,7 @@ namespace Eagle._Components.Public
             CheckReadOnly();
 
             return Add(
-                NextId(), type, kind, mode, RegexOptions.None,
+                null, type, kind, mode, RegexOptions.None,
                 new StringList(pattern), null, ref error);
         }
 
@@ -797,7 +908,7 @@ namespace Eagle._Components.Public
             CheckReadOnly();
 
             return Add(
-                NextId(), type, kind, mode, RegexOptions.None,
+                null, type, kind, mode, RegexOptions.None,
                 patterns, null, ref error);
         }
 
@@ -816,7 +927,7 @@ namespace Eagle._Components.Public
             CheckReadOnly();
 
             return Add(
-                NextId(), type, kind, mode, regExOptions,
+                null, type, kind, mode, regExOptions,
                 patterns, null, ref error);
         }
 
@@ -836,7 +947,7 @@ namespace Eagle._Components.Public
             CheckReadOnly();
 
             return Add(
-                NextId(), type, kind, mode, regExOptions,
+                null, type, kind, mode, regExOptions,
                 patterns, comparer, ref error);
         }
 
@@ -864,6 +975,45 @@ namespace Eagle._Components.Public
             CheckReadOnly();
 
             return Remove(rule, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool AddRules(
+            IEnumerable<IRule> rules, /* in */
+            bool stopOnError,         /* in */
+            ref Result error          /* out */
+            )
+        {
+            CheckDisposed();
+            CheckReadOnly();
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (rules == null)
+                {
+                    error = "invalid rules";
+                    return false;
+                }
+
+                bool result = true;
+
+                foreach (IRule rule in rules)
+                {
+                    if (rule == null)
+                        continue;
+
+                    if (!AddRule(rule, ref error))
+                    {
+                        result = false;
+
+                        if (stopOnError)
+                            break;
+                    }
+                }
+
+                return result;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

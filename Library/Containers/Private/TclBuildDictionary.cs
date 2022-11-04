@@ -35,10 +35,11 @@ namespace Eagle._Containers.Private.Tcl
         ///////////////////////////////////////////////////////////////////////
 
         public bool MaybeAddOrReplace(
-            FindFlags flags, /* in */
-            string key,      /* in */
-            TclBuild value,  /* in */
-            ref Result error /* out */
+            Interpreter interpreter, /* in */
+            FindFlags flags,         /* in */
+            string key,              /* in */
+            TclBuild value,          /* in */
+            ref Result error         /* out */
             )
         {
             if (key == null)
@@ -51,8 +52,8 @@ namespace Eagle._Containers.Private.Tcl
             }
 
             if (FlagOps.HasFlags(flags, FindFlags.TrustedOnly, true) &&
-                ((value == null) ||
-                !RuntimeOps.IsFileTrusted(value.FileName, IntPtr.Zero)))
+                ((value == null) || !RuntimeOps.IsFileTrusted(
+                    interpreter, null, value.FileName, IntPtr.Zero)))
             {
                 error = String.Format(
                     "can't add Tcl build file {0}: not trusted",

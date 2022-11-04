@@ -271,6 +271,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region For "eagle_debugger" Array Use Only
+        [ObjectId("29cb50d9-3570-44d8-b2d2-8364cce53176")]
+        internal static class Debugger
+        {
+            //
+            // NOTE: The name of the "special" script currently being
+            //       evaluated by the interpreter.  These scripts are
+            //       generally evaluated during interpreter creation.
+            //
+            public static readonly string ScriptName = "scriptName";
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region For "eagle_platform" Array Use Only
         //
         // NOTE: These names are referred to directly from scripts and where
@@ -346,6 +361,13 @@ namespace Eagle._Components.Private
             public static readonly string ShellPatchLevel = "shellPatchLevel";
             public static readonly string ShellVersion = "shellVersion";
             public static readonly string NativeUtility = "nativeUtility";
+            public static readonly string Timeout = "timeout";
+
+            ///////////////////////////////////////////////////////////////////
+
+#if NETWORK
+            public static readonly string NetworkTimeout = "networkTimeout";
+#endif
 
             ///////////////////////////////////////////////////////////////////
 

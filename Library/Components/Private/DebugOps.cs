@@ -61,6 +61,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private const string TraceLogInterpreterDataName = "TraceLogInterpreter";
+        private const string TraceLogEncodingDataName = "TraceLogEncoding";
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static readonly string TextWriteExceptionFormat =
             "write of text failed ({0}): {1}{2}";
 
@@ -279,6 +284,17 @@ namespace Eagle._Components.Private
         //       used with instances of the TextWriter class.
         //
         private static bool AutoFlushOnClear = true;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: *TESTING* This is purposely not marked as read-only.
+        //
+        // NOTE: If this value is non-zero, calls to the Flush() method will
+        //       be performed at appropriate times.  Generally, this will be
+        //       used with instances of the TextWriter class.
+        //
+        private static bool AutoFlushOnClose = true;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -2451,6 +2467,149 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static Type GetTraceListenerType(
+            TraceListenerType listenerType,
+            ref Result error
+            )
+        {
+        retry:
+
+            switch (listenerType)
+            {
+                case TraceListenerType.Default:
+                    {
+                        return typeof(DefaultTraceListener);
+                    }
+                case TraceListenerType.Console:
+                    {
+#if CONSOLE
+#if !NET_STANDARD_20
+                        return typeof(ConsoleTraceListener);
+#else
+                        return typeof(TextWriterTraceListener);
+#endif
+#else
+                        error = String.Format(
+                            "unimplemented trace listener type {0}",
+                            listenerType);
+
+                        return null;
+#endif
+                    }
+                case TraceListenerType.Native:
+                    {
+#if TEST && NATIVE
+                        return typeof(_Tests.Default.NativeTraceListener);
+#else
+                        error = String.Format(
+                            "unimplemented trace listener type {0}",
+                            listenerType);
+
+                        return null;
+#endif
+                    }
+                case TraceListenerType.RawLogFile:
+                    {
+                        return typeof(TextWriterTraceListener);
+                    }
+                case TraceListenerType.TestLogFile:
+                    {
+#if TEST
+                        return typeof(_Tests.Default.Listener);
+#else
+                        error = String.Format(
+                            "unimplemented trace listener type {0}",
+                            listenerType);
+
+                        return null;
+#endif
+                    }
+                case TraceListenerType.Automatic:
+                    {
+                        listenerType = GetTraceListenerType();
+
+                        if (listenerType == TraceListenerType.Automatic)
+                        {
+                            error = String.Format(
+                                "trace listener type {0} detection failed",
+                                listenerType);
+
+                            return null;
+                        }
+
+                        goto retry;
+                    }
+                default:
+                    {
+                        error = String.Format(
+                            "unrecognized trace listener type {0}",
+                            listenerType);
+
+                        return null;
+                    }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool FlushTraceListener(
+            TraceListener listener
+            )
+        {
+            try
+            {
+                if (listener != null)
+                {
+                    listener.Flush(); /* throw */
+                    return true;
+                }
+            }
+#if NATIVE
+            catch (Exception e)
+            {
+                Output(ResultOps.Format(
+                    ReturnCode.Error, e));
+            }
+#else
+            catch
+            {
+                // do nothing.
+            }
+#endif
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void DisposeTraceListener(
+            ref TraceListener listener
+            )
+        {
+            try
+            {
+                if (listener != null)
+                {
+                    listener.Dispose(); /* throw */
+                    listener = null;
+                }
+            }
+#if NATIVE
+            catch (Exception e)
+            {
+                Output(ResultOps.Format(
+                    ReturnCode.Error, e));
+            }
+#else
+            catch
+            {
+                // do nothing.
+            }
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if TEST
         public static void PushTraceListener(
             bool debug,
@@ -2537,6 +2696,59 @@ namespace Eagle._Components.Private
             }
 
             return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static Interpreter GetTraceLogInterpreter(
+            IClientData clientData /* in */
+            )
+        {
+            Interpreter interpreter;
+
+            if (clientData is IAnyClientData)
+            {
+                IAnyClientData anyClientData = (IAnyClientData)clientData;
+                Result error = null;
+
+                /* IGNORED */
+                anyClientData.TryGetInterpreter(
+                    Interpreter.GetActive(), TraceLogInterpreterDataName,
+                    true, out interpreter, ref error);
+            }
+            else
+            {
+                interpreter = Interpreter.GetActive();
+            }
+
+            return interpreter;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static Encoding GetTraceLogEncoding(
+            Interpreter interpreter, /* in */
+            IClientData clientData   /* in */
+            )
+        {
+            Encoding encoding;
+
+            if (clientData is IAnyClientData)
+            {
+                IAnyClientData anyClientData = (IAnyClientData)clientData;
+                Result error = null;
+
+                /* IGNORED */
+                anyClientData.TryGetEncoding(
+                    interpreter, TraceLogEncodingDataName, true,
+                    out encoding, ref error);
+            }
+            else
+            {
+                encoding = null;
+            }
+
+            return encoding;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2702,7 +2914,7 @@ namespace Eagle._Components.Private
                         return null;
 #endif
                     }
-                case TraceListenerType.LogFile:
+                case TraceListenerType.RawLogFile:
                     {
                         string logFileName = GetTraceLogFileName(
                             clientData, ref error);
@@ -2722,6 +2934,33 @@ namespace Eagle._Components.Private
                             error = e;
                             return null;
                         }
+                    }
+                case TraceListenerType.TestLogFile:
+                    {
+#if TEST
+                        string logFileName = GetTraceLogFileName(
+                            clientData, ref error);
+
+                        if (logFileName == null)
+                            return null;
+
+                        string logName = GetTraceLogName(clientData);
+
+                        Interpreter interpreter = GetTraceLogInterpreter(
+                            clientData);
+
+                        Encoding encoding = GetTraceLogEncoding(
+                            interpreter, clientData);
+
+                        return NewTestTraceListener(
+                            logName, logFileName, encoding);
+#else
+                        error = String.Format(
+                            "unimplemented trace listener type {0}",
+                            listenerType);
+
+                        return null;
+#endif
                     }
                 case TraceListenerType.Automatic:
                     {
@@ -2916,11 +3155,10 @@ namespace Eagle._Components.Private
                     }
                     finally
                     {
-                        if (listener != null)
-                        {
-                            listener.Dispose(); /* throw */
-                            listener = null;
-                        }
+                        if (AutoFlushOnClose)
+                            FlushTraceListener(listener);
+
+                        DisposeTraceListener(ref listener);
                     }
                 }
                 else
@@ -2941,11 +3179,10 @@ namespace Eagle._Components.Private
                     }
                     finally
                     {
-                        if (listener != null)
-                        {
-                            listener.Dispose(); /* throw */
-                            listener = null;
-                        }
+                        if (AutoFlushOnClose)
+                            FlushTraceListener(listener);
+
+                        DisposeTraceListener(ref listener);
                     }
 #endif
 
@@ -2964,11 +3201,10 @@ namespace Eagle._Components.Private
                     }
                     finally
                     {
-                        if (listener != null)
-                        {
-                            listener.Dispose(); /* throw */
-                            listener = null;
-                        }
+                        if (AutoFlushOnClose)
+                            FlushTraceListener(listener);
+
+                        DisposeTraceListener(ref listener);
                     }
                 }
             }
@@ -3000,11 +3236,10 @@ namespace Eagle._Components.Private
                 }
                 finally
                 {
-                    if (listener != null)
-                    {
-                        listener.Dispose(); /* throw */
-                        listener = null;
-                    }
+                    if (AutoFlushOnClose)
+                        FlushTraceListener(listener);
+
+                    DisposeTraceListener(ref listener);
                 }
             }
 
@@ -3034,11 +3269,10 @@ namespace Eagle._Components.Private
                 }
                 finally
                 {
-                    if (listener != null)
-                    {
-                        listener.Dispose(); /* throw */
-                        listener = null;
-                    }
+                    if (AutoFlushOnClose)
+                        FlushTraceListener(listener);
+
+                    DisposeTraceListener(ref listener);
                 }
             }
 
@@ -3067,11 +3301,10 @@ namespace Eagle._Components.Private
                 }
                 finally
                 {
-                    if (listener != null)
-                    {
-                        listener.Dispose(); /* throw */
-                        listener = null;
-                    }
+                    if (AutoFlushOnClose)
+                        FlushTraceListener(listener);
+
+                    DisposeTraceListener(ref listener);
                 }
             }
 
@@ -3220,8 +3453,10 @@ namespace Eagle._Components.Private
 
                 if (dispose)
                 {
-                    oldListener.Dispose(); /* throw */
-                    oldListener = null;
+                    if (AutoFlushOnClose)
+                        FlushTraceListener(oldListener);
+
+                    DisposeTraceListener(ref oldListener);
                 }
             }
 
@@ -3250,14 +3485,8 @@ namespace Eagle._Components.Private
                 if (listener == null)
                     continue;
 
-                try
-                {
-                    listener.Flush(); /* throw */
-                }
-                catch
-                {
+                if (!FlushTraceListener(listener))
                     errorCount++;
-                }
             }
 
             return (errorCount == 0);
@@ -3431,11 +3660,12 @@ namespace Eagle._Components.Private
             }
             finally
             {
-                if ((code != ReturnCode.Ok) &&
-                    (listener != null))
+                if (code != ReturnCode.Ok)
                 {
-                    listener.Dispose(); /* throw */
-                    listener = null;
+                    if (AutoFlushOnClose)
+                        FlushTraceListener(listener);
+
+                    DisposeTraceListener(ref listener);
                 }
             }
 
@@ -3597,6 +3827,68 @@ namespace Eagle._Components.Private
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode RemoveTraceListener(
+            TraceListenerCollection listeners,
+            TraceListenerType listenerType,
+            bool dispose,
+            ref Result error
+            )
+        {
+            if (listeners == null)
+            {
+                error = "invalid trace listener collection";
+                return ReturnCode.Error;
+            }
+
+            Type type = GetTraceListenerType(
+                listenerType, ref error);
+
+            if (type == null)
+                return ReturnCode.Error;
+
+            TraceListener removeListener = null;
+            int count = listeners.Count;
+
+            for (int index = 0; index < count; index++)
+            {
+                TraceListener listener = listeners[index];
+
+                if (listener == null)
+                    continue;
+
+                if (Object.ReferenceEquals(listener.GetType(), type))
+                {
+                    removeListener = listener;
+                    break;
+                }
+            }
+
+            if (removeListener != null)
+            {
+                listeners.Remove(removeListener);
+
+                if (dispose)
+                {
+                    if (AutoFlushOnClose)
+                        FlushTraceListener(removeListener);
+
+                    DisposeTraceListener(ref removeListener);
+                }
+
+                return ReturnCode.Ok;
+            }
+            else
+            {
+                error = String.Format(
+                    "unmatched trace listener type {0}",
+                    listenerType);
+
+                return ReturnCode.Error;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3877,26 +4169,12 @@ namespace Eagle._Components.Private
             }
             finally
             {
-                if ((code != ReturnCode.Ok) &&
-                    (localListener != null))
+                if (code != ReturnCode.Ok)
                 {
-                    try
-                    {
-                        localListener.Dispose(); /* throw */
-                        localListener = null;
-                    }
-#if NATIVE
-                    catch (Exception e)
-                    {
-                        Output(ResultOps.Format(
-                            ReturnCode.Error, e));
-                    }
-#else
-                    catch
-                    {
-                        // do nothing.
-                    }
-#endif
+                    if (AutoFlushOnClose)
+                        FlushTraceListener(localListener);
+
+                    DisposeTraceListener(ref localListener);
                 }
             }
 
@@ -3957,10 +4235,16 @@ namespace Eagle._Components.Private
             {
                 try
                 {
-                    if (File.Exists(fileName) &&
-                        (new FileInfo(fileName).Length == 0))
+                    if (File.Exists(fileName))
                     {
-                        File.Delete(fileName);
+                        long size = Size.Invalid;
+
+                        if ((FileOps.GetFileSize(fileName,
+                                ref size) == ReturnCode.Ok) &&
+                            (size == 0))
+                        {
+                            File.Delete(fileName); /* throw */
+                        }
                     }
                 }
                 catch (Exception e)
@@ -4039,26 +4323,12 @@ namespace Eagle._Components.Private
             }
             finally
             {
-                if ((code != ReturnCode.Ok) &&
-                    (localListener != null))
+                if (code != ReturnCode.Ok)
                 {
-                    try
-                    {
-                        localListener.Dispose(); /* throw */
-                        localListener = null;
-                    }
-#if NATIVE
-                    catch (Exception e)
-                    {
-                        Output(ResultOps.Format(
-                            ReturnCode.Error, e));
-                    }
-#else
-                    catch
-                    {
-                        // do nothing.
-                    }
-#endif
+                    if (AutoFlushOnClose)
+                        FlushTraceListener(localListener);
+
+                    DisposeTraceListener(ref localListener);
                 }
             }
 
@@ -4298,7 +4568,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void DebugFlush()
+        public static void DebugFlush()
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {

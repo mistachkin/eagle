@@ -56,7 +56,8 @@ set eagle_manifests(source) {
   Eagle/data/exclude_nuget.txt
   Eagle/data/exclude_runtime.txt
   Eagle/data/exclude_src.txt
-  Eagle/data/exclude_update.txt
+  Eagle/data/exclude_update_bin.txt
+  Eagle/data/exclude_update_lib.txt
   Eagle/Eagle.sln
   Eagle/Eagle.url
   Eagle/Eagle2005.sln
@@ -184,6 +185,7 @@ set eagle_manifests(source) {
   Eagle/Library/Attributes/Public/ObjectNameAttribute.cs
   Eagle/Library/Attributes/Public/OperandsAttribute.cs
   Eagle/Library/Attributes/Public/OperatorFlagsAttribute.cs
+  Eagle/Library/Attributes/Public/ParameterIndexAttribute.cs
   Eagle/Library/Attributes/Public/PluginFlagsAttribute.cs
   Eagle/Library/Attributes/Public/ThrowAttribute.cs
   Eagle/Library/Attributes/Public/TypeListFlagsAttribute.cs
@@ -350,6 +352,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/ChannelContext.cs
   Eagle/Library/Components/Private/ChannelOps.cs
   Eagle/Library/Components/Private/ChannelStream.cs
+  Eagle/Library/Components/Private/ChannelStreamBuffer.cs
   Eagle/Library/Components/Private/CleanupPathClientData.cs
   Eagle/Library/Components/Private/CommandBuilder.cs
   Eagle/Library/Components/Private/CommandCallback.cs
@@ -801,6 +804,7 @@ set eagle_manifests(source) {
   Eagle/Library/Hosts/Shell.cs
   Eagle/Library/Hosts/Wrapper.cs
   Eagle/Library/Interfaces/Private/CacheCounts.cs
+  Eagle/Library/Interfaces/Private/CacheValue.cs
   Eagle/Library/Interfaces/Private/CanHashValue.cs
   Eagle/Library/Interfaces/Private/Channel.cs
   Eagle/Library/Interfaces/Private/ChannelContext.cs
@@ -956,7 +960,9 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/Rfc2898DataManager.cs
   Eagle/Library/Interfaces/Public/Rfc2898DataProvider.cs
   Eagle/Library/Interfaces/Public/Rule.cs
+  Eagle/Library/Interfaces/Public/RuleData.cs
   Eagle/Library/Interfaces/Public/RuleSet.cs
+  Eagle/Library/Interfaces/Public/RuleSetData.cs
   Eagle/Library/Interfaces/Public/RuntimeOptionManager.cs
   Eagle/Library/Interfaces/Public/Script.cs
   Eagle/Library/Interfaces/Public/ScriptBinder.cs
@@ -997,6 +1003,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/TraceInfo.cs
   Eagle/Library/Interfaces/Public/TraceManager.cs
   Eagle/Library/Interfaces/Public/Triplet.cs
+  Eagle/Library/Interfaces/Public/TrustManager.cs
   Eagle/Library/Interfaces/Public/TypedInstance.cs
   Eagle/Library/Interfaces/Public/TypedMember.cs
   Eagle/Library/Interfaces/Public/UnknownCallback.cs
@@ -1075,6 +1082,7 @@ set eagle_manifests(source) {
   Eagle/Library/Resolvers/Core.cs
   Eagle/Library/Resolvers/Default.cs
   Eagle/Library/Resolvers/Namespace.cs
+  Eagle/Library/Resources/DefaultTrustValues.txt
   Eagle/Library/Resources/Eagle.ico
   Eagle/Library/Resources/Eagle.xsd
   Eagle/Library/Resources/Eagle2.ico
@@ -1465,6 +1473,7 @@ set eagle_manifests(source) {
   Eagle/Native/Utility/src/generic/rcVersion.h
   Eagle/Native/Utility/src/generic/Spilornis.c
   Eagle/Native/Utility/src/generic/Spilornis.h
+  Eagle/Native/Utility/src/generic/SpilornisDef.h
   Eagle/Native/Utility/src/generic/SpilornisInt.h
   Eagle/Native/Utility/src/win/DllMain.c
   Eagle/Native/Utility/src/win/Spilornis.def
@@ -1723,8 +1732,8 @@ set eagle_manifests(tool) {
   Eagle/Library/Tools/SetIcon.exe
   Eagle/Library/Tools/src/BinaryEditor.cs
   Eagle/Library/Tools/src/GetRefs.cs
-  Eagle/Library/Tools/src/innoextract-1.8.tar.gz
-  Eagle/Library/Tools/src/innounp049src.rar
+  Eagle/Library/Tools/src/innoextract-1.9.tar.gz
+  Eagle/Library/Tools/src/innounp050src.rar
   Eagle/Library/Tools/src/JustWait.c
   Eagle/Library/Tools/src/MsgGen_src.zip
   Eagle/Library/Tools/src/ReplaceVistaIcon_src.zip
@@ -1732,9 +1741,9 @@ set eagle_manifests(tool) {
   Eagle/Library/Tools/src/SetErrorLevel_src.zip
   Eagle/Library/Tools/src/SignCode.exe.txt
   Eagle/Library/Tools/src/SignTool.exe.txt
-  Eagle/Library/Tools/src/unrarsrc-4.2.4.tar.gz
+  Eagle/Library/Tools/src/unrarsrc-6.1.7.tar.gz
   Eagle/Library/Tools/src/unzip60.zip
-  Eagle/Library/Tools/src/vswhere-2.8.4.zip
+  Eagle/Library/Tools/src/vswhere-3.0.3.zip
   Eagle/Library/Tools/src/zip30.zip
   Eagle/Library/Tools/UnRAR.exe
   Eagle/Library/Tools/unzip.exe
@@ -2427,6 +2436,7 @@ set eagle_manifests(setupPlugins) {
   {{app}\lib\Badge.Basic1.0\Badge.Basic.pdb}
   {{app}\lib\Badge.Basic1.0\pkgIndex.eagle}
   {{app}\lib\Badge.Basic1.0\pkgIndex.eagle.harpy}
+  {{app}\lib\Badge.Basic1.0\Certificates\trial-certificate.xml}
   {{app}\lib\Harpy.Basic1.0\Harpy.Basic.dll}
   {{app}\lib\Harpy.Basic1.0\Harpy.Basic.pdb}
   {{app}\lib\Harpy.Basic1.0\keyRing.General.demo.eagle}
@@ -2435,6 +2445,7 @@ set eagle_manifests(setupPlugins) {
   {{app}\lib\Harpy.Basic1.0\keyRing.zero.eagle.harpy}
   {{app}\lib\Harpy.Basic1.0\pkgIndex.eagle}
   {{app}\lib\Harpy.Basic1.0\pkgIndex.eagle.harpy}
+  {{app}\lib\Harpy.Basic1.0\Certificates\trial-certificate.xml}
 }
 
 ###############################################################################
@@ -2596,6 +2607,24 @@ if {0} then {
 
 ###############################################################################
 #
+# NOTE: This is the list of all files that should be present in the Eagle setup
+#       archives for the .NET Framework 4.8.1.
+#
+if {0} then {
+  set eagle_manifests(setupNetFx481) {
+    {{tmp}\vcredist_x86_2022_VSU2.exe}
+    {{tmp}\vcredist_x64_2022_VSU2.exe}
+  }
+} else {
+  set eagle_manifests(setupNetFx481) {
+    {{app}\setup\ARM\vcredist_ARM_2015_VSU3.exe}
+    {{tmp}\vcredist_x86_2015_VSU3.exe}
+    {{tmp}\vcredist_x64_2015_VSU3.exe}
+  }
+}
+
+###############################################################################
+#
 # NOTE: This is the list of all NuGet metadata files that should be present in
 #       all Eagle NuGet packages.
 #
@@ -2729,7 +2758,7 @@ set eagle_manifests(nuGetToolsMetadataNetFx40) {
 #
 set eagle_manifests(nuGetCoreNetFx20) {
   lib/net20/Eagle.dll
-  lib/net20/Eagle.Eye.dll
+  build/net20/Eagle.Eye.dll
 }
 
 ###############################################################################
@@ -2739,7 +2768,7 @@ set eagle_manifests(nuGetCoreNetFx20) {
 #
 set eagle_manifests(nuGetCoreSymbolsNetFx20) {
   lib/net20/Eagle.pdb
-  lib/net20/Eagle.Eye.pdb
+  build/net20/Eagle.Eye.pdb
 }
 
 ###############################################################################
@@ -2749,7 +2778,7 @@ set eagle_manifests(nuGetCoreSymbolsNetFx20) {
 #
 set eagle_manifests(nuGetCoreNetFx40) {
   lib/net40/Eagle.dll
-  lib/net40/Eagle.Eye.dll
+  build/net40/Eagle.Eye.dll
 }
 
 ###############################################################################
@@ -2759,7 +2788,7 @@ set eagle_manifests(nuGetCoreNetFx40) {
 #
 set eagle_manifests(nuGetCoreSymbolsNetFx40) {
   lib/net40/Eagle.pdb
-  lib/net40/Eagle.Eye.pdb
+  build/net40/Eagle.Eye.pdb
 }
 
 ###############################################################################
@@ -2771,7 +2800,7 @@ set eagle_manifests(nuGetCoreNetStandard20) {
   content/netstandard2.0/EagleShell.dll
   content/netstandard2.0/EagleShell.runtimeconfig.json
   lib/netstandard2.0/Eagle.dll
-  lib/netstandard2.0/Eagle.Eye.dll
+  build/netstandard2.0/Eagle.Eye.dll
 }
 
 ###############################################################################
@@ -2783,7 +2812,7 @@ set eagle_manifests(nuGetCoreNetStandard21) {
   content/netstandard2.1/EagleShell.dll
   content/netstandard2.1/EagleShell.runtimeconfig.json
   lib/netstandard2.1/Eagle.dll
-  lib/netstandard2.1/Eagle.Eye.dll
+  build/netstandard2.1/Eagle.Eye.dll
 }
 
 ###############################################################################
@@ -2794,7 +2823,7 @@ set eagle_manifests(nuGetCoreNetStandard21) {
 set eagle_manifests(nuGetCoreSymbolsNetStandard20) {
   content/netstandard2.0/EagleShell.pdb
   lib/netstandard2.0/Eagle.pdb
-  lib/netstandard2.0/Eagle.Eye.pdb
+  build/netstandard2.0/Eagle.Eye.pdb
 }
 
 ###############################################################################
@@ -2805,7 +2834,7 @@ set eagle_manifests(nuGetCoreSymbolsNetStandard20) {
 set eagle_manifests(nuGetCoreSymbolsNetStandard21) {
   content/netstandard2.1/EagleShell.pdb
   lib/netstandard2.1/Eagle.pdb
-  lib/netstandard2.1/Eagle.Eye.pdb
+  build/netstandard2.1/Eagle.Eye.pdb
 }
 
 ###############################################################################
@@ -2857,6 +2886,7 @@ set eagle_manifests(nuGetNativeSymbolsNetFx40) {
 #
 set eagle_manifests(nuGetToolsNetFx20) {
   build/net20/Eagle.dll
+  build/net20/Eagle.Eye.dll
   build/net20/Eagle.tasks
   build/net20/Eagle.Tools.CLRv2.targets
   build/net20/EagleTasks.dll
@@ -2875,6 +2905,7 @@ set eagle_manifests(nuGetToolsNetFx20) {
 #
 set eagle_manifests(nuGetToolsNetFx40) {
   build/net40/Eagle.dll
+  build/net40/Eagle.Eye.dll
   build/net40/Eagle.tasks
   build/net40/Eagle.Tools.CLRv4.targets
   build/net40/EagleTasks.dll
@@ -2915,6 +2946,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Attributes/Public/ObjectNameAttribute.cs
   src/Library/Attributes/Public/OperandsAttribute.cs
   src/Library/Attributes/Public/OperatorFlagsAttribute.cs
+  src/Library/Attributes/Public/ParameterIndexAttribute.cs
   src/Library/Attributes/Public/PluginFlagsAttribute.cs
   src/Library/Attributes/Public/ThrowAttribute.cs
   src/Library/Attributes/Public/TypeListFlagsAttribute.cs
@@ -3081,6 +3113,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/ChannelContext.cs
   src/Library/Components/Private/ChannelOps.cs
   src/Library/Components/Private/ChannelStream.cs
+  src/Library/Components/Private/ChannelStreamBuffer.cs
   src/Library/Components/Private/CleanupPathClientData.cs
   src/Library/Components/Private/CommandBuilder.cs
   src/Library/Components/Private/CommandCallback.cs
@@ -3518,6 +3551,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Hosts/Shell.cs
   src/Library/Hosts/Wrapper.cs
   src/Library/Interfaces/Private/CacheCounts.cs
+  src/Library/Interfaces/Private/CacheValue.cs
   src/Library/Interfaces/Private/CanHashValue.cs
   src/Library/Interfaces/Private/Channel.cs
   src/Library/Interfaces/Private/ChannelContext.cs
@@ -3673,7 +3707,9 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/Rfc2898DataManager.cs
   src/Library/Interfaces/Public/Rfc2898DataProvider.cs
   src/Library/Interfaces/Public/Rule.cs
+  src/Library/Interfaces/Public/RuleData.cs
   src/Library/Interfaces/Public/RuleSet.cs
+  src/Library/Interfaces/Public/RuleSetData.cs
   src/Library/Interfaces/Public/RuntimeOptionManager.cs
   src/Library/Interfaces/Public/Script.cs
   src/Library/Interfaces/Public/ScriptBinder.cs
@@ -3714,6 +3750,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/TraceInfo.cs
   src/Library/Interfaces/Public/TraceManager.cs
   src/Library/Interfaces/Public/Triplet.cs
+  src/Library/Interfaces/Public/TrustManager.cs
   src/Library/Interfaces/Public/TypedInstance.cs
   src/Library/Interfaces/Public/TypedMember.cs
   src/Library/Interfaces/Public/UnknownCallback.cs
@@ -3843,6 +3880,7 @@ set eagle_manifests(nuGetSource) {
   src/Native/Utility/src/generic/pkgVersion.h
   src/Native/Utility/src/generic/rcVersion.h
   src/Native/Utility/src/generic/Spilornis.h
+  src/Native/Utility/src/generic/SpilornisDef.h
   src/Native/Utility/src/generic/SpilornisInt.h
 }
 
@@ -4017,6 +4055,21 @@ if {0} then {
   }
 } else {
   set garuda_manifests(setupNetFx48) {
+    {{tmp}\vcredist_x86_2015_VSU3.exe}
+  }
+}
+
+###############################################################################
+#
+# NOTE: This is the list of all files that should be present in the Eagle setup
+#       archives for the .NET Framework 4.8.1.
+#
+if {0} then {
+  set garuda_manifests(setupNetFx481) {
+    {{tmp}\vcredist_x86_2022_VSU2.exe}
+  }
+} else {
+  set garuda_manifests(setupNetFx481) {
     {{tmp}\vcredist_x86_2015_VSU3.exe}
   }
 }
@@ -4227,6 +4280,18 @@ set manifests(EagleBinaryNetFx48_.rar) [list eagle \
 
 ###############################################################################
 
+set manifests(EagleBinaryNetFx481_.exe) [list eagle \
+    binaryFullManaged binaryFullNative binaryFullArmNative binaryLibrary \
+    binaryTests binaryExtra binaryFullPlugins binaryPluginsLibrary]
+
+###############################################################################
+
+set manifests(EagleBinaryNetFx481_.rar) [list eagle \
+    binaryFullManaged binaryFullNative binaryFullArmNative binaryLibrary \
+    binaryTests binaryExtra binaryFullPlugins binaryPluginsLibrary]
+
+###############################################################################
+
 set manifests(EagleBinaryNetStandard20_.exe) [list eagle \
     binaryNetStandard2X binarySymbolsNetStandard2X binaryLibrary binaryTests \
     binaryExtra binaryFullPlugins binaryPluginsLibrary]
@@ -4252,12 +4317,14 @@ set manifests(EagleBinaryNetStandard21_.rar) [list eagle \
 ###############################################################################
 
 set manifests(EagleBinaryBare.exe) [list eagle \
-    binaryFullManaged binaryLibrary binaryTests binaryExtra]
+    binaryFullManaged binaryLibrary binaryTests binaryExtra binaryFullPlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleBinaryBare.rar) [list eagle \
-    binaryFullManaged binaryLibrary binaryTests binaryExtra]
+    binaryFullManaged binaryLibrary binaryTests binaryExtra binaryFullPlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
@@ -4274,32 +4341,38 @@ set manifests(EagleBinaryLeanAndMean.rar) [list eagle \
 ###############################################################################
 
 set manifests(EagleBinaryDatabase.exe) [list eagle \
-    binaryFullManaged binaryTests binaryExtra]
+    binaryFullManaged binaryTests binaryExtra binaryFullPlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleBinaryDatabase.rar) [list eagle \
-    binaryFullManaged binaryTests binaryExtra]
+    binaryFullManaged binaryTests binaryExtra binaryFullPlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleBinaryMonoOnUnix.exe) [list eagle \
-    binaryFullManaged binaryLibrary binaryTests binaryExtra]
+    binaryFullManaged binaryLibrary binaryTests binaryExtra binaryFullPlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleBinaryMonoOnUnix.rar) [list eagle \
-    binaryFullManaged binaryLibrary binaryTests binaryExtra]
+    binaryFullManaged binaryLibrary binaryTests binaryExtra binaryFullPlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleBinaryDevelopment.exe) [list eagle \
-    binaryFullManaged binaryLibrary binaryTests binaryExtra]
+    binaryFullManaged binaryLibrary binaryTests binaryExtra binaryFullPlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleBinaryDevelopment.rar) [list eagle \
-    binaryFullManaged binaryLibrary binaryTests binaryExtra]
+    binaryFullManaged binaryLibrary binaryTests binaryExtra binaryFullPlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
@@ -4429,6 +4502,16 @@ set manifests(EagleCoreNetFx48_.exe) [list eagle \
 ###############################################################################
 
 set manifests(EagleCoreNetFx48_.rar) [list eagle \
+    binaryCoreManaged binaryCoreNative binaryCoreArmNative binaryLibrary]
+
+###############################################################################
+
+set manifests(EagleCoreNetFx481_.exe) [list eagle \
+    binaryCoreManaged binaryCoreNative binaryCoreArmNative binaryLibrary]
+
+###############################################################################
+
+set manifests(EagleCoreNetFx481_.rar) [list eagle \
     binaryCoreManaged binaryCoreNative binaryCoreArmNative binaryLibrary]
 
 ###############################################################################
@@ -4659,6 +4742,18 @@ set manifests(EagleRuntimeNetFx48_.rar) [list eagle \
 
 ###############################################################################
 
+set manifests(EagleRuntimeNetFx481_.exe) [list eagle \
+    binaryRuntimeManaged binaryRuntimeNative binaryRuntimeArmNative \
+    binaryLibrary binaryExtra binaryRuntimePlugins binaryPluginsLibrary]
+
+###############################################################################
+
+set manifests(EagleRuntimeNetFx481_.rar) [list eagle \
+    binaryRuntimeManaged binaryRuntimeNative binaryRuntimeArmNative \
+    binaryLibrary binaryExtra binaryRuntimePlugins binaryPluginsLibrary]
+
+###############################################################################
+
 set manifests(EagleRuntimeNetStandard20_.exe) [list eagle \
     binaryNetStandard2X binaryLibrary binaryExtra binaryRuntimePlugins \
     binaryPluginsLibrary]
@@ -4684,12 +4779,14 @@ set manifests(EagleRuntimeNetStandard21_.rar) [list eagle \
 ###############################################################################
 
 set manifests(EagleRuntimeBare.exe) [list eagle \
-    binaryRuntimeManaged binaryLibrary binaryExtra]
+    binaryRuntimeManaged binaryLibrary binaryExtra binaryRuntimePlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleRuntimeBare.rar) [list eagle \
-    binaryRuntimeManaged binaryLibrary binaryExtra]
+    binaryRuntimeManaged binaryLibrary binaryExtra binaryRuntimePlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
@@ -4706,32 +4803,36 @@ set manifests(EagleRuntimeLeanAndMean.rar) [list eagle \
 ###############################################################################
 
 set manifests(EagleRuntimeDatabase.exe) [list eagle \
-    binaryRuntimeManaged binaryExtra]
+    binaryRuntimeManaged binaryExtra binaryRuntimePlugins binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleRuntimeDatabase.rar) [list eagle \
-    binaryRuntimeManaged binaryExtra]
+    binaryRuntimeManaged binaryExtra binaryRuntimePlugins binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleRuntimeMonoOnUnix.exe) [list eagle \
-    binaryRuntimeManaged binaryLibrary binaryExtra]
+    binaryRuntimeManaged binaryLibrary binaryExtra binaryRuntimePlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleRuntimeMonoOnUnix.rar) [list eagle \
-    binaryRuntimeManaged binaryLibrary binaryExtra]
+    binaryRuntimeManaged binaryLibrary binaryExtra binaryRuntimePlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleRuntimeDevelopment.exe) [list eagle \
-    binaryRuntimeManaged binaryLibrary binaryExtra]
+    binaryRuntimeManaged binaryLibrary binaryExtra binaryRuntimePlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 
 set manifests(EagleRuntimeDevelopment.rar) [list eagle \
-    binaryRuntimeManaged binaryLibrary binaryExtra]
+    binaryRuntimeManaged binaryLibrary binaryExtra binaryRuntimePlugins \
+    binaryPluginsLibrary]
 
 ###############################################################################
 ############################ Eagle Setup Packages #############################
@@ -4799,6 +4900,11 @@ set manifests(EagleSetupNetFx472_.exe) [list eagle \
 
 set manifests(EagleSetupNetFx48_.exe) [list eagle \
     setupFull setupNetFx48 setupArm setupPlugins]
+
+###############################################################################
+
+set manifests(EagleSetupNetFx481_.exe) [list eagle \
+    setupFull setupNetFx481 setupArm setupPlugins]
 
 ###############################################################################
 ########################### Garuda Binary Packages ############################
@@ -5155,6 +5261,38 @@ set manifests(GarudaRuntimeNetFx48_.rar) [list garuda \
     binaryCore binaryX64Core binaryArmCore binaryExtra]
 
 ###############################################################################
+
+set manifests(GarudaBinaryNetFx481_.exe) [list garuda \
+    binaryCore binaryX64Core binaryArmCore binarySymbols binaryX64Symbols \
+    binaryArmSymbols binaryTests binaryExtra]
+
+###############################################################################
+
+set manifests(GarudaBinaryNetFx481_.rar) [list garuda \
+    binaryCore binaryX64Core binaryArmCore binarySymbols binaryX64Symbols \
+    binaryArmSymbols binaryTests binaryExtra]
+
+###############################################################################
+
+set manifests(GarudaCoreNetFx481_.exe) [list garuda \
+    binaryCore binaryX64Core binaryArmCore]
+
+###############################################################################
+
+set manifests(GarudaCoreNetFx481_.rar) [list garuda \
+    binaryCore binaryX64Core binaryArmCore]
+
+###############################################################################
+
+set manifests(GarudaRuntimeNetFx481_.exe) [list garuda \
+    binaryCore binaryX64Core binaryArmCore binaryExtra]
+
+###############################################################################
+
+set manifests(GarudaRuntimeNetFx481_.rar) [list garuda \
+    binaryCore binaryX64Core binaryArmCore binaryExtra]
+
+###############################################################################
 ############################ Garuda Setup Packages ############################
 ###############################################################################
 
@@ -5195,6 +5333,11 @@ set manifests(GarudaSetupNetFx472_.exe) [list garuda \
 
 set manifests(GarudaSetupNetFx48_.exe) [list garuda \
     setupFull setupNetFx48]
+
+###############################################################################
+
+set manifests(GarudaSetupNetFx481_.exe) [list garuda \
+    setupFull setupNetFx481]
 
 ###############################################################################
 ############################ Eagle NuGet Packages #############################

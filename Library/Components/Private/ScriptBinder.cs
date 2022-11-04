@@ -469,10 +469,10 @@ namespace Eagle._Components.Private
             )
         {
             //
-            // HACK: There are currently no custom ToString callbacks defined
-            //       (i.e. in the ConversionOps.Dynamic._ToString class).
+            // HACK: There is only one method that handles the conversion to a
+            //       String.
             //
-            return false;
+            return (callback == ConversionOps.Dynamic._ToString.FromDateTime);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

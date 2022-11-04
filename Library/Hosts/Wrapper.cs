@@ -31,7 +31,7 @@ namespace Eagle._Hosts
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        IHost, IDisposable
+        IHost, IDisposable, IMaybeDisposed
     {
         #region Private Data
         //
@@ -2800,6 +2800,22 @@ namespace Eagle._Hosts
             baseHost.WriteFooter(interpreter, loopData, result);
         }
 #endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IMaybeDisposed Members
+        public bool Disposed
+        {
+            get { return disposed; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool Disposing
+        {
+            get { throw new NotImplementedException(); }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

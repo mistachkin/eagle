@@ -21,12 +21,16 @@ namespace Eagle._Interfaces.Public
     {
         ICallFrame Frame { get; set; }
         VariableFlags Flags { get; set; }
+        ObjectDictionary Tags { get; set; }
         string QualifiedName { get; set; }
         IVariable Link { get; set; }
         string LinkIndex { get; set; }
         object Value { get; set; }
         ElementDictionary ArrayValue { get; set; }
         TraceList Traces { get; set; }
+
+        void ResetFrame(
+            ICallFrame frame, Interpreter interpreter);
 
         void MakeUndefined(bool undefined);
         void MakeGlobal(bool global);
@@ -52,6 +56,24 @@ namespace Eagle._Interfaces.Public
         bool HasTraces();
         void ClearTraces();
         int AddTraces(TraceList traces);
+
+        bool InitializeMarks();
+        bool ClearMarks();
+        bool HasMark(string name);
+        bool HasMark(string name, ref INamespace @namespace);
+        bool HasMark(string name, ref ICallFrame frame);
+        bool HasMark(string name, ref object value);
+        bool SetMark(bool mark, string name, object value);
+
+        INamespace GetNamespaceMark();
+        bool HasNamespaceMark(INamespace @namespace);
+        bool SetNamespaceMark(INamespace @namespace);
+        bool UnsetNamespaceMark();
+
+        ICallFrame GetFrameMark();
+        bool HasFrameMark(ICallFrame frame);
+        bool SetFrameMark(ICallFrame frame);
+        bool UnsetFrameMark();
 
         //
         // TODO: Change this to use the IInterpreter type.

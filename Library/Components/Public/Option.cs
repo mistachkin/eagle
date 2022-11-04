@@ -309,6 +309,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool IsPresent(
+            OptionDictionary options /* NOT USED */
+            )
+        {
+            return HasFlags(OptionFlags.Present, true);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsPresent(
             OptionDictionary options, /* NOT USED */
             ref int nameIndex,
             ref int valueIndex

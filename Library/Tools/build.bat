@@ -23,8 +23,11 @@ ECHO BUILD STARTED ON %DATE% AT %TIME% BY %USERDOMAIN%\%USERNAME%
 
 REM SET __ECHO=ECHO
 REM SET __ECHO2=ECHO
+REM SET __ECHO3=ECHO
 IF NOT DEFINED _AECHO (SET _AECHO=REM)
 IF NOT DEFINED _CECHO (SET _CECHO=REM)
+IF NOT DEFINED _CECHO2 (SET _CECHO2=REM)
+IF NOT DEFINED _CECHO3 (SET _CECHO3=REM)
 IF NOT DEFINED _VECHO (SET _VECHO=REM)
 
 %_AECHO% Running %0 %*
@@ -360,6 +363,29 @@ IF DEFINED NETFX48ONLY (
   GOTO setup_buildToolDir
 )
 
+IF DEFINED NETFX481ONLY (
+  %_AECHO% Forcing the use of the .NET Framework 4.8.1...
+  IF NOT DEFINED YEAR (
+    IF DEFINED NETFX481YEAR (
+      SET YEAR=%NETFX481YEAR%
+    ) ELSE (
+      SET YEAR=2022
+    )
+  )
+  IF NOT DEFINED VCPRJEXT (
+    SET VCPRJEXT=.vcxproj
+  )
+  IF NOT DEFINED NOUSEPACKAGERESTORE (
+    IF NOT DEFINED USEPACKAGERESTORE (
+      SET USEPACKAGERESTORE=1
+    )
+  )
+  CALL :fn_CheckFrameworkDir v4.0.30319
+  CALL :fn_CheckMsBuildDir 14.0
+  CALL :fn_CheckVisualStudioMsBuildDir Current 17.0
+  GOTO setup_buildToolDir
+)
+
 REM ****************************************************************************
 REM ********************* Visual Studio Version Detection **********************
 REM ****************************************************************************
@@ -539,6 +565,7 @@ REM ****************************************************************************
 
 CALL :fn_ResetErrorLevel
 
+%_CECHO2% PUSHD "%ROOT%"
 %__ECHO2% PUSHD "%ROOT%"
 
 IF ERRORLEVEL 1 (
@@ -721,6 +748,7 @@ REM ****************************************************************************
 REM **************************** Restore Directory *****************************
 REM ****************************************************************************
 
+%_CECHO2% POPD
 %__ECHO2% POPD
 
 IF ERRORLEVEL 1 (

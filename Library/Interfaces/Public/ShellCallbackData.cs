@@ -21,6 +21,9 @@ namespace Eagle._Interfaces.Public
         , IInteractiveLoopManager
 #endif
     {
+        bool WhatIf { get; set; }
+        bool StopOnUnknown { get; set; }
+
         void CheckForPreExisting();
 
         void SetNewOrResetPreExisting(

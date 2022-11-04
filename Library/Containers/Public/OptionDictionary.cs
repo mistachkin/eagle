@@ -40,6 +40,17 @@ namespace Eagle._Containers.Public
     [ObjectId("755e6bb2-b7e3-42df-bc4e-81610901e093")]
     public sealed class OptionDictionary : Dictionary<string, IOption>
     {
+        #region Private Constants
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static bool DefaultVerbose = false;
+        private static bool DefaultNoCase = false;
+        private static bool DefaultStrict = true;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Constructors
         private OptionDictionary(
             bool system
@@ -338,7 +349,7 @@ namespace Eagle._Containers.Public
             Result error = null;
 
             return TryResolveSimple(
-                options, name, false, ref option, ref error);
+                options, name, DefaultVerbose, ref option, ref error);
         }
         #endregion
 
@@ -363,8 +374,11 @@ namespace Eagle._Containers.Public
         {
             IOption option = null;
 
-            if (!TryResolveSimple(options, name, true, ref option, ref error))
+            if (!TryResolveSimple(
+                    options, name, true, ref option, ref error))
+            {
                 return false;
+            }
 
             return option.CanBePresent(options, ref error);
         }
@@ -377,7 +391,12 @@ namespace Eagle._Containers.Public
             string name
             )
         {
-            return IsPresent(name, false);
+            Variant value = null;
+            int index = Index.Invalid;
+
+            return IsPresent(
+                this, name, false, DefaultNoCase, DefaultStrict,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -389,7 +408,9 @@ namespace Eagle._Containers.Public
         {
             int index = Index.Invalid;
 
-            return IsPresent(name, ref value, ref index);
+            return IsPresent(
+                this, name, true, DefaultNoCase, DefaultStrict,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -400,7 +421,9 @@ namespace Eagle._Containers.Public
             ref int index
             )
         {
-            return IsPresent(name, false, ref value, ref index);
+            return IsPresent(
+                this, name, true, DefaultNoCase, DefaultStrict,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -411,8 +434,11 @@ namespace Eagle._Containers.Public
             )
         {
             Variant value = null;
+            int index = Index.Invalid;
 
-            return IsPresent(name, noCase, ref value);
+            return IsPresent(
+                this, name, false, noCase, DefaultStrict,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -425,7 +451,9 @@ namespace Eagle._Containers.Public
         {
             int index = Index.Invalid;
 
-            return IsPresent(name, noCase, ref value, ref index);
+            return IsPresent(
+                this, name, true, noCase, DefaultStrict,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -437,7 +465,9 @@ namespace Eagle._Containers.Public
             ref int index
             )
         {
-            return IsPresent(this, name, noCase, ref value, ref index);
+            return IsPresent(
+                this, name, true, noCase, DefaultStrict,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -449,8 +479,11 @@ namespace Eagle._Containers.Public
             )
         {
             Variant value = null;
+            int index = Index.Invalid;
 
-            return IsPresent(options, name, noCase, ref value);
+            return IsPresent(
+                options, name, false, noCase, DefaultStrict,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -464,7 +497,9 @@ namespace Eagle._Containers.Public
         {
             int index = Index.Invalid;
 
-            return IsPresent(options, name, noCase, ref value, ref index);
+            return IsPresent(
+                options, name, true, noCase, DefaultStrict,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -478,7 +513,8 @@ namespace Eagle._Containers.Public
             )
         {
             return IsPresent(
-                options, name, noCase, true, ref value, ref index);
+                options, name, true, noCase, DefaultStrict,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -489,8 +525,11 @@ namespace Eagle._Containers.Public
             )
         {
             Variant value = null;
+            int index = Index.Invalid;
 
-            return CheckPresent(name, ref value);
+            return IsPresent(
+                this, name, false, DefaultNoCase, false,
+                ref value, ref index);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -502,7 +541,9 @@ namespace Eagle._Containers.Public
         {
             int index = Index.Invalid;
 
-            return IsPresent(this, name, false, false, ref value, ref index);
+            return IsPresent(
+                this, name, true, DefaultNoCase, false,
+                ref value, ref index);
         }
         #endregion
 
@@ -512,6 +553,7 @@ namespace Eagle._Containers.Public
         private static bool IsPresent(
             OptionDictionary options,
             string name,
+            bool withValue,
             bool noCase,
             bool strict,
             ref Variant value,
@@ -545,6 +587,16 @@ namespace Eagle._Containers.Public
                                 if ((option != null) &&
                                     option.IsPresent(options, ref value))
                                 {
+                                    if (!withValue && (value != null))
+                                    {
+                                        TraceOps.DebugTrace(String.Format(
+                                            "IsPresent: option {0} value " +
+                                            "will be discarded by caller",
+                                            FormatOps.WrapOrNull(name)),
+                                            typeof(OptionDictionary).Name,
+                                            TracePriority.CommandDebug2);
+                                    }
+
                                     index = option.Index;
                                     return true;
                                 }
@@ -573,6 +625,16 @@ namespace Eagle._Containers.Public
                             if ((option != null) &&
                                 option.IsPresent(options, ref value))
                             {
+                                if (!withValue && (value != null))
+                                {
+                                    TraceOps.DebugTrace(String.Format(
+                                        "IsPresent: option {0} value " +
+                                        "will be discarded by caller",
+                                        FormatOps.WrapOrNull(name)),
+                                        typeof(OptionDictionary).Name,
+                                        TracePriority.CommandDebug2);
+                                }
+
                                 index = option.Index;
                                 return true;
                             }

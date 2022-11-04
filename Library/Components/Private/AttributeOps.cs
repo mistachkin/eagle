@@ -1224,6 +1224,97 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static int GetParameterIndex(
+            MemberInfo memberInfo
+            )
+        {
+            if (memberInfo != null)
+            {
+                try
+                {
+                    if (memberInfo.IsDefined(
+                            typeof(ParameterIndexAttribute), false))
+                    {
+                        ParameterIndexAttribute parameterIndex =
+                            (ParameterIndexAttribute)
+                            memberInfo.GetCustomAttributes(
+                                typeof(ParameterIndexAttribute), false)[0];
+
+                        return parameterIndex.Index;
+                    }
+                }
+                catch (Exception e)
+                {
+                    /* IGNORED */
+                    RuntimeOps.MaybeGrabAndReportExceptions(
+                        e, VerboseExceptions);
+                }
+            }
+
+            return Index.Invalid;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetParameterIndexes(
+            Type enumType,
+            StringList enumNames,
+            ref int?[] parameterIndexes,
+            ref Result error
+            )
+        {
+            if (enumType == null)
+            {
+                error = "invalid type";
+                return ReturnCode.Error;
+            }
+
+            if (!enumType.IsEnum)
+            {
+                error = String.Format(
+                    "type {0} is not an enumeration",
+                    FormatOps.TypeName(enumType));
+
+                return ReturnCode.Error;
+            }
+
+            if (enumNames == null)
+            {
+                error = "invalid enumeration names";
+                return ReturnCode.Error;
+            }
+
+            int count = enumNames.Count;
+            int?[] localParameterIndexes = new int?[count];
+
+            for (int index = 0; index < count; index++)
+            {
+                string enumName = enumNames[index];
+
+                if (enumName == null)
+                    continue;
+
+                FieldInfo fieldInfo = enumType.GetField(
+                    enumName);
+
+                if (fieldInfo == null)
+                    continue;
+
+                int parameterIndex = GetParameterIndex(
+                    fieldInfo);
+
+                if (parameterIndex == Index.Invalid)
+                    continue;
+
+                localParameterIndexes[index] = parameterIndex;
+            }
+
+            parameterIndexes = localParameterIndexes;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static PluginFlags GetReflectionOnlyPluginFlags(
             MemberInfo memberInfo
             )

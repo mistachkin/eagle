@@ -114,6 +114,10 @@ namespace Eagle._Components.Private
             "NET_48",
 #endif
 
+#if NET_481
+            "NET_481",
+#endif
+
 #if NOTIFY
             "NOTIFY",
 #endif

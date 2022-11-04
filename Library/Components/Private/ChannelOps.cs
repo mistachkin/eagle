@@ -16,6 +16,7 @@ using System.Text;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Constants;
+using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
 
@@ -52,6 +53,15 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
         public static bool StrictGetStream = false;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public const byte CarriageReturn = (byte)Characters.CarriageReturn;
+        public const byte LineFeed = (byte)Characters.LineFeed;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public const byte NewLine = (byte)Characters.NewLine; /* [puts] */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -98,6 +108,116 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static void TraceLineEndings(
+            string type,           /* in */
+            Stream stream,         /* in */
+            byte[] buffer,         /* in */
+            int count,             /* in */
+            TracePriority priority /* in */
+            )
+        {
+            if (buffer == null)
+                return;
+
+            int[] statistics = { 0, 0, 0, 0, 0 };
+            int length = buffer.Length;
+
+            statistics[(int)BufferStats.Length] = length;
+
+            byte previousByteValue = 0;
+
+            for (int index = 0; index < length; index++)
+            {
+                byte currentByteValue = buffer[index];
+
+                switch (currentByteValue)
+                {
+                    case CarriageReturn:
+                        {
+                            //
+                            // NOTE: So far, we only "know" about this
+                            //       carriage-return; therefore, treat
+                            //       it as unpaired (raw).
+                            //
+                            statistics[(int)BufferStats.CrCount]++;
+                            break;
+                        }
+                    case LineFeed:
+                        {
+                            //
+                            // NOTE: Convert raw carriage-return into
+                            //       carriage-return, line-feed pair;
+                            //       otherwise, keep track of the raw
+                            //       line-feed.
+                            //
+                            if (previousByteValue == CarriageReturn)
+                            {
+                                statistics[(int)BufferStats.CrCount]--;
+                                statistics[(int)BufferStats.CrLfCount]++;
+                            }
+                            else
+                            {
+                                statistics[(int)BufferStats.LfCount]++;
+                            }
+                            break;
+                        }
+                }
+
+                previousByteValue = currentByteValue;
+            }
+
+            //
+            // NOTE: Calculate the total number of logical lines
+            //       in the buffer.  This is simply the total of
+            //       raw carriage-returns, raw line-feeds, and
+            //       carriage-returns, line-feeds pairs.
+            //
+            foreach (BufferStats index in new BufferStats[] {
+                    BufferStats.CrCount, BufferStats.LfCount,
+                    BufferStats.CrLfCount
+                })
+            {
+                statistics[(int)BufferStats.LineCount] +=
+                    statistics[(int)index];
+            }
+
+            TraceOps.DebugTrace(String.Format(
+                "TraceLineEndings: {0} stream = {1}, {2}",
+                FormatOps.MaybeNull(type),
+                RuntimeOps.GetHashCode(stream),
+                FormatOps.TheBufferStats(statistics)),
+                typeof(ChannelOps).Name, priority);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int EstimateOutputCount(
+            byte[] buffer, /* in */
+            int offset,    /* in */
+            int count      /* in */
+            )
+        {
+            int result = count;
+
+            for (int index = offset; index < offset + count; index++)
+            {
+                char character = (char)buffer[index];
+
+                if ((character == Characters.CarriageReturn) ||
+                    (character == Characters.LineFeed))
+                {
+                    //
+                    // NOTE: Every line terminator may double.
+                    //
+                    result += 2;
+                }
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static int ReadByte(
             Stream stream
             )
@@ -127,6 +247,31 @@ namespace Eagle._Components.Private
             //       above should work around this issue.
             //
             return stream.ReadByte();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int FindEndOfLine(
+            IntList lineEndings /* in */
+            )
+        {
+            if (lineEndings != null)
+            {
+                int count = lineEndings.Count;
+
+                if (count > 0)
+                {
+                    for (int index = 0; index < count; index++)
+                    {
+                        int eolIndex = lineEndings[index];
+
+                        if (eolIndex != Index.Invalid)
+                            return eolIndex;
+                    }
+                }
+            }
+
+            return Index.Invalid;
         }
 
         ///////////////////////////////////////////////////////////////////////

@@ -54,10 +54,7 @@ namespace Eagle._Commands
                         {
                             try
                             {
-                                if (channel.CanSeek)
-                                    result = channel.EndOfStream;
-                                else
-                                    result = channel.HitEndOfStream;
+                                result = channel.OneEndOfStream;
                             }
                             catch (Exception e)
                             {

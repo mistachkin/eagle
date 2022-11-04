@@ -55,7 +55,7 @@ namespace Eagle._Commands
             "cleanup", "collect", "complaint", "emergency", "enable", "eval",
             "exception", "execute", "function", "gcmemory", "halt",
             "history", "icommand", "interactive", "invoke", "iqueue",
-            "iresult", "levels", "lockloop", "lockvar",
+            "iresult", "keyring", "levels", "lockloop", "lockvar",
             "log", "memory", "oncancel", "onerror", "onexecute",
             "onexit", "onreturn", "ontest", "ontoken", "operator",
             "output", "paths", "pluginexecute", "pluginflags", "purge",
@@ -307,7 +307,7 @@ namespace Eagle._Commands
                                     {
                                         if ((newArguments.Count == 2) || (newArguments.Count == 3))
                                         {
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                             IDebugger debugger = null;
 
                                             if (Engine.CheckDebugger(interpreter, false,
@@ -795,7 +795,7 @@ namespace Eagle._Commands
                                                                                 "enabled" : "disabled"));
                                                                         }
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
                                                                         if (tokens)
                                                                         {
                                                                             bool wasBreakOnToken = debugger.BreakOnToken;
@@ -888,7 +888,7 @@ namespace Eagle._Commands
                                                                                 "enabled" : "disabled"));
                                                                         }
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                                                         bool wasArgumentLocation = localInterpreter.HasArgumentLocation();
 
                                                                         if (enabled != null)
@@ -1834,6 +1834,23 @@ namespace Eagle._Commands
                                         }
                                         break;
                                     }
+                                case "keyring":
+                                    {
+                                        if (newArguments.Count == 2)
+                                        {
+                                            code = ScriptOps.FetchAndMergeKeyRing(
+                                                interpreter, false, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                                result = String.Empty;
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"debug keyring\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "levels":
                                     {
                                         if (newArguments.Count == 2)
@@ -1877,10 +1894,10 @@ namespace Eagle._Commands
                                                         int count = 0;
 
                                                         int retries = ThreadOps.GetDefaultRetries(
-                                                            TimeoutType.Lock);
+                                                            interpreter, TimeoutType.FirmLock);
 
                                                         int timeout = ThreadOps.GetDefaultTimeout(
-                                                            TimeoutType.Lock);
+                                                            interpreter, TimeoutType.FirmLock);
 
                                                         do
                                                         {
@@ -2493,7 +2510,7 @@ namespace Eagle._Commands
                                     {
                                         if ((newArguments.Count == 2) || (newArguments.Count == 3))
                                         {
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                             IDebugger debugger = null;
 
                                             if (Engine.CheckDebugger(interpreter, false,
@@ -3571,7 +3588,7 @@ namespace Eagle._Commands
                                                                                                         if (file)
                                                                                                         {
                                                                                                             result = String.Format(
-                                                                                                                "wrong # args: should be \"{0} {1} " +
+                                                                                                                "wrong # args: should be \"{0} {1} " + /* SKIP */
                                                                                                                 "-file true ?options? path fileName\"",
                                                                                                                 this.Name, subCommand);
 
@@ -4431,7 +4448,7 @@ namespace Eagle._Commands
                                     {
                                         if ((newArguments.Count == 5) || (newArguments.Count == 6))
                                         {
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                             IDebugger debugger = null;
 
                                             if (Engine.CheckDebugger(interpreter, false,
@@ -4541,6 +4558,8 @@ namespace Eagle._Commands
                                                 new Option(null, OptionFlags.MustHaveBooleanValue,
                                                     Index.Invalid, Index.Invalid, "-raw", null),
                                                 new Option(null, OptionFlags.MustHaveBooleanValue,
+                                                    Index.Invalid, Index.Invalid, "-log", null),
+                                                new Option(null, OptionFlags.MustHaveBooleanValue,
                                                     Index.Invalid, Index.Invalid, "-resetsystem", null),
                                                 new Option(null, OptionFlags.MustHaveBooleanValue,
                                                     Index.Invalid, Index.Invalid, "-resetlisteners", null),
@@ -4569,8 +4588,13 @@ namespace Eagle._Commands
                                                     Index.Invalid, Index.Invalid, "-category", null),
 #if TEST
                                                 new Option(null, OptionFlags.MustHaveValue,
+                                                    Index.Invalid, Index.Invalid, "-logname", null),
+                                                new Option(null, OptionFlags.MustHaveValue,
                                                     Index.Invalid, Index.Invalid, "-logfilename", null),
 #else
+                                                new Option(null,
+                                                    OptionFlags.MustHaveValue | OptionFlags.Unsupported,
+                                                    Index.Invalid, Index.Invalid, "-logname", null),
                                                 new Option(null,
                                                     OptionFlags.MustHaveValue | OptionFlags.Unsupported,
                                                     Index.Invalid, Index.Invalid, "-logfilename", null),
@@ -4602,7 +4626,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-priority", ref value))
                                                         priority = (TracePriority)value.Value;
 
-                                                    TracePriority? priorities = TraceOps.GetTracePriorities();
+                                                    TracePriority? priorities = null;
 
                                                     if (options.IsPresent("-priorities", ref value))
                                                         priorities = (TracePriority)value.Value;
@@ -4650,6 +4674,11 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-raw", ref value))
                                                         raw = (bool)value.Value;
 
+                                                    bool? log = null;
+
+                                                    if (options.IsPresent("-log", ref value))
+                                                        log = (bool)value.Value;
+
                                                     bool resetSystem = false;
 
                                                     if (options.IsPresent("-resetsystem", ref value))
@@ -4689,6 +4718,11 @@ namespace Eagle._Commands
 
                                                     if (options.IsPresent("-category", ref value))
                                                         category = value.ToString();
+
+                                                    string logName = null;
+
+                                                    if (options.IsPresent("-logname", ref value))
+                                                        logName = value.ToString();
 
                                                     string logFileName = null;
 
@@ -4835,15 +4869,37 @@ namespace Eagle._Commands
 #if TEST
                                                         if (code == ReturnCode.Ok)
                                                         {
-                                                            if (logFileName != null)
+                                                            if (log != null)
                                                             {
-                                                                listener = null; /* NOT USED */
+                                                                if ((bool)log)
+                                                                {
+                                                                    if (logFileName == null)
+                                                                    {
+                                                                        logFileName = DebugOps.GetTraceLogFileName(
+                                                                            interpreter, logName, ref result);
+                                                                    }
 
-                                                                code = DebugOps.SetupTraceLogFile(
-                                                                    ShellOps.GetTraceListenerName(null,
-                                                                        GlobalState.GetCurrentSystemThreadId()),
-                                                                    logFileName, null, !debug, debug, useConsole,
-                                                                    false, false, ref listener, ref result);
+                                                                    if (logFileName != null)
+                                                                    {
+                                                                        listener = null; /* NOT USED */
+
+                                                                        code = DebugOps.SetupTraceLogFile(
+                                                                            ShellOps.GetTraceListenerName(null,
+                                                                                GlobalState.GetCurrentSystemThreadId()),
+                                                                            logFileName, null, !debug, debug, useConsole,
+                                                                            false, false, ref listener, ref result);
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        code = ReturnCode.Error;
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    code = DebugOps.RemoveTraceListener(
+                                                                        listeners, TraceListenerType.TestLogFile,
+                                                                        true, ref result);
+                                                                }
                                                             }
                                                         }
 #endif
@@ -4863,7 +4919,7 @@ namespace Eagle._Commands
                                                                     else
                                                                     {
                                                                         /* NO RESULT */
-                                                                        TraceOps.DebugWriteTo(
+                                                                        TraceOps.DebugWriteToAlways(
                                                                             interpreter, newArguments[argumentIndex],
                                                                             true);
                                                                     }
@@ -4880,7 +4936,7 @@ namespace Eagle._Commands
                                                                     else
                                                                     {
                                                                         /* NO RESULT */
-                                                                        TraceOps.DebugTrace(
+                                                                        TraceOps.DebugTraceAlways(
                                                                             newArguments[argumentIndex], category,
                                                                             priority);
                                                                     }

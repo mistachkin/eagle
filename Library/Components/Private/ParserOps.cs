@@ -28,13 +28,29 @@ namespace Eagle._Components.Private
     {
         #region Private Data
 #if NATIVE && NATIVE_UTILITY
-        internal static bool UseNativeJoinList = true;
-        internal static bool UseNativeSplitList = true;
+        //
+        // HACK: These are purposely not read-only.
+        //
+        internal static bool UseNativeSplitList = false;
+        internal static bool UseNativeJoinList = false;
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal static long nativeJoinCount;
+        //
+        // HACK: These are purposely not read-only.
+        //
+        // TODO: Are these good defaults for performance?
+        //
+        internal static int NativeMinimumTextLength = 1048576;
+        internal static int NativeMaximumTextLength = 0;
+
+        internal static int NativeMinimumListCount = 10000;
+        internal static int NativeMaximumListCount = 0;
+
+        ///////////////////////////////////////////////////////////////////////
+
         internal static long nativeSplitCount;
+        internal static long nativeJoinCount;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -43,8 +59,8 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal static long managedJoinCount;
         internal static long managedSplitCount;
+        internal static long managedJoinCount;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -75,6 +91,30 @@ namespace Eagle._Components.Private
             {
                 localList.Add("UseNativeJoinList",
                     UseNativeJoinList.ToString());
+            }
+
+            if (empty || (NativeMinimumTextLength > 0))
+            {
+                localList.Add("NativeMinimumTextLength",
+                    NativeMinimumTextLength.ToString());
+            }
+
+            if (empty || (NativeMaximumTextLength > 0))
+            {
+                localList.Add("NativeMaximumTextLength",
+                    NativeMaximumTextLength.ToString());
+            }
+
+            if (empty || (NativeMinimumListCount > 0))
+            {
+                localList.Add("NativeMinimumListCount",
+                    NativeMinimumListCount.ToString());
+            }
+
+            if (empty || (NativeMaximumListCount > 0))
+            {
+                localList.Add("NativeMaximumListCount",
+                    NativeMaximumListCount.ToString());
             }
 
             if (empty || NoComplain)
@@ -115,6 +155,20 @@ namespace Eagle._Components.Private
                 list.Add(localList);
             }
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Integration Support Methods
+#if NATIVE && NATIVE_UTILITY
+        public static void EnableNative(
+            bool enable
+            )
+        {
+            UseNativeSplitList = enable;
+            UseNativeJoinList = enable;
+        }
+#endif
         #endregion
     }
     #endregion
@@ -482,6 +536,35 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region List Splitting
+#if NATIVE && NATIVE_UTILITY
+        private static bool ShouldUseNativeSplitList(
+            string text,
+            int startIndex,
+            int length
+            )
+        {
+            if (!ParserOpsData.UseNativeSplitList)
+                return false;
+
+            if ((text == null) || (startIndex != 0) || (length >= 0))
+                return false;
+
+            int minimumLength = ParserOpsData.NativeMinimumTextLength;
+
+            if ((minimumLength > 0) && (text.Length < minimumLength))
+                return false;
+
+            int maximumLength = ParserOpsData.NativeMaximumTextLength;
+
+            if ((maximumLength > 0) && (text.Length > maximumLength))
+                return false;
+
+            return true;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode SplitList(
             Interpreter interpreter, /* OPTIONAL */
             string text,
@@ -517,8 +600,7 @@ namespace Eagle._Components.Private
             //         use the ManagedSplitList method when splitting
             //         any partial string.
             //
-            if (ParserOpsData.UseNativeSplitList &&
-                (startIndex == 0) && (length < 0))
+            if (ShouldUseNativeSplitList(text, startIndex, length))
             {
                 ReturnCode code;
                 StringList localList = null;
@@ -1238,6 +1320,34 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region List Joining
+#if NATIVE && NATIVE_UTILITY
+        private static bool ShouldUseNativeJoinList(
+            IList<T> list,
+            string separator
+            )
+        {
+            if (!ParserOpsData.UseNativeJoinList)
+                return false;
+
+            if ((list == null) || !Parser.IsListSeparator(separator))
+                return false;
+
+            int minimumCount = ParserOpsData.NativeMinimumListCount;
+
+            if ((minimumCount > 0) && (list.Count < minimumCount))
+                return false;
+
+            int maximumCount = ParserOpsData.NativeMaximumListCount;
+
+            if ((maximumCount > 0) && (list.Count > maximumCount))
+                return false;
+
+            return true;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string ListToString(
             IList<T> list,
             int startIndex,
@@ -1249,8 +1359,7 @@ namespace Eagle._Components.Private
             )
         {
 #if NATIVE && NATIVE_UTILITY
-            if (ParserOpsData.UseNativeJoinList &&
-                Parser.IsListSeparator(separator))
+            if (ShouldUseNativeJoinList(list, separator))
             {
                 ReturnCode code;
                 string localText = null;
@@ -1292,8 +1401,7 @@ namespace Eagle._Components.Private
             )
         {
 #if NATIVE && NATIVE_UTILITY
-            if (ParserOpsData.UseNativeJoinList &&
-                Parser.IsListSeparator(separator))
+            if (ShouldUseNativeJoinList(list, separator))
             {
                 ReturnCode code;
                 string localText = null;

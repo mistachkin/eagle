@@ -523,17 +523,20 @@ proc getStringIsClasses { type } {
       }
     }
     value {
-      lappend result boolean true false double integer wideinteger
+      lappend result boolean double false integer none true \
+          wideinteger
 
       if {[isEagle]} then {
-        lappend result byte datetime decimal dict guid list none \
-            number numeric timespan uri value variant version
+        lappend result base64 byte datetime decimal dict guid list \
+            none number numeric timespan uri value variant version \
+            xml
       }
     }
     entity {
       if {[isEagle]} then {
-        lappend result array command directory element file path \
-            identifier interpreter object scalar type
+        lappend result array command component directory element \
+            encoding file path identifier interpreter object \
+            plugin scalar type
       }
     }
   }
@@ -547,6 +550,20 @@ proc resetStringIsRefs {} {
 
 proc getStringIsValues { class } {
   switch -exact -- $class {
+    base64 {
+      set ::refs(27X) "this is a test."
+      set ::refs(28X) [base64 encode $::refs(27X)]
+      set ::refs(29X) [appendArgs $::refs(28X) =]
+      set ::refs(30X) [appendArgs $::refs(28X) ==]
+      set ::refs(31X) [appendArgs $::refs(28X) ===]
+      set ::refs(32X) [appendArgs $::refs(28X) ====]
+      set ::refs(33X) [appendArgs $::refs(28X) ====]
+
+      return [list \
+          $::refs(27X) $::refs(28X) $::refs(29X) $::refs(30X) \
+          $::refs(31X) $::refs(32X) $::refs(33X)]
+    }
+    component -
     directory -
     file -
     path {
@@ -555,8 +572,45 @@ proc getStringIsValues { class } {
       set ::refs(3X) $::test_path
       set ::refs(4X) [file normalize ~]
 
+      if {$class eq "component"} then {
+        set ::refs(34X) t
+        set ::refs(35X) .f
+        set ::refs(36X) test
+        set ::refs(37X) .file
+        set ::refs(38X) test.file
+        set ::refs(39X) " "
+        set ::refs(40X) !
+        set ::refs(41X) \"
+        set ::refs(42X) #
+        set ::refs(43X) $
+        set ::refs(44X) %
+        set ::refs(45X) &
+        set ::refs(46X) -
+        set ::refs(47X) /
+        set ::refs(48X) @
+        set ::refs(49X) \\
+        set ::refs(50X) ^
+        set ::refs(51X) _
+
+        return [list \
+            .  .. $::refs(1X) $::refs(2X) $::refs(3X) $::refs(4X) \
+            $::refs(34X) $::refs(35X) $::refs(36X) $::refs(37X) \
+            $::refs(38X) $::refs(39X) $::refs(40X) $::refs(41X) \
+            $::refs(42X) $::refs(43X) $::refs(44X) $::refs(45X) \
+            $::refs(46X) $::refs(47X) $::refs(48X) $::refs(49X) \
+            $::refs(50X) $::refs(51X)]
+      } else {
+        return [list \
+            .  .. $::refs(1X) $::refs(2X) $::refs(3X) $::refs(4X)]
+      }
+    }
+    encoding {
       return [list \
-          .  .. $::refs(1X) $::refs(2X) $::refs(3X) $::refs(4X)]
+          badenc utf-6 utf-8 utf8 UTF-8 utf-16 utf-32 utf-32BE \
+          utf-32LE utf-32ME iso-8859-1 iso-8859-99 us-ascii null \
+          binary channelDefault default systemDefault tclDefault \
+          textDefault scriptDefault xmlDefault Identity OneByte \
+          TwoByte Tcl]
     }
     guid {
       set ::refs(5X) [object invoke -create -alias Guid NewGuid]
@@ -587,6 +641,14 @@ proc getStringIsValues { class } {
       return [list \
           null NULL $::refs(12X) $::refs(13X)]
     }
+    plugin {
+      set ::refs(25X) [getPluginName {^Eagle\._Plugins\.Core, .*$}]
+      set ::refs(26X) [string map [list Core NotCore] $::refs(25X)]
+
+      return [list \
+          null true false -1 0 1 1.0 Eagle Eagle* Eagle.* $::refs(25X) \
+          $::refs(26X)]
+    }
     type {
       set ::refs(14X) [appendArgs \
           "Eagle._Commands.Set, " [lindex [info assembly] 0]]
@@ -607,6 +669,20 @@ proc getStringIsValues { class } {
     }
     version {
       return [list -1 0 1 1.0 1.1 1.0.0 1.1.2 1.0.0.0 1.1.1.2 1.1.1.1.2]
+    }
+    xml {
+      set ::refs(18X) {<one>more</one>}
+      set ::refs(19X) {<two />}
+      set ::refs(20X) {<one two="three">more</one>}
+      set ::refs(21X) {<one two="three">more}
+      set ::refs(22X) {<one two="three>more</one>}
+      set ::refs(23X) {<one><two>more</two></one>}
+      set ::refs(24X) [readFile [file join $::test_data_path settings.xml]]
+
+      return [list \
+          null true false -1 0 1 1.0 $::refs(18X) $::refs(19X) \
+          $::refs(20X) $::refs(21X) $::refs(22X) $::refs(23X) \
+          $::refs(24X)]
     }
     boolean -
     true -
@@ -720,17 +796,7 @@ proc getStringIsResults { channel class } {
   foreach value [getStringIsValues $class] {
     set name $value
 
-    if {[string length $name] == 1} then {; # single char test?
-      if {[isEagle]} then {
-        set ordinal [string ordinal $name 0]
-      } else {
-        scan $name %c ordinal
-      }
-
-      if {$ordinal <= 32 || $ordinal >= 127} then {; # bad ASCII?
-        set name [appendArgs \\x [format %02X $ordinal]]
-      }
-    } elseif {[array exists ::refs]} then {
+    if {[array exists ::refs]} then {
       foreach ref [array names ::refs] {
         if {$name eq $::refs($ref) && \
             ![info exists ::refs(${ref}_used)]} then {
@@ -741,6 +807,19 @@ proc getStringIsResults { channel class } {
             set name [appendArgs <refs( $ref )>]
           }
         }
+      }
+    }
+
+    if {$name eq $value && \
+        [string length $name] == 1} then {; # single char test?
+      if {[isEagle]} then {
+        set ordinal [string ordinal $name 0]
+      } else {
+        scan $name %c ordinal
+      }
+
+      if {$ordinal <= 32 || $ordinal >= 127} then {; # bad ASCII?
+        set name [appendArgs \\x [format %02X $ordinal]]
       }
     }
 
@@ -1828,11 +1907,76 @@ runTest {test string-99.409 {string is version} -body {
 
 ###############################################################################
 
+runTest {test string-99.410 {string is xml} -body {
+  getStringIsResults $test_channel xml
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle compile.XML file_settings.xml} -result {empty 1 strict 0\
+null 0 true 0 false 0 -1 0 0 0 1 0 1.0 0 <refs(18X)> 1 <refs(19X)> 1\
+<refs(20X)> 1 <refs(21X)> 0 <refs(22X)> 0 <refs(23X)> 1 <refs(24X)> 1}}
+
+###############################################################################
+
+runTest {test string-99.411 {string is plugin} -body {
+  getStringIsResults $test_channel plugin
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle} -result {empty 1 strict 0 null 0 true 0 false 0 -1 0 0 0\
+1 0 1.0 0 Eagle 1 Eagle* 1 Eagle.* 0 <refs(25X)> 1 <refs(26X)> 0}}
+
+###############################################################################
+
+runTest {test string-99.412 {string is base64} -body {
+  getStringIsResults $test_channel base64
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle} -result {empty 1 strict 0 <refs(27X)> 0 <refs(28X)> 1\
+<refs(29X)> 0 <refs(30X)> 0 <refs(31X)> 0 <refs(32X)> 0 <refs(33X)> 0}}
+
+###############################################################################
+
+runTest {test string-99.413 {string is encoding} -body {
+  getStringIsResults $test_channel encoding
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle} -result {empty 1 strict 0 badenc 0 utf-6 0 utf-8 1 utf8\
+0 UTF-8 1 utf-16 1 utf-32 1 utf-32BE 1 utf-32LE 1 utf-32ME 0 iso-8859-1 1\
+iso-8859-99 0 us-ascii 1 null 0 binary 1 channelDefault 1 default 1\
+systemDefault 1 tclDefault 1 textDefault 1 scriptDefault 1 xmlDefault 1\
+Identity 1 OneByte 1 TwoByte 1 Tcl 1}}
+
+###############################################################################
+
+runTest {test string-99.414 {string is component} -setup {
+  resetStringIsRefs
+} -body {
+  getStringIsResults $test_channel component
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle windows} -result {empty 1 strict 0 . 1 .. 1 <refs(1X)> 0\
+<refs(2X)> 0 <refs(3X)> 0 <refs(4X)> 0 <refs(34X)> 1 <refs(35X)> 1 <refs(36X)>\
+1 <refs(37X)> 1 <refs(38X)> 1 <refs(39X)> 1 <refs(40X)> 1 <refs(41X)> 0\
+<refs(42X)> 1 <refs(43X)> 1 <refs(44X)> 1 <refs(45X)> 1 <refs(46X)> 1\
+<refs(47X)> 0 <refs(48X)> 1 <refs(49X)> 0 <refs(50X)> 1 <refs(51X)> 1}}
+
+###############################################################################
+
 rename resetStringIsRefs ""
 rename getStringIsAnyResult ""
 rename getStringIsResults ""
 rename getStringIsValues ""
 rename getStringIsClasses ""
+
+###############################################################################
+
+runTest {test string-99.500 {string classes} -body {
+  lsort [string classes]
+} -constraints {eagle} -result {alnum alpha array ascii asciialnum asciialpha\
+asciidigit base64 boolean byte command component control datetime decimal dict\
+digit directory double element encoding false file graph guid hexadecimal\
+identifier integer interpreter list lower none not number numeric object path\
+plugin print punct real reserved scalar single space timespan true type upper\
+uri value variant version wideinteger wordchar xdigit xml}}
 
 ###############################################################################
 

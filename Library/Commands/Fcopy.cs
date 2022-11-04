@@ -147,9 +147,7 @@ namespace Eagle._Commands
 
                                                             do
                                                             {
-                                                                if (inputChannel.CanSeek && inputChannel.EndOfStream)
-                                                                    break;
-                                                                else if (inputChannel.HitEndOfStream)
+                                                                if (inputChannel.AnyEndOfStream)
                                                                     break;
 
                                                                 ByteList inputBuffer = null;

@@ -27,6 +27,7 @@ using Eagle._Components.Private;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 using _RuleSet = Eagle._Components.Public.RuleSet;
 
 namespace Eagle._Components.Public
@@ -258,6 +259,29 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        private static bool CouldBeDocument(
+            string path
+            )
+        {
+            if (String.IsNullOrEmpty(path))
+                return false;
+
+            string extension = PathOps.GetExtension(path);
+
+            if (String.IsNullOrEmpty(extension))
+                return false;
+
+            if (SharedStringOps.Equals(extension,
+                    FileExtension.Configuration, PathOps.ComparisonType))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static string Expand(
             string value
             )
@@ -1214,6 +1238,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if SHELL
+        internal static ReturnCode UseShellDefaults(
+            InterpreterSettings interpreterSettings,
+            CreateFlags createFlags,
+            ref Result error
+            )
+        {
+            if (interpreterSettings == null)
+            {
+                error = "invalid interpreter settings";
+                return ReturnCode.Error;
+            }
+
+            InterpreterFlags interpreterFlags =
+                interpreterSettings.InterpreterFlags;
+
+            interpreterFlags |= InterpreterFlags.ForShellUse;
+
+            if (FlagOps.HasFlags(
+                    createFlags, CreateFlags.Safe, true))
+            {
+                //
+                // HACK: Remove interpreter flags that are not
+                //       designed for "safe" interpreters.
+                //
+                interpreterFlags &= ~InterpreterFlags.UnsafeMask;
+            }
+
+            interpreterSettings.InterpreterFlags = interpreterFlags;
+            return ReturnCode.Ok;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         internal static ReturnCode LoadFrom(
             CultureInfo cultureInfo,
             bool optional,
@@ -1226,6 +1285,9 @@ namespace Eagle._Components.Public
             string baseFileName = PathOps.GetManagedExecutableName();
 
             string[] fileNames = {
+                String.Format(
+                    LoadFromFileNameFormat, baseFileName,
+                    FileExtension.Configuration),
 #if XML && SERIALIZATION
                 String.Format(
                     LoadFromFileNameFormat, baseFileName,
@@ -1323,8 +1385,11 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
+            bool couldBeDocument = CouldBeDocument(fileName);
+
 #if XML && SERIALIZATION
-            if (XmlOps.CouldBeDocument(fileName))
+            if (XmlOps.CouldBeDocument(fileName) ||
+                (couldBeDocument && XmlOps.FileLooksLikeDocument(fileName)))
             {
                 return LoadFromXml(
                     fileName, cultureInfo, merge, expand,
@@ -1332,7 +1397,7 @@ namespace Eagle._Components.Public
             }
 #endif
 
-            if (SettingsOps.CouldBeDocument(fileName))
+            if (SettingsOps.CouldBeDocument(fileName) || couldBeDocument)
             {
                 return LoadFromIni(
                     fileName, cultureInfo, merge, expand,
@@ -1355,8 +1420,11 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
+            bool couldBeDocument = CouldBeDocument(fileName);
+
 #if XML && SERIALIZATION
-            if (XmlOps.CouldBeDocument(fileName))
+            if (XmlOps.CouldBeDocument(fileName) ||
+                (couldBeDocument && XmlOps.FileLooksLikeDocument(fileName)))
             {
                 return LoadFromXml(fileName,
                     stream, cultureInfo, merge, expand,
@@ -1364,7 +1432,7 @@ namespace Eagle._Components.Public
             }
 #endif
 
-            if (SettingsOps.CouldBeDocument(fileName))
+            if (SettingsOps.CouldBeDocument(fileName) || couldBeDocument)
             {
                 return LoadFromIni(fileName,
                     stream, cultureInfo, merge, expand,
@@ -1384,8 +1452,11 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
+            bool couldBeDocument = CouldBeDocument(fileName);
+
 #if XML && SERIALIZATION
-            if (XmlOps.CouldBeDocument(fileName))
+            if (XmlOps.CouldBeDocument(fileName) ||
+                (couldBeDocument && XmlOps.FileLooksLikeDocument(fileName)))
             {
                 return SaveToXml(
                     fileName, expand, interpreterSettings,
@@ -1393,7 +1464,7 @@ namespace Eagle._Components.Public
             }
 #endif
 
-            if (SettingsOps.CouldBeDocument(fileName))
+            if (SettingsOps.CouldBeDocument(fileName) || couldBeDocument)
             {
                 return SaveToIni(
                     fileName, expand, interpreterSettings,

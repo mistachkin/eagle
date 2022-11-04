@@ -506,6 +506,7 @@
       EagleDetectUserSettings;
       EagleDetectBuildTool;
       EagleDetectOperatingSystem;
+      EagleDetectNetCoreReferences;
       EagleDetectNetCore20;
       EagleDetectNetCore30;
       EagleDetectNetFx20ForNetStandard2X;
@@ -523,6 +524,7 @@
       EagleDetectNetFx471;
       EagleDetectNetFx472;
       EagleDetectNetFx48;
+      EagleDetectNetFx481;
       EagleSamplePackagesResGenUnsetReadOnly;
       EagleSamplePackagesResGenForNetStandard2X;
       $(BuildDependsOn);

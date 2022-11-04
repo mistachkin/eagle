@@ -1130,7 +1130,8 @@ namespace Eagle._Components.Private
                     FormatOps.WrapOrNull(clientData),
                     FormatOps.WrapOrNull(uri),
                     FormatOps.WrapOrNull(method),
-                    FormatOps.WrapOrNull(rawData),
+                    (rawData != null) ?
+                        rawData.Length : Length.Invalid,
                     FormatOps.WrapOrNull(timeout),
                     trusted, FormatOps.WrapOrNull(wasTrusted)),
                     typeof(WebOps).Name, TracePriority.NetworkDebug);
@@ -1218,7 +1219,8 @@ namespace Eagle._Components.Private
                 FormatOps.WrapOrNull(callbackFlags),
                 FormatOps.WrapOrNull(uri),
                 FormatOps.WrapOrNull(method),
-                FormatOps.WrapOrNull(rawData),
+                (rawData != null) ?
+                    rawData.Length : Length.Invalid,
                 FormatOps.WrapOrNull(timeout)),
                 typeof(WebOps).Name, TracePriority.NetworkDebug);
 
@@ -1334,7 +1336,8 @@ namespace Eagle._Components.Private
                     FormatOps.WrapOrNull(clientData),
                     FormatOps.WrapOrNull(uri),
                     FormatOps.WrapOrNull(method),
-                    FormatOps.NameValueCollection(collection, true),
+                    (collection != null) ?
+                        collection.Count : Count.Invalid,
                     FormatOps.WrapOrNull(timeout),
                     trusted, FormatOps.WrapOrNull(wasTrusted)),
                     typeof(WebOps).Name, TracePriority.NetworkDebug);
@@ -1422,7 +1425,8 @@ namespace Eagle._Components.Private
                 FormatOps.WrapOrNull(callbackFlags),
                 FormatOps.WrapOrNull(uri),
                 FormatOps.WrapOrNull(method),
-                FormatOps.NameValueCollection(collection, true),
+                (collection != null) ?
+                    collection.Count : Count.Invalid,
                 FormatOps.WrapOrNull(timeout)),
                 typeof(WebOps).Name, TracePriority.NetworkDebug);
 
@@ -1705,7 +1709,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Metadata Support Methods
+        #region Private Metadata Support Methods
+        private static bool IsGoodTimeout(
+            int timeout,
+            bool allowNone
+            )
+        {
+            if (timeout == _Timeout.Infinite)
+                return false;
+
+            if (timeout == _Timeout.None)
+                return allowNone;
+
+            if (timeout < _Timeout.Minimum)
+                return false;
+
+#if false
+            if (timeout > _Timeout.Maximum)
+                return false;
+#endif
+
+            return true;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Metadata Support Methods
         public static bool InOfflineMode()
         {
             return Interlocked.CompareExchange(ref offlineLevels, 0, 0) > 0;
@@ -1735,10 +1765,16 @@ namespace Eagle._Components.Private
             {
                 lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                 {
-                    timeout = interpreter.InternalNetworkTimeout;
+                    int? localTimeout = interpreter.InternalGetTimeout(
+                        TimeoutType.Network); /* OPTIONAL */
 
-                    if (timeout != _Timeout.Infinite)
-                        return timeout;
+                    if (localTimeout != null)
+                    {
+                        timeout = (int)localTimeout;
+
+                        if (IsGoodTimeout(timeout, true))
+                            return timeout;
+                    }
                 }
             }
 
@@ -1763,6 +1799,26 @@ namespace Eagle._Components.Private
             }
 
             return DefaultTimeout;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int GetTimeoutOrDefault(
+            Interpreter interpreter /* in: OPTIONAL */
+            )
+        {
+            int? timeout = GetTimeout(interpreter);
+
+            if (timeout != null)
+            {
+                int localTimeout = (int)timeout;
+
+                if (IsGoodTimeout(localTimeout, true))
+                    return localTimeout;
+            }
+
+            return ThreadOps.GetTimeout(
+                interpreter, timeout, TimeoutType.Network);
         }
         #endregion
 

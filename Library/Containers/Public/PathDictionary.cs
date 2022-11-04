@@ -774,7 +774,7 @@ namespace Eagle._Containers.Public
             }
 
             if (reverse && (list != null))
-                list.Reverse();
+                list.Reverse(); /* O(N) */
 
             return list;
         }

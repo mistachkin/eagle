@@ -17,14 +17,20 @@
 SETLOCAL
 
 REM SET __ECHO=ECHO
+REM SET __ECHO2=ECHO
+REM SET __ECHO3=ECHO
 IF NOT DEFINED _AECHO (SET _AECHO=REM)
 IF NOT DEFINED _CECHO (SET _CECHO=REM)
+IF NOT DEFINED _CECHO2 (SET _CECHO2=REM)
+IF NOT DEFINED _CECHO3 (SET _CECHO3=REM)
 IF NOT DEFINED _VECHO (SET _VECHO=REM)
 
 SET PIPE=^|
+SET _CPIPE=^^^|
 IF DEFINED __ECHO SET PIPE=^^^|
 
 SET OUTPUT=^>
+SET _COUTPUT=^^^>
 IF DEFINED __ECHO SET OUTPUT=^^^>
 
 %_AECHO% Running %0 %*
@@ -223,6 +229,7 @@ REM
 REM NOTE: Output the patch level we just fetched to a file to be
 REM       picked up by the rest of the build process.
 REM
+%_CECHO% ECHO %PACKAGE_PATCHLEVEL% %_COUTPUT% "%RELEASES%\Garuda_patchLevel.txt"
 %__ECHO% ECHO %PACKAGE_PATCHLEVEL% %OUTPUT% "%RELEASES%\Garuda_patchLevel.txt"
 
 SET SETUP=%~dp0\..\..\..\Releases\%PLATFORM%_%CONFIGURATION%\GarudaSetup%SUFFIX%%PACKAGE_PATCHLEVEL%.exe
@@ -261,11 +268,13 @@ IF NOT DEFINED SKIP_SIGN_UNINSTALLER (
 
   IF NOT DEFINED NOSIGN (
     FOR %%F IN (%UNINSTALL%) DO (
+      %_CECHO3% CALL "%LIBRARY_TOOLS%\signFile.bat" "%%F" "Garuda Uninstaller"
       %__ECHO3% CALL "%LIBRARY_TOOLS%\signFile.bat" "%%F" "Garuda Uninstaller"
       IF ERRORLEVEL 1 GOTO errors
 
       IF NOT DEFINED NOSIGCHECK (
         %_AECHO% Checking signatures on file "%%F"...
+        %_CECHO% SigCheck.exe "%%F" %_CPIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
         %__ECHO% SigCheck.exe "%%F" %PIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
 
         IF ERRORLEVEL 1 (
@@ -305,11 +314,13 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 IF NOT DEFINED NOSIGN (
+  %_CECHO3% CALL "%LIBRARY_TOOLS%\signFile.bat" "%SETUP%" "Garuda Setup"
   %__ECHO3% CALL "%LIBRARY_TOOLS%\signFile.bat" "%SETUP%" "Garuda Setup"
   IF ERRORLEVEL 1 GOTO errors
 
   IF NOT DEFINED NOSIGCHECK (
     %_AECHO% Checking signatures on file "%SETUP%"...
+    %_CECHO% SigCheck.exe "%SETUP%" %_CPIPE% FINDSTR "/G:%LIBRARY_TOOLS%\data\SigCheck.txt"
     %__ECHO% SigCheck.exe "%SETUP%" %PIPE% FINDSTR "/G:%LIBRARY_TOOLS%\data\SigCheck.txt"
 
     IF ERRORLEVEL 1 (

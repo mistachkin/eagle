@@ -199,7 +199,7 @@ runTest {test winForms-5.2 {create/show threaded cancel form} -setup {
   #       already be dead.  In that case, this code should be harmless.
   #
   set forever 1
-  if {[info exists t]} then {catch {joinThread $t}}
+  if {[info exists t]} then {catch {joinThread $t effective}}
   if {[info exists t]} then {catch {cleanupThread $t}}
 
   interp sleeptime {} $savedSleeptime; # restore

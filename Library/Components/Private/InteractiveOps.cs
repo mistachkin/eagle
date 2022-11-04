@@ -1270,19 +1270,8 @@ namespace Eagle._Components.Private
                 return true; /* COMMAND PROCESSED */
             }
 
-            InteractiveLoopData localLoopData =
-                loopData as InteractiveLoopData;
-
-            if (localLoopData == null)
-            {
-                result = String.Format(
-                    "interactive loop data must derive from {0}",
-                    typeof(InteractiveLoopData));
-
-                localCode = ReturnCode.Error;
-
-                return true; /* COMMAND PROCESSED */
-            }
+            bool exit = loopData.Exit;
+            ReturnCode code = loopData.Code;
             #endregion
 
             ///////////////////////////////////////////////////////////////////
@@ -1406,7 +1395,9 @@ namespace Eagle._Components.Private
                     localExpressionFlags, localHeaderFlags,
                     loopData.ClientData, loopData.Arguments,
                     ref done, ref localCode, ref localResult,
-                    ref localLoopData.code, ref result);
+                    ref code, ref result);
+
+                loopData.SetCode(code);
 
                 return true; /* COMMAND PROCESSED */
             }
@@ -1424,7 +1415,9 @@ namespace Eagle._Components.Private
                 Commands.halt(
                     interpreter, loopData.Debug, ref done,
                     ref localCode, ref localResult,
-                    ref localLoopData.code, ref result);
+                    ref code, ref result);
+
+                loopData.SetCode(code);
 
                 return true; /* COMMAND PROCESSED */
             }
@@ -1441,8 +1434,9 @@ namespace Eagle._Components.Private
 
                 Commands._done(
                     debugArguments, ref done, ref localCode,
-                    ref localResult, ref localLoopData.code,
-                    ref result);
+                    ref localResult, ref code, ref result);
+
+                loopData.SetCode(code);
 
                 return true; /* COMMAND PROCESSED */
             }
@@ -1474,8 +1468,10 @@ namespace Eagle._Components.Private
                 }
 
                 Commands.exit(
-                    ref localLoopData.exit, ref localCode,
-                    ref localResult);
+                    ref exit, ref localCode, ref localResult);
+
+                if (exit)
+                    loopData.SetExit();
 
                 return true; /* COMMAND PROCESSED */
             }
@@ -1525,6 +1521,23 @@ namespace Eagle._Components.Private
                 }
 
                 Commands.intsec(
+                    interpreter, interactiveHost as IDebugHost,
+                    debugArguments, ref localCode, ref localResult);
+
+                return true; /* COMMAND PROCESSED */
+            }
+            else if (CheckCommand(
+                    interpreter, text, "fmkeys", loopData.ClientData,
+                    true, exact, ref debugVerbose, ref debugArguments,
+                    ref accessError, ref localCode, ref localResult))
+            {
+                if (accessError != null)
+                {
+                    WriteAccessError(interactiveHost, ref accessError);
+                    return true; /* COMMAND PROCESSED */
+                }
+
+                Commands.fmkeys(
                     interpreter, interactiveHost as IDebugHost,
                     debugArguments, ref localCode, ref localResult);
 
@@ -3485,8 +3498,9 @@ namespace Eagle._Components.Private
 
                 Commands.fresr(
                     interactiveHost, ref show, ref localCode,
-                    ref localResult, ref localLoopData.code,
-                    ref result);
+                    ref localResult, ref code, ref result);
+
+                loopData.SetCode(code);
 
                 return true; /* COMMAND PROCESSED */
             }
@@ -3503,8 +3517,9 @@ namespace Eagle._Components.Private
 
                 Commands.resr(
                     interactiveHost, ref show, ref localCode,
-                    ref localResult, ref localLoopData.code,
-                    ref result);
+                    ref localResult, ref code, ref result);
+
+                loopData.SetCode(code);
 
                 return true; /* COMMAND PROCESSED */
             }
@@ -3572,7 +3587,9 @@ namespace Eagle._Components.Private
 
                 Commands.setr(
                     interactiveHost, localCode, localResult,
-                    ref show, ref localLoopData.code, ref result);
+                    ref show, ref code, ref result);
+
+                loopData.SetCode(code);
 
                 return true; /* COMMAND PROCESSED */
             }
@@ -3589,8 +3606,9 @@ namespace Eagle._Components.Private
 
                 Commands.mover(
                     interactiveHost, ref show, ref localCode,
-                    ref localResult, ref localLoopData.code,
-                    ref result);
+                    ref localResult, ref code, ref result);
+
+                loopData.SetCode(code);
 
                 return true; /* COMMAND PROCESSED */
             }
@@ -3710,15 +3728,14 @@ namespace Eagle._Components.Private
                 }
 
                 Commands.queue(
-                    interpreter, refresh, noCommand, trace,
-                    loopData.Debug, localEngineFlags,
+                    interpreter, loopData, refresh, noCommand,
+                    trace, loopData.Debug, localEngineFlags,
                     localSubstitutionFlags, localEventFlags,
                     localExpressionFlags, loopData.ClientData,
                     forceCancel, forceHalt, ref interactiveHost,
-                    ref savedText, ref localLoopData.exit,
-                    ref done, ref previous, ref canceled, ref text,
-                    ref notReady, ref parseError, ref localCode,
-                    ref localResult);
+                    ref savedText, ref done, ref previous,
+                    ref canceled, ref text, ref notReady,
+                    ref parseError, ref localCode, ref localResult);
 
                 return true; /* COMMAND PROCESSED */
             }
@@ -4296,6 +4313,49 @@ namespace Eagle._Components.Private
 
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
+            public static void fmkeys(
+                Interpreter interpreter,
+                IDebugHost debugHost,
+                ArgumentList debugArguments,
+                ref ReturnCode localCode,
+                ref Result localResult
+                )
+            {
+                localCode = ReturnCode.Ok;
+                localResult = null;
+
+                bool force = false;
+
+                if (debugArguments.Count >= 2)
+                {
+                    localCode = Value.GetBoolean2(
+                        debugArguments[1], ValueFlags.AnyBoolean,
+                        interpreter.InternalCultureInfo, ref force,
+                        ref localResult);
+                }
+
+                if (localCode == ReturnCode.Ok)
+                {
+                    localCode = ScriptOps.FetchAndMergeKeyRing(
+                        interpreter, force, ref localResult);
+
+                    if ((localCode == ReturnCode.Ok) && (debugHost != null))
+                    {
+                        debugHost.WriteResult(localCode, String.Format(
+                            "Interpreter {0} key ring {1}fetched and " +
+                            "merged while {2}.",
+                            FormatOps.InterpreterNoThrow(interpreter),
+                            force ? "forcibly " : String.Empty,
+                            interpreter.InternalIsSafe() ?
+                                "\"safe\"" : "\"unsafe\""), true);
+                    }
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
+                CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void tclshrc(
                 Interpreter interpreter,
                 IFileSystemHost fileSystemHost,
@@ -4638,7 +4698,8 @@ namespace Eagle._Components.Private
                                 else
                                 {
                                     localCode = interpreter.InterruptTestGcThread(
-                                        null, false, true, ref localResult);
+                                        null, interpreter.InternalNoThreadAbort,
+                                        true, ref localResult);
 
                                     if (localCode == ReturnCode.Ok)
                                         startedGcThread = false;
@@ -10638,6 +10699,7 @@ namespace Eagle._Components.Private
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void queue(
                 Interpreter interpreter,
+                IInteractiveLoopData loopData,
                 bool? refresh,
                 bool noCommand,
                 bool trace,
@@ -10651,7 +10713,6 @@ namespace Eagle._Components.Private
                 bool forceHalt,
                 ref IInteractiveHost interactiveHost,
                 ref string savedText,
-                ref bool exit,
                 ref bool done,
                 ref bool previous,
                 ref bool canceled,
@@ -10666,6 +10727,16 @@ namespace Eagle._Components.Private
                 // NOTE: Invoke the method directly responsible for getting a
                 //       complete [logical] line of interactive input.
                 //
+                if (loopData == null)
+                {
+                    localResult = "invalid interactive loop data";
+                    localCode = ReturnCode.Error;
+
+                    return;
+                }
+
+                bool exit = loopData.Exit;
+
                 Interpreter.GetInteractiveInput(interpreter, refresh,
 #if INTERACTIVE_COMMANDS
                     noCommand,
@@ -10674,6 +10745,9 @@ namespace Eagle._Components.Private
                     clientData, forceCancel, forceHalt, ref interactiveHost,
                     ref savedText, ref exit, ref done, ref previous,
                     out canceled, out text, out notReady, out parseError);
+
+                if (exit)
+                    loopData.SetExit();
 
                 //
                 // NOTE: Do they still want to queue up an event?

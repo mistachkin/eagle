@@ -624,6 +624,21 @@ namespace Eagle._Components.Private
             }
         }
 
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void RemoveExitedEventHandler()
+        {
+            AppDomain appDomain = AppDomainOps.GetCurrent();
+
+            if (appDomain != null)
+            {
+                if (!AppDomainOps.IsDefault(appDomain))
+                    appDomain.DomainUnload -= NativeStack_Exited;
+                else
+                    appDomain.ProcessExit -= NativeStack_Exited;
+            }
+        }
+
         /////////////////////////////////////////////////////////////////////////////////
 
         private static void NativeStack_Exited(
@@ -637,17 +652,9 @@ namespace Eagle._Components.Private
                 {
                     Marshal.FreeCoTaskMem(ThreadContextBuffer);
                     ThreadContextBuffer = IntPtr.Zero;
-
-                    AppDomain appDomain = AppDomainOps.GetCurrent();
-
-                    if (appDomain != null)
-                    {
-                        if (!AppDomainOps.IsDefault(appDomain))
-                            appDomain.DomainUnload -= NativeStack_Exited;
-                        else
-                            appDomain.ProcessExit -= NativeStack_Exited;
-                    }
                 }
+
+                RemoveExitedEventHandler();
             }
         }
 #endif

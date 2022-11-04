@@ -82,13 +82,13 @@ namespace Eagle._Functions
                                 {
                                     if (variant1.IsDouble())
                                     {
-                                        variant1.Value = Interpreter.FixIntermediatePrecision(
-                                            Math.Max((double)variant1.Value, (double)variant2.Value));
+                                        variant1.Value = Math.Max(
+                                            (double)variant1.Value, (double)variant2.Value);
                                     }
                                     else if (variant1.IsDecimal())
                                     {
-                                        variant1.Value = Interpreter.FixIntermediatePrecision(
-                                            Math.Max((decimal)variant1.Value, (decimal)variant2.Value));
+                                        variant1.Value = Math.Max(
+                                            (decimal)variant1.Value, (decimal)variant2.Value);
                                     }
                                     else if (variant1.IsWideInteger())
                                     {

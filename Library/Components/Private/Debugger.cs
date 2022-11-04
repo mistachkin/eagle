@@ -185,7 +185,7 @@ namespace Eagle._Components.Private
             active = new int[] { 0, 0 };
             singleStep = new bool[] { false, false };
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
             breakOnToken = new bool[] { false, false };
 #endif
 
@@ -202,7 +202,7 @@ namespace Eagle._Components.Private
                 GetDefaultTypes(false, false)
             };
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
             breakpoints = new BreakpointDictionary[] {
                 new BreakpointDictionary(), null
             };
@@ -228,7 +228,7 @@ namespace Eagle._Components.Private
             active[(int)target] = 0;
             singleStep[(int)target] = false;
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
             breakOnToken[(int)target] = false;
 #endif
 
@@ -241,7 +241,7 @@ namespace Eagle._Components.Private
             steps[(int)target] = 0;
             types[(int)target] = BreakpointType.None;
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
             breakpoints[(int)target] = null;
 #endif
 
@@ -265,7 +265,7 @@ namespace Eagle._Components.Private
             active[(int)target] = active[(int)source];
             singleStep[(int)target] = singleStep[(int)source];
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
             breakOnToken[(int)target] = breakOnToken[(int)source];
 #endif
 
@@ -278,7 +278,7 @@ namespace Eagle._Components.Private
             steps[(int)target] = steps[(int)source];
             types[(int)target] = types[(int)source];
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
             breakpoints[(int)target] = breakpoints[(int)source];
 #endif
 
@@ -439,7 +439,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
         private bool[] breakOnToken;
         public bool BreakOnToken
         {
@@ -592,7 +592,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
         private BreakpointDictionary[] breakpoints;
         public BreakpointDictionary Breakpoints
         {
@@ -706,7 +706,7 @@ namespace Eagle._Components.Private
             if (empty || SingleStep)
                 list.Add("SingleStep", SingleStep.ToString());
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
             if (empty || BreakOnToken)
                 list.Add("BreakOnToken", BreakOnToken.ToString());
 #endif
@@ -735,7 +735,7 @@ namespace Eagle._Components.Private
             if (empty || (Types != BreakpointType.None))
                 list.Add("Types", Types.ToString());
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
             BreakpointDictionary breakpoints = Breakpoints;
 
             if (empty || ((breakpoints != null) && (breakpoints.Count > 0)))
@@ -900,7 +900,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
         public ReturnCode GetBreakpointList(
             Interpreter interpreter,
             string pattern,

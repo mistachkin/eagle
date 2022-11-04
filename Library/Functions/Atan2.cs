@@ -69,8 +69,7 @@ namespace Eagle._Functions
                         {
                             try
                             {
-                                value = Interpreter.FixIntermediatePrecision(
-                                    Math.Atan2(doubleValue[0], doubleValue[1]));
+                                value = Math.Atan2(doubleValue[0], doubleValue[1]);
                             }
                             catch (Exception e)
                             {

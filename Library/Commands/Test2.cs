@@ -205,6 +205,7 @@ namespace Eagle._Commands
                                 "-isolationFileName", null),
                             new Option(null, OptionFlags.NoCase | OptionFlags.MustHaveValue | OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
                                 "-isolationLogFile", null),
+                            new Option(null, OptionFlags.MustHaveBooleanValue | OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noChangeReturnCode", null),
 
                             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -422,6 +423,12 @@ namespace Eagle._Commands
 
                                     if (options.IsPresent("-noTrack", true, ref value))
                                         noTrack = (bool)value.Value;
+
+                                    bool noChangeReturnCode = ScriptOps.HasFlags(interpreter,
+                                        InterpreterFlags.NoChangeTestReturnCode, true);
+
+                                    if (options.IsPresent("-noChangeReturnCode", true, ref value))
+                                        noChangeReturnCode = (bool)value.Value;
 
                                     IsolationLevel isolationLevel = IsolationLevel.Default;
 
@@ -2622,6 +2629,8 @@ namespace Eagle._Commands
                                                             {
                                                                 ObjectOps.TryDisposeOrComplain<Interpreter>(
                                                                     interpreter, ref testInterpreter);
+
+                                                                testInterpreter = null;
                                                             }
 
 #if ISOLATED_INTERPRETERS
@@ -2655,12 +2664,18 @@ namespace Eagle._Commands
                                                         //       they are specially highlighted by [host result]
                                                         //       when it is called from [runTest].
                                                         //
-                                                        if (skip)
-                                                            code = ReturnCode.Break;
-                                                        else if (ignore)
-                                                            code = ReturnCode.Continue;
-                                                        else if (whatIf)
-                                                            code = ReturnCode.WhatIf;
+                                                        // HACK: If the "NoChangeReturnCode" option is enabled,
+                                                        //       do *NOT* change the raw return code.
+                                                        //
+                                                        if (!noChangeReturnCode)
+                                                        {
+                                                            if (skip)
+                                                                code = ReturnCode.Break;
+                                                            else if (ignore)
+                                                                code = ReturnCode.Continue;
+                                                            else if (whatIf)
+                                                                code = ReturnCode.WhatIf;
+                                                        }
 
                                                         //
                                                         // NOTE: The result is the complete output produced by the

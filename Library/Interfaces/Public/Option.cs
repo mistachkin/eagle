@@ -33,6 +33,7 @@ namespace Eagle._Interfaces.Public
         bool IsIgnored(OptionDictionary options);
         bool MustHaveValue(OptionDictionary options);
         bool CanBePresent(OptionDictionary options, ref Result error);
+        bool IsPresent(OptionDictionary options);
         bool IsPresent(OptionDictionary options, ref int nameIndex, ref int valueIndex);
         bool IsPresent(OptionDictionary options, ref Variant value);
         void SetPresent(OptionDictionary options, bool present, int index, Variant value);

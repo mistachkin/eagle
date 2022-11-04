@@ -50,13 +50,13 @@ namespace Eagle._Commands
         #region IEnsemble Members
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "addcommands",
-            "alias", "aliases", "bgerror", "callbacklimit", "cancel", "children", "create",
-            "delete", "enabled", "eval", "eventlimit", "exists", "expose", "exposed",
+            "alias", "aliases", "bgerror", "callbacklimit", "cancel", "childlimit", "children",
+            "create", "delete", "enabled", "eval", "eventlimit", "exists", "expose", "exposed",
             "expr", "finallytimeout", "hide", "hidden", "immutable", "invokehidden",
             "isolated", "issafe", "issdk", "isstandard", "makesafe", "makestandard",
-            "marktrusted", "nopolicy", "parent", "policy", "proclimit", "queue",
-            "readonly", "readorgetscriptfile", "readylimit", "recursionlimit",
-            "rename", "resetcancel", "resultlimit", "service", "set",
+            "marktrusted", "namespacelimit", "nopolicy", "parent", "policy", "proclimit",
+            "queue", "readonly", "readorgetscriptfile", "readylimit", "recursionlimit",
+            "rename", "resetcancel", "resultlimit", "scopelimit", "service", "set",
             "shareinterp", "shareobject", "sleeptime", "source", "stub",
             "subcommand", "subst", "target", "timeout", "unset", "varlimit",
             "watchdog"
@@ -665,6 +665,51 @@ namespace Eagle._Commands
                                                         ref result);
                                                 }
                                             }
+                                        }
+                                        break;
+                                    }
+                                case "childlimit":
+                                    {
+                                        if ((arguments.Count == 3) || (arguments.Count == 4))
+                                        {
+                                            string path = arguments[2];
+                                            Interpreter childInterpreter = null;
+
+                                            code = interpreter.GetNestedChildInterpreter(
+                                                path, LookupFlags.Interpreter, false,
+                                                ref childInterpreter, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                lock (childInterpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                                {
+                                                    int childLimit = 0;
+
+                                                    if (arguments.Count == 4)
+                                                    {
+                                                        code = Value.GetInteger2(
+                                                            (IGetValue)arguments[3], ValueFlags.AnyInteger,
+                                                            childInterpreter.InternalCultureInfo, ref childLimit,
+                                                            ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            childInterpreter.InternalChildLimit = childLimit;
+                                                        }
+                                                    }
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        result = StringList.MakeList(
+                                                            "child", childInterpreter.InternalChildLimit);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"interp childlimit path ?limit?\"";
+                                            code = ReturnCode.Error;
                                         }
                                         break;
                                     }
@@ -1335,12 +1380,12 @@ namespace Eagle._Commands
 
                                                     code = childInterpreter.CommandsToList(
                                                         CommandFlags.None, CommandFlags.Hidden, false,
-                                                        false, null, false, ref list, ref result);
+                                                        false, null, false, false, ref list, ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                         code = childInterpreter.ProceduresToList(
                                                             ProcedureFlags.None, ProcedureFlags.Hidden, false,
-                                                            false, null, false, ref list, ref result);
+                                                            false, null, false, false, ref list, ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                         result = list;
@@ -1432,11 +1477,30 @@ namespace Eagle._Commands
                                                         ref result);
 
                                                     if (code == ReturnCode.Ok)
-                                                        childInterpreter.FinallyTimeout = timeout;
+                                                    {
+                                                        if (!childInterpreter.InternalSetOrUnsetTimeout(
+                                                                TimeoutType.Finally, timeout, ref result))
+                                                        {
+                                                            code = ReturnCode.Error;
+                                                        }
+                                                    }
                                                 }
 
                                                 if (code == ReturnCode.Ok)
-                                                    result = childInterpreter.FinallyTimeout;
+                                                {
+                                                    int? timeout = childInterpreter.InternalGetTimeout(
+                                                        TimeoutType.Finally, ref result);
+
+                                                    if (timeout != null)
+                                                    {
+                                                        result = (int)timeout;
+                                                        code = ReturnCode.Ok;
+                                                    }
+                                                    else
+                                                    {
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                }
                                             }
                                         }
                                         else
@@ -1499,12 +1563,12 @@ namespace Eagle._Commands
 
                                                     code = childInterpreter.HiddenCommandsToList(
                                                         CommandFlags.Hidden, CommandFlags.None, false,
-                                                        false, null, false, ref list, ref result);
+                                                        false, null, false, false, ref list, ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                         code = childInterpreter.HiddenProceduresToList(
                                                             ProcedureFlags.Hidden, ProcedureFlags.None, false,
-                                                            false, null, false, ref list, ref result);
+                                                            false, null, false, false, ref list, ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                         result = list;
@@ -2042,6 +2106,49 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"interp marktrusted path\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "namespacelimit":
+                                    {
+                                        if ((arguments.Count == 3) || (arguments.Count == 4))
+                                        {
+                                            string path = arguments[2];
+                                            Interpreter childInterpreter = null;
+
+                                            code = interpreter.GetNestedChildInterpreter(
+                                                path, LookupFlags.Interpreter, false,
+                                                ref childInterpreter, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                lock (childInterpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                                {
+                                                    int namespaceLimit = 0;
+
+                                                    if (arguments.Count == 4)
+                                                    {
+                                                        code = Value.GetInteger2(
+                                                            (IGetValue)arguments[3], ValueFlags.AnyInteger,
+                                                            childInterpreter.InternalCultureInfo, ref namespaceLimit,
+                                                            ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                            childInterpreter.InternalNamespaceLimit = namespaceLimit;
+                                                    }
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        result = StringList.MakeList(
+                                                            "namespace", childInterpreter.InternalNamespaceLimit);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"interp namespacelimit path ?limit?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -2833,6 +2940,49 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"interp resultlimit path ?limit?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "scopelimit":
+                                    {
+                                        if ((arguments.Count == 3) || (arguments.Count == 4))
+                                        {
+                                            string path = arguments[2];
+                                            Interpreter childInterpreter = null;
+
+                                            code = interpreter.GetNestedChildInterpreter(
+                                                path, LookupFlags.Interpreter, false,
+                                                ref childInterpreter, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                lock (childInterpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                                {
+                                                    int scopeLimit = 0;
+
+                                                    if (arguments.Count == 4)
+                                                    {
+                                                        code = Value.GetInteger2(
+                                                            (IGetValue)arguments[3], ValueFlags.AnyInteger,
+                                                            childInterpreter.InternalCultureInfo, ref scopeLimit,
+                                                            ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                            childInterpreter.InternalScopeLimit = scopeLimit;
+                                                    }
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        result = StringList.MakeList(
+                                                            "scope", childInterpreter.InternalScopeLimit);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"interp scopelimit path ?limit?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -3755,11 +3905,11 @@ namespace Eagle._Commands
                                                         ref result);
 
                                                     if (code == ReturnCode.Ok)
-                                                        childInterpreter.Timeout = timeout;
+                                                        childInterpreter.InternalFallbackTimeout = timeout;
                                                 }
 
                                                 if (code == ReturnCode.Ok)
-                                                    result = childInterpreter.Timeout;
+                                                    result = childInterpreter.InternalFallbackTimeout;
                                             }
                                         }
                                         else
@@ -3916,6 +4066,9 @@ namespace Eagle._Commands
                                                         watchdogOperation = WatchdogOperation.StartAndFlags;
                                                     else
                                                         watchdogOperation = WatchdogOperation.StopAndFlags;
+
+                                                    if (childInterpreter.InternalNoThreadAbort)
+                                                        watchdogOperation |= WatchdogOperation.NoAbort;
 
                                                     code = childInterpreter.InternalWatchdogControl(
                                                         watchdogType, watchdogOperation, timeoutFlags,

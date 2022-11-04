@@ -1888,10 +1888,19 @@ namespace Eagle._Components.Private
             if (isSystem && !types.ContainsKey("system"))
                 return false;
 
+            if (!isSystem && types.ContainsKey("systemonly"))
+                return false;
+
             if (isHidden && !types.ContainsKey("hidden"))
                 return false;
 
+            if (!isHidden && types.ContainsKey("hiddenonly"))
+                return false;
+
             if (isDevice && !types.ContainsKey("device"))
+                return false;
+
+            if (!isDevice && types.ContainsKey("deviceonly"))
                 return false;
 
             ///////////////////////////////////////////////////////////////////
@@ -1901,31 +1910,61 @@ namespace Eagle._Components.Private
             //
             // HACK: Assume the reparse point contains a link (junction).
             //
-            if (isReparsePoint && types.ContainsKey("nonlink"))
+            if (isReparsePoint && types.ContainsKey("nolink"))
+                return false;
+
+            if (!isReparsePoint && types.ContainsKey("link"))
+                return false;
+
+            if (isReadOnly && types.ContainsKey("noreadonly"))
                 return false;
 
             if (!isReadOnly && types.ContainsKey("readonly"))
                 return false;
 
+            if (isArchive && types.ContainsKey("noarchive"))
+                return false;
+
             if (!isArchive && types.ContainsKey("archive"))
+                return false;
+
+            if (isNormal && types.ContainsKey("nonormal"))
                 return false;
 
             if (!isNormal && types.ContainsKey("normal"))
                 return false;
 
+            if (isTemporary && types.ContainsKey("notemporary"))
+                return false;
+
             if (!isTemporary && types.ContainsKey("temporary"))
+                return false;
+
+            if (isSparseFile && types.ContainsKey("nosparsefile"))
                 return false;
 
             if (!isSparseFile && types.ContainsKey("sparsefile"))
                 return false;
 
+            if (isCompressed && types.ContainsKey("nocompressed"))
+                return false;
+
             if (!isCompressed && types.ContainsKey("compressed"))
+                return false;
+
+            if (isOffline && types.ContainsKey("nooffline"))
                 return false;
 
             if (!isOffline && types.ContainsKey("offline"))
                 return false;
 
+            if (isNotContentIndexed && types.ContainsKey("contentindexed"))
+                return false;
+
             if (!isNotContentIndexed && types.ContainsKey("notcontentindexed"))
+                return false;
+
+            if (isEncrypted && types.ContainsKey("noencrypted"))
                 return false;
 
             if (!isEncrypted && types.ContainsKey("encrypted"))
@@ -2550,10 +2589,42 @@ namespace Eagle._Components.Private
             }
             catch
             {
-                // do nothing.
+                return 0;
             }
+        }
 
-            return 0;
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetFileSize(
+            string path,
+            ref long size
+            )
+        {
+            Result error = null;
+
+            return GetFileSize(path, ref size, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetFileSize(
+            string path,
+            ref long size,
+            ref Result error
+            )
+        {
+            try
+            {
+                FileInfo fileInfo = new FileInfo(path); /* throw */
+
+                size = fileInfo.Length; /* throw */
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

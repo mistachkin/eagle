@@ -314,8 +314,8 @@ runTest {test proc-2.1 {balanced call stack after body exception} -setup {
 
   unset -nocomplain error code locations frame failed o interp
 } -constraints {eagle configuration.Debug command.object compile.DEBUGGER\
-compile.BREAKPOINTS Eagle._Tests.Default.TestSetQuiet} -match regexp -result \
-{^1 1 0 0 0 \d+ \d+ True$}}
+compile.DEBUGGER_BREAKPOINTS Eagle._Tests.Default.TestSetQuiet} -match regexp \
+-result {^1 1 0 0 0 \d+ \d+ True$}}
 
 ###############################################################################
 

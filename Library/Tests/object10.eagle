@@ -82,7 +82,7 @@ runTest {test object-10.2 {thread start delegate} -setup {
 
   set ::result [list]
   startThread $t
-  if {[joinThread $t]} then {unset t}
+  if {[joinThread $t effective]} then {unset t}
   set ::result
 } -cleanup {
   if {[info exists t]} then {cleanupThread $t}
@@ -112,7 +112,7 @@ runTest {test object-10.3 {parameterized thread start delegate} -setup {
 
   set ::result [list]
   startThread $t true foo
-  if {[joinThread $t]} then {unset t}
+  if {[joinThread $t effective]} then {unset t}
   set ::result
 } -cleanup {
   if {[info exists t]} then {cleanupThread $t}
@@ -183,7 +183,7 @@ runTest {test object-10.5 {atomic incr command} -setup {
 
   set ::result 0
   startThread $t; while {[incr ::result] < 200} {}
-  if {[joinThread $t]} then {unset t}
+  if {[joinThread $t effective]} then {unset t}
   set ::result
 } -cleanup {
   if {[info exists t]} then {cleanupThread $t}
@@ -241,7 +241,7 @@ runTest {test object-10.6 {atomic script evaluation} -setup {
 
   set t [createThread threadStart]
   startThread $t; while {[evalWithLock $::lock $::script] > 0} {}
-  if {[joinThread $t]} then {unset t}
+  if {[joinThread $t effective]} then {unset t}
 
   if {[set refs [object referencecount $lock]] > 1} then {
     tputs $test_channel [appendArgs \
@@ -2115,7 +2115,7 @@ runTest {test object-10.28 {script thread, wait for event enqueued} -setup {
 
   lappend results [$thread WaitForEvent $w(1)]; # false
 
-  if {[joinThread $t]} then {unset t}
+  if {[joinThread $t effective]} then {unset t}
 
   lappend results [$thread WaitForEvent $w(1)]; # false
 

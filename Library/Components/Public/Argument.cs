@@ -38,7 +38,7 @@ namespace Eagle._Components.Public
     [ObjectId("3db192d7-76fa-485f-949c-a75bd929e66a")]
     public sealed class Argument :
             IArgument, IScriptLocation, IToString, IString,
-            ICanHashValue, ICloneable
+            ICacheValue, ICanHashValue, ICloneable
     {
         #region Private Constants
         #region System.Object Overrides Support Constants
@@ -60,6 +60,7 @@ namespace Eagle._Components.Public
         public static readonly string NoFileName = null;
         public static readonly int NoLine = Parser.UnknownLine;
         public static readonly bool NoViaSource = false;
+        public static readonly object NoCacheValue = null;
         public static readonly byte[] NoHashValue = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -91,10 +92,11 @@ namespace Eagle._Components.Public
             int startLine,
             int endLine,
             bool viaSource,
+            object cacheValue,
             byte[] hashValue
             )
             : this(flags, name, value, NoString, @default, fileName,
-                   startLine, endLine, viaSource, hashValue)
+                   startLine, endLine, viaSource, cacheValue, hashValue)
         {
             // do nothing.
         }
@@ -115,6 +117,7 @@ namespace Eagle._Components.Public
             int startLine,
             int endLine,
             bool viaSource,
+            object cacheValue,
             byte[] hashValue
             )
         {
@@ -131,6 +134,7 @@ namespace Eagle._Components.Public
             this.startLine = startLine;
             this.endLine = endLine;
             this.viaSource = viaSource;
+            this.cacheValue = cacheValue;
             this.hashValue = hashValue;
             this.engineData = null;
         }
@@ -145,7 +149,7 @@ namespace Eagle._Components.Public
             object @default
             )
             : this(flags, name, value, @default, NoFileName, NoLine, NoLine,
-                   NoViaSource, NoHashValue)
+                   NoViaSource, NoCacheValue, NoHashValue)
         {
             // do nothing.
         }
@@ -159,7 +163,7 @@ namespace Eagle._Components.Public
             object value
             )
             : this(flags, name, value, NoDefault, NoFileName, NoLine, NoLine,
-                   NoViaSource, NoHashValue)
+                   NoViaSource, NoCacheValue, NoHashValue)
         {
             // do nothing.
         }
@@ -172,7 +176,7 @@ namespace Eagle._Components.Public
             string name
             )
             : this(flags, name, NoValue, NoDefault, NoFileName, NoLine, NoLine,
-                   NoViaSource, NoHashValue)
+                   NoViaSource, NoCacheValue, NoHashValue)
         {
             // do nothing.
         }
@@ -188,7 +192,7 @@ namespace Eagle._Components.Public
             object value
             )
             : this(NoFlags, NoName, value, NoDefault, NoFileName, NoLine,
-                   NoLine, NoViaSource, NoHashValue)
+                   NoLine, NoViaSource, NoCacheValue, NoHashValue)
         {
             // do nothing.
         }
@@ -210,6 +214,7 @@ namespace Eagle._Components.Public
                    (value != null) ? value.StartLine : NoLine,
                    (value != null) ? value.EndLine : NoLine,
                    (value != null) ? value.ViaSource : NoViaSource,
+                   (value != null) ? value.CacheValue : NoCacheValue,
                    (value != null) ? value.HashValue : NoHashValue)
         {
             // do nothing.
@@ -225,7 +230,7 @@ namespace Eagle._Components.Public
             )
             : this(NoFlags, NoName, (value != null) ? value.Value : null,
                    NoDefault, NoFileName, NoLine, NoLine, NoViaSource,
-                   NoHashValue)
+                   NoCacheValue, NoHashValue)
         {
             // do nothing.
         }
@@ -239,7 +244,7 @@ namespace Eagle._Components.Public
             Interpreter value
             )
             : this(NoFlags, NoName, value, NoDefault, NoFileName, NoLine,
-                   NoLine, NoViaSource, NoHashValue)
+                   NoLine, NoViaSource, NoCacheValue, NoHashValue)
         {
             // do nothing.
         }
@@ -251,7 +256,7 @@ namespace Eagle._Components.Public
             )
             : this(NoFlags, NoName, (value != null) ? value.Value : null,
                    NoDefault, NoFileName, NoLine, NoLine, NoViaSource,
-                   NoHashValue)
+                   NoCacheValue, NoHashValue)
         {
             // do nothing.
         }
@@ -264,7 +269,7 @@ namespace Eagle._Components.Public
             )
             : this(NoFlags, NoName, (value != null) ? value.Value : null,
                    NoDefault, NoFileName, NoLine, NoLine, NoViaSource,
-                   NoHashValue)
+                   NoCacheValue, NoHashValue)
         {
             // do nothing.
         }
@@ -288,7 +293,7 @@ namespace Eagle._Components.Public
 #endif
 #endif
                    NoDefault, fileName, startLine, endLine, viaSource,
-                   NoHashValue)
+                   NoCacheValue, NoHashValue)
         {
             // do nothing.
         }
@@ -551,7 +556,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
         [DebuggerStepThrough()]
         private static Argument PrivateCreate(
             Result value,
@@ -699,7 +704,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
         /* INTERNAL STATIC OK */
         [DebuggerStepThrough()]
         internal static Argument GetOrCreate(
@@ -2163,6 +2168,7 @@ namespace Eagle._Components.Public
                 this.endLine = 0;
                 this.viaSource = false;
 
+                this.cacheValue = null;
                 this.hashValue = null;
             }
             else
@@ -2181,6 +2187,7 @@ namespace Eagle._Components.Public
                 this.endLine = NoLine;
                 this.viaSource = NoViaSource;
 
+                this.cacheValue = NoCacheValue;
                 this.hashValue = NoHashValue;
             }
 
@@ -2272,6 +2279,19 @@ namespace Eagle._Components.Public
             list.Add("ViaSource", this.ViaSource.ToString());
 
             return list;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ICacheValue Members
+        private object cacheValue;
+        public object CacheValue
+        {
+            [DebuggerStepThrough()]
+            get { return cacheValue; }
+            [DebuggerStepThrough()]
+            set { cacheValue = value; }
         }
         #endregion
 

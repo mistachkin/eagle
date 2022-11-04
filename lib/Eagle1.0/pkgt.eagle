@@ -250,7 +250,8 @@ namespace eval ::Eagle {
   #
   proc loadPackageClientToolset {
           {directory auto} {apiKeys ""} {hookUnknown true} {enableSecurity true}
-          {isolateSecurity false} {strictSecurity false} {debug false} } {
+          {isolateSecurity false} {strictSecurity false} {fetchKeyRing false}
+          {debug false} } {
     #
     # NOTE: When running in Eagle, namespace support must be available and
     #       enabled.
@@ -360,7 +361,9 @@ namespace eval ::Eagle {
     #       set the appropriate environment variables now.
     #
     if {$debug} then {
-      set ::env(DEBUG_PKGR) 1; set ::env(DEBUG_PKGD) 1
+      set ::env(DEBUG_PKGR) 1
+      set ::env(DEBUG_PKGD) 1
+      set ::env(DEBUG_PKGU) 1
     }
 
     #
@@ -389,6 +392,34 @@ namespace eval ::Eagle {
           }
 
           uplevel 1 [list source enableSecurity]
+        } finally {
+          if {$isolateSecurity && [info exists savedPluginFlags]} then {
+            object invoke -flags +NonPublic Interpreter.GetActive \
+                PluginFlags [appendArgs = $savedPluginFlags]
+          }
+        }
+      } error] && $strictSecurity} then {
+        error $error
+      }
+    }
+
+    #
+    # NOTE: If the caller wants to fetch an official key ring from remote
+    #       URI (i.e. within Harpy), attempt to do that now.  Only treat
+    #       a failure here as fatal if the caller said so.
+    #
+    if {[isEagle] && $fetchKeyRing} then {
+      if {[catch {
+        try {
+          if {$isolateSecurity} then {
+            set savedPluginFlags [object invoke -flags +NonPublic \
+                Interpreter.GetActive PluginFlags]
+
+            object invoke -flags +NonPublic Interpreter.GetActive \
+                PluginFlags [combineFlags $savedPluginFlags Isolated]
+          }
+
+          uplevel 1 [list debug keyring]
         } finally {
           if {$isolateSecurity && [info exists savedPluginFlags]} then {
             object invoke -flags +NonPublic Interpreter.GetActive \

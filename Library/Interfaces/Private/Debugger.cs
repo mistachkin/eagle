@@ -33,7 +33,7 @@ namespace Eagle._Interfaces.Private
         long NextStep(); /* advance the step counter */
         bool MaybeNextStep(); /* maybe advance the step counter, return non-zero if NOW zero */
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
         //
         // TODO: Change these to use the IInterpreter type.
         //

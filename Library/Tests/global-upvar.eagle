@@ -60,16 +60,18 @@ proc getVars { after } {
                    "(?:test_database_table )?" "(?:test_database_type )?" \
                    "(?:test_exit_on_complete )?" "(?:test_file )?" \
                    "(?:test_flags )?" "(?:test_home_path )?" \
-                   "(?:test_host )?" "(?:test_join_timeout )?" \
-                   "(?:test_listed_leaks )?" "(?:test_log )?" \
-                   "(?:test_log_id )?" "(?:test_log_path )?" \
-                   "(?:test_log_queue )?" "(?:test_log_sentry )?" \
-                   "(?:test_long_timeout )?" "(?:test_machine )?" \
-                   "(?:test_mdas )?" "(?:test_name_prefix )?" \
-                   "(?:test_package_path )?" "(?:test_path )?" \
-                   "(?:test_platform )?" "(?:test_port )?" \
-                   "(?:test_puts_state )?" "(?:test_random_order )?" \
-                   "(?:test_repository_file )?" "(?:test_repository_url )?" \
+                   "(?:test_host )?" "(?:test_hosts )?" \
+                   "(?:test_join_timeout )?" "(?:test_listed_leaks )?" \
+                   "(?:test_log )?" "(?:test_log_id )?" \
+                   "(?:test_log_path )?" "(?:test_log_queue )?" \
+                   "(?:test_log_sentry )?" "(?:test_long_timeout )?" \
+                   "(?:test_machine )?" "(?:test_mdas )?" \
+                   "(?:test_name_prefix )?" "(?:test_package_path )?" \
+                   "(?:test_path )?" "(?:test_platform )?" \
+                   "(?:test_port )?" "(?:test_puts_state )?" \
+                   "(?:test_random_order )?" "(?:test_repository_checkout )?" \
+                   "(?:test_repository_file )?" "(?:test_repository_tags )?" \
+                   "(?:test_repository_url )?" "(?:test_run_bucket )?" \
                    "(?:test_run_id )?" "(?:test_script )?" \
                    "(?:test_settings_path )?" "(?:test_statistics )?" \
                    "(?:test_stop_on_failure )?" "(?:test_stop_on_leak )?" \
@@ -126,6 +128,7 @@ proc getVars { after } {
       "{(?:test_flags )?} " "(?:test_flags )?" \
       "{(?:test_home_path )?} " "(?:test_home_path )?" \
       "{(?:test_host )?} " "(?:test_host )?" \
+      "{(?:test_hosts )?} " "(?:test_hosts )?" \
       "{(?:test_join_timeout )?} " "(?:test_join_timeout )?" \
       "{(?:test_listed_leaks )?} " "(?:test_listed_leaks )?" \
       "{(?:test_log )?} " "(?:test_log )?" \
@@ -143,8 +146,11 @@ proc getVars { after } {
       "{(?:test_port )?} " "(?:test_port )?" \
       "{(?:test_puts_state )?} " "(?:test_puts_state )?" \
       "{(?:test_random_order )?} " "(?:test_random_order )?" \
+      "{(?:test_repository_checkout )?} " "(?:test_repository_checkout )?" \
       "{(?:test_repository_file )?} " "(?:test_repository_file )?" \
+      "{(?:test_repository_tags )?} " "(?:test_repository_tags )?" \
       "{(?:test_repository_url )?} " "(?:test_repository_url )?" \
+      "{(?:test_run_bucket )?} " "(?:test_run_bucket )?" \
       "{(?:test_run_id )?} " "(?:test_run_id )?" \
       "{(?:test_script )?} " "(?:test_script )?" \
       "{(?:test_settings_path )?} " "(?:test_settings_path )?" \
@@ -163,8 +169,8 @@ proc getVars { after } {
       "{(?:test_timeout )?} " "(?:test_timeout )?" \
       "{(?:test_timestamp )?} " "(?:test_timestamp )?" \
       "{(?:test_uncounted_leaks )?} " "(?:test_uncounted_leaks )?" \
-      "{(?:test_visual_studio )?} " "(?:test_visual_studio )?" \
       "{(?:test_verbose )?} " "(?:test_verbose )?" \
+      "{(?:test_visual_studio )?} " "(?:test_visual_studio )?" \
       "{(?:test_volume )?} " "(?:test_volume )?" \
       "{(?:test_wait )?} " "(?:test_wait )?" \
       "{(?:test_well_known )?} " "(?:test_well_known )?" \

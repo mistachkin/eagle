@@ -369,7 +369,7 @@ runTest {test basic-1.24 {source https ".eagle" failure} -setup {
         SharedEngineFlags $savedEngineFlags
   }
   unset -nocomplain savedEngineFlags
-} -constraints [fixConstraints {eagle command.object internet_eagle.to\
+} -constraints [fixConstraints {eagle command.object internet_eagle.to tlsOk\
 !security.enabled}] -once true -match regexp -result {^\{software update\
 certificate is untrusted\} (?:0 \{\}|1 \{caught exception getting script\
 stream: System\.Net\.WebException: .*\})$}}
@@ -417,7 +417,7 @@ runTest {test basic-1.25 {source https ".xml" failure} -setup {
         SharedEngineFlags $savedEngineFlags
   }
   unset -nocomplain savedEngineFlags
-} -constraints [fixConstraints {eagle command.object internet_eagle.to\
+} -constraints [fixConstraints {eagle command.object internet_eagle.to tlsOk\
 !security.enabled}] -once true -match regexp -result {^\{software update\
 certificate is untrusted\} (?:0 \{\}|1 \{caught exception getting script\
 stream: System\.Net\.WebException: .*\})$}}
@@ -438,7 +438,8 @@ runTest {test basic-1.26 {source http ".eagle" success} -body {
   source [appendArgs http:// $test_host /scripts/secureTest.eagle]
 } -cleanup {
   catch {rename helloWorld ""}
-} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled}] \
+} -constraints \
+[fixConstraints {eagle internet_eagle.to !security.enabled}] \
 -output [string map [list eagle.to $test_host] \
 {Hello World - http://eagle.to/scripts/secureTest.eagle
 }] -result {}}
@@ -459,7 +460,8 @@ runTest {test basic-1.27 {source http ".xml" success} -body {
   source [appendArgs http:// $test_host /scripts/secureTest.xml]
 } -cleanup {
   catch {rename helloWorld ""}
-} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled}] \
+} -constraints \
+[fixConstraints {eagle internet_eagle.to !security.enabled}] \
 -output [string map [list eagle.to $test_host] \
 {Hello World - http://eagle.to/scripts/secureTest.xml
 }] -result {}}
@@ -491,8 +493,9 @@ runTest {test basic-1.28 {source http ".xml" w/validate success} -setup {
   object invoke Interpreter.GetActive ValidateXml $savedValidateXml
   unset -nocomplain savedValidateXml
 } -constraints [fixConstraints {eagle command.object monoBug44\
-internet_eagle.to !security.enabled}] -output [string map [list eagle.to \
-$test_host] {Hello World - http://eagle.to/scripts/secureTest.xml
+internet_eagle.to !security.enabled}] \
+-output [string map [list eagle.to $test_host] \
+{Hello World - http://eagle.to/scripts/secureTest.xml
 }] -result {}}
 
 ###############################################################################
@@ -515,8 +518,9 @@ runTest {test basic-1.29.1 {source https ".eagle" success} -setup {
 } -cleanup {
   catch {rename helloWorld ""}
   catch {uri softwareupdates false}
-} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled\
-!dotNetCore}] -output [string map [list eagle.to $test_host] \
+} -constraints \
+[fixConstraints {eagle internet_eagle.to tlsOk !security.enabled !dotNetCore}] \
+-output [string map [list eagle.to $test_host] \
 {Hello World - https://eagle.to/scripts/secureTest.eagle
 }] -result {{software update certificate is trusted} {}}}
 
@@ -529,8 +533,9 @@ runTest {test basic-1.29.2 {source https ".eagle" success} -setup {
 } -cleanup {
   catch {rename helloWorld ""}
   catch {uri softwareupdates false}
-} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled\
-dotNetCore}] -output [string map [list eagle.to $test_host] \
+} -constraints \
+[fixConstraints {eagle internet_eagle.to tlsOk !security.enabled dotNetCore}] \
+-output [string map [list eagle.to $test_host] \
 {Hello World - https://eagle.to/scripts/secureTest.eagle
 }] -result {}}
 
@@ -554,8 +559,9 @@ runTest {test basic-1.30.1 {source https ".xml" success} -setup {
 } -cleanup {
   catch {rename helloWorld ""}
   catch {uri softwareupdates false}
-} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled\
-!dotNetCore}] -output [string map [list eagle.to $test_host] \
+} -constraints \
+[fixConstraints {eagle internet_eagle.to tlsOk !security.enabled !dotNetCore}] \
+-output [string map [list eagle.to $test_host] \
 {Hello World - https://eagle.to/scripts/secureTest.xml
 }] -match regexp -result {{software update certificate is trusted} {}}}
 
@@ -568,8 +574,9 @@ runTest {test basic-1.30.2 {source https ".xml" success} -setup {
 } -cleanup {
   catch {rename helloWorld ""}
   catch {uri softwareupdates false}
-} -constraints [fixConstraints {eagle internet_eagle.to !security.enabled\
-dotNetCore}] -output [string map [list eagle.to $test_host] \
+} -constraints \
+[fixConstraints {eagle internet_eagle.to tlsOk !security.enabled dotNetCore}] \
+-output [string map [list eagle.to $test_host] \
 {Hello World - https://eagle.to/scripts/secureTest.xml
 }] -result {}}
 
@@ -2916,8 +2923,8 @@ runTest {test basic-1.101 {checkForUpdate script library procedure} -setup {
   unset -nocomplain savedPatchLevel
 
   unset -nocomplain patchLevel dummy data host
-} -constraints {eagle command.object compile.NETWORK\
-network_eagle.to strongName.official osVersion.WindowsNT_6.0_OrHigher} \
+} -constraints {eagle command.object compile.NETWORK network_update.eagle.to\
+tlsOk strongName.official osVersion.WindowsNT_6.0_OrHigher} \
 -constraintExpression {[haveConstraint buildType.Default] || \
 [haveConstraint buildType.NetFx20]} -match regexp -result [string map [list \
 %host% $host] {^\{\{(?:stable|latest) build \d+\.\d+\.\d+\.\d+, dated\
@@ -3131,6 +3138,39 @@ runTest {test basic-1.107 {out-of-band objects w/ [object fromvar]} -setup {
 Eagle._Tests.Default.TestSetVariableWithTypedValue} -match regexp -result {^0\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
 Eagle\._Tests\.Default Eagle\._Tests\.Default$}}
+
+###############################################################################
+
+runTest {test basic-10.2007 {[getKnownEagleVersions] procedure} -setup {
+  package require Eagle.Test; # NOTE: Redundant (?).
+
+  unset -nocomplain l x i result
+} -body {
+  set result [list]
+  set x [getKnownEagleVersions]
+  set l [llength $x]
+
+  for {set i 0} {$i < $l} {incr i} {
+    lappend result [list $i [lindex $x $i]]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain l x i result
+} -constraints {eagle} -result {{0 1.0.3218.15461} {1 1.0.3285.13304} {2\
+1.0.3299.874} {3 1.0.3321.8911} {4 1.0.3344.10975} {5 1.0.3508.7783} {6\
+1.0.3756.18875} {7 1.0.3933.37600} {8 1.0.3935.30806} {9 1.0.3936.949} {10\
+1.0.3972.10358} {11 1.0.3993.40193} {12 1.0.4010.41132} {13 1.0.4031.13865} {14\
+1.0.4093.38850} {15 1.0.4173.1269} {16 1.0.4215.24284} {17 1.0.4221.27588} {18\
+1.0.4291.26291} {19 1.0.4312.34328} {20 1.0.4375.30934} {21 1.0.4375.38149} {22\
+1.0.4472.20308} {23 1.0.4511.33828} {24 1.0.4567.36231} {25 1.0.4629.29317} {26\
+1.0.4691.37889} {27 1.0.4807.22448} {28 1.0.5000.25377} {29 1.0.5173.31244} {30\
+1.0.5217.20046} {31 1.0.5384.19912} {32 1.0.5542.25903} {33 1.0.5633.18513} {34\
+1.0.5749.32588} {35 1.0.5934.21851} {36 1.0.6018.45959} {37 1.0.6119.57133} {38\
+1.0.6120.16902} {39 1.0.6234.51946} {40 1.0.6483.12345} {41 1.0.6543.58654} {42\
+1.0.6781.49000} {43 1.0.6781.49042} {44 1.0.6848.11041} {45 1.0.7213.50727} {46\
+1.0.7790.43198} {47 1.0.7897.33333} {48 1.0.7900.33333} {49 1.0.7945.33333} {50\
+1.0.8192.54321} {51 1.0.8251.52012}}}
 
 ###############################################################################
 

@@ -118,10 +118,17 @@ proc getBuildName { buildType name } {
 
 proc getBuildPatchLevel { {fallback ""} } {
   #
-  # NOTE: Check if the engine patch level has been explicitly overridden
-  #       via the environment.
+  # NOTE: Check if the patch level has been explicitly overridden via the
+  #       environment.
   #
-  if {[info exists ::env(PATCHLEVEL)]} then {
+  if {[info exists ::mode] && $::mode eq "NuSpecMode" && \
+      [info exists ::env(NUGET_PACKAGE_VERSION)]} then {
+    #
+    # NOTE: The NuGet package version has been explicitly overridden via
+    #       the environment; therefore, use it.
+    #
+    return $::env(NUGET_PACKAGE_VERSION)
+  } elseif {[info exists ::env(PATCHLEVEL)]} then {
     #
     # NOTE: The engine patch level has been explicitly overridden via the
     #       environment; therefore, use it.
@@ -225,9 +232,9 @@ proc getSourceId { fileName idVarName timeStampVarName } {
 
   set pattern {^checkout:\s+([^\s]+)\s+(.*)\s+$}
 
-  if {[catch {
+  if {![info exists ::fossil] || [catch {
     set exec [string map [list \n \r\n] [exec -success Success \
-        -nocarriagereturns -directory $directory -- fossil info]]
+        -nocarriagereturns -directory $directory -- $::fossil info]]
   }] || [regexp -line -- $pattern $exec dummy id timeStamp] == 0} then {
     #
     # NOTE: Could not query the source identifier(s); therefore,
@@ -252,13 +259,17 @@ set modes [list \"ChangeLogMode\", \"UpdateMode\", \
 set argc [llength $argv]
 
 if {$argc >= 2 && $argc <= 4} then {
+  set toolScript [info script]
+  set path [file dirname $toolScript]
+  set rootName [file rootname [file tail $toolScript]]
+
   #
   # NOTE: If available, load the settings file associated with this
   #       build tool.
   #
   if {[info exists env(XDG_STARTUP_HOME)]} then {
     set settingsFileName [file join \
-        $env(XDG_STARTUP_HOME) versionTag.settings.eagle]
+        $env(XDG_STARTUP_HOME) [appendArgs $rootName .settings.eagle]]
 
     if {[file exists $settingsFileName]} then {
       source $settingsFileName
@@ -266,8 +277,21 @@ if {$argc >= 2 && $argc <= 4} then {
   }
 
   #
-  # NOTE: Are we updating the "ChangeLog", "stable.txt", or
-  #       "PatchLevel.cs" file?
+  # NOTE: If necessary, setup the Fossil tool executable to use.
+  #
+  if {![info exists fossil]} then {
+    if {[info exists env(FossilTool)]} then {
+      set fossil $env(FossilTool)
+    }
+
+    if {![info exists fossil] || ![file exists $fossil]} then {
+      set fossil [file join $path fossil.exe]
+    }
+  }
+
+  #
+  # NOTE: Are we updating "ChangeLog", "stable.txt", "PatchLevel.cs",
+  #       etc?
   #
   set mode [lindex $argv 0]
 

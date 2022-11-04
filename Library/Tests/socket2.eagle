@@ -230,8 +230,8 @@ runTest {test socket-2.2 {client/server sockets with threads} -setup {
   startThread $thread(listen); waitForServerListen true
   startThread $thread(client); waitForClientSocket true
 
-  joinThread $thread(client) $test_timeout
-  joinThread $thread(listen) $test_timeout
+  joinThread $thread(client) effective
+  joinThread $thread(listen) effective
 
   if {[info exists sock(listen)]} then {
     close $sock(listen); unset sock(listen)

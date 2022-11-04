@@ -260,6 +260,15 @@ namespace Eagle._Components.Private.Delegates
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [SuppressUnmanagedCodeSecurity()]
+    [ObjectId("47d130c9-5831-4b69-bdec-0a3bc913c482")]
+    internal delegate void Eagle_FreeVersion(
+        IntPtr pVersion
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [SuppressUnmanagedCodeSecurity()]
     [ObjectId("ad5185f6-f1f1-4736-b1ec-2e7d9d329763")]
     internal delegate IntPtr Eagle_AllocateMemory(
         int size
@@ -316,6 +325,15 @@ namespace Eagle._Components.Private.Delegates
         ref int length,
         ref IntPtr pText,
         ref IntPtr pError
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [SuppressUnmanagedCodeSecurity()]
+    [ObjectId("1ec7e25c-1458-4f39-9271-495826c34689")]
+    internal delegate IntPtr Eagle_SetMemoryHeap(
+        IntPtr newHeap
     );
 #endif
     #endregion

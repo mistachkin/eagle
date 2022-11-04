@@ -3,7 +3,7 @@
   <metadata>
     <id>Eagle.Tools</id>
     <title>The Eagle Project (Tools)</title>
-    <version>1.0.8192.54321</version>
+    <version>1.0.X.X</version>
     <authors>Eagle Development Team</authors>
     <description>An implementation of the Tcl scripting language.  This package contains the MSBuild tasks and PowerShell cmdlets that enable integration [with Eagle] as well as the command-line shell [for Eagle].</description>
     <language>en-US</language>
@@ -15,10 +15,10 @@
     <copyright>Copyright &#x00A9; 2007-2012 by Joe Mistachkin.  All rights reserved.</copyright>
     <dependencies>
       <group targetFramework="net20">
-        <dependency id="Eagle.Tools.CLRv2" version="[1.0.8192.54321]" />
+        <dependency id="Eagle.Tools.CLRv2" version="[1.0.X.X]" />
       </group>
       <group targetFramework="net40">
-        <dependency id="Eagle.Tools.CLRv4" version="[1.0.8192.54321]" />
+        <dependency id="Eagle.Tools.CLRv4" version="[1.0.X.X]" />
       </group>
     </dependencies>
   </metadata>

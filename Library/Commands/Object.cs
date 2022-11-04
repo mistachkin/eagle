@@ -358,7 +358,6 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count >= 3)
                                         {
-#if !NET_STANDARD_20
                                             OptionDictionary options = ObjectOps.GetCertificateOptions();
                                             int argumentIndex = Index.Invalid;
 
@@ -403,10 +402,10 @@ namespace Eagle._Commands
                                                                     code = CertificateOps.VerifyChain(
                                                                         assembly, certificate2, x509VerificationFlags,
                                                                         x509RevocationMode, x509RevocationFlag,
-                                                                        ref result);
+                                                                        true, ref result);
 
                                                                 if (code == ReturnCode.Ok)
-                                                                    result = FormatOps.Certificate(
+                                                                    result = FormatOps.Certificate(interpreter,
                                                                         assembly, certificate2, true, true, false);
                                                             }
                                                             else
@@ -423,7 +422,7 @@ namespace Eagle._Commands
                                                                 assembly, ref certificate, ref result);
 
                                                             if (code == ReturnCode.Ok)
-                                                                result = FormatOps.Certificate(
+                                                                result = FormatOps.Certificate(interpreter,
                                                                     assembly, certificate, true, true, false);
                                                         }
                                                     }
@@ -444,10 +443,6 @@ namespace Eagle._Commands
                                                     code = ReturnCode.Error;
                                                 }
                                             }
-#else
-                                            result = "not implemented";
-                                            code = ReturnCode.Error;
-#endif
                                         }
                                         else
                                         {
@@ -475,6 +470,11 @@ namespace Eagle._Commands
                                                 if (argumentIndex == Index.Invalid)
                                                 {
                                                     Variant value = null;
+                                                    string pattern = null;
+
+                                                    if (options.IsPresent("-pattern", ref value))
+                                                        pattern = (string)value.Value;
+
                                                     int referenceCount = 0;
 
                                                     if (options.IsPresent("-referencecount", ref value))
@@ -515,7 +515,7 @@ namespace Eagle._Commands
                                                     {
                                                         if (remove)
                                                         {
-                                                            code = interpreter.RemoveObjects(
+                                                            code = interpreter.RemoveObjects(pattern,
                                                                 null, referenceCount, stopOnError,
                                                                 synchronous, ref dispose, ref result);
                                                         }
@@ -5000,132 +5000,326 @@ namespace Eagle._Commands
                                     }
                                 case "verifyall":
                                     {
-                                        if ((arguments.Count == 2) || (arguments.Count == 3))
+                                        if (arguments.Count >= 2)
                                         {
-                                            bool strict = false;
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(typeof(VerifyFlags),
+                                                    OptionFlags.MustHaveEnumValue, Index.Invalid,
+                                                    Index.Invalid, "-verifyflags",
+                                                    new Variant(VerifyFlags.Default)),
+                                            }, ObjectOps.GetCertificateOptions());
 
-                                            if (arguments.Count == 3)
-                                                code = Value.GetBoolean2(
-                                                    arguments[2], ValueFlags.AnyBoolean,
-                                                    interpreter.InternalCultureInfo, ref strict, ref result);
+                                            int argumentIndex = Index.Invalid;
 
-                                            X509VerificationFlags x509VerificationFlags =
-                                                CertificateOps.DefaultVerificationFlags;
-
-                                            X509RevocationMode x509RevocationMode =
-                                                CertificateOps.DefaultRevocationMode;
-
-                                            X509RevocationFlag x509RevocationFlag =
-                                                CertificateOps.DefaultRevocationFlag;
+                                            if (arguments.Count > 2)
+                                            {
+                                                code = interpreter.GetOptions(
+                                                    options, arguments, 0, 2, Index.Invalid,
+                                                    true, ref argumentIndex, ref result);
+                                            }
+                                            else
+                                            {
+                                                code = ReturnCode.Ok;
+                                            }
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                AppDomain appDomain = interpreter.GetAppDomain();
-
-                                                if (appDomain != null)
+                                                if (argumentIndex == Index.Invalid)
                                                 {
-                                                    Assembly[] assemblies = appDomain.GetAssemblies();
+                                                    X509VerificationFlags x509VerificationFlags;
+                                                    X509RevocationMode x509RevocationMode;
+                                                    X509RevocationFlag x509RevocationFlag;
+                                                    bool chain;
 
-                                                    if (assemblies != null)
+                                                    ObjectOps.ProcessObjectCertificateOptions(
+                                                        options, null, null, null, out x509VerificationFlags,
+                                                        out x509RevocationMode, out x509RevocationFlag,
+                                                        out chain);
+
+                                                    Variant value = null;
+                                                    VerifyFlags verifyFlags = VerifyFlags.Default;
+
+                                                    if (options.IsPresent("-verifyflags", ref value))
+                                                        verifyFlags = (VerifyFlags)value.Value;
+
+                                                    AppDomain appDomain = interpreter.GetAppDomain();
+
+                                                    if (appDomain != null)
                                                     {
-                                                        foreach (Assembly assembly in assemblies)
+                                                        Assembly[] assemblies = appDomain.GetAssemblies();
+
+                                                        if (assemblies != null)
                                                         {
-                                                            if (assembly != null)
+                                                            int errorCount = 0;
+                                                            ResultList results = null;
+                                                            Result localResult; /* REUSED */
+
+                                                            if (!chain && FlagOps.HasFlags(
+                                                                    verifyFlags, VerifyFlags.VerifyChain, true))
                                                             {
-                                                                if (strict || !assembly.GlobalAssemblyCache)
+                                                                chain = true;
+                                                            }
+
+                                                            if (chain && FlagOps.HasFlags(
+                                                                    verifyFlags, VerifyFlags.NoVerifyChain, true))
+                                                            {
+                                                                chain = false;
+                                                            }
+
+                                                            bool stopOnError = FlagOps.HasFlags(
+                                                                verifyFlags, VerifyFlags.StopOnError, true);
+
+                                                            bool globalAssemblyCache = FlagOps.HasFlags(
+                                                                verifyFlags, VerifyFlags.GlobalAssemblyCache, true);
+
+                                                            bool ignoreNull = FlagOps.HasFlags(
+                                                                verifyFlags, VerifyFlags.IgnoreNull, true);
+
+                                                            bool stopOnNull = FlagOps.HasFlags(
+                                                                verifyFlags, VerifyFlags.StopOnNull, true);
+
+                                                            bool verboseResults = FlagOps.HasFlags(
+                                                                verifyFlags, VerifyFlags.VerboseResults, true);
+
+                                                            int length = assemblies.Length;
+
+                                                            for (int index = 0; index < length; index++)
+                                                            {
+                                                                Assembly assembly = assemblies[index];
+
+                                                                if (assembly == null)
                                                                 {
+                                                                    if (!ignoreNull)
+                                                                        errorCount++;
+
+                                                                    if (verboseResults || !ignoreNull)
+                                                                    {
+                                                                        if (results == null)
+                                                                            results = new ResultList();
+
+                                                                        results.Add(String.Format(
+                                                                            "{0} Missing #{1}: \"invalid assembly\"",
+                                                                            ignoreNull ? "SKIPPED" : "ERROR", index));
+                                                                    }
+
+                                                                    if (stopOnNull)
+                                                                        break;
+                                                                    else
+                                                                        continue;
+                                                                }
+
+                                                                if (!globalAssemblyCache &&
+                                                                    assembly.GlobalAssemblyCache)
+                                                                {
+                                                                    if (verboseResults)
+                                                                    {
+                                                                        if (results == null)
+                                                                            results = new ResultList();
+
+                                                                        results.Add(String.Format(
+                                                                            "SKIPPED GlobalAssemblyCache {0}",
+                                                                            FormatOps.WrapOrNull(assembly)));
+                                                                    }
+
+                                                                    continue;
+                                                                }
+
 #if CAS_POLICY
-                                                                    StrongName strongName = null;
+                                                                StrongName strongName = null;
 
-                                                                    code = AssemblyOps.GetStrongName(
-                                                                        assembly, ref strongName, ref result);
+                                                                localResult = null;
 
-                                                                    if (code != ReturnCode.Ok)
+                                                                if (AssemblyOps.GetStrongName(
+                                                                        assembly, ref strongName,
+                                                                        ref localResult) == ReturnCode.Ok)
+                                                                {
+                                                                    if (verboseResults)
                                                                     {
-                                                                        result = String.Format(
-                                                                            "assembly {0}: {1}",
-                                                                            FormatOps.WrapOrNull(assembly),
-                                                                            result);
+                                                                        if (results == null)
+                                                                            results = new ResultList();
 
-                                                                        break;
-                                                                    }
-#endif
-
-                                                                    if (!RuntimeOps.IsStrongNameVerified(
-                                                                            assembly.Location, true))
-                                                                    {
-                                                                        result = String.Format(
-                                                                            "assembly {0}: not fully-signed",
-                                                                            FormatOps.WrapOrNull(assembly));
-
-                                                                        code = ReturnCode.Error;
-                                                                        break;
-                                                                    }
-
-#if !NET_STANDARD_20
-                                                                    X509Certificate2 certificate2 = null;
-
-                                                                    code = AssemblyOps.GetCertificate2(
-                                                                        assembly, true, ref certificate2, ref result);
-
-                                                                    if (code != ReturnCode.Ok)
-                                                                    {
-                                                                        result = String.Format(
-                                                                            "assembly {0}: {1}",
-                                                                            FormatOps.WrapOrNull(assembly),
-                                                                            result);
-
-                                                                        break;
-                                                                    }
-
-                                                                    code = CertificateOps.VerifyChain(
-                                                                        assembly, certificate2, x509VerificationFlags,
-                                                                        x509RevocationMode, x509RevocationFlag,
-                                                                        ref result);
-
-                                                                    if (code != ReturnCode.Ok)
-                                                                        break;
-#endif
-
-                                                                    if (!RuntimeOps.IsFileTrusted(
-                                                                            assembly.Location, IntPtr.Zero))
-                                                                    {
-                                                                        result = String.Format(
-                                                                            "assembly {0}: is not trusted",
-                                                                            FormatOps.WrapOrNull(assembly));
-
-                                                                        code = ReturnCode.Error;
-                                                                        break;
+                                                                        results.Add(String.Format(
+                                                                            "OK StrongName {0}",
+                                                                            FormatOps.WrapOrNull(assembly)));
                                                                     }
                                                                 }
-                                                            }
-                                                            else
-                                                            {
-                                                                result = "invalid assembly";
-                                                                code = ReturnCode.Error;
-                                                                break;
-                                                            }
-                                                        }
+                                                                else
+                                                                {
+                                                                    errorCount++;
 
-                                                        if (code == ReturnCode.Ok)
-                                                            result = String.Empty;
+                                                                    if (results == null)
+                                                                        results = new ResultList();
+
+                                                                    results.Add(String.Format(
+                                                                        "ERROR StrongName {0}: {1}",
+                                                                        FormatOps.WrapOrNull(assembly),
+                                                                        FormatOps.WrapOrNull(localResult)));
+
+                                                                    if (stopOnError)
+                                                                        break;
+                                                                }
+#endif
+
+                                                                if (RuntimeOps.IsStrongNameVerified(
+                                                                        assembly.Location, true))
+                                                                {
+                                                                    if (verboseResults)
+                                                                    {
+                                                                        if (results == null)
+                                                                            results = new ResultList();
+
+                                                                        results.Add(String.Format(
+                                                                            "OK Verified {0}",
+                                                                            FormatOps.WrapOrNull(assembly)));
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    errorCount++;
+
+                                                                    if (results == null)
+                                                                        results = new ResultList();
+
+                                                                    results.Add(String.Format(
+                                                                        "ERROR Verified {0}: \"not fully-signed\"",
+                                                                        FormatOps.WrapOrNull(assembly)));
+
+                                                                    if (stopOnError)
+                                                                        break;
+                                                                }
+
+                                                                X509Certificate2 certificate2 = null;
+
+                                                                localResult = null;
+
+                                                                if (AssemblyOps.GetCertificate2(
+                                                                        assembly, true, ref certificate2,
+                                                                        ref localResult) == ReturnCode.Ok)
+                                                                {
+                                                                    if (verboseResults)
+                                                                    {
+                                                                        if (results == null)
+                                                                            results = new ResultList();
+
+                                                                        results.Add(String.Format(
+                                                                            "OK Certificate2 {0}: {1}",
+                                                                            FormatOps.WrapOrNull(assembly),
+                                                                            FormatOps.Certificate(
+                                                                                certificate2, false, true)));
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    errorCount++;
+
+                                                                    if (results == null)
+                                                                        results = new ResultList();
+
+                                                                    results.Add(String.Format(
+                                                                        "ERROR Certificate2 {0}: {1}",
+                                                                        FormatOps.WrapOrNull(assembly),
+                                                                        FormatOps.WrapOrNull(localResult)));
+
+                                                                    if (stopOnError)
+                                                                        break;
+                                                                }
+
+                                                                if (chain)
+                                                                {
+                                                                    localResult = null;
+
+                                                                    if (CertificateOps.VerifyChain(
+                                                                            assembly, certificate2,
+                                                                            x509VerificationFlags,
+                                                                            x509RevocationMode,
+                                                                            x509RevocationFlag, false,
+                                                                            ref localResult) == ReturnCode.Ok)
+                                                                    {
+                                                                        if (verboseResults)
+                                                                        {
+                                                                            if (results == null)
+                                                                                results = new ResultList();
+
+                                                                            results.Add(String.Format(
+                                                                                "OK Chain {0}",
+                                                                                FormatOps.WrapOrNull(assembly)));
+                                                                        }
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        errorCount++;
+
+                                                                        if (results == null)
+                                                                            results = new ResultList();
+
+                                                                        results.Add(String.Format(
+                                                                            "ERROR Chain {0}: {1}",
+                                                                            FormatOps.WrapOrNull(assembly),
+                                                                            FormatOps.WrapOrNull(localResult)));
+
+                                                                        if (stopOnError)
+                                                                            break;
+                                                                    }
+                                                                }
+
+                                                                if (RuntimeOps.IsFileTrusted(
+                                                                        interpreter, null, assembly.Location,
+                                                                        IntPtr.Zero))
+                                                                {
+                                                                    if (verboseResults)
+                                                                    {
+                                                                        if (results == null)
+                                                                            results = new ResultList();
+
+                                                                        results.Add(String.Format(
+                                                                            "OK Trusted {0}",
+                                                                            FormatOps.WrapOrNull(assembly)));
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    errorCount++;
+
+                                                                    if (results == null)
+                                                                        results = new ResultList();
+
+                                                                    results.Add(String.Format(
+                                                                        "ERROR Trusted {0}: \"is not trusted\"",
+                                                                        FormatOps.WrapOrNull(assembly)));
+
+                                                                    if (stopOnError)
+                                                                        break;
+                                                                }
+                                                            }
+
+                                                            result = results;
+
+                                                            if (errorCount > 0)
+                                                                code = ReturnCode.Error;
+                                                        }
+                                                        else
+                                                        {
+                                                            result = "invalid assemblies";
+                                                            code = ReturnCode.Error;
+                                                        }
                                                     }
                                                     else
                                                     {
-                                                        result = "invalid assemblies";
+                                                        result = "invalid application domain";
                                                         code = ReturnCode.Error;
                                                     }
                                                 }
                                                 else
                                                 {
-                                                    result = "invalid application domain";
+                                                    result = "wrong # args: should be \"object verifyall ?options?\"";
                                                     code = ReturnCode.Error;
                                                 }
                                             }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"object verifyall ?strict?\"";
+                                            result = "wrong # args: should be \"object verifyall ?options?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

@@ -3,7 +3,7 @@
   <metadata>
     <id>Eagle.DotNet</id>
     <title>The Eagle Project (DotNet)</title>
-    <version>1.0.8192.54321</version>
+    <version>1.0.X.X</version>
     <authors>Eagle Development Team</authors>
     <description>An implementation of the Tcl scripting language.</description>
     <language>en-US</language>
@@ -15,10 +15,10 @@
     <copyright>Copyright &#x00A9; 2007-2012 by Joe Mistachkin.  All rights reserved.</copyright>
     <dependencies>
       <group targetFramework="netstandard2.0">
-        <dependency id="Eagle.DotNet.Standard.2.0" version="[1.0.8192.54321]" />
+        <dependency id="Eagle.DotNet.Standard.2.0" version="[1.0.X.X]" />
       </group>
       <group targetFramework="netstandard2.1">
-        <dependency id="Eagle.DotNet.Standard.2.1" version="[1.0.8192.54321]" />
+        <dependency id="Eagle.DotNet.Standard.2.1" version="[1.0.X.X]" />
       </group>
     </dependencies>
   </metadata>

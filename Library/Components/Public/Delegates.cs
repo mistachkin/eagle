@@ -110,6 +110,19 @@ namespace Eagle._Components.Public.Delegates
 
     ///////////////////////////////////////////////////////////////////////////
 
+    #region Interpreter Health Related Delegates
+#if THREADING
+    [ObjectId("6fedb042-0a7e-4c83-9bb6-1351f9fd0c55")]
+    public delegate ReturnCode HealthCallback(
+        Interpreter interpreter,
+        CheckStatus status,
+        ref ResultList errors
+    );
+#endif
+    #endregion
+
+    ///////////////////////////////////////////////////////////////////////////
+
     #region RuleSet Related Delegates
     [ObjectId("fe3c35d6-98ed-442a-bca1-a3427f891c91")]
     public delegate ReturnCode RuleIterationCallback(

@@ -52,6 +52,17 @@ using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using StringDictionary = Eagle._Containers.Public.StringDictionary;
 
+using UnderAnyPair = Eagle._Components.Public.AnyPair<
+    Eagle._Components.Public.PathType, string>;
+
+using UnderPair = System.Collections.Generic.KeyValuePair<string,
+    System.Collections.Generic.List<Eagle._Components.Public.AnyPair<
+        Eagle._Components.Public.PathType, string>>>;
+
+using UnderDictionary = Eagle._Containers.Public.PathDictionary<
+    System.Collections.Generic.List<Eagle._Components.Public.AnyPair<
+        Eagle._Components.Public.PathType, string>>>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -1948,7 +1959,7 @@ namespace Eagle._Components.Private
                         //       parameter is true, resolve it to
                         //       an absolute path first.
                         //
-                        TraceOps.MaybeDebugTrace(
+                        TraceOps.DebugTrace(
                             "GetBinaryPath: using manual override",
                             typeof(PathOps).Name,
                             TracePriority.StartupDebug);
@@ -1968,7 +1979,7 @@ namespace Eagle._Components.Private
 
             if (result != null)
             {
-                TraceOps.MaybeDebugTrace(String.Format(
+                TraceOps.DebugTrace(String.Format(
                     "GetBinaryPath: full = {0}, result = {1}",
                     full, FormatOps.WrapOrNull(result)),
                     typeof(PathOps).Name,
@@ -1987,7 +1998,7 @@ namespace Eagle._Components.Private
 
                 if (HaveHttpContext(ref context))
                 {
-                    TraceOps.MaybeDebugTrace(
+                    TraceOps.DebugTrace(
                         "GetBinaryPath: found HTTP context",
                         typeof(PathOps).Name,
                         TracePriority.StartupDebug);
@@ -1996,7 +2007,7 @@ namespace Eagle._Components.Private
 
                     if (HaveHttpServerUtility(context, ref server))
                     {
-                        TraceOps.MaybeDebugTrace(
+                        TraceOps.DebugTrace(
                             "GetBinaryPath: found HTTP server utility",
                             typeof(PathOps).Name,
                             TracePriority.StartupDebug);
@@ -2016,7 +2027,7 @@ namespace Eagle._Components.Private
                         if (!CommonOps.Runtime.IsMono() &&
                             HttpRuntimeUsingIntegratedPipeline())
                         {
-                            TraceOps.MaybeDebugTrace(
+                            TraceOps.DebugTrace(
                                 "GetBinaryPath: detected IIS integrated-pipeline mode",
                                 typeof(PathOps).Name, TracePriority.StartupDebug);
 
@@ -2029,7 +2040,7 @@ namespace Eagle._Components.Private
                         else
 #endif
                         {
-                            TraceOps.MaybeDebugTrace(
+                            TraceOps.DebugTrace(
                                 "GetBinaryPath: detected IIS classic mode",
                                 typeof(PathOps).Name, TracePriority.StartupDebug);
 
@@ -2040,7 +2051,7 @@ namespace Eagle._Components.Private
 
                             if (HaveHttpRequest(context, ref request))
                             {
-                                TraceOps.MaybeDebugTrace(
+                                TraceOps.DebugTrace(
                                     "GetBinaryPath: found HTTP request",
                                     typeof(PathOps).Name, TracePriority.StartupDebug);
 
@@ -2051,7 +2062,7 @@ namespace Eagle._Components.Private
                             }
                             else
                             {
-                                TraceOps.MaybeDebugTrace(
+                                TraceOps.DebugTrace(
                                     "GetBinaryPath: no HTTP request",
                                     typeof(PathOps).Name, TracePriority.StartupError);
                             }
@@ -2064,7 +2075,7 @@ namespace Eagle._Components.Private
                         //
                         if (path != null)
                         {
-                            TraceOps.MaybeDebugTrace(
+                            TraceOps.DebugTrace(
                                 "GetBinaryPath: mapping path from HTTP context",
                                 typeof(PathOps).Name, TracePriority.StartupError);
 
@@ -2073,14 +2084,14 @@ namespace Eagle._Components.Private
                         }
                         else
                         {
-                            TraceOps.MaybeDebugTrace(
+                            TraceOps.DebugTrace(
                                 "GetBinaryPath: no path from HTTP context",
                                 typeof(PathOps).Name, TracePriority.StartupError);
                         }
                     }
                     else
                     {
-                        TraceOps.MaybeDebugTrace(
+                        TraceOps.DebugTrace(
                             "GetBinaryPath: no HTTP server utility",
                             typeof(PathOps).Name, TracePriority.StartupError);
                     }
@@ -2088,7 +2099,7 @@ namespace Eagle._Components.Private
                 else
 #endif
                 {
-                    TraceOps.MaybeDebugTrace(
+                    TraceOps.DebugTrace(
                         "GetBinaryPath: no HTTP context",
                         typeof(PathOps).Name, TracePriority.StartupDebug);
 
@@ -2100,7 +2111,7 @@ namespace Eagle._Components.Private
 
                     if (AppDomainOps.IsDefault(appDomain))
                     {
-                        TraceOps.MaybeDebugTrace(
+                        TraceOps.DebugTrace(
                             "GetBinaryPath: default application domain",
                             typeof(PathOps).Name, TracePriority.StartupDebug);
 
@@ -2116,7 +2127,7 @@ namespace Eagle._Components.Private
                         //       therefore, just use the directory of the
                         //       current (Eagle) assembly.
                         //
-                        TraceOps.MaybeDebugTrace(
+                        TraceOps.DebugTrace(
                             "GetBinaryPath: non-default application domain",
                             typeof(PathOps).Name, TracePriority.StartupDebug);
 
@@ -2145,7 +2156,7 @@ namespace Eagle._Components.Private
                     TracePriority.StartupError);
             }
 
-            TraceOps.MaybeDebugTrace(String.Format(
+            TraceOps.DebugTrace(String.Format(
                 "GetBinaryPath: full = {0}, result = {1}",
                 full, FormatOps.WrapOrNull(result)),
                 typeof(PathOps).Name,
@@ -2524,7 +2535,7 @@ namespace Eagle._Components.Private
                 throw;
             }
 
-            TraceOps.MaybeDebugTrace(String.Format(
+            TraceOps.DebugTrace(String.Format(
                 "GetTempFileName: result = {0}",
                 FormatOps.WrapOrNull(result)),
                 typeof(PathOps).Name,
@@ -2602,7 +2613,7 @@ namespace Eagle._Components.Private
                 throw;
             }
 
-            TraceOps.MaybeDebugTrace(String.Format(
+            TraceOps.DebugTrace(String.Format(
                 "GetTempPath: result = {0}",
                 FormatOps.WrapOrNull(result)),
                 typeof(PathOps).Name,
@@ -3694,13 +3705,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static PathType GetPathType(
-            string path
+            string path /* in */
+            )
+        {
+            return GetPathType(path, PathType.Relative);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static PathType GetPathType(
+            string path,      /* in */
+            PathType @default /* in */
             )
         {
             int length;
 
             if (StringOps.IsNullOrEmpty(path, out length))
-                return PathType.Relative;
+                return @default;
 
             //
             // NOTE: Must check for volume relative first because
@@ -4300,7 +4321,7 @@ namespace Eagle._Components.Private
                     ref dictionary);
             }
 
-            TraceOps.MaybeDebugTrace(String.Format(
+            TraceOps.DebugTrace(String.Format(
                 "AddPathsToDictionary: interpreter = {0}, path = {1}, " +
                 "specificPath = {2}, mapped = {3}, autoSourcePath = {4}, " +
                 "current = {5}, user = {6}, externals = {7}, " +
@@ -4437,7 +4458,7 @@ namespace Eagle._Components.Private
 
                 if (verbose)
                 {
-                    TraceOps.MaybeDebugTrace(String.Format(
+                    TraceOps.DebugTrace(String.Format(
                         "CheckForFileName: checking vendor file {0}{1}...",
                         FormatOps.WrapOrNull(newFileName), mode),
                         typeof(PathOps).Name,
@@ -4448,7 +4469,7 @@ namespace Eagle._Components.Private
                 {
                     if (verbose)
                     {
-                        TraceOps.MaybeDebugTrace(String.Format(
+                        TraceOps.DebugTrace(String.Format(
                             "CheckForFileName: found vendor file {0}{1}.",
                             FormatOps.WrapOrNull(newFileName), mode),
                             typeof(PathOps).Name,
@@ -4466,7 +4487,7 @@ namespace Eagle._Components.Private
 
             if (verbose)
             {
-                TraceOps.MaybeDebugTrace(String.Format(
+                TraceOps.DebugTrace(String.Format(
                     "CheckForFileName: checking normal file {0}{1}...",
                     FormatOps.WrapOrNull(newFileName), mode),
                     typeof(PathOps).Name,
@@ -4477,7 +4498,7 @@ namespace Eagle._Components.Private
             {
                 if (verbose)
                 {
-                    TraceOps.MaybeDebugTrace(String.Format(
+                    TraceOps.DebugTrace(String.Format(
                         "CheckForFileName: found normal file {0}{1}.",
                         FormatOps.WrapOrNull(newFileName), mode),
                         typeof(PathOps).Name,
@@ -4574,7 +4595,7 @@ namespace Eagle._Components.Private
                                 {
                                     if (verbose)
                                     {
-                                        TraceOps.MaybeDebugTrace(String.Format(
+                                        TraceOps.DebugTrace(String.Format(
                                             "Search: bad base path {0}, not absolute...",
                                             FormatOps.WrapOrNull(basePath)),
                                             typeof(PathOps).Name, TracePriority.PathDebug);
@@ -4594,7 +4615,7 @@ namespace Eagle._Components.Private
                                 {
                                     if (verbose)
                                     {
-                                        TraceOps.MaybeDebugTrace(String.Format(
+                                        TraceOps.DebugTrace(String.Format(
                                             "Search: bad vendor path {0}, not relative...",
                                             FormatOps.WrapOrNull(vendorPath)),
                                             typeof(PathOps).Name, TracePriority.PathDebug);
@@ -4612,7 +4633,7 @@ namespace Eagle._Components.Private
 
                                     if (verbose)
                                     {
-                                        TraceOps.MaybeDebugTrace(String.Format(
+                                        TraceOps.DebugTrace(String.Format(
                                             "Search: checking base location {0}{1}...",
                                             FormatOps.WrapOrNull(location), mode),
                                             typeof(PathOps).Name,
@@ -4636,7 +4657,7 @@ namespace Eagle._Components.Private
                                         {
                                             if (verbose)
                                             {
-                                                TraceOps.MaybeDebugTrace(String.Format(
+                                                TraceOps.DebugTrace(String.Format(
                                                     "Search: found file via location {0}{1}.",
                                                     FormatOps.WrapOrNull(location), mode),
                                                     typeof(PathOps).Name,
@@ -4663,7 +4684,7 @@ namespace Eagle._Components.Private
 
                                     if (verbose)
                                     {
-                                        TraceOps.MaybeDebugTrace(String.Format(
+                                        TraceOps.DebugTrace(String.Format(
                                             "Search: found directory via location {0}{1}.",
                                             FormatOps.WrapOrNull(location), mode),
                                             typeof(PathOps).Name,
@@ -4721,7 +4742,7 @@ namespace Eagle._Components.Private
                 //
                 if (verbose)
                 {
-                    TraceOps.MaybeDebugTrace(String.Format(
+                    TraceOps.DebugTrace(String.Format(
                         "Search: failed, returning null via input {0}{1}...",
                         FormatOps.WrapOrNull(path), mode),
                         typeof(PathOps).Name, TracePriority.PathDebug);
@@ -4737,7 +4758,7 @@ namespace Eagle._Components.Private
                 //
                 if (verbose)
                 {
-                    TraceOps.MaybeDebugTrace(String.Format(
+                    TraceOps.DebugTrace(String.Format(
                         "Search: failed, returning path via input {0}{1}...",
                         FormatOps.WrapOrNull(path), mode),
                         typeof(PathOps).Name, TracePriority.PathDebug);
@@ -5176,7 +5197,7 @@ namespace Eagle._Components.Private
 
             if (allHasFlags == null)
             {
-                TraceOps.MaybeDebugTrace(String.Format(
+                TraceOps.DebugTrace(String.Format(
                     "GetHomeDirectoryPairs: invalid flags list for {0}",
                     FormatOps.WrapOrNull(flags)), typeof(PathOps).Name,
                     TracePriority.PathDebug);
@@ -5238,7 +5259,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            TraceOps.MaybeDebugTrace(String.Format(
+            TraceOps.DebugTrace(String.Format(
                 "GetHomeDirectoryPairs: home directories list for {0} is: {1}",
                 FormatOps.WrapOrNull(flags), FormatOps.HomeDirectoryPairs(result)),
                 typeof(PathOps).Name, TracePriority.PathDebug);
@@ -6518,6 +6539,405 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static void GetDirectories( /* RECURSIVE */
+            string path,          /* in */
+            string searchPattern, /* in */
+            ref StringList paths, /* in, out */
+            ref ResultList errors /* in, out */
+            )
+        {
+            try
+            {
+                IEnumerable<string> localPaths; /* REUSED */
+
+                localPaths = Directory.GetDirectories(
+                    GetNativePath(path), searchPattern,
+                    SearchOption.TopDirectoryOnly);
+
+                if (localPaths != null)
+                {
+                    foreach (string localPath in localPaths)
+                    {
+                        if (String.IsNullOrEmpty(localPath))
+                            continue;
+
+                        if (paths == null)
+                            paths = new StringList();
+
+                        paths.Add(localPath);
+
+                        GetDirectories(
+                            localPath, searchPattern, ref paths,
+                            ref errors); /* RECURSIVE */
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(e);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void GetFiles( /* RECURSIVE */
+            string path,          /* in */
+            string searchPattern, /* in */
+            ref StringList paths, /* in, out */
+            ref ResultList errors /* in, out */
+            )
+        {
+            try
+            {
+                IEnumerable<string> localPaths; /* REUSED */
+
+                localPaths = Directory.GetFiles(
+                    GetNativePath(path), searchPattern,
+                    SearchOption.TopDirectoryOnly);
+
+                if (localPaths != null)
+                {
+                    foreach (string localPath in localPaths)
+                    {
+                        if (String.IsNullOrEmpty(localPath))
+                            continue;
+
+                        if (paths == null)
+                            paths = new StringList();
+
+                        paths.Add(localPath);
+                    }
+                }
+
+                localPaths = Directory.GetDirectories(
+                    GetNativePath(path), searchPattern,
+                    SearchOption.TopDirectoryOnly);
+
+                if (localPaths != null)
+                {
+                    foreach (string localPath in localPaths)
+                    {
+                        if (String.IsNullOrEmpty(localPath))
+                            continue;
+
+                        GetFiles(
+                            localPath, searchPattern, ref paths,
+                            ref errors); /* RECURSIVE */
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(e);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void MaybeAddUnderPathToList(
+            ref UnderDictionary paths, /* in, out */
+            string path,               /* in */
+            PathType pathType,         /* in */
+            string fullPath            /* in: OPTIONAL */
+            )
+        {
+            if (String.IsNullOrEmpty(path))
+                return;
+
+            if (paths == null)
+                paths = new UnderDictionary();
+
+            UnderAnyPair match = new UnderAnyPair(
+                pathType, fullPath);
+
+            List<UnderAnyPair> matches;
+
+            if (paths.TryGetValue(path, out matches) &&
+                (matches != null))
+            {
+                matches.Add(match);
+            }
+            else
+            {
+                matches = new List<UnderAnyPair>();
+                matches.Add(match);
+
+                paths[path] = matches;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void MaybeAddUnderPathToList(
+            ref UnderDictionary paths, /* in, out */
+            string path1,              /* in */
+            string path2,              /* in */
+            PathType pathType,         /* in */
+            bool anyLevel              /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(path2))
+                return;
+
+            path2 = GetUnixPath(path2);
+
+            if (String.IsNullOrEmpty(path2))
+                return;
+
+            if (path1 != null)
+            {
+                path1 = GetUnixPath(path1);
+
+                if (path1 != null)
+                {
+                    if (SharedStringOps.StartsWith(
+                            path2, path1, ComparisonType))
+                    {
+                        path2 = path2.Substring(path1.Length + 1);
+                    }
+                }
+            }
+
+            if (anyLevel)
+            {
+                string[] parts = MaybeSplit(path2);
+
+                if (parts != null)
+                {
+                    int length = parts.Length;
+
+                    for (int index = length - 1; index >= 0; index--)
+                    {
+                        string[] subParts = ArrayOps.Copy<string>(
+                            parts, index);
+
+                        if (subParts == null)
+                            continue;
+
+                        MaybeAddUnderPathToList(
+                            ref paths, CombinePath(null, subParts),
+                            pathType, path2);
+                    }
+
+                    return;
+                }
+            }
+
+            MaybeAddUnderPathToList(
+                ref paths, path2, pathType, path2);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetDirectoriesAndFiles(
+            Interpreter interpreter,   /* in: OPTIONAL */
+            string path,               /* in */
+            string searchPattern,      /* in: OPTIONAL */
+            SearchOption searchOption, /* in */
+            PathType pathType,         /* in */
+            ref UnderDictionary paths, /* in, out */
+            ref ResultList errors      /* in, out */
+            )
+        {
+            if (String.IsNullOrEmpty(path))
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid primary path");
+                return ReturnCode.Error;
+            }
+
+            IEnumerable<string> localPaths; /* REUSED */
+            StringList localList; /* REUSED */
+
+            bool anyLevel = FlagOps.HasFlags(
+                pathType, PathType.AnyLevel, true);
+
+            if (searchPattern == null)
+                searchPattern = Characters.Asterisk.ToString();
+
+            if (FlagOps.HasFlags(
+                    pathType, PathType.Directory, true))
+            {
+                if (FlagOps.HasFlags(
+                        pathType, PathType.Robust, true))
+                {
+                    localList = null;
+
+                    GetDirectories(
+                        path, searchPattern, ref localList,
+                        ref errors);
+
+                    localPaths = (localList != null) ?
+                        localList.ToArray() : null;
+                }
+                else
+                {
+                    try
+                    {
+                        localPaths = Directory.GetDirectories(
+                            GetNativePath(path), searchPattern,
+                            searchOption);
+                    }
+                    catch (Exception e)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(e);
+
+                        localPaths = null;
+                    }
+                }
+
+                if (localPaths != null)
+                {
+                    foreach (string localPath in localPaths)
+                    {
+                        MaybeAddUnderPathToList(
+                            ref paths, path, GetUnixPath(
+                            localPath), PathType.Directory,
+                            anyLevel);
+                    }
+                }
+            }
+
+            if (FlagOps.HasFlags(
+                    pathType, PathType.File, true))
+            {
+                if (FlagOps.HasFlags(
+                        pathType, PathType.Robust, true))
+                {
+                    localList = null;
+
+                    GetFiles(
+                        path, searchPattern, ref localList,
+                        ref errors);
+
+                    localPaths = (localList != null) ?
+                        localList.ToArray() : null;
+                }
+                else
+                {
+                    try
+                    {
+                        localPaths = Directory.GetFiles(
+                            GetNativePath(path), searchPattern,
+                            searchOption);
+                    }
+                    catch (Exception e)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(e);
+
+                        localPaths = null;
+                    }
+                }
+
+                if (localPaths != null)
+                {
+                    foreach (string localPath in localPaths)
+                    {
+                        MaybeAddUnderPathToList(
+                            ref paths, path, GetUnixPath(
+                            localPath), PathType.File,
+                            anyLevel);
+                    }
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode IsNameUnderPath(
+            Interpreter interpreter,        /* in */
+            string path1,                   /* in */
+            string path2,                   /* in */
+            MatchMode mode,                 /* in */
+            SearchOption searchOption,      /* in */
+            PathType pathType,              /* in */
+            ref List<UnderAnyPair> matches, /* in, out */
+            ref ResultList errors           /* in, out */
+            )
+        {
+            if ((mode == MatchMode.None) && (GetPathType(
+                    path2, PathType.None) != PathType.Relative))
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("second path must be relative");
+                return ReturnCode.Error;
+            }
+
+            UnderDictionary paths = null;
+
+            if (GetDirectoriesAndFiles(interpreter,
+                    path1, null, searchOption, pathType,
+                    ref paths, ref errors) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (paths != null)
+            {
+                if (mode == MatchMode.None)
+                {
+                    if (path2 != null)
+                    {
+                        List<UnderAnyPair> localMatches;
+
+                        if (paths.TryGetValue(
+                                path2, out localMatches) &&
+                            (localMatches != null))
+                        {
+                            if (matches == null)
+                                matches = new List<UnderAnyPair>();
+
+                            matches.AddRange(localMatches);
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (UnderPair pair in paths)
+                    {
+                        List<UnderAnyPair> localMatches = pair.Value;
+
+                        if (localMatches == null)
+                            continue;
+
+                        if ((path2 != null) && !StringOps.Match(
+                                interpreter, mode, pair.Key, path2,
+                                NoCase))
+                        {
+                            continue;
+                        }
+
+                        if (matches == null)
+                            matches = new List<UnderAnyPair>();
+
+                        matches.AddRange(localMatches);
+                    }
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool IsUnderPathSimple(
             Interpreter interpreter, /* in: OPTIONAL */
             ref string path1,        /* in, out */
@@ -7728,7 +8148,7 @@ namespace Eagle._Components.Private
 
             if (EnableTraceForNormalize(null))
             {
-                TraceOps.MaybeDebugTrace(String.Format(
+                TraceOps.DebugTrace(String.Format(
                     "SubstituteOrResolvePath: interpreter = {0}, " +
                     "path = {1}, resolve = {2}, remoteUri = {3}, " +
                     "result = {4}",
@@ -7749,7 +8169,7 @@ namespace Eagle._Components.Private
             )
         {
             return NormalizePath(
-                interpreter, null, path, null, false, true, false, false);
+                interpreter, null, path, null, false, true, null, true, false);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -7760,7 +8180,7 @@ namespace Eagle._Components.Private
             )
         {
             return NormalizePath(
-                interpreter, null, path, null, true, true, false, false);
+                interpreter, null, path, null, true, true, null, true, false);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -7771,7 +8191,7 @@ namespace Eagle._Components.Private
             )
         {
             return NormalizePath(
-                interpreter, null, path, null, true, true, true, false);
+                interpreter, null, path, null, true, true, true, true, false);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -8097,6 +8517,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        //
+        // HACK: This method is designed to allow the tail portion of
+        //       the specified path to contain illegal characters, e.g.
+        //       the "?" and "*" characters, for use in glob patterns.
+        //
+        private static string GetFullPath(
+            string path, /* in */
+            bool? unix   /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(path))
+                return path;
+
+            int index = Index.Invalid;
+
+            if (!EndsWithDirectory(path, ref index))
+                return path;
+
+            string directory = path.Substring(0, index);
+            string tailOnly = path.Substring(index + 1);
+
+            return CombinePath(unix,
+                Path.GetFullPath(directory), tailOnly);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static string NormalizePath(
             Interpreter interpreter, /* in: OPTIONAL */
             string rootPath,         /* in */
@@ -8104,7 +8551,8 @@ namespace Eagle._Components.Private
             bool? unix,              /* in */
             bool environment,        /* in */
             bool tilde,              /* in */
-            bool full,               /* in */
+            bool? full,              /* in */
+            bool legacyResolve,      /* in */
             bool noCase              /* in */
             )
         {
@@ -8112,8 +8560,9 @@ namespace Eagle._Components.Private
             Result error = null;
 
             if (NormalizePath(
-                    interpreter, rootPath, path, unix, environment, tilde,
-                    full, noCase, ref newPath, ref error) == ReturnCode.Ok)
+                    interpreter, rootPath, path, unix, environment,
+                    tilde, full, legacyResolve, noCase, ref newPath,
+                    ref error) == ReturnCode.Ok)
             {
                 return newPath;
             }
@@ -8130,7 +8579,8 @@ namespace Eagle._Components.Private
             bool? unix,              /* in */
             bool environment,        /* in */
             bool tilde,              /* in */
-            bool full,               /* in */
+            bool? full,              /* in */
+            bool legacyResolve,      /* in */
             bool noCase,             /* in */
             ref string newPath,      /* out */
             ref Result error         /* out */
@@ -8189,12 +8639,17 @@ namespace Eagle._Components.Private
                     {
                         if (Path.IsPathRooted(newPath))
                         {
-                            newPath = Path.GetFullPath(newPath); /* throw */
+                            if ((full == null) || (bool)full)
+                            {
+                                newPath = legacyResolve ?
+                                    Path.GetFullPath(newPath) /* throw */ :
+                                    GetFullPath(newPath, unix);
+                            }
                         }
-                        else if (full)
+                        else if ((full != null) && (bool)full)
                         {
                             //
-                            // NOTE: In this case, fully resolve the entire
+                            // NOTE: In this case, fully resolve an entire
                             //       path, relative to the specified root
                             //       path -OR- the current directory when
                             //       there is no root path specified.
@@ -8204,11 +8659,20 @@ namespace Eagle._Components.Private
 
                             if (!String.IsNullOrEmpty(newPath))
                             {
-                                newPath = Path.GetFullPath(CombinePath(
-                                    unix, rootPath, newPath)); /* throw */
+                                newPath = CombinePath(
+                                    unix, rootPath, newPath);
+
+                                newPath = legacyResolve ?
+                                    Path.GetFullPath(newPath) /* throw */ :
+                                    GetFullPath(newPath, unix);
                             }
                             else
                             {
+                                //
+                                // HACK: This converts null (or an empty
+                                //       string) to the fully qualified
+                                //       path of the current directory.
+                                //
                                 newPath = rootPath;
                             }
                         }
@@ -8284,7 +8748,7 @@ namespace Eagle._Components.Private
 
             if (EnableTraceForNormalize(null))
             {
-                TraceOps.MaybeDebugTrace(String.Format(
+                TraceOps.DebugTrace(String.Format(
                     "NormalizePath: interpreter = {0}, rootPath = {1}, " +
                     "path = {2}, unix = {3}, environment = {4}, tilde = {5}, " +
                     "full = {6}, noCase = {7}, newPath = {8}, code = {9}, " +

@@ -447,7 +447,7 @@ namespace Eagle._Commands
                                                 {
                                                     IScriptLocation location = null;
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                                     code = ScriptOps.GetLocation(
                                                         interpreter, arguments, 3, ref location,
                                                         ref result);

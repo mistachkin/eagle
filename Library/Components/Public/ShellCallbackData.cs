@@ -338,6 +338,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IShellCallbackData Members
+        private bool whatIf;
+        public bool WhatIf
+        {
+            get { return whatIf; }
+            set { whatIf = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool stopOnUnknown;
+        public bool StopOnUnknown
+        {
+            get { return stopOnUnknown; }
+            set { stopOnUnknown = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public void CheckForPreExisting()
         {
             if (initialized)

@@ -2420,7 +2420,7 @@ namespace Eagle._Components.Private
             {
                 TraceOps.DebugTrace(
                     e, typeof(CommandCallback).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
 
                 if (shouldCatchInterrupt)
                     Thread.ResetAbort();
@@ -2429,7 +2429,7 @@ namespace Eagle._Components.Private
             {
                 TraceOps.DebugTrace(
                     e, typeof(CommandCallback).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
 
                 if (!shouldCatchInterrupt)
                     throw;
@@ -2555,7 +2555,7 @@ namespace Eagle._Components.Private
             {
                 TraceOps.DebugTrace(
                     e, typeof(CommandCallback).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
 
                 if (shouldCatchInterrupt)
                     Thread.ResetAbort();
@@ -2564,7 +2564,7 @@ namespace Eagle._Components.Private
             {
                 TraceOps.DebugTrace(
                     e, typeof(CommandCallback).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
 
                 if (!shouldCatchInterrupt)
                     throw;

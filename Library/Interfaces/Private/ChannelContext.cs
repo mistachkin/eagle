@@ -31,15 +31,22 @@ namespace Eagle._Interfaces.Private
         bool HasReader { get; }
         bool HasWriter { get; }
         bool HasBuffer { get; }
+        bool HasEmptyBuffer { get; }
 
         BinaryReader GetBinaryReader(Encoding encoding);
         BinaryWriter GetBinaryWriter(Encoding encoding);
         StreamReader GetStreamReader(Encoding encoding);
         StreamWriter GetStreamWriter(Encoding encoding);
 
+        int DiscardBuffer();
         ByteList TakeBuffer();
         bool GiveBuffer(ref ByteList buffer);
         void NewBuffer();
+
+        int DiscardLineEndings();
+        IntList TakeLineEndings();
+        bool GiveLineEndings(ref IntList lineEndings);
+        void NewLineEndings();
 
         ChannelStream PartialCloneChannelStream(Stream stream);
 

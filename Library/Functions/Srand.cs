@@ -73,8 +73,7 @@ namespace Eagle._Functions
                                     interpreter.Random = random;
                                 }
 
-                                value = Interpreter.FixIntermediatePrecision(
-                                    random.NextDouble());
+                                value = random.NextDouble();
                             }
                             catch (Exception e)
                             {

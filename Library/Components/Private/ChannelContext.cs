@@ -15,6 +15,7 @@ using System.Text;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
 
@@ -29,6 +30,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private ByteList buffer;
+        private IntList lineEndings;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -42,7 +44,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Private Constructors
+        #region Public Constructors
         public ChannelContext(
             ChannelStream channelStream /* in */
             )
@@ -251,6 +253,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public bool HasEmptyBuffer
+        {
+            get
+            {
+                CheckDisposed();
+
+                ByteList buffer = this.buffer;
+
+                if (buffer == null)
+                    return true;
+
+                return (buffer.Count == 0);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public BinaryReader GetBinaryReader(
             Encoding encoding /* in */
             )
@@ -373,6 +392,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public int DiscardBuffer()
+        {
+            CheckDisposed();
+
+            ByteList buffer = this.buffer;
+
+            if (buffer == null)
+                return Count.Invalid;
+
+            int result = buffer.Count;
+
+            buffer.Clear();
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public ByteList TakeBuffer()
         {
             CheckDisposed();
@@ -425,6 +462,81 @@ namespace Eagle._Components.Private
             {
                 savedBuffer.Clear();
                 savedBuffer = null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public int DiscardLineEndings()
+        {
+            CheckDisposed();
+
+            IntList lineEndings = this.lineEndings;
+
+            if (lineEndings == null)
+                return Count.Invalid;
+
+            int result = lineEndings.Count;
+
+            lineEndings.Clear();
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public IntList TakeLineEndings()
+        {
+            CheckDisposed();
+
+            IntList lineEndings = this.lineEndings;
+
+            this.lineEndings = null;
+
+            return lineEndings;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool GiveLineEndings(
+            ref IntList lineEndings
+            )
+        {
+            CheckDisposed();
+
+            if (lineEndings != null)
+            {
+                IntList savedLineEndings = this.lineEndings;
+
+                this.lineEndings = lineEndings;
+                lineEndings = null;
+
+                if (savedLineEndings != null)
+                {
+                    savedLineEndings.Clear();
+                    savedLineEndings = null;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void NewLineEndings()
+        {
+            CheckDisposed();
+
+            IntList savedLineEndings = this.lineEndings;
+
+            this.lineEndings = new IntList();
+
+            if (savedLineEndings != null)
+            {
+                savedLineEndings.Clear();
+                savedLineEndings = null;
             }
         }
 

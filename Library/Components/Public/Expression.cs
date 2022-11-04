@@ -3850,7 +3850,7 @@ namespace Eagle._Components.Public
 #endif
             bool noReady,
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref bool usable,
@@ -3959,7 +3959,7 @@ namespace Eagle._Components.Public
                             token.Components, engineFlags,
                             substitutionFlags, eventFlags,
                             expressionFlags, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             argumentLocation,
 #endif
                             ref result);
@@ -4035,7 +4035,7 @@ namespace Eagle._Components.Public
                             executeResultLimit, nestedResultLimit,
 #endif
                             sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             argumentLocation,
 #endif
                             ref result);
@@ -4079,7 +4079,7 @@ namespace Eagle._Components.Public
                             1, engineFlags, substitutionFlags,
                             eventFlags, expressionFlags,
                             sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             argumentLocation,
 #endif
                             ref result);
@@ -4106,7 +4106,7 @@ namespace Eagle._Components.Public
                             executeResultLimit, nestedResultLimit,
 #endif
                             noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             argumentLocation,
 #endif
                             ref usable, ref exception, ref value,
@@ -4215,7 +4215,7 @@ namespace Eagle._Components.Public
                                             executeResultLimit, nestedResultLimit,
 #endif
                                             noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                             argumentLocation,
 #endif
                                             ref usable, ref exception, ref argument,
@@ -4324,7 +4324,7 @@ namespace Eagle._Components.Public
                                 executeResultLimit, nestedResultLimit,
 #endif
                                 noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                 argumentLocation,
 #endif
                                 ref usable, ref exception, ref operand1,
@@ -4351,7 +4351,7 @@ namespace Eagle._Components.Public
                                     executeResultLimit, nestedResultLimit,
 #endif
                                     noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                     argumentLocation,
 #endif
                                     ref usable, ref exception, ref operand2,
@@ -4418,7 +4418,7 @@ namespace Eagle._Components.Public
                                             executeResultLimit, nestedResultLimit,
 #endif
                                             noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                             argumentLocation,
 #endif
                                             ref usable, ref exception, ref operand1,
@@ -4473,7 +4473,7 @@ namespace Eagle._Components.Public
                                             executeResultLimit, nestedResultLimit,
 #endif
                                             noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                             argumentLocation,
 #endif
                                             ref usable, ref exception, ref operand2,
@@ -4532,7 +4532,7 @@ namespace Eagle._Components.Public
                                             executeResultLimit, nestedResultLimit,
 #endif
                                             noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                             argumentLocation,
 #endif
                                             ref usable, ref exception, ref operand1,
@@ -4588,7 +4588,7 @@ namespace Eagle._Components.Public
                                             executeResultLimit, nestedResultLimit,
 #endif
                                             noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                             argumentLocation,
 #endif
                                             ref usable, ref exception, ref operand2,
@@ -4650,7 +4650,7 @@ namespace Eagle._Components.Public
                                             executeResultLimit, nestedResultLimit,
 #endif
                                             noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                             argumentLocation,
 #endif
                                             ref usable, ref exception, ref operand1,
@@ -4690,7 +4690,7 @@ namespace Eagle._Components.Public
                                                 executeResultLimit, nestedResultLimit,
 #endif
                                                 noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                                 argumentLocation,
 #endif
                                                 ref usable, ref exception, ref value,
@@ -4725,7 +4725,7 @@ namespace Eagle._Components.Public
                                                 executeResultLimit, nestedResultLimit,
 #endif
                                                 noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                                 argumentLocation,
 #endif
                                                 ref usable, ref exception, ref value,

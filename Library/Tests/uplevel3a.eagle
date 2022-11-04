@@ -58,24 +58,30 @@ if {[isEagle]} then {
   # \
   runTest ; # fake out runAllTests proc.
 
-  set result [test2 uplevel-13a.1 {nested absolute uplevel} -body {
-    set code [catch p1 msg]; set ::uplevel3a
-  } -cleanup {
-    unset -nocomplain msg
-  } -constraints {eagle testCallStack} -match regexp \
-      -result {^p1p2p1|p2p3ap2$}]
+  set outerCode [catch {
+    test2 uplevel-13a.1 {nested absolute uplevel} -body {
+      set innerCode [catch p1 innerResult]; set ::uplevel3a
+    } -cleanup {
+      unset -nocomplain innerResult
+    } -constraints {eagle testCallStack} -match regexp \
+        -result {^p1p2p1|p2p3ap2$}
+  } outerResult]
 
-  if {[info exists code] && [info exists result]} then {
+  set code [expr {[info exists innerCode] ? $innerCode : $outerCode}]
+  unset -nocomplain outerCode innerCode
+
+  if {[info exists code] && [info exists outerResult]} then {
     #
     # NOTE: Did the test raise an actual error?
     #
-    set error [expr {$code == 0 ? false : true}]
+    set error [expr {$code == 1 ? true : false}]
 
     #
     # NOTE: Did the test return success and still fail (i.e. it had the
     #       incorrect result)?
     #
-    if {$code == 0 && [regexp -- {\s==== (.*?) FAILED\s} $result]} then {
+    if {$code == 0 && \
+        [regexp -- {\s==== (.*?) FAILED\s} $outerResult]} then {
       set code 1
     }
 
@@ -84,9 +90,9 @@ if {[isEagle]} then {
     #       completed.
     #
     if {[shouldWriteTestData $code]} then {
-      tresult $code $result
+      tresult $code $outerResult
     } else {
-      tlog $result
+      tlog $outerResult
     }
 
     #
@@ -113,7 +119,7 @@ if {[isEagle]} then {
     unset -nocomplain code error
   }
 
-  unset -nocomplain result
+  unset -nocomplain outerResult
 }
 
 ###############################################################################

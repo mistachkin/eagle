@@ -17,11 +17,18 @@
 SETLOCAL
 
 REM SET __ECHO=ECHO
+REM SET __ECHO2=ECHO
+REM SET __ECHO3=ECHO
 IF NOT DEFINED _AECHO (SET _AECHO=REM)
 IF NOT DEFINED _CECHO (SET _CECHO=REM)
+IF NOT DEFINED _CECHO2 (SET _CECHO2=REM)
+IF NOT DEFINED _CECHO3 (SET _CECHO3=REM)
 IF NOT DEFINED _VECHO (SET _VECHO=REM)
 
+CALL :fn_UnsetVariable BREAK
+
 SET PIPE=^|
+SET _CPIPE=^^^|
 IF DEFINED __ECHO SET PIPE=^^^|
 
 SET OUTPUT=^>
@@ -119,13 +126,18 @@ IF NOT DEFINED NONATIVE (
 
 %_VECHO% Native = '%NATIVE%'
 
+REM
+REM HACK: Cannot use the environment variable "SECURITY" here because
+REM       that forces the shell to load Harpy, et al, which we do not
+REM       want/need here.
+REM
 IF NOT DEFINED NOSECURITY (
-  SET SECURITY=1
+  SET SECURITY_VALUE=1
 ) ELSE (
-  SET SECURITY=0
+  SET SECURITY_VALUE=0
 )
 
-%_VECHO% Security = '%SECURITY%'
+%_VECHO% SecurityValue = '%SECURITY_VALUE%'
 
 IF NOT DEFINED NOTCL (
   SET TCL=1
@@ -345,11 +357,13 @@ IF NOT DEFINED SKIP_SIGN_UNINSTALLER (
 
   IF NOT DEFINED NOSIGN (
     FOR %%F IN (%UNINSTALL%) DO (
+      %_CECHO3% CALL "%TOOLS%\signFile.bat" "%%F" "Eagle Uninstaller"
       %__ECHO3% CALL "%TOOLS%\signFile.bat" "%%F" "Eagle Uninstaller"
       IF ERRORLEVEL 1 GOTO errors
 
       IF NOT DEFINED NOSIGCHECK (
         %_AECHO% Checking signatures on file "%%F"...
+        %_CECHO% SigCheck.exe "%%F" %_CPIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
         %__ECHO% SigCheck.exe "%%F" %PIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
 
         IF ERRORLEVEL 1 (
@@ -380,8 +394,8 @@ IF NOT DEFINED URL (
 
 %_VECHO% Url = '%URL%'
 
-%_CECHO% ISCC.exe "%SRCISSFILE%" "/dAppId=%APPID%" "/dConfiguration=%CONFIGURATION%" "/dProcessor=%PROCESSOR%" "/dVcRuntimeX86=%VCRUNTIMEX86%" "/dVcRuntimeX64=%VCRUNTIMEX64%" "/dVcRuntimeArm=%VCRUNTIMEARM%" "/dSuffix=%SUFFIX%" "/dSigned=%SIGNED%" "/dSrcBinDir=%SRCBINDIR%" "/dBinLibDir=%BINLIBDIR%" "/dSrcLibDir=%SRCLIBDIR%" "/dSrcTestDir=%SRCTESTDIR%" "/dIsNetFx2=%ISNETFX2%" "/dIsNetFx4=%ISNETFX4%" "/dNeedActiveTcl=%NEEDACTIVETCL%" "/dNeedEagle=%NEEDEAGLE%" "/dNeedVcRuntimes=%NEEDVCRUNTIMES%" "/dAppFullVersion=%PATCHLEVEL%" "/dAppMajorMinorVersion=%MAJORMINOR%" "/dAppURL=%URL%" "/dNative=%NATIVE%" "/dSecurity=%SECURITY%" "/dTcl=%TCL%" "/dIncludeArm=%INCLUDEARM%" "/dAssembly=%ASSEMBLY%" "/dCompileInfo=%COMPILEINFO%"
-%__ECHO% ISCC.exe "%SRCISSFILE%" "/dAppId=%APPID%" "/dConfiguration=%CONFIGURATION%" "/dProcessor=%PROCESSOR%" "/dVcRuntimeX86=%VCRUNTIMEX86%" "/dVcRuntimeX64=%VCRUNTIMEX64%" "/dVcRuntimeArm=%VCRUNTIMEARM%" "/dSuffix=%SUFFIX%" "/dSigned=%SIGNED%" "/dSrcBinDir=%SRCBINDIR%" "/dBinLibDir=%BINLIBDIR%" "/dSrcLibDir=%SRCLIBDIR%" "/dSrcTestDir=%SRCTESTDIR%" "/dIsNetFx2=%ISNETFX2%" "/dIsNetFx4=%ISNETFX4%" "/dNeedActiveTcl=%NEEDACTIVETCL%" "/dNeedEagle=%NEEDEAGLE%" "/dNeedVcRuntimes=%NEEDVCRUNTIMES%" "/dAppFullVersion=%PATCHLEVEL%" "/dAppMajorMinorVersion=%MAJORMINOR%" "/dAppURL=%URL%" "/dNative=%NATIVE%" "/dSecurity=%SECURITY%" "/dTcl=%TCL%" "/dIncludeArm=%INCLUDEARM%" "/dAssembly=%ASSEMBLY%" "/dCompileInfo=%COMPILEINFO%"
+%_CECHO% ISCC.exe "%SRCISSFILE%" "/dAppId=%APPID%" "/dConfiguration=%CONFIGURATION%" "/dProcessor=%PROCESSOR%" "/dVcRuntimeX86=%VCRUNTIMEX86%" "/dVcRuntimeX64=%VCRUNTIMEX64%" "/dVcRuntimeArm=%VCRUNTIMEARM%" "/dSuffix=%SUFFIX%" "/dSigned=%SIGNED%" "/dSrcBinDir=%SRCBINDIR%" "/dBinLibDir=%BINLIBDIR%" "/dSrcLibDir=%SRCLIBDIR%" "/dSrcTestDir=%SRCTESTDIR%" "/dIsNetFx2=%ISNETFX2%" "/dIsNetFx4=%ISNETFX4%" "/dNeedActiveTcl=%NEEDACTIVETCL%" "/dNeedEagle=%NEEDEAGLE%" "/dNeedVcRuntimes=%NEEDVCRUNTIMES%" "/dAppFullVersion=%PATCHLEVEL%" "/dAppMajorMinorVersion=%MAJORMINOR%" "/dAppURL=%URL%" "/dNative=%NATIVE%" "/dSecurity=%SECURITY_VALUE%" "/dTcl=%TCL%" "/dIncludeArm=%INCLUDEARM%" "/dAssembly=%ASSEMBLY%" "/dCompileInfo=%COMPILEINFO%"
+%__ECHO% ISCC.exe "%SRCISSFILE%" "/dAppId=%APPID%" "/dConfiguration=%CONFIGURATION%" "/dProcessor=%PROCESSOR%" "/dVcRuntimeX86=%VCRUNTIMEX86%" "/dVcRuntimeX64=%VCRUNTIMEX64%" "/dVcRuntimeArm=%VCRUNTIMEARM%" "/dSuffix=%SUFFIX%" "/dSigned=%SIGNED%" "/dSrcBinDir=%SRCBINDIR%" "/dBinLibDir=%BINLIBDIR%" "/dSrcLibDir=%SRCLIBDIR%" "/dSrcTestDir=%SRCTESTDIR%" "/dIsNetFx2=%ISNETFX2%" "/dIsNetFx4=%ISNETFX4%" "/dNeedActiveTcl=%NEEDACTIVETCL%" "/dNeedEagle=%NEEDEAGLE%" "/dNeedVcRuntimes=%NEEDVCRUNTIMES%" "/dAppFullVersion=%PATCHLEVEL%" "/dAppMajorMinorVersion=%MAJORMINOR%" "/dAppURL=%URL%" "/dNative=%NATIVE%" "/dSecurity=%SECURITY_VALUE%" "/dTcl=%TCL%" "/dIncludeArm=%INCLUDEARM%" "/dAssembly=%ASSEMBLY%" "/dCompileInfo=%COMPILEINFO%"
 
 IF %ERRORLEVEL% NEQ 0 (
   ECHO Failed to compile setup.
@@ -389,11 +403,13 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 IF NOT DEFINED NOSIGN (
+  %_CECHO3% CALL "%TOOLS%\signFile.bat" "%SETUP%" "Eagle Setup"
   %__ECHO3% CALL "%TOOLS%\signFile.bat" "%SETUP%" "Eagle Setup"
   IF ERRORLEVEL 1 GOTO errors
 
   IF NOT DEFINED NOSIGCHECK (
     %_AECHO% Checking signatures on file "%SETUP%"...
+    %_CECHO% SigCheck.exe "%SETUP%" %_CPIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
     %__ECHO% SigCheck.exe "%SETUP%" %PIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
 
     IF ERRORLEVEL 1 (
@@ -404,6 +420,19 @@ IF NOT DEFINED NOSIGN (
 )
 
 GOTO no_errors
+
+:fn_UnsetVariable
+  SETLOCAL
+  SET VALUE=%1
+  IF DEFINED VALUE (
+    SET VALUE=
+    ENDLOCAL
+    SET %VALUE%=
+  ) ELSE (
+    ENDLOCAL
+  )
+  CALL :fn_ResetErrorLevel
+  GOTO :EOF
 
 :fn_UnquoteVariable
   IF NOT DEFINED %1 GOTO :EOF

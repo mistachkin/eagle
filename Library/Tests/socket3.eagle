@@ -129,7 +129,7 @@ runTest {test socket-3.3 {uri upload -inline} -setup {
 } -cleanup {
   unset -nocomplain response request uri
 } -constraints {eagle compile.NETWORK internet_eagle.to fossil_repository_url\
-variable_test_repository_url} -time true -result {True}}
+variable_test_repository_url tlsOk} -time true -result {True}}
 
 ###############################################################################
 
@@ -144,7 +144,7 @@ runTest {test socket-3.4 {uri download -inline} -setup {
 } -cleanup {
   unset -nocomplain uri
 } -constraints {eagle compile.NETWORK internet_eagle.to fossil_repository_url\
-variable_test_repository_url} -time true -result {1}}
+variable_test_repository_url tlsOk} -time true -result {1}}
 
 ###############################################################################
 
@@ -201,7 +201,7 @@ runTest {test socket-3.50 {uri upload -inline w/custom WebClient} -setup {
 
   unset -nocomplain response request uri error code interp
 } -constraints {eagle command.object compile.NETWORK internet_eagle.to\
-fossil_repository_url variable_test_repository_url compile.TEST\
+fossil_repository_url variable_test_repository_url tlsOk compile.TEST\
 Eagle._Tests.Default.TestHasScriptNewWebClientCallback\
 Eagle._Tests.Default.TestSetScriptNewWebClientCallback} -time true -result \
 {True}}
@@ -319,9 +319,60 @@ Eagle._Tests.Default.TestSetScriptNewWebClientCallback} -time true -result {1\
 ###############################################################################
 
 runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
-  unset -nocomplain s t z
-  unset -nocomplain noBlock useRead results stalls
+  unset -nocomplain x s t o z fileName
+  unset -nocomplain noBlock useRead results reads bads stalls
   unset -nocomplain zzz hash pattern dummy body
+
+  proc hasWrongLineEnding { channel value reads } {
+    if {[string first \r\n $value] != -1} then {
+      tputs $channel [appendArgs \
+          "---- found wrong CR/LF pair in input line at " \
+          $reads " reads\n"]
+
+      return true
+    }
+
+    if {[string first \r $value] != -1} then {
+      tputs $channel [appendArgs \
+          "---- found wrong carriage-return in input line at " \
+          $reads " reads\n"]
+
+      return true
+    }
+
+    return false
+  }
+
+  proc hasAnyLineEnding { channel value reads } {
+    if {[string first \r\n $value] != -1} then {
+      tputs $channel [appendArgs \
+          "---- found stray CR/LF pair in input line at " \
+          $reads " reads\n"]
+
+      return true
+    }
+
+    if {[string first \r $value] != -1} then {
+      tputs $channel [appendArgs \
+          "---- found stray carriage-return in input line at " \
+          $reads " reads\n"]
+
+      return true
+    }
+
+    if {[string first \n $value] != -1} then {
+      tputs $channel [appendArgs \
+          "---- found stray line-feed in input line at " \
+          $reads " reads\n"]
+
+      return true
+    }
+
+    return false
+  }
+
+  debug trace -statetypes "-Default +Limits" -forceenabled true \
+      -log true -logname socket-6.1 -logfilename [getTestLog]
 } -body {
   set pattern(1) {^HTTP/1\.1 200 OK\r\n}
 
@@ -330,19 +381,19 @@ runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
       Transitional//EN"\
       "http://www\.w3\.org/TR/html4/loose\.dtd">.*</html>)}
 
-  set hash(uri) [hash normal sha1 [string trimright \
-      [uri download -inline [appendArgs http:// $test_host :80]]]]
+  set hash(uri) [hash normal sha1 [set x [string trimright \
+      [uri download -inline [appendArgs http:// $test_host :80]]]]]
 
   foreach noBlock [list false true] {
     foreach useRead [list false true] {
       set s [socket -sendtimeout $test_timeout \
-          -availabletimeout $test_timeout $test_host 80]
+          -availabletimeout $test_timeout -trace $test_host 80]
 
-      fconfigure $s -translation binary
+      fconfigure $s -translation crlf
 
       set t [time {
-        puts -nonewline $s [appendArgs "GET / HTTP/1.1\r\nHOST: " \
-            $test_host \r\n\r\n]
+        puts -nonewline $s [appendArgs "GET / HTTP/1.1\nHOST: " \
+            $test_host \n\n]
 
         flush $s
       }]
@@ -350,17 +401,21 @@ runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
       tputs $test_channel [appendArgs "---- done sending to \"" \
           $test_host "\" in " $t \n]
 
-      fconfigure $s -translation crlf
-
-      set stalls 0; set z ""
+      set reads 0; set bads 0; set stalls 0; set o ""; set z ""
 
       if {$noBlock} then {
         if {$useRead} then {
           set t [time {
             while {![eof $s]} {
-              if {[catch {read -noblock $s} zzz]} then {
+              if {[catch {read -noblock $s} zzz] == 0} then {
+                incr reads
+                if {[hasWrongLineEnding $test_channel $zzz $reads]} then {
+                  incr bads
+                }
+              } else {
                 incr stalls; continue
               }
+              append o $zzz <eor>
               append z $zzz
             }
           }]
@@ -369,9 +424,15 @@ runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
         } else {
           set t [time {
             while {![eof $s]} {
-              if {[catch {gets -noblock $s} zzz]} then {
+              if {[catch {gets -noblock $s} zzz] == 0} then {
+                incr reads
+                if {[hasAnyLineEnding $test_channel $zzz $reads]} then {
+                  incr bads
+                }
+              } else {
                 incr stalls; continue
               }
+              append o $zzz <eol>
               append z $zzz \r\n
             }
           }]
@@ -380,9 +441,15 @@ runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
         if {$useRead} then {
           set t [time {
             while {![eof $s]} {
-              if {[catch {read $s} zzz]} then {
+              if {[catch {read $s} zzz] == 0} then {
+                incr reads
+                if {[hasWrongLineEnding $test_channel $zzz $reads]} then {
+                  incr bads
+                }
+              } else {
                 incr stalls; continue
               }
+              append o $zzz <eor>
               append z $zzz
             }
           }]
@@ -391,9 +458,15 @@ runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
         } else {
           set t [time {
             while {![eof $s]} {
-              if {[catch {gets $s} zzz]} then {
+              if {[catch {gets $s} zzz] == 0} then {
+                incr reads
+                if {[hasAnyLineEnding $test_channel $zzz $reads]} then {
+                  incr bads
+                }
+              } else {
                 incr stalls; continue
               }
+              append o $zzz <eol>
               append z $zzz \r\n
             }
           }]
@@ -402,11 +475,9 @@ runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
 
       set z [string trimright $z]; # normalize
 
-      # writeFile [file join \
-      #     [getTemporaryPath] [appendArgs z- $noBlock - $useRead .txt]] $z
-
       tputs $test_channel [appendArgs "---- done receiving from \"" \
-          $test_host "\" in " $t " with " $stalls " stalls using the \"" \
+          $test_host "\" in " $t " with " $reads " total reads, " \
+          $bads " bad reads, and " $stalls " stalls using the \"" \
           [expr {$useRead ? "read" : "gets"}] "\" command in \"" \
           [expr {$noBlock ? "non-blocking" : "blocking"}] "\" mode\n"]
 
@@ -430,6 +501,26 @@ runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
         tputs $test_channel [appendArgs \
             "---- mismatched content hash: " $hash(socket) \
             " versus " $hash(uri) \n]
+
+        set fileName(uri) [file join \
+            [getTemporaryPath] [appendArgs z- [pid] -uri- \
+            noBlock- $noBlock -useRead- $useRead .txt]]
+
+        set fileName(socket,before) [file join \
+            [getTemporaryPath] [appendArgs z- [pid] -socket-before- \
+            noBlock- $noBlock -useRead- $useRead .txt]]
+
+        set fileName(socket,after) [file join \
+            [getTemporaryPath] [appendArgs z- [pid] -socket-after- \
+            noBlock- $noBlock -useRead- $useRead .txt]]
+
+        writeFile $fileName(socket,before) $o
+        writeFile $fileName(socket,after) $z
+        writeFile $fileName(uri) $x
+
+        tputs $test_channel [appendArgs \
+            "---- saved content to \"" $fileName(socket,before) "\", \"" \
+            $fileName(socket,after) "\", and \"" $fileName(uri) \"\n]
       }
 
       close $s; unset s
@@ -438,9 +529,15 @@ runTest {test socket-6.1 {advanced socket/puts/gets/read/close} -setup {
 
   set results
 } -cleanup {
+  debug trace -log false
+
   if {[info exists s]} then {catch {close $s}}
-  unset -nocomplain s t z
-  unset -nocomplain noBlock useRead results stalls
+
+  rename hasAnyLineEnding ""
+  rename hasWrongLineEnding ""
+
+  unset -nocomplain x s t o z fileName
+  unset -nocomplain noBlock useRead results reads bads stalls
   unset -nocomplain zzz hash pattern dummy body
 } -constraints {eagle command.socket compile.NETWORK internet_eagle.to} \
 -result {{Ok noBlock false useRead false} {Ok noBlock false useRead true} {Ok\

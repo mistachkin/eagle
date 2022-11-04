@@ -14,6 +14,7 @@
 #endif
 
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Security;
 
@@ -24,6 +25,7 @@ using System.Security.Permissions;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Constants;
+using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
@@ -38,6 +40,10 @@ namespace Eagle._Components.Private
         #region Private Constants
 #if WINDOWS
         private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const string TrustValuesResourceName = "DefaultTrustValues.txt";
 #endif
         #endregion
 
@@ -65,20 +71,48 @@ namespace Eagle._Components.Private
             internal static readonly Guid WINTRUST_ACTION_GENERIC_VERIFY_V2 =
                 new Guid("00aac56b-cd44-11d0-8cc2-00c04fc295ee");
 
-            internal const uint WTD_UI_ALL = 1;
-            internal const uint WTD_UI_NONE = 2;
+            ///////////////////////////////////////////////////////////////////
 
-            internal const uint WTD_REVOKE_NONE = 0x0;
-            internal const uint WTD_REVOKE_WHOLECHAIN = 0x1;
+            internal const uint WTD_UI_ALL =
+                (uint)TrustValues.WTD_UI_ALL;
+
+            internal const uint WTD_UI_NONE =
+                (uint)TrustValues.WTD_UI_NONE;
+
+            ///////////////////////////////////////////////////////////////////
+
+            internal const uint WTD_REVOKE_NONE =
+                (uint)TrustValues.WTD_REVOKE_NONE;
+
+            internal const uint WTD_REVOKE_WHOLECHAIN =
+                (uint)TrustValues.WTD_REVOKE_WHOLECHAIN;
+
+            ///////////////////////////////////////////////////////////////////
 
             internal const uint WTD_CHOICE_FILE = 1;
 
-            internal const uint WTD_UICONTEXT_EXECUTE = 0;
-            internal const uint WTD_UICONTEXT_INSTALL = 1;
+            ///////////////////////////////////////////////////////////////////
 
             internal const uint WTD_STATEACTION_IGNORE = 0x0;
 
-            internal const uint WTD_SAFER_FLAG = 0x100;
+            ///////////////////////////////////////////////////////////////////
+
+            internal const uint WTD_SAFER_FLAG =
+                (uint)TrustValues.WTD_SAFER_FLAG;
+
+            internal const uint WTD_CACHE_ONLY_URL_RETRIEVAL =
+                (uint)TrustValues.WTD_CACHE_ONLY_URL_RETRIEVAL;
+
+            internal const uint WTD_DEFAULT =
+                WTD_SAFER_FLAG | WTD_CACHE_ONLY_URL_RETRIEVAL;
+
+            ///////////////////////////////////////////////////////////////////
+
+            internal const uint WTD_UICONTEXT_EXECUTE =
+                (uint)TrustValues.WTD_UICONTEXT_EXECUTE;
+
+            internal const uint WTD_UICONTEXT_INSTALL =
+                (uint)TrustValues.WTD_UICONTEXT_INSTALL;
             #endregion
 
             ///////////////////////////////////////////////////////////////////
@@ -171,6 +205,84 @@ namespace Eagle._Components.Private
         {
             return UnsafeNativeMethods.WINTRUST_ACTION_GENERIC_VERIFY_V2;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void InitializeParameters(
+            bool userInterface,
+            bool userPrompt,
+            bool revocation,
+            bool install,
+            uint[] parameters
+            )
+        {
+            if (userInterface && userPrompt)
+                parameters[0] = UnsafeNativeMethods.WTD_UI_ALL;
+            else
+                parameters[0] = UnsafeNativeMethods.WTD_UI_NONE;
+
+            if (revocation)
+                parameters[1] = UnsafeNativeMethods.WTD_REVOKE_WHOLECHAIN;
+            else
+                parameters[1] = UnsafeNativeMethods.WTD_REVOKE_NONE;
+
+            parameters[2] = UnsafeNativeMethods.WTD_DEFAULT;
+
+            if (install)
+                parameters[3] = UnsafeNativeMethods.WTD_UICONTEXT_INSTALL;
+            else
+                parameters[3] = UnsafeNativeMethods.WTD_UICONTEXT_EXECUTE;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if !ENTERPRISE_LOCKDOWN
+        private static ReturnCode InitializeTables(
+            bool userInterface,
+            bool userPrompt,
+            bool revocation,
+            bool install,
+            ref ObjectDictionary[] tables,
+            ref Result error
+            )
+        {
+            StringList defaultValues = AssemblyOps.GetResourceStreamList(
+                GlobalState.GetAssembly(), TrustValuesResourceName, null,
+                8, Count.Invalid, true, ref error);
+
+            if (defaultValues == null)
+                return ReturnCode.Error;
+
+            StringList values = new StringList();
+
+            if (userInterface && userPrompt)
+                values.Add(defaultValues[0]); /* WTD_UI_ALL */
+            else
+                values.Add(defaultValues[1]); /* WTD_UI_NONE */
+
+            if (revocation)
+                values.Add(defaultValues[2]); /* WTD_REVOKE_WHOLECHAIN */
+            else
+                values.Add(defaultValues[3]); /* WTD_REVOKE_NONE */
+
+            values.Add(defaultValues[4]); /* WTD_SAFER_FLAG */
+            values.Add(defaultValues[5]); /* WTD_CACHE_ONLY_URL_RETRIEVAL */
+
+            if (install)
+                values.Add(defaultValues[6]); /* WTD_UICONTEXT_INSTALL */
+            else
+                values.Add(defaultValues[7]); /* WTD_UICONTEXT_EXECUTE */
+
+            if (EnumOps.TryParseTables(null,
+                    typeof(TrustValues), values.ToString(), null, true,
+                    true, true, ref tables, ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
+        }
+#endif
 #endif
 
         ///////////////////////////////////////////////////////////////////////
@@ -186,9 +298,109 @@ namespace Eagle._Components.Private
             ref Result error
             )
         {
+            int parameterLength = (int)TrustValues.PARAMETER_COUNT;
+            uint[] parameters = new uint[parameterLength];
+
+#if WINDOWS
+            /* NO RESULT */
+            InitializeParameters(
+                userInterface, userPrompt, revocation, install,
+                parameters);
+
+#if !ENTERPRISE_LOCKDOWN
+            //
+            // TODO: Should this possible be allowed even when built
+            //       with the enterprise lockdown option?
+            //
+            string value = GlobalConfiguration.GetValue(
+                EnvVars.TrustFlags, ConfigurationFlags.WinTrustOps);
+
+            if (value != null)
+            {
+                ObjectDictionary[] tables = null;
+
+                if (InitializeTables(
+                        userInterface, userPrompt, revocation, install,
+                        ref tables, ref error) != ReturnCode.Ok)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "IsFileTrusted: file {0} override failure " +
+                        "(InitializeTables), value = {1}, error = {2}",
+                        FormatOps.WrapOrNull(fileName),
+                        FormatOps.WrapOrNull(value),
+                        FormatOps.WrapOrNull(error)),
+                        typeof(WinTrustOps).Name,
+                        TracePriority.SecurityError);
+
+                    return ReturnCode.Error;
+                }
+
+                if (EnumOps.TryParseTables(null,
+                        typeof(TrustValues), value, null, true, true,
+                        true, ref tables, ref error) != ReturnCode.Ok)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "IsFileTrusted: file {0} override failure " +
+                        "(TryParseTables), value = {1}, error = {2}",
+                        FormatOps.WrapOrNull(fileName),
+                        FormatOps.WrapOrNull(value),
+                        FormatOps.WrapOrNull(error)),
+                        typeof(WinTrustOps).Name,
+                        TracePriority.SecurityError);
+
+                    return ReturnCode.Error;
+                }
+
+                ulong[] ulongValues = new ulong[parameterLength];
+
+                if (EnumOps.SetParameterValuesFromTables(
+                        tables, ulongValues, null, true,
+                        ref error) != ReturnCode.Ok)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "IsFileTrusted: file {0} override failure " +
+                        "(SetParameterValuesFromTables), value = {1}, error = {2}",
+                        FormatOps.WrapOrNull(fileName),
+                        FormatOps.WrapOrNull(value),
+                        FormatOps.WrapOrNull(error)),
+                        typeof(WinTrustOps).Name,
+                        TracePriority.SecurityError);
+
+                    return ReturnCode.Error;
+                }
+
+                ConversionOps.Copy(ref parameters, ulongValues);
+            }
+#endif
+#endif
+
+            return IsFileTrusted(
+                fileName, fileHandle, parameters[0], parameters[1],
+                parameters[2], parameters[3], userInterface,
+                ref returnValue, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode IsFileTrusted(
+            string fileName,
+            IntPtr fileHandle,
+            uint uiChoice,
+            uint revocationChecks,
+            uint providerFlags,
+            uint uiContext,
+            bool userInterface,
+            ref int returnValue,
+            ref Result error
+            )
+        {
+            ReturnCode code;
+
             if (String.IsNullOrEmpty(fileName))
             {
                 error = "invalid file name";
+                code = ReturnCode.Error;
+
                 goto done;
             }
 
@@ -196,6 +408,8 @@ namespace Eagle._Components.Private
             if (!PlatformOps.IsWindowsOperatingSystem())
             {
                 error = "not supported on this operating system";
+                code = ReturnCode.Error;
+
                 goto done;
             }
 
@@ -230,13 +444,8 @@ namespace Eagle._Components.Private
                         winTrustData.pPolicyCallbackData = IntPtr.Zero;
                         winTrustData.pSIPClientData = IntPtr.Zero;
 
-                        winTrustData.dwUIChoice = userInterface && userPrompt ?
-                            UnsafeNativeMethods.WTD_UI_ALL :
-                            UnsafeNativeMethods.WTD_UI_NONE;
-
-                        winTrustData.fdwRevocationChecks = revocation ?
-                            UnsafeNativeMethods.WTD_REVOKE_WHOLECHAIN :
-                            UnsafeNativeMethods.WTD_REVOKE_NONE;
+                        winTrustData.dwUIChoice = uiChoice;
+                        winTrustData.fdwRevocationChecks = revocationChecks;
 
                         winTrustData.dwUnionChoice =
                             UnsafeNativeMethods.WTD_CHOICE_FILE;
@@ -249,12 +458,8 @@ namespace Eagle._Components.Private
                         winTrustData.hWVTStateData = IntPtr.Zero;
                         winTrustData.pwszURLReference = null;
 
-                        winTrustData.dwProvFlags =
-                            UnsafeNativeMethods.WTD_SAFER_FLAG;
-
-                        winTrustData.dwUIContext = install ?
-                            UnsafeNativeMethods.WTD_UICONTEXT_INSTALL :
-                            UnsafeNativeMethods.WTD_UICONTEXT_EXECUTE;
+                        winTrustData.dwProvFlags = providerFlags;
+                        winTrustData.dwUIContext = uiContext;
 
                         IntPtr hWnd = userInterface ?
                             WindowOps.GetInteractiveHandle() :
@@ -265,11 +470,12 @@ namespace Eagle._Components.Private
                         returnValue = UnsafeNativeMethods.WinVerifyTrust(
                             hWnd, actionId, ref winTrustData);
 
-                        return ReturnCode.Ok;
+                        code = ReturnCode.Ok;
                     }
                     else
                     {
                         error = "out of memory";
+                        code = ReturnCode.Error;
                     }
                 }
                 finally
@@ -284,24 +490,31 @@ namespace Eagle._Components.Private
             catch (Exception e)
             {
                 error = e;
+                code = ReturnCode.Error;
             }
 #else
             error = "not implemented";
+            code = ReturnCode.Error;
 #endif
 
         done:
 
-            TraceOps.DebugTrace(String.Format(
-                "IsFileTrusted: file {0} trust failure, " +
-                "userInterface = {1}, revocation = {2}, " +
-                "install = {3}, returnValue = {4}, error = {5}",
-                FormatOps.WrapOrNull(fileName),
-                userInterface, revocation, install,
-                returnValue, FormatOps.WrapOrNull(error)),
-                typeof(WinTrustOps).Name,
-                TracePriority.SecurityError);
+            TracePriority priority = (code == ReturnCode.Ok) ?
+                TracePriority.SecurityDebug2 : TracePriority.SecurityError;
 
-            return ReturnCode.Error;
+            TraceOps.DebugTrace(String.Format(
+                "IsFileTrusted: file {0} check {1}, " +
+                "uiChoice = {2}, revocationChecks = {3}, " +
+                "providerFlags = {4}, uiContext = {5}, " +
+                "userInterface = {6}, returnValue = {7}, " +
+                "error = {8}", FormatOps.WrapOrNull(fileName),
+                (code == ReturnCode.Ok) ? "success" : "failure",
+                uiChoice, revocationChecks, providerFlags,
+                uiContext, userInterface, returnValue,
+                FormatOps.WrapOrNull(error)),
+                typeof(WinTrustOps).Name, priority);
+
+            return code;
         }
         #endregion
     }

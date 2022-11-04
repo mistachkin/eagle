@@ -28,6 +28,11 @@ namespace Eagle._Components.Public
     {
         #region Private Constants
         internal static readonly string DefaultValue = String.Empty;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const string NamespaceTagName = "@namespace";
+        private const string FrameTagName = "@frame";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -113,6 +118,7 @@ namespace Eagle._Components.Public
             #region IVariable Metadata Members
             this.frame = frame;
             this.flags = flags & ~VariableFlags.NonInstanceMask;
+            this.tags = null;
             this.qualifiedName = qualifiedName;
             this.link = null;
             this.linkIndex = null;
@@ -164,6 +170,7 @@ namespace Eagle._Components.Public
             #region IVariable Metadata Members
             this.frame = frame;
             this.flags = flags & ~VariableFlags.NonInstanceMask;
+            this.tags = null;
             this.qualifiedName = qualifiedName;
             this.link = link;
             this.linkIndex = linkIndex;
@@ -387,6 +394,17 @@ namespace Eagle._Components.Public
             }
 
             threadId = localThreadId;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool ResetMarks()
+        {
+            if ((tags == null) || (tags.Count > 0))
+                return false;
+
+            tags = null;
             return true;
         }
         #endregion
@@ -638,6 +656,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private ObjectDictionary tags;
+        public ObjectDictionary Tags
+        {
+            get { return tags; }
+            set { tags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private string qualifiedName;
         public string QualifiedName
         {
@@ -688,6 +715,20 @@ namespace Eagle._Components.Public
         {
             get { return traces; }
             set { traces = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void ResetFrame(
+            ICallFrame frame,
+            Interpreter interpreter
+            )
+        {
+            this.frame = frame;
+            this.qualifiedName = null;
+
+            if (interpreter != null)
+                interpreter.MaybeSetQualifiedName(this);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -758,6 +799,7 @@ namespace Eagle._Components.Public
             )
         {
             flags = VariableFlags.None;
+            tags = null;
             qualifiedName = null;
             link = null;
             linkIndex = null;
@@ -1035,6 +1077,252 @@ namespace Eagle._Components.Public
             }
 
             return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool InitializeMarks()
+        {
+            if (tags != null)
+            {
+                return false;
+            }
+            else
+            {
+                tags = new ObjectDictionary();
+                return true;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ClearMarks()
+        {
+            if ((tags != null) && (tags.Count > 0))
+            {
+                tags.Clear();
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool HasMark(
+            string name
+            )
+        {
+            object value = null;
+
+            return HasMark(name, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool HasMark(
+            string name,
+            ref INamespace @namespace
+            )
+        {
+            object value = null;
+
+            if (HasMark(name, ref value))
+            {
+                @namespace = value as INamespace;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool HasMark(
+            string name,
+            ref ICallFrame frame
+            )
+        {
+            object value = null;
+
+            if (HasMark(name, ref value))
+            {
+                frame = value as ICallFrame;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool HasMark(
+            string name,
+            ref object value
+            )
+        {
+            if (!String.IsNullOrEmpty(name))
+            {
+                if (tags != null)
+                {
+                    if (tags.TryGetValue(name, out value))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool SetMark(
+            bool mark,
+            string name,
+            object value
+            )
+        {
+            if (!String.IsNullOrEmpty(name))
+            {
+                if (tags != null)
+                {
+                    if (mark && !tags.ContainsKey(name))
+                    {
+                        tags.Add(name, value);
+                        return true;
+                    }
+                    else if (!mark && tags.ContainsKey(name))
+                    {
+                        tags.Remove(name);
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public INamespace GetNamespaceMark()
+        {
+            INamespace @namespace = null;
+
+            if (HasMark(NamespaceTagName, ref @namespace))
+                return @namespace;
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool HasNamespaceMark(
+            INamespace @namespace
+            )
+        {
+            INamespace localNamespace = GetNamespaceMark();
+
+            if (localNamespace != null)
+            {
+                if (@namespace == null)
+                    return true;
+
+                return NamespaceOps.IsSame(localNamespace, @namespace);
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool SetNamespaceMark(
+            INamespace @namespace
+            )
+        {
+            if (@namespace == null)
+                return false;
+
+            /* IGNORED */
+            InitializeMarks();
+
+            return SetMark(true, NamespaceTagName, @namespace);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool UnsetNamespaceMark()
+        {
+            try
+            {
+                return SetMark(false, NamespaceTagName, null);
+            }
+            finally
+            {
+                /* IGNORED */
+                ResetMarks();
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ICallFrame GetFrameMark()
+        {
+            ICallFrame frame = null;
+
+            if (HasMark(FrameTagName, ref frame))
+                return frame;
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool HasFrameMark(
+            ICallFrame frame
+            )
+        {
+            ICallFrame localFrame = GetFrameMark();
+
+            if (localFrame != null)
+            {
+                if (frame == null)
+                    return true;
+
+                return CallFrameOps.IsSame(localFrame, frame);
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool SetFrameMark(
+            ICallFrame frame
+            )
+        {
+            if (frame == null)
+                return false;
+
+            /* IGNORED */
+            InitializeMarks();
+
+            return SetMark(true, FrameTagName, frame);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool UnsetFrameMark()
+        {
+            try
+            {
+                return SetMark(false, FrameTagName, null);
+            }
+            finally
+            {
+                /* IGNORED */
+                ResetMarks();
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

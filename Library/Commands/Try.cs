@@ -184,7 +184,8 @@ namespace Eagle._Commands
                                     finally
                                     {
                                         timeoutCode = interpreter.InterruptFinallyTimeoutThread(
-                                            timeoutThread, null, false, false, ref timeoutResult);
+                                            timeoutThread, null, interpreter.InternalNoThreadAbort,
+                                            false, ref timeoutResult);
 
                                         if (timeoutCode != ReturnCode.Ok)
                                             DebugOps.Complain(interpreter, timeoutCode, timeoutResult);

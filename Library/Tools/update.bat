@@ -17,9 +17,15 @@
 SETLOCAL
 
 REM SET __ECHO=ECHO
+REM SET __ECHO2=ECHO
+REM SET __ECHO3=ECHO
 IF NOT DEFINED _AECHO (SET _AECHO=REM)
 IF NOT DEFINED _CECHO (SET _CECHO=REM)
+IF NOT DEFINED _CECHO2 (SET _CECHO2=REM)
+IF NOT DEFINED _CECHO3 (SET _CECHO3=REM)
 IF NOT DEFINED _VECHO (SET _VECHO=REM)
+
+CALL :fn_UnsetVariable BREAK
 
 %_AECHO% Running %0 %*
 
@@ -112,6 +118,7 @@ SET SOURCE=%SOURCE:\\=\%
 
 CALL :fn_ResetErrorLevel
 
+%_CECHO2% PUSHD "%SOURCE%"
 %__ECHO2% PUSHD "%SOURCE%"
 
 IF ERRORLEVEL 1 (
@@ -143,13 +150,35 @@ FOR %%D IN (netcoreapp2.0 netcoreapp2.1 netcoreapp2.2 netcoreapp3.0 netcoreapp3.
       )
     )
   )
+
+  FOR %%X IN (x86 x64) DO (
+    FOR %%E IN (dll pdb) DO (
+      IF EXIST "%SOURCE%\bin\%CONFIGURATION%\bin\%%D\%%X\*.%%E" (
+        IF NOT EXIST "%SOURCE%\bin\%CONFIGURATION%\bin\%%X" (
+          %__ECHO% MKDIR "%SOURCE%\bin\%CONFIGURATION%\bin\%%X"
+
+          IF ERRORLEVEL 1 (
+            ECHO Could not create directory "%SOURCE%\bin\%CONFIGURATION%\bin\%%X".
+            GOTO errors
+          )
+        )
+
+        %__ECHO% MOVE /Y "%SOURCE%\bin\%CONFIGURATION%\bin\%%D\%%X\*.%%E" "%SOURCE%\bin\%CONFIGURATION%\bin\%%X\"
+
+        IF ERRORLEVEL 1 (
+          ECHO Failed to move "%SOURCE%\bin\%CONFIGURATION%\bin\%%D\%%X\*.%%E" to "%SOURCE%\bin\%CONFIGURATION%\bin\%%X\".
+          GOTO errors
+        )
+      )
+    )
+  )
 )
 
 REM ****************************************************************************
 REM **************************** Core Binary Files *****************************
 REM ****************************************************************************
 
-%__ECHO% XCOPY "%SOURCE%\bin\%CONFIGURATION%\bin" "%TARGET%\bin" %FLAGS% %DFLAGS%
+%__ECHO% XCOPY "%SOURCE%\bin\%CONFIGURATION%\bin" "%TARGET%\bin" %FLAGS% %DFLAGS% /EXCLUDE:data\exclude_update_bin.txt
 
 IF ERRORLEVEL 1 (
   ECHO Failed to copy "%SOURCE%\bin\%CONFIGURATION%\bin" to "%TARGET%\bin".
@@ -160,7 +189,7 @@ REM ****************************************************************************
 REM ********************** Package Binary / Library Files **********************
 REM ****************************************************************************
 
-%__ECHO% XCOPY "%SOURCE%\bin\%CONFIGURATION%\lib" "%TARGET%\lib" %FLAGS% %DFLAGS% /EXCLUDE:data\exclude_update.txt
+%__ECHO% XCOPY "%SOURCE%\bin\%CONFIGURATION%\lib" "%TARGET%\lib" %FLAGS% %DFLAGS% /EXCLUDE:data\exclude_update_lib.txt
 
 IF ERRORLEVEL 1 (
   ECHO Failed to copy "%SOURCE%\bin\%CONFIGURATION%\lib" to "%TARGET%\lib".
@@ -225,6 +254,7 @@ REM *************************** Deployment Self-Test ***************************
 REM ****************************************************************************
 
 IF DEFINED NOUPDATETEST (
+  %_CECHO2% POPD
   %__ECHO2% POPD
 
   IF ERRORLEVEL 1 (
@@ -325,6 +355,7 @@ IF NOT DEFINED TESTS_TOTAL (
   )
 )
 
+%_CECHO2% POPD
 %__ECHO2% POPD
 
 IF ERRORLEVEL 1 (

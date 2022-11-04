@@ -205,17 +205,10 @@ namespace Eagle._Commands
                     }
                     else
                     {
-                        bool canSeek = channel.CanSeek;
-
-                        if ((canSeek && channel.EndOfStream) ||
-                            (!canSeek && channel.HitEndOfStream))
-                        {
+                        if (channel.OneEndOfStream)
                             result = ChannelStream.EndOfFile;
-                        }
                         else
-                        {
                             result = length; /* ZERO */
-                        }
                     }
                 }
                 else

@@ -24,7 +24,10 @@ namespace Eagle._Containers.Public
 {
     [ObjectId("59be82f4-ecdc-4faa-96ff-4405dddcfdf5")]
     public sealed class InterpreterDictionary :
-            Dictionary<string, Interpreter>, ICloneable
+            Dictionary<string, Interpreter>
+#if DEAD_CODE
+            , ICloneable
+#endif
     {
         public InterpreterDictionary()
             : base()
@@ -92,11 +95,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ICloneable Members
-        public object Clone()
+        public InterpreterDictionary DeepCopy()
         {
             return new InterpreterDictionary(this);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ICloneable Members
+        #region Dead Code
+#if DEAD_CODE
+        public object Clone()
+        {
+            return DeepCopy();
+        }
+#endif
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

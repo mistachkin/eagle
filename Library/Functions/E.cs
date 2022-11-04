@@ -53,8 +53,7 @@ namespace Eagle._Functions
                     {
                         try
                         {
-                            value = Interpreter.FixIntermediatePrecision(
-                                Math.E);
+                            value = Math.E;
                         }
                         catch (Exception e)
                         {

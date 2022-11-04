@@ -273,6 +273,14 @@ namespace Eagle._Components.Private
             private static readonly int FrameworkSetup48OnWindows10Value1 = 528040; // >= indicates 4.8
             private static readonly int FrameworkSetup48OnWindows10Value2 = 528372; // >= indicates 4.8
             private static readonly int FrameworkSetup48OnWindows11Value = 528449; // >= indicates 4.8
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: These values indicate the .NET Framework 4.8.1.  They were
+            //       obtained from MSDN.
+            //
+            private static readonly int FrameworkSetup481Value = 533325; // >= indicates 4.8.1
             #endregion
 #endif
 #endif
@@ -401,9 +409,9 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        TraceOps.DebugTrace(
-                            "GetState: unable to acquire lock",
-                            typeof(CommonOps.Runtime).Name,
+                        TraceOps.LockTrace(
+                            "GetState",
+                            typeof(CommonOps.Runtime).Name, true,
                             TracePriority.LockWarning);
                     }
                 }
@@ -588,9 +596,9 @@ namespace Eagle._Components.Private
                             // BUGBUG: This should not be reached in
                             //         normal library operation.
                             //
-                            TraceOps.DebugTrace(
-                                "IsMono: unable to acquire lock",
-                                typeof(CommonOps.Runtime).Name,
+                            TraceOps.LockTrace(
+                                "IsMono",
+                                typeof(CommonOps.Runtime).Name, true,
                                 TracePriority.LockWarning);
 #endif
 
@@ -702,9 +710,9 @@ namespace Eagle._Components.Private
                             // BUGBUG: This should not be reached in
                             //         normal library operation.
                             //
-                            TraceOps.DebugTrace(
-                                "IsDotNetCore: unable to acquire lock",
-                                typeof(CommonOps.Runtime).Name,
+                            TraceOps.LockTrace(
+                                "IsDotNetCore",
+                                typeof(CommonOps.Runtime).Name, true,
                                 TracePriority.LockWarning);
 #endif
 
@@ -1201,6 +1209,13 @@ namespace Eagle._Components.Private
 
                 return FrameworkSetup48Value;
             }
+
+            ///////////////////////////////////////////////////////////////////
+
+            private static int GetFrameworkSetup481Value()
+            {
+                return FrameworkSetup481Value;
+            }
 #endif
 
             ///////////////////////////////////////////////////////////////////
@@ -1232,9 +1247,9 @@ namespace Eagle._Components.Private
                         // BUGBUG: This should not be reached in
                         //         normal library operation.
                         //
-                        TraceOps.DebugTrace(
-                            "GetFrameworkVersion: unable to acquire lock",
-                            typeof(CommonOps.Runtime).Name,
+                        TraceOps.LockTrace(
+                            "GetFrameworkVersion",
+                            typeof(CommonOps.Runtime).Name, true,
                             TracePriority.LockWarning);
 #endif
 
@@ -1316,9 +1331,9 @@ namespace Eagle._Components.Private
                             // BUGBUG: This should not be reached in
                             //         normal library operation.
                             //
-                            TraceOps.DebugTrace(
-                                "GetFrameworkExtraVersion: unable to acquire lock",
-                                typeof(CommonOps.Runtime).Name,
+                            TraceOps.LockTrace(
+                                "GetFrameworkExtraVersion",
+                                typeof(CommonOps.Runtime).Name, true,
                                 TracePriority.LockWarning);
 #endif
 
@@ -1393,9 +1408,9 @@ namespace Eagle._Components.Private
                             // BUGBUG: This should not be reached in
                             //         normal library operation.
                             //
-                            TraceOps.DebugTrace(
-                                "IsFramework20: unable to acquire lock",
-                                typeof(CommonOps.Runtime).Name,
+                            TraceOps.LockTrace(
+                                "IsFramework20",
+                                typeof(CommonOps.Runtime).Name, true,
                                 TracePriority.LockWarning);
 #endif
 
@@ -1467,9 +1482,9 @@ namespace Eagle._Components.Private
                             // BUGBUG: This should not be reached in
                             //         normal library operation.
                             //
-                            TraceOps.DebugTrace(
-                                "IsFramework40: unable to acquire lock",
-                                typeof(CommonOps.Runtime).Name,
+                            TraceOps.LockTrace(
+                                "IsFramework40",
+                                typeof(CommonOps.Runtime).Name, true,
                                 TracePriority.LockWarning);
 #endif
 
@@ -1559,6 +1574,9 @@ namespace Eagle._Components.Private
                     return true;
 
                 if (IsFramework48(version, extraValue))
+                    return true;
+
+                if (IsFramework481(version, extraValue))
                     return true;
 
                 return false;
@@ -1723,6 +1741,22 @@ namespace Eagle._Components.Private
                     return false;
 
                 return (extraValue >= GetFrameworkSetup48Value());
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Be sure to use !IsMono and !IsDotNetCore also.
+            //
+            private static bool IsFramework481(
+                Version version,
+                int extraValue
+                )
+            {
+                if ((version == null) || (version.Major != 4))
+                    return false;
+
+                return (extraValue >= GetFrameworkSetup481Value());
             }
             #endregion
 #endif

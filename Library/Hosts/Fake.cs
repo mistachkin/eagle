@@ -32,7 +32,7 @@ namespace Eagle._Hosts
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        IHost, IDisposable
+        IHost, IDisposable, IMaybeDisposed
     {
         #region Private Constructors
         private Fake()
@@ -2689,6 +2689,22 @@ namespace Eagle._Hosts
             CheckDisposed();
 
             throw new NotImplementedException();
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IMaybeDisposed Members
+        public bool Disposed
+        {
+            get { return disposed; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool Disposing
+        {
+            get { throw new NotImplementedException(); }
         }
         #endregion
 

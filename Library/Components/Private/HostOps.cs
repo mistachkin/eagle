@@ -532,6 +532,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode ThreadSleep(
+            int milliseconds
+            ) /* THREAD-SAFE */
+        {
+            Exception exception = null;
+            Result error = null;
+
+            return ThreadSleep(milliseconds, ref exception, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ThreadSleep(
             int milliseconds,
             ref Result error
             ) /* THREAD-SAFE */
@@ -573,7 +585,7 @@ namespace Eagle._Components.Private
 
                 TraceOps.DebugTrace(
                     e, typeof(HostOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
 
                 exception = e;
                 error = e;
@@ -582,13 +594,17 @@ namespace Eagle._Components.Private
             {
                 TraceOps.DebugTrace(
                     e, typeof(HostOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
 
                 exception = e;
                 error = e;
             }
             catch (Exception e)
             {
+                TraceOps.DebugTrace(
+                    e, typeof(HostOps).Name,
+                    TracePriority.ThreadError);
+
                 exception = e;
                 error = e;
             }
@@ -657,7 +673,7 @@ namespace Eagle._Components.Private
 
                 TraceOps.DebugTrace(
                     e, typeof(HostOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
 
                 exception = e;
                 error = e;
@@ -666,7 +682,7 @@ namespace Eagle._Components.Private
             {
                 TraceOps.DebugTrace(
                     e, typeof(HostOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
 
                 exception = e;
                 error = e;
@@ -674,6 +690,10 @@ namespace Eagle._Components.Private
 #endif
             catch (Exception e)
             {
+                TraceOps.DebugTrace(
+                    e, typeof(HostOps).Name,
+                    TracePriority.ThreadError);
+
                 exception = e;
                 error = e;
             }
@@ -691,15 +711,13 @@ namespace Eagle._Components.Private
         //
         public static void ResetAllInterpreterStandardInputChannels()
         {
-            InterpreterDictionary interpreters = GlobalState.GetInterpreters();
+            IEnumerable<Interpreter> interpreters = GlobalState.GetInterpreters();
 
             if (interpreters == null)
                 return;
 
-            foreach (KeyValuePair<string, Interpreter> pair in interpreters)
+            foreach (Interpreter interpreter in interpreters)
             {
-                Interpreter interpreter = pair.Value;
-
                 if (interpreter == null)
                     continue;
 
@@ -723,15 +741,13 @@ namespace Eagle._Components.Private
         //
         public static void ResetAllInterpreterStandardOutputChannels()
         {
-            InterpreterDictionary interpreters = GlobalState.GetInterpreters();
+            IEnumerable<Interpreter> interpreters = GlobalState.GetInterpreters();
 
             if (interpreters == null)
                 return;
 
-            foreach (KeyValuePair<string, Interpreter> pair in interpreters)
+            foreach (Interpreter interpreter in interpreters)
             {
-                Interpreter interpreter = pair.Value;
-
                 if (interpreter == null)
                     continue;
 
@@ -1111,6 +1127,9 @@ namespace Eagle._Components.Private
         {
             if (interactiveHost == null)
                 return false;
+
+            if (ObjectOps.IsDisposed(interactiveHost))
+                return true;
 
             try
             {

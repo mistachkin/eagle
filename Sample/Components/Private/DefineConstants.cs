@@ -122,6 +122,14 @@ namespace Sample
             "NET_48",
 #endif
 
+#if NET_481
+            "NET_481",
+#endif
+
+#if NET_CORE_REFERENCES
+            "NET_CORE_REFERENCES",
+#endif
+
 #if NET_CORE_20
             "NET_CORE_20",
 #endif

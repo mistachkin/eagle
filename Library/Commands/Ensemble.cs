@@ -192,6 +192,7 @@ namespace Eagle._Commands
 
         #region IEnsembleManager Members
         public virtual ReturnCode AddOrUpdateSubCommand(
+            Interpreter interpreter,
             string name,
             ISubCommand subCommand,
             IClientData clientData,
@@ -228,6 +229,14 @@ namespace Eagle._Commands
                 if (subSubCommands != null)
                     subSubCommands[name] = subCommand;
             }
+
+#if ARGUMENT_CACHE
+            if (interpreter != null)
+            {
+                /* IGNORED */
+                interpreter.ClearArgumentCache();
+            }
+#endif
 
             return ReturnCode.Ok;
         }

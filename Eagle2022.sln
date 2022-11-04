@@ -23,7 +23,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		data\exclude_nuget.txt = data\exclude_nuget.txt
 		data\exclude_runtime.txt = data\exclude_runtime.txt
 		data\exclude_src.txt = data\exclude_src.txt
-		data\exclude_update.txt = data\exclude_update.txt
+		data\exclude_update_bin.txt = data\exclude_update_bin.txt
+		data\exclude_update_lib.txt = data\exclude_update_lib.txt
 		license.terms = license.terms
 		NuGet\build\Eagle.NuGet.targets = NuGet\build\Eagle.NuGet.targets
 		NuGet\build\Eagle.Tools.NuGet.targets = NuGet\build\Eagle.Tools.NuGet.targets
@@ -65,6 +66,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EagleShell2022", "Shell\Eag
 		{E82F401C-9E73-447D-ADDE-56E9328C6140} = {E82F401C-9E73-447D-ADDE-56E9328C6140}
 		{FAF8612D-A51E-4B31-BBEA-5E2BE55A0209} = {FAF8612D-A51E-4B31-BBEA-5E2BE55A0209}
 		{E0CA3F9E-C872-4549-B70A-0933209687DF} = {E0CA3F9E-C872-4549-B70A-0933209687DF}
+		{40AA81A1-6256-4259-97C4-5F6FA69AAFE8} = {40AA81A1-6256-4259-97C4-5F6FA69AAFE8}
+		{5206F0A9-5B90-443B-B9D3-6F9A446B432B} = {5206F0A9-5B90-443B-B9D3-6F9A446B432B}
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EagleShellNetStandard2X", "Shell\EagleShellNetStandard2X.csproj", "{2DFC90BA-FB7C-48F8-AC25-98934540C0F0}"

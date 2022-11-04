@@ -12,10 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-
-#if !NET_STANDARD_20
 using System.Security.Cryptography.X509Certificates;
-#endif
 
 #if CAS_POLICY
 using System.Security.Policy;
@@ -49,8 +46,14 @@ namespace Eagle._Interfaces.Public
         Thread InteractiveThread { get; }
 #endif
 
+        bool NoThreadAbort { get; }
+
         EventWaitHandle VariableEvent { get; }
         EventWaitHandle SetupEvent { get; }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        bool MatchToken(ulong? token);
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -81,14 +84,16 @@ namespace Eagle._Interfaces.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        bool IsPrimaryThread();
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if CAS_POLICY
         StrongName GetStrongName();
         Hash GetHash();
 #endif
 
-#if !NET_STANDARD_20
         X509Certificate GetCertificate();
-#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -151,10 +156,16 @@ namespace Eagle._Interfaces.Public
         MatchCallback MatchCallback { get; set; }
         ReadyCallback ReadyCallback { get; set; }
         GetTimeoutCallback GetTimeoutCallback { get; set; }
+        EventCallback PreWaitCallback { get; set; }
+        EventCallback PostWaitCallback { get; set; }
 
 #if NETWORK
         PreWebClientCallback PreWebClientCallback { get; set; }
         NewWebClientCallback NewWebClientCallback { get; set; }
+#endif
+
+#if THREADING
+        HealthCallback HealthCallback { get; set; }
 #endif
 
         string BackgroundError { get; set; }
@@ -208,16 +219,17 @@ namespace Eagle._Interfaces.Public
         bool Immutable { get; set; }
         int ReadyLimit { get; set; }
         int RecursionLimit { get; set; }
-        int Timeout { get; set; }
-        int FinallyTimeout { get; set; }
-        int NetworkTimeout { get; set; }
         int ThreadStackSize { get; set; }
         int ExtraStackSpace { get; set; }
+
+        int ChildLimit { get; set; }
 
 #if CALLBACK_QUEUE
         int CallbackLimit { get; set; }
 #endif
 
+        int NamespaceLimit { get; set; }
+        int ScopeLimit { get; set; }
         int EventLimit { get; set; }
         int ProcedureLimit { get; set; }
         int VariableLimit { get; set; }
@@ -227,6 +239,26 @@ namespace Eagle._Interfaces.Public
         int ExecuteResultLimit { get; set; }
         int NestedResultLimit { get; set; }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////
+        // EXECUTION TIMEOUTS
+        ///////////////////////////////////////////////////////////////////////
+
+        // [Obsolete()]
+        int? FallbackTimeout { get; set; }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        int? GetTimeout(
+            TimeoutType timeoutType,
+            ref Result error
+        );
+
+        bool SetOrUnsetTimeout(
+            TimeoutType timeoutType,
+            int? timeout,
+            ref Result error
+        );
 
         ///////////////////////////////////////////////////////////////////////
         // ENGINE SUPPORT

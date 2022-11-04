@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -31,6 +32,14 @@ namespace Eagle._Components.Private
     internal static class PolicyOps
     {
         #region Private Constants
+        private static readonly object syncRoot = new object();
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const int HashCount = 3;
+
+        ///////////////////////////////////////////////////////////////////////
+
         private const string UnsafeObjectError =
             "permission denied: safe interpreter cannot use object from {0}";
 
@@ -38,6 +47,18 @@ namespace Eagle._Components.Private
 
         private const string UnsafeTypeError =
             "permission denied: safe interpreter cannot use type from {0}";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const string UnsafeFileError =
+            "permission denied: safe interpreter cannot use file from {0}";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly PolicyDecisionType[] DecisionTypes = {
+            PolicyDecisionType.Command, PolicyDecisionType.Script,
+            PolicyDecisionType.File, PolicyDecisionType.Stream
+        };
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -135,6 +156,61 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Helper Methods
+        private static IEnumerable<PolicyDecisionType> GetDecisionTypes()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (DecisionTypes == null)
+                    return null;
+
+                return new List<PolicyDecisionType>(DecisionTypes);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static PolicyDecision? QueryDecision(
+            Interpreter interpreter,
+            PolicyDecisionType decisionType,
+            bool final
+            )
+        {
+            if (interpreter != null)
+            {
+                switch (decisionType & PolicyDecisionType.QueryMask)
+                {
+                    case PolicyDecisionType.Command:
+                        {
+                            return final ?
+                                interpreter.CommandFinalDecision :
+                                interpreter.CommandInitialDecision;
+                        }
+                    case PolicyDecisionType.Script:
+                        {
+                            return final ?
+                                interpreter.ScriptFinalDecision :
+                                interpreter.ScriptInitialDecision;
+                        }
+                    case PolicyDecisionType.File:
+                        {
+                            return final ?
+                                interpreter.FileFinalDecision :
+                                interpreter.FileInitialDecision;
+                        }
+                    case PolicyDecisionType.Stream:
+                        {
+                            return final ?
+                                interpreter.StreamFinalDecision :
+                                interpreter.StreamInitialDecision;
+                        }
+                }
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static ReturnCode EvaluateScript(
             Interpreter interpreter, /* in */
             string text,             /* in */
@@ -215,6 +291,91 @@ namespace Eagle._Components.Private
             }
 
             return code;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode TryParseHash(
+            Interpreter interpreter,      /* in: OPTIONAL */
+            string hash,                  /* in */
+            ref PolicyType policyType,    /* in */
+            ref string hashAlgorithmName, /* out */
+            ref byte[] hashValue,         /* out */
+            ref Result error              /* out */
+            )
+        {
+            //
+            // NOTE: The format of the hash entry strings must be as
+            //       follows:
+            //
+            //       PolicyType <space> HashAlgorithmName <space> HashValue
+            //
+            //       The policy type MUST parse to a valid enumeration
+            //       value.
+            //
+            //       The hash algorithm name SHOULD (almost always) be
+            //       SHA256; however, other valid hash algorithm names
+            //       MAY be accepted.
+            //
+            //       The hash value MUST be a string representation of
+            //       a Base16 number with an optional "0x" prefix -OR-
+            //       a Base64 encoded byte array for the computed hash
+            //       over the entire file.
+            //
+            if (String.IsNullOrEmpty(hash))
+            {
+                error = "invalid hash";
+                return ReturnCode.Error;
+            }
+
+            StringList list = null;
+
+            if (ParserOps<string>.SplitList(
+                    interpreter, hash, 0, Length.Invalid, true,
+                    ref list, ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            int count = list.Count;
+
+            if (count < HashCount)
+            {
+                error = String.Format(
+                    "need at least {0} elements for hash, have {1}",
+                    HashCount, count);
+
+                return ReturnCode.Error;
+            }
+
+            CultureInfo cultureInfo = null;
+
+            if (interpreter != null)
+                cultureInfo = interpreter.InternalCultureInfo;
+
+            object enumValue;
+
+            enumValue = EnumOps.TryParseFlags(
+                interpreter, typeof(PolicyType), null, list[0],
+                cultureInfo, true, true, true, ref error);
+
+            if (!(enumValue is PolicyType))
+                return ReturnCode.Error;
+
+            byte[] localHashValue = null;
+
+            if (StringOps.GetBytesFromString(
+                    list[2], cultureInfo, ref localHashValue,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            policyType = (PolicyType)enumValue;
+            hashAlgorithmName = list[1];
+            hashValue = localHashValue;
+
+            return ReturnCode.Ok;
         }
         #endregion
 
@@ -394,6 +555,100 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Policy Support Methods
+        public static ReturnCode QueryDecisions(
+            Interpreter interpreter,
+            PolicyDecisionType decisionType,
+            ref StringList list,
+            ref Result error
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            IEnumerable<PolicyDecisionType> decisionTypes = GetDecisionTypes();
+
+            if (decisionTypes == null)
+            {
+                error = "policy decision types unavailable";
+                return ReturnCode.Error;
+            }
+
+            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+            {
+                bool initial = FlagOps.HasFlags(
+                    decisionType, PolicyDecisionType.Initial, true);
+
+                bool final = FlagOps.HasFlags(
+                    decisionType, PolicyDecisionType.Final, true);
+
+                foreach (PolicyDecisionType localDecisionType in decisionTypes)
+                {
+                    if ((decisionType == PolicyDecisionType.None) || /* All */
+                        FlagOps.HasFlags(decisionType, localDecisionType, true))
+                    {
+                        PolicyDecision? decision; /* REUSED */
+                        PolicyDecision localDecision; /* REUSED */
+
+                        if (initial)
+                        {
+                            decision = QueryDecision(
+                                interpreter, localDecisionType, false);
+
+                            if (decision != null)
+                            {
+                                localDecision = (PolicyDecision)decision;
+
+                                if (list == null)
+                                    list = new StringList();
+
+                                list.Add(String.Format(
+                                    "{0}{1}", localDecisionType,
+                                    PolicyDecisionType.Initial));
+
+                                list.Add(localDecision.ToString());
+                            }
+                        }
+
+                        if (final)
+                        {
+                            decision = QueryDecision(
+                                interpreter, localDecisionType, true);
+
+                            if (decision != null)
+                            {
+                                localDecision = (PolicyDecision)decision;
+
+                                if (list == null)
+                                    list = new StringList();
+
+                                list.Add(String.Format(
+                                    "{0}{1}", localDecisionType,
+                                    PolicyDecisionType.Final));
+
+                                list.Add(localDecision.ToString());
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (list == null)
+            {
+                error = String.Format(
+                    "unsupported policy decision types {0}",
+                    FormatOps.WrapOrNull(decisionType));
+
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool HasExecuteCallbacks(
             PolicyList policies /* in */
             )
@@ -545,6 +800,105 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool IsTrustedFile(
+            Interpreter interpreter,  /* in: OPTIONAL */
+            StringList trustedHashes, /* in: OPTIONAL */
+            string fileName,          /* in */
+            ref Result error          /* out */
+            )
+        {
+            StringList hashes = new StringList();
+
+            if (trustedHashes != null) /* OVERRIDE? */
+                AddTrustedHashes(trustedHashes, hashes);
+            else /* (interpreter != null) */
+                AddTrustedHashes(interpreter, hashes);
+
+            if (hashes != null)
+            {
+                foreach (string hash in hashes)
+                {
+                    if (hash == null)
+                        continue;
+
+                    Result localError; /* REUSED */
+                    PolicyType policyType = PolicyType.None;
+                    string hashAlgorithmName = null;
+                    byte[] wantHashValue = null;
+
+                    localError = null;
+
+                    if (TryParseHash(
+                            interpreter, hash, ref policyType,
+                            ref hashAlgorithmName, ref wantHashValue,
+                            ref localError) != ReturnCode.Ok)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "IsTrustedFile: parse error = {0}",
+                            FormatOps.WrapOrNull(localError)),
+                            typeof(PolicyOps).Name,
+                            TracePriority.SecurityError);
+
+                        continue;
+                    }
+
+                    //
+                    // TODO: Currently, only the "File" policy type
+                    //       is supported.  In the future, there may
+                    //       be other methods for other policy types,
+                    //       e.g. IsTrustedScript, etc.
+                    //
+                    if (policyType != PolicyType.File)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "IsTrustedFile: wrong policy type {0}",
+                            FormatOps.WrapOrNull(policyType)),
+                            typeof(PolicyOps).Name,
+                            TracePriority.SecurityError);
+
+                        continue;
+                    }
+
+                    byte[] haveHashValue;
+
+                    localError = null;
+
+                    haveHashValue = HashOps.Compute(
+                        interpreter, hashAlgorithmName, fileName, null,
+                        true, ref localError);
+
+                    if (haveHashValue == null)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "IsTrustedFile: hash error = {0}",
+                            FormatOps.WrapOrNull(localError)),
+                            typeof(PolicyOps).Name,
+                            TracePriority.SecurityError);
+
+                        continue;
+                    }
+
+                    TraceOps.DebugTrace(String.Format(
+                        "IsTrustedFile: have hash {0}, want hash {1}",
+                        FormatOps.MaybeNull(ArrayOps.ToHexadecimalString(
+                            haveHashValue)),
+                        FormatOps.MaybeNull(ArrayOps.ToHexadecimalString(
+                            wantHashValue))), typeof(PolicyOps).Name,
+                        TracePriority.SecurityDebug2);
+
+                    if (ArrayOps.Equals(haveHashValue, wantHashValue))
+                        return true;
+                }
+            }
+
+            error = String.Format(
+                UnsafeFileError, FormatOps.WrapOrNull(fileName));
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IsSuccess(
             PolicyDecision decision /* in */
             )
@@ -585,6 +939,39 @@ namespace Eagle._Components.Private
             //       formal policy decision itself.
             //
             return IsSuccess(decision);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static PolicyDecision FinalDecision(
+            PolicyFlags flags,      /* in */
+            ReturnCode? code,       /* in */
+            PolicyDecision decision /* in */
+            )
+        {
+            bool before = FlagOps.HasFlags(
+                flags, PolicyFlags.EngineBeforeMask, false);
+
+            if ((code == null) ||
+                !IsSuccess((ReturnCode)code, decision))
+            {
+                return before ?
+                    PolicyDecision.Stop : PolicyDecision.Failure;
+            }
+
+            if (PolicyContext.IsApproved(decision))
+            {
+                return before ?
+                    PolicyDecision.Continue : PolicyDecision.Success;
+            }
+
+            if (PolicyContext.IsNone(decision))
+            {
+                return before ?
+                    PolicyDecision.Pending : PolicyDecision.Unknown;
+            }
+
+            return PolicyDecision.None;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -666,6 +1053,31 @@ namespace Eagle._Components.Private
                     }
                 }
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void AddTrustedHashes(
+            Interpreter interpreter, /* in: OPTIONAL */
+            StringList hashes        /* in, out */
+            )
+        {
+            AddTrustedHashes(
+                RuntimeOps.CombineOrCopyTrustedHashes(interpreter, false),
+                hashes);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void AddTrustedHashes(
+            StringList trustedHashes, /* in */
+            StringList hashes         /* in, out */
+            )
+        {
+            if ((trustedHashes == null) || (hashes == null))
+                return;
+
+            hashes.AddRange(trustedHashes); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////

@@ -361,6 +361,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private const string ResolveAssemblySearchOption = "ResolveAssemblySearch";
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if DATA
         //
         // HACK: This is the string required to format a Decimal (fixed)
@@ -4074,7 +4078,7 @@ namespace Eagle._Components.Private
 
                 localError = null;
 
-                if (ArrayOps.GetBytesFromString(text,
+                if (ArrayOps.GetBytesFromDelimitedString(text,
                         cultureInfo, ref bytes,
                         ref localError) == ReturnCode.Ok)
                 {
@@ -4629,7 +4633,7 @@ namespace Eagle._Components.Private
             if (interpreter != null)
             {
                 if (interpreter.HasResolveAssemblySearch() ||
-                    interpreter.HasRuntimeOption("ResolveAssemblySearch"))
+                    interpreter.HasRuntimeOption(ResolveAssemblySearchOption))
                 {
                     return ResolveAssemblySearch(interpreter, name, ref result);
                 }
@@ -11794,6 +11798,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if DATA || XML
+        public static DateTime ToDateTimeInKind(
+            DateTime value,
+            DateTimeKind dateTimeKind,
+            bool force
+            )
+        {
+            if (dateTimeKind != DateTimeKind.Unspecified)
+            {
+                DateTimeKind valueKind = value.Kind;
+
+                if (valueKind != DateTimeKind.Unspecified)
+                {
+                    if (valueKind != dateTimeKind)
+                    {
+                        if (dateTimeKind == DateTimeKind.Utc)
+                            return value.ToUniversalTime();
+                        else if (dateTimeKind == DateTimeKind.Local)
+                            return value.ToLocalTime();
+                    }
+                }
+                else if (force)
+                {
+                    return DateTime.SpecifyKind(value, dateTimeKind);
+                }
+            }
+
+            return value;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if DATA
         private static bool NeedSingleFormat(
             float value
@@ -11831,37 +11868,6 @@ namespace Eagle._Components.Private
                 //
                 return new ByteList(value).ToString();
             }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static DateTime ToDateTimeInKind(
-            DateTime value,
-            DateTimeKind dateTimeKind,
-            bool force
-            )
-        {
-            if (dateTimeKind != DateTimeKind.Unspecified)
-            {
-                DateTimeKind valueKind = value.Kind;
-
-                if (valueKind != DateTimeKind.Unspecified)
-                {
-                    if (valueKind != dateTimeKind)
-                    {
-                        if (dateTimeKind == DateTimeKind.Utc)
-                            return value.ToUniversalTime();
-                        else if (dateTimeKind == DateTimeKind.Local)
-                            return value.ToLocalTime();
-                    }
-                }
-                else if (force)
-                {
-                    return DateTime.SpecifyKind(value, dateTimeKind);
-                }
-            }
-
-            return value;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

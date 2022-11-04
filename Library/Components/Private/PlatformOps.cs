@@ -58,54 +58,54 @@ namespace Eagle._Components.Private
     {
         #region Private Constants
         #region Windows 10 Update Constants
-        //
-        // TODO: Windows 10 build numbers for various "updates".
-        //
+        private const int Windows10RtmBuildNumber = 10240;
+        private const string Windows10RtmName = "Windows 10, RTM";
+
         private const int Windows10NovemberUpdateBuildNumber = 10586;
-        private const string Windows10NovemberUpdateName = "November Update";
+        private const string Windows10NovemberUpdateName = "Windows 10, November Update";
 
         private const int Windows10AnniversaryUpdateBuildNumber = 14393;
-        private const string Windows10AnniversaryUpdateName = "Anniversary Update";
+        private const string Windows10AnniversaryUpdateName = "Windows 10, Anniversary Update";
 
         private const int Windows10CreatorsUpdateBuildNumber = 15063;
-        private const string Windows10CreatorsUpdateName = "Creators Update";
+        private const string Windows10CreatorsUpdateName = "Windows 10, Creators Update";
 
         private const int Windows10FallCreatorsUpdateBuildNumber = 16299;
-        private const string Windows10FallCreatorsUpdateName = "Fall Creators Update";
+        private const string Windows10FallCreatorsUpdateName = "Windows 10, Fall Creators Update";
 
         private const int Windows10April2018UpdateBuildNumber = 17134;
-        private const string Windows10April2018UpdateName = "April 2018 Update";
+        private const string Windows10April2018UpdateName = "Windows 10, April 2018 Update";
 
         private const int Windows10October2018UpdateBuildNumber = 17763;
-        private const string Windows10October2018UpdateName = "October 2018 Update";
+        private const string Windows10October2018UpdateName = "Windows 10, October 2018 Update";
 
         private const int Windows10May2019UpdateBuildNumber = 18362;
-        private const string Windows10May2019UpdateName = "May 2019 Update";
+        private const string Windows10May2019UpdateName = "Windows 10, May 2019 Update";
 
         private const int Windows10November2019UpdateBuildNumber = 18363;
-        private const string Windows10November2019UpdateName = "November 2019 Update";
+        private const string Windows10November2019UpdateName = "Windows 10, November 2019 Update";
 
         private const int Windows10May2020UpdateBuildNumber = 19041;
-        private const string Windows10May2020UpdateName = "May 2020 Update";
+        private const string Windows10May2020UpdateName = "Windows 10, May 2020 Update";
 
         private const int Windows10October2020UpdateBuildNumber = 19042;
-        private const string Windows10October2020UpdateName = "October 2020 Update";
+        private const string Windows10October2020UpdateName = "Windows 10, October 2020 Update";
 
         private const int Windows10May2021UpdateBuildNumber = 19043;
-        private const string Windows10May2021UpdateName = "May 2021 Update";
+        private const string Windows10May2021UpdateName = "Windows 10, May 2021 Update";
 
         private const int Windows10November2021UpdateBuildNumber = 19044;
-        private const string Windows10November2021UpdateName = "November 2021 Update";
+        private const string Windows10November2021UpdateName = "Windows 10, November 2021 Update";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Windows 11 Update Constants
-        //
-        // TODO: Windows 11 build numbers for various "updates".
-        //
-        private const int Windows11BuildNumber = 22000; /* RTM */
-        private const string Windows11UpdateName = "22000 RTM 21H2"; /* TBD */
+        private const int Windows11RtmBuildNumber = 22000;
+        private const string Windows11RtmName = "Windows 11, RTM";
+
+        private const int Windows11September2022UpdateBuildNumber = 22621;
+        private const string Windows11September2022UpdateName = "Windows 11, September 2022 Update";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -2253,7 +2253,7 @@ namespace Eagle._Components.Private
                     osVersion = operatingSystem.Version;
 
                     if ((osVersion.Major == 10) && (osVersion.Minor == 0) &&
-                        (osVersion.Build >= Windows11BuildNumber))
+                        (osVersion.Build >= Windows11RtmBuildNumber))
                     {
                         return true;
                     }
@@ -2288,7 +2288,7 @@ namespace Eagle._Components.Private
                     if (osVersion.Minor < 0)
                         return false;
 
-                    if (osVersion.Build >= Windows11BuildNumber)
+                    if (osVersion.Build >= Windows11RtmBuildNumber)
                         return true;
                 }
 
@@ -2461,6 +2461,8 @@ namespace Eagle._Components.Private
             {
                 switch (osVersion.Build)
                 {
+                    case Windows10RtmBuildNumber:
+                        return Windows10RtmName;
                     case Windows10NovemberUpdateBuildNumber:
                         return Windows10NovemberUpdateName;
                     case Windows10AnniversaryUpdateBuildNumber:
@@ -2505,8 +2507,10 @@ namespace Eagle._Components.Private
             {
                 switch (osVersion.Build)
                 {
-                    case Windows11BuildNumber:
-                        return Windows11UpdateName;
+                    case Windows11RtmBuildNumber:
+                        return Windows11RtmName;
+                    case Windows11September2022UpdateBuildNumber:
+                        return Windows11September2022UpdateName;
                 }
             }
 

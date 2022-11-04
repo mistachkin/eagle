@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Components.Public.Delegates;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
@@ -29,6 +30,8 @@ namespace Eagle._Components.Private
 
         private static readonly int WaitSlopDivisor = 40;
         private static readonly int WaitSlopMinimumTime = 25000; /* microseconds */
+
+        private static readonly int WaitTraceMinimumTime = 2000000; /* microseconds */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -52,7 +55,8 @@ namespace Eagle._Components.Private
             if (microseconds != null)
                 return (long)microseconds;
 
-            return PerformanceOps.GetMicroseconds(WaitMaximumSleepTime);
+            return PerformanceOps.GetMicrosecondsFromMilliseconds(
+                WaitMaximumSleepTime);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -62,7 +66,8 @@ namespace Eagle._Components.Private
             )
         {
             return ConversionOps.ToInt(
-                PerformanceOps.GetMilliseconds(microseconds) / WaitDivisor);
+                PerformanceOps.GetMillisecondsFromMicroseconds(
+                    microseconds) / WaitDivisor);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -110,6 +115,40 @@ namespace Eagle._Components.Private
             //
             if (!noCancel)
                 readyFlags &= ~ReadyFlags.Limited;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void QueryWaitCallbacks(
+            Interpreter interpreter,
+            out EventCallback preCallback,
+            out EventCallback postCallback
+            )
+        {
+            preCallback = null;
+            postCallback = null;
+
+            if (interpreter == null)
+                return;
+
+            bool locked = false;
+
+            try
+            {
+                interpreter.InternalSoftTryLock(
+                    ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    preCallback = interpreter.InternalPreWaitCallback;
+                    postCallback = interpreter.InternalPostWaitCallback;
+                }
+            }
+            finally
+            {
+                interpreter.InternalExitLock(
+                    ref locked); /* TRANSACTIONAL */
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -308,7 +347,7 @@ namespace Eagle._Components.Private
             long? waitMicroseconds,
             long? readyMicroseconds,
             bool timeout,
-            bool strict,
+            bool noWindows,
             bool noCancel,
             bool noGlobalCancel,
             ref Result error
@@ -318,7 +357,7 @@ namespace Eagle._Components.Private
 
             return Wait(
                 interpreter, @event, waitMicroseconds, readyMicroseconds,
-                timeout, strict, noCancel, noGlobalCancel, ref timedOut,
+                timeout, noWindows, noCancel, noGlobalCancel, ref timedOut,
                 ref error);
         }
 
@@ -330,204 +369,358 @@ namespace Eagle._Components.Private
             long? waitMicroseconds,
             long? readyMicroseconds,
             bool timeout,
-            bool strict,
+            bool noWindows,
             bool noCancel,
             bool noGlobalCancel,
             ref bool timedOut,
             ref Result error
             ) /* THREAD-SAFE */
         {
-            ReturnCode code = ReturnCode.Ok;
-
-            if (interpreter != null)
+            if (interpreter == null)
             {
-                int waitCount;
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
 
-                if ((waitCount = interpreter.EnterWait()) > 0)
+            long outerStartCount = PerformanceOps.GetCount();
+            long outerStopCount = 0;
+
+            try
+            {
+                IAnyClientData clientData = null;
+
+                try
                 {
-                    if (waitMicroseconds == 0)
-                    {
-                        if ((@event == null) || !ThreadOps.WaitEvent(@event, 0))
-                        {
-#if WINFORMS
-                            //
-                            // NOTE: If necessary, process all Windows messages
-                            //       from the queue.
-                            //
-                            if (!strict)
-                            {
-                                code = WindowOps.ProcessEvents(
-                                    interpreter, ref error);
-                            }
+                    ReturnCode code = ReturnCode.Ok;
 
-                            if (code == ReturnCode.Ok)
-#endif
+                    ///////////////////////////////////////////////////////////
+
+                    EventCallback preCallback;
+                    EventCallback postCallback;
+
+                    QueryWaitCallbacks(
+                        interpreter, out preCallback, out postCallback);
+
+                    if ((preCallback != null) || (postCallback != null))
+                    {
+                        clientData = new AnyClientData();
+
+                        clientData.TrySetAny("event", @event);
+
+                        clientData.TrySetAny(
+                            "waitMicroseconds", waitMicroseconds);
+
+                        clientData.TrySetAny(
+                            "readyMicroseconds", readyMicroseconds);
+
+                        clientData.TrySetAny("timeout", timeout);
+                        clientData.TrySetAny("noWindows", noWindows);
+                        clientData.TrySetAny("noCancel", noCancel);
+                        clientData.TrySetAny("noGlobalCancel", noGlobalCancel);
+                    }
+
+                    ///////////////////////////////////////////////////////////
+
+                    if (preCallback != null)
+                    {
+                        clientData.TrySetAny("callback", "preWaitBusy");
+                        clientData.TrySetAny("code", code);
+                        clientData.TrySetAny("error", error);
+
+                        try
+                        {
+                            ReturnCode callbackCode;
+                            Result callbackError = null;
+
+                            callbackCode = preCallback(
+                                interpreter, clientData,
+                                ref callbackError); /* throw */
+
+                            if (callbackCode != ReturnCode.Ok)
                             {
+                                error = callbackError;
+                                return callbackCode;
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            error = e;
+                            return ReturnCode.Error;
+                        }
+                    }
+
+                    ///////////////////////////////////////////////////////////
+
+                    int waitCount;
+
+                    if ((waitCount = interpreter.EnterWait()) > 0)
+                    {
+                        if (waitMicroseconds == 0)
+                        {
+                            if ((@event == null) ||
+                                !ThreadOps.WaitEvent(@event, 0))
+                            {
+#if WINFORMS
                                 //
-                                // NOTE: Yield to other running threads.  This
-                                //       also gives them an opportunity to cancel
-                                //       the script in progress on this thread.
+                                // NOTE: If necessary, process all Windows
+                                //       messages from the queue.
                                 //
-                                code = HostOps.Yield(ref error);
+                                if (!noWindows)
+                                {
+                                    code = WindowOps.ProcessEvents(
+                                        interpreter, ref error);
+                                }
+
+                                if (code == ReturnCode.Ok)
+#endif
+                                {
+                                    //
+                                    // NOTE: Yield to other running threads.
+                                    //       This gives them an opportunity
+                                    //       to cancel the script in progress
+                                    //       on this thread.
+                                    //
+                                    code = HostOps.Yield(ref error);
+                                }
+                            }
+                            else
+                            {
+                                error = "event was signaled";
+                                code = ReturnCode.Error;
                             }
                         }
                         else
                         {
-                            error = "event was signaled";
-                            code = ReturnCode.Error;
-                        }
-                    }
-                    else
-                    {
-                        //
-                        // HACK: Attempt to transform the (nullable) long integer
-                        //       microsecond parameter values into long integer
-                        //       values usable by this method.
-                        //
-                        if ((waitMicroseconds != null) && (readyMicroseconds == null))
-                            readyMicroseconds = waitMicroseconds;
-
-                        long localWaitMicroseconds = GetMicroseconds(waitMicroseconds);
-                        long localReadyMicroseconds = GetMicroseconds(readyMicroseconds);
-
-                        //
-                        // NOTE: Keep track of how many iterations through
-                        //       the loop we take.
-                        //
-                        int iterations = 0;
-
-                        //
-                        // HACK: Account for our processing overhead; use half
-                        //       of the requested delay.
-                        //
-                        int waitMilliseconds = GetMilliseconds(localWaitMicroseconds);
-
-                        if (waitMilliseconds < 0)
-                            waitMilliseconds = 0;
-
-                        if (waitMilliseconds > WaitMaximumSleepTime)
-                            waitMilliseconds = WaitMaximumSleepTime;
-
-                        int readyMilliseconds = GetMilliseconds(localReadyMicroseconds);
-
-                        if (readyMilliseconds < 0)
-                            readyMilliseconds = 0;
-
-                        if (readyMilliseconds > waitMilliseconds)
-                            readyMilliseconds = waitMilliseconds;
-
-                        //
-                        // NOTE: For more precise timing, use the high-resolution
-                        //       CPU performance counter.
-                        //
-                        long startCount = PerformanceOps.GetCount();
-
-                        //
-                        // BUGFIX: Make sure the slop time does not exceed the
-                        //         actual wait.
-                        //
-                        long slopMicroseconds = GetSlopMicroseconds(localWaitMicroseconds);
-
-                        //
-                        // NOTE: Delay for approximately the specified number of
-                        //       microseconds, optionally timing out if we cannot
-                        //       obtain the interpreter lock before the time period
-                        //       elapses.
-                        //
-                        while (((code = Interpreter.EventReady(interpreter,
-                                timeout ? readyMilliseconds : _Timeout.Infinite,
-                                noCancel, noGlobalCancel, out timedOut,
-                                ref error)) == ReturnCode.Ok) &&
-                            !PerformanceOps.HasElapsed(
-                                startCount, localWaitMicroseconds, slopMicroseconds))
-                        {
                             //
-                            // NOTE: If the user-specified event is now signaled,
-                            //       exit the loop prior to any other processing.
+                            // HACK: Attempt to transform (nullable) long
+                            //       integer microsecond parameter values
+                            //       into long integer values usable by
+                            //       this method.
                             //
-                            if ((@event != null) &&
-                                ThreadOps.WaitEvent(@event, 0))
+                            if ((waitMicroseconds != null) &&
+                                (readyMicroseconds == null))
                             {
-                                error = "event was signaled";
-                                code = ReturnCode.Error;
-
-                                break;
+                                readyMicroseconds = waitMicroseconds;
                             }
 
-#if WINFORMS
-                            if (!strict)
-                            {
-                                code = WindowOps.ProcessEvents(
-                                    interpreter, ref error);
+                            long localWaitMicroseconds = GetMicroseconds(
+                                waitMicroseconds);
 
-                                if (code != ReturnCode.Ok)
-                                    break;
-                            }
-#endif
+                            long localReadyMicroseconds = GetMicroseconds(
+                                readyMicroseconds);
 
-                            if (@event != null)
+                            //
+                            // NOTE: Keep track of how many iterations
+                            //       through the loop we take.
+                            //
+                            int iterations = 0;
+
+                            //
+                            // HACK: Account for our processing overhead;
+                            //       use half of the requested delay.
+                            //
+                            int waitMilliseconds = GetMilliseconds(
+                                localWaitMicroseconds);
+
+                            if (waitMilliseconds < 0)
+                                waitMilliseconds = 0;
+
+                            if (waitMilliseconds > WaitMaximumSleepTime)
+                                waitMilliseconds = WaitMaximumSleepTime;
+
+                            int readyMilliseconds = GetMilliseconds(
+                                localReadyMicroseconds);
+
+                            if (readyMilliseconds < 0)
+                                readyMilliseconds = 0;
+
+                            if (readyMilliseconds > waitMilliseconds)
+                                readyMilliseconds = waitMilliseconds;
+
+                            //
+                            // NOTE: For precise timing, use high-resolution
+                            //       CPU performance counter.
+                            //
+                            long innerStartCount = PerformanceOps.GetCount();
+                            long innerStopCount = 0;
+
+                            //
+                            // BUGFIX: Make sure slop time does not exceed
+                            //         the actual wait.
+                            //
+                            long slopMicroseconds = GetSlopMicroseconds(
+                                localWaitMicroseconds);
+
+                            //
+                            // NOTE: Delay for approximately the specified
+                            //       number of microseconds, optionally
+                            //       timing out if we cannot obtain the
+                            //       interpreter lock in time.
+                            //
+                            double totalWaitMilliseconds = 0.0;
+
+                            while (((code = Interpreter.EventReady(
+                                    interpreter, timeout ?
+                                        readyMilliseconds : _Timeout.Infinite,
+                                    noCancel, noGlobalCancel, out timedOut,
+                                    ref error)) == ReturnCode.Ok) &&
+                                !PerformanceOps.HasElapsed(
+                                    innerStartCount, ref innerStopCount,
+                                    localWaitMicroseconds, slopMicroseconds))
                             {
-                                if (ThreadOps.WaitEvent(
-                                        @event, waitMilliseconds))
+                                //
+                                // NOTE: If user-specified event is signaled,
+                                //       exit loop prior to other processing.
+                                //
+                                if ((@event != null) &&
+                                    ThreadOps.WaitEvent(@event, 0))
                                 {
                                     error = "event was signaled";
                                     code = ReturnCode.Error;
 
                                     break;
                                 }
-                            }
-                            else
-                            {
-                                code = HostOps.Sleep(
-                                    interpreter, waitMilliseconds,
-                                    ref error);
 
-                                if (code != ReturnCode.Ok)
-                                    break;
+#if WINFORMS
+                                if (!noWindows)
+                                {
+                                    code = WindowOps.ProcessEvents(
+                                        interpreter, ref error);
+
+                                    if (code != ReturnCode.Ok)
+                                        break;
+                                }
+#endif
+
+                                if (@event != null)
+                                {
+                                    if (ThreadOps.WaitEvent(
+                                            @event, waitMilliseconds))
+                                    {
+                                        error = "event was signaled";
+                                        code = ReturnCode.Error;
+
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    code = HostOps.Sleep(
+                                        interpreter, waitMilliseconds,
+                                        ref error);
+
+                                    if (code != ReturnCode.Ok)
+                                        break;
+                                }
+
+                                totalWaitMilliseconds += waitMilliseconds;
+                                iterations++;
                             }
 
-                            iterations++;
+                            double innerElapsedMicroseconds =
+                                PerformanceOps.GetMicrosecondsFromCount(
+                                    innerStartCount, innerStopCount, 1,
+                                    false); /* EXEMPT */
+
+                            TraceOps.DebugTrace(String.Format(
+                                "Wait: interpreter = {0}, event = {1}, " +
+                                "code = {2}, iterations = {3}, " +
+                                "waitMicroseconds = {4}, " +
+                                "readyMicroseconds = {5}, timeout = {6}, " +
+                                "noWindows = {7}, noCancel = {8}, " +
+                                "elapsedMicroseconds = {9}, " +
+                                "waitMilliseconds = {10}, " +
+                                "readyMilliseconds = {11}, " +
+                                "slopMicroseconds = {12}, " +
+                                "differenceMicroseconds = {13}, " +
+                                "totalWaitMilliseconds = {14}, " +
+                                "waitCount = {15}, error = {16}",
+                                FormatOps.InterpreterNoThrow(interpreter),
+                                FormatOps.WrapOrNull(@event), code,
+                                iterations, localWaitMicroseconds,
+                                localReadyMicroseconds, timeout, noWindows,
+                                noCancel, innerElapsedMicroseconds,
+                                waitMilliseconds, readyMilliseconds,
+                                slopMicroseconds, innerElapsedMicroseconds -
+                                (double)localWaitMicroseconds,
+                                FormatOps.PerformanceMilliseconds(
+                                    totalWaitMilliseconds),
+                                waitCount, FormatOps.WrapOrNull(
+                                    true, true, error)),
+                                typeof(EventOps).Name,
+                                TracePriority.EventDebug);
                         }
 
-                        long stopCount = PerformanceOps.GetCount();
-
-                        double elapsedMicroseconds = PerformanceOps.GetMicroseconds(
-                            startCount, stopCount, 1, false); /* EXEMPT */
-
-                        TraceOps.DebugTrace(String.Format(
-                            "Wait: interpreter = {0}, event = {1}, code = {2}, " +
-                            "iterations = {3}, waitMicroseconds = {4}, " +
-                            "readyMicroseconds = {5}, timeout = {6}, strict = {7}, " +
-                            "noCancel = {8}, elapsedMicroseconds = {9}, " +
-                            "waitMilliseconds = {10}, readyMilliseconds = {11}, " +
-                            "slopMicroseconds = {12}, differenceMicroseconds = {13}, " +
-                            "waitCount = {14}, error = {15}",
-                            FormatOps.InterpreterNoThrow(interpreter),
-                            FormatOps.WrapOrNull(@event), code, iterations,
-                            localWaitMicroseconds, localReadyMicroseconds,
-                            timeout, strict, noCancel, elapsedMicroseconds,
-                            waitMilliseconds, readyMilliseconds, slopMicroseconds,
-                            elapsedMicroseconds - (double)localWaitMicroseconds,
-                            waitCount, FormatOps.WrapOrNull(true, true, error)),
-                            typeof(EventOps).Name, TracePriority.EventDebug);
+                        /* IGNORED */
+                        interpreter.ExitWait();
+                    }
+                    else
+                    {
+                        error = "wait subsystem locked";
+                        code = ReturnCode.Error;
                     }
 
-                    /* IGNORED */
-                    interpreter.ExitWait();
-                }
-                else
-                {
-                    error = "wait subsystem locked";
-                    code = ReturnCode.Error;
-                }
-            }
-            else
-            {
-                error = "invalid interpreter";
-                code = ReturnCode.Error;
-            }
+                    ///////////////////////////////////////////////////////////
 
-            return code;
+                    if (postCallback != null)
+                    {
+                        clientData.TrySetAny("callback", "postWaitBusy");
+                        clientData.TrySetAny("code", code);
+                        clientData.TrySetAny("error", error);
+
+                        try
+                        {
+                            ReturnCode callbackCode;
+                            Result callbackError = null;
+
+                            callbackCode = postCallback(
+                                interpreter, clientData,
+                                ref callbackError); /* throw */
+
+                            if (callbackCode != ReturnCode.Ok)
+                            {
+                                error = callbackError;
+                                return callbackCode;
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            error = e;
+                            return ReturnCode.Error;
+                        }
+                    }
+
+                    ///////////////////////////////////////////////////////////
+
+                    return code;
+                }
+                finally
+                {
+                    ObjectOps.DisposeOrTrace<IAnyClientData>(
+                        interpreter, ref clientData);
+                }
+            }
+            finally
+            {
+                outerStopCount = PerformanceOps.GetCount();
+
+                double outerElapsedMicroseconds =
+                    PerformanceOps.GetMicrosecondsFromCount(
+                        outerStartCount, outerStopCount, 1,
+                        false); /* EXEMPT */
+
+                TracePriority priority = (waitMicroseconds != null) &&
+                    (outerElapsedMicroseconds > (double)waitMicroseconds) &&
+                    (outerElapsedMicroseconds > WaitTraceMinimumTime) ?
+                        TracePriority.EventDebug2 : TracePriority.EventDebug3;
+
+                TraceOps.DebugTrace(String.Format(
+                    "Wait: {0} for interpreter {1}",
+                    FormatOps.PerformanceMicroseconds(
+                        outerElapsedMicroseconds),
+                    FormatOps.InterpreterNoThrow(interpreter)),
+                    typeof(EventOps).Name, priority);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

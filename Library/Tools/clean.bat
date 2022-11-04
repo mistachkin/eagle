@@ -17,9 +17,19 @@
 SETLOCAL
 
 REM SET __ECHO=ECHO
+REM SET __ECHO2=ECHO
+REM SET __ECHO3=ECHO
 IF NOT DEFINED _AECHO (SET _AECHO=REM)
 IF NOT DEFINED _CECHO (SET _CECHO=REM)
+IF NOT DEFINED _CECHO2 (SET _CECHO2=REM)
+IF NOT DEFINED _CECHO3 (SET _CECHO3=REM)
 IF NOT DEFINED _VECHO (SET _VECHO=REM)
+
+CALL :fn_UnsetVariable BREAK
+
+SET NULERR=2^>NUL
+SET _CNULERR=2^^^>NUL
+IF DEFINED __ECHO SET NULERR=2^^^>NUL
 
 %_AECHO% Running %0 %*
 
@@ -111,6 +121,7 @@ SET RELEASEDIRS=%RELEASEDIRS% DebugNetFx47 ReleaseNetFx47
 SET RELEASEDIRS=%RELEASEDIRS% DebugNetFx471 ReleaseNetFx471
 SET RELEASEDIRS=%RELEASEDIRS% DebugNetFx472 ReleaseNetFx472
 SET RELEASEDIRS=%RELEASEDIRS% DebugNetFx48 ReleaseNetFx48
+SET RELEASEDIRS=%RELEASEDIRS% DebugNetFx481 ReleaseNetFx481
 SET RELEASEDIRS=%RELEASEDIRS% DebugNetStandard20 ReleaseNetStandard20
 SET RELEASEDIRS=%RELEASEDIRS% DebugNetStandard21 ReleaseNetStandard21
 SET RELEASEDIRS=%RELEASEDIRS% DebugBare ReleaseBare
@@ -148,6 +159,8 @@ SET RELEASEDIRS=%RELEASEDIRS% Win32_DebugDllNetFx472 Win32_ReleaseDllNetFx472
 SET RELEASEDIRS=%RELEASEDIRS% x64_DebugDllNetFx472 x64_ReleaseDllNetFx472
 SET RELEASEDIRS=%RELEASEDIRS% Win32_DebugDllNetFx48 Win32_ReleaseDllNetFx48
 SET RELEASEDIRS=%RELEASEDIRS% x64_DebugDllNetFx48 x64_ReleaseDllNetFx48
+SET RELEASEDIRS=%RELEASEDIRS% Win32_DebugDllNetFx481 Win32_ReleaseDllNetFx481
+SET RELEASEDIRS=%RELEASEDIRS% x64_DebugDllNetFx481 x64_ReleaseDllNetFx481
 SET RELEASEDIRS=%RELEASEDIRS% Win32_DebugDllNetStandard20 Win32_ReleaseDllNetStandard20
 SET RELEASEDIRS=%RELEASEDIRS% x64_DebugDllNetStandard20 x64_ReleaseDllNetStandard20
 SET RELEASEDIRS=%RELEASEDIRS% Win32_DebugDllNetStandard21 Win32_ReleaseDllNetStandard21
@@ -178,6 +191,7 @@ SET RELEASEDIRS=%RELEASEDIRS% NuGet_DebugNetFx47 NuGet_ReleaseNetFx47
 SET RELEASEDIRS=%RELEASEDIRS% NuGet_DebugNetFx471 NuGet_ReleaseNetFx471
 SET RELEASEDIRS=%RELEASEDIRS% NuGet_DebugNetFx472 NuGet_ReleaseNetFx472
 SET RELEASEDIRS=%RELEASEDIRS% NuGet_DebugNetFx48 NuGet_ReleaseNetFx48
+SET RELEASEDIRS=%RELEASEDIRS% NuGet_DebugNetFx481 NuGet_ReleaseNetFx481
 SET RELEASEDIRS=%RELEASEDIRS% NuGet_DebugNetStandard20 NuGet_ReleaseNetStandard20
 SET RELEASEDIRS=%RELEASEDIRS% NuGet_DebugNetStandard21 NuGet_ReleaseNetStandard21
 SET RELEASEDIRS=%RELEASEDIRS% NuGet_DebugBare NuGet_ReleaseBare
@@ -208,6 +222,7 @@ SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllNetFx47 ReleaseDllNetFx47
 SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllNetFx471 ReleaseDllNetFx471
 SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllNetFx472 ReleaseDllNetFx472
 SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllNetFx48 ReleaseDllNetFx48
+SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllNetFx481 ReleaseDllNetFx481
 SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllNetStandard20 ReleaseDllNetStandard20
 SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllNetStandard21 ReleaseDllNetStandard21
 SET RELEASESUBDIRS=%RELEASESUBDIRS% DebugDllBare ReleaseDllBare
@@ -722,6 +737,16 @@ FOR %%E IN (%TESTEXEFILES%) DO (
         %_AECHO% Deleted "%%F".
         %_AECHO%.
       )
+
+      %__ECHO% RMDIR "%%~dpF" %NULERR%
+
+      IF ERRORLEVEL 1 (
+        ECHO WARNING: Could not remove "%%~dpF".
+        ECHO.
+      ) ELSE (
+        %_AECHO% Removed "%%~dpF".
+        %_AECHO%.
+      )
     ) ELSE (
       %_AECHO% Skipping "%%F", in use by active test suite.
       %_AECHO%.
@@ -730,13 +755,25 @@ FOR %%E IN (%TESTEXEFILES%) DO (
 )
 ENDLOCAL
 
+IF EXIST "%TEMP%\logs" (
+  %__ECHO% RMDIR "%TEMP%\logs" %NULERR%
+
+  IF ERRORLEVEL 1 (
+    ECHO WARNING: Could not remove "%TEMP%\logs".
+    ECHO.
+  ) ELSE (
+    %_AECHO% Removed "%TEMP%\logs".
+    %_AECHO%.
+  )
+)
+
 GOTO skip_allTestLogs
 
 :clean_allTestLogs
 
 IF NOT DEFINED NOTESTLOGS (
   IF EXIST "%TEMP%\dotnet.exe.test.*.log" (
-    %__ECHO% DEL /Q "%TEMP%\dotnet.exe.test.*.log"
+    %__ECHO% DEL /S /Q "%TEMP%\dotnet.exe.test.*.log"
 
     IF ERRORLEVEL 1 (
       ECHO Could not delete "%TEMP%\dotnet.exe.test.*.log".
@@ -757,7 +794,7 @@ IF NOT DEFINED NOTESTLOGS (
 
 IF NOT DEFINED NOTESTLOGS (
   IF EXIST "%TEMP%\EagleShell.dll.test.*.log" (
-    %__ECHO% DEL /Q "%TEMP%\EagleShell.dll.test.*.log"
+    %__ECHO% DEL /S /Q "%TEMP%\EagleShell.dll.test.*.log"
 
     IF ERRORLEVEL 1 (
       ECHO Could not delete "%TEMP%\EagleShell.dll.test.*.log".
@@ -778,7 +815,7 @@ IF NOT DEFINED NOTESTLOGS (
 
 IF NOT DEFINED NOTESTLOGS (
   IF EXIST "%TEMP%\EagleShell.exe.test.*.log" (
-    %__ECHO% DEL /Q "%TEMP%\EagleShell.exe.test.*.log"
+    %__ECHO% DEL /S /Q "%TEMP%\EagleShell.exe.test.*.log"
 
     IF ERRORLEVEL 1 (
       ECHO Could not delete "%TEMP%\EagleShell.exe.test.*.log".
@@ -799,7 +836,7 @@ IF NOT DEFINED NOTESTLOGS (
 
 IF NOT DEFINED NOTESTLOGS (
   IF EXIST "%TEMP%\EagleShell32.exe.test.*.log" (
-    %__ECHO% DEL /Q "%TEMP%\EagleShell32.exe.test.*.log"
+    %__ECHO% DEL /S /Q "%TEMP%\EagleShell32.exe.test.*.log"
 
     IF ERRORLEVEL 1 (
       ECHO Could not delete "%TEMP%\EagleShell32.exe.test.*.log".
@@ -820,7 +857,7 @@ IF NOT DEFINED NOTESTLOGS (
 
 IF NOT DEFINED NOTESTLOGS (
   IF EXIST "%TEMP%\Featherlight.exe.test.*.log" (
-    %__ECHO% DEL /Q "%TEMP%\Featherlight.exe.test.*.log"
+    %__ECHO% DEL /S /Q "%TEMP%\Featherlight.exe.test.*.log"
 
     IF ERRORLEVEL 1 (
       ECHO Could not delete "%TEMP%\Featherlight.exe.test.*.log".
@@ -841,7 +878,7 @@ IF NOT DEFINED NOTESTLOGS (
 
 IF NOT DEFINED NOTESTLOGS (
   IF EXIST "%TEMP%\mono.exe.test.*.log" (
-    %__ECHO% DEL /Q "%TEMP%\mono.exe.test.*.log"
+    %__ECHO% DEL /S /Q "%TEMP%\mono.exe.test.*.log"
 
     IF ERRORLEVEL 1 (
       ECHO Could not delete "%TEMP%\mono.exe.test.*.log".
@@ -862,7 +899,7 @@ IF NOT DEFINED NOTESTLOGS (
 
 IF NOT DEFINED NOTESTLOGS (
   IF EXIST "%TEMP%\tclsh*.exe.test.*.log" (
-    %__ECHO% DEL /Q "%TEMP%\tclsh*.exe.test.*.log"
+    %__ECHO% DEL /S /Q "%TEMP%\tclsh*.exe.test.*.log"
 
     IF ERRORLEVEL 1 (
       ECHO Could not delete "%TEMP%\tclsh*.exe.test.*.log".
@@ -1119,11 +1156,7 @@ GOTO no_errors
   )
   CALL :fn_UnquoteVariable EXEFILENAME
   CALL :fn_UnquoteVariable LOGFILENAME
-  REM
-  REM HACK: Must use the "ne" operator here in the expression because of our
-  REM       use of delayed expansion around the calling FOR loop.
-  REM
-  SET CHECK_TESTLOGFILE_CMD=EagleShell.exe -evaluate "if {[regexp -skip 1 -- [appendArgs {[/\\]} [string map [list . \\. * (?:.*?)?] {%EXEFILENAME%}] {\.test\.(\d+)\.log$}] {%LOGFILENAME%} pid] && [string is integer -strict $pid] && ([catch {object invoke -alias System.Diagnostics.Process GetProcessById $pid} process] ne 0 || [$process HasExited])} then {puts stdout 1}"
+  SET CHECK_TESTLOGFILE_CMD=EagleShell.exe -evaluate "package require Eagle.Test; checkActiveTestLogFile {%EXEFILENAME%} {%LOGFILENAME%}"
   IF NOT DEFINED __ECHO GOTO exec_checkTestLogFileCmd
   %__ECHO% %CHECK_TESTLOGFILE_CMD%
   GOTO :EOF

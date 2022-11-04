@@ -65,6 +65,8 @@ namespace Eagle._Commands
                                 new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-sendtimeout", null), // client & server
                                 new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-receivetimeout", null), // client & server
                                 new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-availabletimeout", null), // client & server
+                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-readtimeout", null), // client & server
+                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-writetimeout", null), // client & server
                                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-myaddr", null), // client & server
                                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-myport", null), // client only
                                 new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-async", null), // client only
@@ -72,6 +74,7 @@ namespace Eagle._Commands
                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nodelay", null), // client only
                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nobuffer", null), // client only
                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noexclusive", null), // server only
+                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trace", null), // client & server
                                 Option.CreateEndOfOptions()
                             });
 
@@ -128,6 +131,16 @@ namespace Eagle._Commands
                                     if (options.IsPresent("-availabletimeout", ref value))
                                         availableTimeout = (int)value.Value;
 
+                                    int? readTimeout = null;
+
+                                    if (options.IsPresent("-readtimeout", ref value))
+                                        readTimeout = (int)value.Value;
+
+                                    int? writeTimeout = null;
+
+                                    if (options.IsPresent("-writetimeout", ref value))
+                                        writeTimeout = (int)value.Value;
+
                                     int? timeout = WebOps.GetTimeout(interpreter);
 
                                     if (options.IsPresent("-timeout", ref value))
@@ -142,6 +155,11 @@ namespace Eagle._Commands
 
                                     if (options.IsPresent("-nodelay"))
                                         noDelay = true;
+
+                                    bool trace = false;
+
+                                    if (options.IsPresent("-trace"))
+                                        trace = true;
 
                                     bool noBuffer = false;
 
@@ -173,12 +191,16 @@ namespace Eagle._Commands
                                                     if (!noBuffer)
                                                         streamFlags |= StreamFlags.NeedBuffer;
 
+                                                    if (trace)
+                                                        streamFlags |= StreamFlags.TraceReadLines;
+
                                                     code = interpreter.StartServerSocket(
                                                         options, timeout, myAddress,
                                                         arguments[argumentIndex],
                                                         addressFamily, streamFlags,
-                                                        availableTimeout, exclusive,
-                                                        command, ref result);
+                                                        availableTimeout, readTimeout,
+                                                        writeTimeout, exclusive, command,
+                                                        ref result);
                                                 }
                                                 else
                                                 {
@@ -250,11 +272,24 @@ namespace Eagle._Commands
                                                                 if (!noBuffer)
                                                                     streamFlags |= StreamFlags.NeedBuffer;
 
+                                                                if (trace)
+                                                                    streamFlags |= StreamFlags.TraceReadLines;
+
+                                                                NetworkStream stream = client.GetStream();
+
+                                                                if (stream != null)
+                                                                {
+                                                                    if (readTimeout != null)
+                                                                        stream.ReadTimeout = (int)readTimeout;
+
+                                                                    if (writeTimeout != null)
+                                                                        stream.WriteTimeout = (int)writeTimeout;
+                                                                }
+
                                                                 code = interpreter.AddFileOrSocketChannel(
-                                                                    channelId, client.GetStream(), options,
-                                                                    streamFlags, availableTimeout, false,
-                                                                    false, false, new ClientData(client),
-                                                                    ref result);
+                                                                    channelId, stream, options, streamFlags,
+                                                                    availableTimeout, false, false, false,
+                                                                    false, new ClientData(client), ref result);
 
                                                                 if (code == ReturnCode.Ok)
                                                                     result = channelId;
@@ -330,7 +365,7 @@ namespace Eagle._Commands
             return code;
 
         wrongNumArgs:
-            result = "wrong # args: should be \"socket ?-myaddr addr? ?-myport myport? ?-async? host port\" " +
+            result = "wrong # args: should be \"socket ?-myaddr addr? ?-myport myport? ?-async? host port\" " + /* SKIP */
                 "or \"socket -server command ?-myaddr addr? port\"";
 
             return ReturnCode.Error;

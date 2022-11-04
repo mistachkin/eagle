@@ -330,6 +330,15 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            #region Windows Memory Constants
+            internal const uint HEAP_NONE = 0x00000000;
+            internal const uint HEAP_CREATE_ENABLE_EXECUTE = 0x00040000;
+            internal const uint HEAP_GENERATE_EXCEPTIONS = 0x00000004;
+            internal const uint HEAP_NO_SERIALIZE = 0x00000001;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             #region Windows Memory Methods
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("ad38df98-9796-41ee-99b0-8543b52ca6a7")]
@@ -357,6 +366,33 @@ namespace Eagle._Components.Private
                 SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX memoryStatus);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32, CallingConvention = CallingConvention.Winapi,
+                SetLastError = true)]
+            internal static extern IntPtr HeapCreate(
+                uint flags, UIntPtr initialSize, UIntPtr maximumSize
+            );
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32, CallingConvention = CallingConvention.Winapi,
+                SetLastError = true)]
+            internal static extern UIntPtr HeapCompact(IntPtr heap, uint flags);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32, CallingConvention = CallingConvention.Winapi,
+                SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool HeapDestroy(IntPtr heap);
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Windows Error Constants
+            internal const int ERROR_ACCESS_DENIED = 5;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////

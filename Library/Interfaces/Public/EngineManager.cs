@@ -87,6 +87,13 @@ namespace Eagle._Interfaces.Public
             ref int errorLine
             );
 
+        ReturnCode EvaluateScript(
+            string text,
+            EngineFlags engineFlags,
+            ref Result result,
+            ref int errorLine
+            );
+
         ReturnCode EvaluateGlobalScript(
             string text,
             ref Result result
@@ -140,6 +147,14 @@ namespace Eagle._Interfaces.Public
             ref int errorLine
             );
 
+        ReturnCode EvaluateFile(
+            Encoding encoding,
+            string fileName,
+            EngineFlags engineFlags,
+            ref Result result,
+            ref int errorLine
+            );
+
         ReturnCode EvaluateGlobalFile(
             string fileName,
             ref Result result
@@ -177,6 +192,16 @@ namespace Eagle._Interfaces.Public
             TextReader textReader,
             int startIndex,
             int characters,
+            ref Result result,
+            ref int errorLine
+            );
+
+        ReturnCode EvaluateStream(
+            string name,
+            TextReader textReader,
+            int startIndex,
+            int characters,
+            EngineFlags engineFlags,
             ref Result result,
             ref int errorLine
             );

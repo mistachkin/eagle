@@ -363,12 +363,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Diagnostic Support Methods
-        private static void MaybeDebugTrace(
+        private static void DebugTrace(
             string message,        /* in */
             TracePriority priority /* in */
             )
         {
-            TraceOps.MaybeDebugTrace(
+            TraceOps.DebugTrace(
                 message, typeof(ConfigurationOps).Name, priority);
         }
         #endregion
@@ -843,7 +843,7 @@ namespace Eagle._Components.Private
 
             if (traceDescription != null)
             {
-                MaybeDebugTrace(String.Format(
+                DebugTrace(String.Format(
                     "GetAppSettingsViaXmlFiles: using cached {0}",
                     traceDescription), TracePriority.StartupDebug2);
             }
@@ -877,7 +877,7 @@ namespace Eagle._Components.Private
                         traceDescription = GetTraceDescription(
                             appSettings);
 
-                        MaybeDebugTrace(String.Format(
+                        DebugTrace(String.Format(
                             "GetAppSettingsViaXmlFiles: {0} file " +
                             "{1} read from {2}", merge ? "merging" :
                             "using", traceDescription,
@@ -903,7 +903,7 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        MaybeDebugTrace(String.Format(
+                        DebugTrace(String.Format(
                             "GetAppSettingsViaXmlFiles: failed " +
                             "to read from file {0}, error = {1}",
                             FormatOps.WrapOrNull(fileName),
@@ -925,7 +925,7 @@ namespace Eagle._Components.Private
                             xmlAppSettings);
                     }
 
-                    MaybeDebugTrace(String.Format(
+                    DebugTrace(String.Format(
                         "GetAppSettingsViaXmlFiles: using merged {0}",
                         traceDescription), TracePriority.StartupDebug);
 
@@ -940,7 +940,7 @@ namespace Eagle._Components.Private
             // NOTE: This is not an error.  Just return no settings
             //       because no XML configuration files are present.
             //
-            MaybeDebugTrace(
+            DebugTrace(
                 "GetAppSettingsViaXmlFiles: skipping files because " +
                 "they did not exist", TracePriority.StartupDebug);
 
@@ -964,7 +964,7 @@ namespace Eagle._Components.Private
             {
                 ConfigurationManager.RefreshSection(AppSettingsName);
 
-                MaybeDebugTrace(
+                DebugTrace(
                     "GetAppSettingsViaManager: forcibly refreshed settings",
                     TracePriority.StartupDebug);
             }
@@ -972,7 +972,7 @@ namespace Eagle._Components.Private
             NameValueCollection appSettings = ConfigurationManager.AppSettings;
 
 #if false
-            MaybeDebugTrace(String.Format(
+            DebugTrace(String.Format(
                 "GetAppSettingsViaManager: using built-in {0}",
                 GetTraceDescription(appSettings)),
                 TracePriority.StartupDebug2);
@@ -981,7 +981,7 @@ namespace Eagle._Components.Private
             return appSettings;
 #else
 #if false
-            MaybeDebugTrace(
+            DebugTrace(
                 "GetAppSettingsViaManager: built-in settings unavailable",
                 TracePriority.StartupDebug2);
 #endif
@@ -1081,7 +1081,7 @@ namespace Eagle._Components.Private
 
             if (traceDescription != null)
             {
-                MaybeDebugTrace(String.Format(
+                DebugTrace(String.Format(
                     "GetAppSettingsViaAny: using overridden {0}",
                     traceDescription), TracePriority.StartupDebug);
             }
@@ -1117,7 +1117,7 @@ namespace Eagle._Components.Private
 
                     if (traceDescription != null)
                     {
-                        MaybeDebugTrace(String.Format(
+                        DebugTrace(String.Format(
                             "GetAppSettingsViaAny: using cached merged {0}",
                             traceDescription), TracePriority.StartupDebug2);
                     }

@@ -101,7 +101,8 @@ namespace Sample
             //       class; however, it is re-dispatched via the core library.
             //
             code = base.AddOrUpdateSubCommand(
-                "example1", null, null, SubCommandFlags.Core, ref result);
+                interpreter, "example1", null, null, SubCommandFlags.Core,
+                ref result);
 
             if (code != ReturnCode.Ok)
                 return code;
@@ -112,7 +113,8 @@ namespace Sample
             //       by the core library.
             //
             code = base.AddOrUpdateSubCommand(
-                "example2", null, null, SubCommandFlags.None, ref result);
+                interpreter, "example2", null, null, SubCommandFlags.None,
+                ref result);
 
             if (code != ReturnCode.Ok)
                 return code;
@@ -123,8 +125,8 @@ namespace Sample
             //       core library.
             //
             code = base.AddOrUpdateSubCommand(
-                "example3", new Example3(null), null, SubCommandFlags.None,
-                ref result);
+                interpreter, "example3", new Example3(null), null,
+                SubCommandFlags.None, ref result);
 
             if (code != ReturnCode.Ok)
                 return code;

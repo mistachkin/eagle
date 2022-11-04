@@ -90,9 +90,7 @@ namespace Eagle._Functions
                     return ReturnCode.Error;
                 }
 
-                value = Interpreter.FixIntermediatePrecision(
-                    random.NextDouble());
-
+                value = random.NextDouble();
                 return ReturnCode.Ok;
             }
             catch (Exception e)

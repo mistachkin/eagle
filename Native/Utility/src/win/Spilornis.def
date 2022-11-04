@@ -11,8 +11,10 @@
 EXPORTS
 
 Eagle_GetVersion
+Eagle_FreeVersion
 Eagle_AllocateMemory
 Eagle_FreeMemory
 Eagle_FreeElements
 Eagle_SplitList
 Eagle_JoinList
+Eagle_SetMemoryHeap

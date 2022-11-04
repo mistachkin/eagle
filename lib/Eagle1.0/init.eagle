@@ -379,13 +379,16 @@ namespace eval ::Eagle {
           makeUnicodeChannel makeLogChannel readFile readSharedFile writeFile \
           appendFile appendLogFile appendSharedFile appendSharedLogFile \
           readAsciiFile writeAsciiFile readUnicodeFile \
-          writeUnicodeFile getDirResultPath addToPath removeFromPath \
+          writeUnicodeFile addToPath removeFromPath \
           getShellExecutableName getRuntimeCommandLine execShell \
           maybeGetExitCode lshuffle ldifference filter map reduce \
-          getLengthModifier debug findDirectories findDirectoriesRecursive \
+          getLengthModifier debug tclLogForCommand \
+          populateTypesForComSpecDir populateTypesForGlob getDirResultPath \
+          fileNormalizeForGlob performGlob maybeAppendPathResult findViaGlob \
+          findViaComSpecDir findDirectories findDirectoriesRecursive \
           findFiles findFilesRecursive copyFilesRecursive \
-          exportAndImportPackageCommands setupUnzipVars unzipMustBeInstalled \
-          extractZipArchive] false false
+          exportAndImportPackageCommands setupUnzipVars \
+          unzipMustBeInstalled extractZipArchive] false false
     }
 
     ###########################################################################

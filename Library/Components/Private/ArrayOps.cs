@@ -69,7 +69,7 @@ namespace Eagle._Components.Private
             StringPairList localList = new StringPairList();
 
             if (empty || noReflection)
-                localList.Add("noReflection", noReflection.ToString());
+                localList.Add("NoReflection", noReflection.ToString());
 
             if (localList.Count > 0)
             {
@@ -145,6 +145,58 @@ namespace Eagle._Components.Private
                         TracePriority.MarshalError);
                 }
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool Consume<T>(
+            ref List<T> list, /* in, out */
+            int count         /* in */
+            )
+        {
+            if (list == null)
+                return false;
+
+            int oldCount = list.Count;
+
+            if ((count <= 0) || (count > oldCount))
+                return false;
+
+            int newCount = oldCount - count;
+
+            List<T> newList = new List<T>(newCount);
+
+            newList.AddRange(
+                list.GetRange(count, newCount));
+
+            list = newList;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool Consume<T>(
+            ref T[] array, /* in, out */
+            int count      /* in */
+            )
+        {
+            if (array == null)
+                return false;
+
+            int length = array.Length;
+
+            if ((count <= 0) || (count > length))
+                return false;
+
+            int newLength = length - count;
+
+            T[] newArray = new T[newLength];
+
+            Array.Copy(
+                array, count, newArray, 0, newLength);
+
+            array = newArray;
+            return true;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -653,7 +705,63 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode GetBytesFromString(
+        public static ReturnCode GetBytesFromHexadecimalString(
+            string value,
+            CultureInfo cultureInfo,
+            ref byte[] bytes,
+            ref Result error
+            )
+        {
+            if (value == null)
+            {
+                error = "invalid string";
+                return ReturnCode.Error;
+            }
+
+            int length = value.Length;
+
+            if ((length % 2) != 0)
+            {
+                error = "string must have an even number of characters";
+                return ReturnCode.Error;
+            }
+
+            int offset = 0;
+
+            if ((length >= 2) && (value[0] == Characters.Zero) &&
+                ((value[1] == Characters.X) || (value[1] == Characters.x)))
+            {
+                offset += 2;
+            }
+
+            byte[] localBytes = new byte[(length - offset) / 2];
+
+            for (int index = 0; (index + offset) < length; index += 2)
+            {
+                byte byteValue = 0;
+                Result localError = null;
+
+                if (Value.GetByte2(String.Format(
+                        "0x{0}", value.Substring(index + offset, 2)),
+                        ValueFlags.AnyByte, cultureInfo, ref byteValue,
+                        ref localError) == ReturnCode.Ok)
+                {
+                    localBytes[index / 2] = byteValue;
+                }
+                else
+                {
+                    error = localError;
+                    return ReturnCode.Error;
+                }
+            }
+
+            bytes = localBytes;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetBytesFromDelimitedString(
             string value,
             CultureInfo cultureInfo,
             ref byte[] bytes,

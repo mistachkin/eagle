@@ -71,7 +71,7 @@
 /*****************************************************************************/
 
 #define LIBRARY_VERSION_LENGTH			(256)
-#define LIBRARY_VERSION_FORMAT			L"%ls v%ls [%ls %ls]%ls%ls%d%ls%ls\0"
+#define LIBRARY_VERSION_FORMAT			L"%ls v%ls [%ls %ls]%ls%ls%d%ls%ls%ls\0"
 
 /*****************************************************************************/
 
@@ -85,16 +85,19 @@
 
 /*****************************************************************************/
 
+#define AllocateMemoryWrapper(size)		calloc((size), sizeof(BYTE))
+#define FreeMemoryWrapper(pMemory)		free((pMemory))
+
 #if defined(HAVE_MALLOC_H)
 #  if defined(HAVE_MALLOC_USABLE_SIZE)
-#    define Eagle_MemorySize(a)			malloc_usable_size((a))
+#    define MemorySizeWrapper(pMemory)		malloc_usable_size((pMemory))
 #  elif defined(_MSC_VER)
-#    define Eagle_MemorySize(a)			_msize((a))
+#    define MemorySizeWrapper(pMemory)		_msize((pMemory))
 #  else
-#    define Eagle_MemorySize(a)			(0)
+#    define MemorySizeWrapper(pMemory)		(0)
 #  endif
 #else
-#  define Eagle_MemorySize(a)			(0)
+#  define MemorySizeWrapper(pMemory)		(0)
 #endif
 
 /*****************************************************************************/
@@ -182,6 +185,10 @@ typedef int FLAGS;
 #ifndef _DWORD_DEFINED
 #define _DWORD_DEFINED
 typedef unsigned long DWORD;
+#endif
+
+#ifndef _HRESULT_DEFINED
+typedef void *HANDLE;
 #endif
 
 #endif /* _SPILORNIS_INT_H_ */

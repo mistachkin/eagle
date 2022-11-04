@@ -9,6 +9,7 @@
  * RCS: @(#) $Id: $
  */
 
+using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
@@ -62,23 +63,23 @@ namespace Eagle._Interfaces.Public
         //       for a script to use.
         //
         ReturnCode GetArguments(
-            ref StringList arguments,
+            ref IList<string> arguments,
             ref Result error
             );
 
         ReturnCode GetArguments(
-            ref StringList arguments,
+            ref IList<string> arguments,
             bool strict,
             ref Result error
             );
 
         ReturnCode SetArguments(
-            StringList arguments,
+            IList<string> arguments,
             ref Result error
             );
 
         ReturnCode SetArguments(
-            StringList arguments,
+            IList<string> arguments,
             bool strict,
             ref Result error
             );

@@ -160,8 +160,9 @@
       CleanDoneFiles;
     </CleanDependsOn>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(EagleNative)' == 'false' Or
-                            '$(EagleTcl)' == 'false'">
+  <PropertyGroup Condition="('$(EagleNative)' == 'false' Or
+                             '$(EagleTcl)' == 'false') And
+                            '$(MissingNativeCodeAndOrTclIntegration)' != 'false'">
     <!--
         NOTE: We cannot build this project without the native code and Tcl
               integration enabled; therefore, skip building it altogether.

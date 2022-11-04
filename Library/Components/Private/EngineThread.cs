@@ -100,6 +100,7 @@ namespace Eagle._Components.Private
         #region Private Constructors
         private EngineThread()
         {
+            /* IGNORED */
             GlobalState.AddThread(this);
         }
 
@@ -377,13 +378,13 @@ namespace Eagle._Components.Private
 
                                 TraceOps.DebugTrace(
                                     e, typeof(EngineThread).Name,
-                                    TracePriority.ThreadError);
+                                    TracePriority.ThreadError2);
                             }
                             catch (ThreadInterruptedException e)
                             {
                                 TraceOps.DebugTrace(
                                     e, typeof(EngineThread).Name,
-                                    TracePriority.ThreadError);
+                                    TracePriority.ThreadError2);
                             }
                             catch (Exception e)
                             {
@@ -484,13 +485,13 @@ namespace Eagle._Components.Private
 
                             TraceOps.DebugTrace(
                                 e, typeof(EngineThread).Name,
-                                TracePriority.ThreadError);
+                                TracePriority.ThreadError2);
                         }
                         catch (ThreadInterruptedException e)
                         {
                             TraceOps.DebugTrace(
                                 e, typeof(EngineThread).Name,
-                                TracePriority.ThreadError);
+                                TracePriority.ThreadError2);
                         }
                         catch (Exception e)
                         {
@@ -746,6 +747,7 @@ namespace Eagle._Components.Private
                 // NOTE: Make sure the thread is removed
                 //       from the global tracking list.
                 //
+                /* IGNORED */
                 GlobalState.RemoveThread(this);
 
                 //////////////////////////////////////

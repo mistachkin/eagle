@@ -30,7 +30,7 @@ namespace Eagle._Interfaces.Private
         int Active { get; set; }
         bool SingleStep { get; set; }
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
         bool BreakOnToken { get; set; }
 #endif
 
@@ -43,7 +43,7 @@ namespace Eagle._Interfaces.Private
         long Steps { get; set; }
         BreakpointType Types { get; set; }
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
         BreakpointDictionary Breakpoints { get; set; }
 #endif
 

@@ -21,6 +21,15 @@
 #
 namespace eval ::Eagle {
   #
+  # NOTE: This procedure replaces special horizontal tab escape sequences
+  #       and line-endings with their [regexp] pattern escaped sequences.
+  #
+  proc convertSpacingToRegExp { value } {
+    return [string map [list !TAB! \\t \n \
+        [string map [list \r \\r \n \\n] [info newline]]] $value]
+  }
+
+  #
   # NOTE: This procedure verifies the security certificate information for
   #       the core library.  It uses the primary plugin from the security
   #       package -AND- relies upon it already having been loaded prior to
@@ -45,9 +54,19 @@ namespace eval ::Eagle {
       #       (e.g. if the public key token for official release builds
       #       is changed, etc).
       #
-      set pattern [string map [list !TAB! \\t \n [string map \
-          [list \r \\r \n \\n] [info newline]]] [string trim {
-^!TAB!\[[A-Z]+\] Eagle\.Core v\d+\.\d+\.\d+\.\d+ \(\d+\)
+      set pattern [convertSpacingToRegExp [string trim \
+          {^!TAB!\[[A-Z]+\] Eagle\.Core v\d+\.\d+\.\d+\.\d+ \(\d+\)}]]
+
+      #
+      # NOTE: In order for the embedded license certificate data to be
+      #       available here, the core library assembly must be compiled
+      #       with isolated plugin support enabled.  Unfortunately, this
+      #       means that the .NET Core builds do not support this check.
+      #
+      if {[lsearch -exact -- \
+          $::eagle_platform(compileOptions) ISOLATED_PLUGINS] != -1} then {
+        append pattern [convertSpacingToRegExp \n]
+        append pattern [convertSpacingToRegExp [string trim {
 !TAB!----------------------------------------
 !TAB!Licensed To: NO NAME
 !TAB!Issued By: Mistachkin Systems
@@ -56,12 +75,17 @@ namespace eval ::Eagle {
 !TAB!Created On: 2007-10-01T09:00:00\.0000000Z
 !TAB!Hash Algorithm: SHA512
 !TAB!Signature Algorithm: RSA-4096
-!TAB!----------------------------------------$
+!TAB!----------------------------------------
 }]]
+      }
+
+      append pattern \$; # end-of-string
 
       if {![regexp -- $pattern $result]} then {
         error [appendArgs "wrong metadata for core plugin: " $result]
       }
+
+      host result Ok "---- metadata for core plugin verified\n"
     }
   }
 
@@ -70,6 +94,10 @@ namespace eval ::Eagle {
   #       success, nothing else will happen.  Upon any failure, a script
   #       error will be raised.
   #
-  verifyCorePluginMetadata; rename verifyCorePluginMetadata ""
+  try {
+    verifyCorePluginMetadata
+  } finally {
+    rename convertSpacingToRegExp ""; rename verifyCorePluginMetadata ""
+  }
 }
 

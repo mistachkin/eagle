@@ -164,7 +164,8 @@
       UpdateDoneFiles;
     </BuildDependsOn>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(EagleShell)' == 'false'">
+  <PropertyGroup Condition="'$(EagleShell)' == 'false' And
+                            '$(MissingShell)' != 'false'">
     <!--
         NOTE: We cannot build this project without the shell support
               enabled; therefore, skip building it altogether.

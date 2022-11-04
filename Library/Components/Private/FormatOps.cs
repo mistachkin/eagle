@@ -96,6 +96,8 @@ namespace Eagle._Components.Private
         private static readonly string DisplayNullString = "<nullString>";
         private static readonly string DisplayEmptyString = "<emptyString>";
         internal static readonly string DisplayEmpty = "<empty>";
+        private static readonly string DisplayNullList = "<nullList>";
+        private static readonly string DisplayEmptyList = "<emptyList>";
         private static readonly string DisplaySpace = "<space>";
         internal static readonly string DisplayDisposed = "<disposed>";
         internal static readonly string DisplayBusy = "<busy>";
@@ -105,6 +107,7 @@ namespace Eagle._Components.Private
         private static readonly string DisplayObfuscated = "<obfuscated>";
         internal static readonly string DisplayPresent = "<present>";
         internal static readonly string DisplayFormat = "<{0}>";
+        private static readonly string DisplayAnonymous = "<anonymous>";
         private static readonly string DisplayUnavailable = "<unavailable>";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -198,10 +201,14 @@ namespace Eagle._Components.Private
         private const string UpdateDateTimeFormat = "yyyy-MM-ddTHH:mm:ss";
 #endif
 
+#if NETWORK
+        private const string Iso8601DateTimeSecondsFormat = "yyyy-MM-ddTHH:mm:ssK";
+#endif
+
         private const string Iso8601FullDateTimeFormat = "yyyy-MM-ddTHH:mm:ss.fffffffK";
 
         private const string TraceDateTimeFormat = "yyyy-MM-ddTHH:mm:ss.fffffff";
-        private const string TraceInteractiveDateTimeFormat = "MM/dd/yyyy HH:mm:ss";
+        private const string TraceInteractiveDateTimeFormat = "[MM-dd-yyyy hh:mm:ss tt]";
 
         private const string Iso8601UpdateDateTimeFormat = "yyyy-MM-ddTHH:mm:ss.fffffff";
 
@@ -283,7 +290,8 @@ namespace Eagle._Components.Private
         //       the "correct" method name to use for trace output.
         //
         private static StringList skipNames = new StringList(
-            "DebugTrace", "DebugWrite", "DebugWriteTo", "DebugWriteOrTrace");
+            "DebugTrace", "DebugWrite", "DebugWriteTo", "DebugWriteOrTrace",
+            "DebugTraceUriError");
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1484,6 +1492,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string MaybeMilliseconds(
+            long? value
+            )
+        {
+            if (value == null)
+                return DisplayNull;
+
+            return String.Format("{0} milliseconds", value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string ReleaseAttribute(
             string value
             )
@@ -1542,6 +1562,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string SecondsOrNull(
+            double? seconds
+            )
+        {
+            if (seconds == null)
+                return DisplayNull;
+
+            double localSeconds = (double)seconds;
+
+            return String.Format(
+                "{0:0.0} seconds", Math.Round(localSeconds, 1));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if WINFORMS
         public static string Exists(
             bool exists
@@ -1551,6 +1586,84 @@ namespace Eagle._Components.Private
                 "already exists" : "does not exist";
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string TheBufferStats(
+            int[] statistics
+            )
+        {
+            if (statistics == null)
+                return DisplayNull;
+
+            StringBuilder builder = StringOps.NewStringBuilder();
+            int length = statistics.Length;
+
+            if (length > (int)BufferStats.Length)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(Characters.Comma);
+                    builder.Append(Characters.Space);
+                }
+
+                builder.AppendFormat("length = {0}",
+                    statistics[(int)BufferStats.Length]);
+            }
+
+            if (length > (int)BufferStats.CrCount)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(Characters.Comma);
+                    builder.Append(Characters.Space);
+                }
+
+                builder.AppendFormat("crCount = {0}",
+                    statistics[(int)BufferStats.CrCount]);
+            }
+
+            if (length > (int)BufferStats.LfCount)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(Characters.Comma);
+                    builder.Append(Characters.Space);
+                }
+
+                builder.AppendFormat("lfCount = {0}",
+                    statistics[(int)BufferStats.LfCount]);
+            }
+
+            if (length > (int)BufferStats.CrLfCount)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(Characters.Comma);
+                    builder.Append(Characters.Space);
+                }
+
+                builder.AppendFormat("crLfCount = {0}",
+                    statistics[(int)BufferStats.CrLfCount]);
+            }
+
+            if (length > (int)BufferStats.LineCount)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(Characters.Comma);
+                    builder.Append(Characters.Space);
+                }
+
+                builder.AppendFormat("lineCount = {0}",
+                    statistics[(int)BufferStats.LineCount]);
+            }
+
+            if (builder.Length == 0)
+                return DisplayEmpty;
+
+            return builder.ToString();
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1974,6 +2087,151 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string PluginName(
+            IPluginData pluginData,
+            bool wrap
+            )
+        {
+            if (pluginData == null)
+                return DisplayUnavailable;
+
+            string name = pluginData.Name;
+
+            if (name == null)
+                name = pluginData.ToString();
+
+            if (name != null)
+            {
+                //
+                // HACK: Extract simple plugin name, if any.
+                //
+                int index = name.IndexOf(Characters.Comma);
+
+                if (index != Index.Invalid)
+                    name = name.Substring(0, index);
+
+                if (wrap)
+                    name = WrapOrNull(name);
+            }
+            else
+            {
+                name = DisplayAnonymous;
+            }
+
+            return name;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string ClientDataName(
+            IClientData clientData
+            )
+        {
+            if (clientData == null)
+                return DisplayNull;
+
+            return String.Format(
+                "0x{0:X}", RuntimeOps.GetHashCode(clientData));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string CommandLogEntry(
+            Interpreter interpreter,
+            IPlugin plugin,
+            IClientData clientData,
+            ArgumentList arguments,
+            int indentSpaces,
+            bool allowNewLines
+            )
+        {
+            StringBuilder builder = StringOps.NewStringBuilder();
+
+            builder.AppendFormat(
+                "[{0}, {1}, {2}, {3}, {4}, {5}]:",
+                ProcessOps.GetId(),
+                AppDomainOps.GetCurrentId(),
+                GlobalState.GetCurrentSystemThreadId(),
+                InterpreterNoThrow(interpreter, false),
+                PluginName(plugin, false),
+                ClientDataName(clientData));
+
+            if (arguments != null)
+            {
+                int count = arguments.Count;
+
+                if (count > 0)
+                {
+                    StringBuilder builder2 = StringOps.NewStringBuilder();
+
+                    for (int index = 0; index < count; index++)
+                    {
+                        Argument argument = arguments[index];
+
+                        if (index > 0)
+                            builder2.Append(Characters.Space);
+
+                        if (argument == null)
+                        {
+                            builder2.Append(DisplayNullString);
+                            continue;
+                        }
+
+                        if (argument.Length == 0)
+                        {
+                            builder2.Append(DisplayEmptyString);
+                            continue;
+                        }
+
+                        builder2.Append(Parser.Quote(argument));
+                    }
+
+                    string newLine = null;
+                    string indent = null;
+
+                    if (StringOps.IsMultiLine(
+                            builder2, indentSpaces, ref newLine,
+                            ref indent))
+                    {
+                        if (allowNewLines)
+                        {
+                            builder2.Append(newLine);
+                            builder2.Insert(0, indent);
+                            builder2.Insert(0, newLine);
+                        }
+                        else
+                        {
+                            StringOps.FixupWhiteSpace(
+                                builder2, Characters.Space,
+                                WhiteSpaceFlags.LogUse);
+
+                            builder.Append(Characters.Space);
+                        }
+                    }
+                    else
+                    {
+                        builder.Append(Characters.Space);
+                    }
+
+                    builder.Append(builder2);
+                }
+                else
+                {
+                    builder.Append(Characters.Space);
+                    builder.Append(DisplayEmptyList);
+                }
+            }
+            else
+            {
+                builder.Append(Characters.Space);
+                builder.Append(DisplayNullList);
+            }
+
+            return builder.ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string ThreadIdOrNull(
             Thread thread
             )
@@ -2031,7 +2289,7 @@ namespace Eagle._Components.Private
                         "{0}: {1}, ", "ThreadState", thread.ThreadState);
 
                     result.AppendFormat(
-                        "{0}: {1}, ", "IsAlive", thread.IsAlive);
+                        "{0}: {1}, ", "IsAlive", ThreadOps.IsAlive(thread));
 
                     result.AppendFormat(
                         "{0}: {1}, ", "IsBackground", thread.IsBackground);
@@ -2496,7 +2754,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string Performance(
+        public static string PerformanceMicroseconds(
             IClientData clientData
             )
         {
@@ -2504,28 +2762,37 @@ namespace Eagle._Components.Private
                 clientData as PerformanceClientData;
 
             return (performanceClientData != null) ?
-                Performance(performanceClientData.Microseconds) : DisplayNull;
+                PerformanceMicroseconds(performanceClientData.Microseconds) : DisplayNull;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string Performance(
+        public static string PerformanceMicroseconds(
             double microseconds
             )
         {
-            return Performance(microseconds, null);
+            return PerformanceMicroseconds(microseconds, null);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string Performance(
+        public static string PerformanceMicroseconds(
             double microseconds,
             string suffix
             )
         {
             return String.Format(
                 "{0:0.####} {1}microseconds per iteration",
-                Interpreter.FixIntermediatePrecision(microseconds), suffix);
+                microseconds, suffix);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string PerformanceMilliseconds(
+            double milliseconds
+            )
+        {
+            return String.Format("{0:0.####}", milliseconds);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2579,14 +2846,14 @@ namespace Eagle._Components.Private
             }
 
             double averageMicroseconds = (resultIterations != 0) ?
-                PerformanceOps.GetMicroseconds(startCount,
-                    stopCount, resultIterations, false) : 0;
+                PerformanceOps.GetMicrosecondsFromCount(
+                    startCount, stopCount, resultIterations, false) : 0;
 
-            double minimumMicroseconds = PerformanceOps.GetMicroseconds(
+            double minimumMicroseconds = PerformanceOps.GetMicrosecondsFromCount(
                 (minimumIterationCount != null) ?
                     (long)minimumIterationCount : 0, 1, false);
 
-            double maximumMicroseconds = PerformanceOps.GetMicroseconds(
+            double maximumMicroseconds = PerformanceOps.GetMicrosecondsFromCount(
                 (maximumIterationCount != null) ?
                     (long)maximumIterationCount : 0, 1, false);
 
@@ -2602,9 +2869,9 @@ namespace Eagle._Components.Private
                     maximumMicroseconds);
             }
 
-            localResult.Add(Performance(averageMicroseconds, "average "));
-            localResult.Add(Performance(minimumMicroseconds, "minimum "));
-            localResult.Add(Performance(maximumMicroseconds, "maximum "));
+            localResult.Add(PerformanceMicroseconds(averageMicroseconds, "average "));
+            localResult.Add(PerformanceMicroseconds(minimumMicroseconds, "minimum "));
+            localResult.Add(PerformanceMicroseconds(maximumMicroseconds, "maximum "));
 
             return localResult.ToString();
         }
@@ -3020,6 +3287,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static string Certificate(
+            Interpreter interpreter,
             Assembly assembly,
             X509Certificate certificate,
             bool trusted,
@@ -3027,7 +3295,7 @@ namespace Eagle._Components.Private
             bool wrap
             )
         {
-            return Certificate(
+            return Certificate(interpreter,
                 (assembly != null) ? assembly.Location : null,
                 certificate, trusted, verbose, wrap);
         }
@@ -3050,47 +3318,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string Certificate(
+        private static void MaybeAddFileTrusted(
+            Interpreter interpreter,
+            StringList list,
             string fileName,
-            bool trusted,
-            bool verbose,
-            bool wrap
+            bool trusted
             )
         {
-            try
+            if ((list != null) && (fileName != null))
             {
-                X509Certificate certificate = new X509Certificate(
-                    fileName);
-
-                StringList list = RuntimeOps.CertificateToList(
-                    certificate, verbose);
-
-                string result = null;
-
-                if (list != null)
-                {
-                    if (fileName != null)
-                    {
-                        list.Add("trusted", trusted ?
-                            RuntimeOps.IsFileTrusted(
-                                fileName, IntPtr.Zero).ToString() :
-                            false.ToString());
-                    }
-
-                    result = list.ToString();
-                }
-
-                return wrap ? WrapOrNull(result) : result;
-            }
-            catch
-            {
-                return null;
+                list.Add("trusted", trusted ?
+                    RuntimeOps.IsFileTrusted(
+                        interpreter, null, fileName,
+                        IntPtr.Zero).ToString() :
+                    false.ToString());
             }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static string Certificate(
+            Interpreter interpreter,
             string fileName,
             X509Certificate certificate,
             bool trusted,
@@ -3101,20 +3349,10 @@ namespace Eagle._Components.Private
             StringList list = RuntimeOps.CertificateToList(
                 certificate, verbose);
 
-            string result = null;
+            MaybeAddFileTrusted(
+                interpreter, list, fileName, trusted);
 
-            if (list != null)
-            {
-                if (fileName != null)
-                {
-                    list.Add("trusted", trusted ?
-                        RuntimeOps.IsFileTrusted(
-                            fileName, IntPtr.Zero).ToString() :
-                        false.ToString());
-                }
-
-                result = list.ToString();
-            }
+            string result = StringOps.GetStringFromObject(list);
 
             return wrap ? WrapOrNull(result) : result;
         }
@@ -3358,12 +3596,64 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static DateTime? UtcOrNull(
+            long ticks
+            )
+        {
+            try
+            {
+                return new DateTime(
+                    ticks, DateTimeKind.Utc); /* throw */
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string Iso8601FullDateTime(
+            DateTime? value
+            )
+        {
+            if (value == null)
+                return DisplayNull;
+
+            return Iso8601FullDateTime((DateTime)value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string Iso8601FullDateTime(
             DateTime value
             )
         {
             return value.ToString(Iso8601FullDateTimeFormat);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NETWORK
+        public static string Iso8601DateTimeSeconds(
+            DateTime? value
+            )
+        {
+            if (value == null)
+                return DisplayNull;
+
+            return Iso8601DateTimeSeconds((DateTime)value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string Iso8601DateTimeSeconds(
+            DateTime value
+            )
+        {
+            return value.ToString(Iso8601DateTimeSecondsFormat);
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

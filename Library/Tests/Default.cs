@@ -676,6 +676,11 @@ namespace Eagle._Tests
         private static StringDictionary strings;
         private static StringBuilder calledMethods;
         private static string ruleCallbackText = null;
+        private static long? maximumWaitMicroseconds = null;
+
+#if THREADING
+        private static bool failHealthCallback;
+#endif
 
 #if WINFORMS
         private static int shouldStatusCallback;
@@ -2054,6 +2059,68 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode TestOverrideSecurityProtocol(
+            Interpreter interpreter,        /* in */
+            SecurityProtocolType protocols, /* in */
+            bool force,                     /* in */
+            bool noSave,                    /* in */
+            bool noObsolete,                /* in */
+            ref ResultList results          /* in, out */
+            )
+        {
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                Result localResult; /* REUSED */
+
+                if (force || (BestSecurityProtocol == null))
+                {
+                    localResult = null;
+
+                    if (!noSave && TestSaveBestSecurityProtocol(
+                            interpreter, force, ref localResult) != ReturnCode.Ok)
+                    {
+                        if (localResult != null)
+                        {
+                            if (results == null)
+                                results = new ResultList();
+
+                            results.Add(localResult);
+                        }
+
+                        return ReturnCode.Error;
+                    }
+
+                    if (noObsolete)
+                    {
+                        protocols &= ~SecurityProtocolType.Ssl2;
+                        protocols &= ~SecurityProtocolType.Ssl3;
+                    }
+
+                    BestSecurityProtocol = protocols;
+
+                    localResult = String.Format(
+                        "best security protocol overridden to {0}",
+                        FormatOps.WrapOrNull(BestSecurityProtocol));
+                }
+                else
+                {
+                    localResult = "best security protocol already setup";
+                }
+
+                if (localResult != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
+
+                    results.Add(localResult);
+                }
+
+                return ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode TestSetupSecurityProtocol(
             bool force,            /* in */
             bool noObsolete,       /* in */
@@ -2328,6 +2395,318 @@ namespace Eagle._Tests
             {
                 result = e;
                 return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestSaveBestSecurityProtocol(
+            Interpreter interpreter, /* in: NOT USED */
+            bool force,              /* in */
+            ref Result result        /* out */
+            )
+        {
+            try
+            {
+                lock (staticSyncRoot) /* TRANSACTIONAL */
+                {
+                    SecurityProtocolType? oldProtocol = SavedSecurityProtocol;
+
+                    if (!force && (oldProtocol != null))
+                    {
+                        result = "already have saved security protocol";
+                        return ReturnCode.Error;
+                    }
+
+                    SecurityProtocolType? newProtocol = BestSecurityProtocol;
+
+                    if (oldProtocol != newProtocol)
+                    {
+                        //
+                        // NOTE: Save existing best network security protocol
+                        //       for possible future use (e.g. restoration).
+                        //
+                        SavedSecurityProtocol = newProtocol;
+
+                        //
+                        // NOTE: If we get to this point, just assume success.
+                        //
+                        result = String.Format(
+                            "best security protocol saved from {0} to {1}",
+                            FormatOps.WrapOrNull(oldProtocol),
+                            FormatOps.WrapOrNull(newProtocol));
+                    }
+                    else
+                    {
+                        result = String.Format(
+                            "best security protocol not saved from {0}",
+                            FormatOps.WrapOrNull(oldProtocol));
+                    }
+
+                    return ReturnCode.Ok;
+                }
+            }
+            catch (Exception e)
+            {
+                result = e;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestRestoreBestSecurityProtocol(
+            Interpreter interpreter, /* in: NOT USED */
+            bool force,              /* in */
+            ref Result result        /* out */
+            )
+        {
+            try
+            {
+                lock (staticSyncRoot) /* TRANSACTIONAL */
+                {
+                    SecurityProtocolType? newProtocol = SavedSecurityProtocol;
+
+                    if (!force && (newProtocol == null))
+                    {
+                        result = "missing saved security protocol";
+                        return ReturnCode.Error;
+                    }
+
+                    SecurityProtocolType? oldProtocol = BestSecurityProtocol;
+
+                    BestSecurityProtocol = newProtocol;
+                    SavedSecurityProtocol = null;
+
+                    result = String.Format(
+                        "best security protocol restored from {0} to {1}",
+                        FormatOps.WrapOrNull(oldProtocol),
+                        FormatOps.WrapOrNull(newProtocol));
+
+                    return ReturnCode.Ok;
+                }
+            }
+            catch (Exception e)
+            {
+                result = e;
+                return ReturnCode.Error;
+            }
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for PreWaitCallback / PostWaitCallback
+        public static ReturnCode TestWaitEventCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            ReturnCode code = ReturnCode.Ok;
+
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (maximumWaitMicroseconds != null)
+                {
+                    long maximumMicroseconds = (long)maximumWaitMicroseconds;
+
+                    if (maximumMicroseconds >= 0)
+                    {
+                        IAnyClientData anyClientData = clientData as IAnyClientData;
+
+                        if (anyClientData != null)
+                        {
+                            foreach (string name in new string[] {
+                                    "microseconds", "waitMicroseconds",
+                                    "readyMicroseconds"
+                                })
+                            {
+                                long microseconds;
+                                Result error = null; /* NOT USED */
+
+                                if (!anyClientData.TryGetWideInteger(
+                                        name, false, out microseconds,
+                                        ref error))
+                                {
+                                    continue;
+                                }
+
+                                if (microseconds < 0)
+                                {
+                                    result = String.Format(
+                                        "infinite wait {0} disallowed",
+                                        FormatOps.WrapOrNull(name));
+
+                                    code = ReturnCode.Error;
+                                    break;
+                                }
+
+                                if (microseconds > maximumMicroseconds)
+                                {
+                                    result = String.Format(
+                                        "wait {0} cannot exceed {1}",
+                                        FormatOps.WrapOrNull(name),
+                                        maximumMicroseconds);
+
+                                    code = ReturnCode.Error;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            TraceOps.DebugTrace(String.Format(
+                "TestWaitEventCallback: interpreter = {0}, " +
+                "clientData = {1}, code = {2}, result = {3}",
+                FormatOps.InterpreterNoThrow(interpreter),
+                FormatOps.WrapOrNull(clientData), code,
+                FormatOps.WrapOrNull(true, false, result)),
+                typeof(Default).Name, TracePriority.EventDebug2);
+
+            return code;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestSetupWaitEventCallbacks(
+            Interpreter interpreter,
+            bool setup,
+            ref Result error
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            EventCallback callback = setup ?
+                new EventCallback(TestWaitEventCallback) : null;
+
+            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+            {
+                interpreter.PreWaitCallback = callback;
+                interpreter.PostWaitCallback = callback;
+            }
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for HealthCallback
+#if THREADING
+        public static ReturnCode TestHealthCallback(
+            Interpreter interpreter,
+            CheckStatus status,
+            ref ResultList errors
+            )
+        {
+            if (interpreter == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            ReturnCode code = ReturnCode.Ok;
+
+            switch (status & CheckStatus.StatusMask)
+            {
+                case CheckStatus.Unknown:
+                case CheckStatus.Success:
+                case CheckStatus.Failure:
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(String.Format(
+                            "test health callback invoked for {0}",
+                            FormatOps.WrapOrNull(status)));
+
+                        lock (staticSyncRoot) /* TRANSACTIONAL */
+                        {
+                            if (failHealthCallback)
+                                code = ReturnCode.Error;
+                        }
+
+                        break;
+                    }
+                default:
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(String.Format(
+                            "unrecognized health check status {0}",
+                            FormatOps.WrapOrNull(status)));
+
+                        code = ReturnCode.Error;
+                        break;
+                    }
+            }
+
+            TracePriority priority = code == ReturnCode.Ok ?
+                TracePriority.EventDebug2 : TracePriority.EventError;
+
+            TraceOps.DebugTrace(String.Format(
+                "TestHealthCallback: interpreter = {0}, " +
+                "status = {1}, code = {2}, errors = {3}",
+                FormatOps.InterpreterNoThrow(interpreter),
+                FormatOps.WrapOrNull(status), code,
+                FormatOps.WrapOrNull(true, false, errors)),
+                typeof(Default).Name, priority);
+
+            return code;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestSetupHealthCallback(
+            Interpreter interpreter,
+            bool setup,
+            ref Result error
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            HealthCallback callback = setup ?
+                new HealthCallback(TestHealthCallback) : null;
+
+            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+            {
+                interpreter.InternalHealthCallback = callback;
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestSetFailHealthCallback(
+            Interpreter interpreter,
+            bool? fail,
+            ref Result result
+            )
+        {
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (fail != null)
+                    failHealthCallback = (bool)fail;
+
+                result = failHealthCallback;
+                return ReturnCode.Ok;
             }
         }
 #endif
@@ -3363,7 +3742,7 @@ namespace Eagle._Tests
             byte[] bytesValue = null;
             Result error = null;
 
-            if (ArrayOps.GetBytesFromString(
+            if (ArrayOps.GetBytesFromDelimitedString(
                     (string)attributeValue,
                     cultureInfo, ref bytesValue,
                     ref error) != ReturnCode.Ok)
@@ -3544,7 +3923,7 @@ namespace Eagle._Tests
                 byte[] bytesValue = null;
                 Result error = null;
 
-                if (ArrayOps.GetBytesFromString(
+                if (ArrayOps.GetBytesFromDelimitedString(
                         (string)attributeValue,
                         cultureInfo, ref bytesValue,
                         ref error) != ReturnCode.Ok)
@@ -4887,6 +5266,29 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode TestAddListStreamChannel(
+            Interpreter interpreter,
+            string channelId,
+            Encoding encoding,
+            IEnumerable<string> collection,
+            StreamFlags streamFlags,
+            ref Result error
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            return interpreter.AddFileOrSocketChannel(channelId,
+                new ListStream(encoding, collection, true, true,
+                true), null, streamFlags, null, false, false,
+                false, false, null, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool? TestGetQuiet(
             Interpreter interpreter
             )
@@ -5151,7 +5553,7 @@ namespace Eagle._Tests
             ref Result error
             )
         {
-            StringList arguments = null;
+            IList<string> arguments = null;
 
             if ((interpreter != null) && (interpreter.GetArguments(
                     ref arguments, ref error) != ReturnCode.Ok))
@@ -6872,7 +7274,7 @@ namespace Eagle._Tests
                         interpreter.NestedResultLimit,
 #endif
                         true, AppDomainOps.IsSame(interpreter),
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                         Engine.HasArgumentLocation(interpreter),
 #endif
                         ref usable, ref exception, ref value,
@@ -8563,7 +8965,7 @@ namespace Eagle._Tests
                 //         for negative numbers here; therefore, just use the
                 //         absolute value.
                 //
-                t3[0] = Math.Abs(Environment.TickCount).ToString();
+                t3[0] = Math.Abs(PerformanceOps.GetTickCount()).ToString();
 
             //
             // BUGFIX: Cannot be locale-specific here.
@@ -9411,7 +9813,7 @@ namespace Eagle._Tests
             SubstitutionFlags substitutionFlags,
             EventFlags eventFlags,
             ExpressionFlags expressionFlags,
-            int timeout,
+            int? timeout,
             ref int preDisposeContextCount,
             ref int postDisposeContextCount,
             ref Result result
@@ -9428,10 +9830,11 @@ namespace Eagle._Tests
                 {
                     if (@event != null)
                     {
-                        if (timeout == _Timeout.Infinite)
-                            timeout = interpreter.InternalTimeout;
+                        int localTimeout = ThreadOps.GetTimeout(
+                            interpreter, timeout, TimeoutType.Script |
+                            TimeoutType.MaybeFallback);
 
-                        if (ThreadOps.WaitEvent(@event, timeout))
+                        if (ThreadOps.WaitEvent(@event, localTimeout))
                         {
                             //
                             // HACK: Wait a bit for the EngineThreadStart
@@ -9440,10 +9843,10 @@ namespace Eagle._Tests
                             //       too long as the callback has already
                             //       completed.
                             //
-                            if (timeout > 0)
+                            if (localTimeout > 0)
                             {
                                 HostOps.ThreadSleepOrMaybeComplain(
-                                    timeout, false);
+                                    localTimeout, false);
                             }
 
 #if THREADING
@@ -9469,7 +9872,7 @@ namespace Eagle._Tests
                         {
                             result = String.Format(
                                 "waited {0} milliseconds for script to complete",
-                                timeout);
+                                localTimeout);
                         }
 
                         //
@@ -14718,65 +15121,6 @@ namespace Eagle._Tests
                 return interpreter.ModifyStandardChannels(
                     streamHost, null, newChannelType, ref error);
             }
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
-#if CONSOLE
-            private static void BeginConsoleRedirection(
-                TextReader inputReader,           /* in */
-                TextWriter outputReader,          /* in */
-                TextWriter errorReader,           /* in */
-                out TextReader savedInputReader,  /* out */
-                out TextWriter savedOutputReader, /* out */
-                out TextWriter savedErrorReader   /* out */
-                )
-            {
-                savedInputReader = (inputReader != null) ?
-                    Console.In : null;
-
-                savedOutputReader = (outputReader != null) ?
-                    Console.Out : null;
-
-                savedErrorReader = (errorReader != null) ?
-                    Console.Error : null;
-
-                if (inputReader != null)
-                    Console.SetIn(inputReader);
-
-                if (outputReader != null)
-                    Console.SetOut(outputReader);
-
-                if (errorReader != null)
-                    Console.SetError(errorReader);
-            }
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
-            private static void EndConsoleRedirection(
-                ref TextReader savedInputReader,  /* in, out */
-                ref TextWriter savedOutputReader, /* in, out */
-                ref TextWriter savedErrorReader   /* in, out */
-                )
-            {
-                if (savedInputReader != null)
-                {
-                    Console.SetIn(savedInputReader);
-                    savedInputReader = null;
-                }
-
-                if (savedOutputReader != null)
-                {
-                    Console.SetOut(savedOutputReader);
-                    savedOutputReader = null;
-                }
-
-                if (savedErrorReader != null)
-                {
-                    Console.SetError(savedErrorReader);
-                    savedErrorReader = null;
-                }
-            }
-#endif
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -15093,6 +15437,7 @@ namespace Eagle._Tests
                     case IdentifierKind.ObjectTypeData:
                     case IdentifierKind.ObjectType:
                     case IdentifierKind.Option:
+                    case IdentifierKind.Module:
                     case IdentifierKind.HostData:
                     case IdentifierKind.AliasData:
                     case IdentifierKind.DelegateData:
@@ -15100,10 +15445,21 @@ namespace Eagle._Tests
                     case IdentifierKind.SubDelegate:
                     case IdentifierKind.ResolveData:
                     case IdentifierKind.ClockData:
+                    case IdentifierKind.Clock:
                     case IdentifierKind.Script:
                     case IdentifierKind.ScriptBuilder:
                     case IdentifierKind.NamespaceData:
+                    case IdentifierKind.InteractiveLoop:
+                    case IdentifierKind.ShellCallback:
+                    case IdentifierKind.Update:
                     case IdentifierKind.Path:
+                    case IdentifierKind.Uri:
+                    case IdentifierKind.Type:
+                    case IdentifierKind.Hash:
+                    case IdentifierKind.TrustedPath:
+                    case IdentifierKind.TrustedUri:
+                    case IdentifierKind.TrustedType:
+                    case IdentifierKind.TrustedHash:
                         {
                             error = "identifier kind not supported";
                             return ReturnCode.Error;
@@ -15511,6 +15867,63 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if CONSOLE
+            public static void BeginConsoleRedirection(
+                TextReader inputReader,           /* in: OPTIONAL */
+                TextWriter outputReader,          /* in: OPTIONAL */
+                TextWriter errorReader,           /* in: OPTIONAL */
+                out TextReader savedInputReader,  /* out */
+                out TextWriter savedOutputReader, /* out */
+                out TextWriter savedErrorReader   /* out */
+                )
+            {
+                savedInputReader = (inputReader != null) ?
+                    Console.In : null;
+
+                savedOutputReader = (outputReader != null) ?
+                    Console.Out : null;
+
+                savedErrorReader = (errorReader != null) ?
+                    Console.Error : null;
+
+                if (inputReader != null)
+                    Console.SetIn(inputReader);
+
+                if (outputReader != null)
+                    Console.SetOut(outputReader);
+
+                if (errorReader != null)
+                    Console.SetError(errorReader);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static void EndConsoleRedirection(
+                ref TextReader savedInputReader,  /* in, out: OPTIONAL */
+                ref TextWriter savedOutputReader, /* in, out: OPTIONAL */
+                ref TextWriter savedErrorReader   /* in, out: OPTIONAL */
+                )
+            {
+                if (savedInputReader != null)
+                {
+                    Console.SetIn(savedInputReader);
+                    savedInputReader = null;
+                }
+
+                if (savedOutputReader != null)
+                {
+                    Console.SetOut(savedOutputReader);
+                    savedOutputReader = null;
+                }
+
+                if (savedErrorReader != null)
+                {
+                    Console.SetError(savedErrorReader);
+                    savedErrorReader = null;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             public static ReturnCode EvaluateScriptWithConsoleRedirection(
                 Interpreter interpreter, /* in */
                 IScript script,          /* in */
@@ -16835,6 +17248,522 @@ namespace Eagle._Tests
 
                     disposed = true;
                 }
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region ListStream Test Class
+        [ObjectId("03f88240-9bfb-4e29-a0a6-f9c970df8c15")]
+        public class ListStream : Stream
+        {
+            #region Private Constants
+            //
+            // HACK: This is purposely not marked as read-only.
+            //
+            private static Encoding DefaultEncoding = Encoding.UTF8;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Data
+            private Encoding encoding;
+            private IList<byte[]> input;
+            private IList<byte[]> output;
+            private int inputIndex;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Constructors
+            private ListStream(
+                Encoding encoding, /* in */
+                bool canRead,      /* in */
+                bool canSeek,      /* in */
+                bool canWrite      /* in */
+                )
+            {
+                this.encoding = encoding;
+                this.canRead = canRead;
+                this.canSeek = canSeek;
+                this.canWrite = canWrite;
+
+                ResetInput();
+                ResetOutput();
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Constructors
+            public ListStream(
+                Encoding encoding,              /* in */
+                IEnumerable<string> collection, /* in */
+                bool canRead,                   /* in */
+                bool canSeek,                   /* in */
+                bool canWrite                   /* in */
+                )
+                : this(encoding, canRead, canSeek, canWrite)
+            {
+                AddInput(collection);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Methods
+            private Encoding GetEncoding()
+            {
+                Encoding encoding = this.encoding;
+
+                if (encoding == null)
+                    encoding = DefaultEncoding;
+
+                return encoding;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private byte[] GetInputBytes()
+            {
+                if (input == null)
+                    return null;
+
+                int index = GetInput();
+
+                if ((index < 0) || (index >= input.Count))
+                    return null;
+
+                return input[index];
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool SetInputBytes(
+                byte[] bytes /* in */
+                )
+            {
+                if (bytes == null)
+                    return false;
+
+                int index = GetInput();
+
+                if ((index < 0) || (index >= input.Count))
+                    return false;
+
+                input[index] = bytes;
+                return true;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private byte[] NextInputBytes()
+            {
+                while (true)
+                {
+                    byte[] bytes = GetInputBytes();
+
+                    if ((bytes != null) && (bytes.Length > 0))
+                        return bytes;
+
+                    if (!NextInput())
+                        return null;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private long GetLength()
+            {
+                int length = 0;
+
+                if (input != null)
+                {
+                    foreach (byte[] bytes in input)
+                    {
+                        if (bytes == null)
+                            continue;
+
+                        length += bytes.Length;
+                    }
+                }
+
+                return length;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private long GetPosition()
+            {
+                long length = GetLength();
+
+                return (length > 0) ? 0 : 1;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void AddInput(
+                byte[] bytes /* in */
+                )
+            {
+                if (bytes == null)
+                    throw new ArgumentNullException("bytes");
+
+                if (input == null)
+                    throw new InvalidOperationException("invalid input");
+
+                input.Add(bytes);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void AddOutput(
+                byte[] bytes /* in */
+                )
+            {
+                if (bytes == null)
+                    throw new ArgumentNullException("bytes");
+
+                if (output == null)
+                    throw new InvalidOperationException("invalid output");
+
+                output.Add(bytes);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private int AddInput(
+                IEnumerable<string> collection /* in */
+                )
+            {
+                if (collection == null)
+                    throw new ArgumentNullException("collection");
+
+                Encoding encoding = GetEncoding();
+
+                if (encoding == null)
+                    throw new InvalidOperationException("invalid encoding");
+
+                int count = 0;
+
+                foreach (string item in collection)
+                {
+                    AddInput(encoding.GetBytes(item));
+                    count++;
+                }
+
+                return count;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private int GetInput()
+            {
+                MaybeFirstInput();
+                return inputIndex;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void ResetInput()
+            {
+                input = new List<byte[]>();
+                inputIndex = Index.Invalid;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void ResetOutput()
+            {
+                output = new List<byte[]>();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool MaybeFirstInput()
+            {
+                if (inputIndex == Index.Invalid)
+                {
+                    inputIndex = 0;
+                    return true;
+                }
+
+                return false;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool NextInput()
+            {
+                if (input == null)
+                    return false;
+
+                int count = input.Count;
+
+                if (count == 0)
+                    return false;
+
+                if (inputIndex < 0)
+                    return MaybeFirstInput();
+
+                if ((inputIndex + 1) >= count)
+                {
+                    input.Clear();
+                    return false;
+                }
+
+                inputIndex++;
+                return true;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Stream Members
+            private bool canRead;
+            public override bool CanRead
+            {
+                get { CheckDisposed(); return canRead; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: This should always return false; however, we
+            //       cannot do that because we want the "Length"
+            //       property to be functional, e.g. for use by
+            //       the ChannelStream class.
+            //
+            private bool canSeek;
+            public override bool CanSeek
+            {
+                get { CheckDisposed(); return canSeek; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool canWrite;
+            public override bool CanWrite
+            {
+                get { CheckDisposed(); return canWrite; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override void Flush()
+            {
+                CheckDisposed();
+
+                if (!canWrite)
+                    throw new IOException("stream is read-only");
+
+                if (output == null)
+                    throw new IOException("invalid output list");
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override long Length
+            {
+                get
+                {
+                    CheckDisposed();
+
+                    if (!canSeek)
+                        throw new NotSupportedException();
+
+                    return GetLength();
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override long Position
+            {
+                get
+                {
+                    CheckDisposed();
+
+                    if (!canSeek)
+                        throw new NotSupportedException();
+
+                    return GetPosition();
+                }
+                set
+                {
+                    CheckDisposed();
+
+                    /* IGNORED */
+                    Seek(value, SeekOrigin.Begin);
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override int Read(
+                byte[] buffer, /* in */
+                int offset,    /* in */
+                int count      /* in */
+                )
+            {
+                CheckDisposed();
+
+                if (!canRead)
+                    throw new NotSupportedException();
+
+                if (buffer == null)
+                    throw new ArgumentNullException("buffer");
+
+                if ((offset < 0) || (count < 0))
+                    throw new ArgumentOutOfRangeException();
+
+                int bufferLength = buffer.Length;
+
+                if ((offset + count) > bufferLength)
+                    throw new ArgumentException();
+
+                byte[] bytes = NextInputBytes();
+
+                if (bytes == null)
+                    return 0;
+
+                int bytesLength = bytes.Length;
+
+                if (count > bytesLength)
+                    count = bytesLength;
+
+                /* NO RESULT */
+                Array.Copy(bytes, 0, buffer, offset, count);
+
+                if (ArrayOps.Consume<byte>(ref bytes, count))
+                {
+                    /* IGNORED */
+                    SetInputBytes(bytes);
+                }
+
+                return count;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override long Seek(
+                long offset,      /* in */
+                SeekOrigin origin /* in */
+                )
+            {
+                CheckDisposed();
+
+                throw new NotSupportedException();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override void SetLength(
+                long value /* in */
+                )
+            {
+                CheckDisposed();
+
+                throw new NotSupportedException();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override void Write(
+                byte[] buffer, /* in */
+                int offset,    /* in */
+                int count      /* in */
+                )
+            {
+                CheckDisposed();
+
+                if (!canWrite)
+                    throw new NotSupportedException();
+
+                if (buffer == null)
+                    throw new ArgumentNullException("buffer");
+
+                if ((offset < 0) || (count < 0))
+                    throw new ArgumentOutOfRangeException();
+
+                int bufferLength = buffer.Length;
+
+                if ((offset + count) > bufferLength)
+                    throw new ArgumentException();
+
+                byte[] bytes = new byte[count];
+
+                /* NO RESULT */
+                Array.Copy(buffer, offset, bytes, 0, count);
+
+                /* NO RESULT */
+                AddOutput(bytes);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IDisposable "Pattern" Members
+            private bool disposed;
+            private void CheckDisposed() /* throw */
+            {
+#if THROW_ON_DISPOSED
+                if (disposed && Engine.IsThrowOnDisposed(null, false))
+                    throw new ObjectDisposedException(typeof(ListStream).Name);
+#endif
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            protected override void Dispose(
+                bool disposing /* in */
+                )
+            {
+                try
+                {
+                    if (!disposed)
+                    {
+                        if (disposing)
+                        {
+                            ////////////////////////////////////
+                            // dispose managed resources here...
+                            ////////////////////////////////////
+
+                            if (input != null)
+                            {
+                                input.Clear();
+                                input = null;
+                            }
+
+                            if (output != null)
+                            {
+                                output.Clear();
+                                output = null;
+                            }
+                        }
+
+                        //////////////////////////////////////
+                        // release unmanaged resources here...
+                        //////////////////////////////////////
+                    }
+                }
+                finally
+                {
+                    base.Dispose(disposing);
+
+                    disposed = true;
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Destructor
+            ~ListStream()
+            {
+                Dispose(false);
             }
             #endregion
         }
@@ -19355,8 +20284,15 @@ namespace Eagle._Tests
 
             private bool WaitExitForDispose()
             {
-                return WaitExit(
-                    ThreadOps.GetDefaultTimeout(TimeoutType.Dispose));
+                Interpreter localInterpreter;
+
+                lock (syncRoot)
+                {
+                    localInterpreter = interpreter;
+                }
+
+                return WaitExit(ThreadOps.GetDefaultTimeout(
+                    localInterpreter, TimeoutType.Dispose));
             }
             #endregion
 
@@ -21094,7 +22030,8 @@ namespace Eagle._Tests
                     }
 
                     int localTimeout = ThreadOps.GetTimeout(
-                        interpreter, timeout, TimeoutType.Script);
+                        interpreter, timeout, TimeoutType.Script |
+                        TimeoutType.MaybeFallback);
 
                     if (localTimeout > 0)
                     {

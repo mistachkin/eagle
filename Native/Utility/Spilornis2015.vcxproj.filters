@@ -61,6 +61,9 @@
     <ClInclude Include="src\generic\Spilornis.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\generic\SpilornisDef.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\generic\SpilornisInt.h">
       <Filter>Header Files</Filter>
     </ClInclude>

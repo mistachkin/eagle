@@ -71,12 +71,35 @@
     <UseHostCompilerIfAvailable>false</UseHostCompilerIfAvailable>
 
     <!--
+        HACK: *UNCONDITIONAL* Prevent the (useless?) "*.deps.json" files from
+              being generated as it sometimes causes an unhandled exception to
+              be thrown from within the .NET Core runtime.  It is unclear why
+              this file would ever be necessary for .NET Core project that only
+              relies upon assemblies included with the .NET Core base runtime.
+    -->
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+
+    <!--
+        HACK: *UNCONDITIONAL* Prevent any "default" embedded manifest file from
+              being included in the built executables.
+    -->
+    <NoWin32Manifest>true</NoWin32Manifest>
+
+    <!--
+        HACK: *UNCONDITIONAL* Prevent use of the new strong name handling from
+              the Roslyn C# compiler.
+    -->
+    <!--
+    <Features>$(Features);UseLegacyStrongNameProvider</Features>
+    -->
+
+    <!--
         NOTE: What is the target framework version for the solution?  Normally,
               this is set at the project level; however, there are times when it
               is convenient (or necessary) to set it globally.
     -->
     <!--
-    <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">v4.8.1</TargetFrameworkVersion>
     -->
 
     <!--
@@ -116,6 +139,7 @@
                  "NetFx471": Configuration for the .NET Framework 4.7.1.
                  "NetFx472": Configuration for the .NET Framework 4.7.2.
                   "NetFx48": Configuration for the .NET Framework 4.8.
+                 "NetFx481": Configuration for the .NET Framework 4.8.1.
             "NetStandard20": Configuration for the .NET Standard 2.0.
             "NetStandard21": Configuration for the .NET Standard 2.1.
                      "Bare": Omits all optional features for testing purposes.
@@ -659,6 +683,12 @@
     <EagleDetectNetFx48 Condition="'$(EagleDetectNetFx48)' == ''">true</EagleDetectNetFx48>
 
     <!--
+        NOTE: Enable detection and use of features defined in the .NET Framework
+              4.8.1 RTM?  By default, this is enabled.
+    -->
+    <EagleDetectNetFx481 Condition="'$(EagleDetectNetFx481)' == ''">true</EagleDetectNetFx481>
+
+    <!--
         NOTE: Prohibit the use of .NET Framework features that require a version
               higher than 2.0 at compile-time?  By default, this is disabled.
               If this is enabled, some features may be unavailable.
@@ -1037,7 +1067,7 @@
               be very useful.  By default this is enabled.  If this is disabled,
               some features will be unavailable.
     -->
-    <EagleBreakpoints Condition="'$(EagleBreakpoints)' == ''">true</EagleBreakpoints>
+    <EagleDebuggerBreakpoints Condition="'$(EagleDebuggerBreakpoints)' == ''">true</EagleDebuggerBreakpoints>
 
     <!--
         NOTE: Enable the per-interpreter performance profiler?  By default,

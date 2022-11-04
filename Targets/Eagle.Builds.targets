@@ -844,6 +844,68 @@
 
   <!--
       NOTE: This is NOT an "official release" build configuration.  This build
+            configuration is primarily designed for use with the .NET Framework
+            4.8.1 on Windows 7 SP1 or higher.  Currently, the release
+            preparation tool does NOT build this configuration during the
+            automated release processing.  Most default values from the settings
+            file (i.e. "Eagle.Settings.targets") are used; however, some of the
+            defaults are overridden here.
+
+      NOTE: When building this configuration directly from MSBuild (i.e. not via
+            the "flight.bat" tool), the EaglePatchLevel property must be set to
+            false, by adding this to the build command line:
+
+                /property:EaglePatchLevel=false
+
+            Otherwise, compilation errors will occur due to the AssemblyVersion
+            attribute value being null.
+  -->
+  <PropertyGroup Condition="'$(EagleBuildType)' == 'NetFx481'">
+    <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == '' And '$(EagleCanSetTargetFrameworkVersion)' != '' And '$(EagleCanSetTargetFrameworkVersion)' != 'false'">v4.8.1</TargetFrameworkVersion>
+    <EagleAppDomains Condition="'$(EagleAppDomains)' == ''">true</EagleAppDomains>
+    <EagleAssemblyRelease Condition="'$(EagleAssemblyRelease)' == ''">true</EagleAssemblyRelease>
+    <EagleAssemblyStrongNameTag Condition="'$(EagleAssemblyStrongNameTag)' == ''">true</EagleAssemblyStrongNameTag>
+    <!--
+    <EagleAssemblyTag Condition="'$(EagleAssemblyTag)' == ''">true</EagleAssemblyTag>
+    -->
+    <EagleAssemblyText Condition="'$(EagleAssemblyText)' == ''">true</EagleAssemblyText>
+    <!--
+    <EagleAssemblyUri Condition="'$(EagleAssemblyUri)' == ''">true</EagleAssemblyUri>
+    -->
+    <EagleAuthenticodeSign Condition="'$(EagleAuthenticodeSign)' == ''">true</EagleAuthenticodeSign>
+    <EagleAuthenticodeSign32BitOnly Condition="'$(EagleAuthenticodeSign32BitOnly)' == ''">true</EagleAuthenticodeSign32BitOnly>
+    <EagleCacheDictionary Condition="'$(EagleCacheDictionary)' == ''">true</EagleCacheDictionary>
+    <EagleCasPolicy Condition="'$(EagleCasPolicy)' == ''">true</EagleCasPolicy>
+    <EagleCompression Condition="'$(EagleCompression)' == ''">true</EagleCompression>
+    <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == ''">NetFx481</EagleConfigurationSuffix>
+    <EagleDebuggerExpression Condition="'$(EagleDebuggerExpression)' == ''">false</EagleDebuggerExpression>
+    <EagleEmbeddedLibrary Condition="'$(EagleEmbeddedLibrary)' == ''">true</EagleEmbeddedLibrary>
+    <EagleFastErrorCode Condition="'$(EagleFastErrorCode)' == ''">true</EagleFastErrorCode>
+    <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
+    <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
+    <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
+    <EagleMaybeTrace Condition="'$(EagleMaybeTrace)' == ''">true</EagleMaybeTrace>
+    <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
+    <EagleNotifyExecute Condition="'$(EagleNotifyExecute)' == ''">false</EagleNotifyExecute>
+    <EagleNotifyExpression Condition="'$(EagleNotifyExpression)' == ''">false</EagleNotifyExpression>
+    <EaglePatchLevel Condition="'$(EaglePatchLevel)' == ''">true</EaglePatchLevel>
+    <EaglePowerShellVersion Condition="'$(EaglePowerShellVersion)' == ''">5.0</EaglePowerShellVersion>
+    <EagleScriptArguments Condition="'$(EagleScriptArguments)' == ''">true</EagleScriptArguments>
+    <EagleSourceId Condition="'$(EagleSourceId)' == ''">true</EagleSourceId>
+    <EagleSourceTimeStamp Condition="'$(EagleSourceTimeStamp)' == ''">true</EagleSourceTimeStamp>
+    <EagleUnix Condition="'$(EagleUnix)' == ''">true</EagleUnix>
+    <EagleUseAppDomainForId Condition="'$(EagleUseAppDomainForId)' == ''">true</EagleUseAppDomainForId>
+    <EagleUseNamespaces Condition="'$(EagleUseNamespaces)' == ''">true</EagleUseNamespaces>
+    <EagleWixVersion Condition="'$(EagleWixVersion)' == ''">3.5</EagleWixVersion>
+    <EmbedCertificates Condition="'$(EmbedCertificates)' == ''">true</EmbedCertificates>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: This is NOT an "official release" build configuration.  This build
             configuration is primarily designed for use with the .NET Standard
             2.0 on Windows 7 SP1 or higher.  Most default values from the
             settings file (i.e. "Eagle.Settings.targets") are used; however,
@@ -997,7 +1059,6 @@
     <EagleAuthenticodeSign Condition="'$(EagleAuthenticodeSign)' == ''">true</EagleAuthenticodeSign>
     <EagleAuthenticodeSign32BitOnly Condition="'$(EagleAuthenticodeSign32BitOnly)' == ''">true</EagleAuthenticodeSign32BitOnly>
     <EagleBreakOnExiting Condition="'$(EagleBreakOnExiting)' == ''">false</EagleBreakOnExiting>
-    <EagleBreakpoints Condition="'$(EagleBreakpoints)' == ''">false</EagleBreakpoints>
     <EagleCacheArgumentToString Condition="'$(EagleCacheArgumentToString)' == ''">false</EagleCacheArgumentToString>
     <EagleCacheArgumentListToString Condition="'$(EagleCacheArgumentListToString)' == ''">false</EagleCacheArgumentListToString>
     <EagleCacheDictionary Condition="'$(EagleCacheDictionary)' == ''">false</EagleCacheDictionary>
@@ -1016,6 +1077,7 @@
     <EagleDebugWrite Condition="'$(EagleDebugWrite)' == ''">false</EagleDebugWrite>
     <EagleDebugger Condition="'$(EagleDebugger)' == ''">false</EagleDebugger>
     <EagleDebuggerArguments Condition="'$(EagleDebuggerArguments)' == ''">false</EagleDebuggerArguments>
+    <EagleDebuggerBreakpoints Condition="'$(EagleDebuggerBreakpoints)' == ''">false</EagleDebuggerBreakpoints>
     <EagleDebuggerEngine Condition="'$(EagleDebuggerEngine)' == ''">false</EagleDebuggerEngine>
     <EagleDebuggerExecute Condition="'$(EagleDebuggerExecute)' == ''">false</EagleDebuggerExecute>
     <EagleDebuggerExpression Condition="'$(EagleDebuggerExpression)' == ''">false</EagleDebuggerExpression>
@@ -1023,7 +1085,13 @@
     <EagleDetectNetFx20Sp Condition="'$(EagleDetectNetFx20Sp)' == ''">false</EagleDetectNetFx20Sp>
     <EagleDrawing Condition="'$(EagleDrawing)' == ''">false</EagleDrawing>
     <EagleDynamic Condition="'$(EagleDynamic)' == ''">false</EagleDynamic>
-    <EagleEmbeddedLibrary Condition="'$(EagleEmbeddedLibrary)' == ''">false</EagleEmbeddedLibrary>
+    <!--
+        HACK: The EagleEmbeddedLibrary setting is being enabled here in
+              order to support the "-security" command line option, et
+              al, for use during release testing.  Please do not remove
+              or disable this.
+    -->
+    <EagleEmbeddedLibrary Condition="'$(EagleEmbeddedLibrary)' == ''">true</EagleEmbeddedLibrary>
     <EagleExecuteCache Condition="'$(EagleExecuteCache)' == ''">false</EagleExecuteCache>
     <EagleExpressionFlags Condition="'$(EagleExpressionFlags)' == ''">false</EagleExpressionFlags>
     <EagleFastErrorCode Condition="'$(EagleFastErrorCode)' == ''">false</EagleFastErrorCode>
@@ -1063,8 +1131,21 @@
     <EagleRemoting Condition="'$(EagleRemoting)' == ''">false</EagleRemoting>
     <EagleResultLimits Condition="'$(EagleResultLimits)' == ''">false</EagleResultLimits>
     <EagleScriptArguments Condition="'$(EagleScriptArguments)' == ''">false</EagleScriptArguments>
+    <!--
+        HACK: The EagleSerialization setting is being (left) enabled here
+              in order to support the "-security" command line option (i.e.
+              because Harpy requires it), et al, during release testing.
+              Please do not remove or disable this.
+    -->
+    <!--
     <EagleSerialization Condition="'$(EagleSerialization)' == ''">false</EagleSerialization>
+    -->
     <EagleSharedIdPool Condition="'$(EagleSharedIdPool)' == ''">false</EagleSharedIdPool>
+    <!--
+        HACK: The EagleShell setting is being (left) enabled in order to
+              support running the test suite during release testing.
+              Please do not remove or disable this.
+    -->
     <!--
     <EagleShell Condition="'$(EagleShell)' == ''">false</EagleShell>
     -->
@@ -1091,7 +1172,15 @@
     <EagleWindows Condition="'$(EagleWindows)' == ''">false</EagleWindows>
     <EagleWinForms Condition="'$(EagleWinForms)' == ''">false</EagleWinForms>
     <EagleWixVersion Condition="'$(EagleWixVersion)' == ''">3.0</EagleWixVersion>
+    <!--
+        HACK: The EagleXml setting is being (left) enabled here in order
+              to support the "-security" command line option (i.e. because
+              Harpy requires it), et al, during release testing.  Please
+              do not remove or disable this.
+    -->
+    <!--
     <EagleXml Condition="'$(EagleXml)' == ''">false</EagleXml>
+    -->
     <EmbedCertificates Condition="'$(EmbedCertificates)' == ''">true</EmbedCertificates>
   </PropertyGroup>
 
@@ -1118,7 +1207,15 @@
             attribute value being null.
   -->
   <PropertyGroup Condition="'$(EagleBuildType)' == 'LeanAndMean'">
+    <!--
+        HACK: Setting target framework back to v3.5 can be useful when there is
+              a need to interactively debug using Visual Studio 2008, etc.
+    -->
+    <!--
+    <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == '' And '$(EagleCanSetTargetFrameworkVersion)' != '' And '$(EagleCanSetTargetFrameworkVersion)' != 'false'">v3.5</TargetFrameworkVersion>
+    -->
     <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == '' And '$(EagleCanSetTargetFrameworkVersion)' != '' And '$(EagleCanSetTargetFrameworkVersion)' != 'false'">v4.0</TargetFrameworkVersion>
+    <EagleAppDomains Condition="'$(EagleAppDomains)' == ''">true</EagleAppDomains>
     <EagleAssemblyRelease Condition="'$(EagleAssemblyRelease)' == ''">true</EagleAssemblyRelease>
     <EagleAssemblyStrongNameTag Condition="'$(EagleAssemblyStrongNameTag)' == ''">true</EagleAssemblyStrongNameTag>
     <!--
@@ -1130,18 +1227,24 @@
     -->
     <EagleAuthenticodeSign Condition="'$(EagleAuthenticodeSign)' == ''">true</EagleAuthenticodeSign>
     <EagleAuthenticodeSign32BitOnly Condition="'$(EagleAuthenticodeSign32BitOnly)' == ''">true</EagleAuthenticodeSign32BitOnly>
-    <EagleBreakpoints Condition="'$(EagleBreakpoints)' == ''">false</EagleBreakpoints>
     <EagleCacheStatistics Condition="'$(EagleCacheStatistics)' == ''">false</EagleCacheStatistics>
     <EagleCallbackQueue Condition="'$(EagleCallbackQueue)' == ''">false</EagleCallbackQueue>
     <EagleConfigurationSuffix Condition="'$(EagleConfigurationSuffix)' == ''">LeanAndMean</EagleConfigurationSuffix>
     <EagleDeadCode Condition="'$(EagleDeadCode)' == ''">false</EagleDeadCode>
     <EagleDebugTrace Condition="'$(EagleDebugTrace)' == ''">false</EagleDebugTrace>
-    <EagleDebugger Condition="'$(EagleDebugger)' == ''">false</EagleDebugger>
+    <EagleDebuggerArguments Condition="'$(EagleDebuggerArguments)' == ''">false</EagleDebuggerArguments>
+    <EagleDebuggerBreakpoints Condition="'$(EagleDebuggerBreakpoints)' == ''">false</EagleDebuggerBreakpoints>
+    <EagleDebuggerEngine Condition="'$(EagleDebuggerEngine)' == ''">false</EagleDebuggerEngine>
+    <EagleDebuggerExecute Condition="'$(EagleDebuggerExecute)' == ''">false</EagleDebuggerExecute>
+    <EagleDebuggerExpression Condition="'$(EagleDebuggerExpression)' == ''">false</EagleDebuggerExpression>
+    <EagleDebuggerVariable Condition="'$(EagleDebuggerVariable)' == ''">false</EagleDebuggerVariable>
     <EagleDetectNetFx20Sp Condition="'$(EagleDetectNetFx20Sp)' == ''">false</EagleDetectNetFx20Sp>
     <EagleEmbeddedLibrary Condition="'$(EagleEmbeddedLibrary)' == ''">true</EagleEmbeddedLibrary>
     <EagleExpressionFlags Condition="'$(EagleExpressionFlags)' == ''">false</EagleExpressionFlags>
     <EagleFastErrorCode Condition="'$(EagleFastErrorCode)' == ''">true</EagleFastErrorCode>
     <EagleFastErrorInfo Condition="'$(EagleFastErrorInfo)' == ''">true</EagleFastErrorInfo>
+    <EagleIsolatedInterpreters Condition="'$(EagleIsolatedInterpreters)' == ''">true</EagleIsolatedInterpreters>
+    <EagleIsolatedPlugins Condition="'$(EagleIsolatedPlugins)' == ''">true</EagleIsolatedPlugins>
     <EagleMonoLegacy Condition="'$(EagleMonoLegacy)' == ''">false</EagleMonoLegacy>
     <EagleNativeThreadId Condition="'$(EagleNativeThreadId)' == ''">false</EagleNativeThreadId>
     <EagleNotify Condition="'$(EagleNotify)' == ''">false</EagleNotify>
@@ -1154,6 +1257,7 @@
     <EagleSourceTimeStamp Condition="'$(EagleSourceTimeStamp)' == ''">true</EagleSourceTimeStamp>
     <EagleTclWrapper Condition="'$(EagleTclWrapper)' == ''">true</EagleTclWrapper>
     <EagleThreading Condition="'$(EagleThreading)' == ''">false</EagleThreading>
+    <EagleUseAppDomainForId Condition="'$(EagleUseAppDomainForId)' == ''">true</EagleUseAppDomainForId>
     <EagleVerbose Condition="'$(EagleVerbose)' == ''">false</EagleVerbose>
     <EmbedCertificates Condition="'$(EmbedCertificates)' == ''">true</EmbedCertificates>
   </PropertyGroup>

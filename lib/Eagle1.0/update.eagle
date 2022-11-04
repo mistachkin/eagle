@@ -627,7 +627,17 @@ namespace eval ::Eagle {
     # NOTE: Add the base options to the updater executable.  Typically,
     #       this only includes the initial (mutex checking) delay.
     #
-    lappend command -delay 2000
+    lappend command -delay
+
+    #
+    # NOTE: Figure out the configured timeout value, if any.  If we fail,
+    #       just fallback to the (legacy) default value.
+    #
+    if {[catch {info engine Timeout} timeout] == 0} then {
+      lappend command $timeout
+    } else {
+      lappend command 2000; # COMPAT: Eagle beta.
+    }
 
     #
     # HACK: The native StrongNameSignatureVerificationEx() function does
@@ -1071,6 +1081,14 @@ namespace eval ::Eagle {
   #
   proc getUpdateData { uri } {
     #
+    # NOTE: Figure out the configured timeout value, if any.  If we fail,
+    #       just fallback to the (legacy) default value.
+    #
+    if {[catch {info engine NetworkTimeout} timeout]} then {
+      set timeout 2000; # COMPAT: Eagle beta.
+    }
+
+    #
     # NOTE: Start trusting ONLY our own self-signed SSL certificate.
     #
     set trusted true
@@ -1085,7 +1103,7 @@ namespace eval ::Eagle {
       #
       # NOTE: Download the tag file from the web site.
       #
-      return [uri download -timeout 2000 -inline $uri]; # synchronous.
+      return [uri download -timeout $timeout -inline $uri]; # synchronous.
     } finally {
       if {$trusted && \
           [lindex [uri softwareupdates] end] eq "trusted"} then {

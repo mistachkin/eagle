@@ -678,8 +678,12 @@ clean-eagle:
 	@call "$(EAGLE_LIBRARY_TOOLS_DIR)\clean.bat"
 
 build-eagle: setup
+	@set NETFX481ONLY=1
+	@echo Attempting to use .NET Framework 4.8.1
+!if $(MSCVER) < 1933
 	@set NETFX48ONLY=1
-	@echo Attempting to use .NET Framework 4.8
+	@echo Disabled use of the .NET Framework 4.8.1
+!endif
 !if $(MSCVER) < 1930
 	@set NETFX471ONLY=1
 	@echo Disabled use of the .NET Framework 4.8

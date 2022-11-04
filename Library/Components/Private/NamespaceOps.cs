@@ -19,6 +19,9 @@ using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
+using VariablePair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Interfaces.Public.IVariable>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -1695,6 +1698,12 @@ namespace Eagle._Components.Private
                 {
                     if (create)
                     {
+                        if ((interpreter != null) &&
+                            !interpreter.CanAddNamespace(ref localError))
+                        {
+                            break;
+                        }
+
                         bool success = false;
                         INamespace newNamespace = null;
 
@@ -1720,6 +1729,12 @@ namespace Eagle._Components.Private
                                     ref localError) != ReturnCode.Ok)
                             {
                                 break;
+                            }
+
+                            if (interpreter != null)
+                            {
+                                /* IGNORED */
+                                interpreter.TrackNamespaceAdded();
                             }
 
                             childNamespace = newNamespace;
@@ -2574,6 +2589,482 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Scope Support Methods
+        //
+        // WARNING: This method assumes the interpreter lock is already held.
+        //
+        public static ReturnCode AttachScope(
+            Interpreter interpreter, /* in */
+            INamespace @namespace,   /* in */
+            ICallFrame scopeFrame,   /* in */
+            ref StringList list,     /* in, out */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (@namespace == null)
+            {
+                error = "invalid namespace";
+                return ReturnCode.Error;
+            }
+
+            ICallFrame namespaceFrame;
+
+            if (IsGlobal(interpreter, @namespace))
+                namespaceFrame = interpreter.CurrentGlobalFrame;
+            else
+                namespaceFrame = @namespace.VariableFrame;
+
+            if (namespaceFrame == null)
+            {
+                error = "namespace has invalid call frame";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary namespaceVariables = namespaceFrame.Variables;
+
+            if (namespaceVariables == null)
+            {
+                error = "namespace call frame does not support variables";
+                return ReturnCode.Error;
+            }
+
+            if (scopeFrame == null)
+            {
+                error = "invalid scope call frame";
+                return ReturnCode.Error;
+            }
+
+            if (!CallFrameOps.IsScope(scopeFrame))
+            {
+                error = "scope call frame must be scope";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary scopeVariables = scopeFrame.Variables;
+
+            if (scopeVariables == null)
+            {
+                error = "scope call frame does not support variables";
+                return ReturnCode.Error;
+            }
+
+            foreach (VariablePair pair in scopeVariables)
+            {
+                IVariable scopeVariable = pair.Value;
+
+                if (scopeVariable == null)
+                    continue;
+
+                if (scopeVariable.HasNamespaceMark(null))
+                    continue;
+
+                string varName = pair.Key;
+
+                if (varName == null)
+                    continue;
+
+                if (namespaceVariables.ContainsKey(varName))
+                    continue;
+
+                if (list == null)
+                    list = new StringList();
+
+                /* NO RESULT */
+                list.Add(varName);
+
+                /* IGNORED */
+                scopeVariable.SetNamespaceMark(@namespace);
+
+                /* IGNORED */
+                scopeVariable.SetFrameMark(scopeFrame);
+
+                /* NO RESULT */
+                namespaceVariables.Add(varName, scopeVariable);
+
+                /* NO RESULT */
+                scopeVariable.ResetFrame(namespaceFrame, interpreter);
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This method assumes the interpreter lock is already held.
+        //
+        public static ReturnCode DetachScope(
+            Interpreter interpreter, /* in */
+            INamespace @namespace,   /* in: OPTIONAL */
+            ICallFrame scopeFrame,   /* in */
+            ref StringList list,     /* in, out */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary namespaceVariables = null;
+
+            if (@namespace != null)
+            {
+                ICallFrame namespaceFrame;
+
+                if (IsGlobal(interpreter, @namespace))
+                    namespaceFrame = interpreter.CurrentGlobalFrame;
+                else
+                    namespaceFrame = @namespace.VariableFrame;
+
+                if (namespaceFrame == null)
+                {
+                    error = "namespace has invalid call frame";
+                    return ReturnCode.Error;
+                }
+
+                namespaceVariables = namespaceFrame.Variables;
+
+                if (namespaceVariables == null)
+                {
+                    error = "namespace call frame does not support variables";
+                    return ReturnCode.Error;
+                }
+            }
+
+            if (scopeFrame == null)
+            {
+                error = "invalid scope call frame";
+                return ReturnCode.Error;
+            }
+
+            if (!CallFrameOps.IsScope(scopeFrame))
+            {
+                error = "scope call frame must be scope";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary scopeVariables = scopeFrame.Variables;
+
+            if (scopeVariables == null)
+            {
+                error = "scope call frame does not support variables";
+                return ReturnCode.Error;
+            }
+
+            foreach (VariablePair pair in scopeVariables)
+            {
+                IVariable scopeVariable = pair.Value;
+
+                if (scopeVariable == null)
+                    continue;
+
+                if (!scopeVariable.HasNamespaceMark(@namespace))
+                    continue;
+
+                string varName = pair.Key;
+
+                if (varName == null)
+                    continue;
+
+                if (namespaceVariables != null)
+                {
+                    IVariable namespaceVariable;
+
+                    if (!namespaceVariables.TryGetValue(
+                            varName, out namespaceVariable))
+                    {
+                        continue;
+                    }
+
+                    if (!Object.ReferenceEquals(
+                            scopeVariable, namespaceVariable))
+                    {
+                        continue;
+                    }
+                }
+
+                if (list == null)
+                    list = new StringList();
+
+                /* NO RESULT */
+                list.Add(varName);
+
+                /* IGNORED */
+                scopeVariable.UnsetFrameMark();
+
+                /* IGNORED */
+                scopeVariable.UnsetNamespaceMark();
+
+                if (namespaceVariables != null)
+                {
+                    /* IGNORED */
+                    namespaceVariables.Remove(varName);
+
+                    /* NO RESULT */
+                    scopeVariable.ResetFrame(scopeFrame, interpreter);
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This method assumes the interpreter lock is already held.
+        //
+        public static ReturnCode ExportScope(
+            Interpreter interpreter, /* in */
+            INamespace @namespace,   /* in */
+            ICallFrame scopeFrame,   /* in */
+            bool system,             /* in */
+            ref StringList list,     /* in, out */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (@namespace == null)
+            {
+                error = "invalid namespace";
+                return ReturnCode.Error;
+            }
+
+            ICallFrame namespaceFrame;
+
+            if (IsGlobal(interpreter, @namespace))
+                namespaceFrame = interpreter.CurrentGlobalFrame;
+            else
+                namespaceFrame = @namespace.VariableFrame;
+
+            if (namespaceFrame == null)
+            {
+                error = "namespace has invalid call frame";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary namespaceVariables = namespaceFrame.Variables;
+
+            if (namespaceVariables == null)
+            {
+                error = "namespace call frame does not support variables";
+                return ReturnCode.Error;
+            }
+
+            if (scopeFrame == null)
+            {
+                error = "invalid scope call frame";
+                return ReturnCode.Error;
+            }
+
+            if (!CallFrameOps.IsScope(scopeFrame))
+            {
+                error = "scope call frame must be scope";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary scopeVariables = scopeFrame.Variables;
+
+            if (scopeVariables == null)
+            {
+                error = "scope call frame does not support variables";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary localVariables = new VariableDictionary(
+                scopeVariables);
+
+            foreach (VariablePair pair in localVariables)
+            {
+                IVariable scopeVariable = pair.Value;
+
+                if ((scopeVariable == null) ||
+                    EntityOps.IsReadOnlyOrInvariant(scopeVariable))
+                {
+                    continue;
+                }
+
+                if (!system && EntityOps.IsSystem(scopeVariable))
+                    continue;
+
+                string varName = pair.Key;
+
+                if (varName == null)
+                    continue;
+
+                IVariable namespaceVariable;
+
+                if (namespaceVariables.TryGetValue(
+                        varName, out namespaceVariable) &&
+                    ((namespaceVariable == null) ||
+                    !EntityOps.IsUndefined(namespaceVariable)))
+                {
+                    continue;
+                }
+
+                if (list == null)
+                    list = new StringList();
+
+                /* NO RESULT */
+                list.Add(varName);
+
+                /* IGNORED */
+                scopeVariable.UnsetNamespaceMark();
+
+                /* IGNORED */
+                scopeVariable.UnsetFrameMark();
+
+                /* NO RESULT */
+                namespaceVariables[varName] = scopeVariable;
+
+                /* IGNORED */
+                scopeVariables.Remove(varName);
+
+                /* NO RESULT */
+                scopeVariable.ResetFrame(namespaceFrame, interpreter);
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This method assumes the interpreter lock is already held.
+        //
+        public static ReturnCode ImportScope(
+            Interpreter interpreter, /* in */
+            INamespace @namespace,   /* in */
+            ICallFrame scopeFrame,   /* in */
+            bool system,             /* in */
+            ref StringList list,     /* in, out */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (@namespace == null)
+            {
+                error = "invalid namespace";
+                return ReturnCode.Error;
+            }
+
+            ICallFrame namespaceFrame;
+
+            if (IsGlobal(interpreter, @namespace))
+                namespaceFrame = interpreter.CurrentGlobalFrame;
+            else
+                namespaceFrame = @namespace.VariableFrame;
+
+            if (namespaceFrame == null)
+            {
+                error = "namespace has invalid call frame";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary namespaceVariables = namespaceFrame.Variables;
+
+            if (namespaceVariables == null)
+            {
+                error = "namespace call frame does not support variables";
+                return ReturnCode.Error;
+            }
+
+            if (scopeFrame == null)
+            {
+                error = "invalid scope call frame";
+                return ReturnCode.Error;
+            }
+
+            if (!CallFrameOps.IsScope(scopeFrame))
+            {
+                error = "scope call frame must be scope";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary scopeVariables = scopeFrame.Variables;
+
+            if (scopeVariables == null)
+            {
+                error = "scope call frame does not support variables";
+                return ReturnCode.Error;
+            }
+
+            VariableDictionary localVariables = new VariableDictionary(
+                namespaceVariables);
+
+            foreach (VariablePair pair in localVariables)
+            {
+                IVariable namespaceVariable = pair.Value;
+
+                if ((namespaceVariable == null) ||
+                    EntityOps.IsReadOnlyOrInvariant(namespaceVariable))
+                {
+                    continue;
+                }
+
+                if (!system && EntityOps.IsSystem(namespaceVariable))
+                    continue;
+
+                string varName = pair.Key;
+
+                if (varName == null)
+                    continue;
+
+                IVariable scopeVariable;
+
+                if (scopeVariables.TryGetValue(
+                        varName, out scopeVariable) &&
+                    ((scopeVariable == null) ||
+                    !EntityOps.IsUndefined(scopeVariable)))
+                {
+                    continue;
+                }
+
+                if (list == null)
+                    list = new StringList();
+
+                /* NO RESULT */
+                list.Add(varName);
+
+                /* IGNORED */
+                namespaceVariable.UnsetNamespaceMark();
+
+                /* IGNORED */
+                namespaceVariable.UnsetFrameMark();
+
+                /* NO RESULT */
+                scopeVariables[varName] = namespaceVariable;
+
+                /* IGNORED */
+                namespaceVariables.Remove(varName);
+
+                /* NO RESULT */
+                namespaceVariable.ResetFrame(scopeFrame, interpreter);
+            }
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Sub-Command Support Methods
         public static IEnumerable<INamespace> Children(
             Interpreter interpreter,
@@ -2728,6 +3219,16 @@ namespace Eagle._Components.Private
                 /* IGNORED */
                 SetCurrentForAll(interpreter, null, @namespace);
             }
+
+#if EXECUTE_CACHE
+            /* IGNORED */
+            interpreter.ClearExecuteCache();
+#endif
+
+#if ARGUMENT_CACHE
+            /* IGNORED */
+            interpreter.ClearArgumentCache();
+#endif
 
             return ReturnCode.Ok;
         }

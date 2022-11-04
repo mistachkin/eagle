@@ -27,6 +27,7 @@ namespace Eagle._Interfaces.Public
         ///////////////////////////////////////////////////////////////////////
 
         void TryLock(ref bool locked);
+        void TryLockWithWait(ref bool locked);
         void TryLock(int timeout, ref bool locked);
         void ExitLock(ref bool locked);
     }

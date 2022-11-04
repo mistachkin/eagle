@@ -49,11 +49,7 @@ using System.Security.AccessControl;
 #endif
 
 using System.Security.Cryptography;
-
-#if !NET_STANDARD_20
 using System.Security.Cryptography.X509Certificates;
-#endif
-
 using System.Text;
 using System.Threading;
 
@@ -71,6 +67,7 @@ using System.Windows.Forms;
 
 using Eagle._Attributes;
 using Eagle._Components.Private;
+using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using _RuntimeOps = Eagle._Components.Private.RuntimeOps;
@@ -85,6 +82,27 @@ namespace Eagle._Components.Public
     public static class Utility /* FOR EXTERNAL USE ONLY */
     {
         #region External Use Only Helper Methods
+        [Obsolete()]
+        public static void TryGlobalLock( /* Trust me, you don't need this. */
+            int timeout,
+            ref bool locked
+            )
+        {
+            GlobalState.TryLock(timeout, ref locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [Obsolete()]
+        public static void ExitGlobalLock( /* You don't need this either. */
+            ref bool locked
+            )
+        {
+            GlobalState.ExitLock(ref locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void PushActiveInterpreter(
             Interpreter interpreter
             )
@@ -296,7 +314,8 @@ namespace Eagle._Components.Public
             long stopCount
             )
         {
-            return PerformanceOps.GetMicroseconds(startCount, stopCount);
+            return PerformanceOps.GetMicrosecondsFromCount(
+                startCount, stopCount);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -411,10 +430,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsFileTrusted(
+            Interpreter interpreter,
             string fileName
             )
         {
-            return _RuntimeOps.IsFileTrusted(fileName, IntPtr.Zero);
+            return _RuntimeOps.IsFileTrusted(
+                interpreter, null, fileName, IntPtr.Zero);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1107,7 +1128,7 @@ namespace Eagle._Components.Public
 
         public static InterpreterDictionary GetInterpreters()
         {
-            return GlobalState.GetInterpreters();
+            return GlobalState.CloneInterpreterPairs();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1182,6 +1203,28 @@ namespace Eagle._Components.Public
             GlobalState.PolicyTrace = enable;
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CopyTrustedHashes(
+            Interpreter interpreter,
+            bool clear,
+            ref Result error
+            )
+        {
+            return GlobalState.CopyTrustedHashes(interpreter, clear, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode AddTrustedHashes(
+            IEnumerable<string> hashes,
+            bool clear,
+            ref Result error
+            )
+        {
+            return GlobalState.AddTrustedHashes(hashes, clear, ref error);
+        }
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -1338,15 +1381,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-#if !NET_STANDARD_20
-        public static ReturnCode GetAssemblyCertificate(
-            Assembly assembly,
-            ref X509Certificate certificate,
+        public static ReturnCode GetAssemblyCertificate2(
+            string fileName,
+            bool noCache,
+            ref X509Certificate2 certificate2,
             ref Result error
             )
         {
-            return AssemblyOps.GetCertificate(
-                assembly, ref certificate, ref error);
+            return CertificateOps.GetCertificate2(
+                fileName, noCache, ref certificate2, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1361,7 +1404,6 @@ namespace Eagle._Components.Public
             return AssemblyOps.GetCertificate2(
                 assembly, strict, ref certificate2, ref error);
         }
-#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -1607,6 +1649,24 @@ namespace Eagle._Components.Public
             )
         {
             return SharedAttributeOps.GetAssemblySourceTimeStamp(assembly);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HaveEagleThreading(
+            Interpreter interpreter
+            )
+        {
+            return _RuntimeOps.HaveThreading(interpreter);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HaveEagleDefineConstant(
+            string name
+            )
+        {
+            return _RuntimeOps.HaveDefineConstant(name);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2020,6 +2080,52 @@ namespace Eagle._Components.Public
                 interpreter, enumType, oldValue, newValue, maskValues,
                 maskOperators, cultureInfo, allowInteger, errorOnNop,
                 errorOnMask, noCase, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode SetParameterValuesFromTablesEnum(
+            ObjectDictionary[] tables,
+            ulong[] parameterValues,
+            CultureInfo cultureInfo,
+            bool errorOnBadValue,
+            ref Result error
+            )
+        {
+            return EnumOps.SetParameterValuesFromTables(
+                tables, parameterValues, cultureInfo, errorOnBadValue,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode FillTablesEnum(
+            Type enumType,
+            ref ObjectDictionary[] tables,
+            ref Result error
+            )
+        {
+            return EnumOps.FillTables(enumType, ref tables, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TryParseTablesEnum(
+            Interpreter interpreter,
+            Type enumType,
+            string value,
+            CultureInfo cultureInfo,
+            bool noCase,
+            bool errorOnEmptyList,
+            bool errorOnNotFound,
+            ref ObjectDictionary[] tables,
+            ref Result error
+            ) /* DEADLOCK-ON-DISPOSE */
+        {
+            return EnumOps.TryParseTables(
+                interpreter, enumType, value, cultureInfo,
+                noCase, errorOnEmptyList, errorOnNotFound,
+                ref tables, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3467,7 +3573,7 @@ namespace Eagle._Components.Public
             long? waitMicroseconds,
             long? readyMicroseconds,
             bool timeout,
-            bool strict,
+            bool noWindows,
             bool noCancel,
             bool noGlobalCancel,
             ref Result error
@@ -3475,7 +3581,7 @@ namespace Eagle._Components.Public
         {
             return EventOps.Wait(
                 interpreter, @event, waitMicroseconds, readyMicroseconds,
-                timeout, strict, noCancel, noGlobalCancel, ref error);
+                timeout, noWindows, noCancel, noGlobalCancel, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3706,6 +3812,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if SHELL
+        public static bool? WriteOptions(
+            IInteractiveHost interactiveHost, /* in */
+            IEnumerable<string> options,      /* in */
+            int perLine,                      /* in */
+            bool newLine                      /* in */
+            )
+        {
+            return HelpOps.WriteOptions(
+                interactiveHost, options, perLine, newLine);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode WriteViaIExecute(
             Interpreter interpreter,
             string commandName, /* NOTE: Almost always null, for [puts]. */
@@ -3747,6 +3868,50 @@ namespace Eagle._Components.Public
             )
         {
             return FormatOps.TraceException(exception);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FormatPluginName(
+            IPluginData pluginData,
+            bool wrap
+            )
+        {
+            return FormatOps.PluginName(pluginData, wrap);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FormatCommandLogEntry(
+            Interpreter interpreter,
+            IPlugin plugin,
+            IClientData clientData,
+            ArgumentList arguments,
+            int indentSpaces,
+            bool allowNewLines
+            )
+        {
+            return FormatOps.CommandLogEntry(
+                interpreter, plugin, clientData, arguments,
+                indentSpaces, allowNewLines);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FormatDisplayString(
+            string value
+            )
+        {
+            return FormatOps.DisplayString(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static object FormatMaybeNull(
+            object value
+            )
+        {
+            return FormatOps.MaybeNull(value);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3871,20 +4036,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        [Obsolete()]
+        [Obsolete()] /* NOTE: Lack of priority. */
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void DebugTrace(
             string message,
             string category
             )
         {
-            TraceOps.DebugTrace(message, category,
+            TraceOps.DebugTraceAlways(message, category,
                 TraceOps.GetTracePriority() | TracePriority.External);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        [Obsolete()]
+        [Obsolete()] /* NOTE: Lack of priority. */
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void DebugTrace(
             long threadId,
@@ -3892,7 +4057,7 @@ namespace Eagle._Components.Public
             string category
             )
         {
-            TraceOps.DebugTrace(threadId, message, category,
+            TraceOps.DebugTraceAlways(threadId, message, category,
                 TraceOps.GetTracePriority() | TracePriority.External);
         }
 
@@ -3907,7 +4072,7 @@ namespace Eagle._Components.Public
             int skipFrames
             )
         {
-            TraceOps.DebugTrace(interpreter, message, category,
+            TraceOps.DebugTraceAlways(interpreter, message, category,
                 priority | TracePriority.External, skipFrames);
         }
 
@@ -3920,7 +4085,7 @@ namespace Eagle._Components.Public
             TracePriority priority
             )
         {
-            TraceOps.DebugTrace(message, category,
+            TraceOps.DebugTraceAlways(message, category,
                 priority | TracePriority.External);
         }
 
@@ -3933,7 +4098,7 @@ namespace Eagle._Components.Public
             TracePriority priority
             )
         {
-            TraceOps.DebugTrace(exception, category,
+            TraceOps.DebugTraceAlways(exception, category,
                 priority | TracePriority.External);
         }
 
@@ -3948,7 +4113,7 @@ namespace Eagle._Components.Public
             int skipFrames
             )
         {
-            TraceOps.DebugTrace(interpreter, exception, category,
+            TraceOps.DebugTraceAlways(interpreter, exception, category,
                 priority | TracePriority.External, skipFrames);
         }
 
@@ -3962,7 +4127,7 @@ namespace Eagle._Components.Public
             TracePriority priority
             )
         {
-            TraceOps.DebugTrace(threadId, message, category,
+            TraceOps.DebugTraceAlways(threadId, message, category,
                 priority | TracePriority.External);
         }
 
@@ -4463,7 +4628,8 @@ namespace Eagle._Components.Public
             TimeoutType timeoutType
             ) /* SAFE-ON-DISPOSE */
         {
-            return ThreadOps.GetTimeout(interpreter, timeout, timeoutType);
+            return ThreadOps.GetTimeout(
+                interpreter, timeout, timeoutType | TimeoutType.External);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4710,7 +4876,7 @@ namespace Eagle._Components.Public
 
         public static string NullObjectName()
         {
-            return Vars.Core.Null;
+            return _Object.Null;
         }
 
         ///////////////////////////////////////////////////////////////////////

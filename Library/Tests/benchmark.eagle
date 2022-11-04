@@ -842,7 +842,7 @@ if {[isEagle]} then {
     #
     if {[llength [info commands object]] > 0} then {
       if {[info exists ::memory(thread)]} then {
-        joinThread $::memory(thread) 2000; # NOTE: Wait nicely for exit.
+        joinThread $::memory(thread) effective; # NOTE: Wait nicely for exit.
         cleanupThread $::memory(thread); # NOTE: Forcibly cleanup.
       }
     }

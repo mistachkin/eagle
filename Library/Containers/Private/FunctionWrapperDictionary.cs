@@ -42,6 +42,7 @@ namespace Eagle._Containers.Private
             bool notHasAll,
             string pattern,
             bool noCase,
+            bool full,
             ref StringList list,
             ref Result error
             )
@@ -55,7 +56,27 @@ namespace Eagle._Containers.Private
             if ((hasFlags == FunctionFlags.None) &&
                 (notHasFlags == FunctionFlags.None))
             {
-                inputList = new StringList(this.Keys);
+                if (full)
+                {
+                    inputList = new StringList();
+
+                    foreach (KeyValuePair<string, _Wrappers.Function> pair in this)
+                    {
+                        IFunction function = pair.Value;
+
+                        if (function == null)
+                            continue;
+
+                        inputList.Add(StringList.MakeList(
+                            function.Arguments.ToString(),
+                            function.Flags.ToString(),
+                            pair.Key));
+                    }
+                }
+                else
+                {
+                    inputList = new StringList(this.Keys);
+                }
             }
             else
             {
@@ -75,7 +96,17 @@ namespace Eagle._Containers.Private
                         ((notHasFlags == FunctionFlags.None) ||
                             !FlagOps.HasFlags(flags, notHasFlags, notHasAll)))
                     {
-                        inputList.Add(pair.Key);
+                        if (full)
+                        {
+                            inputList.Add(StringList.MakeList(
+                                function.Arguments.ToString(),
+                                function.Flags.ToString(),
+                                pair.Key));
+                        }
+                        else
+                        {
+                            inputList.Add(pair.Key);
+                        }
                     }
                 }
             }

@@ -62,8 +62,7 @@ namespace Eagle._Functions
                         {
                             try
                             {
-                                value = Interpreter.FixIntermediatePrecision(
-                                    Math.Cos(doubleValue));
+                                value = Math.Cos(doubleValue);
                             }
                             catch (Exception e)
                             {

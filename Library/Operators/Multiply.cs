@@ -74,13 +74,11 @@ namespace Eagle._Operators
                             {
                                 if (operand1.IsDouble())
                                 {
-                                    value = Interpreter.FixIntermediatePrecision(
-                                        (double)operand1.Value * (double)operand2.Value);
+                                    value = ((double)operand1.Value * (double)operand2.Value);
                                 }
                                 else if (operand1.IsDecimal())
                                 {
-                                    value = Interpreter.FixIntermediatePrecision(
-                                        (decimal)operand1.Value * (decimal)operand2.Value);
+                                    value = ((decimal)operand1.Value * (decimal)operand2.Value);
                                 }
                                 else if (operand1.IsWideInteger())
                                 {

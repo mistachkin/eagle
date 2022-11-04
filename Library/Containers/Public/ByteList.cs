@@ -75,7 +75,7 @@ namespace Eagle._Containers.Public
             : this(collection)
         {
             if (reverse)
-                Reverse();
+                Reverse(); /* O(N) */
         }
 
         ///////////////////////////////////////////////////////////////////////

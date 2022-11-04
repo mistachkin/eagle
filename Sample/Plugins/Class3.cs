@@ -379,7 +379,8 @@ namespace Sample
 
             try
             {
-                interpreter.TryLock(ref locked); /* TRANSACTIONAL */
+                interpreter.TryLockWithWait(
+                    ref locked); /* TRANSACTIONAL */
 
                 if (locked)
                 {
@@ -418,7 +419,8 @@ namespace Sample
             }
             finally
             {
-                interpreter.ExitLock(ref locked); /* TRANSACTIONAL */
+                interpreter.ExitLock(
+                    ref locked); /* TRANSACTIONAL */
             }
 
             return ReturnCode.Error;
@@ -487,7 +489,8 @@ namespace Sample
 
             try
             {
-                interpreter.TryLock(ref locked); /* TRANSACTIONAL */
+                interpreter.TryLockWithWait(
+                    ref locked); /* TRANSACTIONAL */
 
                 if (locked)
                 {
@@ -526,7 +529,8 @@ namespace Sample
             }
             finally
             {
-                interpreter.ExitLock(ref locked); /* TRANSACTIONAL */
+                interpreter.ExitLock(
+                    ref locked); /* TRANSACTIONAL */
             }
 
             return ReturnCode.Error;
@@ -592,7 +596,8 @@ namespace Sample
 
             try
             {
-                interpreter.TryLock(ref locked); /* TRANSACTIONAL */
+                interpreter.TryLockWithWait(
+                    ref locked); /* TRANSACTIONAL */
 
                 if (locked)
                 {
@@ -631,7 +636,8 @@ namespace Sample
             }
             finally
             {
-                interpreter.ExitLock(ref locked); /* TRANSACTIONAL */
+                interpreter.ExitLock(
+                    ref locked); /* TRANSACTIONAL */
             }
 
             return ReturnCode.Error;

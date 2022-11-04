@@ -26,7 +26,11 @@ REM SET __ECHO2=ECHO
 REM SET __ECHO3=ECHO
 IF NOT DEFINED _AECHO (SET _AECHO=REM)
 IF NOT DEFINED _CECHO (SET _CECHO=REM)
+IF NOT DEFINED _CECHO2 (SET _CECHO2=REM)
+IF NOT DEFINED _CECHO3 (SET _CECHO3=REM)
 IF NOT DEFINED _VECHO (SET _VECHO=REM)
+
+CALL :fn_UnsetVariable BREAK
 
 SET APPEND=^>^>
 SET _CAPPEND=^^^>^^^>
@@ -35,6 +39,10 @@ IF DEFINED __ECHO SET APPEND=^^^>^^^>
 SET PIPE=^|
 SET _CPIPE=^^^|
 IF DEFINED __ECHO SET PIPE=^^^|
+
+SET NULERR=2^>NUL
+SET _CNULERR=2^^^>NUL
+IF DEFINED __ECHO SET NULERR=2^^^>NUL
 
 %_AECHO% Running %0 %*
 
@@ -126,6 +134,7 @@ IF DEFINED MINBUILD (
   SET NONETFX471=1
   SET NONETFX472=1
   SET NONETFX48=1
+  SET NONETFX481=1
   SET NOBARE=1
   SET NOLEAN=1
   SET NODATABASE=1
@@ -151,7 +160,9 @@ IF DEFINED NONETFX40 (
                 IF DEFINED NONETFX471 (
                   IF DEFINED NONETFX472 (
                     IF DEFINED NONETFX48 (
-                      SET NOPACKAGE=1
+                      IF DEFINED NONETFX481 (
+                        SET NOPACKAGE=1
+                      )
                     )
                   )
                 )
@@ -164,26 +175,46 @@ IF DEFINED NONETFX40 (
   )
 )
 
-IF NOT DEFINED HASHBASES (
-  SET HASHBASES=EagleSource EagleSetup EagleBinary EagleRuntime EagleCore
+IF NOT DEFINED HASHBINSBASES (
+  SET HASHBINSBASES=Eagle Hippogriff Plugin Sample Spilornis TclSample
 
   IF NOT DEFINED NOPACKAGE (
-    CALL :fn_AppendVariable HASHBASES " GarudaSetup GarudaBinary"
-    CALL :fn_AppendVariable HASHBASES " GarudaRuntime GarudaCore"
+    CALL :fn_AppendVariable HASHBINSBASES " Garuda"
+  )
+
+  IF DEFINED EXTRA (
+    CALL :fn_AppendVariable HASHBINSBASES " Badge Harpy"
+  )
+)
+
+%_VECHO% HashBinsBases = '%HASHBINSBASES%'
+
+IF NOT DEFINED HASHPKGSBASES (
+  SET HASHPKGSBASES=EagleSource EagleSetup EagleBinary EagleRuntime EagleCore
+
+  IF NOT DEFINED NOPACKAGE (
+    CALL :fn_AppendVariable HASHPKGSBASES " GarudaSetup GarudaBinary"
+    CALL :fn_AppendVariable HASHPKGSBASES " GarudaRuntime GarudaCore"
   )
 
   IF NOT DEFINED NONUGET (
-    CALL :fn_AppendVariable HASHBASES " Eagle."
+    CALL :fn_AppendVariable HASHPKGSBASES " Eagle."
   )
 )
 
-%_VECHO% HashBases = '%HASHBASES%'
+%_VECHO% HashPkgsBases = '%HASHPKGSBASES%'
 
-IF NOT DEFINED HASHEXTS (
-  SET HASHEXTS=asc exe exe.asc nupkg rar rar.asc signed.nupkg txt zip
+IF NOT DEFINED HASHBINSEXTS (
+  SET HASHBINSEXTS=dll exe pdb
 )
 
-%_VECHO% HashExts = '%HASHEXTS%'
+%_VECHO% HashBinsExts = '%HASHBINSEXTS%'
+
+IF NOT DEFINED HASHPKGSEXTS (
+  SET HASHPKGSEXTS=asc exe exe.asc nupkg rar rar.asc signed.nupkg txt zip
+)
+
+%_VECHO% HashPkgsExts = '%HASHPKGSEXTS%'
 
 IF DEFINED MANAGEDDLLIMAGEFILES GOTO skip_managedDllImageFiles
 
@@ -194,7 +225,7 @@ SET MANAGEDDLLIMAGEFILES=%MANAGEDDLLIMAGEFILES% EagleTasks.dll
 SET MANAGEDDLLIMAGEFILES=%MANAGEDDLLIMAGEFILES% EagleShell.dll
 SET MANAGEDDLLIMAGEFILES=%MANAGEDDLLIMAGEFILES% Eagle.Eye.dll
 
-IF NOT DEFINED NOEXTRA (
+IF DEFINED EXTRA (
   SET MANAGEDDLLIMAGEFILES=%MANAGEDDLLIMAGEFILES% Harpy.Basic.dll Badge.Basic.dll
 )
 
@@ -262,6 +293,7 @@ SET NETFX47_SUFFIX=NetFx47
 SET NETFX471_SUFFIX=NetFx471
 SET NETFX472_SUFFIX=NetFx472
 SET NETFX48_SUFFIX=NetFx48
+SET NETFX481_SUFFIX=NetFx481
 SET BARE_SUFFIX=Bare
 SET LEAN_SUFFIX=LeanAndMean
 SET DATABASE_SUFFIX=Database
@@ -282,6 +314,7 @@ SET UNIX_SUFFIX=MonoOnUnix
 %_VECHO% NetFx471Suffix = '%NETFX471_SUFFIX%'
 %_VECHO% NetFx472Suffix = '%NETFX472_SUFFIX%'
 %_VECHO% NetFx48Suffix = '%NETFX48_SUFFIX%'
+%_VECHO% NetFx481Suffix = '%NETFX481_SUFFIX%'
 %_VECHO% BareSuffix = '%BARE_SUFFIX%'
 %_VECHO% LeanSuffix = '%LEAN_SUFFIX%'
 %_VECHO% DatabaseSuffix = '%DATABASE_SUFFIX%'
@@ -552,6 +585,25 @@ IF NOT DEFINED NETFX48_BUILD_CONFIGURATION (
 
 %_VECHO% NetFx48BuildConfiguration = '%NETFX48_BUILD_CONFIGURATION%'
 
+IF NOT DEFINED NETFX481_CONFIGURATION (
+  %_AECHO% No "%NETFX481_SUFFIX%" configuration specified, using default...
+  SET NETFX481_CONFIGURATION=%CONFIGURATION%
+)
+
+%_VECHO% NetFx481Configuration = '%NETFX481_CONFIGURATION%'
+
+IF NOT DEFINED NETFX481_BUILD_CONFIGURATION (
+  %_AECHO% No "%NETFX481_SUFFIX%" build configuration specified, using default...
+
+  IF NOT DEFINED NOPACKAGE (
+    SET NETFX481_BUILD_CONFIGURATION=%NETFX481_CONFIGURATION%All
+  ) ELSE (
+    SET NETFX481_BUILD_CONFIGURATION=%NETFX481_CONFIGURATION%
+  )
+)
+
+%_VECHO% NetFx481BuildConfiguration = '%NETFX481_BUILD_CONFIGURATION%'
+
 IF NOT DEFINED BARE_CONFIGURATION (
   %_AECHO% No "%BARE_SUFFIX%" configuration specified, using default...
   SET BARE_CONFIGURATION=%CONFIGURATION%
@@ -728,7 +780,11 @@ IF NOT DEFINED NONETFX40 (
                     IF NOT DEFINED NONETFX48 (
                       SET GARUDA_DLL=%ROOT%\bin\%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%\Garuda.dll
                     ) ELSE (
-                      CALL :fn_UnsetVariable GARUDA_DLL
+                      IF NOT DEFINED NONETFX481 (
+                        SET GARUDA_DLL=%ROOT%\bin\%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%\Garuda.dll
+                      ) ELSE (
+                        CALL :fn_UnsetVariable GARUDA_DLL
+                      )
                     )
                   )
                 )
@@ -802,6 +858,16 @@ SET FOSSIL_EXE=%FOSSIL_EXE:\\=\%
 
 :no_eagleFossilDir
 
+IF NOT DEFINED EagleHashFileDir (
+  SET HASH_FILE_EXE=sha256sum.exe
+  GOTO no_eagleHashFileDir
+)
+
+SET HASH_FILE_EXE=%EagleHashDir%\sha256sum.exe
+SET HASH_FILE_EXE=%HASH_FILE_EXE:\\=\%
+
+:no_eagleHashFileDir
+
 IF NOT DEFINED EagleNuGetDir (
   SET NUGET_EXE=NuGet4.exe
   GOTO no_eagleNuGetDir
@@ -872,6 +938,21 @@ IF DEFINED EagleFossilDir (
   )
 ) ELSE (
   CALL :fn_VerifyFileAlongPath %FOSSIL_EXE%
+
+  IF ERRORLEVEL 1 (
+    GOTO usage
+  )
+)
+
+IF DEFINED EagleHashFileDir (
+  IF EXIST "%HASH_FILE_EXE%" (
+    %_AECHO% The file "%HASH_FILE_EXE%" does exist.
+  ) ELSE (
+    ECHO The file "%HASH_FILE_EXE%" does not exist.
+    GOTO usage
+  )
+) ELSE (
+  CALL :fn_VerifyFileAlongPath %HASH_FILE_EXE%
 
   IF ERRORLEVEL 1 (
     GOTO usage
@@ -1036,6 +1117,11 @@ SET SRCBINDIR48=%SRCBINDIR48:\\=\%
 
 %_VECHO% SrcBinDir48 = '%SRCBINDIR48%'
 
+SET SRCBINDIR481=%SRCBINDIR%\%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%\bin
+SET SRCBINDIR481=%SRCBINDIR481:\\=\%
+
+%_VECHO% SrcBinDir481 = '%SRCBINDIR481%'
+
 SET BARESRCBINDIR=%SRCBINDIR%\%BARE_CONFIGURATION%%BARE_SUFFIX%\bin
 SET BARESRCBINDIR=%BARESRCBINDIR:\\=\%
 
@@ -1069,135 +1155,142 @@ REM       of appending it.
 REM
 IF DEFINED PATHSRCBINDIR (
   %_AECHO% Using pre-existing build output directory for PATH...
-  GOTO skip_OutputDirPath18
+  GOTO skip_OutputDirPath19
 )
 
 IF DEFINED NONETFX20 GOTO skip_OutputDirPath2
 %_AECHO% Using "%NETFX20_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR20%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath2
 
 IF DEFINED NONETFX35 GOTO skip_OutputDirPath3
 %_AECHO% Using "%NETFX35_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR35%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath3
 
 IF DEFINED NONETFX40 GOTO skip_OutputDirPath4
 %_AECHO% Using "%NETFX40_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR40%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath4
 
 IF DEFINED NONETFX45 GOTO skip_OutputDirPath5
 %_AECHO% Using "%NETFX45_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR45%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath5
 
 IF DEFINED NONETFX451 GOTO skip_OutputDirPath6
 %_AECHO% Using "%NETFX451_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR451%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath6
 
 IF DEFINED NONETFX452 GOTO skip_OutputDirPath7
 %_AECHO% Using "%NETFX452_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR452%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath7
 
 IF DEFINED NONETFX46 GOTO skip_OutputDirPath8
 %_AECHO% Using "%NETFX46_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR46%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath8
 
 IF DEFINED NONETFX461 GOTO skip_OutputDirPath9
 %_AECHO% Using "%NETFX461_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR461%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath9
 
 IF DEFINED NONETFX462 GOTO skip_OutputDirPath10
 %_AECHO% Using "%NETFX462_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR462%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath10
 
 IF DEFINED NONETFX47 GOTO skip_OutputDirPath11
 %_AECHO% Using "%NETFX47_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR47%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath11
 
 IF DEFINED NONETFX471 GOTO skip_OutputDirPath12
 %_AECHO% Using "%NETFX471_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR471%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath12
 
 IF DEFINED NONETFX472 GOTO skip_OutputDirPath13
 %_AECHO% Using "%NETFX472_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR472%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath13
 
-IF DEFINED NONETFX48 GOTO skip_OutputDirPath13
+IF DEFINED NONETFX48 GOTO skip_OutputDirPath14
 %_AECHO% Using "%NETFX48_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%SRCBINDIR48%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath14
+
+IF DEFINED NONETFX481 GOTO skip_OutputDirPath15
+%_AECHO% Using "%NETFX481_SUFFIX%" build output directory for PATH...
+SET PATHSRCBINDIR=%SRCBINDIR481%
+GOTO skip_OutputDirPath19
+
+:skip_OutputDirPath15
 
 REM
 REM NOTE: The "Bare" build configuration is unsuitable for use during the
 REM       release process; therefore, its use is manually disabled here.
 REM
-REM IF DEFINED NOBARE GOTO skip_OutputDirPath15
+REM IF DEFINED NOBARE GOTO skip_OutputDirPath16
 REM %_AECHO% Using "%BARE_SUFFIX%" build output directory for PATH...
 REM SET PATHSRCBINDIR=%BARESRCBINDIR%
-REM GOTO skip_OutputDirPath18
+REM GOTO skip_OutputDirPath19
 REM
-REM :skip_OutputDirPath15
+REM :skip_OutputDirPath16
 
-IF DEFINED NOLEAN GOTO skip_OutputDirPath16
+IF DEFINED NOLEAN GOTO skip_OutputDirPath17
 %_AECHO% Using "%LEAN_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%LEANSRCBINDIR%
-GOTO skip_OutputDirPath18
-
-:skip_OutputDirPath16
-
-IF DEFINED NODATABASE GOTO skip_OutputDirPath17
-%_AECHO% Using "%DATABASE_SUFFIX%" build output directory for PATH...
-SET PATHSRCBINDIR=%DATABASESRCBINDIR%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 :skip_OutputDirPath17
 
-IF DEFINED NOUNIX GOTO skip_OutputDirPath18
+IF DEFINED NODATABASE GOTO skip_OutputDirPath18
+%_AECHO% Using "%DATABASE_SUFFIX%" build output directory for PATH...
+SET PATHSRCBINDIR=%DATABASESRCBINDIR%
+GOTO skip_OutputDirPath19
+
+:skip_OutputDirPath18
+
+IF DEFINED NOUNIX GOTO skip_OutputDirPath19
 %_AECHO% Using "%UNIX_SUFFIX%" build output directory for PATH...
 SET PATHSRCBINDIR=%UNIXSRCBINDIR%
-GOTO skip_OutputDirPath18
+GOTO skip_OutputDirPath19
 
 ECHO.
 ECHO WARNING: No suitable build output directory could be added to the PATH.
 ECHO.
 
-:skip_OutputDirPath18
+:skip_OutputDirPath19
 
 %_VECHO% PathSrcBinDir = '%PATHSRCBINDIR%'
 
@@ -1303,6 +1396,7 @@ IF NOT DEFINED NOCLEAN (
   REM
   SET NOFLIGHT=1
 
+  %_CECHO3% CALL "%TOOLS%\clean.bat"
   %__ECHO3% CALL "%TOOLS%\clean.bat"
 
   IF ERRORLEVEL 1 (
@@ -1337,6 +1431,11 @@ IF DEFINED BUILD_NUGET (
   GOTO build_NuGet
 )
 
+IF DEFINED SIGN_NUGET (
+  %_AECHO% Going directly to the NuGet signing phase...
+  GOTO sign_NuGet
+)
+
 IF DEFINED VERIFY_RELEASE (
   %_AECHO% Going directly to the verify phase...
   GOTO verify_Release
@@ -1363,8 +1462,8 @@ REM       are still run for the more esoteric build configurations ^(e.g. Mono,
 REM       bare-bones, lean-and-mean, etc)^.  This assumes the machine running
 REM       the tests has all released versions of the .NET Framework installed.
 REM       Therefore, testing any 4.x version actually results in testing with
-REM       the latest in-place update of 4.x ^(e.g. 4.8^).  Furthermore, 3.5 is
-REM       more-or-less the same as 2.0, for our testing purposes.
+REM       the latest in-place update of 4.x ^(e.g. 4.8.1^).  Furthermore, 3.5
+REM       is more-or-less the same as 2.0, for our testing purposes.
 REM
 IF DEFINED MINTEST (
   %_AECHO% Skipping tests for "extra" build configurations...
@@ -1383,6 +1482,7 @@ IF DEFINED MINTEST (
   SET NETFX471_NOTEST=1
   SET NETFX472_NOTEST=1
   REM SET NETFX48_NOTEST=1
+  REM SET NETFX481_NOTEST=1
   REM SET BARE_NOTEST=1
   REM SET LEAN_NOTEST=1
   REM SET DATABASE_NOTEST=1
@@ -2500,6 +2600,85 @@ IF NOT DEFINED NOTEST (
 %_VECHO% NetFx48Flags = '%NETFX48_FLAGS%'
 
 REM ****************************************************************************
+REM *********************** NetFx481 Build Configuration ************************
+REM ****************************************************************************
+
+SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleBuildType=%NETFX481_SUFFIX%
+SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleTestType=%NETFX481_SUFFIX%
+
+IF DEFINED NOSIGN (
+  REM
+  REM NOTE: When signing is totally disabled, we need to skip all SignCode
+  REM       and SignTool related command execution in the targets file.
+  REM
+  SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleAuthenticodeSign=false /property:EagleAuthenticodeSign32BitOnly=false
+)
+
+IF DEFINED PATCHLEVEL (
+  REM
+  REM NOTE: If the patch level has been manually set, add the associated
+  REM       build property.
+  REM
+  SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EaglePatchLevel=true
+)
+
+IF DEFINED ASSEMBLY_DATETIME (
+  REM
+  REM NOTE: If the assembly date/time has been manually set, add the
+  REM       associated build property.
+  REM
+  SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleAssemblyDateTime=true
+)
+
+IF DEFINED OFFICIAL (
+  REM
+  REM NOTE: For an official release build, set the necessary build property.
+  REM
+  SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleOfficial=true
+)
+
+IF DEFINED STABLE (
+  REM
+  REM NOTE: For a stable release build, set the necessary build property.
+  REM
+  SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleStable=true
+)
+
+REM
+REM HACK: Evidently, using MSBuild with Visual Studio 2019 requires some
+REM       extra magic to make it recognize the "v142" platform toolset.
+REM       ^(e.g. the Garuda and Spilornis projects for Visual Studio 2019^).
+REM
+SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:VisualStudioVersion=16.0
+
+IF DEFINED STRONGNAMETAG_ATTRIBUTE (
+  REM
+  REM NOTE: Technically, the EagleStrongNamePrefix MSBuild property and the
+  REM       STRONGNAMETAG_ATTRIBUTE environment variable are related purely
+  REM       as a matter of convention and need not contain the same value.
+  REM
+  SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleStrongNamePrefix=%STRONGNAMETAG_ATTRIBUTE%
+)
+
+IF NOT DEFINED NOTEST (
+  IF NOT DEFINED NETFX481_NOTEST (
+    SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleRunTests=true
+  )
+)
+
+IF NOT DEFINED NOTEST (
+  IF NOT DEFINED NETFX481_NOTEST (
+    IF NOT DEFINED NOTESTALL (
+      SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleTestAll=true
+    ) ELSE (
+      SET NETFX481_FLAGS=%NETFX481_FLAGS% /property:EagleTestAll=false
+    )
+  )
+)
+
+%_VECHO% NetFx481Flags = '%NETFX481_FLAGS%'
+
+REM ****************************************************************************
 REM ************************* Bare Build Configuration *************************
 REM ****************************************************************************
 
@@ -2814,6 +2993,7 @@ IF NOT DEFINED NOATTRIBUTE (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %RELEASE_ATTRIBUTE% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyReleaseMode "%%F"
         %__ECHO% ECHO %RELEASE_ATTRIBUTE% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyReleaseMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -2835,6 +3015,7 @@ IF NOT DEFINED NOATTRIBUTE (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %STRONGNAMETAG_ATTRIBUTE% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyStrongNameTagMode "%%F"
         %__ECHO% ECHO %STRONGNAMETAG_ATTRIBUTE% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyStrongNameTagMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -2861,6 +3042,7 @@ IF NOT DEFINED NOSOURCEID (
     REM       is fine.
     REM
     FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" SourceIdMode "%%F"
       %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" SourceIdMode "%%F"
 
       IF ERRORLEVEL 1 (
@@ -2873,6 +3055,7 @@ IF NOT DEFINED NOSOURCEID (
   IF NOT DEFINED NOPACKAGE (
     FOR %%T IN (%PACKAGE_TAGFILES%) DO (
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%\Native\Package\%%T" 2^> NUL') DO (
+        %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" SourceIdMode "%%F"
         %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" SourceIdMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -2963,6 +3146,11 @@ IF DEFINED BUILD_NETFX48 (
   GOTO build_NetFx48
 )
 
+IF DEFINED BUILD_NETFX481 (
+  %_AECHO% Going directly to the .NET Framework 4.8.1 build phase...
+  GOTO build_NetFx481
+)
+
 IF DEFINED BUILD_BARE (
   %_AECHO% Going directly to the "Bare" build phase...
   GOTO build_Bare
@@ -3026,6 +3214,10 @@ IF NOT DEFINED NONETSTANDARD20 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   REM
   REM HACK: Cannot use the "Rebuild" target with the .NET Core build, because
   REM       it can cause the output files to be deleted after they are built.
@@ -3039,6 +3231,7 @@ IF NOT DEFINED NONETSTANDARD20 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETSTANDARD20_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETSTANDARD20_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -3049,6 +3242,7 @@ IF NOT DEFINED NONETSTANDARD20 (
     )
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETSTANDARD20_BUILD_CONFIGURATION%" %NETSTANDARD20_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETSTANDARD20_BUILD_CONFIGURATION%" %NETSTANDARD20_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -3063,10 +3257,14 @@ IF NOT DEFINED NONETSTANDARD20 (
   REM       this would not be necessary, i.e. if there was some mechanism
   REM       to surgically disable the _CreateAppHost MSBuild target.
   REM
-  DEL /Q /S "%ROOT%\bin\%NETSTANDARD20_CONFIGURATION%%NETSTANDARD20_SUFFIX%\EagleShell.exe" 2>NUL
+  %__ECHO% DEL /Q /S "%ROOT%\bin\%NETSTANDARD20_CONFIGURATION%%NETSTANDARD20_SUFFIX%\EagleShell.exe" %NULERR%
   CALL :fn_ResetErrorLevel
 
   CALL :fn_UnsetVariable TARGET
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
+  )
 
   IF NOT DEFINED ENTERPRISE (
     CALL :fn_UnsetVariable NOENTERPRISE
@@ -3158,6 +3356,10 @@ IF NOT DEFINED NONETSTANDARD21 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   REM
   REM HACK: Cannot use the "Rebuild" target with the .NET Core build, because
   REM       it can cause the output files to be deleted after they are built.
@@ -3171,6 +3373,7 @@ IF NOT DEFINED NONETSTANDARD21 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETSTANDARD21_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETSTANDARD21_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -3181,6 +3384,7 @@ IF NOT DEFINED NONETSTANDARD21 (
     )
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETSTANDARD21_BUILD_CONFIGURATION%" %NETSTANDARD21_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETSTANDARD21_BUILD_CONFIGURATION%" %NETSTANDARD21_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -3195,10 +3399,14 @@ IF NOT DEFINED NONETSTANDARD21 (
   REM       this would not be necessary, i.e. if there was some mechanism
   REM       to surgically disable the _CreateAppHost MSBuild target.
   REM
-  DEL /Q /S "%ROOT%\bin\%NETSTANDARD21_CONFIGURATION%%NETSTANDARD21_SUFFIX%\EagleShell.exe" 2>NUL
+  %__ECHO% DEL /Q /S "%ROOT%\bin\%NETSTANDARD21_CONFIGURATION%%NETSTANDARD21_SUFFIX%\EagleShell.exe" %NULERR%
   CALL :fn_ResetErrorLevel
 
   CALL :fn_UnsetVariable TARGET
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
+  )
 
   IF NOT DEFINED ENTERPRISE (
     CALL :fn_UnsetVariable NOENTERPRISE
@@ -3290,6 +3498,10 @@ IF NOT DEFINED NONETFX20 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -3297,6 +3509,7 @@ IF NOT DEFINED NONETFX20 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX20_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX20_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -3312,6 +3525,7 @@ IF NOT DEFINED NONETFX20 (
     SET UTILITYONLY=1
     SET PLATFORM=Win32
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX20_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX20_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3321,6 +3535,7 @@ IF NOT DEFINED NONETFX20 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX20_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX20_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3333,11 +3548,16 @@ IF NOT DEFINED NONETFX20 (
     CALL :fn_UnsetVariable EagleConfigurationSuffix
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX20_CONFIGURATION%" %NETFX20_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX20_CONFIGURATION%" %NETFX20_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
     ECHO Building "%NETFX20_CONFIGURATION%%NETFX20_SUFFIX%" binaries failed.
     GOTO errors
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -3455,6 +3675,7 @@ IF NOT DEFINED NONETFX35 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX35_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX35_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -3470,6 +3691,7 @@ IF NOT DEFINED NONETFX35 (
     SET UTILITYONLY=1
     SET PLATFORM=Win32
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX35_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX35_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3479,6 +3701,7 @@ IF NOT DEFINED NONETFX35 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX35_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX35_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3491,6 +3714,7 @@ IF NOT DEFINED NONETFX35 (
     CALL :fn_UnsetVariable EagleConfigurationSuffix
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX35_CONFIGURATION%" %NETFX35_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX35_CONFIGURATION%" %NETFX35_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -3592,6 +3816,10 @@ IF NOT DEFINED NONETFX40 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -3599,6 +3827,7 @@ IF NOT DEFINED NONETFX40 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX40_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX40_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -3621,6 +3850,7 @@ IF NOT DEFINED NONETFX40 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX40_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX40_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -3631,6 +3861,7 @@ IF NOT DEFINED NONETFX40 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX40_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX40_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3642,6 +3873,7 @@ IF NOT DEFINED NONETFX40 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX40_BUILD_CONFIGURATION%" %NETFX40_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX40_BUILD_CONFIGURATION%" %NETFX40_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -3660,6 +3892,7 @@ IF NOT DEFINED NONETFX40 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX40_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX40_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3669,6 +3902,10 @@ IF NOT DEFINED NONETFX40 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -3761,6 +3998,10 @@ IF NOT DEFINED NONETFX45 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -3768,6 +4009,7 @@ IF NOT DEFINED NONETFX45 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX45_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX45_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -3790,6 +4032,7 @@ IF NOT DEFINED NONETFX45 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -3800,6 +4043,7 @@ IF NOT DEFINED NONETFX45 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3809,6 +4053,7 @@ IF NOT DEFINED NONETFX45 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3820,6 +4065,7 @@ IF NOT DEFINED NONETFX45 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX45_BUILD_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX45_BUILD_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -3838,6 +4084,7 @@ IF NOT DEFINED NONETFX45 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3847,6 +4094,7 @@ IF NOT DEFINED NONETFX45 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX45_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3856,6 +4104,10 @@ IF NOT DEFINED NONETFX45 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -3948,6 +4200,10 @@ IF NOT DEFINED NONETFX451 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -3955,6 +4211,7 @@ IF NOT DEFINED NONETFX451 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX451_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX451_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -3977,6 +4234,7 @@ IF NOT DEFINED NONETFX451 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -3987,6 +4245,7 @@ IF NOT DEFINED NONETFX451 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -3996,6 +4255,7 @@ IF NOT DEFINED NONETFX451 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4007,6 +4267,7 @@ IF NOT DEFINED NONETFX451 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX451_BUILD_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX451_BUILD_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -4025,6 +4286,7 @@ IF NOT DEFINED NONETFX451 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4034,6 +4296,7 @@ IF NOT DEFINED NONETFX451 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX451_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4043,6 +4306,10 @@ IF NOT DEFINED NONETFX451 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -4135,6 +4402,10 @@ IF NOT DEFINED NONETFX452 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -4142,6 +4413,7 @@ IF NOT DEFINED NONETFX452 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX452_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX452_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -4164,6 +4436,7 @@ IF NOT DEFINED NONETFX452 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -4174,6 +4447,7 @@ IF NOT DEFINED NONETFX452 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4183,6 +4457,7 @@ IF NOT DEFINED NONETFX452 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4194,6 +4469,7 @@ IF NOT DEFINED NONETFX452 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX452_BUILD_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX452_BUILD_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -4212,6 +4488,7 @@ IF NOT DEFINED NONETFX452 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4221,6 +4498,7 @@ IF NOT DEFINED NONETFX452 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX452_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4230,6 +4508,10 @@ IF NOT DEFINED NONETFX452 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -4322,6 +4604,10 @@ IF NOT DEFINED NONETFX46 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -4329,6 +4615,7 @@ IF NOT DEFINED NONETFX46 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX46_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX46_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -4351,6 +4638,7 @@ IF NOT DEFINED NONETFX46 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -4361,6 +4649,7 @@ IF NOT DEFINED NONETFX46 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4370,6 +4659,7 @@ IF NOT DEFINED NONETFX46 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4381,6 +4671,7 @@ IF NOT DEFINED NONETFX46 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX46_BUILD_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX46_BUILD_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -4399,6 +4690,7 @@ IF NOT DEFINED NONETFX46 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4408,6 +4700,7 @@ IF NOT DEFINED NONETFX46 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX46_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4417,6 +4710,10 @@ IF NOT DEFINED NONETFX46 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -4509,6 +4806,10 @@ IF NOT DEFINED NONETFX461 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -4516,6 +4817,7 @@ IF NOT DEFINED NONETFX461 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX461_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX461_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -4538,6 +4840,7 @@ IF NOT DEFINED NONETFX461 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -4548,6 +4851,7 @@ IF NOT DEFINED NONETFX461 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4557,6 +4861,7 @@ IF NOT DEFINED NONETFX461 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4568,6 +4873,7 @@ IF NOT DEFINED NONETFX461 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX461_BUILD_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX461_BUILD_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -4586,6 +4892,7 @@ IF NOT DEFINED NONETFX461 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4595,6 +4902,7 @@ IF NOT DEFINED NONETFX461 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX461_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4604,6 +4912,10 @@ IF NOT DEFINED NONETFX461 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -4696,6 +5008,10 @@ IF NOT DEFINED NONETFX462 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -4703,6 +5019,7 @@ IF NOT DEFINED NONETFX462 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX462_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX462_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -4725,6 +5042,7 @@ IF NOT DEFINED NONETFX462 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -4735,6 +5053,7 @@ IF NOT DEFINED NONETFX462 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4744,6 +5063,7 @@ IF NOT DEFINED NONETFX462 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4755,6 +5075,7 @@ IF NOT DEFINED NONETFX462 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX462_BUILD_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX462_BUILD_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -4773,6 +5094,7 @@ IF NOT DEFINED NONETFX462 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4782,6 +5104,7 @@ IF NOT DEFINED NONETFX462 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX462_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4791,6 +5114,10 @@ IF NOT DEFINED NONETFX462 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -4883,6 +5210,10 @@ IF NOT DEFINED NONETFX47 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -4890,6 +5221,7 @@ IF NOT DEFINED NONETFX47 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX47_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX47_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -4912,6 +5244,7 @@ IF NOT DEFINED NONETFX47 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -4922,6 +5255,7 @@ IF NOT DEFINED NONETFX47 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4931,6 +5265,7 @@ IF NOT DEFINED NONETFX47 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4942,6 +5277,7 @@ IF NOT DEFINED NONETFX47 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX47_BUILD_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX47_BUILD_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -4960,6 +5296,7 @@ IF NOT DEFINED NONETFX47 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4969,6 +5306,7 @@ IF NOT DEFINED NONETFX47 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX47_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -4978,6 +5316,10 @@ IF NOT DEFINED NONETFX47 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -5070,6 +5412,10 @@ IF NOT DEFINED NONETFX471 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -5077,6 +5423,7 @@ IF NOT DEFINED NONETFX471 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX471_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX471_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -5099,6 +5446,7 @@ IF NOT DEFINED NONETFX471 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -5109,6 +5457,7 @@ IF NOT DEFINED NONETFX471 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5118,6 +5467,7 @@ IF NOT DEFINED NONETFX471 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5129,6 +5479,7 @@ IF NOT DEFINED NONETFX471 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX471_BUILD_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX471_BUILD_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -5147,6 +5498,7 @@ IF NOT DEFINED NONETFX471 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5156,6 +5508,7 @@ IF NOT DEFINED NONETFX471 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX471_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5165,6 +5518,10 @@ IF NOT DEFINED NONETFX471 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -5257,6 +5614,10 @@ IF NOT DEFINED NONETFX472 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -5264,6 +5625,7 @@ IF NOT DEFINED NONETFX472 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX472_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX472_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -5286,6 +5648,7 @@ IF NOT DEFINED NONETFX472 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -5296,6 +5659,7 @@ IF NOT DEFINED NONETFX472 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5305,6 +5669,7 @@ IF NOT DEFINED NONETFX472 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5316,6 +5681,7 @@ IF NOT DEFINED NONETFX472 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX472_BUILD_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX472_BUILD_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -5334,6 +5700,7 @@ IF NOT DEFINED NONETFX472 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5343,6 +5710,7 @@ IF NOT DEFINED NONETFX472 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX472_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5352,6 +5720,10 @@ IF NOT DEFINED NONETFX472 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -5444,6 +5816,10 @@ IF NOT DEFINED NONETFX48 (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -5451,6 +5827,7 @@ IF NOT DEFINED NONETFX48 (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX48_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %NETFX48_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -5473,6 +5850,7 @@ IF NOT DEFINED NONETFX48 (
     IF DEFINED NOPACKAGE (
       SET PLATFORM=Win32
 
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
       %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
 
       IF ERRORLEVEL 1 (
@@ -5483,6 +5861,7 @@ IF NOT DEFINED NONETFX48 (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5492,6 +5871,7 @@ IF NOT DEFINED NONETFX48 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5503,6 +5883,7 @@ IF NOT DEFINED NONETFX48 (
     CALL :fn_UnsetVariable UTILITYONLY
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX48_BUILD_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX48_BUILD_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -5521,6 +5902,7 @@ IF NOT DEFINED NONETFX48 (
     SET PACKAGEONLY=1
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5530,6 +5912,7 @@ IF NOT DEFINED NONETFX48 (
 
     SET PLATFORM=ARM
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX48_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5539,6 +5922,10 @@ IF NOT DEFINED NONETFX48 (
 
     CALL :fn_UnsetVariable PLATFORM
     CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -5610,6 +5997,208 @@ IF NOT DEFINED NONETFX48 (
 )
 
 REM ****************************************************************************
+REM ***************************** Build NetFx481 *******************************
+REM ****************************************************************************
+
+:build_NetFx481
+
+IF NOT DEFINED NONETFX481 (
+  SET LOGSUFFIX=%NETFX481_SUFFIX%
+  CALL :fn_ShowVariable LogSuffix LOGSUFFIX
+
+  IF NOT DEFINED NOFRAMEWORK (
+    SET NETFX481ONLY=1
+  )
+
+  IF NOT DEFINED COMMERCIAL (
+    SET NOCOMMERCIAL=1
+  )
+
+  IF NOT DEFINED ENTERPRISE (
+    SET NOENTERPRISE=1
+  )
+
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
+  IF NOT DEFINED NOBUILDINFO (
+    FOR %%T IN (%TAGFILES%) DO (
+      REM
+      REM NOTE: The TAGPATTERN environment variable may not be set and that
+      REM       is fine.
+      REM
+      FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %NETFX481_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
+        %__ECHO% ECHO %NETFX481_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
+
+        IF ERRORLEVEL 1 (
+          ECHO Updating "%%F" failed.
+          GOTO errors
+        )
+      )
+    )
+  )
+
+  IF NOT DEFINED NONATIVE (
+    SET UTILITYONLY=1
+
+    REM
+    REM NOTE: If we are going to build the Eagle Package for Tcl, then the
+    REM       Win32 platform binaries for the Eagle Native Utility Library
+    REM       will also be built; therefore, skip building it separately in
+    REM       that case.
+    REM
+    IF DEFINED NOPACKAGE (
+      SET PLATFORM=Win32
+
+      %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+      %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+
+      IF ERRORLEVEL 1 (
+        ECHO Building "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" native utility binaries for x86 failed.
+        GOTO errors
+      )
+    )
+
+    SET PLATFORM=x64
+
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+    %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+
+    IF ERRORLEVEL 1 (
+      ECHO Building "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" native utility binaries for x64 failed.
+      GOTO errors
+    )
+
+    SET PLATFORM=ARM
+
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+    %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+
+    IF ERRORLEVEL 1 (
+      ECHO Building "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" native utility binaries for ARM failed.
+      GOTO errors
+    )
+
+    CALL :fn_UnsetVariable PLATFORM
+    CALL :fn_UnsetVariable UTILITYONLY
+  )
+
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%NETFX481_BUILD_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+  %__ECHO3% CALL "%TOOLS%\build.bat" "%NETFX481_BUILD_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+
+  IF ERRORLEVEL 1 (
+    ECHO Building "%NETFX481_BUILD_CONFIGURATION%%NETFX481_SUFFIX%" binaries failed.
+    GOTO errors
+  )
+
+  REM
+  REM NOTE: Unless explicitly disabled, the Eagle Native Package for Tcl
+  REM       binaries will be built as part of this build configuration;
+  REM       however, they will only be built for the default platform,
+  REM       which is typically "Win32".  We need to make sure the other
+  REM       platforms get built as well.
+  REM
+  IF NOT DEFINED NOPACKAGE (
+    SET PACKAGEONLY=1
+    SET PLATFORM=x64
+
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+    %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+
+    IF ERRORLEVEL 1 (
+      ECHO Building "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" native package binaries for x64 failed.
+      GOTO errors
+    )
+
+    SET PLATFORM=ARM
+
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+    %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %NETFX481_FLAGS% /property:FlightType=%ARGS%
+
+    IF ERRORLEVEL 1 (
+      ECHO Building "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" native package binaries for ARM failed.
+      GOTO errors
+    )
+
+    CALL :fn_UnsetVariable PLATFORM
+    CALL :fn_UnsetVariable PACKAGEONLY
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
+  )
+
+  IF NOT DEFINED ENTERPRISE (
+    CALL :fn_UnsetVariable NOENTERPRISE
+  )
+
+  IF NOT DEFINED COMMERCIAL (
+    CALL :fn_UnsetVariable NOCOMMERCIAL
+  )
+
+  IF NOT DEFINED NOFRAMEWORK (
+    CALL :fn_UnsetVariable NETFX481ONLY
+  )
+
+  CALL :fn_UnsetVariable LOGSUFFIX
+)
+
+REM ****************************************************************************
+REM ************************** Check NetFx481 Files ****************************
+REM ****************************************************************************
+
+IF NOT DEFINED NONETFX481 (
+  FOR %%I IN (%MANAGEDIMAGEFILES%) DO (
+    FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%\bin\%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%\%%I" ^| FIND /V "Original" ^| FIND /V "Obfuscated" 2^> NUL') DO (
+      IF NOT DEFINED NOSTRONGNAME (
+        %_AECHO% Checking strong name on file "%%F"...
+        %_CECHO% "%SN_EXE%" -vf "%%F"
+        %__ECHO% "%SN_EXE%" -vf "%%F"
+
+        IF ERRORLEVEL 1 (
+          ECHO Checking strong name on file "%%F" failed.
+          GOTO errors
+        )
+      )
+
+      IF NOT DEFINED NOSIGN (
+        IF NOT DEFINED NOSIGCHECK (
+          %_AECHO% Checking signatures on file "%%F"...
+          %_CECHO% "%SIGCHECK_EXE%" "%%F" %_CPIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
+          %__ECHO% "%SIGCHECK_EXE%" "%%F" %PIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
+
+          IF ERRORLEVEL 1 (
+            ECHO Checking signatures on file "%%F" failed.
+            GOTO errors
+          )
+        )
+      )
+    )
+  )
+
+  IF NOT DEFINED NOSIGN (
+    IF NOT DEFINED NOSIGCHECK (
+      FOR %%P IN (%PLATFORMS%) DO (
+        FOR %%I IN (%NATIVEIMAGEFILES%) DO (
+          FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%\bin\%%P\%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%\%%I" 2^> NUL') DO (
+            %_AECHO% Checking signatures on file "%%F"...
+            %_CECHO% "%SIGCHECK_EXE%" "%%F" %_CPIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
+            %__ECHO% "%SIGCHECK_EXE%" "%%F" %PIPE% FINDSTR "/G:%TOOLS%\data\SigCheck.txt"
+
+            IF ERRORLEVEL 1 (
+              ECHO Checking signatures on file "%%F" failed.
+              GOTO errors
+            )
+          )
+        )
+      )
+    )
+  )
+)
+
+REM ****************************************************************************
 REM ******************************** Build Bare ********************************
 REM ****************************************************************************
 
@@ -5642,6 +6231,7 @@ IF NOT DEFINED NOBARE (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %BARE_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %BARE_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -5652,6 +6242,7 @@ IF NOT DEFINED NOBARE (
     )
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%BARE_CONFIGURATION%" %BARE_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%BARE_CONFIGURATION%" %BARE_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -5753,6 +6344,10 @@ IF NOT DEFINED NOLEAN (
     SET NOENTERPRISE=1
   )
 
+  IF NOT DEFINED EXTRA (
+    SET NOEXTRA=1
+  )
+
   IF NOT DEFINED NOBUILDINFO (
     FOR %%T IN (%TAGFILES%) DO (
       REM
@@ -5760,6 +6355,7 @@ IF NOT DEFINED NOLEAN (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %LEAN_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %LEAN_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -5775,6 +6371,7 @@ IF NOT DEFINED NOLEAN (
     SET UTILITYONLY=1
     SET PLATFORM=Win32
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %LEAN_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %LEAN_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5784,6 +6381,7 @@ IF NOT DEFINED NOLEAN (
 
     SET PLATFORM=x64
 
+    %_CECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %LEAN_FLAGS% /property:FlightType=%ARGS%
     %__ECHO3% CALL "%TOOLS%\build.bat" "%NATIVE_CONFIGURATION%" %LEAN_FLAGS% /property:FlightType=%ARGS%
 
     IF ERRORLEVEL 1 (
@@ -5796,11 +6394,16 @@ IF NOT DEFINED NOLEAN (
     CALL :fn_UnsetVariable EagleConfigurationSuffix
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%LEAN_CONFIGURATION%" %LEAN_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%LEAN_CONFIGURATION%" %LEAN_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
     ECHO Building "%LEAN_CONFIGURATION%%LEAN_SUFFIX%" binaries failed.
     GOTO errors
+  )
+
+  IF NOT DEFINED EXTRA (
+    CALL :fn_UnsetVariable NOEXTRA
   )
 
   IF NOT DEFINED ENTERPRISE (
@@ -5904,6 +6507,7 @@ IF NOT DEFINED NODATABASE (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %DATABASE_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %DATABASE_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -5914,6 +6518,7 @@ IF NOT DEFINED NODATABASE (
     )
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%DATABASE_CONFIGURATION%" %DATABASE_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%DATABASE_CONFIGURATION%" %DATABASE_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -6026,6 +6631,7 @@ IF NOT DEFINED NOUNIX (
       REM       is fine.
       REM
       FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+        %_CECHO% ECHO %UNIX_SUFFIX% %_CPIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
         %__ECHO% ECHO %UNIX_SUFFIX% %PIPE% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyTextMode "%%F"
 
         IF ERRORLEVEL 1 (
@@ -6036,6 +6642,7 @@ IF NOT DEFINED NOUNIX (
     )
   )
 
+  %_CECHO3% CALL "%TOOLS%\build.bat" "%UNIX_CONFIGURATION%" %UNIX_FLAGS% /property:FlightType=%ARGS%
   %__ECHO3% CALL "%TOOLS%\build.bat" "%UNIX_CONFIGURATION%" %UNIX_FLAGS% /property:FlightType=%ARGS%
 
   IF ERRORLEVEL 1 (
@@ -6146,6 +6753,7 @@ IF NOT DEFINED NOBAKE (
       SET VCRUNTIME=2005_SP1_MFC
     )
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX20_CONFIGURATION%%NETFX20_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX20_CONFIGURATION%%NETFX20_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6172,6 +6780,7 @@ IF NOT DEFINED NOBAKE (
       SET VCRUNTIME=2008_SP1_MFC
     )
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX35_CONFIGURATION%%NETFX35_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX35_CONFIGURATION%%NETFX35_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6198,6 +6807,7 @@ IF NOT DEFINED NOBAKE (
       SET VCRUNTIME=2010_SP1_MFC
     )
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX40_CONFIGURATION%%NETFX40_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX40_CONFIGURATION%%NETFX40_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6236,6 +6846,7 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX45_CONFIGURATION%%NETFX45_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX45_CONFIGURATION%%NETFX45_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6276,6 +6887,7 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX451_CONFIGURATION%%NETFX451_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX451_CONFIGURATION%%NETFX451_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6316,6 +6928,7 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX452_CONFIGURATION%%NETFX452_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX452_CONFIGURATION%%NETFX452_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6356,6 +6969,7 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX46_CONFIGURATION%%NETFX46_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX46_CONFIGURATION%%NETFX46_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6396,6 +7010,7 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX461_CONFIGURATION%%NETFX461_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX461_CONFIGURATION%%NETFX461_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6436,6 +7051,7 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX462_CONFIGURATION%%NETFX462_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX462_CONFIGURATION%%NETFX462_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6481,6 +7097,7 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX47_CONFIGURATION%%NETFX47_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX47_CONFIGURATION%%NETFX47_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6526,6 +7143,7 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX471_CONFIGURATION%%NETFX471_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX471_CONFIGURATION%%NETFX471_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6571,6 +7189,7 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX472_CONFIGURATION%%NETFX472_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX472_CONFIGURATION%%NETFX472_SUFFIX%"
 
     IF ERRORLEVEL 1 (
@@ -6612,10 +7231,53 @@ IF NOT DEFINED NOBAKE (
     REM
     SET INCLUDEARM=1
 
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%"
     %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%"
 
     IF ERRORLEVEL 1 (
       ECHO Baking "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%" setup failed.
+      GOTO errors
+    )
+
+    CALL :fn_UnsetVariable INCLUDEARM
+    CALL :fn_UnsetVariable VCRUNTIMEARM
+    CALL :fn_UnsetVariable VCRUNTIME
+    CALL :fn_UnsetVariable SUFFIX
+  )
+
+  IF NOT DEFINED NONETFX481 (
+    SET SUFFIX=%NETFX481_SUFFIX%_
+    CALL :fn_ShowVariable Suffix SUFFIX
+
+    REM
+    REM HACK: We know that the native components in the .NET Framework 4.8.1
+    REM       setup package require the Visual C++ 2022 Runtime and we also
+    REM       know that it must be set explicitly.
+    REM
+    IF DEFINED VCRUNTIME_NETFX481 (
+      SET VCRUNTIME=%VCRUNTIME_NETFX481%
+    ) ELSE (
+      SET VCRUNTIME=2022_VSU2
+    )
+
+    IF DEFINED VCRUNTIMEARM_NETFX481 (
+      SET VCRUNTIMEARM=%VCRUNTIMEARM_NETFX481%
+    ) ELSE (
+      CALL :fn_CopyVariable VCRUNTIME VCRUNTIMEARM
+    )
+
+    REM
+    REM HACK: We know that the native components for the .NET Framework 4.8.1
+    REM       setup package should include the ARM binaries.  This may need
+    REM       to be removed when Visual Studio 2022 is used for this build.
+    REM
+    SET INCLUDEARM=1
+
+    %_CECHO3% CALL "%TOOLS%\bake.bat" "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%"
+    %__ECHO3% CALL "%TOOLS%\bake.bat" "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%"
+
+    IF ERRORLEVEL 1 (
+      ECHO Baking "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%" setup failed.
       GOTO errors
     )
 
@@ -6636,6 +7298,7 @@ IF NOT DEFINED NOBAKE (
       REM       know that it is the default runtime used by the native setup
       REM       package baking tool.
       REM
+      %_CECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX40_SUFFIX%"
       %__ECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX40_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -6662,6 +7325,7 @@ IF NOT DEFINED NOBAKE (
         SET VCRUNTIME=2015_VSU3
       )
 
+      %_CECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX46_SUFFIX%"
       %__ECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX46_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -6689,6 +7353,7 @@ IF NOT DEFINED NOBAKE (
         SET VCRUNTIME=2015_VSU3
       )
 
+      %_CECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX461_SUFFIX%"
       %__ECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX461_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -6716,6 +7381,7 @@ IF NOT DEFINED NOBAKE (
         SET VCRUNTIME=2015_VSU3
       )
 
+      %_CECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX462_SUFFIX%"
       %__ECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX462_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -6743,6 +7409,7 @@ IF NOT DEFINED NOBAKE (
         SET VCRUNTIME=2017_VCU8
       )
 
+      %_CECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX47_SUFFIX%"
       %__ECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX47_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -6770,6 +7437,7 @@ IF NOT DEFINED NOBAKE (
         SET VCRUNTIME=2017_VCU8
       )
 
+      %_CECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX471_SUFFIX%"
       %__ECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX471_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -6797,6 +7465,7 @@ IF NOT DEFINED NOBAKE (
         SET VCRUNTIME=2017_VCU8
       )
 
+      %_CECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX472_SUFFIX%"
       %__ECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX472_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -6824,6 +7493,7 @@ IF NOT DEFINED NOBAKE (
         SET VCRUNTIME=2019_VCU1
       )
 
+      %_CECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%"
       %__ECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -6834,159 +7504,37 @@ IF NOT DEFINED NOBAKE (
       CALL :fn_UnsetVariable VCRUNTIME
       CALL :fn_UnsetVariable SUFFIX
     )
+
+    IF NOT DEFINED NONETFX481 (
+      SET SUFFIX=%NETFX481_SUFFIX%_
+      CALL :fn_ShowVariable Suffix SUFFIX
+
+      REM
+      REM HACK: We know that the native components in the Eagle Package for Tcl
+      REM       setup package require the Visual C++ 2022 Runtime and we also
+      REM       know that it must be set explicitly for use by the native setup
+      REM       package baking tool.
+      REM
+      IF DEFINED VCRUNTIME_NETFX481 (
+        SET VCRUNTIME=%VCRUNTIME_NETFX481%
+      ) ELSE (
+        SET VCRUNTIME=2022_VSU2
+      )
+
+      %_CECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%"
+      %__ECHO3% CALL "%PACKAGE_TOOLS%\bake.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%"
+
+      IF ERRORLEVEL 1 (
+        ECHO Baking "%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" setup failed.
+        GOTO errors
+      )
+
+      CALL :fn_UnsetVariable VCRUNTIME
+      CALL :fn_UnsetVariable SUFFIX
+    )
   )
 
   CALL :fn_UnsetVariable SKIP_SIGN_UNINSTALLER
-)
-
-REM ****************************************************************************
-REM **************************** Tag NuGet Packages ****************************
-REM ****************************************************************************
-
-:tag_NuGet
-
-IF NOT DEFINED NONUGETTAG (
-  IF DEFINED STABLE (
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.src.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.src.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.src.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.CLRv2.Core.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv2.Core.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.CLRv2.Core.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.CLRv2.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv2.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.CLRv2.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.CLRv4.Core.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv4.Core.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.CLRv4.Core.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.CLRv4.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv4.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.CLRv4.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.0.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.0.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.0.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.1.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.1.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.1.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.DotNet.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.DotNet.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.DotNet.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Mono.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Mono.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Mono.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Tools.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Tools.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Tools.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv2.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv2.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv2.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv4.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv4.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv4.nuspec" failed.
-        GOTO errors
-      )
-    )
-  ) ELSE (
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Test.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Test.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Test.nuspec" failed.
-        GOTO errors
-      )
-    )
-
-    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Beta.nuspec" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Beta.nuspec"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Beta.nuspec" failed.
-        GOTO errors
-      )
-    )
-  )
-)
-
-IF DEFINED BUILD_NUGET (
-  %_AECHO% Going from the release tagging phase to the NuGet build phase...
-  GOTO build_NuGet
 )
 
 REM ****************************************************************************
@@ -7055,6 +7603,7 @@ REM ****************************************************************************
 
 IF NOT DEFINED NOARCHIVE (
   IF NOT DEFINED NOSOURCE (
+    %_CECHO3% CALL "%TOOLS%\archive.bat"
     %__ECHO3% CALL "%TOOLS%\archive.bat"
 
     IF ERRORLEVEL 1 (
@@ -7066,6 +7615,7 @@ IF NOT DEFINED NOARCHIVE (
   IF NOT DEFINED NOSOURCEONLY (
     SET NOTOOL=1
 
+    %_CECHO3% CALL "%TOOLS%\archive.bat"
     %__ECHO3% CALL "%TOOLS%\archive.bat"
 
     IF ERRORLEVEL 1 (
@@ -7100,6 +7650,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD20_CONFIGURATION%%NETSTANDARD20_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD20_CONFIGURATION%%NETSTANDARD20_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7109,6 +7660,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD20_CONFIGURATION%%NETSTANDARD20_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD20_CONFIGURATION%%NETSTANDARD20_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7118,6 +7670,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD20_CONFIGURATION%%NETSTANDARD20_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD20_CONFIGURATION%%NETSTANDARD20_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
@@ -7142,6 +7695,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD21_CONFIGURATION%%NETSTANDARD21_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD21_CONFIGURATION%%NETSTANDARD21_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7151,6 +7705,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD21_CONFIGURATION%%NETSTANDARD21_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD21_CONFIGURATION%%NETSTANDARD21_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7160,6 +7715,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD21_CONFIGURATION%%NETSTANDARD21_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETSTANDARD21_CONFIGURATION%%NETSTANDARD21_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
@@ -7185,6 +7741,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX20_CONFIGURATION%%NETFX20_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX20_CONFIGURATION%%NETFX20_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7194,6 +7751,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX20_CONFIGURATION%%NETFX20_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX20_CONFIGURATION%%NETFX20_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7203,6 +7761,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX20_CONFIGURATION%%NETFX20_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX20_CONFIGURATION%%NETFX20_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
@@ -7227,6 +7786,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX35_CONFIGURATION%%NETFX35_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX35_CONFIGURATION%%NETFX35_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7236,6 +7796,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX35_CONFIGURATION%%NETFX35_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX35_CONFIGURATION%%NETFX35_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7245,6 +7806,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX35_CONFIGURATION%%NETFX35_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX35_CONFIGURATION%%NETFX35_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
@@ -7264,7 +7826,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX40_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX40_CONFIGURATION%%NETFX40_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX40_CONFIGURATION%%NETFX40_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7274,6 +7841,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX40_CONFIGURATION%%NETFX40_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX40_CONFIGURATION%%NETFX40_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7283,12 +7851,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX40_CONFIGURATION%%NETFX40_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX40_CONFIGURATION%%NETFX40_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX40_CONFIGURATION%%NETFX40_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7298,7 +7871,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX45_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX45_CONFIGURATION%%NETFX45_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX45_CONFIGURATION%%NETFX45_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7308,6 +7886,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX45_CONFIGURATION%%NETFX45_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX45_CONFIGURATION%%NETFX45_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7317,12 +7896,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX45_CONFIGURATION%%NETFX45_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX45_CONFIGURATION%%NETFX45_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX45_CONFIGURATION%%NETFX45_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7332,7 +7916,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX451_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX451_CONFIGURATION%%NETFX451_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX451_CONFIGURATION%%NETFX451_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7342,6 +7931,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX451_CONFIGURATION%%NETFX451_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX451_CONFIGURATION%%NETFX451_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7351,12 +7941,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX451_CONFIGURATION%%NETFX451_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX451_CONFIGURATION%%NETFX451_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX451_CONFIGURATION%%NETFX451_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7366,7 +7961,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX452_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX452_CONFIGURATION%%NETFX452_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX452_CONFIGURATION%%NETFX452_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7376,6 +7976,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX452_CONFIGURATION%%NETFX452_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX452_CONFIGURATION%%NETFX452_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7385,12 +7986,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX452_CONFIGURATION%%NETFX452_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX452_CONFIGURATION%%NETFX452_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX452_CONFIGURATION%%NETFX452_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7400,7 +8006,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX46_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX46_CONFIGURATION%%NETFX46_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX46_CONFIGURATION%%NETFX46_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7410,6 +8021,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX46_CONFIGURATION%%NETFX46_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX46_CONFIGURATION%%NETFX46_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7419,12 +8031,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX46_CONFIGURATION%%NETFX46_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX46_CONFIGURATION%%NETFX46_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX46_CONFIGURATION%%NETFX46_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7434,7 +8051,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX461_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX461_CONFIGURATION%%NETFX461_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX461_CONFIGURATION%%NETFX461_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7444,6 +8066,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX461_CONFIGURATION%%NETFX461_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX461_CONFIGURATION%%NETFX461_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7453,12 +8076,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX461_CONFIGURATION%%NETFX461_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX461_CONFIGURATION%%NETFX461_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX461_CONFIGURATION%%NETFX461_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7468,7 +8096,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX462_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX462_CONFIGURATION%%NETFX462_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX462_CONFIGURATION%%NETFX462_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7478,6 +8111,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX462_CONFIGURATION%%NETFX462_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX462_CONFIGURATION%%NETFX462_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7487,12 +8121,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX462_CONFIGURATION%%NETFX462_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX462_CONFIGURATION%%NETFX462_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX462_CONFIGURATION%%NETFX462_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7502,7 +8141,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX47_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX47_CONFIGURATION%%NETFX47_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX47_CONFIGURATION%%NETFX47_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7512,6 +8156,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX47_CONFIGURATION%%NETFX47_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX47_CONFIGURATION%%NETFX47_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7521,12 +8166,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX47_CONFIGURATION%%NETFX47_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX47_CONFIGURATION%%NETFX47_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX47_CONFIGURATION%%NETFX47_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7536,7 +8186,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX471_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX471_CONFIGURATION%%NETFX471_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX471_CONFIGURATION%%NETFX471_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7546,6 +8201,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX471_CONFIGURATION%%NETFX471_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX471_CONFIGURATION%%NETFX471_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7555,12 +8211,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX471_CONFIGURATION%%NETFX471_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX471_CONFIGURATION%%NETFX471_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX471_CONFIGURATION%%NETFX471_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7570,7 +8231,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX472_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX472_CONFIGURATION%%NETFX472_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX472_CONFIGURATION%%NETFX472_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7580,6 +8246,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX472_CONFIGURATION%%NETFX472_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX472_CONFIGURATION%%NETFX472_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7589,12 +8256,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX472_CONFIGURATION%%NETFX472_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX472_CONFIGURATION%%NETFX472_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX472_CONFIGURATION%%NETFX472_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7604,7 +8276,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%NETFX48_SUFFIX%_
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7614,6 +8291,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7623,12 +8301,62 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%NETFX48_CONFIGURATION%%NETFX48_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
+    )
+
+    CALL :fn_UnsetVariable SUFFIX
+  )
+
+  IF NOT DEFINED NONETFX481 (
+    SET SUFFIX=%NETFX481_SUFFIX%_
+    CALL :fn_ShowVariable Suffix SUFFIX
+
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
+    IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%"
+      %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%"
+
+      IF ERRORLEVEL 1 (
+        ECHO Creating "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%" binaries archive failed.
+        GOTO errors
+      )
+    )
+
+    IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%" Runtime data\exclude_runtime.txt
+      %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%" Runtime data\exclude_runtime.txt
+
+      IF ERRORLEVEL 1 (
+        ECHO Creating "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%" runtime binaries archive failed.
+        GOTO errors
+      )
+    )
+
+    IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%" Core data\exclude_core.txt
+      %__ECHO3% CALL "%TOOLS%\release.bat" "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%" Core data\exclude_core.txt
+
+      IF ERRORLEVEL 1 (
+        ECHO Creating "%NETFX481_CONFIGURATION%%NETFX481_SUFFIX%" core binaries archive failed.
+        GOTO errors
+      )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7643,6 +8371,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%BARE_CONFIGURATION%%BARE_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%BARE_CONFIGURATION%%BARE_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7652,6 +8381,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%BARE_CONFIGURATION%%BARE_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%BARE_CONFIGURATION%%BARE_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7661,6 +8391,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%BARE_CONFIGURATION%%BARE_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%BARE_CONFIGURATION%%BARE_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
@@ -7682,7 +8413,12 @@ IF NOT DEFINED NORELEASE (
     SET SUFFIX=%LEAN_SUFFIX%
     CALL :fn_ShowVariable Suffix SUFFIX
 
+    IF NOT DEFINED EXTRA (
+      SET NOEXTRA=1
+    )
+
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%LEAN_CONFIGURATION%%LEAN_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%LEAN_CONFIGURATION%%LEAN_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7692,6 +8428,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%LEAN_CONFIGURATION%%LEAN_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%LEAN_CONFIGURATION%%LEAN_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7701,12 +8438,17 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%LEAN_CONFIGURATION%%LEAN_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%LEAN_CONFIGURATION%%LEAN_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
         ECHO Creating "%LEAN_CONFIGURATION%%LEAN_SUFFIX%" core binaries archive failed.
         GOTO errors
       )
+    )
+
+    IF NOT DEFINED EXTRA (
+      CALL :fn_UnsetVariable NOEXTRA
     )
 
     CALL :fn_UnsetVariable SUFFIX
@@ -7721,6 +8463,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%DATABASE_CONFIGURATION%%DATABASE_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%DATABASE_CONFIGURATION%%DATABASE_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7730,6 +8473,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%DATABASE_CONFIGURATION%%DATABASE_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%DATABASE_CONFIGURATION%%DATABASE_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7739,6 +8483,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%DATABASE_CONFIGURATION%%DATABASE_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%DATABASE_CONFIGURATION%%DATABASE_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
@@ -7765,6 +8510,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOBINARY (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%UNIX_CONFIGURATION%%UNIX_SUFFIX%"
       %__ECHO3% CALL "%TOOLS%\release.bat" "%UNIX_CONFIGURATION%%UNIX_SUFFIX%"
 
       IF ERRORLEVEL 1 (
@@ -7774,6 +8520,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NORUNTIME (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%UNIX_CONFIGURATION%%UNIX_SUFFIX%" Runtime data\exclude_runtime.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%UNIX_CONFIGURATION%%UNIX_SUFFIX%" Runtime data\exclude_runtime.txt
 
       IF ERRORLEVEL 1 (
@@ -7783,6 +8530,7 @@ IF NOT DEFINED NORELEASE (
     )
 
     IF NOT DEFINED NOCORE (
+      %_CECHO3% CALL "%TOOLS%\release.bat" "%UNIX_CONFIGURATION%%UNIX_SUFFIX%" Core data\exclude_core.txt
       %__ECHO3% CALL "%TOOLS%\release.bat" "%UNIX_CONFIGURATION%%UNIX_SUFFIX%" Core data\exclude_core.txt
 
       IF ERRORLEVEL 1 (
@@ -7804,6 +8552,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX40_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX40_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -7813,6 +8562,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX40_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX40_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -7822,6 +8572,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX40_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX40_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -7838,6 +8589,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX45_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX45_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -7847,6 +8599,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX45_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX45_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -7856,6 +8609,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX45_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX45_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -7872,6 +8626,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX451_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX451_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -7881,6 +8636,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX451_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX451_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -7890,6 +8646,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX451_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX451_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -7906,6 +8663,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX452_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX452_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -7915,6 +8673,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX452_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX452_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -7924,6 +8683,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX452_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX452_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -7940,6 +8700,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX46_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX46_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -7949,6 +8710,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX46_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX46_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -7958,6 +8720,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX46_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX46_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -7974,6 +8737,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX461_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX461_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -7983,6 +8747,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX461_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX461_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -7992,6 +8757,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX461_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX461_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -8008,6 +8774,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX462_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX462_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -8017,6 +8784,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX462_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX462_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -8026,6 +8794,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX462_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX462_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -8042,6 +8811,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX47_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX47_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -8051,6 +8821,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX47_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX47_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -8060,6 +8831,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX47_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX47_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -8076,6 +8848,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX471_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX471_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -8085,6 +8858,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX471_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX471_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -8094,6 +8868,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX471_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX471_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -8110,6 +8885,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX472_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX472_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -8119,6 +8895,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX472_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX472_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -8128,6 +8905,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX472_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX472_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
@@ -8144,6 +8922,7 @@ IF NOT DEFINED NORELEASE (
       CALL :fn_ShowVariable Suffix SUFFIX
 
       IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%"
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%"
 
         IF ERRORLEVEL 1 (
@@ -8153,6 +8932,7 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%" Runtime data\exclude_runtime.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%" Runtime data\exclude_runtime.txt
 
         IF ERRORLEVEL 1 (
@@ -8162,10 +8942,48 @@ IF NOT DEFINED NORELEASE (
       )
 
       IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%" Core data\exclude_core.txt
         %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%" Core data\exclude_core.txt
 
         IF ERRORLEVEL 1 (
           ECHO Creating "%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETFX48_SUFFIX%" core binaries archive failed.
+          GOTO errors
+        )
+      )
+
+      CALL :fn_UnsetVariable SUFFIX
+    )
+
+    IF NOT DEFINED NONETFX481 (
+      SET SUFFIX=%NETFX481_SUFFIX%_
+      CALL :fn_ShowVariable Suffix SUFFIX
+
+      IF NOT DEFINED NOBINARY (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%"
+        %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%"
+
+        IF ERRORLEVEL 1 (
+          ECHO Creating "%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" binaries archive failed.
+          GOTO errors
+        )
+      )
+
+      IF NOT DEFINED NORUNTIME (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" Runtime data\exclude_runtime.txt
+        %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" Runtime data\exclude_runtime.txt
+
+        IF ERRORLEVEL 1 (
+          ECHO Creating "%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" runtime binaries archive failed.
+          GOTO errors
+        )
+      )
+
+      IF NOT DEFINED NOCORE (
+        %_CECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" Core data\exclude_core.txt
+        %__ECHO3% CALL "%PACKAGE_TOOLS%\release.bat" "%PACKAGE_PLATFORM%" "%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" Core data\exclude_core.txt
+
+        IF ERRORLEVEL 1 (
+          ECHO Creating "%PACKAGE_PLATFORM%\%NATIVE_CONFIGURATION%%NETFX481_SUFFIX%" core binaries archive failed.
           GOTO errors
         )
       )
@@ -8274,6 +9092,166 @@ IF NOT DEFINED NOLOGS (
           ECHO Failed to copy "%ROOT%\bin\Garuda*Build.*" to "%RELEASES%".
           CALL :fn_ResetErrorLevel
         )
+      )
+    )
+  )
+)
+
+REM ****************************************************************************
+REM **************************** Tag NuGet Packages ****************************
+REM ****************************************************************************
+
+:tag_NuGet
+
+IF NOT DEFINED NONUGETTAG (
+  IF DEFINED STABLE (
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.src.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.src.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.src.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.src.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.CLRv2.Core.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv2.Core.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv2.Core.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.CLRv2.Core.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.CLRv2.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv2.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv2.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.CLRv2.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.CLRv4.Core.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv4.Core.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv4.Core.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.CLRv4.Core.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.CLRv4.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv4.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.CLRv4.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.CLRv4.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.0.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.0.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.0.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.0.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.1.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.1.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.1.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.DotNet.Standard.2.1.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.DotNet.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.DotNet.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.DotNet.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.DotNet.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Mono.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Mono.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Mono.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Mono.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Tools.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Tools.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Tools.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Tools.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv2.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv2.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv2.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv2.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv4.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv4.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv4.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Tools.CLRv4.nuspec" failed.
+        GOTO errors
+      )
+    )
+  ) ELSE (
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Test.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Test.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Test.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Test.nuspec" failed.
+        GOTO errors
+      )
+    )
+
+    IF EXIST "%TOOLS%\..\..\NuGet\Eagle.Beta.nuspec" (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Beta.nuspec"
+      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" NuSpecMode "%TOOLS%\..\..\NuGet\Eagle.Beta.nuspec"
+
+      IF ERRORLEVEL 1 (
+        ECHO Updating "%TOOLS%\..\..\NuGet\Eagle.Beta.nuspec" failed.
+        GOTO errors
       )
     )
   )
@@ -8638,6 +9616,7 @@ IF NOT DEFINED NONUGET (
     REM       directory ^(unless we could find a reasonable way of resolving it
     REM       to an absolute path beforehand^).
     REM
+    %_CECHO2% PUSHD "%ROOT%"
     %__ECHO2% PUSHD "%ROOT%"
 
     IF ERRORLEVEL 1 (
@@ -8691,6 +9670,7 @@ IF NOT DEFINED NONUGET (
       GOTO errors
     )
 
+    %_CECHO2% POPD
     %__ECHO2% POPD
 
     IF ERRORLEVEL 1 (
@@ -9052,6 +10032,8 @@ REM ****************************************************************************
 REM *************************** Sign NuGet Packages ****************************
 REM ****************************************************************************
 
+:sign_NuGet
+
 IF NOT DEFINED NONUGET (
   IF NOT DEFINED NOSIGN (
     IF NOT DEFINED NONUGETSIGN (
@@ -9124,30 +10106,65 @@ IF NOT DEFINED NOVERIFY (
 )
 
 REM ****************************************************************************
+REM **************************** Hash All Binaries *****************************
+REM ****************************************************************************
+
+IF NOT DEFINED NOHASH (
+  IF NOT DEFINED NOCLEAN (
+    IF EXIST "%RELEASES%\hash-bins.txt" (
+      %__ECHO% DEL "%RELEASES%\hash-bins.txt" %NULERR%
+
+      IF ERRORLEVEL 1 (
+        ECHO Could not delete file "%RELEASES%\hash-bins.txt".
+        GOTO errors
+      )
+    )
+
+    %__ECHO% ECHO Hashed "%DATE%" at "%TIME%" by "%USERDOMAIN%\%USERNAME%" %APPEND% "%RELEASES%\hash-bins.txt"
+    %__ECHO% ECHO. %APPEND% "%RELEASES%\hash-bins.txt"
+  )
+
+  FOR %%B IN (%HASHBINSBASES%) DO (
+    FOR %%E IN (%HASHBINSEXTS%) DO (
+      FOR /F "delims=" %%F IN ('DIR /B /S /ON "%ROOT%\bin\%%B*.%%E" 2^> NUL') DO (
+        %_AECHO% Hashing file "%%F"...
+        %_CECHO% "%HASH_FILE_EXE%" "%%F" %_CAPPEND% "%RELEASES%\hash-bins.txt"
+        %__ECHO% "%HASH_FILE_EXE%" "%%F" %APPEND% "%RELEASES%\hash-bins.txt"
+
+        IF ERRORLEVEL 1 (
+          ECHO Hashing file "%%F" failed.
+          GOTO errors
+        )
+      )
+    )
+  )
+)
+
+REM ****************************************************************************
 REM **************************** Hash All Packages *****************************
 REM ****************************************************************************
 
 IF NOT DEFINED NOHASH (
   IF NOT DEFINED NOCLEAN (
-    IF EXIST "%RELEASES%\hash.txt" (
-      %__ECHO% DEL "%RELEASES%\hash.txt"
+    IF EXIST "%RELEASES%\hash-pkgs.txt" (
+      %__ECHO% DEL "%RELEASES%\hash-pkgs.txt" %NULERR%
 
       IF ERRORLEVEL 1 (
-        ECHO Could not delete file "%RELEASES%\hash.txt".
+        ECHO Could not delete file "%RELEASES%\hash-pkgs.txt".
         GOTO errors
       )
     )
 
-    %__ECHO% ECHO Hashed "%DATE%" at "%TIME%" by "%USERDOMAIN%\%USERNAME%" %APPEND% "%RELEASES%\hash.txt"
-    %__ECHO% ECHO. %APPEND% "%RELEASES%\hash.txt"
+    %__ECHO% ECHO Hashed "%DATE%" at "%TIME%" by "%USERDOMAIN%\%USERNAME%" %APPEND% "%RELEASES%\hash-pkgs.txt"
+    %__ECHO% ECHO. %APPEND% "%RELEASES%\hash-pkgs.txt"
   )
 
-  FOR %%B IN (%HASHBASES%) DO (
-    FOR %%E IN (%HASHEXTS%) DO (
+  FOR %%B IN (%HASHPKGSBASES%) DO (
+    FOR %%E IN (%HASHPKGSEXTS%) DO (
       FOR /F "delims=" %%F IN ('DIR /B /S /ON "%RELEASES%\%%B*%PATCHLEVEL%.%%E" 2^> NUL') DO (
         %_AECHO% Hashing file "%%F"...
-        %_CECHO% "%FOSSIL_EXE%" sha1sum "%%F" %_CAPPEND% "%RELEASES%\hash.txt"
-        %__ECHO% "%FOSSIL_EXE%" sha1sum "%%F" %APPEND% "%RELEASES%\hash.txt"
+        %_CECHO% "%HASH_FILE_EXE%" "%%F" %_CAPPEND% "%RELEASES%\hash-pkgs.txt"
+        %__ECHO% "%HASH_FILE_EXE%" "%%F" %APPEND% "%RELEASES%\hash-pkgs.txt"
 
         IF ERRORLEVEL 1 (
           ECHO Hashing file "%%F" failed.
@@ -9160,8 +10177,8 @@ IF NOT DEFINED NOHASH (
           IF /I NOT "%PACKAGE_PATCHLEVEL%" == "%PATCHLEVEL%" (
             FOR /F "delims=" %%F IN ('DIR /B /S /ON "%RELEASES%\%%B*%PACKAGE_PATCHLEVEL%.%%E" 2^> NUL') DO (
               %_AECHO% Hashing file "%%F"...
-              %_CECHO% "%FOSSIL_EXE%" sha1sum "%%F" %_CAPPEND% "%RELEASES%\hash.txt"
-              %__ECHO% "%FOSSIL_EXE%" sha1sum "%%F" %APPEND% "%RELEASES%\hash.txt"
+              %_CECHO% "%HASH_FILE_EXE%" "%%F" %_CAPPEND% "%RELEASES%\hash-pkgs.txt"
+              %__ECHO% "%HASH_FILE_EXE%" "%%F" %APPEND% "%RELEASES%\hash-pkgs.txt"
 
               IF ERRORLEVEL 1 (
                 ECHO Hashing file "%%F" failed.
@@ -9183,6 +10200,7 @@ REM ****************************************************************************
 
 IF NOT DEFINED NOTAG (
   IF EXIST "%TOOLS%\..\..\ChangeLog" (
+    %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" ChangeLogMode "%TOOLS%\..\..\ChangeLog"
     %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" ChangeLogMode "%TOOLS%\..\..\ChangeLog"
 
     IF ERRORLEVEL 1 (
@@ -9191,24 +10209,32 @@ IF NOT DEFINED NOTAG (
     )
   )
 
-  IF DEFINED STABLE (
-    IF EXIST "%TOOLS%\..\..\web\stable.txt" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%TOOLS%\..\..\web\stable.txt" "%SRCBINDIR%"
+  IF DEFINED EAGLEWEB (
+    IF DEFINED STABLE (
+      IF EXIST "%EAGLEWEB%\stable.txt" (
+        %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEB%\stable.txt" "%SRCBINDIR%"
+        %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEB%\stable.txt" "%SRCBINDIR%"
 
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\web\stable.txt" failed.
-        GOTO errors
+        IF ERRORLEVEL 1 (
+          ECHO Updating "%EAGLEWEB%\stable.txt" failed.
+          GOTO errors
+        )
+      )
+    ) ELSE (
+      IF EXIST "%EAGLEWEB%\latest.txt" (
+        %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEB%\latest.txt" "%SRCBINDIR%"
+        %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEB%\latest.txt" "%SRCBINDIR%"
+
+        IF ERRORLEVEL 1 (
+          ECHO Updating "%EAGLEWEB%\latest.txt" failed.
+          GOTO errors
+        )
       )
     )
   ) ELSE (
-    IF EXIST "%TOOLS%\..\..\web\latest.txt" (
-      %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%TOOLS%\..\..\web\latest.txt" "%SRCBINDIR%"
-
-      IF ERRORLEVEL 1 (
-        ECHO Updating "%TOOLS%\..\..\web\latest.txt" failed.
-        GOTO errors
-      )
-    )
+    ECHO.
+    ECHO WARNING: The EAGLEWEB environment variable is not set.
+    ECHO.
   )
 )
 
@@ -9480,6 +10506,7 @@ REM ****************************************************************************
     REM       is fine.
     REM
     FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" PatchLevelMode "%%F"
       %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" PatchLevelMode "%%F"
       IF ERRORLEVEL 1 (
         ECHO Updating "%%F" failed.
@@ -9512,6 +10539,7 @@ REM ****************************************************************************
     REM       is fine.
     REM
     FOR /F "delims=" %%F IN ('DIR /B /S "%ROOT%%TAGPATTERN%\%%T" 2^> NUL') DO (
+      %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyDateTimeMode "%%F"
       %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" AssemblyDateTimeMode "%%F"
       IF ERRORLEVEL 1 (
         ECHO Updating "%%F" failed.
@@ -9551,6 +10579,7 @@ REM ****************************************************************************
   GOTO :EOF
 
 :fn_signNuGetPackage
+  %_CECHO% ECHO F %_CPIPE% XCOPY "%NUGET_PACKAGE_SOURCE_FILE%" "%NUGET_PACKAGE_TARGET_FILE%" %FFLAGS% %DFLAGS%
   %__ECHO% ECHO F %PIPE% XCOPY "%NUGET_PACKAGE_SOURCE_FILE%" "%NUGET_PACKAGE_TARGET_FILE%" %FFLAGS% %DFLAGS%
   IF ERRORLEVEL 1 (
     ECHO Failed to copy "%%F" to "%NUGET_PACKAGE_TARGET_FILE%".
@@ -9663,6 +10692,12 @@ REM ****************************************************************************
   ECHO downloaded for free from:
   ECHO.
   ECHO                          https://www.fossil-scm.org/
+  ECHO.
+  ECHO The "sha256sum.exe" tool is required to be present along the PATH or in the
+  ECHO directory specified by the EagleHashFileDir environment variable.  It can be
+  ECHO downloaded for free from:
+  ECHO.
+  ECHO                          https://www.gpg4win.org/
   ECHO.
   ECHO The "NuGet4.exe" tool is required to be present along the PATH or in the
   ECHO directory specified by the EagleNuGetDir environment variable.  It can be

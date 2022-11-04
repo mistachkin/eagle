@@ -45,7 +45,7 @@ namespace Eagle._Hosts
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        IHost, IDisposable
+        IHost, IDisposable, IMaybeDisposed
     {
         #region Protected Constants
         protected internal static readonly BindingFlags HostPropertyBindingFlags =
@@ -11010,6 +11010,22 @@ namespace Eagle._Hosts
             string name,
             IClientData clientData
             ); /* PRIMITIVE */
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IMaybeDisposed Members
+        public virtual bool Disposed
+        {
+            get { return disposed; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public virtual bool Disposing
+        {
+            get { throw new NotImplementedException(); }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

@@ -130,6 +130,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private const string FetchKeyRingScriptName = "fetchKeyRing";
+        private const string MergeKeyRingScriptName = "mergeKeyRing";
+        private const string KeyRingFileNameOnly = "keyRing.eagle";
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Security Package Loader Warning Message
 #if !DEBUG
         private const string SecurityErrorMessage =
@@ -149,12 +155,31 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Health Support Constants
+#if THREADING
         //
         // HACK: These are purposely not read-only.
         //
         private static int HealthTimeout = 1000;
-        private static string HealthScript = "list [expr {2 + 2}] a b c";
-        private static Result HealthResult = "4 a b c";
+
+        private static string HealthScript =
+            "string is list [list [expr {2 + 2}] a b c]";
+
+        private static Result HealthResult = "True";
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Remote Time Support Constants
+#if NETWORK
+        //
+        // NOTE: The name of the resource, relative to the base auxiliary
+        //       URI for this assembly (e.g. "https://urn.to/r"), that
+        //       should return the (current) time as the whole number of
+        //       milliseconds since the (Unix) epoch.
+        //
+        private static readonly string TimeResourceName = "time";
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -233,13 +258,8 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void ScriptOps_Exited(
-            object sender,
-            EventArgs e
-            )
+        private static void RemoveExitedEventHandler()
         {
-            ClearInterpreterCache();
-
             AppDomain appDomain = AppDomainOps.GetCurrent();
 
             if (appDomain != null)
@@ -249,6 +269,17 @@ namespace Eagle._Components.Private
                 else
                     appDomain.ProcessExit -= ScriptOps_Exited;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ScriptOps_Exited(
+            object sender,
+            EventArgs e
+            )
+        {
+            ClearInterpreterCache();
+            RemoveExitedEventHandler();
         }
         #endregion
 
@@ -701,6 +732,131 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static ReturnCode EvaluateNamedSecurityScript(
+            Interpreter interpreter,  /* in */
+            string name,              /* in */
+            string temporaryFileName, /* in */
+            ref Result result         /* out */
+            )
+        {
+            ScriptFlags scriptFlags =
+                ScriptFlags.CoreLibrarySecurityRequiredFile;
+
+            IClientData clientData = ClientData.Empty;
+            Result localResult = null;
+
+            if (interpreter.GetScript(
+                    name, ref scriptFlags, ref clientData,
+                    ref localResult) != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "EvaluateNamedSecurityScript: no {0} " +
+                    "script available, error = {1}",
+                    FormatOps.WrapOrNull(name),
+                    FormatOps.WrapOrNull(localResult)),
+                    typeof(ScriptOps).Name,
+                    TracePriority.SecurityError);
+
+                result = localResult;
+                return ReturnCode.Error;
+            }
+
+            //
+            // NOTE: This script should use several "unsafe" commands
+            //       (i.e. within Harpy); therefore, we must evaluate
+            //       it as an "unsafe" one.
+            //
+            string text = localResult;
+
+            if (temporaryFileName != null)
+            {
+                text = String.Format(
+                    text, Parser.Quote(temporaryFileName));
+            }
+
+            //
+            // NOTE: Measure how long it takes (in microseconds) to
+            //       enable -OR- disable security for the specified
+            //       interpreter.
+            //
+            IProfilerState profiler = null;
+            bool dispose = true;
+
+            try
+            {
+                profiler = ProfilerState.Create(
+                    interpreter, ref dispose);
+
+                if (profiler != null)
+                    profiler.Start();
+
+                if (FlagOps.HasFlags(
+                        scriptFlags, ScriptFlags.File, true))
+                {
+                    if (interpreter.EvaluateTrustedFile(
+                            null, text, TrustFlags.SecurityPackage,
+                            ref localResult) != ReturnCode.Ok)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "EvaluateNamedSecurityScript: " +
+                            "script file {0} failed, error = {1}",
+                            FormatOps.WrapOrNull(name),
+                            FormatOps.WrapOrNull(localResult)),
+                            typeof(ScriptOps).Name,
+                            TracePriority.SecurityError);
+
+                        result = localResult;
+                        return ReturnCode.Error;
+                    }
+                }
+                else
+                {
+                    if (interpreter.EvaluateTrustedScript(
+                            text, TrustFlags.SecurityPackage,
+                            ref localResult) != ReturnCode.Ok)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "EvaluateNamedSecurityScript: " +
+                            "script text {0} failed, error = {1}",
+                            FormatOps.WrapOrNull(name),
+                            FormatOps.WrapOrNull(localResult)),
+                            typeof(ScriptOps).Name,
+                            TracePriority.SecurityError);
+
+                        result = localResult;
+                        return ReturnCode.Error;
+                    }
+                }
+
+                result = localResult;
+                return ReturnCode.Ok;
+            }
+            finally
+            {
+                if (profiler != null)
+                {
+                    profiler.Stop();
+
+                    TraceOps.DebugTrace(String.Format(
+                        "EvaluateNamedSecurityScript: {0} in {1}",
+                        FormatOps.WrapOrNull(name),
+                        FormatOps.MaybeNull(profiler)),
+                        typeof(ScriptOps).Name,
+                        TracePriority.SecurityDebug);
+
+                    if (dispose)
+                    {
+                        ObjectOps.TryDisposeOrComplain<IProfilerState>(
+                            interpreter, ref profiler);
+                    }
+
+                    profiler = null;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode EnableOrDisableSecurity(
             Interpreter interpreter, /* in */
             bool enable,             /* in */
@@ -756,109 +912,121 @@ namespace Eagle._Components.Private
             //       with the embedded library option enabled in order
             //       for it to be valid.
             //
-            string name = enable ?
-                EnableSecurityScriptName : DisableSecurityScriptName;
-
-            ScriptFlags scriptFlags =
-                ScriptFlags.CoreLibrarySecurityRequiredFile;
-
-            IClientData clientData = ClientData.Empty;
             Result localResult = null;
 
-            if (interpreter.GetScript(
-                    name, ref scriptFlags, ref clientData,
+            if (EvaluateNamedSecurityScript(interpreter,
+                    enable ? EnableSecurityScriptName :
+                    DisableSecurityScriptName, null,
                     ref localResult) != ReturnCode.Ok)
             {
-                TraceOps.DebugTrace(String.Format(
-                    "EnableOrDisableSecurity: no script available, " +
-                    "error = {0}", FormatOps.WrapOrNull(localResult)),
-                    typeof(ScriptOps).Name, TracePriority.SecurityError);
-
                 error = localResult;
                 return ReturnCode.Error;
             }
 
-            //
-            // NOTE: This script should use several "unsafe" commands
-            //       (i.e. within Harpy); therefore, evaluate it as
-            //       an "unsafe" one.
-            //
-            string text = localResult;
+            TraceOps.DebugTrace(String.Format(
+                "EnableOrDisableSecurity: {0}{1} security",
+                force ? "forcibly " : String.Empty,
+                enable ? "enabled" : "disabled"),
+                typeof(ScriptOps).Name, TracePriority.SecurityDebug);
 
-            //
-            // NOTE: Measure how long it takes (in microseconds) to
-            //       enable -OR- disable security for the specified
-            //       interpreter.
-            //
-            IProfilerState profiler = null;
-            bool dispose = true;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode FetchAndMergeKeyRing(
+            Interpreter interpreter,
+            bool force,
+            ref Result error
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter"; /* NO TRACE */
+                return ReturnCode.Error;
+            }
+
+            if (AreSecurityPackagesLikelyBroken(ref error))
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "FetchAndMergeKeyRing: security packages likely " +
+                    "broken, error = {0}", FormatOps.WrapOrNull(error)),
+                    typeof(ScriptOps).Name, TracePriority.SecurityError);
+
+                return ReturnCode.Error;
+            }
+
+            if (MaybeFindSecurityPackageIndexes(
+                    interpreter, force, ref error) != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "FetchAndMergeKeyRing: package indexes scan " +
+                    "failed, error = {0}", FormatOps.WrapOrNull(error)),
+                    typeof(ScriptOps).Name, TracePriority.SecurityError);
+
+                return ReturnCode.Error;
+            }
+
+            string temporaryDirectory = null;
 
             try
             {
-                profiler = ProfilerState.Create(
-                    interpreter, ref dispose);
+                Result localResult; /* REUSED */
 
-                if (profiler != null)
-                    profiler.Start();
+                temporaryDirectory = PathOps.GetUniquePath(
+                    null, PathOps.GetTempPath(interpreter),
+                    null, null, ref error);
 
-                if (FlagOps.HasFlags(
-                        scriptFlags, ScriptFlags.File, true))
+                if (temporaryDirectory == null)
+                    return ReturnCode.Error;
+
+                Directory.CreateDirectory(
+                    temporaryDirectory); /* throw */
+
+                string temporaryFileName = Path.Combine(
+                    temporaryDirectory, KeyRingFileNameOnly);
+
+                localResult = null;
+
+                if (EvaluateNamedSecurityScript(interpreter,
+                        FetchKeyRingScriptName, null,
+                        ref localResult) != ReturnCode.Ok)
                 {
-                    if (interpreter.EvaluateTrustedFile(
-                            null, text, TrustFlags.SecurityPackage,
-                            ref localResult) != ReturnCode.Ok)
-                    {
-                        TraceOps.DebugTrace(String.Format(
-                            "EnableOrDisableSecurity: script file " +
-                            "failed, error = {0}", FormatOps.WrapOrNull(
-                            localResult)), typeof(ScriptOps).Name,
-                            TracePriority.SecurityError);
-
-                        error = localResult;
-                        return ReturnCode.Error;
-                    }
+                    error = localResult;
+                    return ReturnCode.Error;
                 }
-                else
+
+                string text = localResult;
+
+                File.WriteAllBytes(temporaryFileName,
+                    Convert.FromBase64String(text)); /* throw */
+
+                localResult = null;
+
+                if (EvaluateNamedSecurityScript(interpreter,
+                        MergeKeyRingScriptName, temporaryFileName,
+                        ref localResult) != ReturnCode.Ok)
                 {
-                    if (interpreter.EvaluateTrustedScript(
-                            text, TrustFlags.SecurityPackage,
-                            ref localResult) != ReturnCode.Ok)
-                    {
-                        TraceOps.DebugTrace(String.Format(
-                            "EnableOrDisableSecurity: script text " +
-                            "failed, error = {0}", FormatOps.WrapOrNull(
-                            localResult)), typeof(ScriptOps).Name,
-                            TracePriority.SecurityError);
-
-                        error = localResult;
-                        return ReturnCode.Error;
-                    }
+                    error = localResult;
+                    return ReturnCode.Error;
                 }
+
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
             }
             finally
             {
-                if (profiler != null)
+                if (temporaryDirectory != null)
                 {
-                    profiler.Stop();
-
-                    TraceOps.DebugTrace(String.Format(
-                        "EnableOrDisableSecurity: {0}{1} security in {2}",
-                        force ? "forcibly " : String.Empty, enable ?
-                        "enabled" : "disabled", FormatOps.MaybeNull(
-                        profiler)), typeof(ScriptOps).Name,
-                        TracePriority.SecurityDebug);
-
-                    if (dispose)
-                    {
-                        ObjectOps.TryDisposeOrComplain<IProfilerState>(
-                            interpreter, ref profiler);
-                    }
-
-                    profiler = null;
+                    /* IGNORED */
+                    Utility.CleanupDirectory(temporaryDirectory,
+                        new string[] { KeyRingFileNameOnly }, true);
                 }
             }
-
-            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1502,6 +1670,8 @@ namespace Eagle._Components.Private
 
                 ObjectOps.TryDisposeOrComplain<Interpreter>(
                     localInterpreter, ref localInterpreter);
+
+                localInterpreter = null;
 
                 lock (syncRoot) /* TRANSACTIONAL */
                 {
@@ -2871,7 +3041,7 @@ namespace Eagle._Components.Private
                                     ReturnCode freeCode;
                                     Result freeResult = null;
 
-                                    freeCode = freeInterpreterCallback(
+                                    freeCode = freeInterpreterCallback( /* EXEMPT */
                                         localInterpreter, callbackClientData,
                                         ref freeResult);
 
@@ -2956,7 +3126,7 @@ namespace Eagle._Components.Private
                                     ReturnCode freeCode;
                                     Result freeResult = null;
 
-                                    freeCode = freeInterpreterCallback(
+                                    freeCode = freeInterpreterCallback( /* EXEMPT */
                                         localInterpreter, callbackClientData,
                                         ref freeResult);
 
@@ -4191,6 +4361,61 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool MaybeGetISubCommandViaArgument(
+            Interpreter interpreter,     /* in */
+            ArgumentList arguments,      /* in */
+            out bool viaArgument,        /* out */
+            out Argument secondArgument, /* out */
+            ref ISubCommand subCommand   /* in, out */
+            )
+        {
+            viaArgument = (interpreter != null) ?
+                interpreter.HasCacheViaArgument() : false;
+
+            secondArgument = null;
+
+            if (viaArgument &&
+                (arguments != null) && (arguments.Count >= 2))
+            {
+                secondArgument = arguments[1];
+
+                if (secondArgument != null)
+                {
+                    ISubCommand localSubCommand =
+                        secondArgument.CacheValue as ISubCommand;
+
+                    if (localSubCommand != null)
+                    {
+                        subCommand = localSubCommand;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeCacheISubCommandViaArgument(
+            Argument argument,     /* in */
+            bool viaArgument,      /* in */
+            ISubCommand subCommand /* in */
+            )
+        {
+            if (viaArgument && (argument != null))
+            {
+                argument.CacheValue = subCommand;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode TryExecuteSubCommandFromEnsemble(
             Interpreter interpreter, /* in */
             IEnsemble ensemble,      /* in: OPTIONAL */
@@ -4221,7 +4446,7 @@ namespace Eagle._Components.Private
             bool strict,                /* in */
             bool noCase,                /* in */
             ref string name,            /* in, out */
-            ref ISubCommand subCommand, /* out */
+            ref ISubCommand subCommand, /* in, out */
             ref bool tried,             /* out */
             ref Result result           /* out */
             )
@@ -4233,16 +4458,40 @@ namespace Eagle._Components.Private
             }
 
             //
+            // HACK: Cheat, attempt to read the cached sub-command
+            //       from the Argument object itself.
+            //
+            bool viaArgument;
+            Argument secondArgument;
+
+            if (MaybeGetISubCommandViaArgument(
+                    interpreter, arguments, out viaArgument,
+                    out secondArgument, ref subCommand))
+            {
+                goto execute;
+            }
+
+            //
             // NOTE: Attempt to lookup the sub-command based on the
             //       name and the parent ensemble.
             //
-            if (SubCommandFromEnsemble(
-                    interpreter, ensemble, PolicyOps.OnlyAllowedSubCommands,
+            if (SubCommandFromEnsemble(interpreter,
+                    ensemble, PolicyOps.OnlyAllowedSubCommands,
                     type, strict, noCase, ref name, ref subCommand,
                     ref result) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
+
+            //
+            // NOTE: Update the cached sub-command within the second
+            //       argument, if needed.
+            //
+            /* IGNORED */
+            MaybeCacheISubCommandViaArgument(
+                secondArgument, viaArgument, subCommand);
+
+        execute:
 
             //
             // NOTE: If the sub-command was found and is null, treat
@@ -7500,8 +7749,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Health Support Methods
+#if THREADING
         public static ReturnCode TryLockForHealth(
             Interpreter interpreter,
+            ref bool locked,
             ref ResultList errors
             )
         {
@@ -7510,19 +7761,24 @@ namespace Eagle._Components.Private
                 if (errors == null)
                     errors = new ResultList();
 
-                errors.Add("invalid interpreter");
+                errors.Add("tryLock: invalid interpreter");
                 return ReturnCode.Error;
             }
 
-            bool locked = false;
+            IProfilerState profiler = null;
 
             try
             {
-                interpreter.InternalTryLock(HealthTimeout, ref locked);
+                profiler = ProfilerState.Create();
+
+                if (profiler != null)
+                    profiler.Start();
+
+                interpreter.InternalTryLock(
+                    HealthTimeout, ref locked);
 
                 if (locked)
                 {
-                    interpreter.TouchLastHealthCheck();
                     return ReturnCode.Ok;
                 }
                 else
@@ -7530,13 +7786,28 @@ namespace Eagle._Components.Private
                     if (errors == null)
                         errors = new ResultList();
 
-                    errors.Add("unable to acquire interpreter lock");
+                    errors.Add(
+                        "tryLock: unable to acquire interpreter lock");
+
                     return ReturnCode.Error;
                 }
             }
             finally
             {
-                interpreter.InternalExitLock(ref locked);
+                if (profiler != null)
+                {
+                    profiler.Stop();
+
+                    long? milliseconds = profiler.GetMilliseconds();
+
+                    if (milliseconds != null)
+                        interpreter.TrackHealthRunTime((long)milliseconds);
+
+                    ObjectOps.TryDisposeOrComplain<IProfilerState>(
+                        interpreter, ref profiler);
+
+                    profiler = null;
+                }
             }
         }
 
@@ -7549,27 +7820,69 @@ namespace Eagle._Components.Private
         {
             if (interpreter == null)
             {
-                result = "invalid interpreter";
+                result = "evaluate: invalid interpreter";
                 return ReturnCode.Error;
             }
 
-            return interpreter.EvaluateScript(HealthScript, ref result);
+            IProfilerState profiler = null;
+
+            try
+            {
+                profiler = ProfilerState.Create();
+
+                if (profiler != null)
+                    profiler.Start();
+
+                return interpreter.EvaluateScript(
+                    HealthScript, ref result);
+            }
+            finally
+            {
+                if (profiler != null)
+                {
+                    profiler.Stop();
+
+                    long? milliseconds = profiler.GetMilliseconds();
+
+                    if (milliseconds != null)
+                        interpreter.TrackHealthRunTime((long)milliseconds);
+
+                    /* NO RESULT */
+                    interpreter.UpdateHealthPerformance(profiler.ToString());
+
+                    ObjectOps.TryDisposeOrComplain<IProfilerState>(
+                        interpreter, ref profiler);
+
+                    profiler = null;
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static bool VerifyForHealth(
+            Interpreter interpreter,
             ReturnCode code,
             Result result,
+            bool resetOk,
             ref ResultList errors
             )
         {
+            if (interpreter == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("verify: invalid interpreter");
+                return false;
+            }
+
             if (code != ReturnCode.Ok)
             {
                 if (errors == null)
                     errors = new ResultList();
 
-                errors.Add("return code is not ok");
+                errors.Add("verify: return code is not ok");
                 return false;
             }
 
@@ -7578,12 +7891,76 @@ namespace Eagle._Components.Private
                 if (errors == null)
                     errors = new ResultList();
 
-                errors.Add("result has unexpected value");
+                errors.Add("verify: result has unexpected value");
                 return false;
+            }
+
+            if (resetOk)
+            {
+                /* NO RESULT */
+                interpreter.TouchHealthOk();
             }
 
             return true;
         }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Remote Time Support Methods
+#if NETWORK
+        public static ReturnCode QueryRemoteTime(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            Encoding encoding,       /* in: OPTIONAL */
+            int? timeout,            /* in */
+            ref string response,     /* in */
+            ref Result error         /* out */
+            )
+        {
+            string resourceName = TimeResourceName;
+
+            Uri uri = PathOps.BuildAuxiliaryUri(
+                ref resourceName, ref error);
+
+            if (uri == null)
+                return ReturnCode.Error;
+
+#if TEST
+            if (WebOps.SetSecurityProtocol(
+                    false, ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+#endif
+
+            byte[] bytes = null;
+
+            if (WebOps.DownloadData(
+                    interpreter, clientData, uri,
+                    timeout, false, ref bytes,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (encoding == null)
+            {
+                encoding = StringOps.GetEncoding(
+                    EncodingType.RemoteUri);
+            }
+
+            if (encoding == null)
+            {
+                error = "invalid encoding";
+                return ReturnCode.Error;
+            }
+
+            response = encoding.GetString(bytes);
+            return ReturnCode.Ok;
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -7684,7 +8061,8 @@ namespace Eagle._Components.Private
                     //       method.
                     //
                     if (!RuntimeOps.IsFileTrusted(
-                            unzipFileName, IntPtr.Zero))
+                            interpreter, null, unzipFileName,
+                            IntPtr.Zero))
                     {
                         error = "command line tool is untrusted";
                         return ReturnCode.Error;

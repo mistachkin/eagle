@@ -231,6 +231,7 @@
       EagleDetectNetFx471;
       EagleDetectNetFx472;
       EagleDetectNetFx48;
+      EagleDetectNetFx481;
       $(BuildDependsOn);
       EagleDetectVs2017;
       EagleDetectVcTools2017;

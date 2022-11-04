@@ -26,11 +26,12 @@ namespace eval ::Eagle {
     }
 
     return [list \
-        NetFx20 NetFx35 NetFx40 NetFx45 NetFx451 \
-        NetFx452 NetFx46 NetFx461 NetFx462 NetFx47 \
-        NetFx471 NetFx472 NetFx48 NetStandard20 \
-        NetStandard21 Bare LeanAndMean Database \
-        MonoOnUnix Development]
+        NetFx20 NetFx35 NetFx40 NetFx45 \
+        NetFx451 NetFx452 NetFx46 NetFx461 \
+        NetFx462 NetFx47 NetFx471 NetFx472 \
+        NetFx48 NetFx481 NetStandard20 NetStandard21 \
+        Bare LeanAndMean Database MonoOnUnix \
+        Development]
   }
 
   proc getKnownCompileOptions {} {
@@ -41,16 +42,17 @@ namespace eval ::Eagle {
     return [list \
         APPDOMAINS APPROVED_VERBS ARGUMENT_CACHE ARM ARM64 ASSEMBLY_DATETIME \
         ASSEMBLY_RELEASE ASSEMBLY_STRONG_NAME_TAG ASSEMBLY_TAG ASSEMBLY_TEXT \
-        ASSEMBLY_URI BREAK_ON_EXITING BREAKPOINTS CACHE_ARGUMENT_TOSTRING \
+        ASSEMBLY_URI BREAK_ON_EXITING CACHE_ARGUMENT_TOSTRING \
         CACHE_ARGUMENTLIST_TOSTRING CACHE_DICTIONARY CACHE_RESULT_TOSTRING \
         CACHE_STATISTICS CACHE_STRINGLIST_TOSTRING CALLBACK_QUEUE CAS_POLICY \
         CERTIFICATE_PLUGIN CERTIFICATE_POLICY CERTIFICATE_RENEWAL \
         CODE_ANALYSIS COMPRESSION COM_TYPE_CACHE CONFIGURATION CONSOLE DAEMON \
-        DATA DEAD_CODE DEBUG DEBUGGER DEBUGGER_ARGUMENTS DEBUGGER_ENGINE \
-        DEBUGGER_EXECUTE DEBUGGER_EXPRESSION DEBUGGER_VARIABLE DEBUG_TRACE \
-        DEBUG_WRITE DEMO_EDITION DRAWING DYNAMIC EAGLE EMBEDDED_LIBRARY \
-        EMBED_CERTIFICATES EMIT ENTERPRISE_LOCKDOWN EXECUTE_CACHE \
-        EXPRESSION_FLAGS FAST_ERRORCODE FAST_ERRORINFO FOR_TEST_USE_ONLY \
+        DATA DEAD_CODE DEBUG DEBUGGER DEBUGGER_ARGUMENTS DEBUGGER_BREAKPOINTS \
+        DEBUGGER_ENGINE DEBUGGER_EXECUTE DEBUGGER_EXPRESSION \
+        DEBUGGER_VARIABLE DEBUG_TRACE DEBUG_WRITE DEMO_EDITION DRAWING \
+        DYNAMIC EAGLE EMBEDDED_LIBRARY EMBED_CERTIFICATES EMIT \
+        ENTERPRISE_LOCKDOWN EXECUTE_CACHE EXPRESSION_FLAGS FAST_ERRORCODE \
+        FAST_ERRORINFO FOR_TEST_USE_ONLY \
         FORCE_TRACE HAVE_SIZEOF HISTORY IA64 INTERACTIVE_COMMANDS \
         INTERNALS_VISIBLE_TO ISOLATED_INTERPRETERS ISOLATED_PLUGINS LIBRARY \
         LICENSING LICENSING_NOP LICENSE_MANAGER LIMITED_EDITION LIST_CACHE \
@@ -58,18 +60,19 @@ namespace eval ::Eagle {
         NATIVE_PACKAGE NATIVE_THREAD_ID NATIVE_UTILITY NATIVE_UTILITY_BSTR \
         NETWORK NET_20 NET_20_FAST_ENUM NET_20_ONLY NET_20_SP1 NET_20_SP2 \
         NET_30 NET_35 NET_40 NET_45 NET_451 NET_452 NET_46 NET_461 NET_462 \
-        NET_47 NET_471 NET_472 NET_48 NET_CORE_20 NET_CORE_30 NET_STANDARD_20 \
-        NET_STANDARD_21 NON_WORKING_CODE NOTIFY NOTIFY_ACTIVE \
-        NOTIFY_ARGUMENTS NOTIFY_EXCEPTION NOTIFY_EXECUTE NOTIFY_EXPRESSION \
-        NOTIFY_GLOBAL NOTIFY_OBJECT NOTIFY_TCL OBSOLETE OBFUSCATION OFFICIAL \
-        PARSE_CACHE PATCHLEVEL PLUGIN_COMMANDS POLICY_TRACE PREVIOUS_RESULT \
-        PROFILER RANDOMIZE_ID REMOTING RESULT_LIMITS SAMPLE SCRIPT_ARGUMENTS \
-        SECURITY SERIALIZATION SHARED_ID_POOL SHELL SOURCE_ID \
-        SOURCE_TIMESTAMP STATIC STRICT_FEATURES TCL TCL_KITS TCL_THREADED \
-        TCL_THREADS TCL_UNICODE TCL_WRAPPER TEST TEST_PLUGIN THREADING \
-        THROW_ON_DISPOSED TRACE TYPE_CACHE UNIX UNSAFE USE_APPDOMAIN_FOR_ID \
-        USE_NAMESPACES VERBOSE WEB WINDOWS WINFORMS WIX_30 WIX_35 WIX_36 \
-        WIX_37 WIX_38 WIX_39 WIX_310 WIX_311 X64 X86 XML]
+        NET_47 NET_471 NET_472 NET_48 NET_481 NET_CORE_REFERENCES NET_CORE_20 \
+        NET_CORE_30 NET_STANDARD_20 NET_STANDARD_21 NON_WORKING_CODE NOTIFY \
+        NOTIFY_ACTIVE NOTIFY_ARGUMENTS NOTIFY_EXCEPTION NOTIFY_EXECUTE \
+        NOTIFY_EXPRESSION NOTIFY_GLOBAL NOTIFY_OBJECT NOTIFY_TCL OBSOLETE \
+        OBFUSCATION OFFICIAL PARSE_CACHE PATCHLEVEL PLUGIN_COMMANDS \
+        POLICY_TRACE PREVIOUS_RESULT PROFILER RANDOMIZE_ID REMOTING \
+        RESULT_LIMITS SAMPLE SCRIPT_ARGUMENTS SECURITY SERIALIZATION \
+        SHARED_ID_POOL SHELL SOURCE_ID SOURCE_TIMESTAMP STATIC \
+        STRICT_FEATURES TCL TCL_KITS TCL_THREADED TCL_THREADS TCL_UNICODE \
+        TCL_WRAPPER TEST TEST_PLUGIN THREADING THROW_ON_DISPOSED TRACE \
+        TYPE_CACHE UNIX UNSAFE USE_APPDOMAIN_FOR_ID USE_NAMESPACES VERBOSE \
+        WEB WINDOWS WINFORMS WIX_30 WIX_35 WIX_36 WIX_37 WIX_38 WIX_39 \
+        WIX_310 WIX_311 X64 X86 XML]
   }
 
   proc getKnownWindowsVersions { {force false} } {
@@ -561,6 +564,34 @@ namespace eval ::Eagle {
     return $result
   }
 
+  #
+  # NOTE: This procedure was adapted from the one listed on the Tcl Wiki page
+  #       at "https://wiki.tcl.tk/2553".  It is only intended to be used on
+  #       very small lists because of its heavy use of recursion and complexity
+  #       on the order of O(N!).
+  #
+  proc lcombine { list wantLength } {
+    if {$wantLength <= 0} then {
+      return [list [list]]
+    }
+
+    set result [list]
+    set haveLength [llength $list]
+
+    for {set index 0} {$index + $wantLength <= $haveLength} {incr index} {
+      set element1 [lindex $list $index]
+      set nextIndex [expr {$index + 1}]
+      set rest [lrange $list $nextIndex end]
+      set restLength [expr {$wantLength - 1}]
+
+      foreach subList [lcombine $rest $restLength] {
+        lappend result [linsert $subList 0 $element1]
+      }
+    }
+
+    return $result
+  }
+
   proc alwaysFullInterpReady {} {
     #
     # NOTE: The [interp readylimit] sub-command is only in Eagle.
@@ -978,11 +1009,44 @@ namespace eval ::Eagle {
     return ""
   }
 
+  proc tryDetectFossilRoot { directory } {
+    set saveDir [file normalize $directory]; set dir $saveDir
+
+    while {[string length $dir] > 0 && \
+        [lsearch -exact -nocase -- [file volumes] $dir] == -1} {
+      set command [list exec -- fossil info]
+      appendExecArguments command --chdir $dir
+
+      if {[catch $command result]} then {
+        break
+      }
+
+      if {![regexp -line -skip 1 -- \
+          {^local-root:\s+(.*?)$} $result root]} then {
+        break
+      }
+
+      set root [string trim $root]
+
+      if {[string starts $root $saveDir]} then {
+        return $root
+      }
+
+      set dir [file dirname $dir]
+    }
+
+    return $directory; # NOTE: Return original verbatim.
+  }
+
   proc execFossilCommand { directory args } {
     set command [list exec -- fossil]
     eval appendExecArguments command $args
 
     if {[string length $directory] > 0} then {
+      if {![isWindows]} then {
+        set directory [tryDetectFossilRoot $directory]
+      }
+
       appendExecArguments command --chdir $directory
     }
 
@@ -3020,6 +3084,22 @@ namespace eval ::Eagle {
     }
   }
 
+  proc checkForFileSystemIntensive { channel } {
+    tputs $channel "---- checking for file system intensive testing... "
+
+    #
+    # NOTE: Are we allowed to do file system intensive testing?
+    #
+    if {![info exists ::no(fileSystemIntensive)]} then {
+      addConstraint maybeFileSystemIntensive
+      addConstraint fileSystemIntensive
+
+      tputs $channel yes\n
+    } else {
+      tputs $channel no\n
+    }
+  }
+
   proc checkForTimeIntensive { channel } {
     tputs $channel "---- checking for time intensive testing... "
 
@@ -3219,6 +3299,17 @@ namespace eval ::Eagle {
 
     if {[isEagle]} then {
       #
+      # HACK: Fixup the "host" argument in case it is actually a full URI,
+      #       with a scheme, etc, e.g. "https://eagle.to/" ==> "eagle.to".
+      #       This should not happen, but it does, because the prologue is
+      #       maintained by a very lazy programmer.
+      #
+      if {[regexp -skip 1 -- \
+          {^(?:http(?:s)?:\/\/)([^\/]+)(?:\/.*)?$} $host hostOnly]} then {
+        set host $hostOnly
+      }
+
+      #
       # NOTE: Running this check on the Mono 3.3.0 (or 3.4.0?) release build
       #       will lock up the process; therefore, skip it in that case.
       #
@@ -3262,31 +3353,14 @@ namespace eval ::Eagle {
     }
   }
 
-  proc checkForInternet { channel uri timeout } {
-    tputs $channel [appendArgs \
-        "---- checking for Internet connectivity to URI \"" $uri "\"... "]
-
-    set pattern {[^\w]The Eagle Project[^\w]}
-
-    set host [string map [list http:// "" https:// ""] $uri]
-    regsub -all -- {:.*$|/.*$} $host "" host
-
+  proc maybeDownloadFromUri { channel uri timeout {pattern ""} } {
     if {[isEagle]} then {
       if {[catch {
         uri download -inline -timeout $timeout $uri
       } response] == 0} then {
-        if {[regexp -- $pattern $response]} then {
-          #
-          # NOTE: Yes, it appears that it is available.
-          #
-          addConstraint [appendArgs internet_ $host]
-
-          tputs $channel yes\n
-
-          #
-          # NOTE: We are done here, return now.
-          #
-          return
+        if {[string length $pattern] == 0 || \
+            [regexp -- $pattern $response]} then {
+          return true
         }
       }
    } elseif {[info exists ::native_lib_path]} then {
@@ -3297,23 +3371,62 @@ namespace eval ::Eagle {
         ::Eagle::Tools::Common::getFileViaHttp $uri 20 \
             $channel true -binary true -timeout $timeout
       } response] == 0} then {
-        if {[regexp -- $pattern $response]} then {
-          #
-          # NOTE: Yes, it appears that it is available.
-          #
-          addConstraint [appendArgs internet_ $host]
-
-          tputs $channel yes\n
-
-          #
-          # NOTE: We are done here, return now.
-          #
-          return
+        if {[string length $pattern] == 0 || \
+            [regexp -- $pattern $response]} then {
+          return true
         }
       }
     }
 
-    tputs $channel no\n
+    return false
+  }
+
+  proc checkForInternet { channel uri timeout } {
+    tputs $channel [appendArgs \
+        "---- checking for Internet connectivity to URI \"" $uri "\"... "]
+
+    set pattern {[^\w]The Eagle Project[^\w]}
+
+    if {[maybeDownloadFromUri $channel $uri $timeout $pattern]} then {
+      set host [string map [list http:// "" https:// ""] $uri]
+      regsub -all -- {:.*$|/.*$} $host "" host
+
+      addConstraint [appendArgs internet_ $host]
+
+      tputs $channel yes\n
+    } else {
+      tputs $channel no\n
+    }
+  }
+
+  proc checkForTlsOk { channel hosts timeout } {
+    tputs $channel [appendArgs "---- checking for TLS to hosts \"" \
+        $hosts "\"... "]
+
+    set count 0
+
+    foreach host $hosts {
+      set host [string map [list http:// "" https:// ""] $host]
+      regsub -all -- {:.*$|/.*$} $host "" host
+
+      set uri [appendArgs https:// $host /]
+
+      if {$host eq "urn.to"} then {
+        append uri r/eagle; # HACK: Cannot access root here.
+      } elseif {$host eq "pkg.management"} then {
+        append uri pkgr; # HACK: Cannot access root here.
+      }
+
+      if {![maybeDownloadFromUri $channel $uri $timeout]} then {
+        tputs $channel [appendArgs "no (" $uri ")\n"]
+
+        return
+      }
+    }
+
+    addConstraint tlsOk
+
+    tputs $channel yes\n
   }
 
   proc checkForCompileOption { channel name } {
@@ -3560,6 +3673,30 @@ namespace eval ::Eagle {
       }
 
       return $count
+    }
+
+    proc addListStreamChannel { name list } {
+      set error null
+
+      set code [object invoke \
+          Eagle._Tests.Default TestAddListStreamChannel "" \
+          $name null $list {NeedBuffer TraceReadLines} error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+    }
+
+    proc removeChannel { name {strict true} } {
+      set error null
+
+      set code [object invoke \
+          Interpreter.GetActive RemoveChannel \
+          $name None false true true error]
+
+      if {$strict && $code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
     }
 
     proc getUnicodeCategoryCode { category } {
@@ -5947,6 +6084,10 @@ namespace eval ::Eagle {
       return -1
     }
 
+    proc isOsWindows11 {} {
+      return [expr {[getOsBuild] >= 22000}]
+    }
+
     proc isOsReleaseId { releaseId } {
       return [expr {[info exists ::tcl_platform(osReleaseId)] && \
           $::tcl_platform(osReleaseId) eq $releaseId}]
@@ -6087,7 +6228,7 @@ namespace eval ::Eagle {
           #
           if {[info exists ::tcl_platform(osVersion)] && \
               $::tcl_platform(osVersion) == 10.0 && \
-              [getOsBuild] < 22000} then {
+              ![isOsWindows11]} then {
             #
             # NOTE: Return the "special" value.
             #
@@ -6119,7 +6260,8 @@ namespace eval ::Eagle {
           #
           if {[info exists ::tcl_platform(osVersion)] && \
               $::tcl_platform(osVersion) == 10.0 && \
-              [haveTclPlatformOsExtraUpdateName "November Update"]} then {
+              [haveTclPlatformOsExtraUpdateName \
+                  "Windows 10, November Update"]} then {
             #
             # NOTE: Return the "special" value.
             #
@@ -6166,7 +6308,8 @@ namespace eval ::Eagle {
           #
           if {[info exists ::tcl_platform(osVersion)] && \
               $::tcl_platform(osVersion) == 10.0 && \
-              [haveTclPlatformOsExtraUpdateName "Anniversary Update"]} then {
+              [haveTclPlatformOsExtraUpdateName \
+                  "Windows 10, Anniversary Update"]} then {
             #
             # NOTE: Return the "special" value.
             #
@@ -6198,7 +6341,8 @@ namespace eval ::Eagle {
           #
           if {[info exists ::tcl_platform(osVersion)] && \
               $::tcl_platform(osVersion) == 10.0 && \
-              [haveTclPlatformOsExtraUpdateName "Creators Update"]} then {
+              [haveTclPlatformOsExtraUpdateName \
+                  "Windows 10, Creators Update"]} then {
             #
             # NOTE: Return the "special" value.
             #
@@ -6245,7 +6389,8 @@ namespace eval ::Eagle {
           #
           if {[info exists ::tcl_platform(osVersion)] && \
               $::tcl_platform(osVersion) == 10.0 && \
-              [haveTclPlatformOsExtraUpdateName "Fall Creators Update"]} then {
+              [haveTclPlatformOsExtraUpdateName \
+                  "Windows 10, Fall Creators Update"]} then {
             #
             # NOTE: Return the "special" value.
             #
@@ -6292,7 +6437,8 @@ namespace eval ::Eagle {
           #
           if {[info exists ::tcl_platform(osVersion)] && \
               $::tcl_platform(osVersion) == 10.0 && \
-              [haveTclPlatformOsExtraUpdateName "April 2018 Update"]} then {
+              [haveTclPlatformOsExtraUpdateName \
+                  "Windows 10, April 2018 Update"]} then {
             #
             # NOTE: Return the "special" value.
             #
@@ -6341,7 +6487,7 @@ namespace eval ::Eagle {
             #
             # NOTE: Is this Windows 11 (NT v10.0)?
             #
-            if {[getOsBuild] >= 22000} then {
+            if {[isOsWindows11]} then {
               #
               # NOTE: Return the "special" value.
               #
@@ -6351,8 +6497,10 @@ namespace eval ::Eagle {
               # NOTE: Is the "May 2020 Update" -OR- "October 2020 Update"
               #       installed?
               #
-              if {[haveTclPlatformOsExtraUpdateName "May 2020 Update"] || \
-                  [haveTclPlatformOsExtraUpdateName "October 2020 Update"]} then {
+              if {[haveTclPlatformOsExtraUpdateName \
+                      "Windows 10, May 2020 Update"] || \
+                  [haveTclPlatformOsExtraUpdateName \
+                      "Windows 10, October 2020 Update"]} then {
                 #
                 # NOTE: Return the "special" value.
                 #
@@ -6362,8 +6510,10 @@ namespace eval ::Eagle {
                 # NOTE: Is the "May 2019 Update" -OR- "November 2019 Update"
                 #       installed?
                 #
-                if {[haveTclPlatformOsExtraUpdateName "May 2019 Update"] || \
-                    [haveTclPlatformOsExtraUpdateName "November 2019 Update"]} then {
+                if {[haveTclPlatformOsExtraUpdateName \
+                        "Windows 10, May 2019 Update"] || \
+                    [haveTclPlatformOsExtraUpdateName \
+                        "Windows 10, November 2019 Update"]} then {
                   #
                   # NOTE: Return the "special" value.
                   #
@@ -6379,6 +6529,13 @@ namespace eval ::Eagle {
       # NOTE: Return the "normal" value.
       #
       return 528049
+    }
+
+    proc getFrameworkSetup481Value {} {
+      #
+      # NOTE: Return the "normal" value.
+      #
+      return 533325
     }
 
     proc checkForNetFx40 { channel } {
@@ -6489,12 +6646,27 @@ namespace eval ::Eagle {
           #       equal to 393297 (393295 on Windows 10), then the .NET
           #       Framework 4.6 is installed, which is an in-place upgrade
           #       to 4.5.x.  Similar handling is necessary for the .NET
-          #       Framework 4.6.1, 4.6.2, 4.7, 4.7.1, 4.7.2, and 4.8.  For
-          #       more information, see:
+          #       Framework 4.6.1, 4.6.2, 4.7, 4.7.1, 4.7.2, 4.8, and 4.8.1.
+          #       For more information, see:
           #
           #       https://msdn.microsoft.com/en-us/library/hh925568.aspx
           #
-          if {$release >= [getFrameworkSetup48Value]} then {
+          if {$release >= [getFrameworkSetup481Value]} then {
+            addConstraint dotNet451OrHigher
+            addConstraint dotNet452OrHigher
+            addConstraint dotNet453OrHigher
+            addConstraint dotNet46OrHigher
+            addConstraint dotNet461OrHigher
+            addConstraint dotNet462OrHigher
+            addConstraint dotNet47OrHigher
+            addConstraint dotNet471OrHigher
+            addConstraint dotNet472OrHigher
+            addConstraint dotNet48OrHigher
+            addConstraint dotNet481
+            addConstraint dotNet481OrHigher
+
+            set version 4.8.1
+          } elseif {$release >= [getFrameworkSetup48Value]} then {
             addConstraint dotNet451OrHigher
             addConstraint dotNet452OrHigher
             addConstraint dotNet453OrHigher
@@ -6844,8 +7016,8 @@ namespace eval ::Eagle {
         canExecFsUtil canExecVsWhere canExecWmic getCpuStatus isTestMono \
         isTestDotNetCore isTestAdministrator canPing cleanConstraintName \
         cleanPackageName haveTclPlatformOsExtraUpdateName appendExecArguments \
-        execFossilCommand checkForTestSuiteFiles checkForPlatform \
-        checkForWindowsVersion checkForGetInstalledUpdates \
+        tryDetectFossilRoot execFossilCommand checkForTestSuiteFiles \
+        checkForPlatform checkForWindowsVersion checkForGetInstalledUpdates \
         checkForOperatingSystemUpdate checkForScriptLibrary checkForVariable \
         checkForTclOptions checkForWindowsCommandProcessor checkForPackage \
         checkForFossil checkForVisualStudioViaVsWhere checkForEagle \
@@ -6861,11 +7033,13 @@ namespace eval ::Eagle {
         checkForTip429 checkForTip440 checkForTip461 checkForTip463 \
         checkForTip471 checkForTip508 checkForTip521 checkForTiming \
         checkForPerformance checkForBigLists checkForProcessorIntensive \
-        checkForTimeIntensive checkForFullTest checkForMemoryIntensive \
-        checkForStackIntensive checkForStackSize checkForInteractive \
-        checkForInteractiveCommand checkForUserInteraction checkForNetwork \
-        checkForInternet checkForCompileOption checkForBuildType \
-        checkForKnownBuildTypes checkForKnownCompileOptions] false false
+        checkForFileSystemIntensive checkForTimeIntensive checkForFullTest \
+        checkForMemoryIntensive checkForStackIntensive checkForStackSize \
+        checkForInteractive checkForInteractiveCommand \
+        checkForUserInteraction checkForNetwork maybeDownloadFromUri \
+        checkForInternet checkForTlsOk checkForCompileOption \
+        checkForBuildType checkForKnownBuildTypes \
+        checkForKnownCompileOptions] false false
 
     ###########################################################################
     ############################## END Tcl ONLY ###############################

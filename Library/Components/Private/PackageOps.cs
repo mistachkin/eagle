@@ -951,7 +951,7 @@ namespace Eagle._Components.Private
                                     //
                                     if (!noTrusted &&
                                         !RuntimeOps.IsFileTrusted(
-                                            fileName, IntPtr.Zero))
+                                            interpreter, null, fileName, IntPtr.Zero))
                                     {
                                         if (trace && verbose)
                                         {
@@ -2282,7 +2282,7 @@ namespace Eagle._Components.Private
             try
             {
 #endif
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 InterpreterStateFlags savedInterpreterStateFlags =
                     InterpreterStateFlags.None;
 
@@ -2295,7 +2295,7 @@ namespace Eagle._Components.Private
                     return execute.Execute(
                         interpreter, clientData, newArguments,
                         ref result);
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 }
                 finally
                 {
@@ -2369,18 +2369,6 @@ namespace Eagle._Components.Private
                 bool stopOnError = FlagOps.HasFlags(
                     flags, PackageIndexFlags.StopOnError, true);
 #endif
-
-                if (!trace)
-                {
-                    trace = ScriptOps.HasFlags(interpreter,
-                        InterpreterFlags.TracePackageIndex, true);
-                }
-
-                if (!verbose)
-                {
-                    verbose = ScriptOps.HasFlags(interpreter,
-                        InterpreterFlags.VerbosePackageIndex, true);
-                }
 
                 if (host)
                 {

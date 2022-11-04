@@ -67,6 +67,7 @@ namespace Eagle._Interfaces.Public
 
         string ToRawString();
         string ToRawString(string separator);
+
         IStringList ToList();
         IStringList ToList(string pattern, bool noCase);
         IStringList ToList(string pattern, bool empty, bool noCase);

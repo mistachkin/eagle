@@ -62,9 +62,12 @@ runTest {test garuda-1.1 {Eagle Package for Tcl (Garuda) via Tcl} -setup {
   # NOTE: Prevent superfluous object disposal related diagnostic messages
   #       from interfering with the testing itself.
   #
-  set script(pre) [string map [list %test_run_id% [getTestRunId]] { \
+  set script(pre) [string map [list \
+      %test_run_id% [getTestRunId] \
+      %test_run_bucket% [getTestRunBucket]] { \
     set env(DefaultQuiet) true; \
-    set test_run_id %test_run_id% \
+    set test_run_id {%test_run_id%}; \
+    set test_run_bucket {%test_run_bucket%} \
   }]
 
   #
@@ -326,7 +329,9 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
       -preInitialize [appendArgs \" "catch \{object invoke -flags " \
       "+NonPublic Interpreter.GetActive TclLoadFlags \{" $tclLoadFlags \
       \}\}\"] \
-      -preInitialize [appendArgs \" "set test_run_id " [getTestRunId] \"] \
+      -preInitialize [appendArgs \" "set test_run_id \{" [getTestRunId] \}\"] \
+      -preInitialize [appendArgs \
+          \" "set test_run_bucket \{" [getTestRunBucket] \}\"] \
       -file [appendArgs \" [file join $test_path tcl-load.eagle] \"] \
       -configuration [appendArgs \" [getTestConfiguration] \"] \
       -suffix [appendArgs \" [getTestSuffix] \"] \

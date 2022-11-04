@@ -409,6 +409,150 @@
     ]]></value>
   </data>
   <!--
+      NOTE: This resource string is used to fetch an official key ring from
+            the configured remote URI.
+
+      WARNING: If the "fetchKeyRing" string is modified, it may not work
+               because the signed script verification for it will fail.  You
+               should not change it unless you can also re-sign it.
+
+      WARNING: This resource string is signed with the Eagle Enterprise Trust
+               Root key, which is embedded within the Harpy assembly itself.
+               This special handling is necessary because this resource string
+               is used during the trusted key ring loading process and at that
+               point the normal core library script signing key is unavailable
+               because it is always loaded from a trusted key ring.
+  -->
+  <data name="fetchKeyRing" xml:space="preserve">
+    <value>package require Security.Core; keyring fetch</value>
+  </data>
+  <data name="fetchKeyRing.harpy" xml:space="preserve">
+    <value><![CDATA[
+      <Certificate xmlns="https://eagle.to/2011/harpy"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Protocol>None</Protocol>
+        <Vendor>Mistachkin Systems</Vendor>
+        <Id>da7b299e-ffff-4a12-b03d-2421e0fc8fc3</Id>
+        <HashAlgorithm>SHA512</HashAlgorithm>
+        <EntityType>Script</EntityType>
+        <TimeStamp>2022-06-30T13:59:12.5072761Z</TimeStamp>
+        <Duration>-1.00:00:00</Duration>
+        <Key>0x26f17c3a1a544324</Key>
+        <Signature>
+          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
+        </Signature>
+      </Certificate>
+    ]]></value>
+  </data>
+  <!--
+      NOTE: This resource string is used to merge the specified key ring file
+            into the script key ring.
+
+      WARNING: If the "mergeKeyRing" string is modified, it may not work
+               because the signed script verification for it will fail.  You
+               should not change it unless you can also re-sign it.
+
+      WARNING: This resource string is signed with the Eagle Enterprise Trust
+               Root key, which is embedded within the Harpy assembly itself.
+               This special handling is necessary because this resource string
+               is used during the trusted key ring loading process and at that
+               point the normal core library script signing key is unavailable
+               because it is always loaded from a trusted key ring.
+  -->
+  <data name="mergeKeyRing" xml:space="preserve">
+    <value>package require Security.Core; security true; keyring merge {0}</value>
+  </data>
+  <data name="mergeKeyRing.harpy" xml:space="preserve">
+    <value><![CDATA[
+      <Certificate xmlns="https://eagle.to/2011/harpy"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <Protocol>None</Protocol>
+        <Vendor>Mistachkin Systems</Vendor>
+        <Id>17c112c3-841c-4351-b6b7-0b42bcc223a8</Id>
+        <HashAlgorithm>SHA512</HashAlgorithm>
+        <EntityType>Script</EntityType>
+        <TimeStamp>2022-06-30T13:59:51.4625042Z</TimeStamp>
+        <Duration>-1.00:00:00</Duration>
+        <Key>0x26f17c3a1a544324</Key>
+        <Signature>
+          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
+        </Signature>
+      </Certificate>
+    ]]></value>
+  </data>
+  <!--
       NOTE: *WARNING* Be sure to update the the list of files here if any files
             are added to the core script library.
   -->

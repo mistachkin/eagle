@@ -62,8 +62,7 @@ namespace Eagle._Functions
                         {
                             try
                             {
-                                value = Interpreter.FixIntermediatePrecision(
-                                    Math.Tanh(doubleValue));
+                                value = Math.Tanh(doubleValue);
                             }
                             catch (Exception e)
                             {

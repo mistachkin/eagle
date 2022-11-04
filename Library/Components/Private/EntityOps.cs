@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -1436,6 +1437,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool IsReadOnlyOrInvariant(
+            IVariable variable
+            )
+        {
+            if (variable == null)
+                return false;
+
+            return variable.HasFlags(
+                VariableFlags.ReadOnly | VariableFlags.Invariant, false);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IsSubstitute(
             IVariable variable
             )
@@ -2262,13 +2276,16 @@ namespace Eagle._Components.Private
         {
             if (identifierName != null)
             {
-                try
+                if (!ObjectOps.IsDisposed(identifierName))
                 {
-                    return identifierName.Name; /* throw */
-                }
-                catch
-                {
-                    // do nothing.
+                    try
+                    {
+                        return identifierName.Name; /* throw */
+                    }
+                    catch
+                    {
+                        // do nothing.
+                    }
                 }
             }
 
@@ -2302,6 +2319,16 @@ namespace Eagle._Components.Private
             object @object
             )
         {
+            return GetNameNoThrow(@object, true);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetNameNoThrow(
+            object @object,
+            bool toString
+            )
+        {
             if (@object != null)
             {
                 IIdentifierName identifierName = @object as IIdentifierName;
@@ -2309,13 +2336,16 @@ namespace Eagle._Components.Private
                 if (identifierName != null)
                     return GetNameNoThrow(identifierName);
 
-                try
+                if (toString)
                 {
-                    return @object.ToString(); /* throw */
-                }
-                catch
-                {
-                    // do nothing.
+                    try
+                    {
+                        return @object.ToString(); /* throw */
+                    }
+                    catch
+                    {
+                        // do nothing.
+                    }
                 }
             }
 
@@ -2375,6 +2405,96 @@ namespace Eagle._Components.Private
                 try
                 {
                     return process.ToString();
+                }
+                catch
+                {
+                    // do nothing.
+                }
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IEnumerable<string> GetNamesNoThrow(
+            IEnumerable collection
+            )
+        {
+            if (collection != null)
+            {
+                try
+                {
+                    StringList result = new StringList();
+
+                    foreach (object item in collection)
+                    {
+                        if (item == null)
+                            continue;
+
+                        string name = GetNameNoThrow(
+                            item, false);
+
+                        if (name == null)
+                            continue;
+
+                        result.Add(name);
+                    }
+
+                    return result;
+                }
+                catch
+                {
+                    // do nothing.
+                }
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IEnumerable<string> GetNamesNoThrow(
+            IDictionary dictionary
+            )
+        {
+            if (dictionary != null)
+            {
+                try
+                {
+                    StringList result = new StringList();
+
+                    foreach (DictionaryEntry entry in dictionary)
+                    {
+                        string name; /* REUSED */
+                        object value = entry.Value;
+
+                        if (value == null)
+                            continue;
+
+                        name = GetNameNoThrow(value, false);
+
+                        if (name != null)
+                        {
+                            result.Add(name);
+                            continue;
+                        }
+
+                        object key = entry.Key;
+
+                        if (key == null)
+                            continue;
+
+                        name = GetNameNoThrow(key, true);
+
+                        if (name != null)
+                        {
+                            result.Add(name);
+                            continue;
+                        }
+                    }
+
+                    return result;
                 }
                 catch
                 {

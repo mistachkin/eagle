@@ -62,8 +62,7 @@ namespace Eagle._Functions
                         {
                             try
                             {
-                                value = Interpreter.FixIntermediatePrecision(
-                                    Math.Log10(doubleValue));
+                                value = Math.Log10(doubleValue);
                             }
                             catch (Exception e)
                             {

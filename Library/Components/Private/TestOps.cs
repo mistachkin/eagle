@@ -3139,13 +3139,13 @@ namespace Eagle._Components.Private
 
                 TraceOps.DebugTrace(
                     e, typeof(TestOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
             }
             catch (ThreadInterruptedException e)
             {
                 TraceOps.DebugTrace(
                     e, typeof(TestOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
             }
             catch (Exception e)
             {
@@ -3245,13 +3245,13 @@ namespace Eagle._Components.Private
 
                 TraceOps.DebugTrace(
                     e, typeof(TestOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
             }
             catch (ThreadInterruptedException e)
             {
                 TraceOps.DebugTrace(
                     e, typeof(TestOps).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
             }
             catch (Exception e)
             {

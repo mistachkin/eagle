@@ -130,7 +130,8 @@
       CleanDoneFiles;
     </CleanDependsOn>
   </PropertyGroup>
-  <PropertyGroup Condition="!Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v16.0\WebApplications\Microsoft.WebApplication.targets')">
+  <PropertyGroup Condition="!Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v16.0\WebApplications\Microsoft.WebApplication.targets') And
+                            '$(MissingWebApplicationProjects)' != 'false'">
     <!--
         NOTE: We cannot build this project without the necessary project type;
               therefore, skip building it altogether.

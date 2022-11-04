@@ -16,6 +16,7 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -42,8 +43,8 @@ namespace Eagle._Commands
 
         #region IEnsemble Members
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
-            "close", "create", "current", "destroy", "eval",
-            "exists", "global", "list", "lock", "open", "set",
+            "attach", "close", "create", "current", "destroy", "detach", "eval",
+            "exists", "export", "global", "import", "list", "lock", "open", "set",
             "unlock", "unset", "update", "vars"
         });
 
@@ -84,6 +85,80 @@ namespace Eagle._Commands
                         {
                             switch (subCommand)
                             {
+                                case "attach":
+                                case "detach":
+                                    {
+                                        bool isAttach = SharedStringOps.SystemEquals(
+                                            subCommand, "attach");
+
+                                        if (arguments.Count == 4)
+                                        {
+                                            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                            {
+                                                if (interpreter.AreNamespacesEnabled())
+                                                {
+                                                    if (interpreter.HasScopes(ref result))
+                                                    {
+                                                        ICallFrame frame = null;
+
+                                                        code = interpreter.GetScope(
+                                                            arguments[2], LookupFlags.Default,
+                                                            ref frame, ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            INamespace @namespace = NamespaceOps.Lookup(
+                                                                interpreter, arguments[3], false, false,
+                                                                ref result);
+
+                                                            if (@namespace != null)
+                                                            {
+                                                                StringList list = null;
+
+                                                                if (isAttach)
+                                                                {
+                                                                    code = NamespaceOps.AttachScope(
+                                                                        interpreter, @namespace, frame,
+                                                                        ref list, ref result);
+                                                                }
+                                                                else
+                                                                {
+                                                                    code = NamespaceOps.DetachScope(
+                                                                        interpreter, @namespace, frame,
+                                                                        ref list, ref result);
+                                                                }
+
+                                                                if (code == ReturnCode.Ok)
+                                                                    result = list;
+                                                            }
+                                                            else
+                                                            {
+                                                                code = ReturnCode.Error;
+                                                            }
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    result = "namespaces are disabled";
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = String.Format(
+                                                "wrong # args: should be \"{0} {1} name namespace\"",
+                                                this.Name, subCommand);
+
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "close":
                                     {
                                         if (arguments.Count >= 2)
@@ -121,12 +196,23 @@ namespace Eagle._Commands
 
                                                         if (all)
                                                         {
-                                                            /* IGNORED */
-                                                            interpreter.PopScopeCallFrames(ref frame);
+                                                            bool usable = true;
 
-                                                            if (frame == null)
+                                                            /* IGNORED */
+                                                            interpreter.PopScopeCallFrames(
+                                                                ref frame, ref usable);
+
+                                                            if (usable)
                                                             {
-                                                                result = "no scopes are open";
+                                                                if (frame == null)
+                                                                {
+                                                                    result = "no scopes are open";
+                                                                    code = ReturnCode.Error;
+                                                                }
+                                                            }
+                                                            else
+                                                            {
+                                                                result = "scope is unusable";
                                                                 code = ReturnCode.Error;
                                                             }
                                                         }
@@ -385,10 +471,11 @@ namespace Eagle._Commands
                                                                                 //       frame failed, so clean it up.
                                                                                 //
                                                                                 ReturnCode removeCode;
+                                                                                StringList removeList = null;
                                                                                 Result removeResult = null;
 
-                                                                                removeCode = interpreter.RemoveScope(
-                                                                                    name, clientData, ref removeResult);
+                                                                                removeCode = interpreter.RemoveScope(name,
+                                                                                    clientData, ref removeList, ref removeResult);
 
                                                                                 if (removeCode != ReturnCode.Ok)
                                                                                 {
@@ -522,9 +609,13 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 3)
                                         {
-                                            string name = arguments[2];
+                                            StringList list = null;
 
-                                            code = interpreter.RemoveScope(name, clientData, ref result);
+                                            code = interpreter.RemoveScope(
+                                                arguments[2], clientData, ref list, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                                result = StringList.MakeList(list, result);
                                         }
                                         else
                                         {
@@ -753,6 +844,80 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"scope exists name\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "export":
+                                case "import":
+                                    {
+                                        bool isExport = SharedStringOps.SystemEquals(
+                                            subCommand, "export");
+
+                                        if (arguments.Count == 4)
+                                        {
+                                            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                            {
+                                                if (interpreter.AreNamespacesEnabled())
+                                                {
+                                                    if (interpreter.HasScopes(ref result))
+                                                    {
+                                                        ICallFrame frame = null;
+
+                                                        code = interpreter.GetScope(
+                                                            arguments[2], LookupFlags.Default,
+                                                            ref frame, ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            INamespace @namespace = NamespaceOps.Lookup(
+                                                                interpreter, arguments[3], false, false,
+                                                                ref result);
+
+                                                            if (@namespace != null)
+                                                            {
+                                                                StringList list = null;
+
+                                                                if (isExport)
+                                                                {
+                                                                    code = NamespaceOps.ExportScope(
+                                                                        interpreter, @namespace, frame,
+                                                                        false, ref list, ref result);
+                                                                }
+                                                                else
+                                                                {
+                                                                    code = NamespaceOps.ImportScope(
+                                                                        interpreter, @namespace, frame,
+                                                                        false, ref list, ref result);
+                                                                }
+
+                                                                if (code == ReturnCode.Ok)
+                                                                    result = list;
+                                                            }
+                                                            else
+                                                            {
+                                                                code = ReturnCode.Error;
+                                                            }
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    result = "namespaces are disabled";
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = String.Format(
+                                                "wrong # args: should be \"{0} {1} name namespace\"",
+                                                this.Name, subCommand);
+
                                             code = ReturnCode.Error;
                                         }
                                         break;

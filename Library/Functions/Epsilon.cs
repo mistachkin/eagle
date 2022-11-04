@@ -53,8 +53,7 @@ namespace Eagle._Functions
                     {
                         try
                         {
-                            value = Interpreter.FixIntermediatePrecision(
-                                double.Epsilon);
+                            value = double.Epsilon;
                         }
                         catch (Exception e)
                         {

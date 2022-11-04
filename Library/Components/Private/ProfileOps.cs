@@ -47,7 +47,7 @@ namespace Eagle._Components.Private
         {
             long stopCount = PerformanceOps.GetCount();
 
-            microseconds += PerformanceOps.GetMicroseconds(
+            microseconds += PerformanceOps.GetMicrosecondsFromCount(
                 startCount, stopCount, 1, obfuscate);
         }
         #endregion

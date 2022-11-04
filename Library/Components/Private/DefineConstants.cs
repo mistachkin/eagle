@@ -66,10 +66,6 @@ namespace Eagle._Constants
             "BREAK_ON_EXITING",
 #endif
 
-#if BREAKPOINTS
-            "BREAKPOINTS",
-#endif
-
 #if CACHE_ARGUMENT_TOSTRING
             "CACHE_ARGUMENT_TOSTRING",
 #endif
@@ -156,6 +152,10 @@ namespace Eagle._Constants
 
 #if DEBUGGER_ARGUMENTS
             "DEBUGGER_ARGUMENTS",
+#endif
+
+#if DEBUGGER_BREAKPOINTS
+            "DEBUGGER_BREAKPOINTS",
 #endif
 
 #if DEBUGGER_ENGINE
@@ -404,6 +404,14 @@ namespace Eagle._Constants
 
 #if NET_48
             "NET_48",
+#endif
+
+#if NET_481
+            "NET_481",
+#endif
+
+#if NET_CORE_REFERENCES
+            "NET_CORE_REFERENCES",
 #endif
 
 #if NET_CORE_20

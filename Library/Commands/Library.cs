@@ -503,10 +503,10 @@ namespace Eagle._Commands
                                                             code = CertificateOps.VerifyChain(
                                                                 null, certificate2, x509VerificationFlags,
                                                                 x509RevocationMode, x509RevocationFlag,
-                                                                ref result);
+                                                                true, ref result);
 
                                                         if (code == ReturnCode.Ok)
-                                                            result = FormatOps.Certificate(
+                                                            result = FormatOps.Certificate(interpreter,
                                                                 arguments[argumentIndex], certificate2, true, true, false);
                                                     }
                                                     else
@@ -518,7 +518,7 @@ namespace Eagle._Commands
                                                             ref result);
 
                                                         if (code == ReturnCode.Ok)
-                                                            result = FormatOps.Certificate(
+                                                            result = FormatOps.Certificate(interpreter,
                                                                 arguments[argumentIndex], certificate, true, true, false);
                                                     }
                                                 }

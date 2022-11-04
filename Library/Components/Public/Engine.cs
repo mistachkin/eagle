@@ -83,7 +83,7 @@ namespace Eagle._Components.Public
         //       (typically to report extended error information).
         //
         private static readonly VariableFlags ErrorVariableFlags =
-            VariableFlags.Library | VariableFlags.ViaEngine;
+            VariableFlags.LibraryMask | VariableFlags.ViaEngine;
 
         //
         // NOTE: The flags used when the engine needs to set the "::errorCode"
@@ -1028,13 +1028,13 @@ namespace Eagle._Components.Public
 
                     TraceOps.DebugTrace(
                         e, typeof(Engine).Name,
-                        TracePriority.ThreadError);
+                        TracePriority.ThreadError2);
                 }
                 catch (ThreadInterruptedException e)
                 {
                     TraceOps.DebugTrace(
                         e, typeof(Engine).Name,
-                        TracePriority.ThreadError);
+                        TracePriority.ThreadError2);
                 }
                 catch (Exception e)
                 {
@@ -1868,7 +1868,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Token Breakpoint Methods
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
         private static bool HasTokenBreakpoint(
             Interpreter interpreter,
             IDebugger debugger,
@@ -1991,7 +1991,7 @@ namespace Eagle._Components.Public
                         newBreakpointType |= BreakpointType.Test;
                     }
 
-#if BREAKPOINTS
+#if DEBUGGER_BREAKPOINTS
                     if (debugger.BreakOnToken &&
                         HasTokenBreakpoint(interpreter, debugger, token))
                     {
@@ -2065,7 +2065,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Watchpoint Methods
-#if DEBUGGER && DEBUGGER_VARIABLE
+#if DEBUGGER_VARIABLE
         internal static ReturnCode CheckWatchpoints(
             ReturnCode code,
             BreakpointType breakpointType,
@@ -4674,6 +4674,12 @@ namespace Eagle._Components.Public
                                 encoding : StringOps.GuessOrGetEncoding(
                                     bytes, EncodingType.Base64);
 
+                            if (base64Encoding == null)
+                            {
+                                error = "base64 encoding not available";
+                                return ReturnCode.Error;
+                            }
+
                             using (StringReader stringReader = new StringReader(
                                     base64Encoding.GetString(bytes)))
                             {
@@ -5001,12 +5007,16 @@ namespace Eagle._Components.Public
                     if ((interpreter != null) &&
                         !EngineFlagOps.HasNoPolicy(engineFlags))
                     {
-                        beforeScriptDecision = interpreter.ScriptDecision;
+                        beforeScriptDecision = interpreter.ScriptInitialDecision;
 
                         beforeScriptCode = interpreter.CheckScriptPolicies(
                             PolicyFlags.EngineBeforeScript, script,
                             encoding, null, ref beforeScriptDecision,
                             ref beforeScriptPolicyResult);
+
+                        interpreter.ScriptFinalDecision = PolicyOps.FinalDecision(
+                            PolicyFlags.EngineBeforeScript, beforeScriptCode,
+                            beforeScriptDecision);
 
                         if (!PolicyOps.IsSuccess(
                                 beforeScriptCode, beforeScriptDecision))
@@ -5407,12 +5417,16 @@ namespace Eagle._Components.Public
                     (script == null) && (name != null) &&
                     !EngineFlagOps.HasNoPolicy(engineFlags))
                 {
-                    beforeStreamDecision = interpreter.StreamDecision;
+                    beforeStreamDecision = interpreter.StreamInitialDecision;
 
                     beforeStreamCode = interpreter.CheckBeforeStreamPolicies(
                         PolicyFlags.EngineBeforeStream, name, null, null,
                         ref beforeStreamDecision,
                         ref beforeStreamPolicyResult);
+
+                    interpreter.StreamFinalDecision = PolicyOps.FinalDecision(
+                        PolicyFlags.EngineBeforeStream, beforeStreamCode,
+                        beforeStreamDecision);
 
                     if (!PolicyOps.IsSuccess(
                             beforeStreamCode, beforeStreamDecision))
@@ -5555,12 +5569,16 @@ namespace Eagle._Components.Public
                         //
                         localScript.MakeImmutable();
 
-                        beforeScriptDecision = interpreter.ScriptDecision;
+                        beforeScriptDecision = interpreter.ScriptInitialDecision;
 
                         beforeScriptCode = interpreter.CheckScriptPolicies(
                             PolicyFlags.EngineBeforeScript, localScript,
                             null, null, ref beforeScriptDecision,
                             ref beforeScriptPolicyResult);
+
+                        interpreter.ScriptFinalDecision = PolicyOps.FinalDecision(
+                            PolicyFlags.EngineBeforeScript, beforeScriptCode,
+                            beforeScriptDecision);
 
                         if (!PolicyOps.IsSuccess(
                                 beforeScriptCode, beforeScriptDecision))
@@ -5613,33 +5631,37 @@ namespace Eagle._Components.Public
                         (script == null) && (name != null) &&
                         !EngineFlagOps.HasNoPolicy(engineFlags))
                     {
-                        afterStreamDecision = interpreter.StreamDecision;
+                        afterStreamDecision = interpreter.StreamInitialDecision;
 
                         afterStreamCode = interpreter.CheckAfterStreamPolicies(
                             PolicyFlags.EngineAfterStream, name,
                             originalText, null, null,
                             ref afterStreamDecision,
                             ref afterStreamPolicyResult);
-                    }
 
-                    if (!PolicyOps.IsSuccess(
-                            afterStreamCode, afterStreamDecision))
-                    {
-                        canRetry = false;
+                        interpreter.StreamFinalDecision = PolicyOps.FinalDecision(
+                            PolicyFlags.EngineAfterStream, afterStreamCode,
+                            afterStreamDecision);
 
-                        if (afterStreamPolicyResult != null)
+                        if (!PolicyOps.IsSuccess(
+                                afterStreamCode, afterStreamDecision))
                         {
-                            error = afterStreamPolicyResult;
-                        }
-                        else
-                        {
-                            error = String.Format(
-                                "script {0} cannot be returned, denied by policy",
-                                FormatOps.DisplayName(name));
-                        }
+                            canRetry = false;
 
-                        code = ReturnCode.Error;
-                        return code;
+                            if (afterStreamPolicyResult != null)
+                            {
+                                error = afterStreamPolicyResult;
+                            }
+                            else
+                            {
+                                error = String.Format(
+                                    "script {0} cannot be returned, denied by policy",
+                                    FormatOps.DisplayName(name));
+                            }
+
+                            code = ReturnCode.Error;
+                            return code;
+                        }
                     }
                     #endregion
 
@@ -5832,12 +5854,16 @@ namespace Eagle._Components.Public
                             //
                             localScript.MakeImmutable();
 
-                            beforeScriptDecision = interpreter.ScriptDecision;
+                            beforeScriptDecision = interpreter.ScriptInitialDecision;
 
                             beforeScriptCode = interpreter.CheckScriptPolicies(
                                 PolicyFlags.EngineBeforeScript, localScript,
                                 null, null, ref beforeScriptDecision,
                                 ref beforeScriptPolicyResult);
+
+                            interpreter.ScriptFinalDecision = PolicyOps.FinalDecision(
+                                PolicyFlags.EngineBeforeScript, beforeScriptCode,
+                                beforeScriptDecision);
 
                             if (!PolicyOps.IsSuccess(
                                     beforeScriptCode, beforeScriptDecision))
@@ -5890,33 +5916,37 @@ namespace Eagle._Components.Public
                             (script == null) && (name != null) &&
                             !EngineFlagOps.HasNoPolicy(engineFlags))
                         {
-                            afterStreamDecision = interpreter.StreamDecision;
+                            afterStreamDecision = interpreter.StreamInitialDecision;
 
                             afterStreamCode = interpreter.CheckAfterStreamPolicies(
                                 PolicyFlags.EngineAfterStream, name,
                                 originalText, null, null,
                                 ref afterStreamDecision,
                                 ref afterStreamPolicyResult);
-                        }
 
-                        if (!PolicyOps.IsSuccess(
-                                afterStreamCode, afterStreamDecision))
-                        {
-                            canRetry = false;
+                            interpreter.StreamFinalDecision = PolicyOps.FinalDecision(
+                                PolicyFlags.EngineAfterStream, afterStreamCode,
+                                afterStreamDecision);
 
-                            if (afterStreamPolicyResult != null)
+                            if (!PolicyOps.IsSuccess(
+                                    afterStreamCode, afterStreamDecision))
                             {
-                                error = afterStreamPolicyResult;
-                            }
-                            else
-                            {
-                                error = String.Format(
-                                    "script {0} cannot be returned, denied by policy",
-                                    FormatOps.DisplayName(name));
-                            }
+                                canRetry = false;
 
-                            code = ReturnCode.Error;
-                            return code;
+                                if (afterStreamPolicyResult != null)
+                                {
+                                    error = afterStreamPolicyResult;
+                                }
+                                else
+                                {
+                                    error = String.Format(
+                                        "script {0} cannot be returned, denied by policy",
+                                        FormatOps.DisplayName(name));
+                                }
+
+                                code = ReturnCode.Error;
+                                return code;
+                            }
                         }
                         #endregion
 
@@ -5993,33 +6023,37 @@ namespace Eagle._Components.Public
                         (script == null) && (name != null) &&
                         !EngineFlagOps.HasNoPolicy(engineFlags))
                     {
-                        afterStreamDecision = interpreter.StreamDecision;
+                        afterStreamDecision = interpreter.StreamInitialDecision;
 
                         afterStreamCode = interpreter.CheckAfterStreamPolicies(
                             PolicyFlags.EngineAfterStream, name,
                             originalText, null, null,
                             ref afterStreamDecision,
                             ref afterStreamPolicyResult);
-                    }
 
-                    if (!PolicyOps.IsSuccess(
-                            afterStreamCode, afterStreamDecision))
-                    {
-                        canRetry = false;
+                        interpreter.StreamFinalDecision = PolicyOps.FinalDecision(
+                            PolicyFlags.EngineAfterStream, afterStreamCode,
+                            afterStreamDecision);
 
-                        if (afterStreamPolicyResult != null)
+                        if (!PolicyOps.IsSuccess(
+                                afterStreamCode, afterStreamDecision))
                         {
-                            error = afterStreamPolicyResult;
-                        }
-                        else
-                        {
-                            error = String.Format(
-                                "script {0} cannot be returned, denied by policy",
-                                FormatOps.DisplayName(name));
-                        }
+                            canRetry = false;
 
-                        code = ReturnCode.Error;
-                        return code;
+                            if (afterStreamPolicyResult != null)
+                            {
+                                error = afterStreamPolicyResult;
+                            }
+                            else
+                            {
+                                error = String.Format(
+                                    "script {0} cannot be returned, denied by policy",
+                                    FormatOps.DisplayName(name));
+                            }
+
+                            code = ReturnCode.Error;
+                            return code;
+                        }
                     }
                     #endregion
 
@@ -6106,6 +6140,21 @@ namespace Eagle._Components.Public
             bool? remoteUri
             )
         {
+            int preambleSize = 0;
+
+            return GetEncoding(
+                fileName, type, remoteUri, ref preambleSize);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        internal static Encoding GetEncoding(
+            string fileName,
+            EncodingType type,
+            bool? remoteUri,
+            ref int preambleSize
+            )
+        {
             bool localRemoteUri;
 
             if (remoteUri != null)
@@ -6153,7 +6202,8 @@ namespace Eagle._Components.Public
                 count--;
             }
 
-            return StringOps.GuessOrGetEncoding(bytes, type);
+            return StringOps.GuessOrGetEncoding(
+                bytes, type, ref preambleSize);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -6555,7 +6605,7 @@ namespace Eagle._Components.Public
             if (encoding == null)
             {
                 canRetry = true;
-                error = "invalid encoding";
+                error = "script encoding not available";
 
                 return ReturnCode.Error;
             }
@@ -6590,12 +6640,16 @@ namespace Eagle._Components.Public
                 if ((interpreter != null) &&
                     !EngineFlagOps.HasNoPolicy(engineFlags))
                 {
-                    beforeFileDecision = interpreter.FileDecision;
+                    beforeFileDecision = interpreter.FileInitialDecision;
 
                     beforeFileCode = interpreter.CheckBeforeFilePolicies(
                         PolicyFlags.EngineBeforeFile, localFileName,
                         encoding, null, ref beforeFileDecision,
                         ref beforeFilePolicyResult);
+
+                    interpreter.FileFinalDecision = PolicyOps.FinalDecision(
+                        PolicyFlags.EngineBeforeFile, beforeFileCode,
+                        beforeFileDecision);
 
                     if (!PolicyOps.IsSuccess(
                             beforeFileCode, beforeFileDecision))
@@ -6843,12 +6897,16 @@ namespace Eagle._Components.Public
                             //
                             script.MakeImmutable();
 
-                            beforeScriptDecision = interpreter.ScriptDecision;
+                            beforeScriptDecision = interpreter.ScriptInitialDecision;
 
                             beforeScriptCode = interpreter.CheckScriptPolicies(
                                 PolicyFlags.EngineBeforeScript, script,
                                 null, null, ref beforeScriptDecision,
                                 ref beforeScriptPolicyResult);
+
+                            interpreter.ScriptFinalDecision = PolicyOps.FinalDecision(
+                                PolicyFlags.EngineBeforeScript, beforeScriptCode,
+                                beforeScriptDecision);
 
                             if (!PolicyOps.IsSuccess(
                                     beforeScriptCode, beforeScriptDecision))
@@ -6886,7 +6944,7 @@ namespace Eagle._Components.Public
                         if ((interpreter != null) &&
                             !EngineFlagOps.HasNoPolicy(engineFlags))
                         {
-                            afterFileDecision = interpreter.FileDecision;
+                            afterFileDecision = interpreter.FileInitialDecision;
 
                             afterFileCode = interpreter.CheckAfterFilePolicies(
                                 PolicyFlags.EngineAfterFile,
@@ -6894,6 +6952,10 @@ namespace Eagle._Components.Public
                                 encoding, localReadScriptClientData,
                                 ref afterFileDecision,
                                 ref afterFilePolicyResult);
+
+                            interpreter.FileFinalDecision = PolicyOps.FinalDecision(
+                                PolicyFlags.EngineAfterFile, afterFileCode,
+                                afterFileDecision);
 
                             if (!PolicyOps.IsSuccess(
                                     afterFileCode, afterFileDecision))
@@ -7458,6 +7520,12 @@ namespace Eagle._Components.Public
                 Encoding bytesEncoding = (encoding != null) ?
                     encoding : StringOps.GuessOrGetEncoding(
                         bytes, EncodingType.Script);
+
+                if (bytesEncoding == null)
+                {
+                    error = "script encoding not available";
+                    return ReturnCode.Error;
+                }
 
                 using (StreamReader streamReader = new StreamReader(
                         stream, bytesEncoding))
@@ -8913,9 +8981,11 @@ namespace Eagle._Components.Public
 
             if (!EntityOps.IsDisabled(function))
             {
+                bool isSafe = false;
+
                 if (EngineFlagOps.HasNoSafeFunction(engineFlags) ||
                     EntityOps.IsSafe(function) ||
-                    !interpreter.InternalIsSafe())
+                    !(isSafe = interpreter.InternalIsSafe()))
                 {
 #if DEBUGGER && DEBUGGER_EXPRESSION
                     if (DebuggerOps.CanHitBreakpoints(interpreter,
@@ -8957,8 +9027,9 @@ namespace Eagle._Components.Public
                 else
                 {
                     error = String.Format(
-                        "permission denied: safe interpreter cannot use function {0}",
-                        FormatOps.DisplayName(function));
+                        "permission denied: {0}interpreter cannot use function {1}",
+                        isSafe ? "safe " : String.Empty, FormatOps.DisplayName(
+                        function));
 
                     code = ReturnCode.Error;
                 }
@@ -9312,6 +9383,8 @@ namespace Eagle._Components.Public
                         //
                         if (code == ReturnCode.Ok)
                         {
+                            bool isSafe = false; /* REUSED */
+
                             if (execute is ICommand)
                             {
                                 ICommand command = (ICommand)execute;
@@ -9342,16 +9415,21 @@ namespace Eagle._Components.Public
                                         //       not "safe", the command was purposely hidden and
                                         //       will not be executed.
                                         //
-                                        PolicyDecision commandDecision = interpreter.CommandDecision;
+                                        ReturnCode? commandCode = null;
+                                        PolicyDecision commandDecision = interpreter.CommandInitialDecision;
                                         Result commandPolicyResult = null;
 
                                         if (!EngineFlagOps.HasNoPolicy(engineFlags) &&
-                                            interpreter.InternalIsSafe() &&
-                                            (interpreter.CheckCommandPolicies(
+                                            (isSafe = interpreter.InternalIsSafe()) &&
+                                            ((commandCode = interpreter.CheckCommandPolicies(
                                                 PolicyFlags.EngineBeforeCommand, command, arguments, null,
-                                                ref commandDecision, ref commandPolicyResult) == ReturnCode.Ok) &&
+                                                ref commandDecision, ref commandPolicyResult)) == ReturnCode.Ok) &&
                                             PolicyContext.IsApproved(commandDecision))
                                         {
+                                            interpreter.CommandFinalDecision = PolicyOps.FinalDecision(
+                                                PolicyFlags.EngineBeforeCommand, commandCode,
+                                                commandDecision);
+
                                             code = ExecuteCommand(command, interpreter,
                                                 (clientData != null) ? clientData : command.ClientData,
                                                 arguments, engineFlags, substitutionFlags, eventFlags,
@@ -9363,6 +9441,10 @@ namespace Eagle._Components.Public
                                         }
                                         else
                                         {
+                                            interpreter.CommandFinalDecision = PolicyOps.FinalDecision(
+                                                PolicyFlags.EngineBeforeCommand, commandCode,
+                                                commandDecision);
+
                                             if (commandPolicyResult != null)
                                             {
                                                 result = commandPolicyResult;
@@ -9370,8 +9452,9 @@ namespace Eagle._Components.Public
                                             else
                                             {
                                                 result = String.Format(
-                                                    "permission denied: safe interpreter cannot use command {0}",
-                                                    FormatOps.DisplayName(command, interpreter, arguments));
+                                                    "permission denied: {0}interpreter cannot use {1}command {2}",
+                                                    isSafe ? "safe " : String.Empty, !isSafe && isHidden ? "hidden " :
+                                                    String.Empty, FormatOps.DisplayName(command, interpreter, arguments));
                                             }
 
                                             code = ReturnCode.Error;
@@ -9440,16 +9523,21 @@ namespace Eagle._Components.Public
                                         //       not "safe", the sub-command was purposely hidden and
                                         //       will not be executed.
                                         //
-                                        PolicyDecision commandDecision = interpreter.CommandDecision;
+                                        ReturnCode? commandCode = null;
+                                        PolicyDecision commandDecision = interpreter.CommandInitialDecision;
                                         Result commandPolicyResult = null;
 
                                         if (!EngineFlagOps.HasNoPolicy(engineFlags) &&
-                                            interpreter.InternalIsSafe() &&
-                                            (interpreter.CheckCommandPolicies(
+                                            (isSafe = interpreter.InternalIsSafe()) &&
+                                            ((commandCode = interpreter.CheckCommandPolicies(
                                                 PolicyFlags.EngineBeforeSubCommand, subCommand, arguments,
-                                                null, ref commandDecision, ref commandPolicyResult) == ReturnCode.Ok) &&
+                                                null, ref commandDecision, ref commandPolicyResult)) == ReturnCode.Ok) &&
                                             PolicyContext.IsApproved(commandDecision))
                                         {
+                                            interpreter.CommandFinalDecision = PolicyOps.FinalDecision(
+                                                PolicyFlags.EngineBeforeSubCommand, commandCode,
+                                                commandDecision);
+
                                             code = ExecuteSubCommand(subCommand, interpreter,
                                                 (clientData != null) ? clientData : subCommand.ClientData,
                                                 arguments, engineFlags, substitutionFlags, eventFlags,
@@ -9461,6 +9549,10 @@ namespace Eagle._Components.Public
                                         }
                                         else
                                         {
+                                            interpreter.CommandFinalDecision = PolicyOps.FinalDecision(
+                                                PolicyFlags.EngineBeforeSubCommand, commandCode,
+                                                commandDecision);
+
                                             if (commandPolicyResult != null)
                                             {
                                                 result = commandPolicyResult;
@@ -9468,8 +9560,9 @@ namespace Eagle._Components.Public
                                             else
                                             {
                                                 result = String.Format(
-                                                    "permission denied: safe interpreter cannot use sub-command {0}",
-                                                    FormatOps.DisplayName(subCommand, interpreter, arguments));
+                                                    "permission denied: {0}interpreter cannot use {1}sub-command {2}",
+                                                    isSafe ? "safe " : String.Empty, !isSafe && isHidden ? "hidden " :
+                                                    String.Empty, FormatOps.DisplayName(subCommand, interpreter, arguments));
                                             }
 
                                             code = ReturnCode.Error;
@@ -9538,16 +9631,21 @@ namespace Eagle._Components.Public
                                         //       not "safe", the command was purposely hidden and
                                         //       will not be executed.
                                         //
-                                        PolicyDecision commandDecision = interpreter.CommandDecision;
+                                        ReturnCode? commandCode = null;
+                                        PolicyDecision commandDecision = interpreter.CommandInitialDecision;
                                         Result commandPolicyResult = null;
 
                                         if (!EngineFlagOps.HasNoPolicy(engineFlags) &&
-                                            interpreter.InternalIsSafe() &&
-                                            (interpreter.CheckCommandPolicies(
+                                            (isSafe = interpreter.InternalIsSafe()) &&
+                                            ((commandCode = interpreter.CheckCommandPolicies(
                                                 PolicyFlags.EngineBeforeProcedure, procedure, arguments,
-                                                null, ref commandDecision, ref commandPolicyResult) == ReturnCode.Ok) &&
+                                                null, ref commandDecision, ref commandPolicyResult)) == ReturnCode.Ok) &&
                                             PolicyContext.IsApproved(commandDecision))
                                         {
+                                            interpreter.CommandFinalDecision = PolicyOps.FinalDecision(
+                                                PolicyFlags.EngineBeforeProcedure, commandCode,
+                                                commandDecision);
+
                                             code = ExecuteProcedure(procedure, interpreter,
                                                 (clientData != null) ? clientData : procedure.ClientData,
                                                 arguments, engineFlags, substitutionFlags, eventFlags,
@@ -9559,6 +9657,10 @@ namespace Eagle._Components.Public
                                         }
                                         else
                                         {
+                                            interpreter.CommandFinalDecision = PolicyOps.FinalDecision(
+                                                PolicyFlags.EngineBeforeProcedure, commandCode,
+                                                commandDecision);
+
                                             if (commandPolicyResult != null)
                                             {
                                                 result = commandPolicyResult;
@@ -9566,8 +9668,9 @@ namespace Eagle._Components.Public
                                             else
                                             {
                                                 result = String.Format(
-                                                    "permission denied: safe interpreter cannot use procedure {0}",
-                                                    FormatOps.DisplayName(name));
+                                                    "permission denied: {0}interpreter cannot use {1}procedure {2}",
+                                                    isSafe ? "safe " : String.Empty, !isSafe && isHidden ? "hidden " :
+                                                    String.Empty, FormatOps.DisplayName(name));
                                             }
 
                                             code = ReturnCode.Error;
@@ -9681,11 +9784,20 @@ namespace Eagle._Components.Public
                                 //       general case, there should be exactly one
                                 //       iteration of this loop.
                                 //
+                                // BUGFIX: Stop if (any) call frame encountered is
+                                //         ever unsable (i.e. disposed).  This can
+                                //         act as a "fail-safe" in case threading
+                                //         rules are not followed.
+                                //
                                 while (Interpreter.ShouldPopAutomaticCallFrame(
                                         interpreter, peekFrame))
                                 {
                                     /* IGNORED */
-                                    Interpreter.PopAutomaticCallFrame(interpreter);
+                                    Interpreter.PopAutomaticCallFrame(
+                                        interpreter, ref usable);
+
+                                    if (!usable)
+                                        break;
                                 }
                             }
                         }
@@ -9833,6 +9945,57 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Argument List Execution Methods
+        private static bool MaybeGetIExecuteViaArgument(
+            Interpreter interpreter,
+            Argument argument,
+            out bool viaArgument,
+            out string executeName,
+            out IExecute execute
+            )
+        {
+            viaArgument = (interpreter != null) ?
+                interpreter.HasCacheViaArgument() : false;
+
+            executeName = null;
+            execute = null;
+
+            if (argument != null)
+            {
+                executeName = argument; /* CONVERSION */
+
+                if (viaArgument)
+                {
+                    execute = argument.CacheValue as IExecute;
+
+                    if (execute != null)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeCacheIExecuteViaArgument(
+            Argument argument,
+            bool viaArgument,
+            IExecute execute
+            )
+        {
+            if (viaArgument && (argument != null))
+            {
+                argument.CacheValue = execute;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         private static ReturnCode ExecuteArguments(
             Interpreter interpreter,
             ArgumentList arguments,
@@ -9871,6 +10034,12 @@ namespace Eagle._Components.Public
                 return code;
 
             //
+            // NOTE: Fetch the first argument now; it should contain the
+            //       name of the command to be looked up.
+            //
+            Argument firstArgument = arguments[0];
+
+            //
             // NOTE: Figure out what our new (local) command resolution
             //       EngineFlags are.
             //
@@ -9890,15 +10059,32 @@ namespace Eagle._Components.Public
 
             try
             {
+                //
+                // NOTE: Is [unknown] being used to locate the command?
+                //
+                bool useUnknown = false;
+
+                //
+                // HACK: Cheat, attempt to read the cached command from
+                //       the Argument object itself?
+                //
+                bool viaArgument;
+                string executeName;
+                IExecute execute;
+
+                if (MaybeGetIExecuteViaArgument(interpreter,
+                        firstArgument, out viaArgument,
+                        out executeName, out execute))
+                {
+                    goto execute;
+                }
+
                 bool ambiguous = false;
-                IExecute execute = null;
                 Result error = null;
 
                 //
                 // NOTE: Resolve the command or procedure to execute.
                 //
-                string executeName = arguments[0];
-
                 code = interpreter.GetIExecuteViaResolvers(
                     engineFlags | EngineFlags.ToExecute,
                     executeName, arguments, LookupFlags.EngineDefault,
@@ -9910,7 +10096,13 @@ namespace Eagle._Components.Public
                 //
                 bool skipUnknown = false;
 
-                if (code != ReturnCode.Ok)
+                if (code == ReturnCode.Ok)
+                {
+                    /* IGNORED */
+                    MaybeCacheIExecuteViaArgument(
+                        firstArgument, viaArgument, execute);
+                }
+                else
                 {
                     UnknownCallback unknownCallback = interpreter.UnknownCallback;
 
@@ -9930,7 +10122,7 @@ namespace Eagle._Components.Public
                             if ((arguments != null) &&
                                 (arguments.Count > 1))
                             {
-                                executeName = arguments[0];
+                                executeName = firstArgument;
                             }
                             else
                             {
@@ -9963,11 +10155,6 @@ namespace Eagle._Components.Public
                         }
                     }
                 }
-
-                //
-                // NOTE: Is [unknown] being used to locate the command?
-                //
-                bool useUnknown = false;
 
                 //
                 // NOTE: Did we fail to find the command (or procedure)?
@@ -10028,6 +10215,8 @@ namespace Eagle._Components.Public
                         result = error;
                     }
                 }
+
+            execute:
 
                 if (code == ReturnCode.Ok)
                 {
@@ -10290,7 +10479,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Evaluation Helper Methods
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
         internal static bool HasArgumentLocation(
             Interpreter interpreter
             )
@@ -10367,7 +10556,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Evaluation (IToken) Methods
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
         private static void CheckTokenLines(
             IToken token,
             ref int startLine,
@@ -10405,7 +10594,7 @@ namespace Eagle._Components.Public
             EventFlags eventFlags,
             ExpressionFlags expressionFlags,
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref Result result
@@ -10421,7 +10610,7 @@ namespace Eagle._Components.Public
 #endif
                 tokenCount, engineFlags, substitutionFlags,
                 eventFlags, expressionFlags, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref startLine, ref endLine, ref result);
@@ -10466,7 +10655,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
         private
 #else
         internal
@@ -10485,7 +10674,7 @@ namespace Eagle._Components.Public
             EventFlags eventFlags,
             ExpressionFlags expressionFlags,
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
             ref int startLine,
             ref int endLine,
@@ -10508,7 +10697,7 @@ namespace Eagle._Components.Public
                 IToken token = parseState.Tokens[tokenIndex];
                 Result localResult = null;
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 CheckTokenLines(token, ref startLine, ref endLine);
 #endif
 
@@ -10516,7 +10705,7 @@ namespace Eagle._Components.Public
                 {
                     case TokenType.Text:
                         {
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             BreakpointType breakpointType = BreakpointType.Token |
                                 BreakpointType.BeforeText;
 
@@ -10544,7 +10733,7 @@ namespace Eagle._Components.Public
                         }
                     case TokenType.Backslash:
                         {
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             BreakpointType breakpointType = BreakpointType.Token |
                                 BreakpointType.BeforeBackslash;
 
@@ -10578,7 +10767,7 @@ namespace Eagle._Components.Public
                         }
                     case TokenType.Command:
                         {
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             BreakpointType breakpointType = BreakpointType.Token |
                                 BreakpointType.BeforeCommand;
 
@@ -10611,7 +10800,7 @@ namespace Eagle._Components.Public
                                     executeResultLimit, nestedResultLimit,
 #endif
                                     sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                     argumentLocation,
 #endif
                                     ref localResult);
@@ -10629,7 +10818,7 @@ namespace Eagle._Components.Public
                     case TokenType.Variable:
                     case TokenType.VariableNameOnly:
                         {
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             BreakpointType breakpointType = BreakpointType.Token |
                                 BreakpointType.BeforeVariableGet;
 
@@ -10671,7 +10860,7 @@ namespace Eagle._Components.Public
                                         engineFlags, substitutionFlags,
                                         eventFlags, expressionFlags,
                                         sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                         argumentLocation,
                                         ref startLine, ref endLine,
 #endif
@@ -10716,7 +10905,7 @@ namespace Eagle._Components.Public
                         }
                     default:
                         {
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             BreakpointType breakpointType = BreakpointType.Token |
                                 BreakpointType.BeforeUnknown;
 
@@ -10912,7 +11101,7 @@ namespace Eagle._Components.Public
             //
             bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -10922,7 +11111,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref engineFlags, ref substitutionFlags, ref eventFlags,
@@ -10941,7 +11130,7 @@ namespace Eagle._Components.Public
             int nestedResultLimit,
 #endif
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref EngineFlags engineFlags,
@@ -11055,7 +11244,7 @@ namespace Eagle._Components.Public
                         executeResultLimit, nestedResultLimit,
 #endif
                         sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                         argumentLocation,
 #endif
                         ref result, ref errorLine);
@@ -11193,7 +11382,7 @@ namespace Eagle._Components.Public
             //
             bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -11204,7 +11393,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref result);
@@ -11226,7 +11415,7 @@ namespace Eagle._Components.Public
             int nestedResultLimit,
 #endif
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref Result result
@@ -11242,7 +11431,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref result, ref errorLine);
@@ -11286,7 +11475,7 @@ namespace Eagle._Components.Public
             //
             bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -11297,7 +11486,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref result, ref errorLine);
@@ -11319,7 +11508,7 @@ namespace Eagle._Components.Public
             int nestedResultLimit,
 #endif
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref Result result,
@@ -11329,7 +11518,7 @@ namespace Eagle._Components.Public
             string fileName = null;
             int currentLine = Parser.StartLine;
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             if (ScriptOps.GetLocation(
                     interpreter, false, false, ref fileName,
                     ref currentLine, ref result) != ReturnCode.Ok)
@@ -11345,7 +11534,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref result, ref errorLine);
@@ -11369,7 +11558,7 @@ namespace Eagle._Components.Public
             int nestedResultLimit,
 #endif
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref Result result
@@ -11384,7 +11573,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref result, ref errorLine);
@@ -11413,7 +11602,7 @@ namespace Eagle._Components.Public
             int nestedResultLimit,
 #endif
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref Result result,
@@ -11597,7 +11786,7 @@ namespace Eagle._Components.Public
                             if (code != ReturnCode.Ok)
                                 goto error;
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             int startLine = Parser.UnknownLine;
                             int endLine = Parser.UnknownLine;
 #endif
@@ -11616,7 +11805,7 @@ namespace Eagle._Components.Public
                                     token.Components, localEngineFlags,
                                     substitutionFlags, eventFlags,
                                     expressionFlags, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                     argumentLocation,
                                     ref startLine, ref endLine,
 #endif
@@ -11768,7 +11957,7 @@ namespace Eagle._Components.Public
                             //
                             Argument argument;
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             if (argumentLocation)
                             {
                                 argument = Argument.GetOrCreate(
@@ -12517,7 +12706,7 @@ namespace Eagle._Components.Public
                     //
                     bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                     bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -12529,7 +12718,7 @@ namespace Eagle._Components.Public
                         executeResultLimit, nestedResultLimit,
 #endif
                         sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                         argumentLocation,
 #endif
                         ref result, ref errorLine);
@@ -12860,7 +13049,7 @@ namespace Eagle._Components.Public
                             //
                             bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -12873,7 +13062,7 @@ namespace Eagle._Components.Public
                                 executeResultLimit, nestedResultLimit,
 #endif
                                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                 argumentLocation,
 #endif
                                 ref result, ref errorLine);
@@ -13163,7 +13352,7 @@ namespace Eagle._Components.Public
             //
             bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -13181,7 +13370,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref result);
@@ -13230,7 +13419,7 @@ namespace Eagle._Components.Public
             string fileName = null;
             int currentLine = Parser.StartLine;
 
-#if DEBUGGER && DEBUGGER_EXPRESSION && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_EXPRESSION && DEBUGGER_BREAKPOINTS
             if (ScriptOps.GetLocation(
                     interpreter, false, false, ref fileName,
                     ref currentLine, ref result) != ReturnCode.Ok)
@@ -13253,7 +13442,7 @@ namespace Eagle._Components.Public
             //
             bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -13265,7 +13454,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref result);
@@ -13285,7 +13474,7 @@ namespace Eagle._Components.Public
             int nestedResultLimit,
 #endif
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref Result result
@@ -13299,7 +13488,7 @@ namespace Eagle._Components.Public
             string fileName = null;
             int currentLine = Parser.StartLine;
 
-#if DEBUGGER && DEBUGGER_EXPRESSION && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_EXPRESSION && DEBUGGER_BREAKPOINTS
             if (ScriptOps.GetLocation(
                     interpreter, false, false, ref fileName,
                     ref currentLine, ref result) != ReturnCode.Ok)
@@ -13315,7 +13504,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref result);
@@ -13337,7 +13526,7 @@ namespace Eagle._Components.Public
             int nestedResultLimit,
 #endif
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref Result result
@@ -13466,7 +13655,7 @@ namespace Eagle._Components.Public
                     executeResultLimit, nestedResultLimit,
 #endif
                     noReady, sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                     argumentLocation,
 #endif
                     ref usable, ref exception, ref value, ref error);
@@ -13608,7 +13797,7 @@ namespace Eagle._Components.Public
             int nestedResultLimit,
 #endif
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref int tokenCount,
@@ -13676,7 +13865,7 @@ namespace Eagle._Components.Public
                                     executeResultLimit, nestedResultLimit,
 #endif
                                     sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                     argumentLocation,
 #endif
                                     ref localResult);
@@ -13712,7 +13901,7 @@ namespace Eagle._Components.Public
                                         engineFlags, substitutionFlags,
                                         eventFlags, expressionFlags,
                                         sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                         argumentLocation,
 #endif
                                         ref localResult);
@@ -13799,7 +13988,7 @@ namespace Eagle._Components.Public
 
                     substResult.Add(localResult);
                 }
-                else
+                else if (index != Index.Invalid)
                 {
 #if RESULT_LIMITS
                     if (!substResult.HaveEnoughCapacity(
@@ -13888,7 +14077,7 @@ namespace Eagle._Components.Public
             string fileName = null;
             int currentLine = Parser.StartLine;
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             if (ScriptOps.GetLocation(
                     interpreter, false, false, ref fileName,
                     ref currentLine, ref result) != ReturnCode.Ok)
@@ -13917,7 +14106,7 @@ namespace Eagle._Components.Public
             //
             bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -13929,7 +14118,7 @@ namespace Eagle._Components.Public
                 executeResultLimit, nestedResultLimit,
 #endif
                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                 argumentLocation,
 #endif
                 ref result);
@@ -13951,7 +14140,7 @@ namespace Eagle._Components.Public
             int nestedResultLimit,
 #endif
             bool sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
             bool argumentLocation,
 #endif
             ref Result result
@@ -14233,7 +14422,7 @@ namespace Eagle._Components.Public
                             nestedResultLimit,
 #endif
                             sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             argumentLocation,
 #endif
                             ref tokensLeft, localEngineFlags,
@@ -14315,7 +14504,7 @@ namespace Eagle._Components.Public
                                 nestedResultLimit,
 #endif
                                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                 argumentLocation,
 #endif
                                 ref tokensLeft, localEngineFlags,
@@ -14512,7 +14701,7 @@ namespace Eagle._Components.Public
                     //
                     bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                     bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -14524,7 +14713,7 @@ namespace Eagle._Components.Public
                         executeResultLimit, nestedResultLimit,
 #endif
                         sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                         argumentLocation,
 #endif
                         ref result);
@@ -14667,7 +14856,7 @@ namespace Eagle._Components.Public
                             //
                             bool sameAppDomain = AppDomainOps.IsSame(interpreter);
 
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                             bool argumentLocation = HasArgumentLocation(interpreter);
 #endif
 
@@ -14685,7 +14874,7 @@ namespace Eagle._Components.Public
                                 executeResultLimit, nestedResultLimit,
 #endif
                                 sameAppDomain,
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                                 argumentLocation,
 #endif
                                 ref result);

@@ -22,6 +22,7 @@ using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
 using AnyDictionary = System.Collections.Generic.Dictionary<string, object>;
+using AnyDictionaryPair = System.Collections.Generic.KeyValuePair<string, object>;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -32,7 +33,7 @@ namespace Eagle._Components.Public
     [ObjectId("04cac3f9-049c-42b6-9446-084d2296c7da")]
     public class AnyClientData :
             ClientData, IHaveClientData, IHaveCultureInfo, IHaveInterpreter,
-            IAnyClientData, ICloneable, IDisposable
+            IAnyClientData, ICloneable, IMaybeDisposed, IDisposable
     {
         #region Private Constants
         //
@@ -41,6 +42,7 @@ namespace Eagle._Components.Public
         private static bool DefaultOverwrite = true;
         private static bool DefaultCreate = true;
         private static bool DefaultToString = true;
+        private static bool DefaultEmpty = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -150,6 +152,21 @@ namespace Eagle._Components.Public
             )
         {
             return StringOps.GetStringFromObject(@object);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsValid(
+            IAnyClientData anyClientData /* in */
+            )
+        {
+            if (anyClientData == null)
+                return false;
+
+            if (anyClientData.Disposed)
+                return false;
+
+            return true;
         }
         #endregion
 
@@ -349,6 +366,22 @@ namespace Eagle._Components.Public
                 return;
 
             locked = Monitor.TryEnter(syncRoot);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void TryLockWithWait(
+            ref bool locked
+            )
+        {
+            CheckDisposed();
+
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(
+                syncRoot, ThreadOps.GetTimeout(
+                null, null, TimeoutType.WaitLock));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2364,6 +2397,45 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IAnyClientData Members
+        public IAnyClientData Attached
+        {
+            get
+            {
+                CheckDisposed();
+
+                lock (syncRoot)
+                {
+                    return attached;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public IAnyClientData Root
+        {
+            get
+            {
+                CheckDisposed();
+
+                lock (syncRoot) /* TRANSACTIONAL */
+                {
+                    IAnyClientData thisClientData = this;
+                    IAnyClientData linkClientData = attached;
+
+                    while (IsValid(linkClientData))
+                    {
+                        thisClientData = linkClientData;
+                        linkClientData = linkClientData.Attached;
+                    }
+
+                    return thisClientData;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public bool AttachTo(
             IAnyClientData anyClientData /* in */
             )
@@ -2476,6 +2548,80 @@ namespace Eagle._Components.Public
 
             return count;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public IStringList ToList()
+        {
+            CheckDisposed();
+
+            return ToList(null, false);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public IStringList ToList(
+            string pattern,
+            bool noCase
+            )
+        {
+            CheckDisposed();
+
+            return ToList(pattern, DefaultEmpty, noCase);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public virtual IStringList ToList(
+            string pattern,
+            bool empty,
+            bool noCase
+            )
+        {
+            CheckDisposed();
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                IStringList result = new StringList();
+
+                result.Add("BaseToString", base.ToString());
+
+                if (dictionary != null)
+                {
+                    foreach (AnyDictionaryPair pair in dictionary)
+                    {
+                        string name = pair.Key;
+
+                        if ((pattern != null) && !StringOps.Match(
+                                null, MatchMode.Glob, name, pattern,
+                                noCase))
+                        {
+                            continue;
+                        }
+
+                        string value = GetStringFromObject(pair.Value);
+
+                        if (!empty && (value == null))
+                            continue;
+
+                        result.Add(name, value);
+                    }
+                }
+
+                return result;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region System.Object Overrides
+        public override string ToString()
+        {
+            CheckDisposed();
+
+            return ToList().ToString();
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -2493,6 +2639,22 @@ namespace Eagle._Components.Public
                         new AnyDictionary(dictionary) : null,
                     base.Data, base.ReadOnly);
             }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IMaybeDisposed Members
+        public bool Disposed
+        {
+            get { return disposed; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool Disposing
+        {
+            get { throw new NotSupportedException(); }
         }
         #endregion
 
@@ -2549,9 +2711,9 @@ namespace Eagle._Components.Public
 
                     lock (syncRoot) /* TRANSACTIONAL */
                     {
-                        clientData = null; /* NOT OWNED, DO NOT DISPOSE. */
-                        cultureInfo = null; /* NOT OWNED, DO NOT DISPOSE. */
-                        interpreter = null; /* NOT OWNED, DO NOT DISPOSE. */
+                        clientData = null; /* NOT OWNED */
+                        cultureInfo = null; /* NOT OWNED */
+                        interpreter = null; /* NOT OWNED */
                     }
                 }
             }

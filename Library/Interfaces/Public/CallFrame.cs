@@ -65,6 +65,7 @@ namespace Eagle._Interfaces.Public
         bool HasFlags(CallFrameFlags hasFlags, bool all);
         CallFrameFlags SetFlags(CallFrameFlags flags, bool set);
 
+        bool InitializeMarks();
         bool ClearMarks();
         bool HasMark(string name);
         bool HasMark(string name, ref ICallFrame frame);

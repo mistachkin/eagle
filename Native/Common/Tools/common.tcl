@@ -195,6 +195,47 @@ namespace eval ::Eagle::Tools::Common {
 
   #
   # NOTE: This procedure was stolen from the "common.tcl" script.  It is
+  #       designed to setup the pending progress indicator callback and
+  #       save its working state.
+  #
+  proc setupPageProgress { channel type milliseconds } {
+    #
+    # NOTE: This variable is used to keep track of the currently scheduled
+    #       (i.e. pending) [after] event.
+    #
+    variable afterForPageProgress
+
+    #
+    # NOTE: Scheduled the necessary [after] event, using the [pageProgress]
+    #       procedure, which is defined further down in this file.
+    #
+    set afterForPageProgress [after $milliseconds [namespace code \
+        [list pageProgress $channel $type $milliseconds]]]
+  }
+
+  #
+  # NOTE: This procedure was stolen from the "common.tcl" script.  It is
+  #       designed to cancel the pending progress indicator callback and
+  #       cleanup its working state.
+  #
+  proc cancelPageProgress {} {
+    #
+    # NOTE: This variable is used to keep track of the currently scheduled
+    #       (i.e. pending) [after] event.
+    #
+    variable afterForPageProgress
+
+    #
+    # NOTE: If there is a currently scheduled [after] event, cancel it.
+    #
+    if {[info exists afterForPageProgress]} then {
+      catch {after cancel $afterForPageProgress}
+      unset -nocomplain afterForPageProgress
+    }
+  }
+
+  #
+  # NOTE: This procedure was stolen from the "common.tcl" script.  It is
   #       designed to emit a progress indicator while an HTTP request is
   #       being processed.  The channel argument is the Tcl channel where
   #       the progress indicator should be emitted.  The type argument is
@@ -205,25 +246,19 @@ namespace eval ::Eagle::Tools::Common {
   #
   proc pageProgress { channel type milliseconds } {
     #
-    # NOTE: This variable is used to keep track of the currently scheduled
-    #       (i.e. pending) [after] event.
-    #
-    variable afterForPageProgress
-
-    #
     # NOTE: Show that something is happening...
     #
     pageOut $channel $type
 
     #
-    # NOTE: Make sure that we are scheduled to run again, if requested.
+    # NOTE: Make sure that we are scheduled to run again, if requested;
+    #       also, before doing that, make sure there is not already an
+    #       associated [after] event pending.
     #
+    cancelPageProgress
+
     if {$milliseconds > 0} then {
-      set afterForPageProgress [after $milliseconds \
-          [namespace code [list pageProgress $channel $type \
-          $milliseconds]]]
-    } else {
-      unset -nocomplain afterForPageProgress
+      setupPageProgress $channel $type $milliseconds
     }
   }
 
@@ -271,12 +306,6 @@ namespace eval ::Eagle::Tools::Common {
     #       URI was HTTPS.
     #
     variable allowInsecureRedirect
-
-    #
-    # NOTE: This variable is used to keep track of the currently scheduled
-    #       (i.e. pending) [after] event.
-    #
-    variable afterForPageProgress
 
     #
     # NOTE: This variable is used to determine the timeout milliseconds for
@@ -563,10 +592,12 @@ namespace eval ::Eagle::Tools::Common {
 
     #
     # NOTE: If there is a currently scheduled [after] event, cancel it.
+    #       This is NOT done if the caller enabled quiet mode, because
+    #       there should be none of our [after] events present in that
+    #       case.
     #
-    if {[info exists afterForPageProgress]} then {
-      catch {after cancel $afterForPageProgress}
-      unset -nocomplain afterForPageProgress
+    if {!$quiet} then {
+      cancelPageProgress
     }
 
     #

@@ -14,6 +14,11 @@ using System.Globalization;
 
 #if !NET_STANDARD_20
 using System.Collections.Generic;
+#endif
+
+using System.Runtime.InteropServices;
+
+#if !NET_STANDARD_20
 using Microsoft.Win32;
 #endif
 
@@ -56,6 +61,14 @@ namespace Eagle._Components.Private
         private const string checkCoreTrustedValueName = "CheckCoreTrusted";
         private const string checkCoreVerifiedValueName = "CheckCoreVerified";
         private const string checkCoreUpdatesValueName = "CheckCoreUpdates";
+        private const string makeCoreSafeValueName = "MakeCoreSafe";
+        private const string makeCoreSecureValueName = "MakeCoreSecure";
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if ISOLATED_PLUGINS
+        private const string makeCoreIsolatedValueName = "MakeCoreIsolated";
+#endif
 #endif
         #endregion
 
@@ -109,6 +122,12 @@ namespace Eagle._Components.Private
         private static bool CheckCoreTrustedNoComplain = true;
         private static bool CheckCoreVerifiedNoComplain = true;
         private static bool CheckCoreUpdatesNoComplain = true;
+        private static bool MakeCoreSafeNoComplain = true;
+        private static bool MakeCoreSecureNoComplain = true;
+
+#if ISOLATED_PLUGINS
+        private static bool MakeCoreIsolatedNoComplain = true;
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -118,13 +137,19 @@ namespace Eagle._Components.Private
         private static bool DefaultCheckCoreTrusted = true;
         private static bool DefaultCheckCoreVerified = true;
         private static bool DefaultCheckCoreUpdates = false;
+        private static bool DefaultMakeCoreSafe = false;
+        private static bool DefaultMakeCoreSecure = false;
+
+#if ISOLATED_PLUGINS
+        private static bool DefaultMakeCoreIsolated = false;
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
         //
         // HACK: This is not read-only.
         //
-        private static long CheckCoreUpdatesTicks = 5 * TimeSpan.TicksPerDay;
+        private static long CheckCoreUpdatesTicks = 15 * TimeSpan.TicksPerDay;
 #endif
         #endregion
 
@@ -246,11 +271,13 @@ namespace Eagle._Components.Private
                     localList.Add("ShouldCheckCoreVerified",
                         shouldCheckCoreVerified.ToString());
 
+#if !NET_STANDARD_20 && THREADING
                 bool shouldCheckCoreUpdates = ShouldCheckCoreUpdates();
 
                 if (empty || shouldCheckCoreUpdates)
                     localList.Add("ShouldCheckCoreUpdates",
                         shouldCheckCoreUpdates.ToString());
+#endif
 
                 string appId = GetSettingValue(
                     GlobalState.GetAssemblyVersion(), appIdValueName,
@@ -522,8 +549,134 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Check-For-Updates Support Methods
+        #region Check-For-Safe Support Methods
 #if !NET_STANDARD_20
+        public static bool ShouldMakeCoreSafe()
+        {
+            return ShouldMakeCoreSafe(GlobalState.GetAssemblyVersion());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool ShouldMakeCoreSafe(
+            Version version
+            )
+        {
+            string value = GetSettingValue(
+                version, makeCoreSafeValueName, DefaultReadSettingFlags,
+                MakeCoreSafeNoComplain);
+
+            if (value == null)
+                return DefaultMakeCoreSafe;
+
+            ReturnCode code;
+            Result error = null;
+            bool boolValue = false;
+
+            code = Value.GetBoolean4(
+                value, ValueFlags.AnyBoolean, ref boolValue, ref error);
+
+            if (code != ReturnCode.Ok)
+            {
+                if (!MakeCoreSafeNoComplain)
+                    DebugOps.Complain(code, error);
+
+                return DefaultMakeCoreSafe;
+            }
+
+            return boolValue;
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Check-For-Secure Support Methods
+#if !NET_STANDARD_20
+        public static bool ShouldMakeCoreSecure()
+        {
+            return ShouldMakeCoreSecure(GlobalState.GetAssemblyVersion());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool ShouldMakeCoreSecure(
+            Version version
+            )
+        {
+            string value = GetSettingValue(
+                version, makeCoreSecureValueName, DefaultReadSettingFlags,
+                MakeCoreSecureNoComplain);
+
+            if (value == null)
+                return DefaultMakeCoreSecure;
+
+            ReturnCode code;
+            Result error = null;
+            bool boolValue = false;
+
+            code = Value.GetBoolean4(
+                value, ValueFlags.AnyBoolean, ref boolValue, ref error);
+
+            if (code != ReturnCode.Ok)
+            {
+                if (!MakeCoreSecureNoComplain)
+                    DebugOps.Complain(code, error);
+
+                return DefaultMakeCoreSecure;
+            }
+
+            return boolValue;
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Check-For-Isolated Support Methods
+#if !NET_STANDARD_20 && ISOLATED_PLUGINS
+        public static bool ShouldMakeCoreIsolated()
+        {
+            return ShouldMakeCoreIsolated(GlobalState.GetAssemblyVersion());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool ShouldMakeCoreIsolated(
+            Version version
+            )
+        {
+            string value = GetSettingValue(
+                version, makeCoreIsolatedValueName, DefaultReadSettingFlags,
+                MakeCoreIsolatedNoComplain);
+
+            if (value == null)
+                return DefaultMakeCoreIsolated;
+
+            ReturnCode code;
+            Result error = null;
+            bool boolValue = false;
+
+            code = Value.GetBoolean4(
+                value, ValueFlags.AnyBoolean, ref boolValue, ref error);
+
+            if (code != ReturnCode.Ok)
+            {
+                if (!MakeCoreIsolatedNoComplain)
+                    DebugOps.Complain(code, error);
+
+                return DefaultMakeCoreIsolated;
+            }
+
+            return boolValue;
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Check-For-Updates Support Methods
+#if !NET_STANDARD_20 && THREADING
         private static bool ShouldCheckCoreUpdatesViaValue(
             DateTime dateTime
             )
@@ -896,7 +1049,8 @@ namespace Eagle._Components.Private
                 foreach (Version localVersion in versions.Values)
                 {
                     value = GetSettingValue(
-                        rootKey, localVersion, name, flags, noComplain);
+                        rootKey, localVersion, name, flags,
+                        noComplain);
 
                     if (value != null)
                         return true;
@@ -1054,8 +1208,8 @@ namespace Eagle._Components.Private
                 foreach (Version localVersion in versions.Values)
                 {
                     if (SetSettingValue(
-                            rootKey, localVersion, name, value, flags,
-                            noComplain))
+                            rootKey, localVersion, name, value,
+                            flags, noComplain))
                     {
                         return true;
                     }
@@ -1247,19 +1401,8 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void SetupOps_Exited(
-            object sender,
-            EventArgs e
-            )
+        private static void RemoveExitedEventHandler()
         {
-            ReturnCode mutexCode;
-            Result mutexError = null;
-
-            mutexCode = CloseMutexes(ref mutexError);
-
-            if (mutexCode != ReturnCode.Ok)
-                MaybeComplain(mutexCode, mutexError, true);
-
             AppDomain appDomain = AppDomainOps.GetCurrent();
 
             if (appDomain != null)
@@ -1273,8 +1416,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static void SetupOps_Exited(
+            object sender,
+            EventArgs e
+            )
+        {
+            ReturnCode mutexCode;
+            Result mutexError = null;
+
+            mutexCode = CloseMutexes(ref mutexError);
+
+            if (mutexCode != ReturnCode.Ok)
+                MaybeComplain(mutexCode, mutexError, true);
+
+            RemoveExitedEventHandler();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static IntPtr CreateMutex(
             string name,
+            ref int lastError,
             ref Result error
             )
         {
@@ -1287,11 +1449,13 @@ namespace Eagle._Components.Private
                     handle = NativeOps.UnsafeNativeMethods.CreateMutex(
                         IntPtr.Zero, true, name);
 
+                    lastError = Marshal.GetLastWin32Error();
+
                     if (handle == IntPtr.Zero)
                     {
                         error = String.Format(
                             "could not create mutex \"{0}\": {1}",
-                            name, NativeOps.GetErrorMessage());
+                            name, NativeOps.GetErrorMessage(lastError));
                     }
                 }
                 catch (Exception e)
@@ -1311,6 +1475,7 @@ namespace Eagle._Components.Private
 
         private static bool CloseMutex(
             ref IntPtr handle,
+            ref int lastError,
             ref Result error
             )
         {
@@ -1320,17 +1485,20 @@ namespace Eagle._Components.Private
             {
                 try
                 {
-                    if (NativeOps.UnsafeNativeMethods.CloseHandle(
-                            handle)) /* throw */
+                    result = NativeOps.UnsafeNativeMethods.CloseHandle(
+                        handle);
+
+                    if (result) /* throw */
                     {
                         handle = IntPtr.Zero;
-                        result = true;
                     }
                     else
                     {
+                        lastError = Marshal.GetLastWin32Error();
+
                         error = String.Format(
                             "could not close mutex \"{0}\": {1}",
-                            handle, NativeOps.GetErrorMessage());
+                            handle, NativeOps.GetErrorMessage(lastError));
                     }
                 }
                 catch (Exception e)
@@ -1375,7 +1543,8 @@ namespace Eagle._Components.Private
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                Result localError;
+                int lastError; /* REUSED */
+                Result localError; /* REUSED */
                 ResultList errors = null;
 
                 //
@@ -1386,18 +1555,20 @@ namespace Eagle._Components.Private
                 if ((globalMutex == IntPtr.Zero) &&
                     !String.IsNullOrEmpty(globalMutexName))
                 {
+                    lastError = 0;
                     localError = null;
 
                     globalMutex = CreateMutex(
-                        globalMutexName, ref localError);
+                        globalMutexName, ref lastError, ref localError);
 
-                    if (globalMutex == IntPtr.Zero)
+                    if ((globalMutex == IntPtr.Zero) &&
+                        (lastError != NativeOps.UnsafeNativeMethods.ERROR_ACCESS_DENIED))
                     {
                         if (localError == null)
                         {
                             localError = String.Format(
                                 "could not create global mutex \"{0}\": {1}",
-                                globalMutexName, NativeOps.GetErrorMessage());
+                                globalMutexName, NativeOps.GetErrorMessage(lastError));
                         }
 
                         if (errors == null)
@@ -1414,18 +1585,20 @@ namespace Eagle._Components.Private
                 if ((mutex == IntPtr.Zero) &&
                     !String.IsNullOrEmpty(mutexName))
                 {
+                    lastError = 0;
                     localError = null;
 
                     mutex = CreateMutex(
-                        mutexName, ref localError);
+                        mutexName, ref lastError, ref localError);
 
-                    if (mutex == IntPtr.Zero)
+                    if ((mutex == IntPtr.Zero) &&
+                        (lastError != NativeOps.UnsafeNativeMethods.ERROR_ACCESS_DENIED))
                     {
                         if (localError == null)
                         {
                             localError = String.Format(
                                 "could not create normal mutex \"{0}\": {1}",
-                                mutexName, NativeOps.GetErrorMessage());
+                                mutexName, NativeOps.GetErrorMessage(lastError));
                         }
 
                         if (errors == null)
@@ -1466,14 +1639,16 @@ namespace Eagle._Components.Private
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                Result localError;
+                int lastError; /* REUSED */
+                Result localError; /* REUSED */
                 ResultList errors = null;
 
                 if (mutex != IntPtr.Zero)
                 {
+                    lastError = 0;
                     localError = null;
 
-                    if (CloseMutex(ref mutex, ref localError))
+                    if (CloseMutex(ref mutex, ref lastError, ref localError))
                     {
                         mutex = IntPtr.Zero;
                     }
@@ -1483,7 +1658,7 @@ namespace Eagle._Components.Private
                         {
                             localError = String.Format(
                                 "could not close normal mutex \"{0}\": {1}",
-                                mutex, NativeOps.GetErrorMessage());
+                                mutex, NativeOps.GetErrorMessage(lastError));
                         }
 
                         if (errors == null)
@@ -1495,9 +1670,10 @@ namespace Eagle._Components.Private
 
                 if (globalMutex != IntPtr.Zero)
                 {
+                    lastError = 0;
                     localError = null;
 
-                    if (CloseMutex(ref globalMutex, ref localError))
+                    if (CloseMutex(ref globalMutex, ref lastError, ref localError))
                     {
                         globalMutex = IntPtr.Zero;
                     }
@@ -1507,7 +1683,7 @@ namespace Eagle._Components.Private
                         {
                             localError = String.Format(
                                 "could not close global mutex \"{0}\": {1}",
-                                globalMutex, NativeOps.GetErrorMessage());
+                                globalMutex, NativeOps.GetErrorMessage(lastError));
                         }
 
                         if (errors == null)

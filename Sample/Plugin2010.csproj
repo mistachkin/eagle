@@ -166,6 +166,7 @@
       EagleDetectUserSettings;
       EagleDetectBuildTool;
       EagleDetectOperatingSystem;
+      EagleDetectNetCoreReferences;
       EagleDetectNetCore20;
       EagleDetectNetCore30;
       EagleDetectNetFx20;
@@ -183,6 +184,7 @@
       EagleDetectNetFx471;
       EagleDetectNetFx472;
       EagleDetectNetFx48;
+      EagleDetectNetFx481;
       EagleSamplePackagesResGenUnsetReadOnly;
       EagleSamplePackagesResGen;
       EagleSamplePackagesResGenExternals;

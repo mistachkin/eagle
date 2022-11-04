@@ -79,13 +79,51 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private const long TicksPerMicrosecond =
+            TimeSpan.TicksPerMillisecond / 1000;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Data
+#if NATIVE && WINDOWS
+        //
+        // HACK: Setting this value to zero will avoid using the Windows
+        //       specific native methods.
+        //
+        private static int UseWindows = 1;
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This value is cached once per AppDomain.  It is the value
+        //       returned from the QueryPerformanceFrequency Win32 API.
+        //
         private static long CountsPerSecond = 0; /* CACHE */
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is set once per AppDomain.  It is the epoch used when
+        //       calculating the "simulated" tick count, e.g. on non-Windows
+        //       platforms.
+        //
+        private static long EpochTicks = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
 #if NATIVE && WINDOWS
+        private static bool ShouldMaybeUseWindows()
+        {
+            return Interlocked.CompareExchange(
+                ref UseWindows, 0, 0) > 0;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static long WindowsGetCount()
         {
             try
@@ -181,13 +219,18 @@ namespace Eagle._Components.Private
             try
             {
 #if NATIVE && WINDOWS
-                if (PlatformOps.IsWindowsOperatingSystem())
+                if (ShouldMaybeUseWindows() &&
+                    PlatformOps.IsWindowsOperatingSystem())
                 {
                     counts = WindowsGetCountsPerSecond();
                 }
                 else
 #endif
                 {
+                    //
+                    // HACK: On non-Windows, the GetCount() method
+                    //       always returns microseconds.
+                    //
                     counts = MicrosecondsPerSecond;
                 }
             }
@@ -221,13 +264,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
-        public static int GetMicroseconds(
+        public static int GetMicrosecondsFromMilliseconds(
             int milliseconds,
             int? minimumMicroseconds,
             int? maximumMicroseconds
             ) /* LOSSY */
         {
-            long result = GetMicroseconds(milliseconds);
+            long result = GetMicrosecondsFromMilliseconds(milliseconds);
 
             if (IsValidValue(minimumMicroseconds, true))
             {
@@ -259,39 +302,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static long GetMicroseconds(
-            long milliseconds
-            )
-        {
-            return milliseconds * MicrosecondsPerMillisecond;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static double GetMicroseconds(
+        public static double GetMicrosecondsFromCount(
             long startCount,
             long stopCount,
             long iterations,
             bool obfuscate
             )
         {
-            return GetMicroseconds(
+            return GetMicrosecondsFromCount(
                 (stopCount - startCount), iterations, obfuscate);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static double GetMicroseconds(
+        public static double GetMicrosecondsFromCount(
             long startCount,
             long stopCount
             )
         {
-            return GetMicroseconds((stopCount - startCount), 1, false);
+            return GetMicrosecondsFromCount(
+                (stopCount - startCount), 1, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static double GetMicroseconds(
+        public static double GetMicrosecondsFromCount(
             long count,
             long iterations,
             bool obfuscate
@@ -336,7 +371,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static long GetMilliseconds(
+        public static long GetMillisecondsFromMicroseconds(
             long microseconds
             )
         {
@@ -345,7 +380,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static double GetMilliseconds(
+        public static double GetMillisecondsFromCount(
             long startCount,
             long stopCount,
             long iterations
@@ -438,10 +473,109 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static long GetTickCount()
+        {
+#if NET_STANDARD_20 && NET_STANDARD_21 && NET_CORE_30
+            //
+            // NOTE: This property is available in .NET Core 3.0; however,
+            //       it is not included in the .NET Standard 2.1.  To use
+            //       this, apparently the TargetFramework for the project
+            //       must be (manually) set to "netcoreapp3.0" instead of
+            //       "netstandard2.1".
+            //
+            return Environment.TickCount64;
+#else
+            return Environment.TickCount;
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static long GetMicrosecondsFromMilliseconds(
+            long milliseconds
+            )
+        {
+            return milliseconds * MicrosecondsPerMillisecond;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long GetMicrosecondsFromTicks(
+            long ticks
+            )
+        {
+            return ticks / TicksPerMicrosecond;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void Initialize()
+        {
+            Interlocked.CompareExchange(
+                ref EpochTicks, TimeOps.GetUtcNowTicks(), 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static long GetMicroseconds()
+        {
+            //
+            // BUGFIX: Stop relying on the Environment.TickCount property
+            //         here as that will overflow after (only) 24.9 days.
+            //         Instead, use DateTime.Ticks property values as the
+            //         basis.
+            //
+            long epoch = Interlocked.CompareExchange(ref EpochTicks, 0, 0);
+
+            if (epoch > 0)
+            {
+                long now = TimeOps.GetUtcNowTicks();
+                long ticks = now - epoch;
+
+                if (ticks >= 0)
+                {
+                    return GetMicrosecondsFromTicks(ticks);
+                }
+                else
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "GetMicroseconds: overflowed ticks {0} " +
+                        "(epoch {1}, now {2})", ticks, epoch,
+                        now), typeof(PerformanceOps).Name,
+                        TracePriority.PerformanceError2);
+                }
+
+                //
+                // NOTE: If the calculated ticks value (somehow) ends up
+                //       negative, reset the epoch value to (right) now.
+                //       This should, at least, prevent the same thing
+                //       from happening again next time.
+                //
+                /* IGNORED */
+                Interlocked.CompareExchange(ref EpochTicks, now, epoch);
+            }
+            else
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "GetMicroseconds: invalid epoch {0}",
+                    epoch), typeof(PerformanceOps).Name,
+                    TracePriority.PerformanceError2);
+            }
+
+            //
+            // NOTE: If the epoch value is not initialized, we can only
+            //       return zero.
+            //
+            return 0;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static long GetCount()
         {
 #if NATIVE && WINDOWS
-            if (PlatformOps.IsWindowsOperatingSystem())
+            if (ShouldMaybeUseWindows() &&
+                PlatformOps.IsWindowsOperatingSystem())
             {
                 return WindowsGetCount();
             }
@@ -453,30 +587,43 @@ namespace Eagle._Components.Private
                 //         various callers of this method assume that
                 //         when they calculate elapsed time.
                 //
-                return Environment.TickCount *
-                    MicrosecondsPerMillisecond;
+                return GetMicroseconds();
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static double ElapsedMicroseconds(
-            long startCount
+            long startCount,
+            long stopCount
             )
         {
-            return GetMicroseconds(
-                startCount, GetCount(), 1, false); /* EXEMPT */
+            return GetMicrosecondsFromCount(
+                startCount, stopCount, 1, false); /* EXEMPT */
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasElapsed(
             long startCount,
+            ref long stopCount,
             long waitMicroseconds,
             long slopMicroseconds
             )
         {
-            return ElapsedMicroseconds(startCount) +
+            stopCount = GetCount();
+
+            if (stopCount < startCount)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "HasElapsed: went backward in time? {0} versus {1}",
+                    stopCount, startCount), typeof(PerformanceOps).Name,
+                    TracePriority.PerformanceError2);
+
+                return true;
+            }
+
+            return ElapsedMicroseconds(startCount, stopCount) +
                 (double)slopMicroseconds >= (double)waitMicroseconds;
         }
         #endregion

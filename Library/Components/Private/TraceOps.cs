@@ -575,7 +575,8 @@ namespace Eagle._Components.Private
         //       attempts to obtain the lock itself.
         //
         private static void ForceInitialize(
-            bool force /* in */
+            bool force,      /* in */
+            bool useDefaults /* in */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -583,13 +584,14 @@ namespace Eagle._Components.Private
                 /* IGNORED */
                 InitializeTraceCategories(
                     TraceStateType.CategoryTypeMask | (force ?
-                        TraceStateType.Force : TraceStateType.None));
+                        TraceStateType.Force : TraceStateType.None),
+                    useDefaults);
 
                 /* IGNORED */
-                InitializeTracePriorities(force);
+                InitializeTracePriorities(force, useDefaults);
 
                 /* IGNORED */
-                InitializeTracePriority(force);
+                InitializeTracePriority(force, useDefaults);
 
                 ///////////////////////////////////////////////////////////////
 
@@ -623,7 +625,7 @@ namespace Eagle._Components.Private
                 //       may be blocked or emitted when they should have
                 //       been emitted or blocked, respectively.
                 //
-                ForceInitialize(false);
+                ForceInitialize(false, true);
             }
             else
             {
@@ -1338,7 +1340,7 @@ namespace Eagle._Components.Private
                 {
                     if (enabled)
                     {
-                        result |= InitializeTraceCategories(stateType);
+                        result |= InitializeTraceCategories(stateType, false);
                     }
                     else
                     {
@@ -1504,9 +1506,9 @@ namespace Eagle._Components.Private
                 {
                     if (enabled)
                     {
-                        result |= InitializeTraceCategories(stateType);
-                        result |= InitializeTracePriorities(force);
-                        result |= InitializeTracePriority(force);
+                        result |= InitializeTraceCategories(stateType, false);
+                        result |= InitializeTracePriorities(force, false);
+                        result |= InitializeTracePriority(force, false);
                     }
                     else
                     {
@@ -1880,12 +1882,12 @@ namespace Eagle._Components.Private
                 localResult = null;
 
                 code = DebugOps.AddTraceListener(
-                    listeners, TraceListenerType.LogFile,
+                    listeners, TraceListenerType.RawLogFile,
                     clientData, resetListeners, ref localResult);
 
                 traceClientData.AddResult(String.Format(
                     "AddTraceListener({0})", FormatOps.WrapOrNull(
-                    TraceListenerType.LogFile)));
+                    TraceListenerType.RawLogFile)));
 
                 if (localResult != null)
                     localResult.ReturnCode = code;
@@ -2040,7 +2042,7 @@ namespace Eagle._Components.Private
                 envVarName);
 
             if (stringValue == null)
-                return DefaultTraceCategories; /* NOT OVERRIDDEN */
+                return null; /* NOT OVERRIDDEN */
 
             stringValue = StringOps.NormalizeListSeparators(stringValue);
 
@@ -2080,13 +2082,13 @@ namespace Eagle._Components.Private
                     type, error));
 #endif
 
-                return DefaultTraceCategories; /* SYSTEM DEFAULT */
+                return null; /* SYSTEM DEFAULT */
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static TracePriority CheckForTracePriority(
+        private static TracePriority? CheckForTracePriority(
             string envVarName /* in */
             )
         {
@@ -2094,7 +2096,7 @@ namespace Eagle._Components.Private
                 envVarName);
 
             if (stringValue == null)
-                return DefaultTracePriority; /* NOT OVERRIDDEN */
+                return null; /* NOT OVERRIDDEN */
 
             object enumValue;
             Result error = null;
@@ -2122,13 +2124,13 @@ namespace Eagle._Components.Private
                     error));
 #endif
 
-                return DefaultTracePriority; /* SYSTEM DEFAULT */
+                return null; /* SYSTEM DEFAULT */
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static TracePriority CheckForTracePriorities(
+        private static TracePriority? CheckForTracePriorities(
             string envVarName /* in */
             )
         {
@@ -2136,7 +2138,7 @@ namespace Eagle._Components.Private
                 envVarName);
 
             if (stringValue == null)
-                return DefaultTracePriorities; /* NOT OVERRIDDEN */
+                return null; /* NOT OVERRIDDEN */
 
             object enumValue;
             Result error = null;
@@ -2164,7 +2166,7 @@ namespace Eagle._Components.Private
                     error));
 #endif
 
-                return DefaultTracePriorities; /* SYSTEM DEFAULT */
+                return null; /* SYSTEM DEFAULT */
             }
         }
 
@@ -2336,7 +2338,10 @@ namespace Eagle._Components.Private
 
                 if (length > 0)
                 {
-                    int newIndex = oldIndex + adjustment;
+                    int newIndex = oldIndex;
+
+                    if (adjustment != 0)
+                        newIndex += adjustment;
 
                     if (newIndex < 0)
                         newIndex = 0;
@@ -2768,13 +2773,27 @@ namespace Eagle._Components.Private
             ref int skipFrames      /* in, out */
             )
         {
-            if (FlagOps.HasFlags(priority, TracePriority.External, true))
+            if (FlagOps.HasFlags(
+                    priority, TracePriority.External, true))
             {
                 //
                 // NOTE: When this subsystem is called via the external
                 //       public methods in the Utility class, make sure
                 //       that public wrapper method is excluded from the
                 //       included stack trace, if any.
+                //
+                skipFrames++;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (FlagOps.HasFlags(
+                    priority, TracePriority.ExtraSkipFrame, true))
+            {
+                //
+                // NOTE: When conditional DebugTrace methods call into
+                //       unconditional DebugTrace methods, add an extra
+                //       skipped call frame.
                 //
                 skipFrames++;
             }
@@ -2929,7 +2948,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static TraceStateType InitializeTracePriorities(
-            bool force /* in */
+            bool force,      /* in */
+            bool useDefaults /* in */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2951,10 +2971,18 @@ namespace Eagle._Components.Private
                     //
                     try
                     {
-                        tracePriorities = CheckForTracePriorities(
+                        TracePriority? priorities = CheckForTracePriorities(
                             EnvVars.TracePriorities);
 
-                        result |= TraceStateType.Priorities;
+                        if (priorities != null)
+                        {
+                            tracePriorities = (TracePriority)priorities;
+                            result |= TraceStateType.Priorities;
+                        }
+                        else if (useDefaults)
+                        {
+                            tracePriorities = DefaultTracePriorities;
+                        }
                     }
                     catch
                     {
@@ -3003,7 +3031,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static TraceStateType InitializeTracePriority(
-            bool force /* in */
+            bool force,      /* in */
+            bool useDefaults /* in */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -3025,10 +3054,18 @@ namespace Eagle._Components.Private
                     //
                     try
                     {
-                        defaultTracePriority = CheckForTracePriority(
+                        TracePriority? priority = CheckForTracePriority(
                             EnvVars.TracePriority);
 
-                        result |= TraceStateType.Priority;
+                        if (priority != null)
+                        {
+                            defaultTracePriority = (TracePriority)priority;
+                            result |= TraceStateType.Priority;
+                        }
+                        else if (useDefaults)
+                        {
+                            defaultTracePriority = DefaultTracePriority;
+                        }
                     }
                     catch
                     {
@@ -3855,11 +3892,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static TraceStateType InitializeTraceCategories(
-            TraceStateType stateType /* in */
+            TraceStateType stateType, /* in */
+            bool useDefaults          /* in */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
+                IntDictionary categories; /* REUSED */
+
                 bool force = FlagOps.HasFlags(
                     stateType, TraceStateType.Force, true);
 
@@ -3882,10 +3922,18 @@ namespace Eagle._Components.Private
                     //
                     try
                     {
-                        enabledTraceCategories = CheckForTraceCategories(
+                        categories = CheckForTraceCategories(
                             EnvVars.TraceCategories, EnabledName, 1);
 
-                        result |= TraceStateType.EnabledCategories;
+                        if (categories != null)
+                        {
+                            enabledTraceCategories = categories;
+                            result |= TraceStateType.EnabledCategories;
+                        }
+                        else if (useDefaults)
+                        {
+                            enabledTraceCategories = DefaultTraceCategories;
+                        }
                     }
                     catch
                     {
@@ -3910,10 +3958,18 @@ namespace Eagle._Components.Private
                     //
                     try
                     {
-                        disabledTraceCategories = CheckForTraceCategories(
+                        categories = CheckForTraceCategories(
                             EnvVars.NoTraceCategories, DisabledName, 1);
 
-                        result |= TraceStateType.DisabledCategories;
+                        if (categories != null)
+                        {
+                            disabledTraceCategories = categories;
+                            result |= TraceStateType.DisabledCategories;
+                        }
+                        else if (useDefaults)
+                        {
+                            disabledTraceCategories = DefaultTraceCategories;
+                        }
                     }
                     catch
                     {
@@ -3938,10 +3994,18 @@ namespace Eagle._Components.Private
                     //
                     try
                     {
-                        penaltyTraceCategories = CheckForTraceCategories(
+                        categories = CheckForTraceCategories(
                             EnvVars.PenaltyTraceCategories, PenaltyName, 1);
 
-                        result |= TraceStateType.PenaltyCategories;
+                        if (categories != null)
+                        {
+                            penaltyTraceCategories = categories;
+                            result |= TraceStateType.PenaltyCategories;
+                        }
+                        else if (useDefaults)
+                        {
+                            penaltyTraceCategories = DefaultTraceCategories;
+                        }
                     }
                     catch
                     {
@@ -3966,10 +4030,18 @@ namespace Eagle._Components.Private
                     //
                     try
                     {
-                        bonusTraceCategories = CheckForTraceCategories(
+                        categories = CheckForTraceCategories(
                             EnvVars.BonusTraceCategories, BonusName, 1);
 
-                        result |= TraceStateType.BonusCategories;
+                        if (categories != null)
+                        {
+                            bonusTraceCategories = categories;
+                            result |= TraceStateType.BonusCategories;
+                        }
+                        else if (useDefaults)
+                        {
+                            bonusTraceCategories = DefaultTraceCategories;
+                        }
                     }
                     catch
                     {
@@ -4474,6 +4546,102 @@ namespace Eagle._Components.Private
 
         #region Trace Message Methods
         #region Private
+        #region Debug Write Core
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        // [Conditional("DEBUG_TRACE")] // HACK: Always included.
+        private static void DebugWriteToCore(
+            Interpreter interpreter, /* in */
+            string value,            /* in */
+            bool force               /* in */
+            )
+        {
+            int levels = Interlocked.Increment(ref writeLevels);
+
+            try
+            {
+                if (levels <= DefaultMaximumWriteLevels)
+                {
+                    if (!IsTracePossible()) /* EXEMPT */
+                        return;
+
+                    if (!IsWritePossible())
+                        return;
+
+                    /* IGNORED */
+                    TracePrioritiesToFormatString();
+
+                    string traceFormat = GetTraceFormat();
+
+                    if (traceFormat == null)
+                        return;
+
+                    /* IGNORED */
+                    TracePrioritiesToFormatFlags();
+
+                    bool traceDateTime;
+                    bool tracePriority;
+                    bool traceServerName;
+                    bool traceTestName;
+                    bool traceAppDomain;
+                    bool traceInterpreter;
+                    bool traceThreadId;
+                    bool traceMethod;
+                    bool traceStack;
+                    bool traceExtraNewLines;
+
+                    GetTraceFormatFlags(
+                        out traceDateTime, out tracePriority,
+                        out traceServerName, out traceTestName,
+                        out traceAppDomain, out traceInterpreter,
+                        out traceThreadId, out traceMethod,
+                        out traceStack, out traceExtraNewLines);
+
+                    if (traceExtraNewLines)
+                        MaybeAddNewLines(ref traceFormat);
+
+                    bool nested = (levels > 1);
+
+                    DebugOps.WriteTo(
+                        interpreter, FormatOps.TraceOutput(
+                        traceFormat, nested ? TraceNestedIndicator : null,
+                        traceDateTime ? (DateTime?)TimeOps.GetNow() : null,
+                        null,
+#if WEB && !NET_STANDARD_20
+                        traceServerName ? PathOps.GetServerName() : null,
+#endif
+                        traceTestName ? TestOps.GetCurrentName(interpreter) : null,
+                        traceAppDomain ? AppDomainOps.GetCurrent() : null,
+                        traceInterpreter ? interpreter : null, traceThreadId ?
+                        (int?)GlobalState.GetCurrentSystemThreadId() : null,
+                        value, traceMethod, traceStack, 1), force);
+                }
+                else
+                {
+                    DebugOps.MaybeBreak();
+                }
+            }
+#if NATIVE
+            catch (Exception e)
+#else
+            catch
+#endif
+            {
+                Interlocked.Increment(ref traceException);
+
+#if NATIVE
+                DebugOps.Output(e);
+#endif
+            }
+            finally
+            {
+                Interlocked.Decrement(ref writeLevels);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Debug Trace Core
         [MethodImpl(MethodImplOptions.NoInlining)]
         // [Conditional("DEBUG_TRACE")] // HACK: Must return boolean.
         private static bool DebugTraceRaw(
@@ -4590,8 +4758,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        [Conditional("DEBUG_TRACE")]
-        private static void DebugTrace(
+        // [Conditional("DEBUG_TRACE")] // HACK: Always included.
+        private static void DebugTraceCore(
             Interpreter interpreter, /* in */
             long? threadId,          /* in */
             string message,          /* in */
@@ -4730,10 +4898,12 @@ namespace Eagle._Components.Private
             }
         }
         #endregion
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public
+        #region Statistics Tracking Methods
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void TraceWasDropped(
             Interpreter interpreter, /* in */
@@ -4757,9 +4927,11 @@ namespace Eagle._Components.Private
         {
             Interlocked.Increment(ref traceLogged); /* BREAKPOINT HERE */
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Conditional Debug Trace
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_WRITE")]
         public static void DebugWriteTo(
@@ -4768,203 +4940,56 @@ namespace Eagle._Components.Private
             bool force               /* in */
             )
         {
-            int levels = Interlocked.Increment(ref writeLevels);
-
-            try
-            {
-                if (levels <= DefaultMaximumWriteLevels)
-                {
-                    if (!IsTracePossible()) /* EXEMPT */
-                        return;
-
-                    if (!IsWritePossible())
-                        return;
-
-                    /* IGNORED */
-                    TracePrioritiesToFormatString();
-
-                    string traceFormat = GetTraceFormat();
-
-                    if (traceFormat == null)
-                        return;
-
-                    /* IGNORED */
-                    TracePrioritiesToFormatFlags();
-
-                    bool traceDateTime;
-                    bool tracePriority;
-                    bool traceServerName;
-                    bool traceTestName;
-                    bool traceAppDomain;
-                    bool traceInterpreter;
-                    bool traceThreadId;
-                    bool traceMethod;
-                    bool traceStack;
-                    bool traceExtraNewLines;
-
-                    GetTraceFormatFlags(
-                        out traceDateTime, out tracePriority,
-                        out traceServerName, out traceTestName,
-                        out traceAppDomain, out traceInterpreter,
-                        out traceThreadId, out traceMethod,
-                        out traceStack, out traceExtraNewLines);
-
-                    if (traceExtraNewLines)
-                        MaybeAddNewLines(ref traceFormat);
-
-                    bool nested = (levels > 1);
-
-                    DebugOps.WriteTo(
-                        interpreter, FormatOps.TraceOutput(
-                        traceFormat, nested ? TraceNestedIndicator : null,
-                        traceDateTime ? (DateTime?)TimeOps.GetNow() : null,
-                        null,
-#if WEB && !NET_STANDARD_20
-                        traceServerName ? PathOps.GetServerName() : null,
-#endif
-                        traceTestName ? TestOps.GetCurrentName(interpreter) : null,
-                        traceAppDomain ? AppDomainOps.GetCurrent() : null,
-                        traceInterpreter ? interpreter : null, traceThreadId ?
-                        (int?)GlobalState.GetCurrentSystemThreadId() : null,
-                        value, traceMethod, traceStack, 1), force);
-                }
-                else
-                {
-                    DebugOps.MaybeBreak();
-                }
-            }
-#if NATIVE
-            catch (Exception e)
-#else
-            catch
-#endif
-            {
-                Interlocked.Increment(ref traceException);
-
-#if NATIVE
-                DebugOps.Output(e);
-#endif
-            }
-            finally
-            {
-                Interlocked.Decrement(ref writeLevels);
-            }
+            DebugWriteToCore(interpreter, value, force);
         }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Dead Code
-#if DEAD_CODE
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        [Conditional("DEBUG_TRACE")]
-        private static void MaybeDebugTrace( /* NOT USED */
-            Exception exception,   /* in */
-            string category,       /* in */
-            TracePriority priority /* in */
-            )
-        {
-            if (!IsTracePossible())
-            {
-                TraceWasDropped(
-                    null, null, category, priority);
-
-                Interlocked.Increment(ref traceImpossible);
-                return;
-            }
-
-            if (!IsTraceEnabled(priority, category)) /* HACK: *PERF* Bail. */
-            {
-                TraceWasDropped(
-                    null, null, category, priority);
-
-                Interlocked.Increment(ref traceDisabled);
-                return;
-            }
-
-            int skipFrames = 1;
-
-            MaybeAdjustSkipFrames(priority, ref skipFrames);
-
-            string message = FormatOps.TraceException(exception);
-
-            try
-            {
-                if (TraceLimits.IsTripped(message, category, priority))
-                {
-                    TraceWasDropped(
-                        null, message, category, priority);
-
-                    Interlocked.Increment(ref traceTripped);
-                    return;
-                }
-
-                DebugTrace(Interpreter.GetActive(),
-                    GlobalState.GetCurrentSystemThreadId(),
-                    message, category, priority, skipFrames,
-                    true, false);
-            }
-            finally
-            {
-                /* IGNORED */
-                TraceLimits.KeepTrack(message, category, priority);
-            }
-        }
-#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Unconditional Debug Trace
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void DebugWriteToAlways(
+            Interpreter interpreter, /* in */
+            string value,            /* in */
+            bool force               /* in */
+            )
+        {
+            DebugWriteToCore(interpreter, value, force);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Conditional Debug Trace
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
-        public static void MaybeDebugTrace(
-            string message,        /* in */
+        public static void LockTrace(
+            string method,         /* in */
             string category,       /* in */
+            bool @static,          /* in */
             TracePriority priority /* in */
             )
         {
-            if (!IsTracePossible())
-            {
-                TraceWasDropped(
-                    null, message, category, priority);
+            DebugTraceAlways(String.Format(
+                "{0}: unable to acquire {1}lock", method, @static ?
+                "static " : String.Empty), category, priority);
+        }
 
-                Interlocked.Increment(ref traceImpossible);
-                return;
-            }
+        ///////////////////////////////////////////////////////////////////////
 
-            if (!IsTraceEnabled(priority, category)) /* HACK: *PERF* Bail. */
-            {
-                TraceWasDropped(
-                    null, message, category, priority);
-
-                Interlocked.Increment(ref traceDisabled);
-                return;
-            }
-
-            int skipFrames = 1;
-
-            MaybeAdjustSkipFrames(priority, ref skipFrames);
-
-            try
-            {
-                if (TraceLimits.IsTripped(message, category, priority))
-                {
-                    TraceWasDropped(
-                        null, message, category, priority);
-
-                    Interlocked.Increment(ref traceTripped);
-                    return;
-                }
-
-                DebugTrace(Interpreter.GetActive(),
-                    GlobalState.GetCurrentSystemThreadId(),
-                    message, category, priority, skipFrames,
-                    true, false);
-            }
-            finally
-            {
-                /* IGNORED */
-                TraceLimits.KeepTrack(message, category, priority);
-            }
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [Conditional("DEBUG_TRACE")]
+        public static void LockTrace(
+            string method,         /* in */
+            string category,       /* in */
+            string suffix,         /* in */
+            bool @static,          /* in */
+            TracePriority priority /* in */
+            )
+        {
+            DebugTraceAlways(String.Format(
+                "{0}: unable to acquire {1}lock{2}", method, @static ?
+                "static " : String.Empty, suffix), category, priority);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4977,56 +5002,38 @@ namespace Eagle._Components.Private
             TracePriority priority /* in */
             )
         {
-            if (!IsTracePossible())
-            {
-                TraceWasDropped(
-                    null, null, category, priority);
+            DebugTraceAlways(exception, category,
+                priority | TracePriority.ExtraSkipFrame);
+        }
 
-                Interlocked.Increment(ref traceImpossible);
-                return;
-            }
+        ///////////////////////////////////////////////////////////////////////
 
-            if (!IsTraceEnabled(priority, category)) /* HACK: *PERF* Bail. */
-            {
-                TraceWasDropped(
-                    null, null, category, priority);
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [Conditional("DEBUG_TRACE")]
+        public static void DebugTrace(
+            long? threadId,        /* in */
+            Exception exception,   /* in */
+            string category,       /* in */
+            TracePriority priority /* in */
+            )
+        {
+            DebugTraceAlways(threadId, exception, category,
+                priority | TracePriority.ExtraSkipFrame);
+        }
 
-                Interlocked.Increment(ref traceDisabled);
-                return;
-            }
+        ///////////////////////////////////////////////////////////////////////
 
-            int skipFrames = 1;
-
-            MaybeAdjustSkipFrames(priority, ref skipFrames);
-
-            string message = FormatOps.TraceException(exception);
-
-#if MAYBE_TRACE
-            try
-            {
-                if (TraceLimits.IsTripped(message, category, priority))
-                {
-                    TraceWasDropped(
-                        null, message, category, priority);
-
-                    Interlocked.Increment(ref traceTripped);
-                    return;
-                }
-#endif
-
-                DebugTrace(Interpreter.GetActive(),
-                    GlobalState.GetCurrentSystemThreadId(),
-                    message, category, priority, skipFrames,
-                    true, false);
-
-#if MAYBE_TRACE
-            }
-            finally
-            {
-                /* IGNORED */
-                TraceLimits.KeepTrack(message, category, priority);
-            }
-#endif
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [Conditional("DEBUG_TRACE")]
+        public static void DebugTrace(
+            Exception exception,   /* in */
+            string category,       /* in */
+            string prefix,         /* in */
+            TracePriority priority /* in */
+            )
+        {
+            DebugTraceAlways(exception, category, prefix,
+                priority | TracePriority.ExtraSkipFrame);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5041,10 +5048,71 @@ namespace Eagle._Components.Private
             int skipFrames           /* in */
             )
         {
+            DebugTraceAlways(interpreter, exception, category,
+                priority | TracePriority.ExtraSkipFrame, skipFrames + 1);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [Conditional("DEBUG_TRACE")]
+        public static void DebugTrace(
+            string message,        /* in */
+            string category,       /* in */
+            TracePriority priority /* in */
+            )
+        {
+            DebugTraceAlways(message, category,
+                priority | TracePriority.ExtraSkipFrame);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [Conditional("DEBUG_TRACE")]
+        public static void DebugTrace(
+            long? threadId,        /* in */
+            string message,        /* in */
+            string category,       /* in */
+            TracePriority priority /* in */
+            )
+        {
+            DebugTraceAlways(threadId, message, category,
+                priority | TracePriority.ExtraSkipFrame);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [Conditional("DEBUG_TRACE")]
+        public static void DebugTrace(
+            Interpreter interpreter, /* in */
+            string message,          /* in */
+            string category,         /* in */
+            TracePriority priority,  /* in */
+            int skipFrames           /* in */
+            )
+        {
+            DebugTraceAlways(
+                interpreter, message, category,
+                priority | TracePriority.ExtraSkipFrame, skipFrames + 1);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Unconditional Debug Trace
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void DebugTraceAlways(
+            Exception exception,   /* in */
+            string category,       /* in */
+            TracePriority priority /* in */
+            )
+        {
             if (!IsTracePossible())
             {
                 TraceWasDropped(
-                    interpreter, null, category, priority);
+                    null, null, category, priority);
 
                 Interlocked.Increment(ref traceImpossible);
                 return;
@@ -5053,11 +5121,13 @@ namespace Eagle._Components.Private
             if (!IsTraceEnabled(priority, category)) /* HACK: *PERF* Bail. */
             {
                 TraceWasDropped(
-                    interpreter, null, category, priority);
+                    null, null, category, priority);
 
                 Interlocked.Increment(ref traceDisabled);
                 return;
             }
+
+            int skipFrames = 1;
 
             MaybeAdjustSkipFrames(priority, ref skipFrames);
 
@@ -5069,18 +5139,17 @@ namespace Eagle._Components.Private
                 if (TraceLimits.IsTripped(message, category, priority))
                 {
                     TraceWasDropped(
-                        interpreter, message, category, priority);
+                        null, message, category, priority);
 
                     Interlocked.Increment(ref traceTripped);
                     return;
                 }
 #endif
 
-                DebugTrace(interpreter,
+                DebugTraceCore(Interpreter.GetActive(),
                     GlobalState.GetCurrentSystemThreadId(),
-                    message, category, priority, skipFrames + 1,
+                    message, category, priority, skipFrames,
                     true, false);
-
 #if MAYBE_TRACE
             }
             finally
@@ -5094,8 +5163,67 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        [Conditional("DEBUG_TRACE")]
-        public static void DebugTrace(
+        public static void DebugTraceAlways(
+            long? threadId,        /* in */
+            Exception exception,   /* in */
+            string category,       /* in */
+            TracePriority priority /* in */
+            )
+        {
+            if (!IsTracePossible())
+            {
+                TraceWasDropped(
+                    null, null, category, priority);
+
+                Interlocked.Increment(ref traceImpossible);
+                return;
+            }
+
+            if (!IsTraceEnabled(priority, category)) /* HACK: *PERF* Bail. */
+            {
+                TraceWasDropped(
+                    null, null, category, priority);
+
+                Interlocked.Increment(ref traceDisabled);
+                return;
+            }
+
+            int skipFrames = 1;
+
+            MaybeAdjustSkipFrames(priority, ref skipFrames);
+
+            string message = FormatOps.TraceException(exception);
+
+#if MAYBE_TRACE
+            try
+            {
+                if (TraceLimits.IsTripped(message, category, priority))
+                {
+                    TraceWasDropped(
+                        null, message, category, priority);
+
+                    Interlocked.Increment(ref traceTripped);
+                    return;
+                }
+#endif
+
+                DebugTraceCore(Interpreter.GetActive(),
+                    threadId, message, category, priority, skipFrames,
+                    true, false);
+#if MAYBE_TRACE
+            }
+            finally
+            {
+                /* IGNORED */
+                TraceLimits.KeepTrack(message, category, priority);
+            }
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void DebugTraceAlways(
             Exception exception,   /* in */
             string category,       /* in */
             string prefix,         /* in */
@@ -5139,12 +5267,11 @@ namespace Eagle._Components.Private
                 }
 #endif
 
-                DebugTrace(Interpreter.GetActive(),
+                DebugTraceCore(Interpreter.GetActive(),
                     GlobalState.GetCurrentSystemThreadId(),
                     String.Format("{0}{1}", prefix,
                     message), category, priority, skipFrames,
                     true, false);
-
 #if MAYBE_TRACE
             }
             finally
@@ -5158,8 +5285,67 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        [Conditional("DEBUG_TRACE")]
-        public static void DebugTrace(
+        public static void DebugTraceAlways(
+            Interpreter interpreter, /* in */
+            Exception exception,     /* in */
+            string category,         /* in */
+            TracePriority priority,  /* in */
+            int skipFrames           /* in */
+            )
+        {
+            if (!IsTracePossible())
+            {
+                TraceWasDropped(
+                    interpreter, null, category, priority);
+
+                Interlocked.Increment(ref traceImpossible);
+                return;
+            }
+
+            if (!IsTraceEnabled(priority, category)) /* HACK: *PERF* Bail. */
+            {
+                TraceWasDropped(
+                    interpreter, null, category, priority);
+
+                Interlocked.Increment(ref traceDisabled);
+                return;
+            }
+
+            MaybeAdjustSkipFrames(priority, ref skipFrames);
+
+            string message = FormatOps.TraceException(exception);
+
+#if MAYBE_TRACE
+            try
+            {
+                if (TraceLimits.IsTripped(message, category, priority))
+                {
+                    TraceWasDropped(
+                        interpreter, message, category, priority);
+
+                    Interlocked.Increment(ref traceTripped);
+                    return;
+                }
+#endif
+
+                DebugTraceCore(interpreter,
+                    GlobalState.GetCurrentSystemThreadId(),
+                    message, category, priority, skipFrames + 1,
+                    true, false);
+#if MAYBE_TRACE
+            }
+            finally
+            {
+                /* IGNORED */
+                TraceLimits.KeepTrack(message, category, priority);
+            }
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void DebugTraceAlways(
             string message,        /* in */
             string category,       /* in */
             TracePriority priority /* in */
@@ -5200,11 +5386,10 @@ namespace Eagle._Components.Private
                 }
 #endif
 
-                DebugTrace(Interpreter.GetActive(),
+                DebugTraceCore(Interpreter.GetActive(),
                     GlobalState.GetCurrentSystemThreadId(),
                     message, category, priority, skipFrames,
                     true, false);
-
 #if MAYBE_TRACE
             }
             finally
@@ -5218,8 +5403,65 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        [Conditional("DEBUG_TRACE")]
-        public static void DebugTrace(
+        public static void DebugTraceAlways(
+            long? threadId,        /* in */
+            string message,        /* in */
+            string category,       /* in */
+            TracePriority priority /* in */
+            )
+        {
+            if (!IsTracePossible())
+            {
+                TraceWasDropped(
+                    null, message, category, priority);
+
+                Interlocked.Increment(ref traceImpossible);
+                return;
+            }
+
+            if (!IsTraceEnabled(priority, category)) /* HACK: *PERF* Bail. */
+            {
+                TraceWasDropped(
+                    null, message, category, priority);
+
+                Interlocked.Increment(ref traceDisabled);
+                return;
+            }
+
+            int skipFrames = 1;
+
+            MaybeAdjustSkipFrames(priority, ref skipFrames);
+
+#if MAYBE_TRACE
+            try
+            {
+                if (TraceLimits.IsTripped(message, category, priority))
+                {
+                    TraceWasDropped(
+                        null, message, category, priority);
+
+                    Interlocked.Increment(ref traceTripped);
+                    return;
+                }
+#endif
+
+                DebugTraceCore(Interpreter.GetActive(),
+                    threadId, message, category, priority, skipFrames,
+                    true, false);
+#if MAYBE_TRACE
+            }
+            finally
+            {
+                /* IGNORED */
+                TraceLimits.KeepTrack(message, category, priority);
+            }
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void DebugTraceAlways(
             Interpreter interpreter, /* in */
             string message,          /* in */
             string category,         /* in */
@@ -5260,11 +5502,10 @@ namespace Eagle._Components.Private
                 }
 #endif
 
-                DebugTrace(interpreter,
+                DebugTraceCore(interpreter,
                     GlobalState.GetCurrentSystemThreadId(),
                     message, category, priority, skipFrames + 1,
                     true, false);
-
 #if MAYBE_TRACE
             }
             finally
@@ -5274,128 +5515,7 @@ namespace Eagle._Components.Private
             }
 #endif
         }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        [Conditional("DEBUG_TRACE")]
-        public static void DebugTrace(
-            long? threadId,        /* in */
-            Exception exception,   /* in */
-            string category,       /* in */
-            TracePriority priority /* in */
-            )
-        {
-            if (!IsTracePossible())
-            {
-                TraceWasDropped(
-                    null, null, category, priority);
-
-                Interlocked.Increment(ref traceImpossible);
-                return;
-            }
-
-            if (!IsTraceEnabled(priority, category)) /* HACK: *PERF* Bail. */
-            {
-                TraceWasDropped(
-                    null, null, category, priority);
-
-                Interlocked.Increment(ref traceDisabled);
-                return;
-            }
-
-            int skipFrames = 1;
-
-            MaybeAdjustSkipFrames(priority, ref skipFrames);
-
-            string message = FormatOps.TraceException(exception);
-
-#if MAYBE_TRACE
-            try
-            {
-                if (TraceLimits.IsTripped(message, category, priority))
-                {
-                    TraceWasDropped(
-                        null, message, category, priority);
-
-                    Interlocked.Increment(ref traceTripped);
-                    return;
-                }
-#endif
-
-                DebugTrace(Interpreter.GetActive(),
-                    threadId, message, category, priority, skipFrames,
-                    true, false);
-
-#if MAYBE_TRACE
-            }
-            finally
-            {
-                /* IGNORED */
-                TraceLimits.KeepTrack(message, category, priority);
-            }
-#endif
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        [Conditional("DEBUG_TRACE")]
-        public static void DebugTrace(
-            long? threadId,        /* in */
-            string message,        /* in */
-            string category,       /* in */
-            TracePriority priority /* in */
-            )
-        {
-            if (!IsTracePossible())
-            {
-                TraceWasDropped(
-                    null, message, category, priority);
-
-                Interlocked.Increment(ref traceImpossible);
-                return;
-            }
-
-            if (!IsTraceEnabled(priority, category)) /* HACK: *PERF* Bail. */
-            {
-                TraceWasDropped(
-                    null, message, category, priority);
-
-                Interlocked.Increment(ref traceDisabled);
-                return;
-            }
-
-            int skipFrames = 1;
-
-            MaybeAdjustSkipFrames(priority, ref skipFrames);
-
-#if MAYBE_TRACE
-            try
-            {
-                if (TraceLimits.IsTripped(message, category, priority))
-                {
-                    TraceWasDropped(
-                        null, message, category, priority);
-
-                    Interlocked.Increment(ref traceTripped);
-                    return;
-                }
-#endif
-
-                DebugTrace(Interpreter.GetActive(),
-                    threadId, message, category, priority, skipFrames,
-                    true, false);
-
-#if MAYBE_TRACE
-            }
-            finally
-            {
-                /* IGNORED */
-                TraceLimits.KeepTrack(message, category, priority);
-            }
-#endif
-        }
+        #endregion
         #endregion
         #endregion
 

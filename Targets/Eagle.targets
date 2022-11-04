@@ -188,7 +188,23 @@
 
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(OverrideDirForStrongName)' != '' And
+                     HasTrailingSlash('$(OverrideDirForStrongName)') And
+                     Exists('$(OverrideDirForStrongName)sn.exe')"
+          Command="&quot;$(OverrideDirForStrongName)sn.exe&quot; -Ra &quot;$(TargetPath)&quot; &quot;$(AssemblyPrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(OverrideDirForStrongName)' != '' And
+                     HasTrailingSlash('$(OverrideDirForStrongName)') And
+                     Exists('$(OverrideDirForStrongName)sn.exe') And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(OverrideDirForStrongName)sn.exe&quot; -Ra &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot; &quot;$(AssemblyPrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' != '' And
                      HasTrailingSlash('$(DirForStrongName)') And
                      Exists('$(DirForStrongName)bin\sn.exe')"
@@ -197,6 +213,7 @@
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' != '' And
                      HasTrailingSlash('$(DirForStrongName)') And
                      Exists('$(DirForStrongName)bin\sn.exe') And
@@ -206,6 +223,7 @@
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' == '' And
                      HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
                      Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe')"
@@ -214,6 +232,7 @@
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' == '' And
                      HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
                      Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe') And
@@ -564,12 +583,30 @@
   ******************************************************************************
   -->
 
-  <Target Name="EagleDetectNetCore20"
-          Condition="'$(EagleDetectNetCore20)' != 'false'">
-    <CreateProperty Condition="'$(EagleNetCore20)' != 'false' And
+  <Target Name="EagleDetectNetCoreReferences"
+          Condition="'$(EagleDetectNetCoreReferences)' != 'false'">
+    <CreateProperty Condition="'$(EagleNetCoreReferences)' != 'false' And
                                ('$(TargetFramework)' == 'netstandard2.0' Or
                                 '$(TargetFramework)' == 'netstandard2.1' Or
                                 '$(TargetFramework)' == 'netcoreapp2.0' Or
+                                '$(TargetFramework)' == 'netcoreapp2.0' Or
+                                '$(TargetFramework)' == 'netcoreapp2.1' Or
+                                '$(TargetFramework)' == 'netcoreapp2.2' Or
+                                '$(TargetFramework)' == 'netcoreapp3.0' Or
+                                '$(TargetFramework)' == 'netcoreapp3.1')"
+                    Value="$(DefineConstants);NET_CORE_REFERENCES">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetCore20"
+          Condition="'$(EagleDetectNetCore20)' != 'false'">
+    <CreateProperty Condition="'$(EagleNetCore20)' != 'false' And
+                               ('$(TargetFramework)' == 'netcoreapp2.0' Or
                                 '$(TargetFramework)' == 'netcoreapp2.1' Or
                                 '$(TargetFramework)' == 'netcoreapp2.2' Or
                                 '$(TargetFramework)' == 'netcoreapp3.0' Or
@@ -586,8 +623,7 @@
   <Target Name="EagleDetectNetCore30"
           Condition="'$(EagleDetectNetCore30)' != 'false'">
     <CreateProperty Condition="'$(EagleNetCore30)' != 'false' And
-                               ('$(TargetFramework)' == 'netstandard2.1' Or
-                                '$(TargetFramework)' == 'netcoreapp3.0' Or
+                               ('$(TargetFramework)' == 'netcoreapp3.0' Or
                                 '$(TargetFramework)' == 'netcoreapp3.1')"
                     Value="$(DefineConstants);NET_CORE_30">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
@@ -679,7 +715,8 @@
                                '$(TargetFrameworkVersion)' == 'v4.7' Or
                                '$(TargetFrameworkVersion)' == 'v4.7.1' Or
                                '$(TargetFrameworkVersion)' == 'v4.7.2' Or
-                               '$(TargetFrameworkVersion)' == 'v4.8'"
+                               '$(TargetFrameworkVersion)' == 'v4.8' Or
+                               '$(TargetFrameworkVersion)' == 'v4.8.1'"
                     Value="$(DefineConstants);NET_40">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
     </CreateProperty>
@@ -801,6 +838,18 @@
           Condition="'$(EagleDetectNetFx48)' != 'false'">
     <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.8'"
                     Value="$(DefineConstants);NET_48">
+      <Output TaskParameter="Value" PropertyName="DefineConstants" />
+    </CreateProperty>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleDetectNetFx481"
+          Condition="'$(EagleDetectNetFx481)' != 'false'">
+    <CreateProperty Condition="'$(TargetFrameworkVersion)' == 'v4.8.1'"
+                    Value="$(DefineConstants);NET_481">
       <Output TaskParameter="Value" PropertyName="DefineConstants" />
     </CreateProperty>
   </Target>
@@ -1522,7 +1571,23 @@
 
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(OverrideDirForStrongName)' != '' And
+                     HasTrailingSlash('$(OverrideDirForStrongName)') And
+                     Exists('$(OverrideDirForStrongName)sn.exe')"
+          Command="&quot;$(OverrideDirForStrongName)sn.exe&quot; -Ra &quot;$(TargetPath)&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(OverrideDirForStrongName)' != '' And
+                     HasTrailingSlash('$(OverrideDirForStrongName)') And
+                     Exists('$(OverrideDirForStrongName)sn.exe') And
+                     Exists('$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)')"
+          Command="&quot;$(OverrideDirForStrongName)sn.exe&quot; -Ra &quot;$(OutputPath)Unobfuscated\$(TargetName)$(TargetExt)&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' != '' And
                      HasTrailingSlash('$(DirForStrongName)') And
                      Exists('$(DirForStrongName)bin\sn.exe')"
@@ -1531,6 +1596,7 @@
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' != '' And
                      HasTrailingSlash('$(DirForStrongName)') And
                      Exists('$(DirForStrongName)bin\sn.exe') And
@@ -1540,6 +1606,7 @@
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' == '' And
                      HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
                      Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe')"
@@ -1548,6 +1615,7 @@
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' == '' And
                      HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
                      Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe') And
@@ -1783,7 +1851,15 @@
 
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
+                     '$(OverrideDirForStrongName)' != '' And
+                     HasTrailingSlash('$(OverrideDirForStrongName)') And
+                     Exists('$(OverrideDirForStrongName)sn.exe')"
+          Command="&quot;$(OverrideDirForStrongName)sn.exe&quot; -Ra &quot;$(OutputPath)$(TargetName)32.exe&quot; &quot;$(EaglePrivateKeyFile)&quot;" />
+
+    <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
+                      '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' == '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' != '' And
                      HasTrailingSlash('$(DirForStrongName)') And
                      Exists('$(DirForStrongName)bin\sn.exe')"
@@ -1792,6 +1868,7 @@
     <Exec Condition="('$(StrongNameWithoutSdk)' == '' Or
                       '$(StrongNameWithoutSdk)' == 'false') And
                      '$(TargetFrameworkSDKToolsDirectory)' != '' And
+                     '$(OverrideDirForStrongName)' == '' And
                      '$(DirForStrongName)' == '' And
                      HasTrailingSlash('$(TargetFrameworkSDKToolsDirectory)') And
                      Exists('$(TargetFrameworkSDKToolsDirectory)sn.exe')"
@@ -2369,7 +2446,8 @@
                       '$(TargetFrameworkVersion)' == 'v4.7' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.1' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.2' Or
-                      '$(TargetFrameworkVersion)' == 'v4.8')"
+                      '$(TargetFrameworkVersion)' == 'v4.8' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8.1')"
           SourceFiles="@(EagleCopySystemDataSQLiteItem2)"
           DestinationFolder="$(EagleBinaryOutputPath)" />
 
@@ -2473,6 +2551,15 @@
   <Target Name="MissingXml"
           Condition="'$(ProjectName)' != ''">
     <Warning Text="The &quot;System.Xml&quot; assembly is disabled, skipping project &quot;$(ProjectName)&quot;..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="MissingSerialization"
+          Condition="'$(ProjectName)' != ''">
+    <Warning Text="The &quot;System.Xml.Serialization&quot; assembly is disabled, skipping project &quot;$(ProjectName)&quot;..." />
   </Target>
 
   <!--
@@ -2725,7 +2812,8 @@
                       '$(TargetFrameworkVersion)' == 'v4.7' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.1' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.2' Or
-                      '$(TargetFrameworkVersion)' == 'v4.8') And
+                      '$(TargetFrameworkVersion)' == 'v4.8' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8.1') And
                      '$(EagleDir)' != '' And
                      !HasTrailingSlash('$(EagleDir)') And
                      Exists('$(EagleDir)\Externals\NETFX\Tools\v4.0\ResGen.exe')"
@@ -2773,7 +2861,8 @@
                       '$(TargetFrameworkVersion)' == 'v4.7' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.1' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.2' Or
-                      '$(TargetFrameworkVersion)' == 'v4.8') And
+                      '$(TargetFrameworkVersion)' == 'v4.8' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8.1') And
                      '$(EagleDir)' != '' And
                      !HasTrailingSlash('$(EagleDir)') And
                      Exists('$(EagleDir)\Externals\NETFX\Tools\v4.0\ResGen.exe')"
@@ -2821,7 +2910,8 @@
                       '$(TargetFrameworkVersion)' == 'v4.7' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.1' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.2' Or
-                      '$(TargetFrameworkVersion)' == 'v4.8') And
+                      '$(TargetFrameworkVersion)' == 'v4.8' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8.1') And
                      '$(EagleDir)' != '' And
                      !HasTrailingSlash('$(EagleDir)') And
                      Exists('$(EagleDir)\Externals\NETFX\Tools\v4.0\ResGen.exe')"

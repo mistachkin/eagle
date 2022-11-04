@@ -12,6 +12,12 @@
 ; RCS: @(#) $Id: $
 ;
 
+#if Int(Security)
+#define SecurityValue true
+#else
+#define SecurityValue false
+#endif
+
 [Setup]
 ArchitecturesAllowed=x86 x64
 ArchitecturesInstallIn64BitMode=x64
@@ -119,16 +125,18 @@ Components: Application; Source: ..\README; DestDir: {app}\doc; DestName: README
 Components: Application\Core\Engine; Source: {#SrcBinDir}\Eagle.dll; DestDir: {app}\bin; Flags: restartreplace uninsrestartdelete
 
 #if Int(Security)
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\Harpy.Basic.dll; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\pkgIndex.eagle; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\pkgIndex.eagle.harpy; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\keyRing.General.demo.eagle; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\keyRing.General.demo.eagle.harpy; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\keyRing.zero.eagle; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\keyRing.zero.eagle.harpy; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Badge.Basic{#AppMajorMinorVersion}\Badge.Basic.dll; DestDir: {app}\lib\Badge.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Badge.Basic{#AppMajorMinorVersion}\pkgIndex.eagle; DestDir: {app}\lib\Badge.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security; Source: {#BinLibDir}\Badge.Basic{#AppMajorMinorVersion}\pkgIndex.eagle.harpy; DestDir: {app}\lib\Badge.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\Harpy.Basic.dll; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\pkgIndex.eagle; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\pkgIndex.eagle.harpy; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\keyRing.General.demo.eagle; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\keyRing.General.demo.eagle.harpy; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\keyRing.zero.eagle; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\keyRing.zero.eagle.harpy; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: ..\Plugins\Commercial\Enterprise\Harpy\Setup\trial-certificate.xml; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}\Certificates; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Badge.Basic{#AppMajorMinorVersion}\Badge.Basic.dll; DestDir: {app}\lib\Badge.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Badge.Basic{#AppMajorMinorVersion}\pkgIndex.eagle; DestDir: {app}\lib\Badge.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: {#BinLibDir}\Badge.Basic{#AppMajorMinorVersion}\pkgIndex.eagle.harpy; DestDir: {app}\lib\Badge.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security; Source: ..\Plugins\Commercial\Enterprise\Badge\Setup\trial-certificate.xml; DestDir: {app}\lib\Badge.Basic{#AppMajorMinorVersion}\Certificates; Flags: restartreplace uninsrestartdelete
 #endif
 
 #if Int(Native)
@@ -153,8 +161,8 @@ Components: Application\Core\Engine\Native and Application\Diagnostic\Symbols; S
 Components: Application\Core\Engine and Application\Diagnostic\Symbols; Source: {#SrcBinDir}\Eagle.pdb; DestDir: {app}\bin; Flags: restartreplace uninsrestartdelete
 
 #if Int(Security)
-Components: Application\Plugins\Security and Application\Diagnostic\Symbols; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\Harpy.Basic.pdb; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
-Components: Application\Plugins\Security and Application\Diagnostic\Symbols; Source: {#BinLibDir}\Badge.Basic{#AppMajorMinorVersion}\Badge.Basic.pdb; DestDir: {app}\lib\Badge.Basic{#AppMajorMinorVersion}; Flags: skipifsourcedoesntexist restartreplace uninsrestartdelete
+Components: Application\Plugins\Security and Application\Diagnostic\Symbols; Source: {#BinLibDir}\Harpy.Basic{#AppMajorMinorVersion}\Harpy.Basic.pdb; DestDir: {app}\lib\Harpy.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
+Components: Application\Plugins\Security and Application\Diagnostic\Symbols; Source: {#BinLibDir}\Badge.Basic{#AppMajorMinorVersion}\Badge.Basic.pdb; DestDir: {app}\lib\Badge.Basic{#AppMajorMinorVersion}; Flags: restartreplace uninsrestartdelete
 #endif
 
 Components: Application\Core\Update; Source: {#SrcBinDir}\Hippogriff.exe; DestDir: {app}\bin; Flags: restartreplace uninsrestartdelete
@@ -201,11 +209,11 @@ Components: Application; Tasks: Update; Root: HKLM32; SubKey: Software\Eagle\{#A
 Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU32; SubKey: Software\Classes\.eagle; ValueType: string; ValueData: Eagle.Script; Flags: uninsdeletekey
 Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU32; SubKey: Software\Classes\Eagle.Script; Flags: uninsdeletekey
 Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU32; SubKey: Software\Classes\Eagle.Script\DefaultIcon; ValueType: string; ValueData: {app}\bin\EagleShell.exe,0
-Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU32; SubKey: Software\Classes\Eagle.Script\shell\Open\command; ValueType: expandsz; ValueData: """{app}\bin\EagleShell.exe"" -safe -file ""%1"" %*"
+Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU32; SubKey: Software\Classes\Eagle.Script\shell\Open\command; ValueType: expandsz; ValueData: """{app}\bin\EagleShell.exe"" -safe -security {#SecurityValue} -file ""%1"" %*"
 Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM32; SubKey: Software\Classes\.eagle; ValueType: string; ValueData: Eagle.Script; Flags: uninsdeletekey
 Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM32; SubKey: Software\Classes\Eagle.Script; Flags: uninsdeletekey
 Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM32; SubKey: Software\Classes\Eagle.Script\DefaultIcon; ValueType: string; ValueData: {app}\bin\EagleShell.exe,0
-Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM32; SubKey: Software\Classes\Eagle.Script\shell\Open\command; ValueType: expandsz; ValueData: """{app}\bin\EagleShell.exe"" -safe -file ""%1"" %*"
+Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM32; SubKey: Software\Classes\Eagle.Script\shell\Open\command; ValueType: expandsz; ValueData: """{app}\bin\EagleShell.exe"" -safe -security {#SecurityValue} -file ""%1"" %*"
 Components: Application\Interactive\Shell and Application\Interactive\Registration\User; Root: HKCU32; SubKey: Software\Microsoft\Windows\CurrentVersion\App Paths\EagleShell.exe; ValueType: expandsz; ValueData: {app}\bin\EagleShell.exe; Flags: uninsdeletekey
 Components: Application\Interactive\Shell and Application\Interactive\Registration\User; Root: HKCU32; SubKey: Software\Microsoft\Windows\CurrentVersion\App Paths\EagleShell.exe; ValueType: expandsz; ValueName: Path; ValueData: {app}\bin\; Flags: uninsdeletekey
 Components: Application\Interactive\Shell and Application\Interactive\Registration\Machine; Root: HKLM32; SubKey: Software\Microsoft\Windows\CurrentVersion\App Paths\EagleShell.exe; ValueType: expandsz; ValueData: {app}\bin\EagleShell.exe; Flags: uninsdeletekey
@@ -224,11 +232,11 @@ Components: Application; Tasks: Update; Root: HKLM64; SubKey: Software\Eagle\{#A
 Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU64; SubKey: Software\Classes\.eagle; ValueType: string; ValueData: Eagle.Script; Flags: uninsdeletekey; Check: IsWin64()
 Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU64; SubKey: Software\Classes\Eagle.Script; Flags: uninsdeletekey; Check: IsWin64()
 Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU64; SubKey: Software\Classes\Eagle.Script\DefaultIcon; ValueType: string; ValueData: {app}\bin\EagleShell.exe,0; Check: IsWin64()
-Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU64; SubKey: Software\Classes\Eagle.Script\shell\Open\command; ValueType: expandsz; ValueData: """{app}\bin\EagleShell.exe"" -safe -file ""%1"" %*"; Check: IsWin64()
+Components: Application\Interactive\Shell and Application\Interactive\Association\User; Root: HKCU64; SubKey: Software\Classes\Eagle.Script\shell\Open\command; ValueType: expandsz; ValueData: """{app}\bin\EagleShell.exe"" -safe -security {#SecurityValue} -file ""%1"" %*"; Check: IsWin64()
 Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM64; SubKey: Software\Classes\.eagle; ValueType: string; ValueData: Eagle.Script; Flags: uninsdeletekey; Check: IsWin64()
 Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM64; SubKey: Software\Classes\Eagle.Script; Flags: uninsdeletekey; Check: IsWin64()
 Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM64; SubKey: Software\Classes\Eagle.Script\DefaultIcon; ValueType: string; ValueData: {app}\bin\EagleShell.exe,0; Check: IsWin64()
-Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM64; SubKey: Software\Classes\Eagle.Script\shell\Open\command; ValueType: expandsz; ValueData: """{app}\bin\EagleShell.exe"" -safe -file ""%1"" %*"; Check: IsWin64()
+Components: Application\Interactive\Shell and Application\Interactive\Association\Machine; Root: HKLM64; SubKey: Software\Classes\Eagle.Script\shell\Open\command; ValueType: expandsz; ValueData: """{app}\bin\EagleShell.exe"" -safe -security {#SecurityValue} -file ""%1"" %*"; Check: IsWin64()
 Components: Application\Interactive\Shell and Application\Interactive\Registration\User; Root: HKCU64; SubKey: Software\Microsoft\Windows\CurrentVersion\App Paths\EagleShell.exe; ValueType: expandsz; ValueData: {app}\bin\EagleShell.exe; Flags: uninsdeletekey; Check: IsWin64()
 Components: Application\Interactive\Shell and Application\Interactive\Registration\User; Root: HKCU64; SubKey: Software\Microsoft\Windows\CurrentVersion\App Paths\EagleShell.exe; ValueType: expandsz; ValueName: Path; ValueData: {app}\bin\; Flags: uninsdeletekey; Check: IsWin64()
 Components: Application\Interactive\Shell and Application\Interactive\Registration\Machine; Root: HKLM64; SubKey: Software\Microsoft\Windows\CurrentVersion\App Paths\EagleShell.exe; ValueType: expandsz; ValueData: {app}\bin\EagleShell.exe; Flags: uninsdeletekey; Check: IsWin64()

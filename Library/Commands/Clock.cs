@@ -266,13 +266,13 @@ namespace Eagle._Commands
                                                         //
                                                         // NOTE: Use the CPU tick count, which has microsecond resolution.
                                                         //
-                                                        result = PerformanceOps.GetCount();
-                                                    if (options.IsPresent("-milliseconds"))
+                                                        result = PerformanceOps.GetMicroseconds();
+                                                    else if (options.IsPresent("-milliseconds"))
                                                         //
                                                         // NOTE: Use the standard system tick count, which has millisecond
                                                         //       resolution.
                                                         //
-                                                        result = Environment.TickCount;
+                                                        result = PerformanceOps.GetTickCount();
                                                     else
                                                         //
                                                         // NOTE: Use the highest resolution clock the system has to offer.
@@ -642,7 +642,7 @@ namespace Eagle._Commands
                                                 {
                                                     long milliseconds = 0;
 
-                                                    if (TimeOps.DateTimeToMilliSeconds(
+                                                    if (TimeOps.DateTimeToMilliseconds(
                                                             ref milliseconds, TimeOps.GetUtcNow(), epoch))
                                                     {
                                                         result = milliseconds;
@@ -661,7 +661,7 @@ namespace Eagle._Commands
                                             {
                                                 long milliseconds = 0;
 
-                                                if (TimeOps.DateTimeToMilliSeconds(
+                                                if (TimeOps.DateTimeToMilliseconds(
                                                         ref milliseconds, TimeOps.GetUtcNow(), TimeOps.UnixEpoch))
                                                 {
                                                     result = milliseconds;
@@ -910,12 +910,12 @@ namespace Eagle._Commands
                                             if (code == ReturnCode.Ok)
                                             {
                                                 //
-                                                // HACK: *SECURITY* This call to GetMicroseconds is
+                                                // HACK: *SECURITY* This call to GetMicroseconds* is
                                                 //       EXEMPT from timing side-channel mitigation
                                                 //       because this sub-command is disallowed in a
                                                 //       "safe" interpreter.
                                                 //
-                                                result = PerformanceOps.GetMicroseconds(
+                                                result = PerformanceOps.GetMicrosecondsFromCount(
                                                     startCount, PerformanceOps.GetCount(),
                                                     1, false); /* EXEMPT */
                                             }

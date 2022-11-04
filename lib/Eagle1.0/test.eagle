@@ -145,6 +145,7 @@ namespace eval ::Eagle {
         test_flags \
         test_home_path \
         test_host \
+        test_hosts \
         test_join_timeout \
         test_listed_leaks \
         test_log \
@@ -162,8 +163,11 @@ namespace eval ::Eagle {
         test_port \
         test_puts_state \
         test_random_order \
+        test_repository_checkout \
         test_repository_file \
+        test_repository_tags \
         test_repository_url \
+        test_run_bucket \
         test_run_id \
         test_script \
         test_settings_path \
@@ -1046,6 +1050,24 @@ namespace eval ::Eagle {
     return $result
   }
 
+  proc getValueOrDefault { varName {default <none>} } {
+    if {[uplevel 1 [list array exists $varName]]} then {
+      set value [uplevel 1 [list array get $varName]]
+
+      if {[llength $value] > 0} then {
+        return $value
+      }
+    } elseif {[uplevel 1 [list info exists $varName]]} then {
+      set value [uplevel 1 [list set $varName]]
+
+      if {[string length $value] > 0} then {
+        return $value
+      }
+    }
+
+    return $default
+  }
+
   proc getFirstLineOfError { error } {
     set error [string map [list \r\n \n] $error]
     set index [string first \n $error]
@@ -1749,6 +1771,10 @@ namespace eval ::Eagle {
     # NOTE: If the caller enabled cloud support, insert appropriate
     #       base environment variable names near the front of the list
     #       (e.g. for test suite logs hosted on cloud drive providers).
+    #       This may seem like a dumb idea; however, the log files are
+    #       basically never bigger than "1Mb" and it may be useful for
+    #       more than one user to be able to see them.  This decision
+    #       is subject to change in the future.
     #
     if {$cloud} then {
       set baseNames [linsert $baseNames 2 XDG_CLOUD_DIR]
@@ -1918,6 +1944,10 @@ namespace eval ::Eagle {
     return [expr {[info exists ::test_run_id] ? $::test_run_id : ""}]
   }
 
+  proc getTestRunBucket {} {
+    return [expr {[info exists ::test_run_bucket] ? $::test_run_bucket : ""}]
+  }
+
   proc getNewTestRunId {} {
     #
     # HACK: Yes, this is a bit ugly; however, it creates a nice unique
@@ -1985,6 +2015,17 @@ namespace eval ::Eagle {
     }
   }
 
+  proc getDefaultTestLogSubPath {} {
+    set result [file join logs [getTestRunBucket]]
+
+    if {![info exists ::no(testLogsPerDay)]} then {
+      set result [file join $result \
+          [clock format [clock seconds] -format %Y-%m-%d]]
+    }
+
+    return $result
+  }
+
   proc getDefaultTestLogPath { executable } {
     #
     # NOTE: By default, use the configured temporary directory for
@@ -1996,7 +2037,7 @@ namespace eval ::Eagle {
       #       -AND- it MAY need to be hosted within a cloud drive
       #       provider directory.
       #
-      return [getTemporaryPath true [info exists ::no(localTestLog)]]
+      set path [getTemporaryPath true [info exists ::no(localTestLog)]]
     } else {
       #
       # HACK: It seems that .NET Core considers itself to be the
@@ -2004,11 +2045,52 @@ namespace eval ::Eagle {
       #       relocate the log file to be nearer the assemblies.
       #
       if {[isEagle] && [isDotNetCore]} then {
-        return [info binary]
+        set path [info binary]
       } else {
-        return [file dirname $executable]
+        set path [file dirname $executable]
       }
     }
+
+    #
+    # NOTE: Attempt to create a "logs" sub-directory within the
+    #       the (base) directory we determined above.  If this
+    #       fails (for any reason), just fallback to the (base)
+    #       directory we already have.
+    #
+    if {![info exists ::no(testLogsSubDirectory)]} then {
+      set subPath ""
+
+      if {[catch {
+        #
+        # HACK: By default, place log files within sub-directory
+        #       based on the current date, unless forbidden from
+        #       doing so.  In that case, just create and/or use
+        #       the "logs" sub-directory.  If a test run bucket
+        #       is present, use that too.
+        #
+        set subPath [file join $path [getDefaultTestLogSubPath]]
+
+        #
+        # HACK: Make sure the directory exists now.  If it does
+        #       not -AND- it cannot be created, we will fallback
+        #       to the (base) directory we determined above and
+        #       which we know already exists.
+        #
+        file mkdir $subPath
+      } error] == 0} then {
+        return $subPath
+      } else {
+        #
+        # HACK: Queue an error message indicating that something
+        #       went horribly wrong (?) here.
+        #
+        tqputs $::test_channel [appendArgs \
+            "==== WARNING: creation of test logs directory \"" \
+            $subPath "\" failed: " $error \n]
+      }
+    }
+
+    return $path
   }
 
   proc getTestLogPath {} {
@@ -2166,7 +2248,83 @@ namespace eval ::Eagle {
       set suiteName <none>
     }
 
-    return [appendArgs $fileName " (" $suiteName )]
+    return [appendArgs "script " $fileName ", suite " $suiteName]
+  }
+
+  proc getTestSuiteVariantName {} {
+    if {[isEagle]} then {
+      if {[catch {
+        object invoke -flags +NonPublic \
+            Interpreter.GetActive.Host DefaultTitle
+      } part1]} then {
+        if {[info exists ::eagle_platform(engine)] && \
+            [info exists ::eagle_platform(patchLevel)]} then {
+          set part1 [appendArgs \
+              $::eagle_platform(engine) " v" \
+              $::eagle_platform(patchLevel)]
+        } else {
+          set part1 unknown
+        }
+      }
+    } else {
+      if {[info exists ::tcl_patchLevel]} then {
+        if {[info exists ::tcl_platform(engine)]} then {
+          set part1 [appendArgs \
+              $::tcl_platform(engine) " v" \
+              $::tcl_patchLevel]
+        } else {
+          set part1 [appendArgs \
+              "Tcl v" $::tcl_patchLevel]
+        }
+      } else {
+        set part1 unknown
+      }
+    }
+
+    if {[info exists ::tcl_platform(processBits)] && \
+        [string is integer -strict $::tcl_platform(processBits)]} then {
+      set part2a [appendArgs $::tcl_platform(processBits) -bit]
+    } else {
+      set part2a ""
+    }
+
+    if {[info exists ::tcl_platform(os)]} then {
+      set part2b $::tcl_platform(os)
+    } else {
+      set part2b ""
+    }
+
+    if {[info exists ::tcl_platform(platform)]} then {
+      set part2c [string totitle $::tcl_platform(platform)]
+    } else {
+      set part2c ""
+    }
+
+    set part2 [string trim [appendArgs $part2a " " $part2b]]
+
+    if {[string length $part2c] > 0} then {
+      append part2 " (" $part2c )
+    }
+
+    if {[string length $part2] == 0} then {
+      set part2 unknown
+    }
+
+    if {[info exists ::tcl_platform(machine)]} then {
+      set part3 [architectureForPlatform $::tcl_platform(machine)]
+    } else {
+      set part3 unknown
+    }
+
+    if {[info exists ::tcl_platform(host)]} then {
+      set part4 $::tcl_platform(host); # Eagle only?
+    } elseif {[catch {info host} part4]} then {
+      set part4 unknown
+    }
+
+    return [appendArgs \
+        "variant " $part1 ", platform " $part2 ", machine " $part3 \
+        ", host " $part4]
   }
 
   proc getTestMachine {} {
@@ -2553,8 +2711,10 @@ namespace eval ::Eagle {
     #
     # NOTE: Reset the primary test suite file name to our caller.
     #
+    set script [info script]
+
     if {![info exists ::no(testSuiteFile)]} then {
-      set ::test_suite_file [info script]
+      set ::test_suite_file $script
     }
 
     #
@@ -2563,7 +2723,7 @@ namespace eval ::Eagle {
     #       own files.
     #
     if {![info exists ::no(prologue.eagle)] && ![info exists ::path]} then {
-      set ::path [file normalize [file dirname [info script]]]
+      set ::path [file normalize [file dirname $script]]
     }
 
     #
@@ -2584,8 +2744,10 @@ namespace eval ::Eagle {
     #
     # NOTE: Reset the primary test suite file name to our caller.
     #
+    set script [info script]
+
     if {![info exists ::no(testSuiteFile)]} then {
-      set ::test_suite_file [info script]
+      set ::test_suite_file $script
     }
 
     #
@@ -2858,8 +3020,8 @@ namespace eval ::Eagle {
           1.0.5542.25903 1.0.5633.18513 1.0.5749.32588 1.0.5934.21851 \
           1.0.6018.45959 1.0.6119.57133 1.0.6120.16902 1.0.6234.51946 \
           1.0.6483.12345 1.0.6543.58654 1.0.6781.49000 1.0.6781.49042 \
-          1.0.6848.11041 1.0.7213.50727 1.0.7579.30319 1.0.7790.43198 \
-          1.0.7897.33333 1.0.7900.33333 1.0.7945.33333 1.0.8192.54321]
+          1.0.6848.11041 1.0.7213.50727 1.0.7790.43198 1.0.7897.33333 \
+          1.0.7900.33333 1.0.7945.33333 1.0.8192.54321 1.0.8251.52012]
     } else {
       return [list]
     }
@@ -2868,6 +3030,11 @@ namespace eval ::Eagle {
   proc isStableEagleRelease {
           {sequence end} {higherOnly false} {orHigher true} } {
     if {[isEagle] && [catch {
+      #
+      # HACK: Since the sequence starts at "Beta 0", there is no
+      #       need to adjust the index into the list returned by
+      #       the [getKnownEagleVersions] procedure.
+      #
       package vcompare $::eagle_platform(patchLevel) \
           [lindex [getKnownEagleVersions] $sequence]
     } result] == 0 && [string is integer -strict $result]} then {
@@ -3753,32 +3920,10 @@ namespace eval ::Eagle {
       set suiteFileName unknown
     }
 
-    if {[isEagle]} then {
-      if {[catch {
-        object invoke -flags +NonPublic \
-            Interpreter.GetActive.Host DefaultTitle
-      } suiteVariant]} then {
-        if {[info exists ::eagle_platform(engine)] && \
-            [info exists ::eagle_platform(patchLevel)]} then {
-          set suiteVariant [appendArgs \
-              $::eagle_platform(engine) " v" \
-              $::eagle_platform(patchLevel)]
-        } else {
-          set suiteVariant unknown
-        }
-      }
-    } else {
-      if {[info exists ::tcl_platform(engine)] && \
-          [info exists ::tcl_patchLevel]} then {
-        set suiteVariant [appendArgs \
-            $::tcl_platform(engine) " v" \
-            $::tcl_patchLevel]
-      } elseif {[info exists ::tcl_patchLevel]} then {
-        set suiteVariant [appendArgs \
-            "Tcl v" $::tcl_patchLevel]
-      } else {
-        set suiteVariant unknown
-      }
+    set suiteVariantName [getTestSuiteVariantName]
+
+    if {[string length $suiteVariantName] == 0} then {
+      set suiteVariantName "variant unknown"
     }
 
     set status(title) [appendArgs \
@@ -3789,7 +3934,7 @@ namespace eval ::Eagle {
         $leakedFiles " files leaked)..."]
 
     set status(tputs) [appendArgs \
-        "---- test suite \"" $suiteName "\" variant \"" $suiteVariant \
+        "---- test suite \"" $suiteName ", " $suiteVariantName \
         "\" running from \"" $suiteFileName "\", about " $percent \
         "% complete (" $totalTests " tests total, " $failedTests \
         " tests failed, " $skippedTests " tests skipped, " $doneFiles \
@@ -4376,12 +4521,12 @@ namespace eval ::Eagle {
         $::test_suite_running}]
   }
 
-  proc getTestChannelOrDefault {} {
+  proc getTestChannelOrDefault { {channel stdout} } {; # TODO: Good default?
     if {[info exists ::test_channel]} then {
       return $::test_channel
     }
 
-    return stdout; # TODO: Good default?
+    return $channel
   }
 
   proc tryVerifyTestPath {} {
@@ -4800,6 +4945,251 @@ namespace eval ::Eagle {
     }
   }
 
+  proc calculateTestConstraintCounts {
+          skippedNames maximumVarName countsVarName } {
+    #
+    # NOTE: Process the list of skipped tests, which is really a dictionary
+    #       of test names to the list of constraints that caused them to be
+    #       skipped.  We need to "roll them up", on a per-constraint basis,
+    #       and produce counts for each constraint.  At the same time, we
+    #       need to keep track of the maximum count seen, to help align the
+    #       final output.
+    #
+    upvar 1 $maximumVarName maximum
+    upvar 1 $countsVarName counts
+
+    if {[isEagle]} then {
+      foreach {testName constraintNames} $skippedNames {
+        foreach constraintName $constraintNames {
+          if {[info exists counts($constraintName)]} then {
+            incr counts($constraintName)
+          } else {
+            set counts($constraintName) 1
+          }
+
+          if {![info exists maximum] || \
+              $counts($constraintName) > $maximum} then {
+            set maximum $counts($constraintName)
+          }
+        }
+      }
+    } else {
+      foreach {constraintName constraintCount} $skippedNames {
+        if {[info exists counts($constraintName)]} then {
+          incr counts($constraintName) $constraintCount
+        } else {
+          set counts($constraintName) $constraintCount
+        }
+
+        if {![info exists maximum] || \
+            $counts($constraintName) > $maximum} then {
+          set maximum $counts($constraintName)
+        }
+      }
+    }
+  }
+
+  proc logRemoteMessage {
+          message {uri ""} {apiKey ""} {password ""} {channel stdout}
+          {quiet false} } {
+    #
+    # NOTE: This procedure attempts to (securely) send the specified
+    #       log message to the specified logging endpoint.
+    #
+    if {[string length $uri] == 0} then {
+      if {[isEagle]} then {
+        set uri [appendArgs [getAuxiliaryBaseUri] /log]
+      } elseif {[info exists ::env(AuxiliaryBaseUri)]} then {
+        set uri [appendArgs $::env(AuxiliaryBaseUri) /log]
+      } else {
+        #
+        # HACK: This URI is hard-coded for native Tcl.
+        #
+        set uri [appendArgs https://urn.to/r/log]
+      }
+    }
+
+    if {[string length $apiKey] == 0} then {
+      if {[info exists ::env(logRemoteMessageApiKey)]} then {
+        set apiKey $::env(logRemoteMessageApiKey)
+      } else {
+        set apiKey 0000000000000000000000000000000000000000; # Fake.
+      }
+    }
+
+    if {[string length $password] == 0} then {
+      if {[info exists ::env(logRemoteMessagePassword)]} then {
+        set password $::env(logRemoteMessagePassword)
+      } else {
+        set password {nopenotarealpassword}; # Fake.
+      }
+    }
+
+    set message [encoding convertto utf-8 $message]
+
+    if {[isEagle]} then {
+      set base64 [base64 encode $message]
+
+      set hash [string tolower \
+          [hash keyed hmacsha1 $message $password]]
+    } else {
+      package require base64
+      package require sha1
+
+      set base64 [::base64::encode $message]
+      set hash [::sha1::hmac -hex -key $password $message]
+    }
+
+    set query [list \
+        raw 1 apiKey $apiKey message $base64 hash $hash]
+
+    if {[isEagle]} then {
+      return [string trim \
+          [uri upload -inline -data $query $uri]]
+    } else {
+      package require http 2.0
+      package require Eagle.Tools.Common
+
+      namespace import -force \
+          ::Eagle::Tools::Common::getFileViaHttp
+
+      return [getFileViaHttp \
+          $uri 20 $channel $quiet -binary true \
+          -query [eval ::http::formatQuery $query]]
+    }
+  }
+
+  proc logRemoteTestResults { success {verbose false} {quiet false} } {
+    set id [getTestRunId]
+    if {[string length $id] == 0} then {set id <noId>}
+
+    set bucket [getTestRunBucket]
+    if {[string length $bucket] == 0} then {set bucket <noBucket>}
+
+    set log [getTestLog]
+    if {[string length $log] == 0} then {set log <noLog>}
+
+    set url [getValueOrDefault ::test_repository_url <noUrl>]
+    set checkout [getValueOrDefault ::test_repository_checkout <noCheckout>]
+
+    set tags [getValueOrDefault ::test_repository_tags <noTags>]
+    set tags [string map [list "  " " "] [string map [list , " "] $tags]]
+
+    set header [appendArgs \
+        [expr {$success ? "SUCCESS" : "FAILURE"}] \
+        " TEST-RUN " $id " bucket " $bucket ": " [getTestSuiteFullName] \
+        ", url " $url ", checkout " $checkout ", tags " $tags ", log " \
+        $log ", " [getTestSuiteVariantName]]
+
+    set argv [getValueOrDefault ::argv [list]]
+
+    if {[llength $argv] > 0} then {
+      append header ", argv " [list $argv]
+    }
+
+    set detail ""
+
+    if {[isEagle]} then {
+      foreach name [list Passed Failed Skipped Disabled Total] {
+        if {[info exists ::eagle_tests($name)]} then {
+          set value $::eagle_tests($name)
+
+          if {$verbose || $value != 0} then {
+            append detail ", " [string tolower $name] " " \
+                $value
+          }
+        }
+      }
+
+      if {[info exists ::eagle_tests(FailedNames)]} then {
+        set value $::eagle_tests(FailedNames)
+
+        if {$verbose || [llength $value] > 0} then {
+          if {[llength $value] == 0} then {set value <none>}
+          append detail ", failedNames " $value
+        }
+      }
+
+      if {[info exists ::eagle_tests(SkippedNames)]} then {
+        calculateTestConstraintCounts \
+            $::eagle_tests(SkippedNames) maximum counts
+
+        set value [testArrayGet counts]
+
+        if {$verbose || [llength $value] > 0} then {
+          if {[llength $value] == 0} then {set value <none>}
+          append detail ", skippedConstraints " $value
+        }
+      }
+
+      if {[info exists ::test_timestamp(elapsedMicroseconds)]} then {
+        set value $::test_timestamp(elapsedMicroseconds)
+
+        if {[string is double -strict $value]} then {
+          append detail ", duration " [formatDecimal $value] \
+              " microseconds"
+        }
+      }
+    } else {
+      foreach name [list Passed Failed Skipped Total] {
+        if {[info exists ::tcltest::numTests($name)]} then {
+          set value $::tcltest::numTests($name)
+
+          if {$verbose || $value != 0} then {
+            append detail ", " [string tolower $name] " " \
+                $value
+          }
+        }
+      }
+
+      if {[array exists ::tcltest::skippedBecause]} then {
+        calculateTestConstraintCounts \
+            [array get ::tcltest::skippedBecause] maximum counts
+
+        set value [testArrayGet counts]
+
+        if {$verbose || [llength $value] > 0} then {
+          if {[llength $value] == 0} then {set value <none>}
+          append detail ", skippedConstraints " $value
+        }
+      }
+
+      if {[info exists ::tcltest::failFiles]} then {
+        set value $::tcltest::failFiles
+
+        if {$verbose || [llength $value] > 0} then {
+          if {[llength $value] == 0} then {set value <none>}
+          append detail ", failFiles " $value
+        }
+      }
+    }
+
+    if {[catch {
+      set message [appendArgs $header $detail]
+
+      if {!$quiet} then {
+        tputs $::test_channel [appendArgs \
+            "---- test results: " $message \n]
+      }
+
+      logRemoteMessage $message
+    } result] == 0} then {
+      if {!$quiet} then {
+        tputs $::test_channel [appendArgs \
+            "---- success logging remote test results: " \
+            $result \n]
+      }
+    } else {
+      if {!$quiet} then {
+        tputs $::test_channel [appendArgs \
+            "---- failure logging remote test results: " \
+            $result \n]
+      }
+    }
+
+    return $result
+  }
+
   if {[isEagle]} then {
     ###########################################################################
     ############################ BEGIN Eagle ONLY #############################
@@ -5034,6 +5424,81 @@ namespace eval ::Eagle {
       return ""
     }
 
+    proc getPidFromTestLogFileName { fileName baseFileNameOnly } {
+      set pattern [appendArgs \
+          {[/\\]} [string map [list . \\. * (?:.*?)?] \
+          $baseFileNameOnly] {\.test\.(\d+)\.log$}]
+
+      if {[regexp -skip 1 -- $pattern $fileName pid] && \
+          [string is integer -strict $pid]} then {
+        return $pid
+      } else {
+        return ""
+      }
+    }
+
+    proc isActiveProcess { pid } {
+      if {[catch {
+        object invoke -alias \
+            System.Diagnostics.Process GetProcessById $pid
+      } process]} then {
+        return false
+      }
+
+      if {[catch {
+        $process Refresh; $process HasExited
+      } exited] || [string is true -strict $exited]} then {
+        return false
+      }
+
+      return true
+    }
+
+    #
+    # WARNING: This procedure is ONLY intended to be used via the
+    #          "clean.bat" batch tool.
+    #
+    proc checkActiveTestLogFile { baseFileNameOnly fileName } {
+      set pid [getPidFromTestLogFileName $fileName $baseFileNameOnly]
+
+      if {[string length $pid] > 0 && ![isActiveProcess $pid]} then {
+        puts stdout 1; # NOTE: Output needed by "clean.bat"
+      }
+    }
+
+    proc deleteInactiveTestLogFiles { baseDirectory baseFileNameOnly } {
+      set result [list]
+
+      foreach fileName [lsort -decreasing [findFilesRecursive [file join \
+          $baseDirectory [appendArgs $baseFileNameOnly .test.*.log]]]] {
+        set pid [getPidFromTestLogFileName $fileName $baseFileNameOnly]
+
+        if {[string length $pid] > 0 && ![isActiveProcess $pid]} then {
+          if {[catch {file delete $fileName}] == 0} then {
+            lappend result $fileName; # deleted
+            set directory [file dirname $fileName]
+
+            if {![file same $directory $baseDirectory] && [regexp -- \
+                {^\d{4}-\d{2}-\d{2}$} [file tail $directory]] && [catch {
+              file rmdir $directory
+            }] == 0} then {
+              lappend result $directory; # removed
+            }
+          }
+        }
+      }
+
+      set directory [file normalize [file join $baseDirectory logs]]
+
+      if {[file isdirectory $directory] && [catch {
+        file rmdir $directory
+      }] == 0} then {
+        lappend result $directory; # removed
+      }
+
+      return $result
+    }
+
     proc isNetFx40 {} {
       if {![info exists ::eagle_platform(frameworkVersion)]} then {
         return false
@@ -5090,36 +5555,6 @@ namespace eval ::Eagle {
 
       return [object create \
           -alias -objectflags +NoReturnReference String $result]
-    }
-
-    proc logRemoteMessage { message {uri ""} {apiKey ""} {password ""} } {
-      #
-      # NOTE: This procedure attempts to (securely) send the specified log
-      #       message to the specified logging endpoint.
-      #
-      if {[string length $uri] == 0} then {
-        set uri [appendArgs [getAuxiliaryBaseUri] /log]
-      }
-
-      if {[string length $apiKey] == 0} then {
-        if {[info exists ::env(logRemoteMessageApiKey)]} then {
-          set apiKey $::env(logRemoteMessageApiKey)
-        } else {
-          set apiKey 0000000000000000000000000000000000000000; # Fake.
-        }
-      }
-
-      if {[string length $password] == 0} then {
-        if {[info exists ::env(logRemoteMessagePassword)]} then {
-          set password $::env(logRemoteMessagePassword)
-        } else {
-          set password {nopenotarealpassword}; # Fake.
-        }
-      }
-
-      return [string trim [uri upload -inline -data [list raw 1 apiKey \
-          $apiKey message [base64 encode $message] hash [string tolower \
-          [hash keyed hmacsha1 $message $password]]] $uri]]
     }
 
     proc recursiveGetDirectories { path pattern } {
@@ -5196,6 +5631,171 @@ namespace eval ::Eagle {
       return 0; # no tests were run, etc.
     }
 
+    proc testCheckOverallResult {
+            channel percent haveStartSentry {varName ""} {quiet false} } {
+      #
+      # NOTE: Does the caller want to change the exit code to an appropriate
+      #       value based on the overall test results?
+      #
+      if {[string length $varName] > 0} then {upvar 1 $varName exitCode}
+
+      #
+      # NOTE: Has the test pass threshold been set?  If so, is it set to the
+      #       default value?
+      #
+      # HACK: If the test suite error message exists, the entire run will be
+      #       considered a "failure", without regard for the pass percentage
+      #       or the configured test pass threshold.
+      #
+      if {![info exists ::test_threshold] || $::test_threshold == 100} then {
+        #
+        # HACK: Check for the required elements of the global Eagle tests
+        #       array.
+        #
+        if {[info exists ::eagle_tests(Passed)] && \
+            [info exists ::eagle_tests(Skipped)] && \
+            [info exists ::eagle_tests(Disabled)] && \
+            [info exists ::eagle_tests(Total)]} then {
+          #
+          # NOTE: The test pass threshold is set to the default value (100%).
+          #       Check to make sure that all tests passed and then set the
+          #       exit code to success; otherwise, we set it to failure.
+          #
+          set passedSkippedOrDisabled [expr {
+              $::eagle_tests(Passed) + $::eagle_tests(Skipped) + \
+              $::eagle_tests(Disabled)
+          }]
+
+          if {![info exists ::test_suite_errors] && \
+              ([info exists ::no(failLogStartSentry)] || \
+                  $haveStartSentry) && \
+              $passedSkippedOrDisabled == $::eagle_tests(Total)} then {
+            set exitCode Success
+
+            if {!$quiet} then {
+              tresult Ok [appendArgs \
+                  "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+              if {$::eagle_tests(Total) > 0} then {
+                tresult Ok "OVERALL RESULT: SUCCESS\n"
+              } else {
+                tresult Ok "OVERALL RESULT: NONE\n"
+              }
+            }
+
+            return true
+          } else {
+            set exitCode Failure
+
+            if {!$quiet} then {
+              tresult Error [appendArgs \
+                  "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+              if {[info exists ::test_suite_errors]} then {
+                tresult Error [appendArgs "OVERALL ERRORS: " \
+                    [expr {[llength $::test_suite_errors] > 0 ? \
+                    $::test_suite_errors : "<empty>"}] \n]
+              }
+
+              tresult Error "OVERALL RESULT: FAILURE\n"
+            }
+
+            return false
+          }
+        } else {
+          set exitCode Failure
+
+          if {!$quiet} then {
+            tresult Error [appendArgs \
+                "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+            if {[info exists ::test_suite_errors]} then {
+              tresult Error [appendArgs "OVERALL ERRORS: " \
+                  [expr {[llength $::test_suite_errors] > 0 ? \
+                  $::test_suite_errors : "<empty>"}] \n]
+            }
+
+            tresult Error "OVERALL RESULT: MISSING test counts (1)\n"
+            tresult Error "OVERALL RESULT: FAILURE\n"
+          }
+
+          return false
+        }
+      } else {
+        #
+        # NOTE: They specified a non-default test pass threshold.  Check to
+        #       make sure that we meet or exceed the requirement and then
+        #       set the exit code to success; otherwise, set it to failure.
+        #
+        if {![info exists ::test_suite_errors] && \
+            ([info exists ::no(failLogStartSentry)] || \
+                $haveStartSentry) && \
+            $percent >= $::test_threshold} then {
+          #
+          # HACK: Check for the required elements of the global Eagle tests
+          #       array.
+          #
+          if {[info exists ::eagle_tests(Total)]} then {
+            set exitCode Success
+
+            if {!$quiet} then {
+              tresult Ok [appendArgs \
+                  "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+              if {$::eagle_tests(Total) > 0} then {
+                tresult Ok [appendArgs \
+                    "OVERALL RESULT: SUCCESS (" \
+                    $percent "% >= " $::test_threshold %)\n]
+              } else {
+                tresult Ok [appendArgs \
+                    "OVERALL RESULT: NONE (" \
+                    $percent "% >= " $::test_threshold %)\n]
+              }
+            }
+
+            return true
+          } else {
+            set exitCode Failure
+
+            if {!$quiet} then {
+              tresult Error [appendArgs \
+                  "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+              if {[info exists ::test_suite_errors]} then {
+                tresult Error [appendArgs "OVERALL ERRORS: " \
+                    [expr {[llength $::test_suite_errors] > 0 ? \
+                    $::test_suite_errors : "<empty>"}] \n]
+              }
+
+              tresult Error "OVERALL RESULT: MISSING test counts (2)\n"
+              tresult Error "OVERALL RESULT: FAILURE\n"
+            }
+
+            return false
+          }
+        } else {
+          set exitCode Failure
+
+          if {!$quiet} then {
+            tresult Error [appendArgs \
+                "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+            if {[info exists ::test_suite_errors]} then {
+              tresult Error [appendArgs "OVERALL ERRORS: " \
+                  [expr {[llength $::test_suite_errors] > 0 ? \
+                  $::test_suite_errors : "<empty>"}] \n]
+            }
+
+            tresult Error [appendArgs \
+                "OVERALL RESULT: FAILURE (" \
+                $percent "% < " $::test_threshold %)\n]
+          }
+
+          return false
+        }
+      }
+    }
+
     proc testObjectMembers { args } {
       if {[llength $args] == 0} then {
         error [appendArgs \
@@ -5224,6 +5824,13 @@ namespace eval ::Eagle {
       }
 
       #
+      # NOTE: Is the caller specifically wanting an infinite timeout?
+      #
+      if {[string tolower $timeout] in [list infinite]} then {
+        return [object invoke Eagle._Constants._Timeout Infinite]; # <0
+      }
+
+      #
       # NOTE: Otherwise, check for various special values that are not
       #       integers.
       #
@@ -5248,7 +5855,7 @@ namespace eval ::Eagle {
 
       return [object invoke -flags +NonPublic \
           Eagle._Components.Private.ThreadOps GetTimeout $interpreter \
-          $timeout $type]
+          $timeout [appendArgs $type " +Infinite"]]
     }
 
     proc createThread { script {parameterized false} {maxStackSize ""} } {
@@ -5451,39 +6058,19 @@ namespace eval ::Eagle {
 
     proc reportTestConstraintCounts { channel skippedNames } {
       #
-      # NOTE: Process the list of skipped tests, which is really a dictionary
-      #       of test names to the list of constraints that caused them to be
-      #       skipped.  We need to "roll them up", on a per-constraint basis,
-      #       and produce counts for each constraint.  At the same time, we
-      #       need to keep track of the maximum count seen, to help align the
-      #       final output.
-      #
-      set maximum 0
-
-      foreach {testName constraintNames} $skippedNames {
-        foreach constraintName $constraintNames {
-          if {[info exists skippedCounts($constraintName)]} then {
-            incr skippedCounts($constraintName)
-          } else {
-            set skippedCounts($constraintName) 1
-          }
-
-          if {$skippedCounts($constraintName) > $maximum} then {
-            set maximum $skippedCounts($constraintName)
-          }
-        }
-      }
-
-      #
       # NOTE: Produce the final output, which includes a single line header
       #       followed by one line per test constraint seen.
       #
-      if {$maximum > 0 && [array size skippedCounts] > 0} then {
+      set maximum 0
+
+      calculateTestConstraintCounts $skippedNames maximum counts
+
+      if {$maximum > 0 && [array size counts] > 0} then {
         set places [expr {int(log10($maximum)) + 1}]
 
         tputs $channel "Number of tests skipped for each constraint:\n"
 
-        foreach {name value} [reportArrayGet skippedCounts] {
+        foreach {name value} [reportArrayGet counts] {
           tputs $channel [appendArgs \
               \t [format [appendArgs % $places s] $value] \t $name \n]
         }
@@ -6079,6 +6666,169 @@ namespace eval ::Eagle {
       return 0; # no tests were run, etc.
     }
 
+    proc testCheckOverallResult {
+            channel percent haveStartSentry {varName ""} {quiet false} } {
+      #
+      # NOTE: Does the caller want to change the exit code to an appropriate
+      #       value based on the overall test results?
+      #
+      if {[string length $varName] > 0} then {upvar 1 $varName exitCode}
+
+      #
+      # NOTE: Has the test pass threshold been set?  If so, is it set to the
+      #       default value?
+      #
+      # HACK: If the test suite error message exists, the entire run will be
+      #       considered a "failure", without regard for the pass percentage
+      #       or the configured test pass threshold.
+      #
+      if {![info exists ::test_threshold] || $::test_threshold == 100} then {
+        #
+        # HACK: Check for the required elements of the global Tcl tests
+        #       array.
+        #
+        if {[info exists ::tcltest::numTests(Passed)] && \
+            [info exists ::tcltest::numTests(Skipped)] && \
+            [info exists ::tcltest::numTests(Total)]} then {
+          #
+          # NOTE: The test pass threshold is set to the default value (100%).
+          #       Check to make sure that all tests passed and then set the
+          #       exit code to success; otherwise, we set it to failure.
+          #
+          set passedOrSkipped [expr {
+              $::tcltest::numTests(Passed) + $::tcltest::numTests(Skipped)
+          }]
+
+          if {![info exists ::test_suite_errors] && \
+              ([info exists ::no(failLogStartSentry)] || \
+                  $haveStartSentry) && \
+              $passedOrSkipped == $::tcltest::numTests(Total)} then {
+            set exitCode 0; # Success.
+
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+              if {$::tcltest::numTests(Total) > 0} then {
+                tputs $channel "OVERALL RESULT: SUCCESS\n"
+              } else {
+                tputs $channel "OVERALL RESULT: NONE\n"
+              }
+            }
+
+            return true
+          } else {
+            set exitCode 1; # Failure.
+
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+              if {[info exists ::test_suite_errors]} then {
+                tputs $channel [appendArgs "OVERALL ERRORS: " \
+                    [expr {[llength $::test_suite_errors] > 0 ? \
+                    $::test_suite_errors : "<empty>"}] \n]
+              }
+
+              tputs $channel "OVERALL RESULT: FAILURE\n"
+            }
+
+            return false
+          }
+        } else {
+          set exitCode 1; # Failure.
+
+          if {!$quiet} then {
+            tputs $channel [appendArgs \
+                "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+            if {[info exists ::test_suite_errors]} then {
+              tputs $channel [appendArgs "OVERALL ERRORS: " \
+                  [expr {[llength $::test_suite_errors] > 0 ? \
+                  $::test_suite_errors : "<empty>"}] \n]
+            }
+
+            tputs $channel "OVERALL RESULT: MISSING test counts (1)\n"
+            tputs $channel "OVERALL RESULT: FAILURE\n"
+          }
+
+          return false
+        }
+      } else {
+        #
+        # NOTE: They specified a non-default test pass threshold.  Check to
+        #       make sure that we meet or exceed the requirement and then
+        #       set the exit code to success; otherwise, set it to failure.
+        #
+        if {![info exists ::test_suite_errors] && \
+            ([info exists ::no(failLogStartSentry)] || \
+                $haveStartSentry) && \
+            $percent >= $::test_threshold} then {
+          #
+          # HACK: Check for the required elements of the global Tcl tests
+          #       array.
+          #
+          if {[info exists ::tcltest::numTests(Total)]} then {
+            set exitCode 0; # Success.
+
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+              if {$::tcltest::numTests(Total) > 0} then {
+                tputs $channel [appendArgs \
+                    "OVERALL RESULT: SUCCESS (" \
+                    $percent "% >= " $::test_threshold %)\n]
+              } else {
+                tputs $channel [appendArgs \
+                    "OVERALL RESULT: NONE (" \
+                    $percent "% >= " $::test_threshold %)\n]
+              }
+            }
+
+            return true
+          } else {
+            set exitCode 1; # Failure.
+
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+              if {[info exists ::test_suite_errors]} then {
+                tputs $channel [appendArgs "OVERALL ERRORS: " \
+                    [expr {[llength $::test_suite_errors] > 0 ? \
+                    $::test_suite_errors : "<empty>"}] \n]
+              }
+
+              tputs $channel "OVERALL RESULT: MISSING test counts (2)\n"
+              tputs $channel "OVERALL RESULT: FAILURE\n"
+            }
+
+            return false
+          }
+        } else {
+          set exitCode 1; # Failure.
+
+          if {!$quiet} then {
+            tputs $channel [appendArgs \
+                "OVERALL RESULT: " [getTestSuiteFullName] \n]
+
+            if {[info exists ::test_suite_errors]} then {
+              tputs $channel [appendArgs "OVERALL ERRORS: " \
+                  [expr {[llength $::test_suite_errors] > 0 ? \
+                  $::test_suite_errors : "<empty>"}] \n]
+            }
+
+            tputs $channel [appendArgs \
+                "OVERALL RESULT: FAILURE (" \
+                $percent "% < " $::test_threshold %)\n]
+          }
+
+          return false
+        }
+      }
+    }
+
     #
     # NOTE: Check for the test path in the various well-known locations
     #       and set the associated variable.
@@ -6110,28 +6860,32 @@ namespace eval ::Eagle {
         haveOrAddConstraint getConstraints getCachedConstraints \
         useCachedConstraints removeConstraint fixConstraints \
         fixTimingConstraints testDebugBreak testArrayGet testArrayGet2 \
-        testResultGet testValueGet getFirstLineOfError calculateBogoCops \
-        calculateRelativePerformance formatTimeStamp formatElapsedTime \
-        sourceIfValid processTestArguments getTclShellFileName \
-        getTemporaryPath getTemporaryFileName getFiles getTestFiles \
-        getTestRunId getNewTestRunId getDefaultTestLogPath getTestLogPath \
+        testResultGet testValueGet getValueOrDefault getFirstLineOfError \
+        calculateBogoCops calculateRelativePerformance formatTimeStamp \
+        formatElapsedTime sourceIfValid processTestArguments \
+        getTclShellFileName getTemporaryPath getTemporaryFileName getFiles \
+        getTestFiles getTestRunId getTestRunBucket getNewTestRunId \
+        getDefaultTestLogSubPath getDefaultTestLogPath getTestLogPath \
         getTestLogId getDefaultTestLog getTestLog getLastTestLog \
         getTestSuite getTestSuiteFileName getTestSuiteFullName \
-        getTestMachine getTestPlatform getTestConfiguration \
-        getTestNamePrefix getTestSuffix getTestUncountedLeaks \
-        getTestListedLeaks getRuntimeAssemblyName getTestAssemblyName \
-        canTestExec testExec testClrExec execTestShell isRandomOrder \
-        isBreakOnDemand isBreakOnLeak isStopOnFailure isStopOnLeak \
-        isExitOnComplete returnInfoScript runTestPrologue runTestEpilogue \
-        hookPuts unhookPuts runTest testShim tsource getKnownEagleVersions \
-        isStableEagleRelease recordTestStatistics reportTestStatistics \
-        formatList formatListAsDict pathToRegexp assemblyNameToRegexp \
-        maybeGetOption inverseLsearchGlob removePathFromFileNames \
-        formatDecimal clearTestPercent reportTestPercent reportArrayGet \
-        reportTestStatisticCounts runAllTests isTestSuiteRunning \
-        getTestChannelOrDefault tryVerifyTestPath checkForAndSetTestPath \
-        configureTcltest machineToPlatform architectureForPlatform \
-        getPassedPercentage getSkippedPercentage] false false
+        getTestSuiteVariantName getTestMachine getTestPlatform \
+        getTestConfiguration getTestNamePrefix getTestSuffix \
+        getTestUncountedLeaks getTestListedLeaks getRuntimeAssemblyName \
+        getTestAssemblyName canTestExec testExec testClrExec execTestShell \
+        isRandomOrder isBreakOnDemand isBreakOnLeak isStopOnFailure \
+        isStopOnLeak isExitOnComplete returnInfoScript runTestPrologue \
+        runTestEpilogue hookPuts unhookPuts runTest testShim tsource \
+        getKnownEagleVersions isStableEagleRelease recordTestStatistics \
+        reportTestStatistics formatList formatListAsDict pathToRegexp \
+        assemblyNameToRegexp maybeGetOption inverseLsearchGlob \
+        removePathFromFileNames formatDecimal clearTestPercent \
+        reportTestPercent reportArrayGet reportTestStatisticCounts \
+        runAllTests isTestSuiteRunning getTestChannelOrDefault \
+        tryVerifyTestPath checkForAndSetTestPath configureTcltest \
+        machineToPlatform architectureForPlatform \
+        calculateTestConstraintCounts logRemoteMessage logRemoteTestResults \
+        getPassedPercentage getSkippedPercentage testCheckOverallResult] \
+        false false
 
     ###########################################################################
     ############################## END Tcl ONLY ###############################

@@ -536,7 +536,7 @@ runTest {test debug-1.80 {host read cancellation} -setup {
     package require Eagle.Test
     set t [createThread threadStart]; startThread $t
     debug shell -initialize true -loop true
-    if {[joinThread $t]} then {unset t}
+    if {[joinThread $t effective]} then {unset t}
   }
 
   set readValue [object invoke -flags +NonPublic \
@@ -641,7 +641,7 @@ runTest {test debug-6.1 {locked script evaluation (advanced)} -setup {
 
   lappend result(0) $code $result(1)
   set ::forever 1; # NOTE: Exit [vwait] in lock thread.
-  if {[joinThread $t]} then {unset t}; # NOTE: Wait for lock thread exit.
+  if {[joinThread $t effective]} then {unset t}; # NOTE: Lock thread exit.
 
   set code [catch {
     debug secureeval -- $i {set y 1}
@@ -1222,7 +1222,7 @@ runTest {test debug-10.1 {pausing / unpausing interactive loop} -setup {
     package require Eagle.Test
     set t [createThread threadStart]; startThread $t; after 1000
     debug shell -initialize true -loop true
-    if {[joinThread $t]} then {unset t}
+    if {[joinThread $t effective]} then {unset t}
   }
 
   interp set $i results

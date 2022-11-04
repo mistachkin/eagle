@@ -22,14 +22,15 @@ namespace Eagle._Interfaces.Public
         // SECURITY MANAGEMENT
         ///////////////////////////////////////////////////////////////////////
 
-        StringList TrustedPaths { get; } /* WARNING: Trusted by the default [source] policy. */
-        UriDictionary<object> TrustedUris { get; } /* WARNING: Trusted by the default [source] policy. */
-        ObjectDictionary TrustedTypes { get; } /* WARNING: Trusted by the default [object] policy. */
+        PolicyDecision CommandInitialDecision { get; set; } /* NOTE: Default, before policies. */
+        PolicyDecision ScriptInitialDecision { get; set; } /* NOTE: Default, before policies. */
+        PolicyDecision FileInitialDecision { get; set; } /* NOTE: Default, before policies. */
+        PolicyDecision StreamInitialDecision { get; set; } /* NOTE: Default, before policies. */
 
-        PolicyDecision CommandDecision { get; set; } /* NOTE: Default, before command policies. */
-        PolicyDecision ScriptDecision { get; set; } /* NOTE: Default, before script policies. */
-        PolicyDecision FileDecision { get; set; } /* NOTE: Default, before file policies. */
-        PolicyDecision StreamDecision { get; set; } /* NOTE: Default, before/after stream policies. */
+        PolicyDecision CommandFinalDecision { get; set; } /* NOTE: Previous, after policies. */
+        PolicyDecision ScriptFinalDecision { get; set; } /* NOTE: Previous, after policies. */
+        PolicyDecision FileFinalDecision { get; set; } /* NOTE: Previous, after policies. */
+        PolicyDecision StreamFinalDecision { get; set; } /* NOTE: Previous, after policies. */
 
         bool IsRestricted();
 

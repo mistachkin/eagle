@@ -25,8 +25,8 @@
     -->
     <file src="bin\Eagle.dll" target="lib\net40" />
     <file src="bin\Eagle.pdb" target="lib\net40" />
-    <file src="bin\Eagle.Eye.dll" target="lib\net40" />
-    <file src="bin\Eagle.Eye.pdb" target="lib\net40" />
+    <file src="bin\Eagle.Eye.dll" target="build\net40" />
+    <file src="bin\Eagle.Eye.pdb" target="build\net40" />
     <file src="bin\x86\Spilornis.dll" target="build\net40\x86" />
     <file src="bin\x64\Spilornis.dll" target="build\net40\x64" />
     <file src="build\Eagle.NuGet.targets" target="build\net40\Eagle.Beta.targets" />

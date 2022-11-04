@@ -1409,7 +1409,7 @@ namespace Eagle._Components.Public
 
                 if (thread == null)
                     return false;
-                else if (thread.IsAlive)
+                else if (ThreadOps.IsAlive(thread))
                     return true;
 
                 thread.Start(); /* throw */
@@ -1457,7 +1457,7 @@ namespace Eagle._Components.Public
 
                 if (thread == null)
                     return false;
-                else if (!thread.IsAlive)
+                else if (!ThreadOps.IsAlive(thread))
                     return true;
 
                 //
@@ -2714,7 +2714,7 @@ namespace Eagle._Components.Public
 
             string threadName = FormatOps.DisplayThread(thread);
 
-            if (!thread.IsAlive)
+            if (!ThreadOps.IsAlive(thread))
             {
                 if (verbose)
                 {
@@ -2768,10 +2768,21 @@ namespace Eagle._Components.Public
                         TracePriority.ScriptThreadError);
 
                     //
-                    // NOTE: If the NoAbort thread flag is set, we NEVER call
-                    //       the Abort() method.
+                    // NOTE: If the NoAbort thread flag is set, we NEVER
+                    //       call the Abort() method.
                     //
-                    if (!noAbort)
+                    if (!ThreadOps.IsAlive(thread))
+                    {
+                        if (verbose)
+                        {
+                            TraceOps.DebugTrace(String.Format(
+                                "InterruptOrAbortThread: script thread " +
+                                "with [{0}] is not alive", threadName),
+                                typeof(ScriptThread).Name,
+                                TracePriority.ScriptThreadDebug);
+                        }
+                    }
+                    else if (!noAbort)
                     {
                         thread.Abort(); /* BUGBUG: Leaks? */
 
@@ -2899,7 +2910,7 @@ namespace Eagle._Components.Public
                     thread = this.thread;
                 }
 
-                return (thread != null) && thread.IsAlive;
+                return ThreadOps.IsAlive(thread);
             }
         }
 
@@ -3035,7 +3046,7 @@ namespace Eagle._Components.Public
 
                 if (thread == null)
                     return !strict;
-                else if (!thread.IsAlive)
+                else if (!ThreadOps.IsAlive(thread))
                     return true;
 
                 return thread.Join(timeout); /* throw */
@@ -3708,7 +3719,7 @@ namespace Eagle._Components.Public
             ) /* NO-LOCK */
         {
             threadName = FormatOps.DisplayThread(thread);
-            return (thread == null) || !thread.IsAlive;
+            return !ThreadOps.IsAlive(thread);
         }
 
         ///////////////////////////////////////////////////////////////////////

@@ -73,15 +73,21 @@ namespace Eagle._Components.Private
             ref Result error     /* out */
             )
         {
+            ReturnCode code;
+
             if (String.IsNullOrEmpty(fileName))
             {
                 error = "invalid file name";
+                code = ReturnCode.Error;
+
                 goto done;
             }
 
             if (!CommonOps.Runtime.IsMono())
             {
                 error = "not supported on this platform";
+                code = ReturnCode.Error;
+
                 goto done;
             }
 
@@ -93,9 +99,14 @@ namespace Eagle._Components.Private
                 try
                 {
                     if (deformatter.IsTrusted())
-                        return ReturnCode.Ok;
+                    {
+                        code = ReturnCode.Ok;
+                    }
                     else
+                    {
                         error = "file is not trusted";
+                        code = ReturnCode.Error;
+                    }
                 }
                 finally
                 {
@@ -105,21 +116,26 @@ namespace Eagle._Components.Private
             catch (Exception e)
             {
                 error = e;
+                code = ReturnCode.Error;
             }
 
         done:
 
+            TracePriority priority = (code == ReturnCode.Ok) ?
+                TracePriority.SecurityDebug2 : TracePriority.SecurityError;
+
             TraceOps.DebugTrace(String.Format(
-                "IsFileTrusted: file {0} trust failure, " +
-                "userInterface = {1}, revocation = {2}, " +
-                "install = {3}, returnValue = {4}, error = {5}",
+                "IsFileTrusted: file {0} check {1}, " +
+                "userInterface = {2}, revocation = {3}, " +
+                "install = {4}, returnValue = {5}, error = {6}",
                 FormatOps.WrapOrNull(fileName),
+                (code == ReturnCode.Ok) ? "success" : "failure",
                 userInterface, revocation, install,
                 returnValue, FormatOps.WrapOrNull(error)),
                 typeof(WinTrustMono).Name,
                 TracePriority.SecurityError);
 
-            return ReturnCode.Error;
+            return code;
         }
         #endregion
     }

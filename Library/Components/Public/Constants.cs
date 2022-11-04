@@ -35,6 +35,14 @@ namespace Eagle._Constants
 
     ///////////////////////////////////////////////////////////////////////////
 
+    [ObjectId("b8693a1a-f084-4aa7-921a-88777090686a")]
+    public static class _Object
+    {
+        public static readonly string Null = _String.Null;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("548b2832-5bd1-4e7e-893c-c2e0f88d2cfc")]
     public static class Milliseconds
     {
@@ -202,6 +210,14 @@ namespace Eagle._Constants
 
     ///////////////////////////////////////////////////////////////////////////
 
+    [ObjectId("c9f34b0c-d4a5-4d63-832c-ff9515924735")]
+    public static class Size
+    {
+        public static readonly long Invalid = -1;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("8630da9a-e4f9-40f3-ab61-10201f8007ca")]
     public static class Percent
     {
@@ -301,6 +317,8 @@ namespace Eagle._Constants
     {
         public static readonly int Infinite = Timeout.Infinite;
         public static readonly int None = 0;
+        public static readonly int Minimum = 1;
+        // public static readonly int Maximum = 300000;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -573,7 +591,8 @@ namespace Eagle._Constants
             Script,          /* 24: Script */
             EncryptedScript, /* 25: EncryptedScript */
             ".bak",          /* 26: Backup */
-            ".*"             /* 27: Any */
+            ".settings",     /* 27: Settings */
+            ".*"             /* 28: Any */
         };
 
         ///////////////////////////////////////////////////////////////////////
@@ -615,7 +634,8 @@ namespace Eagle._Constants
         public static readonly string Base64Signature = WellKnown[22];
         public static readonly string EncryptedMarkup = WellKnown[23];
         public static readonly string Backup = WellKnown[26];
-        public static readonly string Any = WellKnown[27];
+        public static readonly string Settings = WellKnown[27];
+        public static readonly string Any = WellKnown[28];
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -750,6 +770,7 @@ namespace Eagle._Constants
 #endif
 
         public static readonly string Step = "step";
+        public static readonly string StopOnUnknown = "stopOnUnknown";
         public static readonly string Test = "test";
         public static readonly string PluginTest = "pluginTest";
         public static readonly string TestDirectory = "testDirectory";
@@ -781,14 +802,14 @@ namespace Eagle._Constants
 #endif
 
 #if ISOLATED_PLUGINS
-        public static readonly string Isolated = "Plugin isolation {0}.";
+        public static readonly string Isolated = "Plugin isolation {0}{1}.";
 #endif
 
         public static readonly string ResultStack =
             "Result objects will include managed call stacks.";
 
         public static readonly string Security =
-            "Script signing policies and core script certificates {0}.";
+            "Script signing policies and core script certificates {0}{1}.";
 
         public static readonly string LockHostArguments =
             "Locked to host arguments.";
@@ -1027,7 +1048,7 @@ namespace Eagle._Constants
             "Script library initialization will be enabled.";
 
         public static readonly string NoInitialize =
-            "Script library initialization will be skipped.";
+            "Script library initialization will be skipped{0}.";
 
 #if SHELL
         public static readonly string NoInitializeShell =
@@ -1048,6 +1069,12 @@ namespace Eagle._Constants
 
         public static readonly string NoLoop =
             "Interactive loop will be skipped{0}.";
+
+        public static readonly string StopOnUnknown =
+            "Argument processing will stop after unknown argument.";
+
+        public static readonly string NoStopOnUnknown =
+            "Argument processing will continue after unknown argument{0}.";
 
         public static readonly string Parent =
             "Parent interpreter will be used.";
@@ -1108,6 +1135,10 @@ namespace Eagle._Constants
         public static readonly string ViaCommandLine = " via command line";
         public static readonly string ViaEnvironment = " via environment";
         public static readonly string ViaHostEnvironment = " via host environment";
+
+#if !NET_STANDARD_20
+        public static readonly string ViaRegistry = " via registry hive";
+#endif
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -1234,6 +1265,16 @@ namespace Eagle._Constants
         //       bits).
         //
         public static readonly string Class0 = "9559f6017247e3e2";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: Official key rings for the security packages within
+        //       Eagle Enterprise Edition (i.e. "Harpy" and "Badge")
+        //       are normally signed with this public key token
+        //       ("EagleEnterpriseTrustRootPublic.snk", 16384 bits).
+        //
+        public static readonly string TrustRoot = "26f17c3a1a544324";
     }
 
     ///////////////////////////////////////////////////////////////////////////

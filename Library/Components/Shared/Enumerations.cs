@@ -24,30 +24,31 @@ namespace Eagle._Components.Shared
 #endif
     public enum BuildType
     {
-        None = 0x0,             /* nop, do not use. */
-        Invalid = 0x1,          /* invalid, do not use. */
-        NetFx20 = 0x2,          /* NetFx20 on Windows. */
-        NetFx35 = 0x4,          /* NetFx35 on Windows. */
-        NetFx40 = 0x8,          /* NetFx40 on Windows. */
-        NetFx45 = 0x10,         /* NetFx45 on Windows. */
-        NetFx451 = 0x20,        /* NetFx451 on Windows. */
-        NetFx452 = 0x40,        /* NetFx452 on Windows. */
-        NetFx46 = 0x80,         /* NetFx46 on Windows. */
-        NetFx461 = 0x100,       /* NetFx461 on Windows. */
-        NetFx462 = 0x200,       /* NetFx462 on Windows. */
-        NetFx47 = 0x400,        /* NetFx47 on Windows. */
-        NetFx471 = 0x800,       /* NetFx471 on Windows. */
-        NetFx472 = 0x1000,      /* NetFx472 on Windows. */
-        NetFx48 = 0x2000,       /* NetFx48 on Windows. */
-        NetStandard20 = 0x4000, /* NetStandard20 on Windows or Unix. */
-        NetStandard21 = 0x8000, /* NetStandard21 on Windows or Unix. */
-        Bare = 0x10000,         /* all optional features disabled. */
-        LeanAndMean = 0x20000,  /* most speed-impacting optional features
-                                 * disabled. */
-        Database = 0x40000,     /* for SQL Server 2005+ embedding. */
-        MonoOnUnix = 0x80000,   /* Mono on Unix. */
-        Development = 0x100000, /* development and testing use. */
-        Default = NetFx20       /* the default build type, has no suffix. */
+        None = 0x0,              /* nop, do not use. */
+        Invalid = 0x1,           /* invalid, do not use. */
+        NetFx20 = 0x2,           /* NetFx20 on Windows. */
+        NetFx35 = 0x4,           /* NetFx35 on Windows. */
+        NetFx40 = 0x8,           /* NetFx40 on Windows. */
+        NetFx45 = 0x10,          /* NetFx45 on Windows. */
+        NetFx451 = 0x20,         /* NetFx451 on Windows. */
+        NetFx452 = 0x40,         /* NetFx452 on Windows. */
+        NetFx46 = 0x80,          /* NetFx46 on Windows. */
+        NetFx461 = 0x100,        /* NetFx461 on Windows. */
+        NetFx462 = 0x200,        /* NetFx462 on Windows. */
+        NetFx47 = 0x400,         /* NetFx47 on Windows. */
+        NetFx471 = 0x800,        /* NetFx471 on Windows. */
+        NetFx472 = 0x1000,       /* NetFx472 on Windows. */
+        NetFx48 = 0x2000,        /* NetFx48 on Windows. */
+        NetFx481 = 0x4000,       /* NetFx481 on Windows. */
+        NetStandard20 = 0x8000,  /* NetStandard20 on Windows or Unix. */
+        NetStandard21 = 0x10000, /* NetStandard21 on Windows or Unix. */
+        Bare = 0x20000,          /* all optional features disabled. */
+        LeanAndMean = 0x40000,   /* most speed-impacting optional features
+                                  * disabled. */
+        Database = 0x80000,      /* for SQL Server 2005+ embedding. */
+        MonoOnUnix = 0x100000,   /* Mono on Unix. */
+        Development = 0x200000,  /* development and testing use. */
+        Default = NetFx20        /* the default build type, has no suffix. */
     }
 
     ///////////////////////////////////////////////////////////////////////////

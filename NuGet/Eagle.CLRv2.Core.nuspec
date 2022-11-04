@@ -3,7 +3,7 @@
   <metadata>
     <id>Eagle.CLRv2.Core</id>
     <title>The Eagle Project (Core, CLRv2)</title>
-    <version>1.0.8192.54321</version>
+    <version>1.0.X.X</version>
     <authors>Eagle Development Team</authors>
     <description>An implementation of the Tcl scripting language.</description>
     <language>en-US</language>
@@ -24,6 +24,6 @@
               line option "/property:EagleEmbeddedLibrary=true").
     -->
     <file src="bin\Eagle.dll" target="lib\net20" />
-    <file src="bin\Eagle.Eye.dll" target="lib\net20" />
+    <file src="bin\Eagle.Eye.dll" target="build\net20" />
   </files>
 </package>

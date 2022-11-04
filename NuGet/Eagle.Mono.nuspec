@@ -3,7 +3,7 @@
   <metadata>
     <id>Eagle.Mono</id>
     <title>The Eagle Project (Mono)</title>
-    <version>1.0.8192.54321</version>
+    <version>1.0.X.X</version>
     <authors>Eagle Development Team</authors>
     <description>An implementation of the Tcl scripting language.  This package is built with options that make it more suitable for use with Mono.  Features specific to Windows and/or the .NET Framework will be unavailable.</description>
     <language>en-US</language>
@@ -24,6 +24,6 @@
               line option "/property:EagleEmbeddedLibrary=true").
     -->
     <file src="bin\Eagle.dll" target="lib\net40" />
-    <file src="bin\Eagle.Eye.dll" target="lib\net40" />
+    <file src="bin\Eagle.Eye.dll" target="build\net40" />
   </files>
 </package>

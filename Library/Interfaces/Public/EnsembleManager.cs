@@ -18,6 +18,7 @@ namespace Eagle._Interfaces.Public
     public interface IEnsembleManager
     {
         ReturnCode AddOrUpdateSubCommand(
+            Interpreter interpreter,
             string name,
             ISubCommand subCommand,
             IClientData clientData,

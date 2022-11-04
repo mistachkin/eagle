@@ -270,6 +270,7 @@ namespace Eagle._Components.Private
             X509VerificationFlags verificationFlags,
             X509RevocationMode revocationMode,
             X509RevocationFlag revocationFlag,
+            bool verbose,
             ref Result error
             )
         {
@@ -310,63 +311,88 @@ namespace Eagle._Components.Private
                                             status.StatusInformation);
                                     }
 
-                                    if (assembly != null)
+                                    if (verbose && (assembly != null))
+                                    {
                                         error = String.Format(
                                             "assembly {0}: {1}",
                                             FormatOps.WrapOrNull(assembly),
-                                            list.ToString());
+                                            FormatOps.WrapOrNull(list.ToString()));
+                                    }
                                     else
+                                    {
                                         error = list;
+                                    }
                                 }
                                 else
                                 {
-                                    if (assembly != null)
+                                    if (verbose && (assembly != null))
+                                    {
                                         error = String.Format(
-                                            "assembly {0}: invalid chain status",
+                                            "assembly {0}: \"invalid chain status\"",
                                             FormatOps.WrapOrNull(assembly));
+                                    }
                                     else
+                                    {
                                         error = "invalid chain status";
+                                    }
                                 }
                             }
                         }
                         else
                         {
-                            if (assembly != null)
+                            if (verbose && (assembly != null))
+                            {
                                 error = String.Format(
-                                    "assembly {0}: invalid chain policy",
+                                    "assembly {0}: \"invalid chain policy\"",
                                     FormatOps.WrapOrNull(assembly));
+                            }
                             else
+                            {
                                 error = "invalid chain policy";
+                            }
                         }
                     }
                     else
                     {
-                        if (assembly != null)
+                        if (verbose && (assembly != null))
+                        {
                             error = String.Format(
-                                "assembly {0}: invalid chain",
+                                "assembly {0}: \"invalid chain\"",
                                 FormatOps.WrapOrNull(assembly));
+                        }
                         else
+                        {
                             error = "invalid chain";
+                        }
                     }
                 }
                 catch (Exception e)
                 {
-                    if (assembly != null)
+                    if (verbose && (assembly != null))
+                    {
                         error = String.Format(
                             "assembly {0}: {1}",
-                            FormatOps.WrapOrNull(assembly), e);
+                            FormatOps.WrapOrNull(assembly),
+                            FormatOps.WrapOrNull(e));
+                    }
                     else
+                    {
                         error = e;
+                    }
                 }
             }
             else
             {
-                if (assembly != null)
+                if (verbose && (assembly != null))
+                {
                     error = String.Format(
-                        "assembly {0}: invalid certificate",
+                        "assembly {0}: \"invalid certificate\"",
                         FormatOps.WrapOrNull(assembly));
+                }
                 else
+                {
                     error = "invalid certificate";
+                }
             }
 
             return ReturnCode.Error;

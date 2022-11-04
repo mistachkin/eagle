@@ -475,8 +475,9 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
   #
   # NOTE: Create a simple ruleset to make sure it works right.
   #
-  set ruleSet [object invoke RuleSet Create \
-      {{1 Include Command Glob None o*} {2 Exclude Command Exact None open}} \
+  set ruleSet [object invoke RuleSet Create {{id 1\
+      type Include kind Command mode Glob regExOptions None patterns o*} {id 2\
+      type Exclude kind Command mode Exact regExOptions None patterns open}} \
       null error]
 
   if {![isNonNullObjectHandle $ruleSet]} then {
@@ -559,6 +560,7 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
       [string equal [$is(1) Text] [$is(3) Text]] \
       [string equal [$is(1) LibraryPath] [$is(3) LibraryPath]] \
       [string equal [$is(1) Args] [$is(3) Args]] \
+      [getStringFromObjectHandle $ruleSet] \
       [string equal [getStringFromObjectHandle [$is(1) RuleSet]] \
           [getStringFromObjectHandle [$is(3) RuleSet]]] \
       [string equal [$is(1) CreateFlags] [$is(3) CreateFlags]] \
@@ -574,8 +576,10 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
   unset -nocomplain error code obj args ruleSet is list fileName
 } -constraints \
 {eagle command.object compile.XML compile.SERIALIZATION file_settings.xml} \
--result {True True True True True True True True True True True True True True\
-True True True True}}
+-result {True True True True True True True True True True {{id 1 type Include\
+kind Command mode Glob regExOptions None patterns o* comparer {}} {id 2 type\
+Exclude kind Command mode Exact regExOptions None patterns open comparer {}}}\
+True True True True True True True True}}
 
 ###############################################################################
 
@@ -599,8 +603,9 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
   #
   # NOTE: Create a simple ruleset to make sure it works right.
   #
-  set ruleSet [object invoke RuleSet Create \
-      {{1 Include Command Glob None o*} {2 Exclude Command Exact None open}} \
+  set ruleSet [object invoke RuleSet Create {{id 1\
+      type Include kind Command mode Glob regExOptions None patterns o*} {id 2\
+      type Exclude kind Command mode Exact regExOptions None patterns open}} \
       null error]
 
   if {![isNonNullObjectHandle $ruleSet]} then {
@@ -683,6 +688,7 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
       [string equal [$is(1) Text] [$is(3) Text]] \
       [string equal [$is(1) LibraryPath] [$is(3) LibraryPath]] \
       [string equal [$is(1) Args] [$is(3) Args]] \
+      [getStringFromObjectHandle $ruleSet] \
       [string equal [getStringFromObjectHandle [$is(1) RuleSet]] \
           [getStringFromObjectHandle [$is(3) RuleSet]]] \
       [string equal [$is(1) CreateFlags] [$is(3) CreateFlags]] \
@@ -697,9 +703,11 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
 
   unset -nocomplain error code obj args ruleSet is list fileName
 } -constraints \
-{eagle command.object file_settings.ini} \
--result {True True True True True True True True True True True True True True\
-True True True True}}
+{eagle command.object file_settings.ini} -result {True True True True True True\
+True True True True {{id 1 type Include kind Command mode Glob regExOptions\
+None patterns o* comparer {}} {id 2 type Exclude kind Command mode Exact\
+regExOptions None patterns open comparer {}}} True True True True True True\
+True True}}
 
 ###############################################################################
 
@@ -2747,36 +2755,36 @@ rootname rootpath same sddl separator size split stat system tail tempname\
 temppath touch type under validname version volumes writable} {active\
 administrator appdomain args assembly base binary bindertypes body callbacks\
 channels clr cmdcount cmdline cmdtype commands complete connections context\
-culture cultures default delegates engine ensembles exists externals frame\
-framework frameworkextra functions globals hostname hwnd identifier interactive\
-interps lastinput level levelid library linkedname loaded locals modules\
-nameofexecutable newline nprocs objects operands operators os patchlevel path\
-pid plugin pluginflags policies ppid previouspid processors procs\
-programextension ptid runtime runtimeversion script setup sharedlibextension\
-shelllibrary source subcommands syntax sysvars tclversion tid transactions user\
-varlinks vars whitespace windows windowtext} {addcommands alias aliases bgerror\
-callbacklimit cancel children create delete enabled eval eventlimit exists\
-expose exposed expr finallytimeout hide hidden immutable invokehidden isolated\
-issafe issdk isstandard makesafe makestandard marktrusted nopolicy parent\
-policy proclimit queue readonly readorgetscriptfile readylimit recursionlimit\
-rename resetcancel resultlimit service set shareinterp shareobject sleeptime\
-source stub subcommand subst target timeout unset varlimit watchdog}\
-{addreference alias aliasnamespaces assemblies callbackflags certificate\
-cleanup create declare dispose exists flags foreach fromvar get hash import\
-interfaces invoke invokeall invokeraw isnull isoftype list lmap load members\
-namespaces referencecount removecallback removereference resolve search\
-strongname type types unalias unaliasnamespace undeclare unimport untype\
-verifyall} {forget ifneeded indexes info loaded names pending present provide\
-relativefilename require reset scan unknown vcompare versions vloaded\
-vsatisfies vsort withdraw} {} {} {active cancel clear counts dump enable flags\
-idle info} {buildnumber days duration filetime format isvalid scan seconds}\
-{channels dirname join split validname} {appdomain args body commands complete\
-context default engine ensembles exists functions globals level library locals\
-nprocs objects operands operators patchlevel procs script subcommands\
-tclversion vars} {alias aliases cancel children exists issafe issdk rename}\
-{dispose exists invoke invokeall invokeraw isnull isoftype} {forget ifneeded\
-info loaded names pending present provide require unknown vcompare versions\
-vsatisfies vsort withdraw} {} {}}}
+culture cultures decision default delegates engine ensembles exists externals\
+frame framework frameworkextra functions globals hostname hwnd identifier\
+interactive interps lastinput level levelid library linkedname loaded locals\
+modules nameofexecutable newline nprocs objects operands operators os\
+patchlevel path pid plugin pluginflags policies ppid previouspid processors\
+procs programextension ptid runtime runtimeversion script setup\
+sharedlibextension shelllibrary source subcommands syntax sysvars tclversion\
+tid transactions user varlinks vars whitespace windows windowtext} {addcommands\
+alias aliases bgerror callbacklimit cancel childlimit children create delete\
+enabled eval eventlimit exists expose exposed expr finallytimeout hide hidden\
+immutable invokehidden isolated issafe issdk isstandard makesafe makestandard\
+marktrusted namespacelimit nopolicy parent policy proclimit queue readonly\
+readorgetscriptfile readylimit recursionlimit rename resetcancel resultlimit\
+scopelimit service set shareinterp shareobject sleeptime source stub subcommand\
+subst target timeout unset varlimit watchdog} {addreference alias\
+aliasnamespaces assemblies callbackflags certificate cleanup create declare\
+dispose exists flags foreach fromvar get hash import interfaces invoke\
+invokeall invokeraw isnull isoftype list lmap load members namespaces\
+referencecount removecallback removereference resolve search strongname type\
+types unalias unaliasnamespace undeclare unimport untype verifyall} {forget\
+ifneeded indexes info loaded names pending present provide relativefilename\
+require reset scan unknown vcompare versions vloaded vsatisfies vsort withdraw}\
+{} {} {active cancel clear counts dump enable flags idle info} {buildnumber\
+days duration filetime format isvalid scan seconds} {channels dirname join\
+split validname} {appdomain args body commands complete context default engine\
+ensembles exists functions globals level library locals nprocs objects operands\
+operators patchlevel procs script subcommands tclversion vars} {alias aliases\
+cancel children exists issafe issdk rename} {dispose exists invoke invokeall\
+invokeraw isnull isoftype} {forget ifneeded info loaded names pending present\
+provide require unknown vcompare versions vsatisfies vsort withdraw} {} {}}}
 
 ###############################################################################
 
@@ -3056,21 +3064,21 @@ runTest {test interp-1.104 {sub-command matching/filtering (unsafe)} -setup {
 } -constraints {eagle} -result {1 {bad option "z": must be active,\
 administrator, appdomain, args, assembly, base, binary, bindertypes, body,\
 callbacks, channels, clr, cmdcount, cmdline, cmdtype, commands, complete,\
-connections, context, culture, cultures, default, delegates, engine, ensembles,\
-exists, externals, frame, framework, frameworkextra, functions, globals,\
-hostname, hwnd, identifier, interactive, interps, lastinput, level, levelid,\
-library, linkedname, loaded, locals, modules, nameofexecutable, newline,\
-nprocs, objects, operands, operators, os, patchlevel, path, pid, plugin,\
-pluginflags, policies, ppid, previouspid, processors, procs, programextension,\
-ptid, runtime, runtimeversion, script, setup, sharedlibextension, shelllibrary,\
-source, subcommands, syntax, sysvars, tclversion, tid, transactions, user,\
-varlinks, vars, whitespace, windows, or windowtext} 1 {ambiguous option "b":\
-must be base, binary, bindertypes, or body} 1 {ambiguous option "a": must be\
-active, administrator, appdomain, args, or assembly} 1 {ambiguous option "co":\
-must be commands, complete, connections, or context} 1 {wrong # args: should be\
-"info modules ?pattern?"} 1 {ambiguous option "w": must be whitespace, windows,\
-or windowtext} 1 {ambiguous option "fr": must be frame, framework, or\
-frameworkextra}}}
+connections, context, culture, cultures, decision, default, delegates, engine,\
+ensembles, exists, externals, frame, framework, frameworkextra, functions,\
+globals, hostname, hwnd, identifier, interactive, interps, lastinput, level,\
+levelid, library, linkedname, loaded, locals, modules, nameofexecutable,\
+newline, nprocs, objects, operands, operators, os, patchlevel, path, pid,\
+plugin, pluginflags, policies, ppid, previouspid, processors, procs,\
+programextension, ptid, runtime, runtimeversion, script, setup,\
+sharedlibextension, shelllibrary, source, subcommands, syntax, sysvars,\
+tclversion, tid, transactions, user, varlinks, vars, whitespace, windows, or\
+windowtext} 1 {ambiguous option "b": must be base, binary, bindertypes, or\
+body} 1 {ambiguous option "a": must be active, administrator, appdomain, args,\
+or assembly} 1 {ambiguous option "co": must be commands, complete, connections,\
+or context} 1 {wrong # args: should be "info modules ?pattern?"} 1 {ambiguous\
+option "w": must be whitespace, windows, or windowtext} 1 {ambiguous option\
+"fr": must be frame, framework, or frameworkextra}}}
 
 ###############################################################################
 
@@ -3155,6 +3163,10 @@ runTest {test interp-1.400 {embedded core script library} -setup {
     removeCommands.harpy \
     removeVariables \
     removeVariables.harpy \
+    fetchKeyRing \
+    fetchKeyRing.harpy \
+    mergeKeyRing \
+    mergeKeyRing.harpy \
     lib/Eagle1.0/auxiliary.eagle \
     lib/Eagle1.0/compat.eagle \
     lib/Eagle1.0/csharp.eagle \
@@ -3214,7 +3226,7 @@ runTest {test interp-1.400 {embedded core script library} -setup {
 } -constraints {eagle command.object compile.EMBEDDED_LIBRARY compile.TEST\
 Eagle._Tests.Default.TestGetResourceString} -result {Empty Ok Ok Ok Ok Ok Ok Ok\
 Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok\
-Ok Ok Ok}}
+Ok Ok Ok Ok Ok Ok Ok}}
 
 ###############################################################################
 
@@ -3399,6 +3411,59 @@ element in array} 1 {can't set "y(3)": array element limit exceeded} 0 999 0\
 
 ###############################################################################
 
+runTest {test interp-1.505 {namespace limit} -setup {
+  set interp [interp create -noinitialize -namespaces]
+} -body {
+  interp eval $interp {set x 0}
+  set script {namespace eval ::myNs[incr x] {}}
+
+  list [interp namespacelimit $interp] \
+      [interp namespacelimit $interp -1] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp namespacelimit $interp 0] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp namespacelimit $interp 1] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp namespacelimit $interp 2] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp namespacelimit $interp]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle namespaces.available} -result {{namespace 0} {namespace\
+-1} 1 {cannot add namespace, limit exceeded} {namespace 0} 0 {} {namespace 1} 1\
+{cannot add namespace, limit exceeded} {namespace 2} 1 {cannot add namespace,\
+limit exceeded} {namespace 2}}}
+
+###############################################################################
+
+runTest {test interp-1.506 {scope limit} -setup {
+  set interp [interp create -noinitialize]
+} -body {
+  interp eval $interp {set x 0}
+  set script {scope create myScope[incr x]}
+
+  list [interp scopelimit $interp] \
+      [interp scopelimit $interp -1] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp scopelimit $interp 0] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp scopelimit $interp 1] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp scopelimit $interp 2] \
+      [catch {interp eval $interp $script} result] $result \
+      [interp scopelimit $interp]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle} -result {{scope 0} {scope -1} 1 {can't add "myScope1":\
+scope limit exceeded} {scope 0} 0 myScope2 {scope 1} 1 {can't add "myScope3":\
+scope limit exceeded} {scope 2} 0 myScope4 {scope 2}}}
+
+###############################################################################
+
 #
 # HACK: *MONO* Given how badly Mono seems to handle [exec] in its various
 #       versions, this test is disabled on Mono versions less than 5.4.
@@ -3411,6 +3476,7 @@ runTest {test interp-1.601 {populating installed updates} -setup {
       [info args cleanupAfterEvents true] \
       [info body cleanupAfterEvents]]
 
+  interp alias $interp haveConstraint {} haveConstraint
   interp alias $interp my_tputs {} tputs $test_channel
 
   interp eval $interp {
@@ -3433,9 +3499,11 @@ runTest {test interp-1.601 {populating installed updates} -setup {
     }
 
     proc timeoutPlatformOsExtraUpdateNames { varName timeout } {
-      my_tputs [appendArgs \
-          "==== WARNING: timeout of " $timeout \
-          " milliseconds waiting on \"" $varName \"\n]
+      if {![haveConstraint quiet]} then {
+        my_tputs [appendArgs \
+            "==== WARNING: timeout of " $timeout \
+            " milliseconds waiting on \"" $varName \"\n]
+      }
 
       interp cancel -unwind -- {}; # NOTE: This cannot be caught.
     }
@@ -4327,8 +4395,8 @@ runTest {test interp-1.9999 {try/finally thread affinity} -setup {
   catch {after 2 nop; vwait -timeout 10000 ::x}
 
   if {1} then {
-    joinThread $t(1); # these should be optional
-    joinThread $t(2)
+    joinThread $t(1) effective; # these should be optional
+    joinThread $t(2) effective
   }
 
   set ::x
@@ -4558,7 +4626,7 @@ runTest {test interp-1.40000 {per-thread event queue processing} -setup {
 
   vwait -force -thread [info tid] ::forever(1)
 
-  joinThread $t
+  joinThread $t effective
 
   tputs $test_channel [appendArgs \
       "---- processed " $count(good1) " primary events, " \

@@ -3,7 +3,7 @@
   <metadata>
     <id>Eagle.Tools.CLRv2</id>
     <title>The Eagle Project (Tools, CLRv2)</title>
-    <version>1.0.8192.54321</version>
+    <version>1.0.X.X</version>
     <authors>Eagle Development Team</authors>
     <description>An implementation of the Tcl scripting language.  This package contains the MSBuild tasks and PowerShell cmdlets that enable integration [with Eagle] as well as the command-line shell [for Eagle].</description>
     <language>en-US</language>
@@ -30,6 +30,7 @@
     <file src="bin\EagleCmdlets.dll" target="tools\net20" />
     <file src="bin\EagleCmdlets.ps1" target="tools\net20" />
     <file src="bin\Eagle.dll" target="build\net20" />
+    <file src="bin\Eagle.Eye.dll" target="build\net20" />
     <file src="bin\EagleTasks.dll" target="build\net20" />
     <file src="bin\Eagle.tasks" target="build\net20" />
     <file src="build\Eagle.Tools.NuGet.targets" target="build\net20\Eagle.Tools.CLRv2.targets" />

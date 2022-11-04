@@ -743,6 +743,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public void TryLockWithWait(
+            ref bool locked
+            )
+        {
+            CheckDisposed();
+
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(
+                syncRoot, ThreadOps.GetTimeout(
+                null, null, TimeoutType.WaitLock));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public void TryLock(
             int timeout,
             ref bool locked

@@ -1272,6 +1272,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasFlags(
+            PolicyDecisionType flags,
+            PolicyDecisionType hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != PolicyDecisionType.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
             PolicyFlags flags,
             PolicyFlags hasFlags,
             bool all
@@ -1454,6 +1468,34 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasFlags(
+            StreamDirection flags,
+            StreamDirection hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != StreamDirection.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            StreamFlags flags,
+            StreamFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != StreamFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
             SubCommandFlags flags,
             SubCommandFlags hasFlags,
             bool all
@@ -1537,6 +1579,20 @@ namespace Eagle._Components.Private
                 return ((flags & hasFlags) == hasFlags);
             else
                 return ((flags & hasFlags) != TimeoutFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            TimeoutType flags,
+            TimeoutType hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != TimeoutType.None);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1735,6 +1791,20 @@ namespace Eagle._Components.Private
                 return ((flags & hasFlags) == hasFlags);
             else
                 return ((flags & hasFlags) != VariableFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            VerifyFlags flags,
+            VerifyFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != VerifyFlags.None);
         }
 
         ///////////////////////////////////////////////////////////////////////

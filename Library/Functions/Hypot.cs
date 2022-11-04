@@ -69,9 +69,9 @@ namespace Eagle._Functions
                         {
                             try
                             {
-                                value = Interpreter.FixIntermediatePrecision(
-                                    Math.Sqrt(doubleValue[0] * doubleValue[0] +
-                                        doubleValue[1] * doubleValue[1]));
+                                value = Math.Sqrt(
+                                    doubleValue[0] * doubleValue[0] +
+                                    doubleValue[1] * doubleValue[1]);
                             }
                             catch (Exception e)
                             {

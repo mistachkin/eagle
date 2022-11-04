@@ -972,6 +972,56 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+#if NATIVE && WINDOWS
+        public static void Copy(
+            ref uint[] destination,
+            ulong[] source
+            ) /* LOSSY */
+        {
+            if (source == null)
+                return;
+
+            int sourceLength = source.Length;
+            int destinationLength;
+
+            if (destination != null)
+            {
+                destinationLength = destination.Length;
+            }
+            else
+            {
+                destinationLength = sourceLength;
+                destination = new uint[destinationLength];
+            }
+
+            int length = Math.Min(
+                sourceLength, destinationLength);
+
+            for (int index = 0; index < length; index++)
+                destination[index] = ToUInt(source[index]);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        public static uint? ToUInt(
+            object X,
+            CultureInfo cultureInfo
+            ) /* SAFE */
+        {
+            if (X == null)
+                return null;
+
+            IConvertible convertible = X as IConvertible;
+
+            if (convertible == null)
+                return null;
+
+            return convertible.ToUInt32(cultureInfo);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         public static uint ToUInt(int X) /* SAFE */
         {
             return unchecked((uint)X);
@@ -1074,6 +1124,24 @@ namespace Eagle._Components.Private
 
             // NOTE: Hard way.
             return new IntPtr(unchecked((long)X.ToUInt64()));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        public static ulong? ToULong(
+            object X,
+            CultureInfo cultureInfo
+            ) /* SAFE */
+        {
+            if (X == null)
+                return null;
+
+            IConvertible convertible = X as IConvertible;
+
+            if (convertible == null)
+                return null;
+
+            return convertible.ToUInt64(cultureInfo);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -1369,7 +1437,7 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
-                private static ReturnCode FromDateTime(
+                public static ReturnCode FromDateTime(
                     Interpreter interpreter,
                     Type type,
                     object value,
@@ -1388,6 +1456,12 @@ namespace Eagle._Components.Private
                     }
                     else if (value is DateTime)
                     {
+                        //
+                        // NOTE: There is no need for the DateTimeKind or
+                        //       DateTimeStyles option values here because
+                        //       they are only used when creating DateTime
+                        //       values from a string.
+                        //
                         string dateTimeFormat;
 
                         ObjectOps.ProcessDateTimeOptions(

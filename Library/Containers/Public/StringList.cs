@@ -1345,6 +1345,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string MakeListWithoutNulls(
+            params string[] strings
+            )
+        {
+            return MakeListWithoutNulls((IEnumerable<string>)strings);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string MakeListWithoutNulls(
+            IEnumerable<string> collection
+            )
+        {
+            return new StringList(collection, false).ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string MakeList(
             params object[] objects
             )
@@ -1359,6 +1377,24 @@ namespace Eagle._Containers.Public
             )
         {
             return new StringList(collection).ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string MakeListWithoutNulls(
+            params object[] objects
+            )
+        {
+            return MakeListWithoutNulls((IEnumerable)objects);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string MakeListWithoutNulls(
+            IEnumerable collection
+            )
+        {
+            return new StringList(collection, false).ToString();
         }
         #endregion
 
@@ -1642,7 +1678,7 @@ namespace Eagle._Containers.Public
         {
             InvalidateCachedString(false);
 
-            base.Reverse();
+            base.Reverse(); /* O(N) */
         }
 
         ///////////////////////////////////////////////////////////////////////

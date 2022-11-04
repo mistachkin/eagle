@@ -19,7 +19,7 @@ using System.Data;
 using System.Globalization;
 using System.Reflection;
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
 using System.Runtime;
 #endif
 
@@ -260,7 +260,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         //
         // NOTE: The default behavior is not to compact the large object
         //       heap; however, compacting it can be useful if many large
@@ -982,7 +982,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         private static bool ShouldCompactForGC()
         {
             //
@@ -1058,7 +1058,7 @@ namespace Eagle._Components.Private
             bool compact
             ) /* throw */
         {
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
             GCLargeObjectHeapCompactionMode savedLOHCompactionMode =
                 GCSettings.LargeObjectHeapCompactionMode;
 
@@ -1075,7 +1075,7 @@ namespace Eagle._Components.Private
                     GC.Collect();
                 else
                     GC.Collect(generation, collectionMode);
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
             }
             finally
             {
@@ -1138,7 +1138,7 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
             bool reallyCompact;
 
             if (FlagOps.HasFlags(flags, GarbageFlags.AlwaysCompact, true))
@@ -1210,7 +1210,7 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
             CollectGarbage(generation, collectionMode, reallyCompact);
 #else
             CollectGarbage(generation, collectionMode, false);
@@ -1220,7 +1220,7 @@ namespace Eagle._Components.Private
             {
                 GC.WaitForPendingFinalizers();
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
                 CollectGarbage(generation, collectionMode, reallyCompact);
 #else
                 CollectGarbage(generation, collectionMode, false);
@@ -1724,6 +1724,8 @@ namespace Eagle._Components.Private
         {
             return new OptionDictionary(
                 new IOption[] {
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-pattern", null),
                 new Option(null, OptionFlags.MustHaveIntegerValue,
                     Index.Invalid, Index.Invalid, "-referencecount", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
@@ -5838,7 +5840,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static bool IsDisposed(
+        public static bool IsDisposed(
             object @object /* in */
             )
         {

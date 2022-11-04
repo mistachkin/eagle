@@ -447,6 +447,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\generic\SpilornisDef.h"
+				>
+			</File>
+			<File
 				RelativePath=".\src\generic\SpilornisInt.h"
 				>
 			</File>

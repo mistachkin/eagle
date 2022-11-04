@@ -67,6 +67,7 @@ namespace Eagle._Commands
                                     OptionDictionary options = new OptionDictionary(
                                         new IOption[] {
                                         new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-blocking", null),
+                                        new Option(null, OptionFlags.MustHaveBooleanValue, Index.Invalid, Index.Invalid, "-buffer", null),
                                         new Option(null, OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
                                         new Option(null, OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-translation", null)
                                     });
@@ -84,6 +85,11 @@ namespace Eagle._Commands
 
                                             if (options.IsPresent("-blocking", ref value))
                                                 blockingMode = (bool)value.Value;
+
+                                            bool? buffer = null;
+
+                                            if (options.IsPresent("-buffer", ref value))
+                                                buffer = (bool)value.Value;
 
                                             Encoding encoding = null;
 
@@ -136,6 +142,20 @@ namespace Eagle._Commands
                                             {
                                                 if (blockingMode != null)
                                                     channel.SetBlockingMode((bool)blockingMode);
+
+                                                if (buffer != null)
+                                                {
+                                                    if ((bool)buffer)
+                                                    {
+                                                        /* NO RESULT */
+                                                        channel.NewBuffered();
+                                                    }
+                                                    else
+                                                    {
+                                                        /* NO RESULT */
+                                                        channel.ResetBuffered();
+                                                    }
+                                                }
 
                                                 if (encoding != null)
                                                     channel.SetEncoding(encoding);

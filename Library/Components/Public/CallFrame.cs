@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Constants;
@@ -67,14 +68,12 @@ namespace Eagle._Components.Public
             this.threadId = null;
 
             //
-            // NOTE: For now, we always require a valid tags list to be present
-            //       (i.e. we always create one if the caller did not supply a
-            //       valid one).
+            // NOTE: Copy the list of tags specified by the caller -OR- use no
+            //       tags for now.
             //
-            if (this.tags != null)
-                this.tags = tags;
-            else
-                this.tags = new ObjectDictionary();
+            this.tags = (tags != null) ?
+                new ObjectDictionary((IDictionary<string, object>)tags) :
+                null;
 
             //
             // NOTE: If they requested variables for this call frame, allocate
@@ -799,6 +798,23 @@ namespace Eagle._Components.Public
                 return (this.flags |= flags);
             else
                 return (this.flags &= ~flags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool InitializeMarks()
+        {
+            CheckDisposed();
+
+            if (tags != null)
+            {
+                return false;
+            }
+            else
+            {
+                tags = new ObjectDictionary();
+                return true;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

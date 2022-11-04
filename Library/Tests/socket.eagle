@@ -156,7 +156,10 @@ runTest {test socket-1.2 {server sockets} -setup {
           -preInitialize [appendArgs \" "set no(logFileName) 1" \"] \
           -preInitialize [appendArgs \" "set no(checkLogStartSentry) 1" \"] \
           -preInitialize [appendArgs \" "set no(failLogStartSentry) 1" \"] \
-          -preInitialize [appendArgs \" "set test_run_id " [getTestRunId] \"] \
+          -preInitialize [appendArgs \
+              \" "set test_run_id \{" [getTestRunId] \}\"] \
+          -preInitialize [appendArgs \
+              \" "set test_run_bucket \{" [getTestRunBucket] \}\"] \
           -file [appendArgs \" [file join $test_data_path client.tcl] \"] \
           -logFile [appendArgs \" [getTestLog] \"] &
     } else {
@@ -209,7 +212,8 @@ runTest {test socket-1.2 {server sockets} -setup {
 
   rename serverAccept ""
 
-  if {[catch {kill -force [info previouspid]}] == 0} then {
+  if {[catch {kill -force [info previouspid]}] == 0 && \
+      ![haveConstraint quiet]} then {
     tputs $test_channel [appendArgs \
         "==== WARNING: killed isolated socket client process " \
         [info previouspid] \n]

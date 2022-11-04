@@ -18,6 +18,8 @@ namespace Eagle._Interfaces.Private
     [ObjectId("9f2e1444-ac22-4a42-8b31-76489caab961")]
     internal interface IProfilerState : IDisposable, IMaybeDisposed
     {
+        long? GetMilliseconds();
+
         void Start();
         double Stop();
         double Stop(bool obfuscate);

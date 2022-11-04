@@ -558,7 +558,7 @@ namespace Eagle._Components.Private
                 milliseconds = EventManager.DefaultSleepTime;
             }
 
-            return PerformanceOps.GetMicroseconds(
+            return PerformanceOps.GetMicrosecondsFromMilliseconds(
                 milliseconds, MinimumSocketPollTimeout,
                 MaximumSocketPollTimeout);
         }
@@ -981,15 +981,22 @@ namespace Eagle._Components.Private
                     interpreter.NextId()); /* COMPAT: Eagle beta. */
 
                 //
+                // NOTE: Grab underlying network stream and
+                //       setup the read/write timeouts.
+                //
+                NetworkStream stream = client.GetStream();
+
+                clientData.MaybeSetTimeouts(stream);
+
+                //
                 // NOTE: Add the new channel for this client
                 //       to the interpreter.
                 //
                 result = null;
 
-                code = interpreter.AddFileOrSocketChannel(
-                    channelId, client.GetStream(),
-                    clientData.Options, clientData.StreamFlags,
-                    clientData.AvailableTimeout, false, false,
+                code = interpreter.AddFileOrSocketChannel(channelId,
+                    stream, clientData.Options, clientData.StreamFlags,
+                    clientData.AvailableTimeout, false, false, false,
                     false, new ClientData(client), ref result);
 
                 if (code != ReturnCode.Ok)

@@ -44,6 +44,11 @@
 typedef VOID *LPVOID;
 #endif
 
+#ifndef _LPCVOID_DEFINED
+#define _LPCVOID_DEFINED
+typedef const VOID *LPCVOID;
+#endif
+
 #ifndef __SIZE_T_DEFINED
 #define __SIZE_T_DEFINED
 /*
@@ -92,6 +97,10 @@ typedef int RETURNCODE;
 
 /*****************************************************************************/
 
+#include "SpilornisDef.h"	/* NOTE: For compile-time option defines. */
+
+/*****************************************************************************/
+
 /*
  * NOTE: These are the public functions exported by this library.
  */
@@ -101,6 +110,7 @@ typedef int RETURNCODE;
 #endif
 
 EAGLE_EXTERN LPCWSTR	Eagle_GetVersion(VOID);
+EAGLE_EXTERN VOID	Eagle_FreeVersion(LPVOID pVersion);
 EAGLE_EXTERN LPVOID	Eagle_AllocateMemory(SIZE_T size);
 EAGLE_EXTERN VOID	Eagle_FreeMemory(LPVOID pMemory);
 EAGLE_EXTERN VOID	Eagle_FreeElements(SIZE_T elementCount,
@@ -115,6 +125,10 @@ EAGLE_EXTERN RETURNCODE	Eagle_JoinList(SIZE_T elementCount,
 			    LPCWSTR *ppElements,
 			    LPSIZE_T pLength, LPCWSTR *ppText,
 			    LPCWSTR *ppError);
+
+#if defined(USE_HEAPAPI) && USE_HEAPAPI
+EAGLE_EXTERN HANDLE	Eagle_SetMemoryHeap(HANDLE hNewHeap);
+#endif
 
 /*****************************************************************************/
 

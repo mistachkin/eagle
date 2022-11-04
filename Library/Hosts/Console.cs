@@ -40,6 +40,10 @@ namespace Eagle._Hosts
     public class Console : Core, ISynchronize, IDisposable
     {
         #region Private Static Data
+        private static readonly object staticSyncRoot = new object();
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if NATIVE && WINDOWS
         private static int closeCount = 0;
 #endif
@@ -60,12 +64,18 @@ namespace Eagle._Hosts
         //       application domain one (e.g. the Ctrl-C keypress handler will
         //       be added/removed).
         //
-        private static bool forceNonDefaultAppDomain = false;
+        private static bool defaultForceAppDomain = false;
+
+        //
+        // HACK: Setting this value to non-zero will force the console cancel
+        //       event handler to be changed even when there may be an event
+        //       handler pending.
+        //
+        private static bool defaultForcePending = true;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS && DRAWING && !NET_STANDARD_20
-        private static readonly object staticSyncRoot = new object();
         private static Icon icon;
         private static IntPtr oldBigIcon;
         private static IntPtr oldSmallIcon;
@@ -76,8 +86,7 @@ namespace Eagle._Hosts
         //
         // HACK: This is purposely not read-only.
         //
-        private static ConsoleCancelEventHandler consoleCancelEventHandler =
-            new ConsoleCancelEventHandler(Interpreter.ConsoleCancelEventHandler);
+        private static ConsoleCancelEventHandler consoleCancelEventHandler = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -821,7 +830,7 @@ namespace Eagle._Hosts
 
             try
             {
-                TryLock(ref locked); /* TRANSACTIONAL */
+                TryLockWithWait(ref locked); /* TRANSACTIONAL */
 
                 if (locked)
                 {
@@ -831,9 +840,10 @@ namespace Eagle._Hosts
                 }
                 else
                 {
-                    TraceOps.DebugTrace(
-                        "SaveSize: unable to acquire lock",
-                        typeof(Console).Name, TracePriority.LockError);
+                    TraceOps.LockTrace(
+                        "SaveSize",
+                        typeof(Console).Name, false,
+                        TracePriority.LockError);
                 }
             }
             catch (Exception e)
@@ -1153,7 +1163,7 @@ namespace Eagle._Hosts
 
             try
             {
-                TryLock(ref locked); /* TRANSACTIONAL */
+                TryLockWithWait(ref locked); /* TRANSACTIONAL */
 
                 if (locked)
                 {
@@ -1162,9 +1172,10 @@ namespace Eagle._Hosts
                 }
                 else
                 {
-                    TraceOps.DebugTrace(
-                        "SaveColors: unable to acquire lock",
-                        typeof(Console).Name, TracePriority.LockError);
+                    TraceOps.LockTrace(
+                        "SaveColors",
+                        typeof(Console).Name, false,
+                        TracePriority.LockError);
                 }
             }
             catch (Exception e)
@@ -1197,7 +1208,7 @@ namespace Eagle._Hosts
 
             try
             {
-                TryLock(ref locked); /* TRANSACTIONAL */
+                TryLockWithWait(ref locked); /* TRANSACTIONAL */
 
                 if (locked)
                 {
@@ -1210,9 +1221,10 @@ namespace Eagle._Hosts
                 }
                 else
                 {
-                    TraceOps.DebugTrace(
-                        "ShouldResetColorsForSetColors: unable to acquire lock",
-                        typeof(Console).Name, TracePriority.LockError);
+                    TraceOps.LockTrace(
+                        "ShouldResetColorsForSetColors",
+                        typeof(Console).Name, false,
+                        TracePriority.LockError);
                 }
             }
             catch (Exception e)
@@ -1243,7 +1255,7 @@ namespace Eagle._Hosts
 
             try
             {
-                TryLock(ref locked); /* TRANSACTIONAL */
+                TryLockWithWait(ref locked); /* TRANSACTIONAL */
 
                 if (locked)
                 {
@@ -1260,9 +1272,10 @@ namespace Eagle._Hosts
                 }
                 else
                 {
-                    TraceOps.DebugTrace(
-                        "RestoreColors: unable to acquire lock",
-                        typeof(Console).Name, TracePriority.LockError);
+                    TraceOps.LockTrace(
+                        "RestoreColors",
+                        typeof(Console).Name, false,
+                        TracePriority.LockError);
                 }
             }
             catch (Exception e)
@@ -1308,19 +1321,28 @@ namespace Eagle._Hosts
                     bool trusted = RuntimeOps.ShouldCheckCoreFileTrusted();
 
                     //
+                    // NOTE: An interpreter context can now be used to supply the
+                    //       list of implicitly trusted file hashes, i.e. in case
+                    //       the underlying platform cannot recognize Authenticode
+                    //       signatures on managed assemblies.  When null, it will
+                    //       fallback to the legacy (Authenticode-only) handling.
+                    //
+                    Interpreter interpreter = SafeGetInterpreter();
+
+                    //
                     // BUGFIX: Verify that the certificate subjects are the same for
                     //         this assembly (i.e. the Eagle core library) and the
                     //         entry assembly (e.g. the Eagle shell).
                     //
                     string thisCertificateSubject = RuntimeOps.GetCertificateSubject(
-                        GlobalState.GetAssemblyLocation(), CertificateSubjectPrefix,
-                        trusted, true, false);
+                        interpreter, GlobalState.GetAssemblyLocation(),
+                        CertificateSubjectPrefix, trusted, true, false);
 
                     if (thisCertificateSubject != null)
                     {
                         string entryCertificateSubject = RuntimeOps.GetCertificateSubject(
-                            GlobalState.GetEntryAssemblyLocation(), CertificateSubjectPrefix,
-                            trusted, true, false);
+                            interpreter, GlobalState.GetEntryAssemblyLocation(),
+                            CertificateSubjectPrefix, trusted, true, false);
 
                         if (entryCertificateSubject != null)
                         {
@@ -1792,6 +1814,24 @@ namespace Eagle._Hosts
 
         #region Console Setup Handling
         #region Console CancelKeyPress Handling
+        #region ConsoleCancelEventHandler Handling
+        private static ConsoleCancelEventHandler GetConsoleCancelEventHandler()
+        {
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (consoleCancelEventHandler == null)
+                {
+                    consoleCancelEventHandler = new ConsoleCancelEventHandler(
+                        Interpreter.ConsoleCancelEventHandler);
+                }
+
+                return consoleCancelEventHandler;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Native Console CancelKeyPress Handling
 #if NATIVE && WINDOWS
         private ReturnCode UnhookSystemConsoleControlHandler(
@@ -1819,14 +1859,40 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Console CancelKeyPress Handling
-        protected virtual bool InstallCancelKeyPressHandler()
+        protected virtual bool IsCancelViaConsolePending()
+        {
+            return Interpreter.IsCancelViaConsolePending();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        protected virtual bool InstallCancelKeyPressHandler(
+            bool force
+            )
         {
             try
             {
                 SystemConsoleMustBeOpen(false); /* throw */
 
-                System.Console.CancelKeyPress += consoleCancelEventHandler;
-                return true; // success.
+                ConsoleCancelEventHandler handler =
+                    GetConsoleCancelEventHandler();
+
+                if (handler != null)
+                {
+                    if (force || !IsCancelViaConsolePending())
+                    {
+                        System.Console.CancelKeyPress += handler;
+                        return true; // success.
+                    }
+                    else
+                    {
+                        return false; // event pending.
+                    }
+                }
+                else
+                {
+                    return false; // no handler.
+                }
             }
             catch (ScriptException)
             {
@@ -1850,14 +1916,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        protected virtual bool UninstallCancelKeyPressHandler()
+        protected internal virtual bool UninstallCancelKeyPressHandler(
+            bool force
+            )
         {
             try
             {
                 SystemConsoleMustBeOpen(false); /* throw */
 
-                System.Console.CancelKeyPress -= consoleCancelEventHandler;
-                return true; // success.
+                ConsoleCancelEventHandler handler =
+                    GetConsoleCancelEventHandler();
+
+                if (handler != null)
+                {
+                    if (force || !IsCancelViaConsolePending())
+                    {
+                        System.Console.CancelKeyPress -= handler;
+                        return true; // success.
+                    }
+                    else
+                    {
+                        return false; // event pending.
+                    }
+                }
+                else
+                {
+                    return false; // no handler.
+                }
             }
             catch (ScriptException)
             {
@@ -1883,7 +1968,8 @@ namespace Eagle._Hosts
 
         protected virtual bool SetupCancelKeyPressHandler(
             bool setup,
-            bool force
+            bool forceAppDomain,
+            bool forcePending
             )
         {
             try
@@ -1892,12 +1978,12 @@ namespace Eagle._Hosts
                 // NOTE: Has setting up the script cancellation
                 //       keypress been explicitly disabled?
                 //
-                if (!NoCancel &&
-                    (force || AppDomainOps.IsCurrentDefault()))
+                if (!NoCancel && (forceAppDomain ||
+                        AppDomainOps.IsCurrentDefault()))
                 {
                     return setup ?
-                        InstallCancelKeyPressHandler() :
-                        UninstallCancelKeyPressHandler();
+                        InstallCancelKeyPressHandler(forcePending) :
+                        UninstallCancelKeyPressHandler(forcePending);
                 }
                 else
                 {
@@ -2205,7 +2291,8 @@ namespace Eagle._Hosts
 #endif
 
                         if (!host.SetupCancelKeyPressHandler(
-                                true, forceNonDefaultAppDomain))
+                                true, defaultForceAppDomain,
+                                defaultForcePending))
                         {
                             result = false;
                         }
@@ -2246,7 +2333,8 @@ namespace Eagle._Hosts
                         bool result = true;
 
                         if (!host.SetupCancelKeyPressHandler(
-                                false, forceNonDefaultAppDomain))
+                                false, defaultForceAppDomain,
+                                defaultForcePending))
                         {
                             result = false;
                         }
@@ -3104,7 +3192,7 @@ namespace Eagle._Hosts
                 return false;
 #endif
 
-#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
             try
             {
                 return System.Console.IsInputRedirected;
@@ -3715,7 +3803,7 @@ namespace Eagle._Hosts
                 return false;
 #endif
 
-#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
             try
             {
                 return System.Console.IsOutputRedirected;
@@ -3754,7 +3842,7 @@ namespace Eagle._Hosts
                 return false;
 #endif
 
-#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
             try
             {
                 return System.Console.IsErrorRedirected;
@@ -5355,6 +5443,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public void TryLockWithWait(
+            ref bool locked
+            )
+        {
+            CheckDisposed();
+
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(
+                syncRoot, ThreadOps.GetTimeout(
+                null, null, TimeoutType.WaitLock));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public virtual void TryLock(
             int timeout,
             ref bool locked
@@ -5385,6 +5489,15 @@ namespace Eagle._Hosts
                 Monitor.Exit(syncRoot);
                 locked = false;
             }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IMaybeDisposed Members
+        public override bool Disposed
+        {
+            get { return disposed; }
         }
         #endregion
 

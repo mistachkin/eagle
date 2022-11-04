@@ -1,6 +1,121 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
+BUGFIX: fix and/or address Coverity issues from #277240 to #282887.
+
+BUGFIX: remove incorrect and superfluous checking for the -options option from
+        the [string ends] and [string starts] sub-commands.
+
+BUGFIX: when counting all existing interpreters, be sure to include those that
+        are associated with a token.
+
+BUGFIX: shell callbacks must be refreshed after any calls to initialize script
+        library and/or EnableOrDisableSecurity.
+
+BUGFIX: prevent a duplicate newline character from being returned if a channel
+        read stops between a carriage-return and its associated line-feed.
+
+BUGFIX: prevent exceptions from being thrown by [subst] if an invoked command
+        happens to return a null result.
+
+BUGFIX: correct option handling for the [clock clicks] sub-command.
+
+BUGFIX: stop using the Environment.TickCount property to measure elapsed time
+        because it can overflow after only 24.9 days.  this bug impacted the
+        [after] and [vwait] commands as well as the [scope eval] sub-command.
+
+BUGFIX: correctly handle end-of-line pairs with the -noblock option for [gets]
+        and [read] the end-of-line pair is split between calls.
+
+REFACTOR: heavily refactor procedures in the Eagle.File.Finder script library
+          package with a focus on robustness, cross-platform support, and the
+          ability to introspect their operation.
+
+REFACTOR: add preliminary support for the .NET Framework 4.8.1.
+
+REFACTOR: reforms to the [object verifyall] sub-command.  remove the optional
+          argument and replace it with an optional list of options.
+
+REFACTOR: update the Visual Studio Locator, Inno Setup Unpacker, Inno Setup
+          Extractor, and UnRAR tools to their latest release versions.
+
+REFACTOR: *BREAKING CHANGE* add another boolean parameter to the ListFunctions,
+          ListCommands, ListOperators, ListProcedures, and ListPlugins methods.
+
+REFACTOR: *BREAKING CHANGE* revise native utility library so that it uses its
+          own private heap by default.
+
+REFACTOR: *BREAKING CHANGE* add another boolean option to the AddChannel method
+          of the IEntityManager interface.
+
+REFACTOR: *BREAKING CHANGE* rename the ISecurityManager.*Decision properties to
+          ISecurityManager.*InitialDecision.
+
+REFACTOR: *BREAKING CHANGE* add the ITrustManager interface, move all trusted
+          properties into it, and add the TrustedHashes property.
+
+FEATURE: add the TryLockWithWait method to the ISynchronize interface.
+
+FEATURE: add -readtimeout and -writetimeout options to the [socket] command.
+
+FEATURE: add the -stopOnUnknown command line option to stop core shell argument
+         processing when an unknown argument is encountered.
+
+FEATURE: add -contains and -type options to the [file under] sub-command.
+
+FEATURE: add -legacy boolean option to the [file normalize] sub-command.
+
+FEATURE: add [uri time] sub-command to query a remote server for the current
+         time via HTTPS.
+
+FEATURE: add support for the literal prefix syntax (i.e. "***=") for regular
+         expressions.
+
+FEATURE: add the [info decision] sub-command to return the previous policy
+         decision or the corresponding type.
+
+FEATURE: add the [debug keyring] sub-command and interactive #fmkeys command to
+         fetch and merge an updated key ring into the local script key ring for
+         the interpreter.
+
+FEATURE: add the Isolated and Security environment variables in order to force
+         created interpreters to enable plugin isolation and/or script signing
+         policies and core script certificates.
+
+FEATURE: add MakeCoreSafe, MakeCoreSecure, and MakeCoreIsolated registry values
+         to force initially created shell interpreters to be created as "safe",
+         with script signing policies and core script certificates enabled, and
+         with plugin isolation enabled, respectively.
+
+FEATURE: add [interp childlimit], [interp namespacelimit], [interp scopelimit]
+         sub-commands and their associated IInterpreter properties.
+
+FEATURE: add NamespaceLimit, ScopeLimit, HealthCallback, PreWaitCallback, and
+         PostWaitCallback properties to the IInterpreter interface.
+
+FEATURE: add MatchToken method to the IInterpreter interface.
+
+FEATURE: add the base64, component, encoding, plugin, and xml classes to the
+         [string is] sub-command.
+
+FEATURE: add the [string classes] sub-commands.
+
+FEATURE: add [scope attach], [scope detach], [scope export], and [scope import]
+         sub-commands to allow variables in scopes to interact with namespaces.
+
+FEATURE: add the IfCannotLock creation flag.  if set with the IfNecessary flag,
+         interpreter creation should not fail due to the inability to acquire
+         the static lock on core library global state.
+
+FEATURE: *BREAKING CHANGE* setup standard channels in "safe" interpreters if
+         they are marked for use by the shell.
+
+FEATURE: *BREAKING CHANGE* remove FinallyTimeout and NetworkTimeout properties
+         from the IInterpreter interface.  add GetTimeout and SetOrUnsetTimeout
+         methods to the IInterpreter interface.
+
+************************* Beta 1.0.8192.54321 RELEASE *************************
+
 BUGFIX: fix and/or address Coverity issues from #249015 to #258490.
 
 BUGFIX: when using the ArrayAsValue flag to deal with reference parameters for

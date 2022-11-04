@@ -209,12 +209,12 @@ runTest {test processIsolation-1.1 {test with process isolation} -body {
 Process -isolationTemplate $isolationTemplate -isolationPathType Library \
 -isolationFileName [file join $test_path temporary-isolated.eagle] \
 -isolationOtherArguments [list -preInitialize [list set test_run_id \
-[getTestRunId]]] -isolationFailDetail Highest -isolationLogFile \
-$test_log_if -noProcessId true -constraintExpression \
-{[haveConstraint dotNetOrDotNetCore] || ![haveConstraint windows] || \
-[haveConstraint mono20] || [haveConstraint mono22] || \
-[haveConstraint mono24] || [haveConstraint mono26] || \
-[haveConstraint mono46]} -result {^\d+$}}
+[getTestRunId]] -preInitialize [list set test_run_bucket [getTestRunBucket]]] \
+-isolationFailDetail Highest -isolationLogFile $test_log_if -noProcessId true \
+-constraintExpression {[haveConstraint dotNetOrDotNetCore] || \
+![haveConstraint windows] || [haveConstraint mono20] || \
+[haveConstraint mono22] || [haveConstraint mono24] || \
+[haveConstraint mono26] || [haveConstraint mono46]} -result {^\d+$}}
 
 ###############################################################################
 

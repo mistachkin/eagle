@@ -25,6 +25,7 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using _Public = Eagle._Components.Public;
+using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 #if NET_STANDARD_21
@@ -50,8 +51,8 @@ namespace Eagle._Commands
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "compare", "create", "download", "escape", "host",
             "isvalid", "join", "offline", "parse", "ping",
-            "scheme", "security", "softwareupdates", "unescape",
-            "upload"
+            "scheme", "security", "softwareupdates", "time",
+            "unescape", "upload"
         });
 
         public override EnsembleDictionary SubCommands
@@ -983,6 +984,90 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"uri softwareupdates ?trusted? ?exclusive?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "time":
+                                    {
+                                        if (arguments.Count == 2)
+                                        {
+#if NETWORK
+                                            DateTime localNow = TimeOps.GetUtcNow();
+                                            string response = null;
+
+                                            if (ScriptOps.QueryRemoteTime(
+                                                    interpreter, clientData, null, WebOps.GetTimeout(
+                                                    interpreter), ref response, ref result) == ReturnCode.Ok)
+                                            {
+                                                StringList list = null;
+
+                                                if (ParserOps<string>.SplitList(
+                                                        interpreter, response, 0, Length.Invalid, true,
+                                                        ref list, ref result) == ReturnCode.Ok)
+                                                {
+                                                    if (list.Count >= 2)
+                                                    {
+                                                        if (SharedStringOps.Equals(
+                                                                list[0], "OK", StringComparison.Ordinal))
+                                                        {
+                                                            double value = 0.0; /* milliseconds */
+
+                                                            if (Value.GetDouble(
+                                                                    list[1], ValueFlags.AnyDouble,
+                                                                    interpreter.InternalCultureInfo,
+                                                                    ref value, ref result) == ReturnCode.Ok)
+                                                            {
+                                                                DateTime remoteNow = DateTime.MinValue;
+                                                                string units = null;
+
+                                                                TimeOps.UnixMillisecondsOrSecondsToDateTime(
+                                                                    value, ref remoteNow, ref value, ref units);
+
+                                                                result = StringList.MakeList(
+                                                                    "localNow", FormatOps.Iso8601DateTimeSeconds(localNow),
+                                                                    "remoteNow", FormatOps.Iso8601DateTimeSeconds(remoteNow),
+                                                                    "remoteRawValue", list[1],
+                                                                    "remoteValue", value,
+                                                                    "remoteUnits", units,
+                                                                    "remoteDifference", remoteNow.Subtract(localNow));
+
+                                                                code = ReturnCode.Ok;
+                                                            }
+                                                            else
+                                                            {
+                                                                code = ReturnCode.Error;
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            result = "time server response is not \"OK\"";
+                                                            code = ReturnCode.Error;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "time server response needs at least 2 elements";
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                code = ReturnCode.Error;
+                                            }
+#else
+                                            result = "not implemented";
+                                            code = ReturnCode.Error;
+#endif
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"uri time\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

@@ -9,6 +9,7 @@
  * RCS: @(#) $Id: $
  */
 
+using System.Collections.Generic;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -33,6 +34,7 @@ namespace Eagle._Interfaces.Private
         int TotalInteractiveInputs { get; set; }
 
 #if SHELL
+        IList<string> ShellArguments { get; set; }
         IShellCallbackData ShellCallbackData { get; set; }
         IInteractiveLoopData InteractiveLoopData { get; set; }
         IUpdateData UpdateData { get; set; }

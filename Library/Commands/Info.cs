@@ -79,7 +79,7 @@ namespace Eagle._Commands
             "cmdcount", "cmdline", "cmdtype",
             "commands", "complete", "connections",
             "context",
-            "culture", "cultures", "default",
+            "culture", "cultures", "decision", "default",
             "delegates", "engine", "ensembles",
             "exists", "externals", "frame", "framework",
             "frameworkextra", "functions", "globals",
@@ -847,14 +847,16 @@ namespace Eagle._Commands
                                                         {
                                                             code = localInterpreter.ListCommands(
                                                                 hasFlags, notHasFlags, false, false,
-                                                                pattern, false, false, ref list, ref result);
+                                                                pattern, false, false, false, ref list,
+                                                                ref result);
                                                         }
 
                                                         if ((code == ReturnCode.Ok) && listHidden)
                                                         {
                                                             code = localInterpreter.ListHiddenCommands(
                                                                 hasFlags, notHasFlags, false, false,
-                                                                pattern, false, false, ref list, ref result);
+                                                                pattern, false, false, false, ref list,
+                                                                ref result);
                                                         }
                                                     }
 
@@ -889,14 +891,14 @@ namespace Eagle._Commands
                                                         {
                                                             code = localInterpreter.ListProcedures(
                                                                 hasFlags, notHasFlags, false, false, pattern,
-                                                                false, false, ref list, ref result);
+                                                                false, false, false, ref list, ref result);
                                                         }
 
                                                         if ((code == ReturnCode.Ok) && listHidden)
                                                         {
                                                             code = localInterpreter.ListHiddenProcedures(
                                                                 ProcedureFlags.None, notHasFlags, false, false,
-                                                                pattern, false, false, ref list, ref result);
+                                                                pattern, false, false, false, ref list, ref result);
                                                         }
                                                     }
 
@@ -1071,6 +1073,44 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"info cultures ?pattern?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "decision":
+                                    {
+                                        if ((arguments.Count == 2) || (arguments.Count == 3))
+                                        {
+                                            PolicyDecisionType decisionType = PolicyDecisionType.Default;
+
+                                            if (arguments.Count == 3)
+                                            {
+                                                object enumValue = EnumOps.TryParseFlags(
+                                                    interpreter, typeof(PolicyDecisionType),
+                                                    decisionType.ToString(), arguments[2],
+                                                    interpreter.InternalCultureInfo, true, true,
+                                                    true, ref result);
+
+                                                if (enumValue is PolicyDecisionType)
+                                                    decisionType = (PolicyDecisionType)enumValue;
+                                                else
+                                                    code = ReturnCode.Error;
+                                            }
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                StringList list = null;
+
+                                                code = PolicyOps.QueryDecisions(
+                                                    interpreter, decisionType, ref list, ref result);
+
+                                                if (code == ReturnCode.Ok)
+                                                    result = list;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"info decision ?types?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -1610,15 +1650,10 @@ namespace Eagle._Commands
                                                             {
                                                                 if (refresh && !interpreter.InternalIsSafe())
                                                                 {
-#if !NET_STANDARD_20
-                                                                    result = FormatOps.Certificate(
+                                                                    result = FormatOps.Certificate(interpreter,
                                                                         GlobalState.GetAssemblyLocation(),
                                                                         interpreter.GetCertificate(), true, false,
                                                                         false);
-#else
-                                                                    result = "not implemented";
-                                                                    code = ReturnCode.Error;
-#endif
                                                                 }
                                                                 else
                                                                 {
@@ -1767,7 +1802,7 @@ namespace Eagle._Commands
                                                             {
                                                                 if (refresh && !interpreter.InternalIsSafe())
                                                                 {
-                                                                    result = RuntimeOps.GetVendor(true);
+                                                                    result = RuntimeOps.GetVendor(interpreter, true);
                                                                 }
                                                                 else
                                                                 {
@@ -1808,6 +1843,43 @@ namespace Eagle._Commands
                                                                         Vars.Platform.TextOrSuffix, ref result,
                                                                         ref result);
                                                                 }
+                                                                break;
+                                                            }
+                                                        case EngineAttribute.Timeout:
+                                                            {
+                                                                if (refresh && !interpreter.InternalIsSafe())
+                                                                {
+                                                                    result = ThreadOps.GetTimeout(
+                                                                        interpreter, null, TimeoutType.Start |
+                                                                        TimeoutType.MaybeFallback);
+                                                                }
+                                                                else
+                                                                {
+                                                                    code = interpreter.GetVariableValue2(
+                                                                        VariableFlags.GlobalOnly, Vars.Platform.Name,
+                                                                        Vars.Platform.Timeout, ref result,
+                                                                        ref result);
+                                                                }
+                                                                break;
+                                                            }
+                                                        case EngineAttribute.NetworkTimeout:
+                                                            {
+#if NETWORK
+                                                                if (refresh && !interpreter.InternalIsSafe())
+                                                                {
+                                                                    result = WebOps.GetTimeoutOrDefault(interpreter);
+                                                                }
+                                                                else
+                                                                {
+                                                                    code = interpreter.GetVariableValue2(
+                                                                        VariableFlags.GlobalOnly, Vars.Platform.Name,
+                                                                        Vars.Platform.NetworkTimeout, ref result,
+                                                                        ref result);
+                                                                }
+#else
+                                                                result = "not implemented";
+                                                                code = ReturnCode.Error;
+#endif
                                                                 break;
                                                             }
                                                         default:
@@ -2090,7 +2162,7 @@ namespace Eagle._Commands
 
                                                     code = localInterpreter.ListFunctions(
                                                         hasFlags, notHasFlags, false, false, pattern,
-                                                        false, false, ref list, ref result);
+                                                        false, false, false, ref list, ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                     {
@@ -2668,8 +2740,8 @@ namespace Eagle._Commands
 
                                                         code = childInterpreter.ListPlugins(
                                                             PluginFlags.None, notHasFlags,
-                                                            false, false, pattern, false, false,
-                                                            ref list, ref result);
+                                                            false, false, pattern, false,
+                                                            true, false, ref list, ref result);
 
                                                         if (code == ReturnCode.Ok)
                                                             result = list;
@@ -2805,7 +2877,8 @@ namespace Eagle._Commands
 
                                             code = interpreter.ListProcedures(
                                                 ProcedureFlags.NamedArguments, ProcedureFlags.Hidden,
-                                                true, true, pattern, false, false, ref list, ref result);
+                                                true, true, pattern, false, false, false, ref list,
+                                                ref result);
 
                                             if (code == ReturnCode.Ok)
                                             {
@@ -2961,7 +3034,7 @@ namespace Eagle._Commands
 
                                                     code = localInterpreter.ListOperators(
                                                         hasFlags, notHasFlags, false, false, pattern,
-                                                        false, false, ref list, ref result);
+                                                        false, false, false, ref list, ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                     {
@@ -3281,7 +3354,8 @@ namespace Eagle._Commands
                                             code = interpreter.ListProcedures(
                                                 ProcedureFlags.None, ProcedureFlags.Hidden |
                                                 ProcedureFlags.NamedArguments, true, false,
-                                                pattern, false, false, ref list, ref result);
+                                                pattern, false, false, false, ref list,
+                                                ref result);
 
                                             if (code == ReturnCode.Ok)
                                             {

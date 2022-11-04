@@ -33,5 +33,8 @@ namespace Eagle._Interfaces.Public
         HeaderFlags HeaderFlags { get; set; }
         ArgumentList Arguments { get; set; }
         bool Exit { get; set; }
+
+        void SetExit();
+        void SetCode(ReturnCode code);
     }
 }

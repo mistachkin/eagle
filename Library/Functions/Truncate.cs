@@ -64,13 +64,11 @@ namespace Eagle._Functions
                             {
                                 if (variant1.IsDouble())
                                 {
-                                    value = Interpreter.FixIntermediatePrecision(
-                                        Math.Truncate((double)variant1.Value));
+                                    value = Math.Truncate((double)variant1.Value);
                                 }
                                 else if (variant1.IsDecimal() || variant1.ConvertTo(typeof(decimal)))
                                 {
-                                    value = Interpreter.FixIntermediatePrecision(
-                                        Math.Truncate((decimal)variant1.Value));
+                                    value = Math.Truncate((decimal)variant1.Value);
                                 }
                                 else
                                 {

@@ -14,10 +14,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Eagle._Attributes;
-using Eagle._Containers.Public;
-using Eagle._Interfaces.Public;
 using Eagle._Components.Private;
 using Eagle._Constants;
+using Eagle._Containers.Public;
+using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
@@ -28,13 +28,8 @@ namespace Eagle._Components.Public
     public sealed class Rule : IRule
     {
         #region Private Constants
-        private const int RequiredFieldCount = 6;
-        private const int OptionalFieldCount = 7;
-
-        ///////////////////////////////////////////////////////////////////////
-
         internal static readonly IRule Empty = new Rule(
-            0, RuleType.None, IdentifierKind.None, MatchMode.None,
+            null, RuleType.None, IdentifierKind.None, MatchMode.None,
             RegexOptions.None, null, null);
         #endregion
 
@@ -42,7 +37,7 @@ namespace Eagle._Components.Public
 
         #region Private Constructors
         internal Rule(
-            long id,
+            long? id,
             RuleType type,
             IdentifierKind kind,
             MatchMode mode,
@@ -65,131 +60,172 @@ namespace Eagle._Components.Public
 
         #region Static "Factory" Methods
         internal static IRule Create(
-            string value,            /* in */
+            string text,             /* in */
             CultureInfo cultureInfo, /* in */
+            bool allowMissing,       /* in */
             ref Result error         /* out */
             )
         {
-            StringList list = null;
+            StringDictionary dictionary = StringDictionary.FromString(
+                text, true, ref error);
 
-            if (ParserOps<string>.SplitList(
-                    null, value, 0, Length.Invalid, false,
-                    ref list, ref error) != ReturnCode.Ok)
-            {
+            if (dictionary == null)
                 return null;
-            }
 
-            int count = list.Count;
-
-            if (count < RequiredFieldCount)
-            {
-                error = String.Format(
-                    "needs at least {0} elements, have {1}",
-                    RequiredFieldCount, count);
-
-                return null;
-            }
-
-            if (count > OptionalFieldCount)
-            {
-                error = String.Format(
-                    "needs at most {0} elements, have {1}",
-                    OptionalFieldCount, count);
-
-                return null;
-            }
-
-            long id = 0;
-
-            if (Value.GetWideInteger2(list[0],
-                    ValueFlags.AnyInteger, cultureInfo,
-                    ref id, ref error) != ReturnCode.Ok)
-            {
-                return null;
-            }
-
+            string value; /* REUSED */
             object enumValue; /* REUSED */
+
+            long? id = null;
             RuleType type = RuleType.None;
-
-            enumValue = EnumOps.TryParseFlags(
-                null, typeof(RuleType), type.ToString(),
-                list[1], cultureInfo, true, true, true,
-                ref error);
-
-            if (!(enumValue is RuleType))
-                return null;
-
-            type = (RuleType)enumValue;
-
             IdentifierKind kind = IdentifierKind.None;
-
-            enumValue = EnumOps.TryParseFlags(
-                null, typeof(IdentifierKind), kind.ToString(),
-                list[2], cultureInfo, true, true, true,
-                ref error);
-
-            if (!(enumValue is IdentifierKind))
-                return null;
-
-            kind = (IdentifierKind)enumValue;
-
             MatchMode mode = MatchMode.None;
-
-            enumValue = EnumOps.TryParseFlags(
-                null, typeof(MatchMode), mode.ToString(),
-                list[3], cultureInfo, true, true, true,
-                ref error);
-
-            if (!(enumValue is MatchMode))
-                return null;
-
-            mode = (MatchMode)enumValue;
-
             RegexOptions regExOptions = RegexOptions.None;
-
-            enumValue = EnumOps.TryParseFlags(
-                null, typeof(RegexOptions), regExOptions.ToString(),
-                list[4], cultureInfo, true, true, true, ref error);
-
-            if (!(enumValue is RegexOptions))
-                return null;
-
-            regExOptions = (RegexOptions)enumValue;
-
             StringList patterns = null;
-
-            if (ParserOps<string>.SplitList(
-                    null, list[5], 0, Length.Invalid, false,
-                    ref patterns, ref error) != ReturnCode.Ok)
-            {
-                return null;
-            }
-
             IComparer<string> comparer = null;
 
-            if (count >= 7)
+            ///////////////////////////////////////////////////////////////////
+
+            if (dictionary.TryGetValue("id", out value))
             {
-                if (!String.IsNullOrEmpty(list[6]))
+                long localId = 0;
+
+                if (Value.GetWideInteger2(value,
+                        ValueFlags.AnyInteger, cultureInfo,
+                        ref localId, ref error) != ReturnCode.Ok)
+                {
+                    return null;
+                }
+
+                id = localId;
+            }
+            else if (!allowMissing)
+            {
+                error = "missing required dictionary value \"id\"";
+                return null;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (dictionary.TryGetValue("type", out value))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    null, typeof(RuleType), type.ToString(), value,
+                    cultureInfo, true, true, true, ref error);
+
+                if (!(enumValue is RuleType))
+                    return null;
+
+                type = (RuleType)enumValue;
+            }
+            else if (!allowMissing)
+            {
+                error = "missing required dictionary value \"type\"";
+                return null;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (dictionary.TryGetValue("kind", out value))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    null, typeof(IdentifierKind), kind.ToString(), value,
+                    cultureInfo, true, true, true, ref error);
+
+                if (!(enumValue is IdentifierKind))
+                    return null;
+
+                kind = (IdentifierKind)enumValue;
+            }
+            else if (!allowMissing)
+            {
+                error = "missing required dictionary value \"kind\"";
+                return null;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (dictionary.TryGetValue("mode", out value))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    null, typeof(MatchMode), mode.ToString(), value,
+                    cultureInfo, true, true, true, ref error);
+
+                if (!(enumValue is MatchMode))
+                    return null;
+
+                mode = (MatchMode)enumValue;
+            }
+            else if (!allowMissing)
+            {
+                error = "missing required dictionary value \"mode\"";
+                return null;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (dictionary.TryGetValue("regExOptions", out value))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    null, typeof(RegexOptions), regExOptions.ToString(),
+                    value, cultureInfo, true, true, true, ref error);
+
+                if (!(enumValue is RegexOptions))
+                    return null;
+
+                regExOptions = (RegexOptions)enumValue;
+            }
+            else if (!allowMissing)
+            {
+                error = "missing required dictionary value \"regExOptions\"";
+                return null;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (dictionary.TryGetValue("patterns", out value))
+            {
+                if (ParserOps<string>.SplitList(
+                        null, value, 0, Length.Invalid, false,
+                        ref patterns, ref error) != ReturnCode.Ok)
+                {
+                    return null;
+                }
+            }
+            else if (!allowMissing)
+            {
+                error = "missing required dictionary value \"patterns\"";
+                return null;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: This is always optional.
+            //
+            if (dictionary.TryGetValue("comparer", out value))
+            {
+                if (!String.IsNullOrEmpty(value))
                 {
                     comparer = StringOps.GetComparer(
-                        null, list[6], cultureInfo, ref error);
+                        null, value, cultureInfo, ref error);
 
                     if (comparer == null)
                         return null;
                 }
             }
 
+            ///////////////////////////////////////////////////////////////////
+
             return new Rule(
-                id, type, kind, mode, regExOptions, patterns,
-                comparer);
+                id, type, kind, mode, regExOptions, patterns, comparer);
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IRule Members
-        private long id;
-        public long Id
+        #region IRuleData Members
+        private long? id;
+        public long? Id
         {
             get { return id; }
         }
@@ -245,12 +281,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region ICloneable Members
+        public object Clone()
+        {
+            //
+            // NOTE: Create a "deep copy" of this object; requires
+            //       creating a copy of its pattern list (if any)
+            //       because lists are not immutable.  Fortunately,
+            //       all other rule data is immutable.
+            //
+            return new Rule(
+                id, type, kind, mode, regExOptions, (patterns != null) ?
+                    new StringList(patterns) : null, comparer);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IRule Members
+        public void SetId(long? id)
+        {
+            this.id = id;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region System.Object Overrides
         public override string ToString()
         {
             return StringList.MakeList(
-                id, type, kind, mode, regExOptions, patterns,
-                comparer);
+                "id", id, "type", type, "kind", kind, "mode", mode,
+                "regExOptions", regExOptions, "patterns", patterns,
+                "comparer", comparer);
         }
         #endregion
     }

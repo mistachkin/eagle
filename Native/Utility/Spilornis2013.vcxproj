@@ -393,6 +393,7 @@ $(COPY_BUILD_COMMAND_RELEASE_X64)</Command>
     <ClInclude Include="src\generic\pkgVersion.h" />
     <ClInclude Include="src\generic\rcVersion.h" />
     <ClInclude Include="src\generic\Spilornis.h" />
+    <ClInclude Include="src\generic\SpilornisDef.h" />
     <ClInclude Include="src\generic\SpilornisInt.h" />
   </ItemGroup>
   <ItemGroup>

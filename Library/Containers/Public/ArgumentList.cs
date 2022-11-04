@@ -1061,7 +1061,7 @@ namespace Eagle._Containers.Public
         {
             InvalidateCachedString(false);
 
-            base.Reverse();
+            base.Reverse(); /* O(N) */
         }
 
         ///////////////////////////////////////////////////////////////////////

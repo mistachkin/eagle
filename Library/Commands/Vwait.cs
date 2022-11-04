@@ -211,7 +211,7 @@ namespace Eagle._Commands
                                             {
                                                 lockCode = interpreter.LockVariable(eventWaitFlags,
                                                     variableFlags, arguments[argumentIndex],
-                                                    PerformanceOps.GetMicroseconds(timeout),
+                                                    PerformanceOps.GetMicrosecondsFromMilliseconds(timeout),
                                                     @event, ref result);
 
                                                 if ((lockCode != null) &&
@@ -278,7 +278,7 @@ namespace Eagle._Commands
                                         {
                                             code = interpreter.WaitVariable(eventWaitFlags,
                                                 variableFlags, arguments[argumentIndex],
-                                                PerformanceOps.GetMicroseconds(timeout),
+                                                PerformanceOps.GetMicrosecondsFromMilliseconds(timeout),
                                                 threadId, limit, @event, ref changed,
                                                 ref result);
                                         }

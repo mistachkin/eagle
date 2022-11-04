@@ -100,7 +100,7 @@ namespace Eagle._Commands
                                                 arguments[arguments.Count - 1]);
 
                                             builder.Append(
-                                                ConversionOps.ToChar(ChannelStream.NewLine));
+                                                ConversionOps.ToChar(ChannelOps.NewLine));
 
                                             output = builder.ToString();
                                             builder.Length = 0; /* Clear(); */

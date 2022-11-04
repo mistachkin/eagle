@@ -588,7 +588,7 @@ namespace Eagle._Components.Private
 
             try
             {
-#if NET_STANDARD_20 && NET_CORE_20
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
                 AssemblyBuilder assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
                     assemblyName, DefaultManagedAssemblyBuilderAccess);
 #else
@@ -613,7 +613,7 @@ namespace Eagle._Components.Private
                 EmitDelegateWrapperMethodBody(
                     generator, methodInfo, returnType, parameterTypes, false);
 
-#if NET_STANDARD_20 && NET_CORE_20
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
                 type = typeBuilder.CreateTypeInfo();
 #else
                 type = typeBuilder.CreateType();
@@ -702,7 +702,7 @@ namespace Eagle._Components.Private
 
             try
             {
-#if NET_STANDARD_20 && NET_CORE_20
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
                 AssemblyBuilder assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
                     assemblyName, DefaultManagedAssemblyBuilderAccess);
 #else
@@ -755,7 +755,7 @@ namespace Eagle._Components.Private
 
                 methodBuilder.SetImplementationFlags(DefaultMethodImplAttributes);
 
-#if NET_STANDARD_20 && NET_CORE_20
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
                 type = typeBuilder.CreateTypeInfo();
 #else
                 type = typeBuilder.CreateType();
@@ -871,7 +871,7 @@ namespace Eagle._Components.Private
 
             try
             {
-#if NET_STANDARD_20 && NET_CORE_20
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
                 AssemblyBuilder assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
                     assemblyName, DefaultNativeAssemblyBuilderAccess);
 #else
@@ -958,7 +958,7 @@ namespace Eagle._Components.Private
 
                 typeBuilder.SetCustomAttribute(customAttributeBuilder);
 
-#if NET_STANDARD_20 && NET_CORE_20
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
                 type = typeBuilder.CreateTypeInfo();
 #else
                 type = typeBuilder.CreateType();

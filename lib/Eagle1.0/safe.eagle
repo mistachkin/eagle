@@ -41,6 +41,17 @@ namespace eval ::Eagle {
         [string compare -nocase eagle $::tcl_platform(engine)] == 0}]
   }
 
+  #
+  # NOTE: This procedure accepts an any number of arguments.  The arguments
+  #       are appended into one big string, verbatim.  The resulting string
+  #       is returned.  Normally, this procedure is used to avoid undesired
+  #       string interpolation operations.
+  #
+  # <demonstration>
+  proc appendArgs { args } {
+    set result ""; eval append result $args
+  }
+
   if {[isEagle]} then {
     ###########################################################################
     ############################ BEGIN Eagle ONLY #############################

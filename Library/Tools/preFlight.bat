@@ -17,12 +17,18 @@
 SETLOCAL
 
 REM SET __ECHO=ECHO
+REM SET __ECHO2=ECHO
 REM SET __ECHO3=ECHO
 IF NOT DEFINED _AECHO (SET _AECHO=REM)
 IF NOT DEFINED _CECHO (SET _CECHO=REM)
+IF NOT DEFINED _CECHO2 (SET _CECHO2=REM)
+IF NOT DEFINED _CECHO3 (SET _CECHO3=REM)
 IF NOT DEFINED _VECHO (SET _VECHO=REM)
 
+CALL :fn_UnsetVariable BREAK
+
 SET PIPE=^|
+SET _CPIPE=^^^|
 IF DEFINED __ECHO SET PIPE=^^^|
 
 %_AECHO% Running %0 %*
@@ -63,6 +69,7 @@ IF EXIST "%CD%\mtee.exe" (
 %_VECHO% EagleSnDir = '%EagleSnDir%'
 %_VECHO% EagleSigCheckDir = '%EagleSigCheckDir%'
 %_VECHO% EagleFossilDir = '%EagleFossilDir%'
+%_VECHO% EagleHashFileDir = '%EagleHashFileDir%'
 %_VECHO% EagleNuGetDir = '%EagleNuGetDir%'
 
 IF NOT DEFINED EagleJunctionDir (
@@ -104,6 +111,16 @@ SET FOSSIL_EXE=%EagleFossilDir%\fossil.exe
 SET FOSSIL_EXE=%FOSSIL_EXE:\\=\%
 
 :no_eagleFossilDir
+
+IF NOT DEFINED EagleHashFileDir (
+  SET HASH_FILE_EXE=sha256sum.exe
+  GOTO no_eagleHashFileDir
+)
+
+SET HASH_FILE_EXE=%EagleHashDir%\sha256sum.exe
+SET HASH_FILE_EXE=%HASH_FILE_EXE:\\=\%
+
+:no_eagleHashFileDir
 
 IF NOT DEFINED EagleNuGetDir (
   SET NUGET_EXE=NuGet4.exe
@@ -175,6 +192,21 @@ IF DEFINED EagleFossilDir (
   )
 ) ELSE (
   CALL :fn_VerifyFileAlongPath %FOSSIL_EXE%
+
+  IF ERRORLEVEL 1 (
+    GOTO usage
+  )
+)
+
+IF DEFINED EagleHashFileDir (
+  IF EXIST "%HASH_FILE_EXE%" (
+    %_AECHO% The file "%HASH_FILE_EXE%" does exist.
+  ) ELSE (
+    ECHO The file "%HASH_FILE_EXE%" does not exist.
+    GOTO usage
+  )
+) ELSE (
+  CALL :fn_VerifyFileAlongPath %HASH_FILE_EXE%
 
   IF ERRORLEVEL 1 (
     GOTO usage
@@ -409,10 +441,12 @@ REM       along the PATH.
 REM
 REM ****************************************************************************
 
+REM SET EAGLEWEB=C:\some\directory
 REM SET EagleJunctionDir=C:\some\directory
 REM SET EagleSnDir=C:\some\directory
 REM SET EagleSigCheckDir=C:\some\directory
 REM SET EagleFossilDir=C:\some\directory
+REM SET EagleHashFileDir=C:\some\directory
 REM SET EagleNuGetDir=C:\some\directory
 
 REM ****************************************************************************
@@ -471,6 +505,8 @@ REM SET NETFX472ONLY=1
 REM SET NETFX472YEAR=2017
 REM SET NETFX48ONLY=1
 REM SET NETFX48YEAR=2019
+REM SET NETFX481ONLY=1
+REM SET NETFX481YEAR=2022
 REM SET NOADMINISTRATOR=1
 REM SET NOARCHIVE=1
 REM SET NOATTRIBUTE=1
@@ -535,6 +571,8 @@ REM SET NOVERIFYHASH=1
 REM SET OFFICIAL=1
 REM SET PACKAGE_PATCHLEVEL=1.0.X.X
 REM SET PATCHLEVEL=1.0.X.X
+REM SET POST_FLIGHT_HOOK=C:\full\path\to\postHook.bat
+REM SET PRE_FLIGHT_HOOK=C:\full\path\to\preHook.bat
 REM SET SHELLONLY=1
 REM SET SIGN_WITH_GPG=1
 
@@ -548,6 +586,7 @@ REM ****************************************************************************
 REM SET BUILD_RELEASE=1
 REM SET TAG_RELEASE=1
 REM SET BUILD_NUGET=1
+REM SET TAG_NUGET=1
 REM SET VERIFY_RELEASE=1
 REM SET PUSH_NUGET=1
 REM SET BUILD_SOURCE_ONLY=1
@@ -566,6 +605,7 @@ REM SET BUILD_NETFX47=1
 REM SET BUILD_NETFX471=1
 REM SET BUILD_NETFX472=1
 REM SET BUILD_NETFX48=1
+REM SET BUILD_NETFX481=1
 REM SET BUILD_BARE=1
 REM SET BUILD_LEAN=1
 REM SET BUILD_DATABASE=1
@@ -603,6 +643,8 @@ SET VCRUNTIME_NETFX472=2017_VCU8
 SET VCRUNTIMEARM_NETFX472=2017_VCU5
 SET VCRUNTIME_NETFX48=2019_VCU1
 SET VCRUNTIMEARM_NETFX48=2019_VCU1
+SET VCRUNTIME_NETFX481=2022_VSU2
+SET VCRUNTIMEARM_NETFX481=2022_VSU2
 
 REM ****************************************************************************
 REM
@@ -627,6 +669,7 @@ SET NONETFX47=1
 SET NONETFX471=1
 SET NONETFX472=1
 SET NONETFX48=1
+SET NONETFX481=1
 SET NOBARE=1
 SET NOLEAN=1
 SET NODATABASE=1
@@ -656,6 +699,7 @@ SET NETFX47_NOTEST=1
 SET NETFX471_NOTEST=1
 SET NETFX472_NOTEST=1
 SET NETFX48_NOTEST=1
+SET NETFX481_NOTEST=1
 SET BARE_NOTEST=1
 SET LEAN_NOTEST=1
 SET DATABASE_NOTEST=1
@@ -668,6 +712,7 @@ REM NOTE: Now we should be ready to run the release process.
 REM
 REM ****************************************************************************
 
+%_CECHO3% CALL "%TOOLS%\flight.bat" %* %_CPIPE% mtee.exe "%TEMP%\EagleFlight.log"
 %__ECHO3% CALL "%TOOLS%\flight.bat" %* %PIPE% mtee.exe "%TEMP%\EagleFlight.log"
 
 IF ERRORLEVEL 1 (
@@ -676,6 +721,19 @@ IF ERRORLEVEL 1 (
 )
 
 GOTO no_errors
+
+:fn_UnsetVariable
+  SETLOCAL
+  SET VALUE=%1
+  IF DEFINED VALUE (
+    SET VALUE=
+    ENDLOCAL
+    SET %VALUE%=
+  ) ELSE (
+    ENDLOCAL
+  )
+  CALL :fn_ResetErrorLevel
+  GOTO :EOF
 
 :fn_VerifyFileAlongPath
   SET VALUE=%1
@@ -709,7 +767,7 @@ GOTO no_errors
   ECHO The "mtee.exe" tool is required to exist in the current directory or somewhere
   ECHO along your PATH.  It can be downloaded for free from:
   ECHO.
-  ECHO                          http://www.commandline.co.uk/
+  ECHO                          https://ritchielawrence.github.io/mtee/
   ECHO.
   ECHO The "junction.exe" tool is required to be present along the PATH or in the
   ECHO directory specified by the EagleJunctionDir environment variable.  It can be

@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using Eagle._Attributes;
 
 namespace Eagle._Components.Private
@@ -523,6 +524,62 @@ namespace Eagle._Components.Private
         {
             return (int)Math.Truncate(Math.Log10(X));
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static int? Max(
+            IEnumerable<int?> collection
+            )
+        {
+            int? maximum = null;
+
+            if (collection != null)
+            {
+                foreach (int? value in collection)
+                {
+                    if (value == null)
+                        continue;
+
+                    if ((maximum == null) ||
+                        ((int)value > (int)maximum))
+                    {
+                        maximum = value;
+                    }
+                }
+            }
+
+            return maximum;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Dead Code
+#if DEAD_CODE
+        public static int? Min(
+            IEnumerable<int?> collection
+            )
+        {
+            int? minimum = null;
+
+            if (collection != null)
+            {
+                foreach (int? value in collection)
+                {
+                    if (value == null)
+                        continue;
+
+                    if ((minimum == null) ||
+                        ((int)value < (int)minimum))
+                    {
+                        minimum = value;
+                    }
+                }
+            }
+
+            return minimum;
+        }
+#endif
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

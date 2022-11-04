@@ -495,6 +495,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IProfilerState Members
+        public long? GetMilliseconds()
+        {
+            CheckDisposed();
+
+            bool locked = false;
+
+            if (!MaybeLock(ref locked)) /* TRANSACTIONAL */
+                return null;
+
+            try
+            {
+                return PerformanceOps.GetMillisecondsFromMicroseconds(
+                    ConversionOps.ToLong(Math.Round(
+                        microseconds))); /* throw */
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                MaybeUnlock(ref locked); /* TRANSACTIONAL */
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public void Start()
         {
             CheckDisposed();
@@ -620,7 +647,7 @@ namespace Eagle._Components.Private
 
             try
             {
-                return FormatOps.Performance(microseconds);
+                return FormatOps.PerformanceMicroseconds(microseconds);
             }
             finally
             {

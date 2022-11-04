@@ -1409,7 +1409,8 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static bool CheckTclLibraryFile(
-            string fileName /* in */
+            Interpreter interpreter, /* in */
+            string fileName          /* in */
             )
         {
             if (!CheckTclLibraryPath(fileName))
@@ -1418,8 +1419,9 @@ namespace Eagle._Components.Private.Tcl
             if (forceTestLoadTclLibraryFile ||
                 PlatformOps.IsMacintoshOperatingSystem())
             {
-                if (PlatformOps.IsWindowsOperatingSystem() &&
-                    !RuntimeOps.IsFileTrusted(fileName, IntPtr.Zero))
+                if (!RuntimeOps.IsFileTrusted(
+                        interpreter, null, fileName,
+                        IntPtr.Zero))
                 {
                     return false;
                 }
@@ -5117,16 +5119,17 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ReturnCode ExtractBuild(
-            FindFlags findFlags,    /* in */
-            FindFlags allFindFlags, /* in */
-            LoadFlags loadFlags,    /* in */
-            object findData,        /* in */
-            string path,            /* in */
-            Version unknown,        /* in */
-            Priority priority,      /* in */
-            Sequence sequence,      /* in */
-            ref TclBuild build,     /* out */
-            ref ResultList errors   /* out */
+            Interpreter interpreter, /* in */
+            FindFlags findFlags,     /* in */
+            FindFlags allFindFlags,  /* in */
+            LoadFlags loadFlags,     /* in */
+            object findData,         /* in */
+            string path,             /* in */
+            Version unknown,         /* in */
+            Priority priority,       /* in */
+            Sequence sequence,       /* in */
+            ref TclBuild build,      /* out */
+            ref ResultList errors    /* out */
             )
         {
             bool verbose = FlagOps.HasFlags(
@@ -5287,8 +5290,11 @@ namespace Eagle._Components.Private.Tcl
                                         //
                                         // NOTE: Give them their resulting "Build" object.
                                         //
-                                        if (RuntimeOps.IsFileTrusted(path, IntPtr.Zero))
+                                        if (RuntimeOps.IsFileTrusted(
+                                                interpreter, null, path, IntPtr.Zero))
+                                        {
                                             findFlags |= FindFlags.Trusted;
+                                        }
 
                                         //
                                         // HACK: Maybe we should be using the file version
@@ -5323,8 +5329,11 @@ namespace Eagle._Components.Private.Tcl
                                     //
                                     // NOTE: Give them a default "Build" object.
                                     //
-                                    if (RuntimeOps.IsFileTrusted(path, IntPtr.Zero))
+                                    if (RuntimeOps.IsFileTrusted(
+                                            interpreter, null, path, IntPtr.Zero))
+                                    {
                                         findFlags |= FindFlags.Trusted;
+                                    }
 
                                     build = new TclBuild(
                                         findFlags, loadFlags, findData, path, priority,
@@ -5515,6 +5524,7 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ReturnCode FindViaAssembly(
+            Interpreter interpreter,       /* in */
             FindFlags flags,               /* in */
             FindFlags allFlags,            /* in */
             Assembly assembly,             /* in */
@@ -5546,7 +5556,7 @@ namespace Eagle._Components.Private.Tcl
                         {
                             foreach (string fileName in fileNames)
                             {
-                                if (CheckTclLibraryFile(fileName))
+                                if (CheckTclLibraryFile(interpreter, fileName))
                                 {
                                     Priority priority = Priority.None;
 
@@ -5556,7 +5566,7 @@ namespace Eagle._Components.Private.Tcl
                                     {
                                         TclBuild build = null;
 
-                                        if (ExtractBuild(
+                                        if (ExtractBuild(interpreter,
                                                 flags, allFlags, LoadFlags.None,
                                                 assembly, fileName, unknown,
                                                 priority, GetSequence(builds),
@@ -5568,7 +5578,8 @@ namespace Eagle._Components.Private.Tcl
                                             Result error = null;
 
                                             if (builds.MaybeAddOrReplace(
-                                                    allFlags, fileName, build, ref error))
+                                                    interpreter, allFlags, fileName,
+                                                    build, ref error))
                                             {
                                                 count++;
                                             }
@@ -5613,6 +5624,7 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ReturnCode FindViaEnvironment(
+            Interpreter interpreter,       /* in */
             FindFlags flags,               /* in */
             FindFlags allFlags,            /* in */
             Version unknown,               /* in */
@@ -5637,7 +5649,7 @@ namespace Eagle._Components.Private.Tcl
 
                     string path = pair.Y;
 
-                    if (CheckTclLibraryFile(path))
+                    if (CheckTclLibraryFile(interpreter, path))
                     {
                         Priority priority = Priority.None;
 
@@ -5647,7 +5659,7 @@ namespace Eagle._Components.Private.Tcl
                         {
                             TclBuild build = null;
 
-                            if (ExtractBuild(
+                            if (ExtractBuild(interpreter,
                                     flags, allFlags, LoadFlags.None,
                                     pair.X, path, unknown, priority,
                                     GetSequence(builds), ref build,
@@ -5659,8 +5671,8 @@ namespace Eagle._Components.Private.Tcl
                                 Result error = null;
 
                                 if (builds.MaybeAddOrReplace(
-                                        allFlags, path, build,
-                                        ref error))
+                                        interpreter, allFlags, path,
+                                        build, ref error))
                                 {
                                     count++;
                                 }
@@ -5688,7 +5700,7 @@ namespace Eagle._Components.Private.Tcl
                                 {
                                     TclBuild build = null;
 
-                                    if (ExtractBuild(
+                                    if (ExtractBuild(interpreter,
                                             flags, allFlags, LoadFlags.None,
                                             pair.X, fileName, unknown,
                                             priority, GetSequence(builds),
@@ -5700,7 +5712,8 @@ namespace Eagle._Components.Private.Tcl
                                         Result error = null;
 
                                         if (builds.MaybeAddOrReplace(
-                                                allFlags, fileName, build, ref error))
+                                                interpreter, allFlags, fileName,
+                                                build, ref error))
                                         {
                                             count++;
                                         }
@@ -5740,6 +5753,7 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ReturnCode FindViaSearchPath(
+            Interpreter interpreter,       /* in */
             FindFlags flags,               /* in */
             FindFlags allFlags,            /* in */
             Version unknown,               /* in */
@@ -5784,7 +5798,7 @@ namespace Eagle._Components.Private.Tcl
                                 {
                                     TclBuild build = null;
 
-                                    if (ExtractBuild(
+                                    if (ExtractBuild(interpreter,
                                             flags, allFlags, LoadFlags.None,
                                             pair.X, fileName, unknown,
                                             priority, GetSequence(builds),
@@ -5796,7 +5810,8 @@ namespace Eagle._Components.Private.Tcl
                                         Result error = null;
 
                                         if (builds.MaybeAddOrReplace(
-                                                allFlags, fileName, build, ref error))
+                                                interpreter, allFlags, fileName,
+                                                build, ref error))
                                         {
                                             count++;
                                         }
@@ -5837,6 +5852,7 @@ namespace Eagle._Components.Private.Tcl
 
 #if !NET_STANDARD_20
         private static ReturnCode FindViaRegistry(
+            Interpreter interpreter,       /* in */
             FindFlags flags,               /* in */
             FindFlags allFlags,            /* in */
             RegistryKey rootKey,           /* in */
@@ -5961,7 +5977,7 @@ namespace Eagle._Components.Private.Tcl
                                             {
                                                 TclBuild build = null;
 
-                                                if (ExtractBuild(
+                                                if (ExtractBuild(interpreter,
                                                         flags, allFlags, LoadFlags.None,
                                                         new object[] {
                                                         thisRootKey, thisKeyName, subKeyName
@@ -5975,7 +5991,8 @@ namespace Eagle._Components.Private.Tcl
                                                     Result error = null;
 
                                                     if (builds.MaybeAddOrReplace(
-                                                            allFlags, fileName, build, ref error))
+                                                            interpreter, allFlags, fileName,
+                                                            build, ref error))
                                                     {
                                                         count++;
                                                     }
@@ -6059,6 +6076,7 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static ReturnCode FindViaPath(
+            Interpreter interpreter,       /* in */
             FindFlags flags,               /* in */
             FindFlags allFlags,            /* in */
             string path,                   /* in */
@@ -6075,11 +6093,11 @@ namespace Eagle._Components.Private.Tcl
                 //       name use it verbatim and do not attempt to find any other Tcl
                 //       library files.
                 //
-                if (CheckTclLibraryFile(path))
+                if (CheckTclLibraryFile(interpreter, path))
                 {
                     TclBuild build = null;
 
-                    if (ExtractBuild(
+                    if (ExtractBuild(interpreter,
                             flags, allFlags, LoadFlags.None,
                             path, path, unknown, Priority.Highest,
                             GetSequence(builds), ref build,
@@ -6091,7 +6109,8 @@ namespace Eagle._Components.Private.Tcl
                         Result error = null;
 
                         if (builds.MaybeAddOrReplace(
-                                allFlags, path, build, ref error))
+                                interpreter, allFlags, path,
+                                build, ref error))
                         {
                             return ReturnCode.Ok;
                         }
@@ -6129,7 +6148,7 @@ namespace Eagle._Components.Private.Tcl
                             {
                                 TclBuild build = null;
 
-                                if (ExtractBuild(
+                                if (ExtractBuild(interpreter,
                                         flags, allFlags, LoadFlags.None,
                                         path, fileName, unknown, priority,
                                         GetSequence(builds), ref build,
@@ -6141,7 +6160,8 @@ namespace Eagle._Components.Private.Tcl
                                     Result error = null;
 
                                     if (builds.MaybeAddOrReplace(
-                                            allFlags, fileName, build, ref error))
+                                            interpreter, allFlags, fileName,
+                                            build, ref error))
                                     {
                                         count++;
                                     }
@@ -6218,7 +6238,7 @@ namespace Eagle._Components.Private.Tcl
                         if (FlagOps.HasFlags(
                                 allFlags, FindFlags.FindArchitecture, true))
                         {
-                            if (FindViaPath(
+                            if (FindViaPath(interpreter,
                                     flags | FindFlags.Part0, allFlags,
                                     GetAlternateProcessorPath(path),
                                     unknown, clientData, ref builds,
@@ -6231,7 +6251,7 @@ namespace Eagle._Components.Private.Tcl
                             }
                         }
 
-                        if (FindViaPath(
+                        if (FindViaPath(interpreter,
                                 flags | FindFlags.Part1, allFlags,
                                 path, unknown, clientData,
                                 ref builds, ref errors) != ReturnCode.Ok)
@@ -6269,7 +6289,7 @@ namespace Eagle._Components.Private.Tcl
                     if (FlagOps.HasFlags(
                             allFlags, FindFlags.FindArchitecture, true))
                     {
-                        if (FindViaPath(
+                        if (FindViaPath(interpreter,
                                 flags | FindFlags.Part2, allFlags,
                                 GetAlternateProcessorPath(result),
                                 unknown, clientData, ref builds,
@@ -6282,7 +6302,7 @@ namespace Eagle._Components.Private.Tcl
                         }
                     }
 
-                    if (FindViaPath(
+                    if (FindViaPath(interpreter,
                             flags | FindFlags.Part3, allFlags,
                             result, unknown, clientData,
                             ref builds, ref errors) != ReturnCode.Ok)
@@ -6535,17 +6555,16 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static int CompareTrustFlags(
-            TclBuild build1, /* in */
-            TclBuild build2  /* in */
+            Interpreter interpreter, /* in */
+            TclBuild build1,         /* in */
+            TclBuild build2          /* in */
             )
         {
-            bool trustFlag1 = (build1 != null) ?
-                RuntimeOps.IsFileTrusted(build1.FileName, IntPtr.Zero) :
-                false;
+            bool trustFlag1 = (build1 != null) ? RuntimeOps.IsFileTrusted(
+                interpreter, null, build1.FileName, IntPtr.Zero) : false;
 
-            bool trustFlag2 = (build2 != null) ?
-                RuntimeOps.IsFileTrusted(build2.FileName, IntPtr.Zero) :
-                false;
+            bool trustFlag2 = (build2 != null) ? RuntimeOps.IsFileTrusted(
+                interpreter, null, build2.FileName, IntPtr.Zero) : false;
 
             return TrustFlagCompare(trustFlag1, trustFlag2);
         }
@@ -6885,7 +6904,7 @@ namespace Eagle._Components.Private.Tcl
             {
                 if (callback != null)
                 {
-                    ReturnCode code = callback(
+                    ReturnCode code = callback(interpreter,
                         FindFlags.PreCallback, flags, callback, paths, minimumRequired,
                         maximumRequired, unknown, clientData, ref builds, ref errors);
 
@@ -6911,7 +6930,7 @@ namespace Eagle._Components.Private.Tcl
                 {
                     foreach (string path in paths)
                     {
-                        if (FindViaPath(
+                        if (FindViaPath(interpreter,
                                 FindFlags.SpecificPath | FindFlags.PartX, flags,
                                 path, unknown, clientData, ref builds,
                                 ref errors) != ReturnCode.Ok)
@@ -6937,7 +6956,7 @@ namespace Eagle._Components.Private.Tcl
                         interpreter, true, ref path, ref error) == ReturnCode.Ok) &&
                     (path != null))
                 {
-                    if (FindViaPath(
+                    if (FindViaPath(interpreter,
                             FindFlags.ScriptPath, flags, path, unknown, clientData,
                             ref builds, ref errors) != ReturnCode.Ok)
                     {
@@ -6955,7 +6974,7 @@ namespace Eagle._Components.Private.Tcl
 
             if (FlagOps.HasFlags(flags, FindFlags.Environment, true))
             {
-                if (FindViaEnvironment(
+                if (FindViaEnvironment(interpreter,
                         FindFlags.Environment, flags, unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
                 {
@@ -6977,7 +6996,7 @@ namespace Eagle._Components.Private.Tcl
                         if (!CheckTclLibraryPath(path))
                             continue;
 
-                        if (FindViaPath(
+                        if (FindViaPath(interpreter,
                                 FindFlags.AutoPath | FindFlags.PartX, flags,
                                 path, unknown, clientData, ref builds,
                                 ref errors) != ReturnCode.Ok)
@@ -6997,7 +7016,7 @@ namespace Eagle._Components.Private.Tcl
             if (FlagOps.HasFlags(flags, FindFlags.PackageBinaryPath, true))
             {
                 if (FlagOps.HasFlags(flags, FindFlags.FindArchitecture, true) &&
-                    FindViaPath(
+                    FindViaPath(interpreter,
                         FindFlags.PackageBinaryPath | FindFlags.Part0, flags,
                         GetAlternateProcessorPath(PathOps.CombinePath(
                             null, GlobalState.GetTclPackageNamePath(),
@@ -7008,7 +7027,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via package name binary processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.PackageBinaryPath | FindFlags.Part1, flags,
                         PathOps.CombinePath(
                             null, GlobalState.GetTclPackageNamePath(),
@@ -7020,7 +7039,7 @@ namespace Eagle._Components.Private.Tcl
                 }
 
                 if (FlagOps.HasFlags(flags, FindFlags.FindArchitecture, true) &&
-                    FindViaPath(
+                    FindViaPath(interpreter,
                         FindFlags.PackageBinaryPath | FindFlags.Part2, flags,
                         GetAlternateProcessorPath(PathOps.CombinePath(
                             null, GlobalState.GetTclPackageNameRootPath(),
@@ -7031,7 +7050,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via package name root binary processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.PackageBinaryPath | FindFlags.Part3, flags,
                         PathOps.CombinePath(
                             null, GlobalState.GetTclPackageNameRootPath(),
@@ -7046,7 +7065,7 @@ namespace Eagle._Components.Private.Tcl
             if (FlagOps.HasFlags(flags, FindFlags.PackageLibraryPath, true))
             {
                 if (FlagOps.HasFlags(flags, FindFlags.FindArchitecture, true) &&
-                    FindViaPath(
+                    FindViaPath(interpreter,
                         FindFlags.PackageLibraryPath | FindFlags.Part0, flags,
                         GetAlternateProcessorPath(PathOps.CombinePath(
                             null, GlobalState.GetTclPackageNamePath(),
@@ -7057,7 +7076,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via package name library processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.PackageLibraryPath | FindFlags.Part1, flags,
                         PathOps.CombinePath(
                             null, GlobalState.GetTclPackageNamePath(),
@@ -7069,7 +7088,7 @@ namespace Eagle._Components.Private.Tcl
                 }
 
                 if (FlagOps.HasFlags(flags, FindFlags.FindArchitecture, true) &&
-                    FindViaPath(
+                    FindViaPath(interpreter,
                         FindFlags.PackageLibraryPath | FindFlags.Part2, flags,
                         GetAlternateProcessorPath(PathOps.CombinePath(
                             null, GlobalState.GetTclPackageNameRootPath(),
@@ -7080,7 +7099,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via package name root library processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.PackageLibraryPath | FindFlags.Part3, flags,
                         PathOps.CombinePath(
                             null, GlobalState.GetTclPackageNameRootPath(),
@@ -7095,7 +7114,7 @@ namespace Eagle._Components.Private.Tcl
             if (FlagOps.HasFlags(flags, FindFlags.PackagePath, true))
             {
                 if (FlagOps.HasFlags(flags, FindFlags.FindArchitecture, true) &&
-                    FindViaPath(
+                    FindViaPath(interpreter,
                         FindFlags.PackagePath | FindFlags.Part0, flags,
                         GetAlternateProcessorPath(
                             GlobalState.GetTclPackageNamePath()),
@@ -7105,7 +7124,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via package name processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.PackagePath | FindFlags.Part1, flags,
                         GlobalState.GetTclPackageNamePath(), unknown,
                         clientData, ref builds, ref errors) != ReturnCode.Ok)
@@ -7115,7 +7134,7 @@ namespace Eagle._Components.Private.Tcl
                 }
 
                 if (FlagOps.HasFlags(flags, FindFlags.FindArchitecture, true) &&
-                    FindViaPath(
+                    FindViaPath(interpreter,
                         FindFlags.PackagePath | FindFlags.Part2, flags,
                         GetAlternateProcessorPath(
                             GlobalState.GetTclPackageNameRootPath()),
@@ -7125,7 +7144,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via package name root processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.PackagePath | FindFlags.Part3, flags,
                         GlobalState.GetTclPackageNameRootPath(), unknown,
                         clientData, ref builds, ref errors) != ReturnCode.Ok)
@@ -7137,7 +7156,7 @@ namespace Eagle._Components.Private.Tcl
 
             if (FlagOps.HasFlags(flags, FindFlags.EntryAssembly, true))
             {
-                if (FindViaAssembly(
+                if (FindViaAssembly(interpreter,
                         FindFlags.EntryAssembly, flags,
                         GlobalState.GetEntryAssembly(), unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
@@ -7149,7 +7168,7 @@ namespace Eagle._Components.Private.Tcl
 
             if (FlagOps.HasFlags(flags, FindFlags.ExecutingAssembly, true))
             {
-                if (FindViaAssembly(
+                if (FindViaAssembly(interpreter,
                         FindFlags.ExecutingAssembly, flags,
                         Assembly.GetExecutingAssembly(), unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
@@ -7161,7 +7180,7 @@ namespace Eagle._Components.Private.Tcl
 
             if (FlagOps.HasFlags(flags, FindFlags.BinaryPath, true))
             {
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.BinaryPath, flags,
                         GlobalState.InitializeOrGetBinaryPath(false), unknown,
                         clientData, ref builds, ref errors) != ReturnCode.Ok)
@@ -7174,7 +7193,7 @@ namespace Eagle._Components.Private.Tcl
             if (FlagOps.HasFlags(flags, FindFlags.ExternalsPath, true))
             {
                 if (FlagOps.HasFlags(flags, FindFlags.FindArchitecture, true) &&
-                    FindViaPath(
+                    FindViaPath(interpreter,
                         FindFlags.ExternalsPath, flags,
                         GetExternalsPath(true), unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
@@ -7183,7 +7202,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via externals processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.ExternalsPath, flags,
                         GetExternalsPath(false), unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
@@ -7196,7 +7215,7 @@ namespace Eagle._Components.Private.Tcl
             if (FlagOps.HasFlags(flags, FindFlags.PeerPath, true))
             {
                 if (FlagOps.HasFlags(flags, FindFlags.FindArchitecture, true) &&
-                    FindViaPath(
+                    FindViaPath(interpreter,
                         FindFlags.PeerPath, flags,
                         GetPeerPath(true), unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
@@ -7205,7 +7224,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via peer processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.PeerPath, flags,
                         GetPeerPath(false), unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
@@ -7218,7 +7237,7 @@ namespace Eagle._Components.Private.Tcl
 #if UNIX
             if (FlagOps.HasFlags(flags, FindFlags.LocalLibraryPath, true))
             {
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.LocalLibraryPath, flags,
                         PathOps.GetLibPath(true, false, FlagOps.HasFlags(
                             flags, FindFlags.AlternateName, true)),
@@ -7229,7 +7248,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via local library processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.LocalLibraryPath, flags,
                         TclVars.Path.UserLocalLib, unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
@@ -7241,7 +7260,7 @@ namespace Eagle._Components.Private.Tcl
 
             if (FlagOps.HasFlags(flags, FindFlags.LibraryPath, true))
             {
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.LibraryPath, flags,
                         PathOps.GetLibPath(false, false, FlagOps.HasFlags(
                             flags, FindFlags.AlternateName, true)),
@@ -7252,7 +7271,7 @@ namespace Eagle._Components.Private.Tcl
                         "find Tcl library builds via library processor path failed");
                 }
 
-                if (FindViaPath(
+                if (FindViaPath(interpreter,
                         FindFlags.LibraryPath, flags, TclVars.Path.UserLib,
                         unknown, clientData, ref builds, ref errors) != ReturnCode.Ok)
                 {
@@ -7265,7 +7284,7 @@ namespace Eagle._Components.Private.Tcl
 #if !NET_STANDARD_20
             if (FlagOps.HasFlags(flags, FindFlags.Registry, true))
             {
-                if (FindViaRegistry(
+                if (FindViaRegistry(interpreter,
                         FindFlags.Registry, flags, null, null, unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
                 {
@@ -7277,7 +7296,7 @@ namespace Eagle._Components.Private.Tcl
 
             if (FlagOps.HasFlags(flags, FindFlags.SearchPath, true))
             {
-                if (FindViaSearchPath(
+                if (FindViaSearchPath(interpreter,
                         FindFlags.SearchPath, flags, unknown, clientData,
                         ref builds, ref errors) != ReturnCode.Ok)
                 {
@@ -7303,7 +7322,7 @@ namespace Eagle._Components.Private.Tcl
             {
                 if (callback != null)
                 {
-                    ReturnCode code = callback(
+                    ReturnCode code = callback(interpreter,
                         FindFlags.PostCallback, flags, callback, paths, minimumRequired,
                         maximumRequired, unknown, clientData, ref builds, ref errors);
 
@@ -7407,6 +7426,7 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static ReturnCode Select(
+            Interpreter interpreter,   /* in */
             FindFlags flags,           /* in */
             TclBuildDictionary builds, /* in */
             Version minimumRequired,   /* in */
@@ -7497,7 +7517,7 @@ namespace Eagle._Components.Private.Tcl
                             // NOTE: Skip over invalid file names and/or files that do not
                             //       actually exist.
                             //
-                            if (!CheckTclLibraryFile(thisFileName))
+                            if (!CheckTclLibraryFile(interpreter, thisFileName))
                             {
                                 if (verbose)
                                 {
@@ -7642,7 +7662,8 @@ namespace Eagle._Components.Private.Tcl
                             // NOTE: Compare the "trust" results of the two builds.  Always
                             //       prefer trusted builds over non-trusted ones.
                             //
-                            int trustFlagResult = CompareTrustFlags(thisBuild, bestBuild);
+                            int trustFlagResult = CompareTrustFlags(
+                                interpreter, thisBuild, bestBuild);
 
                             if (trustFlagResult < 0)
                             {
@@ -7943,7 +7964,7 @@ namespace Eagle._Components.Private.Tcl
                         {
                             TclBuild build = null;
 
-                            code = Select(
+                            code = Select(interpreter,
                                 newFindFlags, builds, minimumRequired,
                                 maximumRequired, ref build, ref errors);
 

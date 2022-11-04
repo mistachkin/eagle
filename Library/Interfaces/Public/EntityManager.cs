@@ -87,10 +87,6 @@ namespace Eagle._Interfaces.Public
         // ENTITY MANAGEMENT
         ///////////////////////////////////////////////////////////////////////
 
-        //
-        // NOTE: Returns the identifier associated with the specified kind and
-        //       name.
-        //
         ReturnCode GetIdentifier(
             IdentifierKind kind,
             string name,
@@ -98,6 +94,22 @@ namespace Eagle._Interfaces.Public
             LookupFlags lookupFlags,
             ref IIdentifier identifier,
             ref Result error
+            );
+
+        ReturnCode GatherIdentifiers(
+            IdentifierKind kind,
+            RuleType ruleType,
+            MatchMode mode,
+            bool stopOnError,
+            ref IRuleSet ruleSet,
+            ref ResultList errors
+            );
+
+        ReturnCode VerifyIdentifiers(
+            IdentifierKind kind,
+            IRuleSet ruleSet,
+            ref int unverified,
+            ref ResultList errors
             );
 
         ///////////////////////////////////////////////////////////////////////
@@ -400,6 +412,7 @@ namespace Eagle._Interfaces.Public
             bool notHasAll,
             string pattern,
             bool noCase,
+            bool full,
             bool strict,
             ref StringList list,
             ref Result error
@@ -456,6 +469,7 @@ namespace Eagle._Interfaces.Public
             bool notHasAll,
             string pattern,
             bool noCase,
+            bool full,
             bool strict,
             ref StringList list,
             ref Result error
@@ -744,6 +758,7 @@ namespace Eagle._Interfaces.Public
             bool notHasAll,
             string pattern,
             bool noCase,
+            bool full,
             bool strict,
             ref StringList list,
             ref Result error
@@ -806,6 +821,7 @@ namespace Eagle._Interfaces.Public
             bool notHasAll,
             string pattern,
             bool noCase,
+            bool full,
             bool strict,
             ref StringList list,
             ref Result error
@@ -888,6 +904,7 @@ namespace Eagle._Interfaces.Public
             bool notHasAll,
             string pattern,
             bool noCase,
+            bool full,
             bool strict,
             ref StringList list,
             ref Result error
@@ -921,6 +938,7 @@ namespace Eagle._Interfaces.Public
             bool nullEncoding,
             bool appendMode,
             bool autoFlush,
+            bool rawEndOfStream,
             IClientData clientData,
             ref Result error
             );

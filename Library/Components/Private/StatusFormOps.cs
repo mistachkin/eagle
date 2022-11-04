@@ -1335,14 +1335,8 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void StatusFormOps_Exited(
-            object sender, /* in */
-            EventArgs e    /* in */
-            )
+        private static void RemoveExitedEventHandler()
         {
-            /* NO RESULT */
-            Exit();
-
             AppDomain appDomain = AppDomainOps.GetCurrent();
 
             if (appDomain != null)
@@ -1352,6 +1346,20 @@ namespace Eagle._Components.Private
                 else
                     appDomain.ProcessExit -= StatusFormOps_Exited;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void StatusFormOps_Exited(
+            object sender, /* in */
+            EventArgs e    /* in */
+            )
+        {
+            /* NO RESULT */
+            Exit();
+
+            /* NO RESULT */
+            RemoveExitedEventHandler();
         }
         #endregion
 
@@ -1602,7 +1610,8 @@ namespace Eagle._Components.Private
                 }
                 finally
                 {
-                    interpreter.ExitLock(ref locked); /* TRANSACTIONAL */
+                    interpreter.InternalExitLock(
+                        ref locked); /* TRANSACTIONAL */
                 }
             }
             catch (Exception e)
@@ -1868,7 +1877,8 @@ namespace Eagle._Components.Private
                 }
                 finally
                 {
-                    interpreter.ExitLock(ref locked); /* TRANSACTIONAL */
+                    interpreter.InternalExitLock(
+                        ref locked); /* TRANSACTIONAL */
                 }
             }
             catch (Exception e)
@@ -1938,9 +1948,9 @@ namespace Eagle._Components.Private
             if (timeout != 0)
             {
                 if (EventOps.Wait(interpreter, null,
-                        PerformanceOps.GetMicroseconds(
-                        timeout), null, true, false, false,
-                        false, ref error) != ReturnCode.Ok)
+                        PerformanceOps.GetMicrosecondsFromMilliseconds(
+                        timeout), null, true, false, false, false,
+                        ref error) != ReturnCode.Ok)
                 {
                     return false;
                 }

@@ -108,7 +108,8 @@
                       '$(TargetFrameworkVersion)' == 'v4.7' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.1' Or
                       '$(TargetFrameworkVersion)' == 'v4.7.2' Or
-                      '$(TargetFrameworkVersion)' == 'v4.8') And
+                      '$(TargetFrameworkVersion)' == 'v4.8' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8.1') And
                      '$(EagleDir)' != '' And
                      !HasTrailingSlash('$(EagleDir)') And
                      Exists('$(EagleDir)\Externals\NETFX\Tools\v4.0\ResGen.exe')"

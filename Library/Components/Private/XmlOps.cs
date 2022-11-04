@@ -100,8 +100,86 @@ namespace Eagle._Components.Private
             string text
             )
         {
-            return (text != null) && text.StartsWith(
-                DocumentStart, SharedStringOps.SystemComparisonType);
+            if (text == null)
+                return false;
+
+            string prefix = DocumentStart;
+
+            if (prefix == null)
+                return false;
+
+            return text.StartsWith(
+                prefix, SharedStringOps.SystemComparisonType);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool FileLooksLikeDocument(
+            string fileName
+            )
+        {
+            try
+            {
+                if (String.IsNullOrEmpty(fileName))
+                    return false;
+
+                if (PathOps.IsRemoteUri(fileName) ||
+                    !File.Exists(fileName))
+                {
+                    return false;
+                }
+
+                long size = Size.Invalid;
+
+                if (FileOps.GetFileSize(
+                        fileName, ref size) != ReturnCode.Ok)
+                {
+                    return false;
+                }
+
+                string prefix = DocumentStart;
+
+                if (prefix == null)
+                    return false;
+
+                int prefixLength = prefix.Length;
+
+                if (size < prefixLength)
+                    return false;
+
+                Encoding encoding;
+                int preambleSize = 0;
+
+                encoding = Engine.GetEncoding(
+                    fileName, EncodingType.Xml, null, ref preambleSize);
+
+                if (encoding == null)
+                    return false;
+
+                using (FileStream stream = File.OpenRead(fileName))
+                {
+                    using (BinaryReader binaryReader = new BinaryReader(
+                            stream))
+                    {
+                        //
+                        // NOTE: If there is a preamble in the file
+                        //       (e.g. a UTF-8 BOM), skip over it.
+                        //
+                        if (preambleSize > 0)
+                        {
+                            stream.Seek(
+                                preambleSize, SeekOrigin.Begin);
+                        }
+
+                        return LooksLikeDocument(encoding.GetString(
+                            binaryReader.ReadBytes(prefixLength)));
+                    }
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -306,6 +384,18 @@ namespace Eagle._Components.Private
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode LoadString(
+            string xml,
+            ref XmlDocument document
+            )
+        {
+            Result error = null;
+
+            return LoadString(xml, ref document, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

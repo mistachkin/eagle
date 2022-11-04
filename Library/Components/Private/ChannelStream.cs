@@ -23,8 +23,13 @@ using System.Runtime.Remoting;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
+
+#if NET_STANDARD_21
+using Index = Eagle._Constants.Index;
+#endif
 
 namespace Eagle._Components.Private
 {
@@ -32,21 +37,12 @@ namespace Eagle._Components.Private
     internal class ChannelStream : Stream /* BASE CLASS NOT USED */
     {
         #region Public Constants
-        public const byte NewLine = (byte)Characters.NewLine; /* [puts] */
-
-        ///////////////////////////////////////////////////////////////////////
-
         public static readonly int EndOfFile = -1; /* [gets], et al */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constants
-        private const byte CarriageReturn = (byte)Characters.CarriageReturn;
-        private const byte LineFeed = (byte)Characters.LineFeed;
-
-        ///////////////////////////////////////////////////////////////////////
-
 #if NETWORK
         //
         // HACK: This is purposely not read-only.
@@ -80,6 +76,7 @@ namespace Eagle._Components.Private
         private ChannelType channelType;
         private OptionDictionary options; // ORIGINAL options when opening.
         private Stream stream;
+        private ChannelStreamBuffer readBuffer;
         private StreamFlags flags;
         private StreamTranslation inTranslation;
         private StreamTranslation outTranslation;
@@ -103,7 +100,7 @@ namespace Eagle._Components.Private
         private ChannelStream()
             : base()
         {
-            // do nothing.
+            readBuffer = new ChannelStreamBuffer();
         }
         #endregion
 
@@ -248,10 +245,7 @@ namespace Eagle._Components.Private
         {
             CheckDisposed();
 
-            if (all)
-                return ((this.flags & flags) == flags);
-            else
-                return ((this.flags & flags) != StreamFlags.None);
+            return PrivateHasFlags(flags, all);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -263,10 +257,7 @@ namespace Eagle._Components.Private
         {
             CheckDisposed();
 
-            if (set)
-                return (this.flags |= flags);
-            else
-                return (this.flags &= ~flags);
+            return PrivateSetFlags(flags, set);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -277,13 +268,15 @@ namespace Eagle._Components.Private
             {
                 CheckDisposed();
 
-                return HasFlags(StreamFlags.PreventClose, true);
+                return PrivateHasFlags(
+                    StreamFlags.PreventClose, true);
             }
             set
             {
                 CheckDisposed();
 
-                SetFlags(StreamFlags.PreventClose, value);
+                PrivateSetFlags(
+                    StreamFlags.PreventClose, value);
             }
         }
 
@@ -295,14 +288,68 @@ namespace Eagle._Components.Private
             {
                 CheckDisposed();
 
-                return HasFlags(StreamFlags.NeedBuffer, true);
+                return PrivateHasFlags(
+                    StreamFlags.NeedBuffer, true);
             }
             set
             {
                 CheckDisposed();
 
-                SetFlags(StreamFlags.NeedBuffer, value);
+                PrivateSetFlags(
+                    StreamFlags.NeedBuffer, value);
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private StreamFlags PrivateFlags
+        {
+            get { return flags; }
+            set { flags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool PrivateHasFlags(
+            StreamFlags flags, /* in */
+            bool all           /* in */
+            )
+        {
+            if (all)
+                return ((this.flags & flags) == flags);
+            else
+                return ((this.flags & flags) != StreamFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private StreamFlags PrivateSetFlags(
+            StreamFlags flags, /* in */
+            bool set           /* in */
+            )
+        {
+            if (set)
+                return (this.flags |= flags);
+            else
+                return (this.flags &= ~flags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void ResetLineEndingFlags(
+            ref StreamFlags flags /* in, out */
+            )
+        {
+            flags &= ~StreamFlags.LineEndingMask;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void ResetExtraLineEndingFlags(
+            ref StreamFlags flags /* in, out */
+            )
+        {
+            flags &= ~StreamFlags.ExtraLineEndingMask;
         }
         #endregion
 
@@ -423,13 +470,15 @@ namespace Eagle._Components.Private
             {
                 CheckDisposed();
 
-                return HasFlags(StreamFlags.UseAnyEndOfLineChar, true);
+                return PrivateHasFlags(
+                    StreamFlags.UseAnyEndOfLineChar, true);
             }
             set
             {
                 CheckDisposed();
 
-                SetFlags(StreamFlags.UseAnyEndOfLineChar, value);
+                PrivateSetFlags(
+                    StreamFlags.UseAnyEndOfLineChar, value);
             }
         }
 
@@ -441,13 +490,15 @@ namespace Eagle._Components.Private
             {
                 CheckDisposed();
 
-                return HasFlags(StreamFlags.KeepEndOfLineChars, true);
+                return PrivateHasFlags(
+                    StreamFlags.KeepEndOfLineChars, true);
             }
             set
             {
                 CheckDisposed();
 
-                SetFlags(StreamFlags.KeepEndOfLineChars, value);
+                PrivateSetFlags(
+                    StreamFlags.KeepEndOfLineChars, value);
             }
         }
 
@@ -477,13 +528,67 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        protected internal virtual int TranslateInputEndOfLine(
-            byte[] inBuffer,  /* in */
-            byte[] outBuffer, /* in, out */
-            int offset,       /* in */
-            int count         /* in */
+        public int TranslateInputEndOfLine(
+            byte[] inBuffer,           /* in */
+            byte[] outBuffer,          /* in, out */
+            StreamDirection direction, /* in */
+            int offset,                /* in */
+            int inCount                /* in */
             )
         {
+            IntList lineEndings = null;
+
+            return TranslateInputEndOfLine(
+                inBuffer, outBuffer, direction, offset, inCount,
+                ref lineEndings);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private int TranslateInputEndOfLine(
+            byte[] inBuffer,           /* in */
+            byte[] outBuffer,          /* in, out */
+            StreamDirection direction, /* in */
+            int offset,                /* in */
+            int inCount,               /* in */
+            ref IntList lineEndings    /* in, out */
+            )
+        {
+            StreamFlags flags = PrivateFlags;
+
+            try
+            {
+                return TranslateInputEndOfLine(
+                    inBuffer, outBuffer, direction, offset,
+                    inCount, ref lineEndings, ref flags);
+            }
+            finally
+            {
+                PrivateFlags = flags;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        protected virtual int TranslateInputEndOfLine(
+            byte[] inBuffer,           /* in */
+            byte[] outBuffer,          /* in, out */
+            StreamDirection direction, /* in */
+            int offset,                /* in */
+            int inCount,               /* in */
+            ref IntList lineEndings,   /* in, out */
+            ref StreamFlags flags      /* in, out */
+            )
+        {
+            bool ignoreFlags = FlagOps.HasFlags(
+                direction, StreamDirection.IgnoreFlags, true);
+
+            bool endOfStream = FlagOps.HasFlags(
+                direction, StreamDirection.EndOfStream, true);
+
+            bool anyEndOfLine = FlagOps.HasFlags(
+                direction, StreamDirection.AnyEndOfLine, true);
+
             switch (GetEnvironmentInputTranslation(inTranslation))
             {
                 case StreamTranslation.binary:
@@ -491,70 +596,128 @@ namespace Eagle._Components.Private
                 case StreamTranslation.protocol:
                     {
                         Array.Copy(
-                            inBuffer, 0, outBuffer, offset, count);
+                            inBuffer, 0, outBuffer, offset, inCount);
 
-                        return count;
+                        return inCount;
                     }
                 case StreamTranslation.cr:
                     {
-                        int newCount = offset + count;
+                        int newCount = offset + inCount;
 
                         Array.Copy(
-                            inBuffer, 0, outBuffer, offset, count);
+                            inBuffer, 0, outBuffer, offset, inCount);
 
                         for (int outIndex = offset; outIndex < newCount;
                                 outIndex++)
                         {
-                            if (outBuffer[outIndex] == CarriageReturn)
-                                outBuffer[outIndex] = NewLine;
+                            if (outBuffer[outIndex] == ChannelOps.CarriageReturn)
+                            {
+                                ListOps.Add(outIndex, ref lineEndings);
+                                outBuffer[outIndex] = ChannelOps.NewLine;
+                            }
+                            else if (anyEndOfLine &&
+                                (outBuffer[outIndex] == ChannelOps.LineFeed))
+                            {
+                                ListOps.Add(outIndex, ref lineEndings);
+                            }
                         }
 
-                        return count;
+                        return inCount;
                     }
                 case StreamTranslation.crlf:
                 case StreamTranslation.platform:
                     {
-                        int newCount = offset + count;
+                        int newCount = offset + inCount;
                         int inIndex = offset;
                         int outIndex = 0;
 
-                        if (HasFlags(StreamFlags.NeedLineFeed, true) &&
-                            (inIndex < newCount))
+                        if (!ignoreFlags && FlagOps.HasFlags(
+                                flags, StreamFlags.NeedLineFeed, true))
                         {
-                            if (inBuffer[inIndex] == LineFeed)
+                            if (inIndex < newCount)
                             {
-                                outBuffer[outIndex++] = NewLine;
-                            }
-                            else
-                            {
-                                outBuffer[outIndex++] = inBuffer[inIndex++];
+                                if (inBuffer[inIndex] == ChannelOps.LineFeed)
+                                {
+                                    //
+                                    // BUGFIX: This line feed is being consumed;
+                                    //         therefore, it should not be copied
+                                    //         (again) in the main loop (below),
+                                    //         even if that main loop is entered
+                                    //         the next time this method is used.
+                                    //
+                                    inIndex++;
+
+                                    ListOps.Add(outIndex, ref lineEndings);
+                                    outBuffer[outIndex++] = ChannelOps.NewLine;
+                                }
                             }
 
-                            SetFlags(StreamFlags.NeedLineFeed, false);
+                            flags &= ~StreamFlags.NeedLineFeed;
                         }
 
                         for (; inIndex < newCount; )
                         {
-                            if (inBuffer[inIndex] == CarriageReturn)
+                            if (inBuffer[inIndex] == ChannelOps.CarriageReturn)
                             {
                                 if (++inIndex >= newCount)
                                 {
-                                    SetFlags(StreamFlags.NeedLineFeed, true);
+                                    if (!ignoreFlags)
+                                        flags |= StreamFlags.NeedLineFeed;
+
+                                    if (anyEndOfLine)
+                                        ListOps.Add(outIndex, ref lineEndings);
+
+                                    if (endOfStream)
+                                    {
+                                        //
+                                        // NOTE: This is a carriage-return (?) -AND-
+                                        //       there is no more input coming; so,
+                                        //       include it.
+                                        //
+                                        outBuffer[outIndex++] = inBuffer[inIndex - 1];
+                                    }
                                 }
-                                else if (inBuffer[inIndex] == LineFeed)
+                                else if (inBuffer[inIndex] == ChannelOps.LineFeed)
                                 {
+                                    ListOps.Add(outIndex, ref lineEndings);
                                     outBuffer[outIndex++] = inBuffer[inIndex++];
                                 }
                                 else
                                 {
+                                    if (!ignoreFlags)
+                                    {
+                                        //
+                                        // NOTE: This is a "naked" carriage-return
+                                        //       without a following line-feed?
+                                        //
+                                        flags |= StreamFlags.ExtraCarriageReturn;
+                                    }
+
                                     //
                                     // NOTE: This is a carriage-return (?).
                                     //
+                                    if (anyEndOfLine)
+                                        ListOps.Add(outIndex, ref lineEndings);
+
                                     outBuffer[outIndex++] = inBuffer[inIndex - 1];
                                 }
                             }
                             else
                             {
+                                if (inBuffer[inIndex] == ChannelOps.LineFeed)
+                                {
+                                    if (!ignoreFlags)
+                                    {
+                                        //
+                                        // NOTE: This is a "naked" line-feed without
+                                        //       a preceding carriage-return?
+                                        //
+                                        flags |= StreamFlags.ExtraLineFeed;
+                                    }
+
+                                    ListOps.Add(Index.Invalid, ref lineEndings);
+                                }
+
                                 outBuffer[outIndex++] = inBuffer[inIndex++];
                             }
                         }
@@ -563,34 +726,47 @@ namespace Eagle._Components.Private
                     }
                 case StreamTranslation.auto:
                     {
-                        int newCount = offset + count;
+                        int newCount = offset + inCount;
                         int inIndex = offset;
                         int outIndex = 0;
 
-                        if (HasFlags(StreamFlags.SawCarriageReturn, true) &&
-                            (inIndex < newCount))
+                        if (!ignoreFlags && FlagOps.HasFlags(
+                                flags, StreamFlags.SawCarriageReturn, true))
                         {
-                            if (inBuffer[inIndex] == LineFeed)
-                                inIndex++;
+                            if (inIndex < newCount)
+                            {
+                                if (inBuffer[inIndex] == ChannelOps.LineFeed)
+                                {
+                                    //
+                                    // BUGFIX: This line feed is being consumed;
+                                    //         therefore, it should not be copied
+                                    //         (again) in the main loop (below),
+                                    //         even if that main loop is entered
+                                    //         the next time this method is used.
+                                    //
+                                    inIndex++;
+                                }
+                            }
 
-                            SetFlags(StreamFlags.SawCarriageReturn, false);
+                            flags &= ~StreamFlags.SawCarriageReturn;
                         }
 
                         for (; inIndex < newCount; )
                         {
-                            if (inBuffer[inIndex] == CarriageReturn)
+                            if (inBuffer[inIndex] == ChannelOps.CarriageReturn)
                             {
                                 if (++inIndex >= newCount)
                                 {
-                                    SetFlags(
-                                        StreamFlags.SawCarriageReturn, true);
+                                    if (!ignoreFlags)
+                                        flags |= StreamFlags.SawCarriageReturn;
                                 }
-                                else if (inBuffer[inIndex] == LineFeed)
+                                else if (inBuffer[inIndex] == ChannelOps.LineFeed)
                                 {
                                     inIndex++;
                                 }
 
-                                outBuffer[outIndex++] = NewLine;
+                                ListOps.Add(outIndex, ref lineEndings);
+                                outBuffer[outIndex++] = ChannelOps.NewLine;
                             }
                             else
                             {
@@ -609,51 +785,80 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        protected internal virtual int TranslateOutputEndOfLine(
-            byte[] inBuffer,  /* in */
-            byte[] outBuffer, /* in, out */
-            int offset,       /* in */
-            int count         /* in */
+        public int TranslateOutputEndOfLine(
+            byte[] inBuffer,           /* in */
+            byte[] outBuffer,          /* in, out */
+            StreamDirection direction, /* in */
+            int offset,                /* in */
+            int inCount                /* in */
             )
         {
+            StreamFlags flags = PrivateFlags;
+
+            try
+            {
+                return TranslateOutputEndOfLine(
+                    inBuffer, outBuffer, direction, offset,
+                    inCount, ref flags);
+            }
+            finally
+            {
+                PrivateFlags = flags;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        protected virtual int TranslateOutputEndOfLine(
+            byte[] inBuffer,           /* in */
+            byte[] outBuffer,          /* in, out */
+            StreamDirection direction, /* in */
+            int offset,                /* in */
+            int inCount,               /* in */
+            ref StreamFlags flags      /* in, out */
+            )
+        {
+            bool ignoreFlags = FlagOps.HasFlags(
+                direction, StreamDirection.IgnoreFlags, true);
+
             switch (GetEnvironmentOutputTranslation(outTranslation))
             {
                 case StreamTranslation.binary:
                 case StreamTranslation.lf:
                     {
                         Array.Copy(
-                            inBuffer, 0, outBuffer, offset, count);
+                            inBuffer, 0, outBuffer, offset, inCount);
 
-                        return count;
+                        return inCount;
                     }
                 case StreamTranslation.cr:
                     {
-                        int newCount = offset + count;
+                        int newCount = offset + inCount;
 
                         Array.Copy(
-                            inBuffer, 0, outBuffer, offset, count);
+                            inBuffer, 0, outBuffer, offset, inCount);
 
                         for (int outIndex = offset; outIndex < newCount;
                                 outIndex++)
                         {
-                            if (outBuffer[outIndex] == LineFeed)
-                                outBuffer[outIndex] = CarriageReturn;
+                            if (outBuffer[outIndex] == ChannelOps.LineFeed)
+                                outBuffer[outIndex] = ChannelOps.CarriageReturn;
                         }
 
-                        return count;
+                        return inCount;
                     }
                 case StreamTranslation.crlf:
                 case StreamTranslation.platform:
                 case StreamTranslation.auto:
                     {
-                        int newCount = offset + count;
+                        int newCount = offset + inCount;
                         int inIndex = offset;
                         int outIndex = 0;
 
                         for (; inIndex < newCount; )
                         {
-                            if (inBuffer[inIndex] == LineFeed)
-                                outBuffer[outIndex++] = CarriageReturn;
+                            if (inBuffer[inIndex] == ChannelOps.LineFeed)
+                                outBuffer[outIndex++] = ChannelOps.CarriageReturn;
 
                             outBuffer[outIndex++] = inBuffer[inIndex++];
                         }
@@ -662,7 +867,7 @@ namespace Eagle._Components.Private
                     }
                 case StreamTranslation.protocol: /* NOTE: Enforce CR/LF. */
                     {
-                        int newCount = offset + count;
+                        int newCount = offset + inCount;
                         int inIndex = offset;
                         int outIndex = 0;
 
@@ -671,13 +876,22 @@ namespace Eagle._Components.Private
                             //
                             // NOTE: Have we seen an unpaired carriage-return?
                             //
-                            bool sawCarriageReturn = HasFlags(
-                                StreamFlags.SawCarriageReturn, true);
+                            bool sawCarriageReturn;
+
+                            if (ignoreFlags)
+                            {
+                                sawCarriageReturn = false;
+                            }
+                            else
+                            {
+                                sawCarriageReturn = FlagOps.HasFlags(
+                                    flags, StreamFlags.SawCarriageReturn, true);
+                            }
 
                             //
                             // NOTE: Is the current character carriage-return?
                             //
-                            if (inBuffer[inIndex] == CarriageReturn)
+                            if (inBuffer[inIndex] == ChannelOps.CarriageReturn)
                             {
                                 //
                                 // NOTE: If we have already seen an unpaired
@@ -686,7 +900,7 @@ namespace Eagle._Components.Private
                                 //       else to complete the pairing.
                                 //
                                 if (sawCarriageReturn)
-                                    outBuffer[outIndex++] = LineFeed;
+                                    outBuffer[outIndex++] = ChannelOps.LineFeed;
 
                                 //
                                 // NOTE: Emit the input character (which is
@@ -705,18 +919,17 @@ namespace Eagle._Components.Private
                                 //
                                 if (inIndex >= newCount)
                                 {
-                                    outBuffer[outIndex++] = LineFeed;
+                                    outBuffer[outIndex++] = ChannelOps.LineFeed;
                                 }
-                                else
+                                else if (!ignoreFlags)
                                 {
-                                    SetFlags(
-                                        StreamFlags.SawCarriageReturn, true);
+                                    flags |= StreamFlags.SawCarriageReturn;
                                 }
                             }
                             //
                             // NOTE: Otherwise, is current character line-feed?
                             //
-                            else if (inBuffer[inIndex] == LineFeed)
+                            else if (inBuffer[inIndex] == ChannelOps.LineFeed)
                             {
                                 //
                                 // NOTE: If we have not seen an unpaired
@@ -725,7 +938,7 @@ namespace Eagle._Components.Private
                                 //       when we emit the line-feed below.
                                 //
                                 if (!sawCarriageReturn)
-                                    outBuffer[outIndex++] = CarriageReturn;
+                                    outBuffer[outIndex++] = ChannelOps.CarriageReturn;
 
                                 //
                                 // NOTE: Emit the input character (which is
@@ -739,11 +952,8 @@ namespace Eagle._Components.Private
                                 //       flag now because we just completed
                                 //       the pairing.
                                 //
-                                if (sawCarriageReturn)
-                                {
-                                    SetFlags(
-                                        StreamFlags.SawCarriageReturn, false);
-                                }
+                                if (!ignoreFlags && sawCarriageReturn)
+                                    flags &= ~StreamFlags.SawCarriageReturn;
                             }
                             else
                             {
@@ -754,7 +964,7 @@ namespace Eagle._Components.Private
                                 //       the pairing.
                                 //
                                 if (sawCarriageReturn)
-                                    outBuffer[outIndex++] = LineFeed;
+                                    outBuffer[outIndex++] = ChannelOps.LineFeed;
 
                                 //
                                 // NOTE: Emit the input character.
@@ -767,11 +977,8 @@ namespace Eagle._Components.Private
                                 //       flag now because we completed the
                                 //       pairing above.
                                 //
-                                if (sawCarriageReturn)
-                                {
-                                    SetFlags(
-                                        StreamFlags.SawCarriageReturn, false);
-                                }
+                                if (!ignoreFlags && sawCarriageReturn)
+                                    flags &= ~StreamFlags.SawCarriageReturn;
                             }
                         }
 
@@ -941,18 +1148,62 @@ namespace Eagle._Components.Private
         {
             CheckDisposed();
 
+            StreamFlags flags = PrivateFlags;
+
+            try
+            {
+                return Read(
+                    buffer, offset, count, ref flags);
+            }
+            finally
+            {
+                PrivateFlags = flags;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        protected virtual int Read(
+            byte[] buffer,        /* in, out */
+            int offset,           /* in */
+            int count,            /* in */
+            ref StreamFlags flags /* in, out */
+            )
+        {
+            int newCount; /* REUSED */
+
             if (inTranslation != StreamTranslation.binary)
             {
                 byte[] input = new byte[count];
 
-                int newCount = stream.Read(input, 0, count);
+                newCount = stream.Read(input, 0, count);
+
+                if (FlagOps.HasFlags(
+                        flags, StreamFlags.TraceReadLines, true))
+                {
+                    ChannelOps.TraceLineEndings("text", this,
+                        input, newCount, TracePriority.Highest);
+                }
+
+                IntList lineEndings = null; /* NOT USED */
 
                 return TranslateInputEndOfLine(
-                    input, buffer, offset, newCount);
+                    input, buffer, StreamDirection.None,
+                    offset, newCount, ref lineEndings,
+                    ref flags);
             }
             else
             {
-                return stream.Read(buffer, offset, count);
+                newCount = stream.Read(buffer, offset, count);
+
+                if (FlagOps.HasFlags(
+                        flags, StreamFlags.TraceReadLines, true))
+                {
+                    ChannelOps.TraceLineEndings("binary", this,
+                        buffer, newCount, TracePriority.Highest);
+                }
+
+                return newCount;
             }
         }
 
@@ -1008,27 +1259,14 @@ namespace Eagle._Components.Private
 
             if (outTranslation != StreamTranslation.binary)
             {
-                int oldCount = offset + count;
-                int newCount = count;
-
-                for (int inIndex = offset; inIndex < oldCount; inIndex++)
-                {
-                    char character = (char)buffer[inIndex];
-
-                    if ((character == Characters.CarriageReturn) ||
-                        (character == Characters.LineFeed))
-                    {
-                        //
-                        // NOTE: Every line terminator may double.
-                        //
-                        newCount += 2;
-                    }
-                }
+                int newCount = ChannelOps.EstimateOutputCount(
+                    buffer, offset, count);
 
                 byte[] output = new byte[newCount];
 
                 newCount = TranslateOutputEndOfLine(
-                    buffer, output, offset, count);
+                    buffer, output, StreamDirection.None,
+                    offset, count);
 
                 stream.Write(output, 0, newCount);
             }
@@ -1107,7 +1345,7 @@ namespace Eagle._Components.Private
                         int? timeout = PollTimeout;
 
                         if ((timeout != null) && socket.Poll(
-                                (int)PerformanceOps.GetMicroseconds(
+                                (int)PerformanceOps.GetMicrosecondsFromMilliseconds(
                                 (int)timeout), SelectMode.SelectRead))
                         {
                             count = socket.Available;
@@ -1224,39 +1462,158 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool PopulateBuffer(
-            ref ByteList buffer /* in, out */
+            bool ignoreLineEnding,    /* in */
+            bool useAnyEndOfLineChar, /* in: TODO */
+            ref ByteList buffer,      /* in, out */
+            ref IntList lineEndings   /* in, out */
             )
         {
             CheckDisposed();
 
+            StreamFlags flags = PrivateFlags;
+
+            try
+            {
+                return PopulateBuffer(
+                    ignoreLineEnding, useAnyEndOfLineChar,
+                    ref buffer, ref lineEndings, ref flags);
+            }
+            finally
+            {
+                PrivateFlags = flags;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        protected virtual bool PopulateBuffer(
+            bool ignoreLineEnding,    /* in */
+            bool useAnyEndOfLineChar, /* in: TODO */
+            ref ByteList buffer,      /* in, out */
+            ref IntList lineEndings,  /* in, out */
+            ref StreamFlags flags     /* in, out */
+            )
+        {
             if (stream == null)
                 return false;
 
-            int inCount = ReadCount; /* EXPENSIVE */
+            int readBufferCount = 0;
 
-            if (inCount == 0)
+            if (readBuffer != null)
+                readBufferCount = readBuffer.GetCount();
+
+            int readStreamCount = ReadCount; /* EXPENSIVE */
+
+            if ((readStreamCount == 0) && (readBufferCount == 0))
                 return false;
 
-            byte[] inBytes = new byte[inCount];
+            byte[] readBytes = new byte[readStreamCount];
+            int outCount;
 
-            int outCount = stream.Read(inBytes, 0, inCount);
+            if (readStreamCount > 0)
+            {
+                outCount = stream.Read(
+                    readBytes, 0, readStreamCount);
 
-            if (outCount == 0)
-                return false;
+                if (FlagOps.HasFlags(
+                        flags, StreamFlags.TraceReadLines, true))
+                {
+                    ChannelOps.TraceLineEndings("buffer", this,
+                        readBytes, outCount, TracePriority.Highest);
+                }
+            }
+            else
+            {
+                outCount = 0;
+            }
 
-            Array.Resize(ref inBytes, outCount);
+            Array.Resize(ref readBytes, outCount);
+
+            byte[] inBytes;
+
+            if ((readBuffer != null) && (readBufferCount > 0))
+            {
+                /* NO RESULT */
+                readBuffer.Append(readBytes);
+
+                /* IGNORED */
+                readBuffer.Take(out inBytes);
+
+                if (inBytes == null)
+                    return false;
+
+                outCount = inBytes.Length;
+            }
+            else
+            {
+                inBytes = readBytes;
+            }
+
+            /* NO RESULT */
+            ResetExtraLineEndingFlags(ref flags);
+
+            StreamDirection direction = StreamDirection.None;
+
+            if (ignoreLineEnding)
+                direction |= StreamDirection.EndOfStream;
+
+            if (useAnyEndOfLineChar)
+                direction |= StreamDirection.AnyEndOfLine;
 
             byte[] outBytes = new byte[outCount];
+            IntList localLineEndings = null;
 
-            outCount = TranslateInputEndOfLine(
-                inBytes, outBytes, 0, outCount);
+            int translateCount = TranslateInputEndOfLine(
+                inBytes, outBytes, direction, 0, outCount,
+                ref localLineEndings, ref flags);
 
-            Array.Resize(ref outBytes, outCount);
+            //
+            // BUGFIX: Is the buffer ends with the first character
+            //         of a carriage-return / line-feed pair (i.e.
+            //         a carriage-return), then it is not ready to
+            //         return yet.
+            //
+            if (!ignoreLineEnding && FlagOps.HasFlags(
+                    flags, StreamFlags.NeedLineFeed, false))
+            {
+                if (readBuffer != null)
+                {
+                    /* NO RESULT */
+                    readBuffer.Append(inBytes);
+
+                    //
+                    // HACK: Since the result of end-of-line
+                    //       translation is being discarded,
+                    //       also reset the associated flags.
+                    //
+                    /* NO RESULT */
+                    ResetLineEndingFlags(ref flags);
+                }
+
+                return false;
+            }
+
+            Array.Resize(ref outBytes, translateCount);
 
             if (buffer != null)
+            {
+                ListOps.Adjust(
+                    localLineEndings, buffer.Count);
+
                 buffer.AddRange(outBytes);
+            }
             else
+            {
                 buffer = new ByteList(outBytes);
+            }
+
+            if (localLineEndings != null)
+            {
+                if (lineEndings != null)
+                    lineEndings.AddRange(localLineEndings);
+                else
+                    lineEndings = localLineEndings;
+            }
 
             return true;
         }

@@ -38,6 +38,32 @@ namespace Eagle._Components.Private
         private const string optionSizeOfWcharT = " SIZE_OF_WCHAR_T=2";
         private const string optionUse32BitSizeT = " USE_32BIT_SIZE_T=1";
         private const string optionUseSysStringLen = " USE_SYSSTRINGLEN=1";
+        private const string optionUseHeapApi = " USE_HEAPAPI=1";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static StringComparison optionComparisonType =
+            SharedStringOps.SystemComparisonType;
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if WINDOWS
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static long compactEveryCount = 1000000;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static UIntPtr heapInitialSize = new UIntPtr(33554432); /* 32MB */
+        private static UIntPtr heapMaximumSize = new UIntPtr(0);
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -50,20 +76,37 @@ namespace Eagle._Components.Private
         private static IntPtr nativeModule = IntPtr.Zero;
         private static string nativeFileName = null;
         private static TypeDelegateDictionary nativeDelegates;
+        private static TypeBoolDictionary nativeOptional;
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if WINDOWS
+        private static IntPtr nativeHeap = IntPtr.Zero;
+        private static bool? nativeUseHeapApi = null;
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
         private static Eagle_GetVersion nativeGetVersion;
+        private static Eagle_FreeVersion nativeFreeVersion;
         private static Eagle_AllocateMemory nativeAllocateMemory;
         private static Eagle_FreeMemory nativeFreeMemory;
         private static Eagle_FreeElements nativeFreeElements;
         private static Eagle_SplitList nativeSplitList;
         private static Eagle_JoinList nativeJoinList;
+        private static Eagle_SetMemoryHeap nativeSetMemoryHeap;
 
         ///////////////////////////////////////////////////////////////////////
 
         private static long splitCount;
         private static long joinCount;
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if WINDOWS
+        private static long maybeCompactCount;
+        private static long compactCount;
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -107,9 +150,11 @@ namespace Eagle._Components.Private
         private static bool IsUsable(
             string version,
             bool debug,
-            StringComparison comparisonType
+            out bool useHeapApi
             )
         {
+            useHeapApi = false;
+
             if (version == null)
             {
                 TraceOps.DebugTrace(
@@ -122,8 +167,8 @@ namespace Eagle._Components.Private
 
             if (debug)
             {
-                if (version.IndexOf(
-                        optionDebug, comparisonType) == Index.Invalid)
+                if (version.IndexOf(optionDebug,
+                        optionComparisonType) == Index.Invalid)
                 {
                     TraceOps.DebugTrace(String.Format(
                         "IsUsable: missing option {0}",
@@ -136,8 +181,8 @@ namespace Eagle._Components.Private
             }
             else
             {
-                if (version.IndexOf(
-                        optionRelease, comparisonType) == Index.Invalid)
+                if (version.IndexOf(optionRelease,
+                        optionComparisonType) == Index.Invalid)
                 {
                     TraceOps.DebugTrace(String.Format(
                         "IsUsable: missing option {0}",
@@ -149,8 +194,8 @@ namespace Eagle._Components.Private
                 }
             }
 
-            if (version.IndexOf(
-                    optionSizeOfWcharT, comparisonType) == Index.Invalid)
+            if (version.IndexOf(optionSizeOfWcharT,
+                    optionComparisonType) == Index.Invalid)
             {
                 TraceOps.DebugTrace(String.Format(
                     "IsUsable: missing option {0}",
@@ -161,8 +206,8 @@ namespace Eagle._Components.Private
                 return false;
             }
 
-            if (version.IndexOf(
-                    optionUse32BitSizeT, comparisonType) == Index.Invalid)
+            if (version.IndexOf(optionUse32BitSizeT,
+                    optionComparisonType) == Index.Invalid)
             {
                 TraceOps.DebugTrace(String.Format(
                     "IsUsable: missing option {0}",
@@ -174,8 +219,8 @@ namespace Eagle._Components.Private
             }
 
 #if NATIVE_UTILITY_BSTR
-            if (version.IndexOf(
-                    optionUseSysStringLen, comparisonType) == Index.Invalid)
+            if (version.IndexOf(optionUseSysStringLen,
+                    optionComparisonType) == Index.Invalid)
             {
                 TraceOps.DebugTrace(String.Format(
                     "IsUsable: missing option {0}",
@@ -186,8 +231,8 @@ namespace Eagle._Components.Private
                 return false;
             }
 #else
-            if (version.IndexOf(
-                    optionUseSysStringLen, comparisonType) != Index.Invalid)
+            if (version.IndexOf(optionUseSysStringLen,
+                    optionComparisonType) != Index.Invalid)
             {
                 TraceOps.DebugTrace(String.Format(
                     "IsUsable: mismatched option {0}",
@@ -198,6 +243,26 @@ namespace Eagle._Components.Private
                 return false;
             }
 #endif
+
+            if (version.IndexOf(optionUseHeapApi,
+                    optionComparisonType) != Index.Invalid)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "IsUsable: found option {0}",
+                    FormatOps.WrapOrNull(optionUseHeapApi)),
+                    typeof(NativeUtility).Name,
+                    TracePriority.NativeDebug);
+
+                useHeapApi = true;
+            }
+            else
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "IsUsable: missing option {0}",
+                    FormatOps.WrapOrNull(optionUseHeapApi)),
+                    typeof(NativeUtility).Name,
+                    TracePriority.NativeWarning);
+            }
 
             return true;
         }
@@ -380,16 +445,16 @@ namespace Eagle._Components.Private
             StringList list
             )
         {
-            if (noReflection)
+            lock (syncRoot) /* TRANSACTIONAL */
             {
-                if (list == null)
-                    return null;
+                if (noReflection)
+                {
+                    if (list == null)
+                        return null;
 
-                return list.ToArray();
-            }
-            else
-            {
-                lock (syncRoot) /* TRANSACTIONAL */
+                    return list.ToArray();
+                }
+                else
                 {
                     return ArrayOps.GetArray<string>(
                         list, true, ref itemsFieldInfo);
@@ -399,7 +464,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static bool InitializeNativeDelegates(
+        private static void InitializeNativeDelegates(
             bool clear
             )
         {
@@ -411,14 +476,21 @@ namespace Eagle._Components.Private
                     nativeDelegates.Clear();
 
                 nativeDelegates.Add(typeof(Eagle_GetVersion), null);
+                nativeDelegates.Add(typeof(Eagle_FreeVersion), null);
                 nativeDelegates.Add(typeof(Eagle_AllocateMemory), null);
                 nativeDelegates.Add(typeof(Eagle_FreeMemory), null);
                 nativeDelegates.Add(typeof(Eagle_FreeElements), null);
                 nativeDelegates.Add(typeof(Eagle_SplitList), null);
                 nativeDelegates.Add(typeof(Eagle_JoinList), null);
-            }
+                nativeDelegates.Add(typeof(Eagle_SetMemoryHeap), null);
 
-            return true;
+                if (nativeOptional == null)
+                    nativeOptional = new TypeBoolDictionary();
+                else if (clear)
+                    nativeOptional.Clear();
+
+                nativeOptional.Add(typeof(Eagle_SetMemoryHeap), true);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -428,13 +500,17 @@ namespace Eagle._Components.Private
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 nativeGetVersion = null;
+                nativeFreeVersion = null;
                 nativeAllocateMemory = null;
                 nativeFreeMemory = null;
                 nativeFreeElements = null;
                 nativeSplitList = null;
                 nativeJoinList = null;
+                nativeSetMemoryHeap = null;
 
-                RuntimeOps.UnsetNativeDelegates(nativeDelegates, null);
+                /* NO RESULT */
+                RuntimeOps.UnsetNativeDelegates(
+                    nativeDelegates, nativeOptional);
             }
         }
 
@@ -448,13 +524,16 @@ namespace Eagle._Components.Private
             {
                 if ((RuntimeOps.SetNativeDelegates(
                         "utility API", nativeModule, nativeDelegates,
-                        null, ref error) == ReturnCode.Ok) &&
+                        nativeOptional, ref error) == ReturnCode.Ok) &&
                     (nativeDelegates != null))
                 {
                     try
                     {
                         nativeGetVersion = (Eagle_GetVersion)
                             nativeDelegates[typeof(Eagle_GetVersion)];
+
+                        nativeFreeVersion = (Eagle_FreeVersion)
+                            nativeDelegates[typeof(Eagle_FreeVersion)];
 
                         nativeAllocateMemory = (Eagle_AllocateMemory)
                             nativeDelegates[typeof(Eagle_AllocateMemory)];
@@ -471,6 +550,9 @@ namespace Eagle._Components.Private
                         nativeJoinList = (Eagle_JoinList)
                             nativeDelegates[typeof(Eagle_JoinList)];
 
+                        nativeSetMemoryHeap = (Eagle_SetMemoryHeap)
+                            nativeDelegates[typeof(Eagle_SetMemoryHeap)];
+
                         return true;
                     }
                     catch (Exception e)
@@ -485,6 +567,275 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if WINDOWS
+        private static void AddExitedEventHandler()
+        {
+            if (!GlobalConfiguration.DoesValueExist(
+                    "No_NativeUtility_Exited",
+                    ConfigurationFlags.NativeUtility))
+            {
+                AppDomain appDomain = AppDomainOps.GetCurrent();
+
+                if (appDomain != null)
+                {
+                    if (!AppDomainOps.IsDefault(appDomain))
+                    {
+                        appDomain.DomainUnload -= NativeUtility_Exited;
+                        appDomain.DomainUnload += NativeUtility_Exited;
+                    }
+                    else
+                    {
+                        appDomain.ProcessExit -= NativeUtility_Exited;
+                        appDomain.ProcessExit += NativeUtility_Exited;
+                    }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void RemoveExitedEventHandler()
+        {
+            AppDomain appDomain = AppDomainOps.GetCurrent();
+
+            if (appDomain != null)
+            {
+                if (!AppDomainOps.IsDefault(appDomain))
+                    appDomain.DomainUnload -= NativeUtility_Exited;
+                else
+                    appDomain.ProcessExit -= NativeUtility_Exited;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void NativeUtility_Exited(
+            object sender,
+            EventArgs e
+            )
+        {
+            /* IGNORED */
+            MaybeFinalizeNativeHeap();
+
+            /* IGNORED */
+            UnloadNativeLibrary(null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool InitializeNativeHeap(
+            ref Result error
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!PlatformOps.IsWindowsOperatingSystem())
+                    return true;
+
+                if (nativeHeap != IntPtr.Zero)
+                    return true;
+
+                IntPtr newHeap = NativeOps.UnsafeNativeMethods.HeapCreate(
+                    NativeOps.UnsafeNativeMethods.HEAP_NONE, heapInitialSize,
+                    heapMaximumSize);
+
+                if (newHeap != IntPtr.Zero)
+                {
+                    IntPtr setHeap = newHeap; /* NOT USED */
+
+                    if (SetMemoryHeap(
+                            ref setHeap, ref error) == ReturnCode.Ok)
+                    {
+                        nativeHeap = newHeap;
+                        return true;
+                    }
+                }
+                else
+                {
+                    int lastError = Marshal.GetLastWin32Error();
+
+                    error = String.Format(
+                        "HeapCreate() failed with error {0}: {1}",
+                        lastError, NativeOps.GetErrorMessage(lastError));
+                }
+
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool CompactNativeHeap(
+            ref Result error
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!PlatformOps.IsWindowsOperatingSystem())
+                    return true;
+
+                if (nativeHeap == IntPtr.Zero)
+                    return true;
+
+                UIntPtr size = NativeOps.UnsafeNativeMethods.HeapCompact(
+                    nativeHeap, NativeOps.UnsafeNativeMethods.HEAP_NONE);
+
+                Interlocked.Increment(ref compactCount);
+
+                if (size != UIntPtr.Zero)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "CompactNativeHeap: largest free block: {0} bytes",
+                        size), typeof(NativeUtility).Name,
+                        TracePriority.NativeDebug);
+
+                    return true;
+                }
+                else
+                {
+                    int lastError = Marshal.GetLastWin32Error();
+
+                    error = String.Format(
+                        "HeapCompact() failed with error {0}: {1}",
+                        lastError, NativeOps.GetErrorMessage(lastError));
+                }
+
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool FinalizeNativeHeap(
+            ref Result error
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (!PlatformOps.IsWindowsOperatingSystem())
+                    return true;
+
+                if (nativeHeap == IntPtr.Zero)
+                    return true;
+
+                IntPtr setHeap = IntPtr.Zero; /* NOT USED */
+
+                if (SetMemoryHeap(
+                        ref setHeap, ref error) == ReturnCode.Ok)
+                {
+                    if (NativeOps.UnsafeNativeMethods.HeapDestroy(
+                            nativeHeap))
+                    {
+                        nativeHeap = IntPtr.Zero;
+                        return true;
+                    }
+                    else
+                    {
+                        int lastError = Marshal.GetLastWin32Error();
+
+                        error = String.Format(
+                            "HeapDestroy() failed with error {0}: {1}",
+                            lastError, NativeOps.GetErrorMessage(lastError));
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeInitializeNativeHeap()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if ((nativeUseHeapApi == null) || !(bool)nativeUseHeapApi)
+                    return true;
+
+                /* NO RESULT */
+                AddExitedEventHandler();
+
+                Result error = null;
+
+                if (!InitializeNativeHeap(ref error))
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "MaybeInitializeNativeHeap: native heap error: {0}",
+                        FormatOps.WrapOrNull(error)),
+                        typeof(NativeUtility).Name,
+                        TracePriority.NativeError);
+
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeCompactNativeHeap()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if ((nativeUseHeapApi == null) || !(bool)nativeUseHeapApi)
+                    return true;
+
+                if ((Interlocked.Increment(
+                        ref maybeCompactCount) % compactEveryCount) != 0)
+                {
+                    return true;
+                }
+
+                Result error = null;
+
+                if (!CompactNativeHeap(ref error))
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "MaybeCompactNativeHeap: native heap error: {0}",
+                        FormatOps.WrapOrNull(error)),
+                        typeof(NativeUtility).Name,
+                        TracePriority.NativeError);
+
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeFinalizeNativeHeap()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if ((nativeUseHeapApi == null) || !(bool)nativeUseHeapApi)
+                    return true;
+
+                Result error = null;
+
+                if (!FinalizeNativeHeap(ref error))
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "MaybeFinalizeNativeHeap: native heap error: {0}",
+                        FormatOps.WrapOrNull(error)),
+                        typeof(NativeUtility).Name,
+                        TracePriority.NativeError);
+
+                    return false;
+                }
+
+                /* NO RESULT */
+                RemoveExitedEventHandler();
+
+                return true;
+            }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool LoadNativeLibrary(
             Interpreter interpreter
             )
@@ -496,8 +847,10 @@ namespace Eagle._Components.Private
 
                 try
                 {
+                    Result error; /* REUSED */
                     string fileName;
-                    Result error = null;
+
+                    error = null;
 
                     fileName = GetNativeLibraryFileName(
                         interpreter, ref error);
@@ -520,7 +873,8 @@ namespace Eagle._Components.Private
                         }
 
                         TraceOps.DebugTrace(String.Format(
-                            "LoadNativeLibrary: {0}", error),
+                            "LoadNativeLibrary: {0}",
+                            FormatOps.WrapOrNull(error)),
                             typeof(NativeUtility).Name,
                             TracePriority.NativeError);
 
@@ -547,7 +901,8 @@ namespace Eagle._Components.Private
                     // BUGFIX: Stop loading "untrusted" native libraries
                     //         when running with a "trusted" core library.
                     //
-                    if (!RuntimeOps.ShouldTrustNativeLibrary(fileName))
+                    if (!RuntimeOps.ShouldTrustNativeLibrary(
+                            interpreter, fileName))
                     {
                         TraceOps.DebugTrace(String.Format(
                             "LoadNativeLibrary: file name {0} is untrusted",
@@ -565,6 +920,7 @@ namespace Eagle._Components.Private
 
                     if (nativeModule != IntPtr.Zero)
                     {
+                        /* NO RESULT */
                         InitializeNativeDelegates(true);
 
                         error = null;
@@ -587,7 +943,8 @@ namespace Eagle._Components.Private
                             TraceOps.DebugTrace(String.Format(
                                 "LoadNativeLibrary: file name {0} delegate " +
                                 "setup error: {1}",
-                                FormatOps.WrapOrNull(fileName), error),
+                                FormatOps.WrapOrNull(fileName),
+                                FormatOps.WrapOrNull(error)),
                                 typeof(NativeUtility).Name,
                                 TracePriority.NativeError);
 
@@ -597,10 +954,16 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
+                        error = NativeOps.GetDynamicLoadingError(
+                            lastError);
+
+                        if (error != null)
+                            error = error.Trim();
+
                         TraceOps.DebugTrace(String.Format(
                             "LoadLibrary({1}) failed with error {0}: {2}",
                             lastError, FormatOps.WrapOrNull(fileName),
-                            NativeOps.GetDynamicLoadingError(lastError).Trim()),
+                            FormatOps.WrapOrNull(error)),
                             typeof(NativeUtility).Name,
                             TracePriority.NativeError);
                     }
@@ -629,6 +992,12 @@ namespace Eagle._Components.Private
 
                 try
                 {
+#if WINDOWS
+                    if (!MaybeFinalizeNativeHeap())
+                        return false;
+#endif
+
+                    /* NO RESULT */
                     UnsetNativeDelegates();
 
                     int lastError;
@@ -642,16 +1011,23 @@ namespace Eagle._Components.Private
                         TraceOps.DebugTrace(
                             "UnloadNativeLibrary: successfully unloaded",
                             typeof(NativeUtility).Name,
-                            TracePriority.NativeDebug);
+                            TracePriority.NativeDebug3);
 
                         return true;
                     }
                     else
                     {
+                        Result error = NativeOps.GetDynamicLoadingError(
+                            lastError);
+
+                        if (error != null)
+                            error = error.Trim();
+
                         TraceOps.DebugTrace(String.Format(
-                            "FreeLibrary(0x{1:X}) failed with error {0}: {2}",
+                            "FreeLibrary(0x{1:X}) " +
+                            "failed with error {0}: {2}",
                             lastError, nativeModule,
-                            NativeOps.GetDynamicLoadingError(lastError).Trim()),
+                            FormatOps.WrapOrNull(error)),
                             typeof(NativeUtility).Name,
                             TracePriority.NativeError);
                     }
@@ -721,6 +1097,12 @@ namespace Eagle._Components.Private
                     if (empty || noReflection)
                         localList.Add("NoReflection", noReflection.ToString());
 
+#if WINDOWS
+                    if (empty || (nativeUseHeapApi != null))
+                        localList.Add("NativeUseHeapApi", (nativeUseHeapApi != null) ?
+                            nativeUseHeapApi.ToString() : FormatOps.DisplayNull);
+#endif
+
                     if (empty || (nativeModule != IntPtr.Zero))
                         localList.Add("NativeModule", nativeModule.ToString());
 
@@ -728,13 +1110,32 @@ namespace Eagle._Components.Private
                         localList.Add("NativeFileName", (nativeFileName != null) ?
                             nativeFileName : FormatOps.DisplayNull);
 
+#if WINDOWS
+                    if (empty || (nativeHeap != IntPtr.Zero))
+                        localList.Add("NativeHeap", nativeHeap.ToString());
+
+                    if (empty || (heapInitialSize != UIntPtr.Zero))
+                        localList.Add("HeapInitialSize", heapInitialSize.ToString());
+
+                    if (empty || (heapMaximumSize != UIntPtr.Zero))
+                        localList.Add("HeapMaximumSize", heapMaximumSize.ToString());
+#endif
+
                     if (empty || ((nativeDelegates != null) && (nativeDelegates.Count > 0)))
                         localList.Add("NativeDelegates", (nativeDelegates != null) ?
                             nativeDelegates.Count.ToString() : FormatOps.DisplayNull);
 
+                    if (empty || ((nativeOptional != null) && (nativeOptional.Count > 0)))
+                        localList.Add("NativeOptional", (nativeOptional != null) ?
+                            nativeOptional.Count.ToString() : FormatOps.DisplayNull);
+
                     if (empty || (nativeGetVersion != null))
                         localList.Add("NativeGetVersion", (nativeGetVersion != null) ?
                             nativeGetVersion.ToString() : FormatOps.DisplayNull);
+
+                    if (empty || (nativeFreeVersion != null))
+                        localList.Add("NativeFreeVersion", (nativeFreeVersion != null) ?
+                            nativeFreeVersion.ToString() : FormatOps.DisplayNull);
 
                     if (empty || (nativeAllocateMemory != null))
                         localList.Add("NativeAllocateMemory", (nativeAllocateMemory != null) ?
@@ -756,6 +1157,10 @@ namespace Eagle._Components.Private
                         localList.Add("NativeJoinList", (nativeJoinList != null) ?
                             nativeJoinList.ToString() : FormatOps.DisplayNull);
 
+                    if (empty || (nativeSetMemoryHeap != null))
+                        localList.Add("NativeSetMemoryHeap", (nativeSetMemoryHeap != null) ?
+                            nativeSetMemoryHeap.ToString() : FormatOps.DisplayNull);
+
                     if (empty || (version != null))
                         localList.Add("Version", (version != null) ?
                             version : FormatOps.DisplayNull);
@@ -770,11 +1175,31 @@ namespace Eagle._Components.Private
                         localList.Add("ItemsFieldInfo", (itemsFieldInfo != null) ?
                             itemsFieldInfo.ToString() : FormatOps.DisplayNull);
 
-                    if (empty || (splitCount > 0))
-                        localList.Add("SplitCount", splitCount.ToString());
+                    long localSplitCount = Interlocked.CompareExchange(
+                        ref splitCount, 0, 0);
 
-                    if (empty || (joinCount > 0))
-                        localList.Add("JoinCount", joinCount.ToString());
+                    if (empty || (localSplitCount > 0))
+                        localList.Add("SplitCount", localSplitCount.ToString());
+
+                    long localJoinCount = Interlocked.CompareExchange(
+                        ref joinCount, 0, 0);
+
+                    if (empty || (localJoinCount > 0))
+                        localList.Add("JoinCount", localJoinCount.ToString());
+
+#if WINDOWS
+                    long localCompactCount = Interlocked.CompareExchange(
+                        ref compactCount, 0, 0);
+
+                    if (empty || (localCompactCount > 0))
+                        localList.Add("CompactCount", localCompactCount.ToString());
+
+                    long localMaybeCompactCount = Interlocked.CompareExchange(
+                        ref maybeCompactCount, 0, 0);
+
+                    if (empty || (localMaybeCompactCount > 0))
+                        localList.Add("MaybeCompactCount", localMaybeCompactCount.ToString());
+#endif
 
                     if (localList.Count > 0)
                     {
@@ -846,7 +1271,7 @@ namespace Eagle._Components.Private
 
                 if (locked)
                 {
-                    if ((nativeFreeMemory != null) &&
+                    if ((nativeFreeVersion != null) &&
                         (nativeGetVersion != null))
                     {
                         IntPtr pVersion = IntPtr.Zero;
@@ -868,7 +1293,7 @@ namespace Eagle._Components.Private
                         {
                             if (pVersion != IntPtr.Zero)
                             {
-                                nativeFreeMemory(pVersion);
+                                nativeFreeVersion(pVersion);
                                 pVersion = IntPtr.Zero;
                             }
                         }
@@ -915,7 +1340,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsAvailable(
-            Interpreter interpreter
+            Interpreter interpreter /* OPTIONAL */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -977,7 +1402,9 @@ namespace Eagle._Components.Private
                         if (!LoadNativeLibrary(interpreter))
                             return (bool)(isAvailable = false);
 
-                        if ((nativeFreeMemory != null) &&
+                        ///////////////////////////////////////////////////////
+
+                        if ((nativeFreeVersion != null) &&
                             (nativeGetVersion != null))
                         {
                             IntPtr pVersion = IntPtr.Zero;
@@ -991,10 +1418,39 @@ namespace Eagle._Components.Private
                                     version = Marshal.PtrToStringUni(
                                         pVersion);
 
-                                    if (IsUsable(version, Build.Debug,
-                                            SharedStringOps.SystemComparisonType))
+                                    bool useHeapApi;
+
+                                    if (IsUsable(
+                                            version, Build.Debug,
+                                            out useHeapApi))
                                     {
-                                        isAvailable = true;
+#if WINDOWS
+                                        //
+                                        // HACK: Unless somebody (?) already
+                                        //       set the "UseHeapApi" flag,
+                                        //       do that now.
+                                        //
+                                        if (nativeUseHeapApi == null)
+                                            nativeUseHeapApi = useHeapApi;
+
+                                        //
+                                        // NOTE: If applicable, enable usage
+                                        //       of the native Win32 API for
+                                        //       heap management.
+                                        //
+                                        if (MaybeInitializeNativeHeap())
+#endif
+                                        {
+                                            ParserOpsData.EnableNative(true);
+                                            isAvailable = true;
+                                        }
+#if WINDOWS
+                                        else
+                                        {
+                                            version = null;
+                                            isAvailable = false;
+                                        }
+#endif
                                     }
                                     else
                                     {
@@ -1028,7 +1484,7 @@ namespace Eagle._Components.Private
                             {
                                 if (pVersion != IntPtr.Zero)
                                 {
-                                    nativeFreeMemory(pVersion);
+                                    nativeFreeVersion(pVersion);
                                     pVersion = IntPtr.Zero;
                                 }
                             }
@@ -1038,7 +1494,7 @@ namespace Eagle._Components.Private
                             TraceOps.DebugTrace(String.Format(
                                 "IsAvailable: one or more required " +
                                 "functions are unavailable: {0} or {1}",
-                                typeof(Eagle_FreeMemory).Name,
+                                typeof(Eagle_FreeVersion).Name,
                                 typeof(Eagle_GetVersion).Name),
                                 typeof(NativeUtility).Name,
                                 TracePriority.NativeError);
@@ -1272,6 +1728,15 @@ namespace Eagle._Components.Private
                             pElementLengths = IntPtr.Zero;
                         }
                         #endregion
+
+                        ///////////////////////////////////////////////////////
+
+                        #region Maybe Compact Native Heap
+#if WINDOWS
+                        /* IGNORED */
+                        MaybeCompactNativeHeap();
+#endif
+                        #endregion
                     }
                 }
                 else
@@ -1366,6 +1831,15 @@ namespace Eagle._Components.Private
                             pText = IntPtr.Zero;
                         }
                         #endregion
+
+                        ///////////////////////////////////////////////////////
+
+                        #region Maybe Compact Native Heap
+#if WINDOWS
+                        /* IGNORED */
+                        MaybeCompactNativeHeap();
+#endif
+                        #endregion
                     }
                 }
                 else
@@ -1374,6 +1848,45 @@ namespace Eagle._Components.Private
                         "one or more required functions are unavailable: " +
                         "{0} or {1}", typeof(Eagle_FreeMemory).Name,
                         typeof(Eagle_JoinList).Name);
+                }
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode SetMemoryHeap(
+            ref IntPtr newHeap,
+            ref Result error
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (nativeSetMemoryHeap != null)
+                {
+                    try
+                    {
+                        IntPtr oldHeap = nativeSetMemoryHeap(newHeap);
+
+                        TraceOps.DebugTrace(String.Format(
+                            "SetMemoryHeap: changed from 0x{0:X} to 0x{1:X}",
+                            oldHeap.ToInt64(), newHeap.ToInt64()),
+                            typeof(NativeUtility).Name,
+                            TracePriority.NativeDebug);
+
+                        return ReturnCode.Ok;
+                    }
+                    catch (Exception e)
+                    {
+                        error = e;
+                    }
+                }
+                else
+                {
+                    error = String.Format(
+                        "one or more required functions are unavailable: " +
+                        "{0}", typeof(Eagle_SetMemoryHeap).Name);
                 }
             }
 

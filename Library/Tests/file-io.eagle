@@ -953,7 +953,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug48 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
 
       #########################################################################
@@ -971,7 +972,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug48 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
 
       #########################################################################
@@ -989,7 +991,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug48 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
 
       #########################################################################
@@ -1007,7 +1010,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             -tails $pattern] false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug48 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
 
       #########################################################################
@@ -1025,7 +1029,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             -tails $pattern] false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug48 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
 
       #########################################################################
@@ -1054,7 +1059,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug516} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug516 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
 
       #########################################################################
@@ -1083,7 +1089,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug516} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug516 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
 
       #########################################################################
@@ -1112,7 +1119,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug516} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug516 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
 
       #########################################################################
@@ -1130,7 +1138,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug48 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
 
       #########################################################################
@@ -1148,7 +1157,8 @@ if {[isEagle] && [haveConstraint tclShell] && \
             false "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
-      } -constraints [eval lappendArgs {eagle tclShell monoBug48} \
+      } -constraints [eval lappendArgs \
+          {eagle tclShell monoBug48 timeIntensive fileSystemIntensive} \
           $thisConstraint] -result {True}}
     }
   } finally {
@@ -2106,6 +2116,306 @@ runTest {test fileDrive-1.1 {file drive error handling} -body {
   ![haveConstraint compile.MONO] && ![isMono] && [isWindows] ? \
       "unrecognized path" : "not implemented"
 }]}
+
+###############################################################################
+
+if {![info exists useTcl]} then {
+  set useTcl [haveConstraint tclShell]
+  set setUseTcl true
+}
+
+###############################################################################
+
+if {![info exists useStrict]} then {
+  set useStrict [haveConstraint strictChannelBuffer]
+  set setUseStrict true
+}
+
+###############################################################################
+
+runTest {test channelBuffer-1.1 {non-blocking cr/lf with buffer} -setup {
+  proc buildInputs {} {
+    set result [list]
+
+    array set texts [list 1 one 2 two]
+    set endings [list "" \n \r \r\n \n\r]
+
+    foreach ending(1) $endings {
+      foreach ending(2) $endings {
+        foreach ending(3) $endings {
+          foreach ending(4) $endings {
+            lappend result [list \
+                $ending(1) $texts(1) $ending(2) $texts(2) \
+                $ending(3) $ending(4)]
+
+            lappend result [list \
+                $ending(1) [appendArgs $texts(1) $ending(2)] \
+                $texts(2) $ending(3) $ending(4)]
+
+            lappend result [list \
+                $ending(1) $texts(1) $ending(2) [appendArgs \
+                $texts(2) $ending(3)] $ending(4)]
+
+            lappend result [list \
+                $ending(1) [appendArgs $texts(1) $ending(2)] \
+                [appendArgs $texts(2) $ending(3)] $ending(4)]
+          }
+        }
+      }
+    }
+
+    return $result
+  }
+
+  proc readLines { channel } {
+    set result ""
+
+    fconfigure $channel -translation crlf
+
+    while {![eof $channel]} {
+      if {[isEagle]} then {
+        if {[catch {gets -noblock $channel} string] == 0} then {
+          append result $string
+        }
+      } else {
+        if {[catch {gets $channel} string] == 0} then {
+          append result $string
+        }
+      }
+    }
+
+    return $result
+  }
+
+  proc dumpAsHex { string } {
+    set result [list]
+
+    if {[isEagle]} then {
+      set chars [split $string ""]
+
+      foreach char $chars {
+        set charCode [string ordinal $char 0]
+        lappend result [format %02X $charCode]
+      }
+    } else {
+      if {[binary scan $string c* charCodes] == 1} then {
+        foreach charCode $charCodes {
+          lappend result [format %02X $charCode]
+        }
+      }
+    }
+
+    return $result
+  }
+
+  proc removeHexCrLf { value } {
+    set crLf "0D 0A"
+
+    if {[string first $crLf $value] == -1} then {
+      return $value
+    }
+
+    set result $value
+    set result [string map [list $crLf ""] $result]
+    set result [string map [list "  " " "] $result]
+    set result [string trim $result]
+
+    return $result
+  }
+
+  proc isAllowedMismatch { id input result1 {result2 ""} } {
+    if {[string length $result2] > 0 && \
+        [removeHexCrLf $result2] eq $result1} then {
+      return true
+    }
+
+    try {
+      set fileName [file tempname]
+
+      writeList $fileName $input
+      set data [readFile $fileName]
+      set hex [dumpAsHex $data]
+
+      if {[removeHexCrLf $hex] eq $result1} then {
+        return true
+      }
+    } finally {
+      if {[info exists fileName] && \
+          [file exists $fileName]} then {
+        catch {file delete $fileName}
+      }
+    }
+
+    return false
+  }
+
+  proc writeList { fileName list } {
+    set data [eval appendArgs $list]
+    writeFile $fileName $data
+  }
+
+  if {$useTcl} then {
+    proc getTclScript { fileName } {
+      set result \n
+
+      append result \n [list \
+          source [file join $::tcl_library init.eagle]] \n
+
+      append result \n [list \
+          proc readLines [info args readLines] \
+          [info body readLines]] \n
+
+      append result \n [list \
+          proc dumpAsHex [info args dumpAsHex] \
+          [info body dumpAsHex]] \n
+
+      append result \n [list set fileName $fileName] \n
+
+      append result \n {
+        set channel [open $fileName RDONLY]
+        fconfigure $channel -encoding binary
+        set lines [readLines $channel]
+        close $channel
+        dumpAsHex $lines
+      } \n
+
+      return $result
+    }
+  }
+} -body {
+  set wantSha1(0) [hash normal sha1 [dumpAsHex onetwo]]
+  # set wantSha1(1) [hash normal sha1 [dumpAsHex whatever]]
+
+  set channel [appendArgs channelBuffer-1.1- \
+      [object invoke Interpreter.GetActive NextId]]
+
+  set results [list]
+  set inputs [buildInputs]
+  set id 0
+
+  foreach input $inputs {
+    incr id
+
+    if {$useTcl} then {
+      set fileName($id) [file join \
+          [getTemporaryPath] [appendArgs \
+          channelBuffer-1.1-data- $id .txt]]
+
+      writeList $fileName($id) $input
+
+      set tclResult [evalWithTclShell \
+          [getTclScript $fileName($id)] false "" \
+          [getTclShellVerbosity]]
+
+      file delete $fileName($id)
+    }
+
+    if {[llength [info channels $channel]] > 0} then {
+      removeChannel $channel
+    }
+
+    set list [object create -alias StringList]
+    foreach subInput $input {$list Add $subInput}
+    addListStreamChannel $channel $list
+
+    set result [dumpAsHex [readLines $channel]]
+    set haveSha1 [hash normal sha1 $result]
+
+    if {!$useTcl || $result ne $tclResult} then {
+      if {[info exists wantSha1($id)]} then {
+        set wantSha1(X) $wantSha1($id)
+        set hashType special
+      } else {
+        set wantSha1(X) $wantSha1(0)
+        set hashType default
+      }
+
+      if {$haveSha1 ne $wantSha1(X) && ($useStrict || \
+          ![isAllowedMismatch $id $input $result [expr \
+          {[info exists tclResult] ? $tclResult : ""}]])} then {
+        set message [appendArgs \
+            "id #" $id ", have SHA1 " $haveSha1 ", want " $hashType \
+            " SHA1 " $wantSha1(X) ", raw inputs list: " [object invoke \
+                -flags +NonPublic Eagle._Components.Private.ArrayOps \
+                ToHexadecimalString $list] ", raw result: " $result \
+            ", native Tcl result: " [expr {[info exists tclResult] ? \
+            $tclResult : "<none>"}]]
+
+        tputs $test_channel [appendArgs "==== ERROR: " $message \n]
+
+        lappend results $message
+        # error $message
+      }
+
+      if {$useTcl && ![haveConstraint quiet]} then {
+        tputs $test_channel [appendArgs \
+            "==== WARNING: result #" $id " differs from native Tcl\n"]
+      }
+    }
+  }
+
+  set message [appendArgs \
+      "encountered " [llength $results] " mismatches out of " \
+      [llength $inputs] " total inputs"]
+
+  tputs $test_channel [appendArgs "---- " $message \n]
+
+  if {[llength $results] > 0} then {
+    lappend results $message
+
+    if {0} then {
+      writeFile [file join \
+          [getTemporaryPath] channelBuffer-1.1-results.txt] \
+          [join $results \n]
+    }
+
+    error [join $results \n]
+  }
+} -cleanup {
+  if {$useTcl} then {
+    foreach id [lsort -integer [array names fileName]] {
+      catch {file delete $fileName($id)}
+    }
+  }
+
+  if {$useTcl} then {
+    catch {info previouspid true}
+  }
+
+  removeChannel $channel false
+
+  unset -nocomplain wantSha1 haveSha1 hashType channel
+  unset -nocomplain id inputs input subInput list
+  unset -nocomplain message result results
+
+  if {$useTcl} then {
+    unset -nocomplain fileName tclResult
+  }
+
+  if {$useTcl} then {
+    rename getTclScript ""
+  }
+
+  rename writeList ""
+  rename isAllowedMismatch ""
+  rename removeHexCrLf ""
+  rename dumpAsHex ""
+  rename readLines ""
+  rename buildInputs ""
+} -constraints {eagle Eagle._Tests.Default.TestAddListStreamChannel\
+timeIntensive fileSystemIntensive} -result {}}
+
+###############################################################################
+
+if {[info exists setUseStrict]} then {
+  unset -nocomplain useStrict setUseStrict
+}
+
+###############################################################################
+
+if {[info exists setUseTcl]} then {
+  unset -nocomplain useTcl setUseTcl
+}
 
 ###############################################################################
 

@@ -156,7 +156,7 @@ namespace Eagle._Commands
                     try
                     {
 #endif
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                         InterpreterStateFlags savedInterpreterStateFlags =
                             InterpreterStateFlags.None;
 
@@ -211,7 +211,7 @@ namespace Eagle._Commands
                                     profiler = null;
                                 }
                             }
-#if DEBUGGER && BREAKPOINTS
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
                         }
                         finally
                         {

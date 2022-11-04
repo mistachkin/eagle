@@ -154,7 +154,8 @@
     </CleanDependsOn>
   </PropertyGroup>
   <PropertyGroup Condition="!Exists('$(EaglePowerShellExternalsDirectory)\System.Management.Automation.dll') And
-                            !Exists('$(EaglePowerShellDirectory)\System.Management.Automation.dll')">
+                            !Exists('$(EaglePowerShellDirectory)\System.Management.Automation.dll') And
+                            '$(MissingSystemManagementAutomation)' != 'false'">
     <!--
         NOTE: We cannot build this project without the necessary reference
               assembly; therefore, skip building it altogether.

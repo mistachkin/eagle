@@ -293,6 +293,17 @@ if {![info exists no([file tail [info script]])]} then {
   }
 
   #
+  # NOTE: Set the web hosts to test TLS (1.2, etc) against, if
+  #       necessary.
+  #
+  if {![info exists test_hosts]} then {
+    set test_hosts [list \
+        eagle.to update.eagle.to download.eagle.to script.eagle.to \
+        www.eagle-lang.org www1.eagle-lang.org www2.eagle-lang.org \
+        pkg.management urn.to mistachkin.com]
+  }
+
+  #
   # NOTE: Set the port to use for server sockets, if necessary.
   #
   if {![info exists test_port]} then {
@@ -304,7 +315,11 @@ if {![info exists no([file tail [info script]])]} then {
   #       that has historically been used for network related calls.
   #
   if {![info exists test_timeout]} then {
-    set test_timeout 2000; # in milliseconds.
+    if {[catch {
+      info engine NetworkTimeout
+    } test_timeout]} then {
+      set test_timeout 2000; # in milliseconds (COMPAT: Eagle beta).
+    }
   }
 
   #
@@ -459,7 +474,8 @@ if {![info exists no([file tail [info script]])]} then {
       set pattern {^local-root:\s+(.*?)$}
 
       if {[catch {
-        execFossilCommand [file dirname [info script]] info
+        execFossilCommand \
+            [expr {[info exists path] ? $path : $test_path}] info
       } exec] || ![regexp -line -- $pattern $exec dummy directory]} then {
         #
         # NOTE: We could not query local root directory of the source
@@ -948,6 +964,10 @@ if {![info exists no([file tail [info script]])]} then {
       [expr {[info exists test_run_id] ? \
           $test_run_id : "<none>"}] \n]
 
+  tputs $test_channel [appendArgs "---- testRunBucket: " \
+      [expr {[info exists test_run_bucket] ? \
+          $test_run_bucket : "<none>"}] \n]
+
   tputs $test_channel [appendArgs "---- processId: " \
       [pid] \n]
 
@@ -1268,6 +1288,11 @@ if {![info exists no([file tail [info script]])]} then {
         [formatList [lsort [array names no]] <none>] \n]
   }
 
+  if {[isEagle] && ![info exists no(showRuntimeOptions)]} then {
+    tputs $test_channel [appendArgs "---- runtime options: " \
+        [formatList [lsort [info engine RuntimeOptions]] <none>] \n]
+  }
+
   #
   # NOTE: Is the use of Fossil by the test suite allowed?
   #
@@ -1278,7 +1303,8 @@ if {![info exists no([file tail [info script]])]} then {
     #       binary in the PATH, if available.
     #
     if {[catch {
-      execFossilCommand [file dirname [info script]] info
+      execFossilCommand \
+          [expr {[info exists path] ? $path : $test_path}] info
     } exec] == 0} then {
       set pattern {^checkout:\s+(.*?)$}
 
@@ -1287,11 +1313,19 @@ if {![info exists no([file tail [info script]])]} then {
         # NOTE: Remove any trailing newline.
         #
         set checkout [string trim $checkout]
+
+        if {![info exists no(setRepositoryCheckout)]} then {
+          set test_repository_checkout $checkout
+        }
       } else {
         #
         # NOTE: We could not query the source checkout from Fossil.
         #
         set checkout <none>
+
+        if {![info exists no(setRepositoryCheckout)]} then {
+          set test_repository_checkout ""
+        }
       }
 
       set pattern {^tags:\s+(.*?)$}
@@ -1301,18 +1335,35 @@ if {![info exists no([file tail [info script]])]} then {
         # NOTE: Remove any trailing newline.
         #
         set tags [string trim $tags]
+
+        if {![info exists no(setRepositoryTags)]} then {
+          set test_repository_tags $tags
+        }
       } else {
         #
         # NOTE: We could not query the tags from Fossil.
         #
         set tags <none>
+
+        if {![info exists no(setRepositoryTags)]} then {
+          set test_repository_tags ""
+        }
       }
     } else {
       #
       # NOTE: We could not query information from Fossil.
       #
       set checkout <none>
+
+      if {![info exists no(setRepositoryCheckout)]} then {
+        set test_repository_checkout $checkout
+      }
+
       set tags <none>
+
+      if {![info exists no(setRepositoryTags)]} then {
+        set test_repository_tags ""
+      }
     }
 
     unset -nocomplain dummy exec pattern
@@ -1826,11 +1877,11 @@ if {![info exists no([file tail [info script]])]} then {
         #
         # NOTE: Has script breakpoint support been enabled (at compile-time)?
         #
-        if {![info exists no(compileBreakpoints)]} then {
+        if {![info exists no(compileDebuggerBreakpoints)]} then {
           #
-          # NOTE: For test "proc-2.1".
+          # NOTE: For tests "debug-2.35" and "proc-2.1".
           #
-          checkForCompileOption $test_channel BREAKPOINTS
+          checkForCompileOption $test_channel DEBUGGER_BREAKPOINTS
         }
 
         #
@@ -1927,6 +1978,14 @@ if {![info exists no([file tail [info script]])]} then {
         #
         if {![info exists no(compileNetStandard21)]} then {
           checkForCompileOption $test_channel NET_STANDARD_21
+        }
+
+        #
+        # NOTE: Has support for extra .NET Core references been
+        #       enabled (at compile-time)?
+        #
+        if {![info exists no(compileNetCoreReferences)]} then {
+          checkForCompileOption $test_channel NET_CORE_REFERENCES
         }
 
         #
@@ -3089,6 +3148,17 @@ if {![info exists no([file tail [info script]])]} then {
             Eagle._Tests.Default+ScriptTimeoutThread \
             *ToString* Eagle._Tests.Default.ScriptTimeoutThread.ToString
       }
+
+      #
+      # NOTE: Has channel testing support been disabled?
+      #
+      if {![info exists no(testChannels)]} then {
+        #
+        # NOTE: For test "channelBuffer-1.1".
+        #
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestAddListStreamChannel*
+      }
     }
 
     #
@@ -4006,6 +4076,10 @@ if {![info exists no([file tail [info script]])]} then {
     checkForProcessorIntensive $test_channel
   }
 
+  if {![info exists no(checkForFileSystemIntensive)]} then {
+    checkForFileSystemIntensive $test_channel
+  }
+
   if {![info exists no(checkForTimeIntensive)]} then {
     checkForTimeIntensive $test_channel
   }
@@ -4034,12 +4108,20 @@ if {![info exists no([file tail [info script]])]} then {
     checkForFossil $test_channel
   }
 
-  if {![info exists no(testRepositoryUrl)]} then {
-    checkForVariable $test_channel test_repository_url
+  if {![info exists no(testRepositoryCheckout)]} then {
+    checkForVariable $test_channel test_repository_checkout
   }
 
   if {![info exists no(testRepositoryFile)]} then {
     checkForVariable $test_channel test_repository_file
+  }
+
+  if {![info exists no(testRepositoryTags)]} then {
+    checkForVariable $test_channel test_repository_tags
+  }
+
+  if {![info exists no(testRepositoryUrl)]} then {
+    checkForVariable $test_channel test_repository_url
   }
 
   if {![info exists no(version)]} then {
@@ -4367,10 +4449,27 @@ if {![info exists no([file tail [info script]])]} then {
   }
 
   #
-  # NOTE: Check for network connectivity to our test host.
+  # NOTE: Check for basic network connectivity to our test host.
   #
   if {![info exists no(core)] && ![info exists no(network)]} then {
     checkForNetwork $test_channel $test_host $test_timeout
+  }
+
+  #
+  # NOTE: Check for basic network connectivity to the [checkForUpdate]
+  #       host.
+  #
+  if {![info exists no(core)] && \
+      ![info exists no(network)] && ![info exists no(updateNetwork)]} then {
+    if {[llength [info commands getUpdateBaseUri]] > 0} then {
+      checkForNetwork $test_channel [getUpdateBaseUri false] $test_timeout
+    } else {
+      #
+      # HACK: This host value is hard-coded when the [getUpdateBaseUri]
+      #       procedure is unavailable.
+      #
+      checkForNetwork $test_channel update.eagle.to $test_timeout
+    }
   }
 
   #
@@ -4379,12 +4478,19 @@ if {![info exists no([file tail [info script]])]} then {
   #
   if {![info exists no(core)] && ![info exists no(internet)]} then {
     #
-    # HACK: For now, this is always hard-coded because it must be a site
-    #       on the public Internet (i.e. in order for the test constraint
-    #       to actually make sense).  Also, this URI should require HTTPS
-    #       in order to prevent test connections from being intercepted.
+    # HACK: This URI should require HTTPS to prevent test connections
+    #       from being intercepted.
     #
-    checkForInternet $test_channel https://eagle.to/ $test_timeout
+    checkForInternet $test_channel [appendArgs https:// $test_host /] \
+        $test_timeout
+  }
+
+  #
+  # NOTE: Check for Internet connectivity using TLS to all of the various
+  #       official web sites for The Eagle Project.
+  #
+  if {![info exists no(core)] && ![info exists no(tlsOk)]} then {
+    checkForTlsOk $test_channel $test_hosts $test_timeout
   }
 
   #############################################################################
@@ -4532,19 +4638,21 @@ if {![info exists no([file tail [info script]])]} then {
 
     checkForOperatingSystemUpdate $test_channel KB936929
     checkForOperatingSystemUpdate $test_channel KB976932
-    checkForOperatingSystemUpdate $test_channel "November Update"
-    checkForOperatingSystemUpdate $test_channel "Anniversary Update"
-    checkForOperatingSystemUpdate $test_channel "Creators Update"
-    checkForOperatingSystemUpdate $test_channel "Fall Creators Update"
-    checkForOperatingSystemUpdate $test_channel "April 2018 Update"
-    checkForOperatingSystemUpdate $test_channel "October 2018 Update"
-    checkForOperatingSystemUpdate $test_channel "May 2019 Update"
-    checkForOperatingSystemUpdate $test_channel "November 2019 Update"
-    checkForOperatingSystemUpdate $test_channel "May 2020 Update"
-    checkForOperatingSystemUpdate $test_channel "October 2020 Update"
-    checkForOperatingSystemUpdate $test_channel "May 2021 Update"
-    checkForOperatingSystemUpdate $test_channel "November 2021 Update"
-    checkForOperatingSystemUpdate $test_channel "22000 RTM 21H2"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, RTM"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, November Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, Anniversary Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, Creators Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, Fall Creators Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, April 2018 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, October 2018 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, May 2019 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, November 2019 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, May 2020 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, October 2020 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, May 2021 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, November 2021 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 11, RTM"
+    checkForOperatingSystemUpdate $test_channel "Windows 11, September 2022 Update"
   }
 
   #############################################################################

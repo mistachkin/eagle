@@ -18,15 +18,17 @@ using Eagle._Components.Public.Delegates;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("ab967cb8-e9dd-4855-82c1-4ee5960f0616")]
-    public interface IRuleSet
+    public interface IRuleSet : IRuleSetData
     {
-        IComparer<string> Comparer { get; set; }
-
         bool IsEmpty();
 
         void MakeReadOnly();
 
         void ClearRules();
+
+        IEnumerable<IRule> CopyRules(
+            ref Result error
+        );
 
         IRule BuildAndAddRule(
             RuleType type,
@@ -70,6 +72,12 @@ namespace Eagle._Interfaces.Public
 
         bool RemoveRule(
             IRule rule,
+            ref Result error
+        );
+
+        bool AddRules(
+            IEnumerable<IRule> rules,
+            bool stopOnError,
             ref Result error
         );
 

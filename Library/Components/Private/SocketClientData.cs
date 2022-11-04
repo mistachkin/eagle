@@ -21,10 +21,13 @@ namespace Eagle._Components.Private
     [ObjectId("9554f738-dde6-4fce-a9a2-a3e5df6394a3")]
     internal sealed class SocketClientData : ClientData, IHaveInterpreter
     {
+        #region Private Constants
         private readonly object syncRoot = new object();
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Constructors
         private SocketClientData(
             object data
             )
@@ -32,9 +35,11 @@ namespace Eagle._Components.Private
         {
             // do nothing.
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Public Constructors
         public SocketClientData(
             object data,
             EventWaitHandle @event,
@@ -45,6 +50,8 @@ namespace Eagle._Components.Private
             AddressFamily addressFamily,
             StreamFlags streamFlags,
             int? availableTimeout,
+            int? readTimeout,
+            int? writeTimeout,
             bool exclusive,
             string text /* command */
             )
@@ -58,16 +65,12 @@ namespace Eagle._Components.Private
             this.addressFamily = addressFamily;
             this.streamFlags = streamFlags;
             this.availableTimeout = availableTimeout;
+            this.readTimeout = readTimeout;
+            this.writeTimeout = writeTimeout;
             this.exclusive = exclusive;
             this.text = text;
         }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public object SyncRoot
-        {
-            get { return syncRoot; }
-        }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -91,6 +94,14 @@ namespace Eagle._Components.Private
             }
         }
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Properties
+        public object SyncRoot
+        {
+            get { return syncRoot; }
+        }
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -241,6 +252,48 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private int? readTimeout;
+        public int? ReadTimeout
+        {
+            get
+            {
+                lock (syncRoot)
+                {
+                    return readTimeout;
+                }
+            }
+            set
+            {
+                lock (syncRoot)
+                {
+                    readTimeout = value;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private int? writeTimeout;
+        public int? WriteTimeout
+        {
+            get
+            {
+                lock (syncRoot)
+                {
+                    return writeTimeout;
+                }
+            }
+            set
+            {
+                lock (syncRoot)
+                {
+                    writeTimeout = value;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private bool exclusive;
         public bool Exclusive
         {
@@ -322,5 +375,24 @@ namespace Eagle._Components.Private
                 }
             }
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Methods
+        public void MaybeSetTimeouts(
+            NetworkStream stream
+            )
+        {
+            if (stream == null)
+                return;
+
+            if (readTimeout != null)
+                stream.ReadTimeout = (int)readTimeout;
+
+            if (writeTimeout != null)
+                stream.WriteTimeout = (int)writeTimeout;
+        }
+        #endregion
     }
 }

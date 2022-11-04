@@ -2677,7 +2677,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if (NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20) && NATIVE
+#if (NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20) && NATIVE
         public static bool IsCompactMemoryLoadOk(
             CacheFlags cacheFlags /* in */
             )
@@ -3181,7 +3181,7 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////
 
-#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_STANDARD_20
+#if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
                 bool isCompactMemoryLoadOk = IsCompactMemoryLoadOk(CacheFlags.None);
 
                 if (empty || isCompactMemoryLoadOk)

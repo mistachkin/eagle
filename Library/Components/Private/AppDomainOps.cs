@@ -667,7 +667,8 @@ namespace Eagle._Components.Private
             }
             finally
             {
-                interpreter.ExitLock(ref locked); /* TRANSACTIONAL */
+                interpreter.InternalExitLock(
+                    ref locked); /* TRANSACTIONAL */
             }
 
             return null;
@@ -2396,8 +2397,9 @@ namespace Eagle._Components.Private
             long startCount
             )
         {
-            return FormatOps.Performance(PerformanceOps.GetMicroseconds(
-                startCount, PerformanceOps.GetCount(), 1, false));
+            return FormatOps.PerformanceMicroseconds(
+                PerformanceOps.GetMicrosecondsFromCount(startCount,
+                    PerformanceOps.GetCount(), 1, false));
         }
 
         ///////////////////////////////////////////////////////////////////////

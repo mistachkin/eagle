@@ -51,6 +51,7 @@ namespace Eagle._Containers.Private
             bool notHasAll,
             string pattern,
             bool noCase,
+            bool full,
             ref StringList list,
             ref Result error
             )
@@ -62,7 +63,26 @@ namespace Eagle._Containers.Private
             //
             if ((hasFlags == CommandFlags.None) && (notHasFlags == CommandFlags.None))
             {
-                inputList = new StringList(this.Keys);
+                if (full)
+                {
+                    inputList = new StringList();
+
+                    foreach (KeyValuePair<string, _Wrappers.Command> pair in this)
+                    {
+                        ICommand command = pair.Value;
+
+                        if (command == null)
+                            continue;
+
+                        inputList.Add(StringList.MakeList(
+                            command.Flags.ToString(),
+                            pair.Key));
+                    }
+                }
+                else
+                {
+                    inputList = new StringList(this.Keys);
+                }
             }
             else
             {
@@ -82,7 +102,16 @@ namespace Eagle._Containers.Private
                         ((notHasFlags == CommandFlags.None) ||
                             !FlagOps.HasFlags(flags, notHasFlags, notHasAll)))
                     {
-                        inputList.Add(pair.Key);
+                        if (full)
+                        {
+                            inputList.Add(StringList.MakeList(
+                                command.Flags.ToString(),
+                                pair.Key));
+                        }
+                        else
+                        {
+                            inputList.Add(pair.Key);
+                        }
                     }
                 }
             }

@@ -74,8 +74,8 @@ namespace Eagle._Operators
                             {
                                 if (operand1.IsDouble())
                                 {
-                                    value = Interpreter.FixIntermediatePrecision(
-                                        Math.Pow((double)operand1.Value, (double)operand2.Value));
+                                    value = Math.Pow(
+                                        (double)operand1.Value, (double)operand2.Value);
                                 }
                                 else if (operand1.IsDecimal())
                                 {
@@ -83,8 +83,8 @@ namespace Eagle._Operators
                                     {
                                         if (operand2.ConvertTo(typeof(double)))
                                         {
-                                            value = Interpreter.FixIntermediatePrecision(
-                                                Math.Pow((double)operand1.Value, (double)operand2.Value));
+                                            value = Math.Pow(
+                                                (double)operand1.Value, (double)operand2.Value);
                                         }
                                         else
                                         {

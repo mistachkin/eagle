@@ -256,7 +256,7 @@ namespace Eagle._Components.Private
                 (DefaultVerbose || FlagOps.HasFlags(
                     flags, ConfigurationFlags.Verbose, true)))
             {
-                TraceOps.MaybeDebugTrace(String.Format(
+                TraceOps.DebugTrace(String.Format(
                     "GetValue: variable = {0}, prefixedVariable = {1}, " +
                     "value = {2}, defaultVerbose = {3}, flags = {4}, " +
                     "error = {5}", FormatOps.WrapOrNull(variable),
@@ -376,7 +376,7 @@ namespace Eagle._Components.Private
             if (DefaultVerbose ||
                 FlagOps.HasFlags(flags, ConfigurationFlags.Verbose, true))
             {
-                TraceOps.MaybeDebugTrace(String.Format(
+                TraceOps.DebugTrace(String.Format(
                     "SetValue: variable = {0}, prefixedVariable = {1}, " +
                     "value = {2}, defaultVerbose = {3}, flags = {4}, " +
                     "error = {5}", FormatOps.WrapOrNull(variable),
@@ -475,7 +475,7 @@ namespace Eagle._Components.Private
             if (DefaultVerbose ||
                 FlagOps.HasFlags(flags, ConfigurationFlags.Verbose, true))
             {
-                TraceOps.MaybeDebugTrace(String.Format(
+                TraceOps.DebugTrace(String.Format(
                     "UnsetValue: variable = {0}, prefixedVariable = {1}, " +
                     "defaultVerbose = {2}, flags = {3}",
                     FormatOps.WrapOrNull(variable),
@@ -563,7 +563,7 @@ namespace Eagle._Components.Private
             if (DefaultVerbose ||
                 FlagOps.HasFlags(flags, ConfigurationFlags.Verbose, true))
             {
-                TraceOps.MaybeDebugTrace(String.Format(
+                TraceOps.DebugTrace(String.Format(
                     "DoesValueExist: variable = {0}, " +
                     "prefixedVariable = {1}, {2}, " +
                     "defaultVerbose = {3}, flags = {4}",

@@ -89,6 +89,7 @@
     <Compile Include="Attributes\Public\ObjectNameAttribute.cs" />
     <Compile Include="Attributes\Public\OperandsAttribute.cs" />
     <Compile Include="Attributes\Public\OperatorFlagsAttribute.cs" />
+    <Compile Include="Attributes\Public\ParameterIndexAttribute.cs" />
     <Compile Include="Attributes\Public\PluginFlagsAttribute.cs" />
     <Compile Include="Attributes\Public\ThrowAttribute.cs" />
     <Compile Include="Attributes\Public\TypeListFlagsAttribute.cs" />
@@ -247,6 +248,7 @@
     <Compile Include="Components\Private\ChannelContext.cs" />
     <Compile Include="Components\Private\ChannelOps.cs" />
     <Compile Include="Components\Private\ChannelStream.cs" />
+    <Compile Include="Components\Private\ChannelStreamBuffer.cs" />
     <Compile Include="Components\Private\CleanupPathClientData.cs" />
     <Compile Include="Components\Private\CommandBuilder.cs" />
     <Compile Include="Components\Private\CommandCallback.cs" />
@@ -333,6 +335,7 @@
     <Compile Include="Components\Private\TraceOps.cs" />
     <Compile Include="Components\Private\Vars.cs" />
     <Compile Include="Components\Private\WindowOps.cs" />
+    <Compile Include="Components\Private\WinTrustDotNet.cs" />
     <Compile Include="Components\Public\AliasData.cs" />
     <Compile Include="Components\Public\AnyClientData.cs" />
     <Compile Include="Components\Public\AnyPair.cs" />
@@ -581,6 +584,7 @@
     <Compile Include="Hosts\Profile.cs" />
     <Compile Include="Hosts\Shell.cs" />
     <Compile Include="Hosts\Wrapper.cs" />
+    <Compile Include="Interfaces\Private\CacheValue.cs" />
     <Compile Include="Interfaces\Private\CanHashValue.cs" />
     <Compile Include="Interfaces\Private\Channel.cs" />
     <Compile Include="Interfaces\Private\ChannelContext.cs" />
@@ -705,7 +709,9 @@
     <Compile Include="Interfaces\Public\Rfc2898DataManager.cs" />
     <Compile Include="Interfaces\Public\Rfc2898DataProvider.cs" />
     <Compile Include="Interfaces\Public\Rule.cs" />
+    <Compile Include="Interfaces\Public\RuleData.cs" />
     <Compile Include="Interfaces\Public\RuleSet.cs" />
+    <Compile Include="Interfaces\Public\RuleSetData.cs" />
     <Compile Include="Interfaces\Public\RuntimeOptionManager.cs" />
     <Compile Include="Interfaces\Public\Script.cs" />
     <Compile Include="Interfaces\Public\ScriptBinder.cs" />
@@ -739,6 +745,7 @@
     <Compile Include="Interfaces\Public\TraceInfo.cs" />
     <Compile Include="Interfaces\Public\TraceManager.cs" />
     <Compile Include="Interfaces\Public\Triplet.cs" />
+    <Compile Include="Interfaces\Public\TrustManager.cs" />
     <Compile Include="Interfaces\Public\TypedInstance.cs" />
     <Compile Include="Interfaces\Public\TypedMember.cs" />
     <Compile Include="Interfaces\Public\UsageData.cs" />
@@ -911,7 +918,7 @@
     <Compile Include="Lambdas\PositionalArguments.cs" />
     <Compile Include="Wrappers\Lambda.cs" />
   </ItemGroup>
-  <ItemGroup Condition="'$(EagleBreakpoints)' != 'false'">
+  <ItemGroup Condition="'$(EagleDebuggerBreakpoints)' != 'false'">
     <Compile Include="Containers\Private\BreakpointDictionary.cs" />
     <Compile Include="Containers\Private\ScriptLocationIntDictionary.cs" />
   </ItemGroup>
@@ -1129,8 +1136,8 @@
   <PropertyGroup Condition="'$(EagleBreakOnExiting)' != 'false'">
     <DefineConstants>$(DefineConstants);BREAK_ON_EXITING</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(EagleBreakpoints)' != 'false'">
-    <DefineConstants>$(DefineConstants);BREAKPOINTS</DefineConstants>
+  <PropertyGroup Condition="'$(EagleDebuggerBreakpoints)' != 'false'">
+    <DefineConstants>$(DefineConstants);DEBUGGER_BREAKPOINTS</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(EagleProfiler)' != 'false'">
     <DefineConstants>$(DefineConstants);PROFILER</DefineConstants>
@@ -1382,7 +1389,6 @@
   </ItemGroup>
   <ItemGroup Condition="'$(EagleNetStandard20)' != 'false'">
     <Compile Include="Components\Private\StrongNameDotNet.cs" />
-    <Compile Include="Components\Private\WinTrustDotNet.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleNative)' != 'false' And
                         '$(EagleNativeUtility)' != 'false'">
@@ -1507,6 +1513,9 @@
           BUGBUG: This does not appear to actually work.
       <LogicalName>%(FileName)%(Extension)</LogicalName>
       -->
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\DefaultTrustValues.txt">
+      <LogicalName>DefaultTrustValues.txt</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\syntax.tsv">
       <LogicalName>syntax.tsv</LogicalName>
@@ -2042,6 +2051,7 @@
       EaglePackagesResGenUnsetReadOnly;
       EaglePackagesResGen;
       EaglePackagesResGenExternals;
+      EagleDetectNetCoreReferences;
       EagleDetectNetCore20;
       EagleDetectNetCore30;
       EagleDetectNetFx20;
@@ -2059,6 +2069,7 @@
       EagleDetectNetFx471;
       EagleDetectNetFx472;
       EagleDetectNetFx48;
+      EagleDetectNetFx481;
       EagleDetectArchitecture;
       $(BuildDependsOn);
       EagleSetStack2013;

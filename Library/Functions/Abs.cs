@@ -64,13 +64,11 @@ namespace Eagle._Functions
                             {
                                 if (variant1.IsDouble())
                                 {
-                                    value = Interpreter.FixIntermediatePrecision(
-                                        Math.Abs((double)variant1.Value));
+                                    value = Math.Abs((double)variant1.Value);
                                 }
                                 else if (variant1.IsDecimal())
                                 {
-                                    value = Interpreter.FixIntermediatePrecision(
-                                        Math.Abs((decimal)variant1.Value));
+                                    value = Math.Abs((decimal)variant1.Value);
                                 }
                                 else if (variant1.IsWideInteger())
                                 {
@@ -82,7 +80,8 @@ namespace Eagle._Functions
                                 }
                                 else if (variant1.IsBoolean())
                                 {
-                                    value = Math.Abs(ConversionOps.ToInt((bool)variant1.Value));
+                                    value = Math.Abs(ConversionOps.ToInt(
+                                        (bool)variant1.Value));
                                 }
                                 else
                                 {

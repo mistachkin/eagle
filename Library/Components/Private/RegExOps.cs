@@ -17,6 +17,7 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -27,7 +28,49 @@ namespace Eagle._Components.Private
     [ObjectId("b45f7d61-390b-4aae-a80b-cd88a1444bdf")]
     internal static class RegExOps
     {
+        #region Private Constants
+        //
+        // NOTE: This prefix indicates the regular expression is "advanced";
+        //       since almost all .NET regular expressions already have these
+        //       features, this is simply ignored and removed.
+        //
+        private const string AdvancedPrefix = "***:";
+
+        //
+        // NOTE: This prefix indicates the regular expression is actually a
+        //       literal string to be matched.
+        //
+        private const string LiteralPrefix = "***=";
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Regular Expression Support Methods
+        private static void MaybeMutatePattern(
+            ref string pattern /* in, out */
+            )
+        {
+            if (pattern != null)
+            {
+                if ((AdvancedPrefix != null) && SharedStringOps.StartsWith(
+                        pattern, AdvancedPrefix, StringComparison.Ordinal))
+                {
+                    pattern = pattern.Substring(AdvancedPrefix.Length);
+                    return;
+                }
+
+                if ((LiteralPrefix != null) && SharedStringOps.StartsWith(
+                        pattern, LiteralPrefix, StringComparison.Ordinal))
+                {
+                    pattern = pattern.Substring(LiteralPrefix.Length);
+                    pattern = Regex.Escape(pattern);
+                    return;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static void RegsubMatchCallbackPrologue(
             out Interpreter interpreter,
             out RegsubClientData regsubClientData
@@ -672,6 +715,7 @@ namespace Eagle._Components.Private
         //
         public static Regex Create(string pattern)
         {
+            MaybeMutatePattern(ref pattern);
             return new Regex(pattern);
         }
 
@@ -685,6 +729,7 @@ namespace Eagle._Components.Private
             RegexOptions regExOptions
             )
         {
+            MaybeMutatePattern(ref pattern);
             return new Regex(pattern, regExOptions);
         }
         #endregion

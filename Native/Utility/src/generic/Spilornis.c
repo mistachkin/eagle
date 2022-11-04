@@ -37,6 +37,7 @@
 
 #include "pkgVersion.h"		/* NOTE: Package version information. */
 #include "rcVersion.h"		/* NOTE: Resource version information. */
+#include "SpilornisDef.h"	/* NOTE: For compile-time option defines. */
 #include "SpilornisInt.h"	/* NOTE: For private package API. */
 #include "Spilornis.h"		/* NOTE: For public package API. */
 
@@ -102,36 +103,6 @@
 #define EAGLE_DONT_QUOTE_HASH			(8)
 
 /*
- * NOTE: Attempt to determine if the "wchar_t" data type is greater than
- *       what the CLR and Mono, et al, can handle.  Both the CLR and the
- *       Mono runtime only support two byte characters in their P/Invoke
- *       marshalling subsystems.  Unfortunately, it appears that various
- *       compiler runtimes on non-Windows platforms (e.g. gcc on Linux)
- *       define "wchar_t" data type to be four bytes.  Most functions in
- *       this file cannot adapt to this difference; however, the version
- *       introspection entry point (i.e. "Eagle_GetVersion") can, since
- *       it is limited to output only.  This helps to enable the managed
- *       integration code to detect that the library is not suitable for
- *       use on those platforms (i.e. by detecting the SIZE_OF_WCHAR_T=4
- *       datum in the returned version string).
- */
-
-#if defined(WCHAR_MAX) && defined(USHRT_MAX) && (WCHAR_MAX > USHRT_MAX)
-#define USE_WCHARSTRTOUSHORTSTR			1
-#endif
-
-/*
- * NOTE: Attempt to determine if we can use the Win32 specific stuff that
- *       we need.  If not, alternative stuff will be used.
- */
-
-#if !defined(USE_SYSSTRINGLEN) && defined(_MSC_VER) && defined(_WIN32) && \
-    (defined(_M_IX86) || defined(_M_IA64) || defined(_M_X64) || \
-     defined(_M_ARM) || defined(_M_ARM64))
-#define USE_SYSSTRINGLEN			1
-#endif
-
-/*
  * NOTE: Win32 API functions required by this file.  These functions are
  *       declared inline rather than simply including "windows.h" because
  *       that would bring in a ton of unrelated stuff that is completely
@@ -140,14 +111,28 @@
  */
 
 #if defined(_WIN32)
+#if defined(USE_HEAPAPI) && USE_HEAPAPI
+extern __declspec(dllimport) BOOL __stdcall HeapValidate(
+			    HANDLE, DWORD, LPCVOID);
+
+extern __declspec(dllimport) LPVOID __stdcall HeapAlloc(
+			    HANDLE, DWORD, SIZE_T);
+
+extern __declspec(dllimport) SIZE_T __stdcall HeapSize(
+			    HANDLE, DWORD, LPCVOID);
+
+extern __declspec(dllimport) BOOL __stdcall HeapFree(
+			    HANDLE, DWORD, LPVOID);
+#endif
+
 extern __declspec(dllimport) DWORD __stdcall GetEnvironmentVariableW(
 			    LPCWSTR, LPWSTR, DWORD);
 
 extern __declspec(dllimport) VOID __stdcall OutputDebugStringA(LPCSTR);
-#endif
 
-#if defined(_WIN32) && defined(USE_SYSSTRINGLEN) && USE_SYSSTRINGLEN
+#if defined(USE_SYSSTRINGLEN) && USE_SYSSTRINGLEN
 extern __declspec(dllimport) UINT __stdcall SysStringLen(BSTR);
+#endif
 #endif
 
 /*
@@ -156,17 +141,46 @@ extern __declspec(dllimport) UINT __stdcall SysStringLen(BSTR);
  */
 
 #if defined(_WIN32) && defined(USE_SYSSTRINGLEN) && USE_SYSSTRINGLEN
-#define GetStringLen(i)			SysStringLen((BSTR)ppElements[i])
+#define SysStringLenWrapper(i)		SysStringLen((BSTR)ppElements[i])
 #else
-#define GetStringLen(i)			pElementLengths[i]
+#define SysStringLenWrapper(i)		pElementLengths[i]
+#endif
+
+/*
+ * NOTE: How should memory be allocated, freed, etc?
+ */
+
+#if defined(_WIN32) && defined(USE_HEAPAPI) && USE_HEAPAPI
+static LPVOID EagleAllocateMemory(SIZE_T size);
+static SIZE_T EagleMemorySize(LPVOID pMemory);
+static VOID EagleFreeMemory(LPVOID pMemory);
+#else
+#define EagleAllocateMemory(size)	AllocateMemoryWrapper((size))
+#define EagleMemorySize(pMemory)	MemorySizeWrapper((pMemory))
+#define EagleFreeMemory(pMemory)	FreeMemoryWrapper((pMemory))
 #endif
 
 /*
  * NOTE: Private functions defined in this file.
  */
+
 #if defined(USE_WCHARSTRTOUSHORTSTR) && USE_WCHARSTRTOUSHORTSTR
 static SIZE_T EagleWcharStrToUshortStr(LPWSTR wstr);
 #endif
+
+/*
+ * NOTE: This is the private data for this file.
+ */
+
+static SIZE_T memoryBytesAllocated = 0;
+
+#if defined(_WIN32) && defined(USE_HEAPAPI) && USE_HEAPAPI
+static HANDLE hMemoryHeap = NULL;
+#endif
+
+/*
+ * NOTE: These are the prototypes of the functions defined in this file.
+ */
 
 static INT EagleTracePrintf(LPCSTR format, ...);
 static BOOL EagleIsSpace(WCHAR c);
@@ -195,9 +209,126 @@ static RETURNCODE EagleFindElement(LPCWSTR list, SIZE_T listLength,
 			    SIZE_T *sizePtr, LPBOOL bracePtr,
 			    LPCWSTR *errorPtr);
 
+#if defined(USE_HEAPAPI) && USE_HEAPAPI
+/*
+ *---------------------------------------------------------------------------
+ *
+ * EagleAllocateMemory --
+ *
+ *	This function allocates a block of memory of at least the specified
+ *	size.
+ *
+ * Results:
+ *	The pointer to the new memory block -OR- NULL if the memory could not
+ *	be obtained.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+
+static LPVOID
+EagleAllocateMemory(
+    SIZE_T size)	/* The size, in bytes, of the memory block to be
+			 * allocated. */
+{
+#if defined(_WIN32)
+    HANDLE hHeap = hMemoryHeap;
+
+    if (hHeap != NULL) {
+	assert(HeapValidate(hHeap, 0, NULL));
+
+	return HeapAlloc(hHeap, 0, size);
+    }
+#endif
+
+    return AllocateMemoryWrapper(size);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * EagleMemorySize --
+ *
+ *	This function returns the size, in bytes, of memory that was
+ *	previously allocated by the EagleAllocateMemory function.
+ *
+ * Results:
+ *	Size of the memory, in bytes, if any -OR- zero if the size cannot
+ *	be determined.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+
+static SIZE_T
+EagleMemorySize(
+    LPVOID pMemory)	/* The memory block to query the size of.  This
+			 * memory block must have been obtained from
+			 * EagleAllocateMemory. */
+{
+#if defined(_WIN32)
+    HANDLE hHeap = hMemoryHeap;
+
+    if (hHeap != NULL) {
+	assert(HeapValidate(hHeap, 0, NULL));
+
+	if (pMemory != NULL)
+	    return HeapSize(hHeap, 0, pMemory);
+
+	return 0;
+    }
+#endif
+
+    return MemorySizeWrapper(pMemory);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * EagleFreeMemory --
+ *
+ *	This function frees a block of memory that was previously allocated
+ *	by the EagleAllocateMemory function.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+
+static VOID
+EagleFreeMemory(
+    LPVOID pMemory)	/* The memory block to free.  This memory block must
+			 * have been obtained from EagleAllocateMemory. */
+{
+#if defined(_WIN32)
+    HANDLE hHeap = hMemoryHeap;
+
+    if (hHeap != NULL) {
+	assert(HeapValidate(hHeap, 0, NULL));
+
+	if (pMemory != NULL)
+	    HeapFree(hHeap, 0, pMemory);
+
+	return;
+    }
+#endif
+
+    FreeMemoryWrapper(pMemory);
+    return;
+}
+#endif
+
 #if defined(USE_WCHARSTRTOUSHORTSTR) && USE_WCHARSTRTOUSHORTSTR
 /*
- *----------------------------------------------------------------------
+ *---------------------------------------------------------------------------
  *
  * EagleWcharStrToUshortStr --
  *
@@ -212,7 +343,7 @@ static RETURNCODE EagleFindElement(LPCWSTR list, SIZE_T listLength,
  * Side effects:
  *	None.
  *
- *----------------------------------------------------------------------
+ *---------------------------------------------------------------------------
  */
 
 static SIZE_T
@@ -222,8 +353,10 @@ EagleWcharStrToUshortStr(
     if (wstr != NULL) {
 	SIZE_T i = 0;
 	LPUSHORT sstr = (LPUSHORT)wstr;
+
 	assert(sizeof(WCHAR) == 4);
 	assert(sizeof(USHORT) == 2);
+
 	while (1) {
 	    assert(wstr[i] >= 0);
 	    assert(wstr[i] <= USHRT_MAX);
@@ -238,7 +371,7 @@ EagleWcharStrToUshortStr(
 #endif
 
 /*
- *----------------------------------------------------------------------
+ *---------------------------------------------------------------------------
  *
  * EagleTracePrintf --
  *
@@ -254,7 +387,7 @@ EagleWcharStrToUshortStr(
  * Side effects:
  *	None.
  *
- *----------------------------------------------------------------------
+ *---------------------------------------------------------------------------
  */
 
 static INT
@@ -1542,7 +1675,7 @@ LPCWSTR
 Eagle_GetVersion(VOID)
 {
     SIZE_T size = (LIBRARY_VERSION_LENGTH + 1 /* NUL */) * sizeof(WCHAR);
-    LPWSTR pBuffer = Eagle_AllocateMemory(size);
+    LPWSTR pBuffer = AllocateMemoryWrapper(size); /* HACK: Always calloc(). */
 
     if (pBuffer == NULL) {
 	return NULL;
@@ -1563,7 +1696,12 @@ Eagle_GetVersion(VOID)
 	L"",
 #endif
 #if defined(USE_SYSSTRINGLEN)
-	L" USE_SYSSTRINGLEN=" UNICODIFY(STRINGIFY(USE_SYSSTRINGLEN))
+	L" USE_SYSSTRINGLEN=" UNICODIFY(STRINGIFY(USE_SYSSTRINGLEN)),
+#else
+	L"",
+#endif
+#if defined(USE_HEAPAPI)
+	L" USE_HEAPAPI=" UNICODIFY(STRINGIFY(USE_HEAPAPI))
 #else
 	L""
 #endif
@@ -1575,6 +1713,73 @@ Eagle_GetVersion(VOID)
 
     return pBuffer;
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * Eagle_FreeVersion --
+ *
+ *	This function frees the string representation of the version of
+ *	this library.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+
+VOID
+Eagle_FreeVersion(
+    LPVOID pVersion)	/* The memory block to free.  This memory block must
+			 * have been obtained from Eagle_GetVersion. */
+{
+    if (pVersion == NULL)
+	return;
+
+    FreeMemoryWrapper(pVersion); /* HACK: Always free(). */
+}
+
+#if defined(USE_HEAPAPI) && USE_HEAPAPI
+/*
+ *---------------------------------------------------------------------------
+ *
+ * Eagle_SetMemoryHeap --
+ *
+ *	This function sets or resets the memory heap handle to use when
+ *	allocating and freeing memory.  This function is only available
+ *	when using the Win32 API.  This function is not thread-safe and
+ *	it should only be used when no other threads can call into this
+ *	library.
+ *
+ * Results:
+ *	The previous value of the memory heap handle -OR- NULL if it was
+ *	not previously set.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+
+HANDLE
+Eagle_SetMemoryHeap(
+    HANDLE hNewHeap)	/* The memory heap handle to use when allocating
+			 * or freeing memory. */
+{
+    HANDLE hOldHeap = hMemoryHeap;
+
+    assert((hOldHeap == NULL) || HeapValidate(hOldHeap, 0, NULL));
+    assert((hNewHeap == NULL) || HeapValidate(hNewHeap, 0, NULL));
+    assert(memoryBytesAllocated == 0);
+
+    hMemoryHeap = hNewHeap;
+
+    return hOldHeap;
+}
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -1600,20 +1805,25 @@ Eagle_AllocateMemory(
 			 * allocated. */
 {
     LPVOID pMemory = NULL;
+    SIZE_T memorySize;
 
     assert(sizeof(BYTE) >= 1);
     assert(size >= 0);
 
     if (size > 0) {
 	assert(size <= LIBRARY_MAXIMUM_SIZE_T);
-	pMemory = calloc(size, sizeof(BYTE));
+	pMemory = EagleAllocateMemory(size);
     }
 
-    LIBRARY_DEBUG(("Eagle_AllocateMemory: 0x%p, requested %d bytes, "
-	"received %d bytes\n", pMemory, (int)size, (pMemory != NULL) ?
-	(int)Eagle_MemorySize(pMemory) : 0));
+    memorySize = EagleMemorySize(pMemory);
 
-    if (pMemory == NULL) {
+    if (pMemory != NULL) {
+	memoryBytesAllocated += memorySize;
+
+	LIBRARY_DEBUG(("Eagle_AllocateMemory: 0x%p, requested %d bytes, "
+	    "received %d bytes, total now %d bytes\n", pMemory, (int)size,
+	    (int)memorySize, (int)memoryBytesAllocated));
+    } else {
 	LIBRARY_TRACE(("Eagle_AllocateMemory: out of memory (%d)\n",
 	    (int)size));
     }
@@ -1626,8 +1836,8 @@ Eagle_AllocateMemory(
  *
  * Eagle_FreeMemory --
  *
- *	This function frees a block of memory that was previous allocated by
- *	the Eagle_AllocateMemory function.
+ *	This function frees a block of memory that was previously allocated
+ *	by the Eagle_AllocateMemory function.
  *
  * Results:
  *	None.
@@ -1643,17 +1853,23 @@ Eagle_FreeMemory(
     LPVOID pMemory)	/* The memory block to free.  This memory block must
 			 * have been obtained from Eagle_AllocateMemory. */
 {
-    LIBRARY_DEBUG(("Eagle_FreeMemory: 0x%p, received %d bytes\n", pMemory,
-	(pMemory != NULL) ? (int)Eagle_MemorySize(pMemory) : 0));
+    SIZE_T size;
 
     if (pMemory == NULL)
 	return;
 
+    size = EagleMemorySize(pMemory);
+
 #if !defined(NDEBUG)
-    memset(pMemory, LIBRARY_FREED_MEMORY, Eagle_MemorySize(pMemory));
+    memset(pMemory, LIBRARY_FREED_MEMORY, size);
 #endif
 
-    free(pMemory);
+    memoryBytesAllocated -= size;
+
+    LIBRARY_DEBUG(("Eagle_FreeMemory: 0x%p, received %d bytes, total now "
+	"%d bytes\n", pMemory, (int)size, (int)memoryBytesAllocated));
+
+    EagleFreeMemory(pMemory);
 }
 
 /*
@@ -1903,7 +2119,8 @@ Eagle_JoinList(
 	}
 
 	numChars += EagleScanCountedElement(ppElements[i],
-	    GetStringLen(i) /* NON-PORTABLE? */, &flagPtr[i]);
+	    SysStringLenWrapper(i) /* NON-PORTABLE? */,
+	    &flagPtr[i]);
     }
 
     /*
@@ -1941,8 +2158,8 @@ Eagle_JoinList(
 	    dst++;
 	}
 
-	eleChars += EagleConvertCountedElement(
-		ppElements[i], GetStringLen(i) /* NON-PORTABLE? */, dst,
+	eleChars += EagleConvertCountedElement(ppElements[i],
+		SysStringLenWrapper(i) /* NON-PORTABLE? */, dst,
 		flagPtr[i] | ((i == 0) ? 0 : EAGLE_DONT_QUOTE_HASH));
 
 	numChars += eleChars;

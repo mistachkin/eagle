@@ -14,6 +14,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+
+#if XML
+using System.Xml;
+#endif
+
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Private.Delegates;
@@ -68,14 +73,17 @@ namespace Eagle._Commands
                 callbacks = new Dictionary<string, CharIsCallback>();
 
                 callbacks.Add("array", null);       // *SPECIAL CASE*, whole string only
+                callbacks.Add("base64", null);      // *SPECIAL CASE*, whole string only
                 callbacks.Add("boolean", null);     // *SPECIAL CASE*, whole string only
                 callbacks.Add("byte", null);        // *SPECIAL CASE*, whole string only
                 callbacks.Add("command", null);     // *SPECIAL CASE*, whole string only
+                callbacks.Add("component", null);   // *SPECIAL CASE*, whole string only
                 callbacks.Add("datetime", null);    // *SPECIAL CASE*, whole string only
                 callbacks.Add("decimal", null);     // *SPECIAL CASE*, whole string only
                 callbacks.Add("dict", null);        // *SPECIAL CASE*, whole string only
                 callbacks.Add("directory", null);   // *SPECIAL CASE*, whole string only
                 callbacks.Add("double", null);      // *SPECIAL CASE*, whole string only
+                callbacks.Add("encoding", null);    // *SPECIAL CASE*, whole string only
                 callbacks.Add("element", null);     // *SPECIAL CASE*, whole string only
                 callbacks.Add("false", null);       // *SPECIAL CASE*, whole string only
                 callbacks.Add("file", null);        // *SPECIAL CASE*, whole string only
@@ -90,6 +98,7 @@ namespace Eagle._Commands
                 callbacks.Add("numeric", null);     // *SPECIAL CASE*, whole string only
                 callbacks.Add("object", null);      // *SPECIAL CASE*, whole string only
                 callbacks.Add("path", null);        // *SPECIAL CASE*, whole string only
+                callbacks.Add("plugin", null);      // *SPECIAL CASE*, whole string only
                 callbacks.Add("real", null);        // *SPECIAL CASE*, whole string only
                 callbacks.Add("scalar", null);      // *SPECIAL CASE*, whole string only
                 callbacks.Add("single", null);      // *SPECIAL CASE*, whole string only
@@ -100,6 +109,7 @@ namespace Eagle._Commands
                 callbacks.Add("value", null);       // *SPECIAL CASE*, whole string only
                 callbacks.Add("variant", null);     // *SPECIAL CASE*, whole string only
                 callbacks.Add("version", null);     // *SPECIAL CASE*, whole string only
+                callbacks.Add("xml", null);         // *SPECIAL CASE*, whole string only
                 callbacks.Add("wideinteger", null); // *SPECIAL CASE*, whole string only
 
                 //
@@ -145,7 +155,7 @@ namespace Eagle._Commands
 
         #region IEnsemble Members
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
-            "bytelength", "cat", "character", "compare", "ends",
+            "bytelength", "cat", "character", "classes", "compare", "ends",
             "equal", "first", "format", "index", "is", "last",
             "length", "map", "match", "ordinal", "range", "repeat",
             "replace", "reverse", "starts", "tolower", "totitle",
@@ -276,6 +286,27 @@ namespace Eagle._Commands
                                             else
                                             {
                                                 result = "wrong # args: should be \"string character integer\"";
+                                                code = ReturnCode.Error;
+                                            }
+                                            break;
+                                        }
+                                    case "classes":
+                                        {
+                                            if (arguments.Count == 2)
+                                            {
+                                                if (isSubCommands != null)
+                                                {
+                                                    result = new StringList(isSubCommands.Keys);
+                                                }
+                                                else
+                                                {
+                                                    result = "string classes unavailable";
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                result = "wrong # args: should be \"string classes\"";
                                                 code = ReturnCode.Error;
                                             }
                                             break;
@@ -479,14 +510,6 @@ namespace Eagle._Commands
 
                                                         if (options.IsPresent("-comparison", ref value))
                                                             comparisonType = (StringComparison)value.Value;
-
-#if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
-                                                        CompareOptions compareOptions = noCase ?
-                                                            CompareOptions.IgnoreCase : CompareOptions.None;
-
-                                                        if (options.IsPresent("-options"))
-                                                            compareOptions = (CompareOptions)value.Value;
-#endif
 
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                                                         if (cultureInfo != null)
@@ -891,6 +914,18 @@ namespace Eagle._Commands
                                                                                 }
                                                                                 break;
                                                                             }
+                                                                        case "base64":
+                                                                            {
+                                                                                if (StringOps.IsBase64(@string))
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    valid = not;
+                                                                                }
+                                                                                break;
+                                                                            }
                                                                         case "boolean":
                                                                         case "false":
                                                                         case "true":
@@ -937,6 +972,19 @@ namespace Eagle._Commands
                                                                             {
                                                                                 if (interpreter.DoesIExecuteExistViaResolvers(
                                                                                         @string) == ReturnCode.Ok)
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    valid = not;
+                                                                                }
+                                                                                break;
+                                                                            }
+                                                                        case "component":
+                                                                            {
+                                                                                if (PathOps.CheckForValid(
+                                                                                        null, @string, true, false, true, false))
                                                                                 {
                                                                                     valid = !not;
                                                                                 }
@@ -1031,6 +1079,22 @@ namespace Eagle._Commands
                                                                                         @string, ValueFlags.AnyDouble,
                                                                                         interpreter.InternalCultureInfo,
                                                                                         ref doubleValue) == ReturnCode.Ok)
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    valid = not;
+                                                                                }
+                                                                                break;
+                                                                            }
+                                                                        case "encoding":
+                                                                            {
+                                                                                Encoding encoding = null;
+
+                                                                                if (interpreter.GetEncoding(
+                                                                                        @string, LookupFlags.EncodingNoVerbose,
+                                                                                        ref encoding) == ReturnCode.Ok)
                                                                                 {
                                                                                     valid = !not;
                                                                                 }
@@ -1263,6 +1327,26 @@ namespace Eagle._Commands
                                                                                 }
                                                                                 break;
                                                                             }
+                                                                        case "plugin":
+                                                                            {
+                                                                                IPlugin plugin = null; /* NOT USED */
+
+                                                                                if ((interpreter.GetPlugin(
+                                                                                        @string, LookupFlags.NoVerbose,
+                                                                                        ref plugin) == ReturnCode.Ok) ||
+                                                                                    interpreter.InternalFindPlugin(
+                                                                                        null, MatchMode.Glob, @string,
+                                                                                        null, null, LookupFlags.NoVerbose,
+                                                                                        false) != null)
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    valid = not;
+                                                                                }
+                                                                                break;
+                                                                            }
                                                                         case "real":
                                                                             {
                                                                                 Number number = null; /* NOT USED */
@@ -1430,6 +1514,26 @@ namespace Eagle._Commands
                                                                                 }
                                                                                 else
                                                                                 {
+                                                                                    valid = not;
+                                                                                }
+                                                                                break;
+                                                                            }
+                                                                        case "xml":
+                                                                            {
+#if XML
+                                                                                XmlDocument document = null; /* NOT USED */
+
+                                                                                if (XmlOps.LoadString(@string,
+                                                                                        ref document) == ReturnCode.Ok)
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+#endif
+                                                                                {
+                                                                                    //
+                                                                                    // HACK: Not valid -OR- not supported.
+                                                                                    //
                                                                                     valid = not;
                                                                                 }
                                                                                 break;
@@ -2070,14 +2174,6 @@ namespace Eagle._Commands
 
                                                         if (options.IsPresent("-comparison", ref value))
                                                             comparisonType = (StringComparison)value.Value;
-
-#if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
-                                                        CompareOptions compareOptions = noCase ?
-                                                            CompareOptions.IgnoreCase : CompareOptions.None;
-
-                                                        if (options.IsPresent("-options"))
-                                                            compareOptions = (CompareOptions)value.Value;
-#endif
 
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                                                         if (cultureInfo != null)

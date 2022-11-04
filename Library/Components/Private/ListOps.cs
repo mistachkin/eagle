@@ -119,6 +119,82 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static StringList Reverse(
+            IEnumerable<string> collection
+            )
+        {
+            if (collection == null)
+                return null;
+
+            StringList result = new StringList(
+                collection);
+
+            result.Reverse(); /* O(N) */
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void Add(
+            int element,
+            ref IntList list
+            )
+        {
+            if (list == null)
+                list = new IntList();
+
+            list.Add(element);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void Adjust(
+            IntList list,
+            int adjustment
+            )
+        {
+            Adjust(list, adjustment, null, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void Adjust(
+            IntList list,
+            int adjustment,
+            int? minimum,
+            int? maximum
+            )
+        {
+            if (list != null)
+            {
+                int count = list.Count;
+
+                for (int index = 0; index < count; index++)
+                {
+                    int value = list[index];
+
+                    value += adjustment;
+
+                    if ((minimum != null) &&
+                        (value < (int)minimum))
+                    {
+                        value = (int)minimum;
+                    }
+
+                    if ((maximum != null) &&
+                        (value > (int)maximum))
+                    {
+                        value = (int)maximum;
+                    }
+
+                    list[index] = value;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool CheckStartAndStopIndex(
             int lowerBound,
             int upperBound,

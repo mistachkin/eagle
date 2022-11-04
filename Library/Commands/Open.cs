@@ -135,6 +135,7 @@ namespace Eagle._Commands
                                     new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-buffersize", null),
                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nullencoding", null),
                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-autoflush", null),
+                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-rawendofstream", null),
                                     new Option(typeof(HostStreamFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-streamflags",
                                         new Variant(HostStreamFlags.Default)),
                                     new Option(typeof(FileOptions), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-options",
@@ -341,6 +342,7 @@ namespace Eagle._Commands
                                                 Stream stream = null;
                                                 bool nullEncoding = false;
                                                 bool autoFlush = false;
+                                                bool rawEndOfStream = false;
 
                                                 switch (type)
                                                 {
@@ -376,6 +378,9 @@ namespace Eagle._Commands
 
                                                                 if (options.IsPresent("-autoflush"))
                                                                     autoFlush = true;
+
+                                                                if (options.IsPresent("-rawendofstream"))
+                                                                    rawEndOfStream = true;
 
                                                                 bool seekToEof = false;
 
@@ -433,8 +438,8 @@ namespace Eagle._Commands
                                                     code = interpreter.AddFileOrSocketChannel(
                                                         channelId, stream, options, StreamFlags.None,
                                                         null, nullEncoding, FlagOps.HasFlags(access,
-                                                        MapOpenAccess.Append, true), autoFlush, null,
-                                                        ref result);
+                                                        MapOpenAccess.Append, true), autoFlush,
+                                                        rawEndOfStream, null, ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                         result = channelId;

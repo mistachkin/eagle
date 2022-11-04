@@ -162,6 +162,7 @@ runTest {test object-15.4 {Interpreter/IInterpreter interface} -setup {
                        Eagle._Interfaces.Public.ITclEntityManager \
                        Eagle._Interfaces.Public.ITclManager \
                        Eagle._Interfaces.Public.ITraceManager \
+                       Eagle._Interfaces.Public.ITrustManager \
                        Eagle._Interfaces.Public.IVariableManager]
 
   #

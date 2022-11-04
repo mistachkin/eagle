@@ -657,14 +657,14 @@ namespace Eagle._Components.Public
                 TraceOps.DebugTrace(
                     "ServiceEventsThreadStart: caught thread abort",
                     typeof(EventManager).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
             }
             catch (ThreadInterruptedException)
             {
                 TraceOps.DebugTrace(
                     "ServiceEventsThreadStart: caught thread interrupt",
                     typeof(EventManager).Name,
-                    TracePriority.ThreadError);
+                    TracePriority.ThreadError2);
             }
             catch (Exception e)
             {
@@ -1726,6 +1726,23 @@ namespace Eagle._Components.Public
                 return;
 
             locked = Monitor.TryEnter(syncRoot);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /* EXTERNAL USE ONLY. */
+        public void TryLockWithWait(
+            ref bool locked
+            )
+        {
+            CheckDisposed();
+
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(
+                syncRoot, ThreadOps.GetTimeout(
+                null, null, TimeoutType.WaitLock));
         }
 
         ///////////////////////////////////////////////////////////////////////

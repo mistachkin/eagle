@@ -343,7 +343,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal ReturnCode code; /* ref */
+        private ReturnCode code;
         public ReturnCode Code
         {
             get { return code; }
@@ -442,11 +442,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal bool exit; /* ref */
+        private bool exit;
         public bool Exit
         {
             get { return exit; }
             set { exit = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void SetExit()
+        {
+            exit = true;
+
+            TraceOps.DebugTrace(
+                "SetExit: forced on via interactive loop",
+                typeof(InteractiveLoopData).Name,
+                TracePriority.InteractiveError);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void SetCode(
+            ReturnCode code
+            )
+        {
+            this.code = code;
+
+            TraceOps.DebugTrace(String.Format(
+                "SetCode: forced {0} via interactive loop",
+                FormatOps.WrapOrNull(code)),
+                typeof(InteractiveLoopData).Name,
+                TracePriority.InteractiveDebug);
         }
         #endregion
 
