@@ -507,6 +507,7 @@ namespace Eagle._Commands
                                                         now = true;
 
                                                     StringList list = null;
+                                                    ResultList errors = null;
 
                                                     if (argumentIndex != Index.Invalid)
                                                     {
@@ -520,11 +521,25 @@ namespace Eagle._Commands
                                                             {
                                                                 list = new StringList();
 
-                                                                /* NO RESULT */
-                                                                interpreter.CleanupAndMaybeResetPaths(
-                                                                    false, ref list);
+                                                                code = interpreter.CleanupAndMaybeResetPaths(
+                                                                    false, false, ref list, ref errors);
 
-                                                                result = list;
+                                                                if (code == ReturnCode.Ok)
+                                                                {
+                                                                    result = list;
+                                                                }
+                                                                else
+                                                                {
+                                                                    if (list != null)
+                                                                    {
+                                                                        if (errors == null)
+                                                                            errors = new ResultList();
+
+                                                                        errors.Add(list.ToString());
+                                                                    }
+
+                                                                    result = errors;
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -534,11 +549,25 @@ namespace Eagle._Commands
                                                         {
                                                             list = new StringList();
 
-                                                            /* NO RESULT */
-                                                            interpreter.CleanupAndMaybeResetPaths(
-                                                                false, ref list);
+                                                            code = interpreter.CleanupAndMaybeResetPaths(
+                                                                false, false, ref list, ref errors);
 
-                                                            result = list;
+                                                            if (code == ReturnCode.Ok)
+                                                            {
+                                                                result = list;
+                                                            }
+                                                            else
+                                                            {
+                                                                if (list != null)
+                                                                {
+                                                                    if (errors == null)
+                                                                        errors = new ResultList();
+
+                                                                    errors.Add(list.ToString());
+                                                                }
+
+                                                                result = errors;
+                                                            }
                                                         }
                                                     }
                                                     else

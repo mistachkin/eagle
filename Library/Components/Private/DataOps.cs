@@ -24,6 +24,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using ConnectionDictionary = Eagle._Containers.Private.DbConnectionTypeStringPairDictionary;
@@ -786,8 +787,11 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                if ((limit != 0) && (--limit == 0))
+                if ((limit != Limits.Unlimited) &&
+                    (--limit == 0))
+                {
                     break;
+                }
             }
 
             count += localCount;
@@ -878,8 +882,11 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                if ((limit != 0) && (--limit == 0))
+                if ((limit != Limits.Unlimited) &&
+                    (--limit == 0))
+                {
                     break;
+                }
             }
 
             if (interpreter.SetVariableValue2(

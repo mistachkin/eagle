@@ -150,6 +150,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private string formatString;
+        public string FormatString
+        {
+            get { CheckDisposed(); lock (syncRoot) { return formatString; } }
+            set { CheckDisposed(); lock (syncRoot) { formatString = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private int? formatIndex;
+        public int? FormatIndex
+        {
+            get { CheckDisposed(); lock (syncRoot) { return formatIndex; } }
+            set { CheckDisposed(); lock (syncRoot) { formatIndex = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private bool? forceEnabled;
         public bool? ForceEnabled
         {
@@ -324,6 +342,8 @@ namespace Eagle._Components.Public
                             bonusCategories = null;
                             stateType = TraceStateType.None;
                             priorities = null;
+                            formatString = null;
+                            formatIndex = null;
                             forceEnabled = null;
                             resetSystem = false;
                             resetListeners = false;

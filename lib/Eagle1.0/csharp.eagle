@@ -175,7 +175,8 @@ namespace eval ::Eagle {
           set targetVersion [file tail $path]
         }
 
-        if {[string match 6.* $targetVersion] || \
+        if {[string match 7.* $targetVersion] || \
+            [string match 6.* $targetVersion] || \
             [string match 5.* $targetVersion] || \
             [string match 3.* $targetVersion]} then {
           set standardVersion netstandard2.1
@@ -1102,8 +1103,12 @@ namespace eval ::Eagle {
                 set stream [object create \
                     System.IO.FileStream $outputFileName Open Read None]
 
-                object load -loadtype Stream $stream
+                set assembly [object load -loadtype Stream $stream]
               } finally {
+                if {[info exists assembly]} then {
+                  unset -nocomplain assembly
+                }
+
                 if {[info exists stream]} then {
                   unset -nocomplain stream
                 }

@@ -403,7 +403,8 @@ namespace Eagle._Components.Private
                 if ((dialogResult != null) && (bool)dialogResult)
                 {
                     /* NO RESULT */
-                    Interpreter.ConsoleCancelEventHandler(sender, null);
+                    Interpreter.MaybeShowPromptAndAllCancel(
+                        sender, false);
                 }
 
                 return DefaultResult;
@@ -1713,9 +1714,34 @@ namespace Eagle._Components.Private
                 //
                 if (sleepMilliseconds >= 0)
                 {
-                    /* NO RESULT */
-                    Thread.Sleep(sleepMilliseconds);
-                    milliseconds += sleepMilliseconds;
+                    try
+                    {
+                        /* NO RESULT */
+                        HostOps.ThreadSleep(
+                            sleepMilliseconds); /* throw */
+
+                        milliseconds += sleepMilliseconds;
+                    }
+                    catch (ThreadAbortException)
+                    {
+                        Thread.ResetAbort();
+
+                        exitStatus = "sleep aborted";
+                        break;
+                    }
+                    catch (ThreadInterruptedException)
+                    {
+                        exitStatus = "sleep interrupted";
+                        break;
+                    }
+                    catch (Exception)
+                    {
+                        //
+                        // HACK: This should not happen.
+                        //
+                        exitStatus = "sleep exception";
+                        break;
+                    }
                 }
 
                 //

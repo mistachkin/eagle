@@ -69,7 +69,7 @@ namespace Eagle._Interfaces.Public
 
         ReturnCode GetArguments(
             ref IList<string> arguments,
-            bool strict,
+            bool failOnError,
             ref Result error
             );
 
@@ -80,7 +80,7 @@ namespace Eagle._Interfaces.Public
 
         ReturnCode SetArguments(
             IList<string> arguments,
-            bool strict,
+            bool failOnNull,
             ref Result error
             );
 

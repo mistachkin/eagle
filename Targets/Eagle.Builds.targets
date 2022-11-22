@@ -1469,7 +1469,7 @@
             the first test failure.
   -->
   <PropertyGroup Condition="'$(EagleTestType)' != ''">
-    <EagleCommonTestArguments Condition="'$(EagleCommonTestArguments)' == ''">-namespaces true -preInitialize &quot;set no(speech) true; set no(excel) true; set no(preciseTiming) true; set no(temporaryTestLog) true; set test_stop_on_failure true; set test_stop_on_leak true; object invoke Interpreter.GetActive Quiet true; object invoke -flags +NonPublic Interpreter.GetActive SetNoBackgroundError true&quot;</EagleCommonTestArguments>
+    <EagleCommonTestArguments Condition="'$(EagleCommonTestArguments)' == ''">-namespaces true -anyInitialize &quot;set ::no(speech) true; set ::no(excel) true; set ::no(preciseTiming) true; set ::no(temporaryTestLog) true; set ::test_stop_on_failure true; set ::test_stop_on_leak true; object invoke Interpreter.GetActive Quiet true; object invoke -flags +NonPublic Interpreter.GetActive SetNoBackgroundError true; catch {source [file join $::env(XDG_STARTUP_HOME) releaseTestingHelper.eagle]; setupForReleaseTesting {$(EagleTestNotFile)} {$(EagleTestFile)} {$(EagleTestType)} {$(EagleTestAll)}}&quot;</EagleCommonTestArguments>
   </PropertyGroup>
 
   <!--
@@ -1483,7 +1483,7 @@
   <PropertyGroup Condition="'$(EagleTestType)' != '' And
                             '$(EagleTestType)' != 'Default' And
                             '$(EagleTestType)' != 'NetFx20'">
-    <EagleTestArguments Condition="'$(EagleTestArguments)' == ''">-preInitialize &quot;set eagle_platform(suffix) $(EagleConfigurationSuffix)&quot;</EagleTestArguments>
+    <EagleTestArguments Condition="'$(EagleTestArguments)' == ''">-anyInitialize &quot;set ::eagle_platform(suffix) $(EagleConfigurationSuffix)&quot;</EagleTestArguments>
   </PropertyGroup>
 
   <!--
@@ -1500,60 +1500,5 @@
     <EagleTestFlags>$(EagleTestFlags) -listedLeaks &quot;afters variables commands procedures namespaces files temporaryFiles channels aliases interpreters environment loaded previousPid scopes assemblies processes objects objectCallbacks objectTypes objectInterfaces objectNamespaces connections transactions modules delegates tcl tclInterps tclThreads tclCommands scriptThreads&quot;</EagleTestFlags>
     -->
     <EagleTestFlags>$(EagleTestFlags) -listedLeaks &quot;afters variables commands procedures namespaces files temporaryFiles channels aliases interpreters environment loaded previousPid scopes objects objectCallbacks objectTypes objectInterfaces objectNamespaces connections transactions modules delegates tcl tclInterps tclThreads tclCommands scriptThreads&quot;</EagleTestFlags>
-  </PropertyGroup>
-
-  <!--
-  ******************************************************************************
-  -->
-
-  <!--
-      HACK: For all non-default builds, we want to skip running the performance
-            tests (i.e. "benchmark.eagle" and "perf*.eagle") either because the
-            basic performance has already been verified to be roughly the same
-            (or better) than the default build OR because we lack the necessary
-            fine-grained timing functionality, which requires access to native
-            code and the Win32 API.
-  -->
-  <PropertyGroup Condition="'$(EagleTestType)' != '' And
-                            '$(EagleTestAll)' != 'true'">
-    <EagleTestFlags>$(EagleTestFlags) -notFile &quot;benchmark.eagle perf*.eagle&quot;</EagleTestFlags>
-  </PropertyGroup>
-
-  <!--
-  ******************************************************************************
-  -->
-
-  <!--
-      HACK: For all non-default builds, we want to skip running the extremely
-            time consuming / processor intensive tests (i.e. "lpermute-1.3.*")
-            because the basic correctness has already been verified.
-  -->
-  <PropertyGroup Condition="'$(EagleTestType)' != '' And
-                            '$(EagleTestAll)' != 'true'">
-    <EagleTestFlags>$(EagleTestFlags) -skip &quot;lpermute-1.3.*&quot;</EagleTestFlags>
-  </PropertyGroup>
-
-  <!--
-  ******************************************************************************
-  -->
-
-  <!--
-      NOTE: Check if some specific test file patterns need to be excluded.  If
-            so, add the necessary arguments to the existing test flags, if any.
-  -->
-  <PropertyGroup Condition="'$(EagleTestNotFile)' != ''">
-    <EagleTestFlags>$(EagleTestFlags) -notFile &quot;$(EagleTestNotFile)&quot;</EagleTestFlags>
-  </PropertyGroup>
-
-  <!--
-  ******************************************************************************
-  -->
-
-  <!--
-      NOTE: Check if some specific test file patterns need to be included.  If
-            so, add the necessary arguments to the existing test flags, if any.
-  -->
-  <PropertyGroup Condition="'$(EagleTestFile)' != ''">
-    <EagleTestFlags>$(EagleTestFlags) -file &quot;$(EagleTestFile)&quot;</EagleTestFlags>
   </PropertyGroup>
 </Project>

@@ -282,6 +282,10 @@ namespace Eagle._Components.Public
         //              the application domain.  This is the default
         //              value (COMPAT: Eagle beta).
         //
+        //           3. The same handling as 2 (above), except there
+        //              is no interactive dialog box prompt.  Needed
+        //              in order for test "host-2.1" to work.
+        //
         //       [1] How many times has the console control static
         //           interpreter event handler been triggered?
         //
@@ -404,8 +408,11 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Limits
-        private static int DefaultUnsafeChildLimit = 0; // NOTE: No limit.
-        private static int DefaultSafeChildLimit = -1; // TODO: Good default (none)?
+        //
+        // HACK: These are not read-only.
+        //
+        private static int DefaultUnsafeChildLimit = Limits.Unlimited; // NOTE: No limit.
+        private static int DefaultSafeChildLimit = Limits.Forbidden; // TODO: Good default (none)?
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -413,7 +420,7 @@ namespace Eagle._Components.Public
         //
         // HACK: These are not read-only.
         //
-        private static int DefaultUnsafeCallbackLimit = 0; // NOTE: No limit.
+        private static int DefaultUnsafeCallbackLimit = Limits.Unlimited; // NOTE: No limit.
         private static int DefaultSafeCallbackLimit = 50; // TODO: Good default?
 #endif
 
@@ -422,7 +429,7 @@ namespace Eagle._Components.Public
         //
         // HACK: These are not read-only.
         //
-        private static int DefaultUnsafeNamespaceLimit = 0; // NOTE: No limit.
+        private static int DefaultUnsafeNamespaceLimit = Limits.Unlimited; // NOTE: No limit.
         private static int DefaultSafeNamespaceLimit = 50; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -430,7 +437,7 @@ namespace Eagle._Components.Public
         //
         // HACK: These are not read-only.
         //
-        private static int DefaultUnsafeScopeLimit = 0; // NOTE: No limit.
+        private static int DefaultUnsafeScopeLimit = Limits.Unlimited; // NOTE: No limit.
         private static int DefaultSafeScopeLimit = 50; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -438,7 +445,7 @@ namespace Eagle._Components.Public
         //
         // HACK: These are not read-only.
         //
-        private static int DefaultUnsafeEventLimit = 0; // NOTE: No limit.
+        private static int DefaultUnsafeEventLimit = Limits.Unlimited; // NOTE: No limit.
         private static int DefaultSafeEventLimit = 50; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -446,7 +453,7 @@ namespace Eagle._Components.Public
         //
         // HACK: These are not read-only.
         //
-        private static int DefaultUnsafeProcedureLimit = 0; // NOTE: No limit.
+        private static int DefaultUnsafeProcedureLimit = Limits.Unlimited; // NOTE: No limit.
         private static int DefaultSafeProcedureLimit = 100; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -454,7 +461,7 @@ namespace Eagle._Components.Public
         //
         // HACK: These are not read-only.
         //
-        private static int DefaultUnsafeVariableLimit = 0; // NOTE: No limit.
+        private static int DefaultUnsafeVariableLimit = Limits.Unlimited; // NOTE: No limit.
         private static int DefaultSafeVariableLimit = 100; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -462,7 +469,7 @@ namespace Eagle._Components.Public
         //
         // HACK: These are not read-only.
         //
-        private static int DefaultUnsafeArrayElementLimit = 0; // NOTE: No limit.
+        private static int DefaultUnsafeArrayElementLimit = Limits.Unlimited; // NOTE: No limit.
         private static int DefaultSafeArrayElementLimit = 100; // TODO: Good default?
         #endregion
 
@@ -473,7 +480,7 @@ namespace Eagle._Components.Public
         //
         // HACK: These are not read-only.
         //
-        private static int DefaultUnsafeExecuteResultLimit = 0; // NOTE: No limit.
+        private static int DefaultUnsafeExecuteResultLimit = Limits.Unlimited; // NOTE: No limit.
         private static int DefaultSafeExecuteResultLimit = 1048576; // NOTE: 1MB.
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -481,7 +488,7 @@ namespace Eagle._Components.Public
         //
         // HACK: These are not read-only.
         //
-        private static int DefaultUnsafeNestedResultLimit = 0; // NOTE: No limit.
+        private static int DefaultUnsafeNestedResultLimit = Limits.Unlimited; // NOTE: No limit.
         private static int DefaultSafeNestedResultLimit = 1048576; // NOTE: 1MB.
 #endif
         #endregion
@@ -580,7 +587,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Nesting Level Defaults
-        private static readonly int DefaultReadyLimit = 0;
+        private static readonly int DefaultReadyLimit = Limits.Unlimited;
         private static readonly int DefaultRecursionLimit = 1000;
         #endregion
         #endregion
@@ -1815,13 +1822,14 @@ namespace Eagle._Components.Public
 
         public ReturnCode GetArguments(
             ref IList<string> arguments,
-            bool strict,
+            bool failOnError,
             ref Result error
             )
         {
             CheckDisposed();
 
-            return PrivateGetArguments(ref arguments, strict, ref error);
+            return PrivateGetArguments(
+                ref arguments, false, failOnError, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1840,13 +1848,14 @@ namespace Eagle._Components.Public
 
         public ReturnCode SetArguments(
             IList<string> arguments,
-            bool strict,
+            bool failOnNull,
             ref Result error
             )
         {
             CheckDisposed();
 
-            return PrivateSetArguments(arguments, strict, ref error);
+            return PrivateSetArguments(
+                arguments, false, failOnNull, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3574,19 +3583,22 @@ namespace Eagle._Components.Public
 
         private ReturnCode PrivateGetArguments(
             ref IList<string> arguments,
-            bool strict
+            bool whatIf,
+            bool failOnError
             )
         {
             Result error = null;
 
-            return PrivateGetArguments(ref arguments, strict, ref error);
+            return PrivateGetArguments(
+                ref arguments, whatIf, failOnError, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private ReturnCode PrivateGetArguments(
             ref IList<string> arguments,
-            bool strict,
+            bool whatIf,
+            bool failOnError,
             ref Result error
             )
         {
@@ -3597,7 +3609,9 @@ namespace Eagle._Components.Public
             localError = null;
 
             code = GetVariableValue2(
-                VariableFlags.None, TclVars.Core.ShellArguments,
+                VariableFlags.None, whatIf ?
+                    Vars.Core.WhatIfShellArguments :
+                    TclVars.Core.ShellArguments,
                 null, ref value, ref localError);
 
             if (code == ReturnCode.Ok)
@@ -3625,7 +3639,7 @@ namespace Eagle._Components.Public
                     code = ReturnCode.Ok;
                 }
             }
-            else if (!strict)
+            else if (!failOnError)
             {
                 arguments = null;
                 code = ReturnCode.Ok;
@@ -3642,19 +3656,22 @@ namespace Eagle._Components.Public
 
         private ReturnCode PrivateSetArguments(
             IList<string> arguments,
-            bool strict
+            bool whatIf,
+            bool failOnNull
             )
         {
             Result error = null;
 
-            return PrivateSetArguments(arguments, strict, ref error);
+            return PrivateSetArguments(
+                arguments, whatIf, failOnNull, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private ReturnCode PrivateSetArguments(
             IList<string> arguments,
-            bool strict,
+            bool whatIf,
+            bool failOnNull,
             ref Result error
             )
         {
@@ -3673,16 +3690,22 @@ namespace Eagle._Components.Public
                 localError = null;
 
                 code = SetLibraryVariableValue(
-                    VariableFlags.None, TclVars.Core.ShellArgumentCount,
-                    localArguments.Count.ToString(), ref localError);
+                    VariableFlags.None, whatIf ?
+                        Vars.Core.WhatIfShellArgumentCount :
+                        TclVars.Core.ShellArgumentCount,
+                    localArguments.Count.ToString(),
+                    ref localError);
 
                 if (code == ReturnCode.Ok)
                 {
                     localError = null;
 
                     code = SetLibraryVariableValue(
-                        VariableFlags.None, TclVars.Core.ShellArguments,
-                        localArguments.ToString(), ref localError);
+                        VariableFlags.None, whatIf ?
+                            Vars.Core.WhatIfShellArguments :
+                            TclVars.Core.ShellArguments,
+                        localArguments.ToString(),
+                        ref localError);
 
                     if (code != ReturnCode.Ok)
                         error = localError;
@@ -3692,12 +3715,14 @@ namespace Eagle._Components.Public
                     error = localError;
                 }
             }
-            else if (!strict)
+            else if (!failOnNull)
             {
                 localError = null;
 
                 code = SetLibraryVariableValue(
-                    VariableFlags.None, TclVars.Core.ShellArgumentCount,
+                    VariableFlags.None, whatIf ?
+                        Vars.Core.WhatIfShellArgumentCount :
+                        TclVars.Core.ShellArgumentCount,
                     Value.ZeroString, ref localError);
 
                 if (code == ReturnCode.Ok)
@@ -3705,7 +3730,9 @@ namespace Eagle._Components.Public
                     localError = null;
 
                     code = SetLibraryVariableValue(
-                        VariableFlags.None, TclVars.Core.ShellArguments,
+                        VariableFlags.None, whatIf ?
+                            Vars.Core.WhatIfShellArguments :
+                            TclVars.Core.ShellArguments,
                         null, ref localError);
 
                     if (code != ReturnCode.Ok)
@@ -3728,7 +3755,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private ReturnCode MaybeAddArguments(
-            ref int count,              /* in, out */
+            bool whatIf,                /* in */
+            ref int removeCount,        /* in, out */
             ref IList<string> oldArgv,  /* in, out */
             IList<string> addArguments, /* in */
             ref Result error            /* out */
@@ -3740,8 +3768,8 @@ namespace Eagle._Components.Public
                 return ReturnCode.Ok;
             }
 
-            if (MaybeRemoveArguments(
-                    ref count, ref error) != ReturnCode.Ok)
+            if (MaybeRemoveArguments(whatIf,
+                    ref removeCount, ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
@@ -3749,7 +3777,7 @@ namespace Eagle._Components.Public
             IList<string> newArguments = null;
 
             if (PrivateGetArguments(
-                    ref newArguments, false,
+                    ref newArguments, whatIf, false,
                     ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
@@ -3776,7 +3804,7 @@ namespace Eagle._Components.Public
             }
 
             if (PrivateSetArguments(
-                    newArguments, false,
+                    newArguments, whatIf, false,
                     ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
@@ -3791,6 +3819,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private ReturnCode MaybeRemoveArguments(
+            bool whatIf,     /* in */
             ref int count,   /* in, out */
             ref Result error /* out */
             )
@@ -3800,7 +3829,7 @@ namespace Eagle._Components.Public
                 IList<string> arguments = null;
 
                 if (PrivateGetArguments(
-                        ref arguments, false,
+                        ref arguments, whatIf, false,
                         ref error) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
@@ -3819,7 +3848,7 @@ namespace Eagle._Components.Public
                     }
 
                     if (PrivateSetArguments(
-                            arguments, false,
+                            arguments, whatIf, false,
                             ref error) != ReturnCode.Ok)
                     {
                         return ReturnCode.Error;
@@ -23314,7 +23343,7 @@ namespace Eagle._Components.Public
                                 null, null, null, ref result);
 #endif
                         }
-                        else if ((procedureLimit == 0) || (procedures.Count < procedureLimit))
+                        else if ((procedureLimit == Limits.Unlimited) || (procedures.Count < procedureLimit))
                         {
                             procedures.Add(name, wrapper);
                             success = true;
@@ -24265,7 +24294,8 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
                 }
 
-                if ((scopeLimit != 0) && (scopes.Count >= scopeLimit))
+                if ((scopeLimit != Limits.Unlimited) &&
+                    (scopes.Count >= scopeLimit))
                 {
                     result = String.Format(
                         "can't add {0}: scope limit exceeded",
@@ -35084,7 +35114,7 @@ namespace Eagle._Components.Public
                     //
                     // NOTE: If the limit is zero, use the default limit.
                     //
-                    if (limit == 0)
+                    if (limit == Limits.Unlimited)
                         limit = DefaultHistoryLimit;
 
                     while (_History.Count > limit)
@@ -40677,11 +40707,21 @@ namespace Eagle._Components.Public
         //
         // WARNING: This method assumes the interpreter lock is already held.
         //
+        private bool HasChildLimit()
+        {
+            return (childLimit != Limits.Unlimited);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This method assumes the interpreter lock is already held.
+        //
         private bool CanAddChild(
             ref Result error
             )
         {
-            if (childLimit == 0)
+            if (childLimit == Limits.Unlimited)
                 return true; /* NO-LIMIT */
 
             if ((childInterpreters != null) &&
@@ -40700,7 +40740,7 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
-            if (namespaceLimit == 0)
+            if (namespaceLimit == Limits.Unlimited)
                 return true; /* NO-LIMIT */
 
             if (Interlocked.CompareExchange(
@@ -42480,11 +42520,30 @@ namespace Eagle._Components.Public
 
                         package = PackageOps.NewCore(
                             name, null, null, clientData,
-                            indexFileName, null, flags,
+                            indexFileName, null,
+                            flags & PackageFlags.InstanceMask,
                             null, null);
 
                         code = AddPackageViaContext(
                             package, clientData, ref result);
+                    }
+                    else if ((package != null) && FlagOps.HasFlags(
+                            package.Flags, PackageFlags.Locked, true))
+                    {
+                        if (FlagOps.HasFlags(
+                                package.Flags, PackageFlags.Rejected, true))
+                        {
+                            result = String.Format(
+                                "rejected: package {0} is locked",
+                                FormatOps.WrapOrNull(name));
+
+                            return ReturnCode.Error;
+                        }
+                        else
+                        {
+                            result = String.Empty;
+                            return ReturnCode.Ok;
+                        }
                     }
                     else if (FlagOps.HasFlags(
                             flags, PackageFlags.FailExisting, true))
@@ -42729,7 +42788,8 @@ namespace Eagle._Components.Public
                             if (!FlagOps.HasFlags(
                                     flags, PackageFlags.NoUpdate, true))
                             {
-                                package.Flags |= flags;
+                                package.Flags |=
+                                    (flags & PackageFlags.InstanceMask);
                             }
 
                             result = String.Empty;
@@ -42793,7 +42853,8 @@ namespace Eagle._Components.Public
                     //
                     if (AddPackage(PackageOps.NewCore(
                             name, null, null, clientData,
-                            null, provideFileName, flags,
+                            null, provideFileName,
+                            flags & PackageFlags.InstanceMask,
                             version, null), clientData,
                             ref result) == ReturnCode.Ok)
                     {
@@ -51714,7 +51775,7 @@ namespace Eagle._Components.Public
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                return InternalIsSafe() || InternalIsAnySdk();
+                return InternalIsSafe() || PrivateIsHideUnsafe() || InternalIsAnySdk();
             }
         }
 
@@ -59788,7 +59849,7 @@ namespace Eagle._Components.Public
                                 //       present in the call frame because this is a logical
                                 //       "add" operation (i.e. not a "set" operation).
                                 //
-                                if ((variableLimit != 0) &&
+                                if ((variableLimit != Limits.Unlimited) &&
                                     (variables.Count >= variableLimit) &&
                                     (variables.GetDefinedCount() >= variableLimit))
                                 {
@@ -61162,7 +61223,7 @@ namespace Eagle._Components.Public
                                             // NOTE: If there is a element limit, make sure that there
                                             //       is still room for one more variable.
                                             //
-                                            if (arrayElementLimit != 0)
+                                            if (arrayElementLimit != Limits.Unlimited)
                                             {
                                                 if (((arrayValue == null) && (arrayElementLimit < 1)) ||
                                                     ((arrayValue != null) &&
@@ -61588,7 +61649,7 @@ namespace Eagle._Components.Public
                                     // NOTE: If there is a variable limit, make sure that there
                                     //       is still room for one more variable.
                                     //
-                                    if ((variableLimit != 0) &&
+                                    if ((variableLimit != Limits.Unlimited) &&
                                         (variables.Count >= variableLimit) &&
                                         (variables.GetDefinedCount() >= variableLimit))
                                     {
@@ -61610,7 +61671,7 @@ namespace Eagle._Components.Public
                                         // NOTE: If there is a element limit, make sure that there
                                         //       is still room for one more variable.
                                         //
-                                        if (haveIndex && (arrayElementLimit != 0) &&
+                                        if (haveIndex && (arrayElementLimit != Limits.Unlimited) &&
                                             (arrayValue.Count >= arrayElementLimit))
                                         {
                                             error = String.Format(
@@ -65551,6 +65612,18 @@ namespace Eagle._Components.Public
                                 console, verbose);
                         }
 #endif
+
+                        ///////////////////////////////////////////////////////////////////////////////
+
+                        UserInteractiveType? userInteractive = null;
+
+                        if (WindowOps.IsUserInteractiveViaEnvironment(ref userInteractive))
+                        {
+                            ConsoleOps.MaybeWritePrompt(String.Format(
+                                _Constants.Prompt.UserInteractive,
+                                FormatOps.MaybeNull(userInteractive)),
+                                console, verbose);
+                        }
 #endif
                         #endregion
 
@@ -65567,8 +65640,9 @@ namespace Eagle._Components.Public
                                 ConfigurationFlags.Interpreter, verbose)))
                         {
 #if CONSOLE
-                            ConsoleOps.MaybeWritePrompt(
+                            ConsoleOps.MaybeWritePrompt(String.Format(
                                 _Constants.Prompt.TraceToHost,
+                                _Constants.Prompt.ViaEnvironment),
                                 console, verbose);
 #endif
 
@@ -66045,7 +66119,8 @@ namespace Eagle._Components.Public
             if (IsCreationDisabled(true, ref error))
             {
                 TraceOps.DebugTrace(String.Format(
-                    "{0}: error = {1}", methodName,
+                    "{0}: appDomain = {1}, error = {2}",
+                    methodName, AppDomainOps.GetCurrentId(),
                     FormatOps.WrapOrNull(error)),
                     typeof(Interpreter).Name,
                     TracePriority.SecurityError);
@@ -66079,7 +66154,8 @@ namespace Eagle._Components.Public
                 {
                     TraceOps.DebugTrace(String.Format(
                         "PersistentDisableCreationOrMaybeThrow: " +
-                        "code = {0}, error = {1}", code,
+                        "appDomain = {0}, code = {1}, error = {2}",
+                        AppDomainOps.GetCurrentId(), code,
                         FormatOps.WrapOrNull(error)),
                         typeof(Interpreter).Name,
                         TracePriority.SecurityError);
@@ -66120,8 +66196,8 @@ namespace Eagle._Components.Public
                     "none appear to exist";
 
                 TraceOps.DebugTrace(String.Format(
-                    "DisableCreation: flags = {0}, " +
-                    "error = {1}", flags,
+                    "DisableCreation: appDomain = {0}, flags = {1}, " +
+                    "error = {2}", AppDomainOps.GetCurrentId(), flags,
                     FormatOps.WrapOrNull(error)),
                     typeof(Interpreter).Name,
                     TracePriority.SecurityError);
@@ -66147,8 +66223,8 @@ namespace Eagle._Components.Public
                         "creation, stub assembly not enabled";
 
                     TraceOps.DebugTrace(String.Format(
-                        "DisableCreation: flags = {0}, " +
-                        "error = {1}", flags,
+                        "DisableCreation: appDomain = {0}, flags = {1}, " +
+                        "error = {2}", AppDomainOps.GetCurrentId(), flags,
                         FormatOps.WrapOrNull(error)),
                         typeof(Interpreter).Name,
                         TracePriority.SecurityError);
@@ -66939,7 +67015,8 @@ namespace Eagle._Components.Public
                                             Result initializeError = null;
 
                                             code = interpreter.PrivateInitialize(
-                                                false, false, ref initializeError);
+                                                localAutoPathList, false, false,
+                                                ref initializeError);
 
                                             interpreter.MaybeIgnoreInitializeError(
                                                 ref code, ref initializeError);
@@ -67383,6 +67460,7 @@ namespace Eagle._Components.Public
             HostCreateFlags hostCreateFlags,
             InitializeFlags initializeFlags,
             ScriptFlags scriptFlags,
+            InterpreterFlags interpreterFlags,
             PluginFlags pluginFlags,
             string text,
             ref Result result
@@ -67391,9 +67469,9 @@ namespace Eagle._Components.Public
             return Create(token, null,
                 _ClientData.Empty, args, null, createFlags,
                 hostCreateFlags, initializeFlags, scriptFlags,
-                Defaults.InterpreterFlags, pluginFlags, null,
-                null, null, null, null, null, null, null, null,
-                null, text, null, null, ref result);
+                interpreterFlags, pluginFlags, null, null, null,
+                null, null, null, null, null, null, null, text,
+                null, null, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -68430,9 +68508,15 @@ namespace Eagle._Components.Public
             this.PrivateThreadId = GlobalState.GetCurrentSystemThreadId();
             this.ManagedThreadId = GlobalState.GetCurrentManagedThreadId();
             this.NativeThreadId = GlobalState.GetCurrentNativeThreadId();
-            this.InternalNoThreadAbort = false; // COMPAT: Eagle beta.
             this.PrivateVariableEvent = ThreadOps.CreateEvent(false);
             this.PrivateSetupEvent = ThreadOps.CreateEvent(false);
+
+            //
+            // HACK: Disable any "implicit" use of the Thread.Abort() method, i.e.
+            //       when there are no "noAbort" arguments or other flags in use?
+            //
+            this.InternalNoThreadAbort = FlagOps.HasFlags(
+                interpreterFlags, InterpreterFlags.NoThreadAbort, true);
 
             //
             // NOTE: What is the rule set used to create / populate this interpreter?
@@ -70072,6 +70156,16 @@ namespace Eagle._Components.Public
 
                         if (code == ReturnCode.Ok)
                             code = SetLibraryVariableValue(
+                                VariableFlags.None, Vars.Core.WhatIfShellArgumentCount,
+                                Value.ZeroString, ref result);
+
+                        if (code == ReturnCode.Ok)
+                            code = SetLibraryVariableValue(
+                                VariableFlags.None, Vars.Core.WhatIfShellArguments,
+                                null, ref result);
+
+                        if (code == ReturnCode.Ok)
+                            code = SetLibraryVariableValue(
                                 VariableFlags.None, TclVars.Core.RunCommandsFileName,
                                 TclVars.Path.RunCommands, ref result);
 
@@ -71608,7 +71702,8 @@ namespace Eagle._Components.Public
                                     {
                                         try
                                         {
-                                            if (interpreter.SetLibraryVariableValue2(
+                                            if (interpreter.InternalIsSafe() ||
+                                                interpreter.SetLibraryVariableValue2(
                                                     VariableFlags.GlobalOnly,
                                                     Vars.Core.Debugger,
                                                     Vars.Debugger.ScriptName, name,
@@ -71632,9 +71727,13 @@ namespace Eagle._Components.Public
                                         }
                                         finally
                                         {
-                                            interpreter.UnsetLibraryVariable(
-                                                VariableFlags.GlobalOnly, Vars.Core.Debugger,
-                                                Vars.Debugger.ScriptName);
+                                            if (!interpreter.InternalIsSafe())
+                                            {
+                                                /* IGNORED */
+                                                interpreter.UnsetLibraryVariable(
+                                                    VariableFlags.GlobalOnly, Vars.Core.Debugger,
+                                                    Vars.Debugger.ScriptName);
+                                            }
                                         }
                                     }
                                     else
@@ -71662,7 +71761,8 @@ namespace Eagle._Components.Public
                                     {
                                         try
                                         {
-                                            if (interpreter.SetLibraryVariableValue2(
+                                            if (interpreter.InternalIsSafe() ||
+                                                interpreter.SetLibraryVariableValue2(
                                                     VariableFlags.GlobalOnly,
                                                     Vars.Core.Debugger,
                                                     Vars.Debugger.ScriptName, name,
@@ -71686,9 +71786,13 @@ namespace Eagle._Components.Public
                                         }
                                         finally
                                         {
-                                            interpreter.UnsetLibraryVariable(
-                                                VariableFlags.GlobalOnly, Vars.Core.Debugger,
-                                                Vars.Debugger.ScriptName);
+                                            if (!interpreter.InternalIsSafe())
+                                            {
+                                                /* IGNORED */
+                                                interpreter.UnsetLibraryVariable(
+                                                    VariableFlags.GlobalOnly, Vars.Core.Debugger,
+                                                    Vars.Debugger.ScriptName);
+                                            }
                                         }
                                     }
                                     finally
@@ -71906,7 +72010,8 @@ namespace Eagle._Components.Public
                                     {
                                         try
                                         {
-                                            if (interpreter.SetLibraryVariableValue2(
+                                            if (interpreter.InternalIsSafe() ||
+                                                interpreter.SetLibraryVariableValue2(
                                                     VariableFlags.GlobalOnly,
                                                     Vars.Core.Debugger,
                                                     Vars.Debugger.ScriptName, name,
@@ -71930,9 +72035,13 @@ namespace Eagle._Components.Public
                                         }
                                         finally
                                         {
-                                            interpreter.UnsetLibraryVariable(
-                                                VariableFlags.GlobalOnly, Vars.Core.Debugger,
-                                                Vars.Debugger.ScriptName);
+                                            if (!interpreter.InternalIsSafe())
+                                            {
+                                                /* IGNORED */
+                                                interpreter.UnsetLibraryVariable(
+                                                    VariableFlags.GlobalOnly, Vars.Core.Debugger,
+                                                    Vars.Debugger.ScriptName);
+                                            }
                                         }
                                     }
                                     else
@@ -71949,7 +72058,8 @@ namespace Eagle._Components.Public
                                 {
                                     try
                                     {
-                                        if (interpreter.SetLibraryVariableValue2(
+                                        if (interpreter.InternalIsSafe() ||
+                                            interpreter.SetLibraryVariableValue2(
                                                 VariableFlags.GlobalOnly,
                                                 Vars.Core.Debugger,
                                                 Vars.Debugger.ScriptName, name,
@@ -71973,9 +72083,13 @@ namespace Eagle._Components.Public
                                     }
                                     finally
                                     {
-                                        interpreter.UnsetLibraryVariable(
-                                            VariableFlags.GlobalOnly, Vars.Core.Debugger,
-                                            Vars.Debugger.ScriptName);
+                                        if (!interpreter.InternalIsSafe())
+                                        {
+                                            /* IGNORED */
+                                            interpreter.UnsetLibraryVariable(
+                                                VariableFlags.GlobalOnly, Vars.Core.Debugger,
+                                                Vars.Debugger.ScriptName);
+                                        }
                                     }
                                 }
                             }
@@ -72392,7 +72506,7 @@ namespace Eagle._Components.Public
                 "SetAutoPathList: autoPathList = {0}, code = {1}, " +
                 "error = {2}", FormatOps.WrapOrNull(autoPathList),
                 FormatOps.WrapOrNull(code), FormatOps.WrapOrNull(error)),
-                typeof(Interpreter).Name, TracePriority.ScriptDebug3);
+                typeof(Interpreter).Name, TracePriority.ScriptDebug);
 
             return code;
         }
@@ -72400,7 +72514,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private ReturnCode PrivateInitializeAutoPath(
-            ref Result error /* out */
+            StringList autoPathList, /* in: OPTIONAL */
+            ref Result error         /* out */
             )
         {
             //
@@ -72430,22 +72545,32 @@ namespace Eagle._Components.Public
                 //          and other code may rely on us doing
                 //          just that.
                 //
-                StringList autoPathList;
+                StringList localAutoPathList;
 
-                if (FlagOps.HasFlags(localInitializeFlags,
+                if (autoPathList != null)
+                {
+                    //
+                    // HACK: *SPECIAL* This means the caller is
+                    //       giving us the global auto-path and
+                    //       it should be used verbatim.
+                    //
+                    localAutoPathList = autoPathList;
+                }
+                else if (FlagOps.HasFlags(localInitializeFlags,
                         InitializeFlags.GlobalAutoPath, true))
                 {
-                    autoPathList = GlobalState.GetAutoPathList(
+                    localAutoPathList = GlobalState.GetAutoPathList(
                         this, false);
                 }
                 else
                 {
-                    autoPathList = null;
+                    localAutoPathList = null;
                 }
 
-                return SetAutoPathList(
-                    autoPathList, FlagOps.HasFlags(localInitializeFlags,
-                    InitializeFlags.NoTraceAutoPath, true), ref error);
+                return SetAutoPathList(localAutoPathList,
+                    FlagOps.HasFlags(localInitializeFlags,
+                    InitializeFlags.NoTraceAutoPath, true),
+                    ref error);
             }
             else
             {
@@ -72575,6 +72700,18 @@ namespace Eagle._Components.Public
             ref Result error /* out */
             )
         {
+            return PrivateInitialize(null, force, debug, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode PrivateInitialize(
+            StringList autoPathList, /* in: OPTIONAL */
+            bool force,              /* in */
+            bool debug,              /* in */
+            ref Result error         /* out */
+            )
+        {
             ReturnCode code = ReturnCode.Ok;
             bool wasInitialized;
             bool didInitialize = false;
@@ -72702,7 +72839,7 @@ namespace Eagle._Components.Public
                         if (!FlagOps.HasFlags(
                                 localCreateFlags, CreateFlags.NoVariables, true)) /* EXEMPT */
                         {
-                            code = PrivateInitializeAutoPath(ref error);
+                            code = PrivateInitializeAutoPath(autoPathList, ref error);
 
                             if (code == ReturnCode.Ok)
                                 code = PrivateInitializeLibraryPath(ref error);
@@ -73913,6 +74050,12 @@ namespace Eagle._Components.Public
                 quiet = activeInterpreter.ShouldBeQuiet();
 
             //
+            // NOTE: This may end up containing the built command line for
+            //       use when emitting trace messages.
+            //
+            string commandLine; /* REUSED */
+
+            //
             // NOTE: In debug mode, show the command line arguments just
             //       as we received them.
             //
@@ -73925,7 +74068,7 @@ namespace Eagle._Components.Public
                     "The managed executable file name is: {0}",
                     managedExecutableFileName));
 
-                string commandLine = RuntimeOps.BuildCommandLine(argv, true);
+                commandLine = RuntimeOps.BuildCommandLine(argv, true);
 
                 HostOps.WriteLineOrConsole(interactiveHost, String.Format(
                     "The original command line arguments are: {0}",
@@ -73955,7 +74098,7 @@ namespace Eagle._Components.Public
             //       place in this method.
             //
             ReturnCode code;
-            int errorLine;
+            int errorLine = 0;
 
             //
             // NOTE: If this is non-zero, it indicates that a brand new
@@ -73975,6 +74118,12 @@ namespace Eagle._Components.Public
                 create[2] = activeInterpreter.InternalIsSafe();
                 create[3] = activeInterpreter.InternalIsStandard();
             }
+
+            //
+            // NOTE: How many arguments were added to the command line by
+            //       the host, argument files, application settings, etc?
+            //
+            IList<string> readArgv = null;
 
             //
             // NOTE: If this is non-zero, the command line arguments were
@@ -74050,17 +74199,18 @@ namespace Eagle._Components.Public
                 //
                 string hostArgvFileName = null;
                 IList<string> hostArgv = null;
-                bool readArgv = false;
+                int hostReadArgv = 0;
                 ResultList errors = null;
 
                 code = ShellOps.ReadArgumentsFromHost(
-                    activeInterpreter, argvFileNames, encoding, /* POP */ 0,
-                    false, false, ref hostArgvFileName, ref hostArgv,
-                    ref readArgv, ref errors);
+                    activeInterpreter, argvFileNames, encoding,
+                    /* POP */ 0, false, false, ref hostArgvFileName,
+                    ref hostArgv, ref hostReadArgv, ref errors);
 
                 if (code == ReturnCode.Ok)
                 {
-                    if (!whatIf && readArgv && activeInterpreter.Debug)
+                    if (!whatIf && activeInterpreter.Debug &&
+                        (hostReadArgv > 0))
                     {
                         HostOps.WriteLineOrConsole(
                             interactiveHost, String.Format(
@@ -74082,7 +74232,7 @@ namespace Eagle._Components.Public
                 // NOTE: Were some command line arguments actually read from
                 //       the interpreter host?
                 //
-                if (readArgv)
+                if (hostReadArgv > 0)
                 {
                     //
                     // NOTE: If the interpreter host locked the command line
@@ -74096,7 +74246,26 @@ namespace Eagle._Components.Public
                     //
                     if (ShellOps.ShouldLockHostArguments(hostArgv))
                     {
+                        //
+                        // BUGFIX: The script arguments must be synchronized
+                        //         with the actual command line arguments to
+                        //         process.
+                        //
+                        code = activeInterpreter.PrivateSetArguments(
+                            hostArgv, whatIf, true, ref result);
+
+                        if (code != ReturnCode.Ok)
+                        {
+                            exitCode = ShellOps.ReturnCodeToExitCode(
+                                activeInterpreter, code, true);
+
+                            goto done;
+                        }
+
                         argv = hostArgv;
+                        hostArgv = null;
+
+                        readArgv = null; /* REDUNDANT */
                         lockArgv = true;
 
                         goto haveArgv;
@@ -74113,12 +74282,12 @@ namespace Eagle._Components.Public
 
                 if (ShellOps.SomeFileExists(
                         argvFileNames, ref argvFileName) &&
-                    (!readArgv || !PathOps.IsEqualFileName(
+                    ((hostReadArgv == 0) || !PathOps.IsEqualFileName(
                         argvFileName, hostArgvFileName)))
                 {
                     code = ShellOps.ReadArgumentsFromFile(
                         activeInterpreter, encoding, argvFileName,
-                        /* POP */ 0, false, false, ref argv,
+                        /* POP */ 0, false, false, ref readArgv,
                         ref result);
 
                     if (code == ReturnCode.Ok)
@@ -74147,8 +74316,8 @@ namespace Eagle._Components.Public
                 if (useAppSettings)
                 {
                     code = ShellOps.ReadArgumentsFromAppSettings(
-                        activeInterpreter, /* POP */ 0, false, ref argv,
-                        ref result);
+                        activeInterpreter, /* POP */ 0, false,
+                        ref readArgv, ref result);
 
                     if (code == ReturnCode.Ok)
                     {
@@ -74172,10 +74341,10 @@ namespace Eagle._Components.Public
                 //       from the interpreter host, without the locking
                 //       option being set?  If so, add them now.
                 //
-                if (readArgv && !lockArgv && (hostArgv != null))
+                if (!lockArgv && (hostReadArgv > 0) && (hostArgv != null))
                 {
                     ShellOps.CommitToArguments(
-                        hostArgv, /* POP */ 0, false, ref argv);
+                        hostArgv, /* POP */ 0, false, ref readArgv);
                 }
 
             haveArgv:
@@ -74186,16 +74355,29 @@ namespace Eagle._Components.Public
                 //
                 if (!whatIf && activeInterpreter.Debug)
                 {
-                    string commandLine = RuntimeOps.BuildCommandLine(
-                        argv, true);
+                    commandLine = RuntimeOps.BuildCommandLine(argv, true);
 
                     HostOps.WriteLineOrConsole(
                         interactiveHost, String.Format(
-                        "The modified command line arguments are: {0}",
+                        "The read command line arguments are: {0}",
                         !String.IsNullOrEmpty(commandLine) ?
                             commandLine : FormatOps.DisplayNone));
                 }
             }
+
+#if TEST
+            //
+            // NOTE: Clear out list of processed command line options
+            //       for this thread.
+            //
+            _Tests.Default.TestShellClearArguments();
+#endif
+
+            //
+            // NOTE: How many times have we hit the "retry" label when
+            //       processing command line arguments?
+            //
+            int retries = 0;
 
             //
             // NOTE: How many of the command line arguments have been
@@ -74205,7 +74387,59 @@ namespace Eagle._Components.Public
             //
             int removeArgv = 0;
 
-        retry: // NOTE: Used to continue processing arguments.
+        readArgv:
+
+            //
+            // NOTE: If any command line arguments were read from files
+            //       and/or application settings, try to add them now.
+            //
+            if (readArgv != null)
+            {
+                if (activeInterpreter.MaybeAddArguments(
+                        whatIf, ref removeArgv, ref argv, readArgv,
+                        ref result) != ReturnCode.Ok)
+                {
+                    ShellOps.ShellMainCoreError(
+                        activeInterpreter, null, null, String.Format(
+                        "could not add shell arguments {0} from files " +
+                        "and/or settings", FormatOps.WrapOrNull(readArgv)),
+                        whatIf, ref argv, ref interactiveHost, ref quiet,
+                        ref result);
+
+                    exitCode = ShellOps.FailureExitCode(activeInterpreter);
+
+                    goto done;
+                }
+
+                readArgv = null;
+            }
+
+        retryArgv: // NOTE: Used to continue processing arguments.
+
+            //
+            // NOTE: Initially, this value will be "1"; subsequently,
+            //       this will be incremented every time another one
+            //       of the command line arguments needs to continue
+            //       processing more command line arguments, not for
+            //       "terminal" command line arguments like "-file",
+            //       et al.
+            //
+            retries++;
+
+            //
+            // NOTE: In debug mode, always show the modified command
+            //       line arguments.
+            //
+            if (!whatIf && activeInterpreter.Debug)
+            {
+                commandLine = RuntimeOps.BuildCommandLine(argv, true);
+
+                HostOps.WriteLineOrConsole(
+                    interactiveHost, String.Format(
+                    "Retry #{0} entry command line arguments are: {1}",
+                    retries, !String.IsNullOrEmpty(commandLine) ?
+                        commandLine : FormatOps.DisplayNone));
+            }
 
             //
             // NOTE: Check and see if additional command line arguments
@@ -74220,7 +74454,7 @@ namespace Eagle._Components.Public
                     activeInterpreter.ShellArguments;
 
                 if (activeInterpreter.MaybeAddArguments(
-                        ref removeArgv, ref argv, shellArguments,
+                        whatIf, ref removeArgv, ref argv, shellArguments,
                         ref result) != ReturnCode.Ok)
                 {
                     ShellOps.ShellMainCoreError(
@@ -74318,6 +74552,16 @@ namespace Eagle._Components.Public
 
             option:
 
+#if TEST
+                //
+                // NOTE: For testing purposes, attempt to keep track of
+                //       all command line options that are processed by
+                //       this method on this thread.
+                //
+                _Tests.Default.TestShellTrackArguments(
+                    retries, removeArgv, false, argv);
+#endif
+
                 //
                 // NOTE: At this point, a first argument is required.
                 //       If there is none, we are done with processing
@@ -74326,44 +74570,39 @@ namespace Eagle._Components.Public
                 if (arg0 == null)
                 {
                     argv = null;
-                    goto retry;
+                    goto retryArgv;
                 }
 
                 //
                 // NOTE: This is the number of switch chars in front
                 //       of the current argument.
                 //
-                int count = 0;
+                int switchCount = 0;
 
                 //
                 // NOTE: This trims any leading switch chars from the
                 //       current argument and sets the count to the
                 //       number of switch chars actually removed.
                 //
-                arg0 = StringOps.TrimSwitchChars(arg0, ref count);
+                arg0 = StringOps.TrimSwitchChars(arg0, ref switchCount);
 
-                if ((count > 0) &&
+                if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.AnyFile))
                 {
                     if (arg1 != null)
                     {
-                        errorLine = 0;
+                        removeArgv += 2;
 
-                        if (whatIf)
-                        {
-                            code = ReturnCode.Ok;
-                        }
-                        else
-                        {
-                            code = activeInterpreter.MaybeRemoveArguments(
-                                ref removeArgv, ref result);
+                        code = activeInterpreter.MaybeRemoveArguments(
+                            whatIf, ref removeArgv, ref result);
 
-                            if (code == ReturnCode.Ok)
-                            {
-                                code = activeInterpreter.ShellEvaluateFile(
-                                    localCallbackData, encoding, arg1,
-                                    ref result, ref errorLine);
-                            }
+                        if ((code == ReturnCode.Ok) && !whatIf)
+                        {
+                            errorLine = 0;
+
+                            code = activeInterpreter.ShellEvaluateFile(
+                                localCallbackData, encoding, arg1,
+                                ref result, ref errorLine);
                         }
 
                         if (code == ReturnCode.Ok)
@@ -74396,9 +74635,7 @@ namespace Eagle._Components.Public
                                 popArgv = false;
                             }
 
-                            removeArgv += 2;
-
-                            goto retry;
+                            goto retryArgv;
                         }
                         else
                         {
@@ -74429,29 +74666,24 @@ namespace Eagle._Components.Public
                     }
                 }
 #if !ENTERPRISE_LOCKDOWN
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.AnyInitialize))
                 {
                     if (arg1 != null)
                     {
-                        errorLine = 0;
+                        removeArgv += 2;
 
-                        if (whatIf)
-                        {
-                            code = ReturnCode.Ok;
-                        }
-                        else
-                        {
-                            code = activeInterpreter.MaybeRemoveArguments(
-                                ref removeArgv, ref result);
+                        code = activeInterpreter.MaybeRemoveArguments(
+                            whatIf, ref removeArgv, ref result);
 
-                            if (code == ReturnCode.Ok)
-                            {
-                                code = activeInterpreter.ShellEvaluateScript(
-                                    _ShellCallbackData.GetEvaluateScriptCallback(
-                                        localCallbackData), arg1, ref result,
-                                    ref errorLine);
-                            }
+                        if ((code == ReturnCode.Ok) && !whatIf)
+                        {
+                            errorLine = 0;
+
+                            code = activeInterpreter.ShellEvaluateScript(
+                                _ShellCallbackData.GetEvaluateScriptCallback(
+                                    localCallbackData), arg1, ref result,
+                                ref errorLine);
                         }
 
                         if (code == ReturnCode.Ok)
@@ -74484,9 +74716,7 @@ namespace Eagle._Components.Public
                                 popArgv = false;
                             }
 
-                            removeArgv += 2;
-
-                            goto retry;
+                            goto retryArgv;
                         }
                         else
                         {
@@ -74518,7 +74748,7 @@ namespace Eagle._Components.Public
                     }
                 }
 #endif
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Arguments))
                 {
                     if (arg1 != null)
@@ -74532,8 +74762,9 @@ namespace Eagle._Components.Public
                         //       the arguments found in the specified file.
                         //
                         code = ShellOps.ReadArgumentsFromFile(
-                            activeInterpreter, encoding, arg1, /* POP */ 2,
-                            true, false, ref argv, ref result);
+                            activeInterpreter, encoding, arg1,
+                            /* POP */ 2, true, false, ref readArgv,
+                            ref result);
 
                         if (code == ReturnCode.Ok)
                         {
@@ -74545,14 +74776,21 @@ namespace Eagle._Components.Public
                                     FormatOps.WrapOrNull(arg1)));
                             }
 
-                            goto retry;
+                            if (popArgv)
+                            {
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                popArgv = false;
+                            }
+
+                            goto readArgv;
                         }
                         else
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -74569,7 +74807,7 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Break))
                 {
                     #region Requires Console Support
@@ -74593,7 +74831,8 @@ namespace Eagle._Components.Public
                     if (!whatIf)
                     {
                         /* NO RESULT */
-                        DebugOps.Break(activeInterpreter, null, true); /* throw */
+                        DebugOps.Break(
+                            activeInterpreter, null, true); /* throw */
                     }
 
                     if (popArgv)
@@ -74604,9 +74843,9 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.ClearTrace))
                 {
                     if (whatIf)
@@ -74630,75 +74869,102 @@ namespace Eagle._Components.Public
 
                         removeArgv += 1;
 
-                        goto retry;
+                        goto retryArgv;
                     }
 
                     ShellOps.ShellMainCoreError(
                         activeInterpreter, savedArg0, arg0, code, result,
-                        whatIf, ref argv, ref interactiveHost,
-                        ref quiet, ref result);
+                        whatIf, ref argv, ref interactiveHost, ref quiet,
+                        ref result);
 
                     exitCode = ShellOps.ReturnCodeToExitCode(
                         activeInterpreter, code, true);
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Child))
                 {
-                    create[1] = true;
+                    removeArgv += 1;
 
-                    if (childInterpreter != null)
+                    code = activeInterpreter.MaybeRemoveArguments(
+                        whatIf, ref removeArgv, ref result);
+
+                    if (code == ReturnCode.Ok)
                     {
-                        if (!whatIf && !quiet)
+                        if (childInterpreter != null)
                         {
-                            ShellOps.WritePrompt(activeInterpreter,
-                                _Constants.Prompt.Child);
+                            if (!whatIf)
+                            {
+                                create[1] = true;
+
+                                if (!quiet)
+                                {
+                                    ShellOps.WritePrompt(activeInterpreter,
+                                        _Constants.Prompt.Child);
+                                }
+                            }
+
+                            activeInterpreter = childInterpreter;
+
+                            if (popArgv)
+                            {
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                popArgv = false;
+                            }
+
+                            goto retryArgv;
                         }
-
-                        activeInterpreter = childInterpreter;
-
-                        if (popArgv)
+                        else if (create[0])
                         {
-                            GenericOps<string>.PopFirstArgument(ref argv);
-                            popArgv = false;
+                            if (!whatIf)
+                            {
+                                create[1] = true;
+
+                                if (!quiet)
+                                {
+                                    ShellOps.WritePrompt(activeInterpreter,
+                                        _Constants.Prompt.Child);
+                                }
+                            }
+
+                            activeInterpreter = null;
+
+                            arg0 = Characters.MinusSign + CommandLineOption.Recreate;
+
+                            if (popArgv)
+                            {
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                popArgv = false;
+                            }
+
+                            goto option;
                         }
+                        else if (!whatIf)
+                        {
+                            result = "child interpreter unavailable";
+                        }
+                        else
+                        {
+                            if (popArgv)
+                            {
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                popArgv = false;
+                            }
 
-                        removeArgv += 1;
-
-                        goto retry;
+                            goto retryArgv;
+                        }
                     }
-                    else if (create[0])
-                    {
-                        if (!whatIf && !quiet)
-                        {
-                            ShellOps.WritePrompt(activeInterpreter,
-                                _Constants.Prompt.Child);
-                        }
 
-                        activeInterpreter = null;
-
-                        arg0 = Characters.MinusSign + CommandLineOption.Recreate;
-
-                        if (popArgv)
-                        {
-                            GenericOps<string>.PopFirstArgument(ref argv);
-                            popArgv = false;
-                        }
-
-                        removeArgv += 1;
-
-                        goto option;
-                    }
-                    else
+                    if (code != ReturnCode.Ok)
                     {
                         ShellOps.ShellMainCoreError(
-                            activeInterpreter, savedArg0, arg0,
-                            "child interpreter unavailable", whatIf, ref argv,
-                            ref interactiveHost, ref quiet, ref result);
+                            activeInterpreter, savedArg0, arg0, code, result,
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
 
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Debug))
                 {
                     if (!whatIf)
@@ -74722,32 +74988,25 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
 #if !ENTERPRISE_LOCKDOWN
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Evaluate))
                 {
-                    if (whatIf)
-                    {
-                        code = ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        //
-                        // HACK: Attempt to remove remaining arguments
-                        //       that this method knows about.  If any
-                        //       arguments after those were were added
-                        //       to the "argv" script variable, so be
-                        //       it.
-                        //
-                        removeArgv = argc;
+                    //
+                    // HACK: Attempt to remove remaining arguments
+                    //       that this method knows about.  If any
+                    //       arguments after those were were added
+                    //       to the "argv" script variable, so be
+                    //       it.
+                    //
+                    removeArgv = argc;
 
-                        code = activeInterpreter.MaybeRemoveArguments(
-                            ref removeArgv, ref result);
-                    }
+                    code = activeInterpreter.MaybeRemoveArguments(
+                        whatIf, ref removeArgv, ref result);
 
-                    if ((code == ReturnCode.Ok) && initialize && !whatIf)
+                    if ((code == ReturnCode.Ok) && !whatIf && initialize)
                     {
                         code = activeInterpreter.PrivateInitialize(
                             forceInitialize, false, ref result);
@@ -74768,8 +75027,6 @@ namespace Eagle._Components.Public
                             activeInterpreter.RefreshShellCallbacks();
                         }
                     }
-
-                    errorLine = 0;
 
                     if (code == ReturnCode.Ok)
                     {
@@ -74827,6 +75084,8 @@ namespace Eagle._Components.Public
 
                                     if (!whatIf)
                                     {
+                                        errorLine = 0;
+
                                         code = activeInterpreter.ShellEvaluateScript(
                                             _ShellCallbackData.GetEvaluateScriptCallback(
                                                 localCallbackData), text, ref result,
@@ -74858,7 +75117,6 @@ namespace Eagle._Components.Public
                     // BUGFIX: All remaining command line arguments have (now)
                     //         been consumed, so clear them out.
                     //
-                    removeArgv = argc;
                     argv = null;
 
                     //
@@ -74869,29 +75127,22 @@ namespace Eagle._Components.Public
                     //
                     ShellOps.GetExitCode(activeInterpreter, code, out exitCode);
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.EvaluateEncoded))
                 {
-                    if (whatIf)
-                    {
-                        code = ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        //
-                        // HACK: Attempt to remove remaining arguments
-                        //       that this method knows about.  If any
-                        //       arguments after those were were added
-                        //       to the "argv" script variable, so be
-                        //       it.
-                        //
-                        removeArgv = argc;
+                    //
+                    // HACK: Attempt to remove remaining arguments
+                    //       that this method knows about.  If any
+                    //       arguments after those were were added
+                    //       to the "argv" script variable, so be
+                    //       it.
+                    //
+                    removeArgv = argc;
 
-                        code = activeInterpreter.MaybeRemoveArguments(
-                            ref removeArgv, ref result);
-                    }
+                    code = activeInterpreter.MaybeRemoveArguments(
+                        whatIf, ref removeArgv, ref result);
 
-                    if ((code == ReturnCode.Ok) && initialize && !whatIf)
+                    if ((code == ReturnCode.Ok) && !whatIf && initialize)
                     {
                         code = activeInterpreter.PrivateInitialize(
                             forceInitialize, false, ref result);
@@ -74912,8 +75163,6 @@ namespace Eagle._Components.Public
                             activeInterpreter.RefreshShellCallbacks();
                         }
                     }
-
-                    errorLine = 0;
 
                     if (code == ReturnCode.Ok)
                     {
@@ -74986,6 +75235,8 @@ namespace Eagle._Components.Public
 
                                     if (!whatIf)
                                     {
+                                        errorLine = 0;
+
                                         code = activeInterpreter.ShellEvaluateScript(
                                             _ShellCallbackData.GetEvaluateScriptCallback(
                                                 localCallbackData), text, ref result,
@@ -75017,7 +75268,6 @@ namespace Eagle._Components.Public
                     // BUGFIX: All remaining command line arguments have (now)
                     //         been consumed, so clear them out.
                     //
-                    removeArgv = argc;
                     argv = null;
 
                     //
@@ -75029,7 +75279,7 @@ namespace Eagle._Components.Public
                     ShellOps.GetExitCode(activeInterpreter, code, out exitCode);
                 }
 #endif
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Encoding))
                 {
                     if (arg1 != null)
@@ -75056,14 +75306,14 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
                         else
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -75080,24 +75330,17 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.File))
                 {
                     if (argc >= 2)
                     {
-                        if (whatIf)
-                        {
-                            code = ReturnCode.Ok;
-                        }
-                        else
-                        {
-                            removeArgv += 2;
+                        removeArgv += 2;
 
-                            code = activeInterpreter.MaybeRemoveArguments(
-                                ref removeArgv, ref result);
-                        }
+                        code = activeInterpreter.MaybeRemoveArguments(
+                            whatIf, ref removeArgv, ref result);
 
-                        if ((code == ReturnCode.Ok) && initialize && !whatIf)
+                        if ((code == ReturnCode.Ok) && !whatIf && initialize)
                         {
                             code = activeInterpreter.PrivateInitialize(
                                 forceInitialize, false, ref result);
@@ -75119,10 +75362,10 @@ namespace Eagle._Components.Public
                             }
                         }
 
-                        errorLine = 0;
-
                         if ((code == ReturnCode.Ok) && !whatIf)
                         {
+                            errorLine = 0;
+
                             code = activeInterpreter.ShellEvaluateFile(
                                 localCallbackData, encoding, arg1,
                                 ref result, ref errorLine);
@@ -75180,7 +75423,7 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.About))
                 {
                     showOptions = false;
@@ -75191,7 +75434,6 @@ namespace Eagle._Components.Public
                     if (popArgv)
                     {
                         GenericOps<string>.PopFirstArgument(ref argv);
-
                         popArgv = false;
                     }
 
@@ -75199,7 +75441,7 @@ namespace Eagle._Components.Public
 
                     goto option;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.CommandHelp))
                 {
                     showOptions = true;
@@ -75217,7 +75459,7 @@ namespace Eagle._Components.Public
 
                     goto option;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.EnvironmentHelp))
                 {
                     showOptions = false;
@@ -75235,7 +75477,7 @@ namespace Eagle._Components.Public
 
                     goto option;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.ForceInitialize))
                 {
                     forceInitialize = true;
@@ -75254,9 +75496,9 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.FullHelp))
                 {
                     showOptions = true;
@@ -75274,7 +75516,7 @@ namespace Eagle._Components.Public
 
                     goto option;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Help))
                 {
                     if (whatIf)
@@ -75312,14 +75554,14 @@ namespace Eagle._Components.Public
                     {
                         ShellOps.ShellMainCoreError(
                             activeInterpreter, savedArg0, arg0, code, result,
-                            whatIf, ref argv, ref interactiveHost,
-                            ref quiet, ref result);
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
                     }
 
                     exitCode = ShellOps.ReturnCodeToExitCode(
                         activeInterpreter, code, true);
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Interactive))
                 {
                     if (!whatIf)
@@ -75343,12 +75585,12 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Initialize))
                 {
-                    if (initialize && !whatIf)
+                    if (!whatIf && initialize)
                     {
                         code = activeInterpreter.PrivateInitialize(
                             forceInitialize, false, ref result);
@@ -75384,7 +75626,7 @@ namespace Eagle._Components.Public
 
                         removeArgv += 1;
 
-                        goto retry;
+                        goto retryArgv;
                     }
                     else
                     {
@@ -75404,7 +75646,7 @@ namespace Eagle._Components.Public
                         activeInterpreter, code, true);
                 }
 #if ISOLATED_PLUGINS
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Isolated))
                 {
                     if (arg1 != null)
@@ -75444,15 +75686,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -75470,7 +75712,7 @@ namespace Eagle._Components.Public
                     }
                 }
 #endif
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Kiosk))
                 {
                     if (arg1 != null)
@@ -75490,7 +75732,7 @@ namespace Eagle._Components.Public
 
                         if (code == ReturnCode.Ok)
                         {
-                            if (processed && !whatIf)
+                            if (!whatIf && processed)
                             {
                                 kiosk = activeInterpreter.IsKioskLock();
 
@@ -75513,15 +75755,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -75538,7 +75780,7 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.LockHostArguments))
                 {
                     if (!whatIf && !quiet)
@@ -75555,9 +75797,9 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Namespaces))
                 {
                     if (arg1 != null)
@@ -75595,15 +75837,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -75620,7 +75862,7 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.NoAppSettings))
                 {
                     if (!whatIf && !quiet)
@@ -75639,9 +75881,9 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.NoArgumentsFileNames))
                 {
                     if (!whatIf && !quiet)
@@ -75658,9 +75900,9 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.NoExit))
                 {
                     noExit = true;
@@ -75679,9 +75921,9 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.NoTrim))
                 {
                     noTrim = true;
@@ -75700,47 +75942,71 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Parent))
                 {
-                    create[1] = false;
+                    removeArgv += 1;
 
-                    if (parentInterpreter != null)
+                    code = activeInterpreter.MaybeRemoveArguments(
+                        whatIf, ref removeArgv, ref result);
+
+                    if (code == ReturnCode.Ok)
                     {
-                        if (!whatIf && !quiet)
+                        if (parentInterpreter != null)
                         {
-                            ShellOps.WritePrompt(activeInterpreter,
-                                _Constants.Prompt.Parent);
+                            if (!whatIf)
+                            {
+                                create[1] = false;
+
+                                if (!quiet)
+                                {
+                                    ShellOps.WritePrompt(activeInterpreter,
+                                        _Constants.Prompt.Parent);
+                                }
+                            }
+
+                            activeInterpreter = parentInterpreter;
+
+                            if (popArgv)
+                            {
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                popArgv = false;
+                            }
+
+                            goto retryArgv;
                         }
-
-                        activeInterpreter = parentInterpreter;
-
-                        if (popArgv)
+                        else if (!whatIf)
                         {
-                            GenericOps<string>.PopFirstArgument(ref argv);
-                            popArgv = false;
+                            result = "parent interpreter unavailable";
                         }
+                        else
+                        {
+                            if (popArgv)
+                            {
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                popArgv = false;
+                            }
 
-                        removeArgv += 1;
-
-                        goto retry;
+                            goto retryArgv;
+                        }
                     }
-                    else
+
+                    if (code != ReturnCode.Ok)
                     {
                         ShellOps.ShellMainCoreError(
-                            activeInterpreter, savedArg0, arg0,
-                            "parent interpreter unavailable", whatIf, ref argv,
-                            ref interactiveHost, ref quiet, ref result);
+                            activeInterpreter, savedArg0, arg0, code, result,
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
 
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Pause))
                 {
-                    if (interactiveHost != null) /* EXEMPT */
+                    if (whatIf || (interactiveHost != null)) /* EXEMPT */
                     {
                         if (!whatIf)
                         {
@@ -75749,6 +76015,7 @@ namespace Eagle._Components.Public
                                 _Constants.Prompt.Debugger,
                                 ProcessOps.GetId()));
 
+                            /* IGNORED */
                             interactiveHost.Pause();
                         }
 
@@ -75760,20 +76027,17 @@ namespace Eagle._Components.Public
 
                         removeArgv += 1;
 
-                        goto retry;
+                        goto retryArgv;
                     }
                     else
                     {
-                        if (!whatIf)
-                        {
-                            HostOps.WriteConsoleOrComplain(
-                                ReturnCode.Error, "interpreter host not available");
-                        }
+                        HostOps.WriteConsoleOrComplain(
+                            ReturnCode.Error, "interpreter host not available");
 
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.PluginArguments))
                 {
                     if ((arg1 != null) && (arg2 != null))
@@ -75799,7 +76063,7 @@ namespace Eagle._Components.Public
 
                             removeArgv += 3;
 
-                            goto retry;
+                            goto retryArgv;
                         }
                         else
                         {
@@ -75824,30 +76088,25 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.PostFile))
                 {
                     if (arg1 != null)
                     {
                         if (whatIf || activeInterpreter.PrivateInitialized)
                         {
-                            errorLine = 0;
+                            removeArgv += 2;
 
-                            if (whatIf)
-                            {
-                                code = ReturnCode.Ok;
-                            }
-                            else
-                            {
-                                code = activeInterpreter.MaybeRemoveArguments(
-                                    ref removeArgv, ref result);
+                            code = activeInterpreter.MaybeRemoveArguments(
+                                whatIf, ref removeArgv, ref result);
 
-                                if (code == ReturnCode.Ok)
-                                {
-                                    code = activeInterpreter.ShellEvaluateFile(
-                                        localCallbackData, encoding, arg1,
-                                        ref result, ref errorLine);
-                                }
+                            if ((code == ReturnCode.Ok) && !whatIf)
+                            {
+                                errorLine = 0;
+
+                                code = activeInterpreter.ShellEvaluateFile(
+                                    localCallbackData, encoding, arg1,
+                                    ref result, ref errorLine);
                             }
 
                             if (code == ReturnCode.Ok)
@@ -75880,9 +76139,7 @@ namespace Eagle._Components.Public
                                     popArgv = false;
                                 }
 
-                                removeArgv += 2;
-
-                                goto retry;
+                                goto retryArgv;
                             }
                             else
                             {
@@ -75924,31 +76181,26 @@ namespace Eagle._Components.Public
                     }
                 }
 #if !ENTERPRISE_LOCKDOWN
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.PostInitialize))
                 {
                     if (arg1 != null)
                     {
                         if (whatIf || activeInterpreter.PrivateInitialized)
                         {
-                            errorLine = 0;
+                            removeArgv += 2;
 
-                            if (whatIf)
-                            {
-                                code = ReturnCode.Ok;
-                            }
-                            else
-                            {
-                                code = activeInterpreter.MaybeRemoveArguments(
-                                    ref removeArgv, ref result);
+                            code = activeInterpreter.MaybeRemoveArguments(
+                                whatIf, ref removeArgv, ref result);
 
-                                if (code == ReturnCode.Ok)
-                                {
-                                    code = activeInterpreter.ShellEvaluateScript(
-                                        _ShellCallbackData.GetEvaluateScriptCallback(
-                                            localCallbackData), arg1, ref result,
-                                        ref errorLine);
-                                }
+                            if ((code == ReturnCode.Ok) && !whatIf)
+                            {
+                                errorLine = 0;
+
+                                code = activeInterpreter.ShellEvaluateScript(
+                                    _ShellCallbackData.GetEvaluateScriptCallback(
+                                        localCallbackData), arg1, ref result,
+                                    ref errorLine);
                             }
 
                             if (code == ReturnCode.Ok)
@@ -75981,9 +76233,7 @@ namespace Eagle._Components.Public
                                     popArgv = false;
                                 }
 
-                                removeArgv += 2;
-
-                                goto retry;
+                                goto retryArgv;
                             }
                             else
                             {
@@ -76026,30 +76276,25 @@ namespace Eagle._Components.Public
                     }
                 }
 #endif
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.PreFile))
                 {
                     if (arg1 != null)
                     {
                         if (whatIf || !activeInterpreter.PrivateInitialized)
                         {
-                            errorLine = 0;
+                            removeArgv += 2;
 
-                            if (whatIf)
-                            {
-                                code = ReturnCode.Ok;
-                            }
-                            else
-                            {
-                                code = activeInterpreter.MaybeRemoveArguments(
-                                    ref removeArgv, ref result);
+                            code = activeInterpreter.MaybeRemoveArguments(
+                                whatIf, ref removeArgv, ref result);
 
-                                if (code == ReturnCode.Ok)
-                                {
-                                    code = activeInterpreter.ShellEvaluateFile(
-                                        localCallbackData, encoding, arg1,
-                                        ref result, ref errorLine);
-                                }
+                            if ((code == ReturnCode.Ok) && !whatIf)
+                            {
+                                errorLine = 0;
+
+                                code = activeInterpreter.ShellEvaluateFile(
+                                    localCallbackData, encoding, arg1,
+                                    ref result, ref errorLine);
                             }
 
                             if (code == ReturnCode.Ok)
@@ -76082,9 +76327,7 @@ namespace Eagle._Components.Public
                                     popArgv = false;
                                 }
 
-                                removeArgv += 2;
-
-                                goto retry;
+                                goto retryArgv;
                             }
                             else
                             {
@@ -76126,31 +76369,26 @@ namespace Eagle._Components.Public
                     }
                 }
 #if !ENTERPRISE_LOCKDOWN
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.PreInitialize))
                 {
                     if (arg1 != null)
                     {
                         if (whatIf || !activeInterpreter.PrivateInitialized)
                         {
-                            errorLine = 0;
+                            removeArgv += 2;
 
-                            if (whatIf)
-                            {
-                                code = ReturnCode.Ok;
-                            }
-                            else
-                            {
-                                code = activeInterpreter.MaybeRemoveArguments(
-                                    ref removeArgv, ref result);
+                            code = activeInterpreter.MaybeRemoveArguments(
+                                whatIf, ref removeArgv, ref result);
 
-                                if (code == ReturnCode.Ok)
-                                {
-                                    code = activeInterpreter.ShellEvaluateScript(
-                                        _ShellCallbackData.GetEvaluateScriptCallback(
-                                            localCallbackData), arg1, ref result,
-                                        ref errorLine);
-                                }
+                            if ((code == ReturnCode.Ok) && !whatIf)
+                            {
+                                errorLine = 0;
+
+                                code = activeInterpreter.ShellEvaluateScript(
+                                    _ShellCallbackData.GetEvaluateScriptCallback(
+                                        localCallbackData), arg1, ref result,
+                                    ref errorLine);
                             }
 
                             if (code == ReturnCode.Ok)
@@ -76183,9 +76421,7 @@ namespace Eagle._Components.Public
                                     popArgv = false;
                                 }
 
-                                removeArgv += 2;
-
-                                goto retry;
+                                goto retryArgv;
                             }
                             else
                             {
@@ -76228,7 +76464,7 @@ namespace Eagle._Components.Public
                     }
                 }
 #endif
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Profile))
                 {
                     if (arg1 != null)
@@ -76253,7 +76489,7 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
                         else
                         {
@@ -76277,7 +76513,7 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Quiet))
                 {
                     if (arg1 != null)
@@ -76312,15 +76548,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -76337,12 +76573,286 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Reconfigure))
                 {
                     if (arg1 != null)
                     {
-#if XML && SERIALIZATION
+                        if (activeInterpreter != null)
+                        {
+                            removeArgv += 2;
+
+                            code = activeInterpreter.MaybeRemoveArguments(
+                                whatIf, ref removeArgv, ref result);
+                        }
+                        else
+                        {
+                            //
+                            // HACK: The script arguments for the active
+                            //       interpreter are going away, because
+                            //       it will be disposed; therefore, we
+                            //       have have nothing to remove later.
+                            //
+                            removeArgv = 0;
+
+                            code = ReturnCode.Ok;
+                        }
+
+                        if (code == ReturnCode.Ok)
+                        {
+                            bool wasParent = Object.ReferenceEquals(
+                                activeInterpreter, parentInterpreter);
+
+                            if (!create[1] || !wasParent)
+                            {
+                                bool wasIsolated;
+                                bool wasSecurity;
+
+                                InterpreterSettings interpreterSettings = null;
+
+                                if (activeInterpreter != null)
+                                {
+#if ISOLATED_PLUGINS
+                                    wasIsolated = AppDomainOps.IsIsolated(activeInterpreter);
+#else
+                                    wasIsolated = false;
+#endif
+
+                                    wasSecurity = activeInterpreter.HasSecurity();
+
+                                    code = InterpreterSettings.LoadFrom(arg1,
+                                        activeInterpreter.InternalCultureInfo, false,
+                                        true, ref interpreterSettings, ref result);
+                                }
+                                else
+                                {
+#if ISOLATED_PLUGINS
+                                    wasIsolated = AppDomainOps.IsIsolated(interpreter);
+#else
+                                    wasIsolated = false;
+#endif
+
+                                    wasSecurity = interpreter.HasSecurity(); /* EXEMPT */
+
+                                    code = InterpreterSettings.LoadFrom(arg1,
+                                        interpreter.InternalCultureInfo, false,
+                                        true, ref interpreterSettings, ref result);
+                                }
+
+                                if (code == ReturnCode.Ok)
+                                {
+                                    invalidInterpreter = true;
+
+                                    try
+                                    {
+                                        if (activeInterpreter != null)
+                                        {
+                                            if (!whatIf)
+                                            {
+                                                //
+                                                // NOTE: We plan on re-creating the active
+                                                //       interpreter (below); therefore, we
+                                                //       must dispose the current one first.
+                                                //
+                                                if (wasParent)
+                                                {
+                                                    activeInterpreter.Dispose(); /* throw */
+                                                }
+                                                else if (childName != null)
+                                                {
+                                                    parentInterpreter.RemoveChildInterpreterOrComplain(
+                                                        childName, null, true);
+                                                }
+                                                else
+                                                {
+                                                    activeInterpreter.Dispose(); /* throw */
+                                                }
+
+                                                activeInterpreter = null;
+
+                                                if (wasParent)
+                                                {
+                                                    parentInterpreter = null;
+                                                    childInterpreter = null;
+                                                }
+                                                else
+                                                {
+                                                    childInterpreter = null;
+                                                }
+
+                                                invalidInterpreter = false;
+
+                                                //
+                                                // NOTE: If this command line option has
+                                                //       been used before, the disposal
+                                                //       flag will be set (i.e. because
+                                                //       we created the interpreter that
+                                                //       was just disposed).  Therefore,
+                                                //       reset it now since the disposal
+                                                //       of the interpreter is complete.
+                                                //
+                                                dispose = false;
+                                            }
+                                        }
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        result = e;
+                                        code = ReturnCode.Error;
+                                    }
+                                }
+
+                                if (code == ReturnCode.Ok)
+                                {
+                                    if (!whatIf)
+                                    {
+                                        if (create[2])
+                                            interpreterSettings.MakeSafe();
+
+                                        if (create[3])
+                                            interpreterSettings.MakeStandard();
+
+                                        if (create[1])
+                                        {
+                                            if (parentInterpreter.CreateChildInterpreter(
+                                                    null, clientData, interpreterSettings,
+                                                    wasIsolated, wasSecurity,
+                                                    ref result) == ReturnCode.Ok)
+                                            {
+                                                childName = result;
+
+                                                if (parentInterpreter.GetNestedChildInterpreter(
+                                                        childName, LookupFlags.Interpreter,
+                                                        false, ref activeInterpreter,
+                                                        ref result) != ReturnCode.Ok)
+                                                {
+                                                    activeInterpreter = null; /* REDUNDANT? */
+                                                }
+                                            }
+                                            else
+                                            {
+                                                activeInterpreter = null; /* REDUNDANT */
+                                            }
+                                        }
+                                        else
+                                        {
+                                            activeInterpreter = Create(
+                                                interpreterSettings, true, ref result);
+                                        }
+                                    }
+
+                                    if (activeInterpreter != null)
+                                    {
+                                        if (!whatIf)
+                                        {
+                                            //
+                                            // NOTE: This method has now re-created the
+                                            //       active interpreter; therefore, it
+                                            //       must be disposed by this method
+                                            //       before exiting.
+                                            //
+                                            dispose = true;
+
+                                            if (wasParent)
+                                                parentInterpreter = activeInterpreter;
+                                            else
+                                                childInterpreter = activeInterpreter;
+                                        }
+
+                                        if (!whatIf && !quiet)
+                                        {
+                                            ShellOps.WritePrompt(activeInterpreter,
+                                                String.Format(_Constants.Prompt.Reconfigure,
+                                                wasParent ? "Parent" : "Child",
+                                                FormatOps.InterpreterNoThrow(activeInterpreter),
+                                                arg1));
+                                        }
+
+                                        if (popArgv)
+                                        {
+                                            GenericOps<string>.PopFirstArgument(ref argv);
+                                            GenericOps<string>.PopFirstArgument(ref argv);
+                                            popArgv = false;
+                                        }
+
+                                        goto retryArgv;
+                                    }
+                                    else
+                                    {
+                                        code = ReturnCode.Error;
+                                    }
+                                }
+
+                                if (code != ReturnCode.Ok)
+                                {
+                                    ShellOps.ShellMainCoreError(
+                                        activeInterpreter, savedArg0, arg0, code, result,
+                                        whatIf, ref argv, ref interactiveHost, ref quiet,
+                                        ref result);
+                                }
+
+                                exitCode = ShellOps.ReturnCodeToExitCode(
+                                    activeInterpreter, code, true);
+                            }
+                            else if (!whatIf)
+                            {
+                                ShellOps.ShellMainCoreError(
+                                    activeInterpreter, savedArg0, arg0,
+                                    "cannot reconfigure parent interpreter " +
+                                    "with child interpreter", whatIf, ref argv,
+                                    ref interactiveHost, ref quiet, ref result);
+
+                                exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                            }
+                            else
+                            {
+                                if (popArgv)
+                                {
+                                    GenericOps<string>.PopFirstArgument(ref argv);
+                                    GenericOps<string>.PopFirstArgument(ref argv);
+                                    popArgv = false;
+                                }
+
+                                goto retryArgv;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ShellOps.ShellMainCoreError(
+                            activeInterpreter, savedArg0, arg0, String.Format(
+                            "wrong # args: should be \"-{0} <settings>\"",
+                            CommandLineOption.Reconfigure), whatIf, ref argv,
+                            ref interactiveHost, ref quiet, ref result);
+
+                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
+                    }
+                }
+                else if ((switchCount > 0) &&
+                    StringOps.MatchSwitch(arg0, CommandLineOption.Recreate))
+                {
+                    if (activeInterpreter != null)
+                    {
+                        removeArgv += 1;
+
+                        code = activeInterpreter.MaybeRemoveArguments(
+                            whatIf, ref removeArgv, ref result);
+                    }
+                    else
+                    {
+                        //
+                        // HACK: The script arguments for the active
+                        //       interpreter are going away, because
+                        //       it will be disposed; therefore, we
+                        //       have have nothing to remove later.
+                        //
+                        removeArgv = 0;
+
+                        code = ReturnCode.Ok;
+                    }
+
+                    if (code == ReturnCode.Ok)
+                    {
                         bool wasParent = Object.ReferenceEquals(
                             activeInterpreter, parentInterpreter);
 
@@ -76370,7 +76880,7 @@ namespace Eagle._Components.Public
                             else
                             {
 #if ISOLATED_PLUGINS
-                                wasIsolated = AppDomainOps.IsIsolated(interpreter);
+                                wasIsolated = AppDomainOps.IsIsolated(interpreter); /* EXEMPT */
 #else
                                 wasIsolated = false;
 #endif
@@ -76384,19 +76894,35 @@ namespace Eagle._Components.Public
 
                             if (code == ReturnCode.Ok)
                             {
+                                if (lockArgv)
+                                {
+                                    code = InterpreterSettings.UseStartupDefaults(
+                                        interpreterSettings, CreateFlags.CoreShellUse,
+                                        HostCreateFlags.CoreShellUse, ref result);
+                                }
+                                else
+                                {
+                                    /* NO RESULT */
+                                    InterpreterSettings.CheckPoliciesAndTraces(
+                                        interpreterSettings);
+                                }
+                            }
+
+                            if (code == ReturnCode.Ok)
+                            {
                                 invalidInterpreter = true;
 
                                 try
                                 {
-                                    //
-                                    // NOTE: We plan on re-creating the active
-                                    //       interpreter (below); therefore, we
-                                    //       must dispose the current one first.
-                                    //
                                     if (activeInterpreter != null)
                                     {
                                         if (!whatIf)
                                         {
+                                            //
+                                            // NOTE: We plan on re-creating the active
+                                            //       interpreter (below); therefore, we
+                                            //       must dispose the current one first.
+                                            //
                                             if (wasParent)
                                             {
                                                 activeInterpreter.Dispose(); /* throw */
@@ -76424,18 +76950,18 @@ namespace Eagle._Components.Public
                                             }
 
                                             invalidInterpreter = false;
-                                        }
 
-                                        //
-                                        // NOTE: If this command line option has
-                                        //       been used before, the disposal
-                                        //       flag will be set (i.e. because
-                                        //       we created the interpreter that
-                                        //       was just disposed).  Therefore,
-                                        //       reset it now since the disposal
-                                        //       of the interpreter is complete.
-                                        //
-                                        dispose = false;
+                                            //
+                                            // NOTE: If this command line option has
+                                            //       been used before, the disposal
+                                            //       flag will be set (i.e. because
+                                            //       we created the interpreter that
+                                            //       was just disposed).  Therefore,
+                                            //       reset it now since the disposal
+                                            //       of the interpreter is complete.
+                                            //
+                                            dispose = false;
+                                        }
                                     }
                                 }
                                 catch (Exception e)
@@ -76486,16 +77012,16 @@ namespace Eagle._Components.Public
 
                                 if (activeInterpreter != null)
                                 {
-                                    //
-                                    // NOTE: This method has now re-created the
-                                    //       active interpreter; therefore, it
-                                    //       must be disposed by this method
-                                    //       before exiting.
-                                    //
-                                    dispose = true;
-
                                     if (!whatIf)
                                     {
+                                        //
+                                        // NOTE: This method has now re-created the
+                                        //       active interpreter; therefore, it
+                                        //       must be disposed by this method
+                                        //       before exiting.
+                                        //
+                                        dispose = true;
+
                                         if (wasParent)
                                             parentInterpreter = activeInterpreter;
                                         else
@@ -76505,22 +77031,18 @@ namespace Eagle._Components.Public
                                     if (!whatIf && !quiet)
                                     {
                                         ShellOps.WritePrompt(activeInterpreter,
-                                            String.Format(_Constants.Prompt.Reconfigure,
+                                            String.Format(_Constants.Prompt.Recreate,
                                             wasParent ? "Parent" : "Child",
-                                            FormatOps.InterpreterNoThrow(activeInterpreter),
-                                            arg1));
+                                            FormatOps.InterpreterNoThrow(activeInterpreter)));
                                     }
 
                                     if (popArgv)
                                     {
                                         GenericOps<string>.PopFirstArgument(ref argv);
-                                        GenericOps<string>.PopFirstArgument(ref argv);
                                         popArgv = false;
                                     }
 
-                                    removeArgv += 2;
-
-                                    goto retry;
+                                    goto retryArgv;
                                 }
                                 else
                                 {
@@ -76532,264 +77054,36 @@ namespace Eagle._Components.Public
                             {
                                 ShellOps.ShellMainCoreError(
                                     activeInterpreter, savedArg0, arg0, code, result,
-                                    whatIf, ref argv, ref interactiveHost,
-                                    ref quiet, ref result);
+                                    whatIf, ref argv, ref interactiveHost, ref quiet,
+                                    ref result);
                             }
 
                             exitCode = ShellOps.ReturnCodeToExitCode(
                                 activeInterpreter, code, true);
                         }
-                        else
+                        else if (!whatIf)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0,
-                                "cannot reconfigure parent interpreter " +
+                                "cannot recreate parent interpreter " +
                                 "with child interpreter", whatIf, ref argv,
                                 ref interactiveHost, ref quiet, ref result);
 
                             exitCode = ShellOps.FailureExitCode(activeInterpreter);
                         }
-#else
-                        result = "not implemented";
-                        code = ReturnCode.Error;
-#endif
-                    }
-                    else
-                    {
-                        ShellOps.ShellMainCoreError(
-                            activeInterpreter, savedArg0, arg0, String.Format(
-                            "wrong # args: should be \"-{0} <settings>\"",
-                            CommandLineOption.Reconfigure), whatIf, ref argv,
-                            ref interactiveHost, ref quiet, ref result);
-
-                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
-                    }
-                }
-                else if ((count > 0) &&
-                    StringOps.MatchSwitch(arg0, CommandLineOption.Recreate))
-                {
-                    bool wasParent = Object.ReferenceEquals(
-                        activeInterpreter, parentInterpreter);
-
-                    if (!create[1] || !wasParent)
-                    {
-                        bool wasIsolated;
-                        bool wasSecurity;
-
-                        InterpreterSettings interpreterSettings = null;
-
-                        if (activeInterpreter != null)
-                        {
-#if ISOLATED_PLUGINS
-                            wasIsolated = AppDomainOps.IsIsolated(activeInterpreter);
-#else
-                            wasIsolated = false;
-#endif
-
-                            wasSecurity = activeInterpreter.HasSecurity();
-
-                            code = InterpreterSettings.LoadFrom(
-                                activeInterpreter, true, true, false,
-                                ref interpreterSettings, ref result);
-                        }
                         else
                         {
-#if ISOLATED_PLUGINS
-                            wasIsolated = AppDomainOps.IsIsolated(interpreter); /* EXEMPT */
-#else
-                            wasIsolated = false;
-#endif
+                            if (popArgv)
+                            {
+                                GenericOps<string>.PopFirstArgument(ref argv);
+                                popArgv = false;
+                            }
 
-                            wasSecurity = interpreter.HasSecurity(); /* EXEMPT */
-
-                            code = InterpreterSettings.LoadFrom(
-                                interpreter, true, true, false, /* EXEMPT */
-                                ref interpreterSettings, ref result);
+                            goto retryArgv;
                         }
-
-                        if (code == ReturnCode.Ok)
-                        {
-                            if (lockArgv)
-                            {
-                                code = InterpreterSettings.UseStartupDefaults(
-                                    interpreterSettings, CreateFlags.CoreShellUse,
-                                    HostCreateFlags.CoreShellUse, ref result);
-                            }
-                            else
-                            {
-                                /* NO RESULT */
-                                InterpreterSettings.CheckPoliciesAndTraces(
-                                    interpreterSettings);
-                            }
-                        }
-
-                        if (code == ReturnCode.Ok)
-                        {
-                            invalidInterpreter = true;
-
-                            try
-                            {
-                                //
-                                // NOTE: We plan on re-creating the active
-                                //       interpreter (below); therefore, we
-                                //       must dispose the current one first.
-                                //
-                                if (activeInterpreter != null)
-                                {
-                                    if (!whatIf)
-                                    {
-                                        if (wasParent)
-                                        {
-                                            activeInterpreter.Dispose(); /* throw */
-                                        }
-                                        else if (childName != null)
-                                        {
-                                            parentInterpreter.RemoveChildInterpreterOrComplain(
-                                                childName, null, true);
-                                        }
-                                        else
-                                        {
-                                            activeInterpreter.Dispose(); /* throw */
-                                        }
-
-                                        activeInterpreter = null;
-
-                                        if (wasParent)
-                                        {
-                                            parentInterpreter = null;
-                                            childInterpreter = null;
-                                        }
-                                        else
-                                        {
-                                            childInterpreter = null;
-                                        }
-
-                                        invalidInterpreter = false;
-                                    }
-
-                                    //
-                                    // NOTE: If this command line option has
-                                    //       been used before, the disposal
-                                    //       flag will be set (i.e. because
-                                    //       we created the interpreter that
-                                    //       was just disposed).  Therefore,
-                                    //       reset it now since the disposal
-                                    //       of the interpreter is complete.
-                                    //
-                                    dispose = false;
-                                }
-                            }
-                            catch (Exception e)
-                            {
-                                result = e;
-                                code = ReturnCode.Error;
-                            }
-                        }
-
-                        if (code == ReturnCode.Ok)
-                        {
-                            if (!whatIf)
-                            {
-                                if (create[2])
-                                    interpreterSettings.MakeSafe();
-
-                                if (create[3])
-                                    interpreterSettings.MakeStandard();
-
-                                if (create[1])
-                                {
-                                    if (parentInterpreter.CreateChildInterpreter(
-                                            null, clientData, interpreterSettings,
-                                            wasIsolated, wasSecurity,
-                                            ref result) == ReturnCode.Ok)
-                                    {
-                                        childName = result;
-
-                                        if (parentInterpreter.GetNestedChildInterpreter(
-                                                childName, LookupFlags.Interpreter,
-                                                false, ref activeInterpreter,
-                                                ref result) != ReturnCode.Ok)
-                                        {
-                                            activeInterpreter = null; /* REDUNDANT? */
-                                        }
-                                    }
-                                    else
-                                    {
-                                        activeInterpreter = null; /* REDUNDANT */
-                                    }
-                                }
-                                else
-                                {
-                                    activeInterpreter = Create(
-                                        interpreterSettings, true, ref result);
-                                }
-                            }
-
-                            if (activeInterpreter != null)
-                            {
-                                //
-                                // NOTE: This method has now re-created the
-                                //       active interpreter; therefore, it
-                                //       must be disposed by this method
-                                //       before exiting.
-                                //
-                                dispose = true;
-
-                                if (!whatIf)
-                                {
-                                    if (wasParent)
-                                        parentInterpreter = activeInterpreter;
-                                    else
-                                        childInterpreter = activeInterpreter;
-                                }
-
-                                if (!whatIf && !quiet)
-                                {
-                                    ShellOps.WritePrompt(activeInterpreter,
-                                        String.Format(_Constants.Prompt.Recreate,
-                                        wasParent ? "Parent" : "Child",
-                                        FormatOps.InterpreterNoThrow(activeInterpreter)));
-                                }
-
-                                if (popArgv)
-                                {
-                                    GenericOps<string>.PopFirstArgument(ref argv);
-                                    popArgv = false;
-                                }
-
-                                removeArgv += 1;
-
-                                goto retry;
-                            }
-                            else
-                            {
-                                code = ReturnCode.Error;
-                            }
-                        }
-
-                        if (code != ReturnCode.Ok)
-                        {
-                            ShellOps.ShellMainCoreError(
-                                activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
-                        }
-
-                        exitCode = ShellOps.ReturnCodeToExitCode(
-                            activeInterpreter, code, true);
-                    }
-                    else
-                    {
-                        ShellOps.ShellMainCoreError(
-                            activeInterpreter, savedArg0, arg0,
-                            "cannot recreate parent interpreter " +
-                            "with child interpreter", whatIf, ref argv,
-                            ref interactiveHost, ref quiet, ref result);
-
-                        exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.RuntimeOption))
                 {
                     if (arg1 != null)
@@ -76816,7 +77110,7 @@ namespace Eagle._Components.Public
 
                                 removeArgv += 2;
 
-                                goto retry;
+                                goto retryArgv;
                             }
                             else
                             {
@@ -76856,17 +77150,17 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Safe))
                 {
-                    create[2] = true;
-
                     if (whatIf)
                     {
                         code = ReturnCode.Ok;
                     }
                     else
                     {
+                        create[2] = true;
+
                         if (!quiet)
                         {
                             ShellOps.WritePrompt(
@@ -76906,21 +77200,21 @@ namespace Eagle._Components.Public
 
                         removeArgv += 1;
 
-                        goto retry;
+                        goto retryArgv;
                     }
                     else
                     {
                         ShellOps.ShellMainCoreError(
                             activeInterpreter, savedArg0, arg0, code, result,
-                            whatIf, ref argv, ref interactiveHost,
-                            ref quiet, ref result);
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
                     }
 
                     exitCode = ShellOps.ReturnCodeToExitCode(
                         activeInterpreter, code, true);
                 }
 #if TEST
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.ScriptTrace))
                 {
                     if (arg1 != null)
@@ -76955,15 +77249,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -76981,7 +77275,7 @@ namespace Eagle._Components.Public
                     }
                 }
 #endif
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Security))
                 {
                     if (arg1 != null)
@@ -77034,15 +77328,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -77059,29 +77353,36 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.SetCreate))
                 {
                     if (arg1 != null)
                     {
+                        bool localCreate = create[0];
+
                         code = Value.GetBoolean2(
                             arg1, ValueFlags.AnyBoolean,
                             ShellOps.GetCultureInfo(activeInterpreter),
-                            ref create[0], ref result);
+                            ref localCreate, ref result);
 
                         if (code == ReturnCode.Ok)
                         {
-                            if (!whatIf && !quiet)
+                            if (!whatIf)
                             {
-                                if (create[0])
+                                create[0] = localCreate;
+
+                                if (!quiet)
                                 {
-                                    ShellOps.WritePrompt(interactiveHost,
-                                        _Constants.Prompt.Create);
-                                }
-                                else
-                                {
-                                    ShellOps.WritePrompt(interactiveHost,
-                                        _Constants.Prompt.NoCreate);
+                                    if (localCreate)
+                                    {
+                                        ShellOps.WritePrompt(interactiveHost,
+                                            _Constants.Prompt.Create);
+                                    }
+                                    else
+                                    {
+                                        ShellOps.WritePrompt(interactiveHost,
+                                            _Constants.Prompt.NoCreate);
+                                    }
                                 }
                             }
 
@@ -77094,15 +77395,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -77119,7 +77420,7 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.SetInitialize))
                 {
                     if (arg1 != null)
@@ -77156,15 +77457,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -77182,7 +77483,7 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.SetLoop))
                 {
                     if (arg1 != null)
@@ -77219,15 +77520,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -77244,7 +77545,7 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.SetupTrace))
                 {
                     if (whatIf)
@@ -77269,28 +77570,28 @@ namespace Eagle._Components.Public
 
                         removeArgv += 1;
 
-                        goto retry;
+                        goto retryArgv;
                     }
 
                     ShellOps.ShellMainCoreError(
                         activeInterpreter, savedArg0, arg0, code, result,
-                        whatIf, ref argv, ref interactiveHost,
-                        ref quiet, ref result);
+                        whatIf, ref argv, ref interactiveHost, ref quiet,
+                        ref result);
 
                     exitCode = ShellOps.ReturnCodeToExitCode(
                         activeInterpreter, code, true);
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Standard))
                 {
-                    create[3] = true;
-
                     if (whatIf)
                     {
                         code = ReturnCode.Ok;
                     }
                     else
                     {
+                        create[3] = true;
+
                         if (!quiet)
                         {
                             ShellOps.WritePrompt(
@@ -77330,21 +77631,21 @@ namespace Eagle._Components.Public
 
                         removeArgv += 1;
 
-                        goto retry;
+                        goto retryArgv;
                     }
                     else
                     {
                         ShellOps.ShellMainCoreError(
                             activeInterpreter, savedArg0, arg0, code, result,
-                            whatIf, ref argv, ref interactiveHost,
-                            ref quiet, ref result);
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
                     }
 
                     exitCode = ShellOps.ReturnCodeToExitCode(
                         activeInterpreter, code, true);
                 }
 #if TEST
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.StartupLogFile))
                 {
                     //
@@ -77369,10 +77670,10 @@ namespace Eagle._Components.Public
 
                     removeArgv += 2;
 
-                    goto retry;
+                    goto retryArgv;
                 }
 #endif
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.StartupLibrary))
                 {
                     //
@@ -77397,10 +77698,10 @@ namespace Eagle._Components.Public
 
                     removeArgv += 2;
 
-                    goto retry;
+                    goto retryArgv;
                 }
 #if !ENTERPRISE_LOCKDOWN
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.StartupPreInitialize))
                 {
                     //
@@ -77425,10 +77726,10 @@ namespace Eagle._Components.Public
 
                     removeArgv += 2;
 
-                    goto retry;
+                    goto retryArgv;
                 }
 #endif
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Step))
                 {
 #if DEBUGGER
@@ -77462,9 +77763,9 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.StopOnUnknown))
                 {
                     if (arg1 != null)
@@ -77501,15 +77802,15 @@ namespace Eagle._Components.Public
 
                             removeArgv += 2;
 
-                            goto retry;
+                            goto retryArgv;
                         }
 
                         if (code != ReturnCode.Ok)
                         {
                             ShellOps.ShellMainCoreError(
                                 activeInterpreter, savedArg0, arg0, code, result,
-                                whatIf, ref argv, ref interactiveHost,
-                                ref quiet, ref result);
+                                whatIf, ref argv, ref interactiveHost, ref quiet,
+                                ref result);
                         }
 
                         exitCode = ShellOps.ReturnCodeToExitCode(
@@ -77526,30 +77827,23 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     (StringOps.MatchSwitch(arg0, CommandLineOption.Test) ||
                     StringOps.MatchSwitch(arg0, CommandLineOption.PluginTest)))
                 {
-                    if (whatIf)
-                    {
-                        code = ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        if (gotArg0)
-                            removeArgv += 1;
+                    if (gotArg0)
+                        removeArgv += 1;
 
-                        if (gotArg1)
-                            removeArgv += 1;
+                    if (gotArg1)
+                        removeArgv += 1;
 
-                        if (gotArg2)
-                            removeArgv += 1;
+                    if (gotArg2)
+                        removeArgv += 1;
 
-                        code = activeInterpreter.MaybeRemoveArguments(
-                            ref removeArgv, ref result);
-                    }
+                    code = activeInterpreter.MaybeRemoveArguments(
+                        whatIf, ref removeArgv, ref result);
 
-                    if ((code == ReturnCode.Ok) && initialize && !whatIf)
+                    if ((code == ReturnCode.Ok) && !whatIf && initialize)
                     {
                         code = activeInterpreter.PrivateInitialize(
                             forceInitialize, false, ref result);
@@ -77581,10 +77875,10 @@ namespace Eagle._Components.Public
                             ref all, ref result);
                     }
 
-                    errorLine = 0;
-
                     if ((code == ReturnCode.Ok) && !whatIf)
                     {
+                        errorLine = 0;
+
                         code = TestOps.ShellMain(
                             activeInterpreter, arg1, null,
                             activeInterpreter.EngineFlags,
@@ -77630,7 +77924,7 @@ namespace Eagle._Components.Public
                     //
                     ShellOps.GetExitCode(activeInterpreter, code, out exitCode);
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.TestDirectory))
                 {
                     if (arg1 != null)
@@ -77647,7 +77941,7 @@ namespace Eagle._Components.Public
 
                         removeArgv += 2;
 
-                        goto retry;
+                        goto retryArgv;
                     }
                     else
                     {
@@ -77661,11 +77955,21 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.TraceToHost))
                 {
                     if (!whatIf)
+                    {
                         activeInterpreter.InterpreterFlags |= InterpreterFlags.TraceToHost;
+
+                        if (!quiet)
+                        {
+                            ShellOps.WritePrompt(
+                                interactiveHost, String.Format(
+                                _Constants.Prompt.TraceToHost,
+                                _Constants.Prompt.ViaCommandLine));
+                        }
+                    }
 
                     if (popArgv)
                     {
@@ -77675,19 +77979,15 @@ namespace Eagle._Components.Public
 
                     removeArgv += 1;
 
-                    goto retry;
+                    goto retryArgv;
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.VendorPath))
                 {
                     if (arg1 != null)
                     {
                         if (!whatIf)
-                        {
-                            GlobalConfiguration.SetValue(EnvVars.VendorPath,
-                                arg1, ConfigurationFlags.Interpreter |
-                                ConfigurationFlags.NativePathValue);
-                        }
+                            PathOps.SetVendorPath(arg1);
 
                         if (popArgv)
                         {
@@ -77698,7 +77998,7 @@ namespace Eagle._Components.Public
 
                         removeArgv += 2;
 
-                        goto retry;
+                        goto retryArgv;
                     }
                     else
                     {
@@ -77711,7 +78011,7 @@ namespace Eagle._Components.Public
                         exitCode = ShellOps.FailureExitCode(activeInterpreter);
                     }
                 }
-                else if ((count > 0) &&
+                else if ((switchCount > 0) &&
                     StringOps.MatchSwitch(arg0, CommandLineOption.Version))
                 {
                     if (whatIf)
@@ -77730,8 +78030,8 @@ namespace Eagle._Components.Public
                     {
                         ShellOps.ShellMainCoreError(
                             activeInterpreter, savedArg0, arg0, code, result,
-                            whatIf, ref argv, ref interactiveHost,
-                            ref quiet, ref result);
+                            whatIf, ref argv, ref interactiveHost, ref quiet,
+                            ref result);
                     }
 
                     exitCode = ShellOps.ReturnCodeToExitCode(
@@ -77760,14 +78060,14 @@ namespace Eagle._Components.Public
 
                         code = ShellOps.UnknownArgument(
                             activeInterpreter, interactiveHost, clientData,
-                            localCallbackData, count, arg0, whatIf,
+                            localCallbackData, switchCount, arg0, whatIf,
                             ref wasHandled, ref argv, ref result);
 
                         if (wasHandled)
                         {
                             if (code == ReturnCode.Ok)
                             {
-                                goto retry;
+                                goto retryArgv;
                             }
                             else
                             {
@@ -77778,8 +78078,8 @@ namespace Eagle._Components.Public
                                 //
                                 ShellOps.ShellMainCoreError(
                                     activeInterpreter, savedArg0, arg0, code, result,
-                                    whatIf, ref argv, ref interactiveHost,
-                                    ref quiet, ref result);
+                                    whatIf, ref argv, ref interactiveHost, ref quiet,
+                                    ref result);
 
                                 exitCode = ShellOps.FailureExitCode(activeInterpreter);
                             }
@@ -77796,17 +78096,16 @@ namespace Eagle._Components.Public
                                     activeInterpreter, String.Format(
                                     "invalid argument {0}, use \"-{1}\" for help",
                                     FormatOps.WrapOrNull(savedArg0),
-                                    CommandLineOption.Help), false,
-                                    false, false, false, true,
-                                    ref result);
+                                    CommandLineOption.Help), false, false, false,
+                                    false, true, ref result);
                             }
 
                             if (code != ReturnCode.Ok)
                             {
                                 ShellOps.ShellMainCoreError(
                                     activeInterpreter, savedArg0, arg0, code, result,
-                                    whatIf, ref argv, ref interactiveHost,
-                                    ref quiet, ref result);
+                                    whatIf, ref argv, ref interactiveHost, ref quiet,
+                                    ref result);
                             }
 
                             exitCode = ShellOps.FailureExitCode(activeInterpreter);
@@ -77828,22 +78127,15 @@ namespace Eagle._Components.Public
                     //       will not be entered.
                     //
                     argv = null;
-                    goto retry;
+                    goto retryArgv;
                 }
             }
             else if (loop)
             {
-                if (whatIf)
-                {
-                    code = ReturnCode.Ok;
-                }
-                else
-                {
-                    code = activeInterpreter.MaybeRemoveArguments(
-                        ref removeArgv, ref result);
-                }
+                code = activeInterpreter.MaybeRemoveArguments(
+                    whatIf, ref removeArgv, ref result);
 
-                if ((code == ReturnCode.Ok) && initialize && !whatIf)
+                if ((code == ReturnCode.Ok) && !whatIf && initialize)
                 {
                     code = activeInterpreter.PrivateInitialize(
                         forceInitialize, false, ref result);
@@ -78020,8 +78312,8 @@ namespace Eagle._Components.Public
                             {
                                 ShellOps.ShellMainCoreError(
                                     activeInterpreter, null, null, code, result,
-                                    whatIf, ref argv, ref interactiveHost,
-                                    ref quiet, ref result);
+                                    whatIf, ref argv, ref interactiveHost, ref quiet,
+                                    ref result);
                             }
 
                             bool exit = activeInterpreter.PrivateExit;
@@ -78044,12 +78336,12 @@ namespace Eagle._Components.Public
                             {
                                 IList<string> arguments = null;
 
-                                if (activeInterpreter.GetArguments(
-                                        ref arguments,
+                                if (activeInterpreter.PrivateGetArguments(
+                                        ref arguments, whatIf, true,
                                         ref result) == ReturnCode.Ok)
                                 {
                                     argv = arguments;
-                                    goto retry;
+                                    goto retryArgv;
                                 }
                             }
 
@@ -79856,11 +80148,7 @@ namespace Eagle._Components.Public
                     //
                     // NOTE: Wait a while before trying again.
                     //
-                    if (HostOps.ThreadSleepOrMaybeComplain(
-                            testGcSleepTime, false) != ReturnCode.Ok)
-                    {
-                        break;
-                    }
+                    HostOps.ThreadSleep(testGcSleepTime); /* throw */
                 }
             }
             catch (ThreadAbortException e)
@@ -79889,7 +80177,7 @@ namespace Eagle._Components.Public
                 {
                     TraceOps.DebugTrace(
                         e, typeof(Interpreter).Name,
-                        TracePriority.ThreadError);
+                        TracePriority.CleanupError);
                 }
 
                 throw;
@@ -80160,9 +80448,10 @@ namespace Eagle._Components.Public
             )
         {
             //
-            // NOTE: Prevent default event handling (which would terminate
-            //       the process); however, we cannot prevent Ctrl-Break
-            //       from terminating the process (only Ctrl-C).
+            // NOTE: Prevent default handling (which would then terminate
+            //       the current process); however, we cannot prevent the
+            //       key Ctrl-Break from terminating the current process
+            //       (only Ctrl-C).
             //
             if ((e != null) && !e.Cancel &&
                 (e.SpecialKey == ConsoleSpecialKey.ControlC))
@@ -80196,7 +80485,124 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal static void ConsoleCancelEventHandler(
+        //
+        // WARNING: For use by the InteractiveOps and StatusFormOps
+        //          classes only.
+        //
+        internal static void MaybeShowPromptAndAllCancel(
+            object sender,
+            bool prompt
+            ) /* THREAD-SAFE */
+        {
+            int interpreterCount;
+            bool canceled;
+
+            MaybeShowPromptAndAllCancel(
+                sender, null, prompt, out interpreterCount,
+                out canceled);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void MaybeShowPromptAndAllCancel(
+            object sender,
+            ConsoleCancelEventArgs e,
+            bool prompt,
+            out int interpreterCount,
+            out bool canceled
+            ) /* THREAD-SAFE */
+        {
+            //
+            // NOTE: Set skipped flag to false and set count of canceled
+            //       interpreters to something obviously invalid to make
+            //       it clear in trace messages what actually happened.
+            //
+            interpreterCount = Count.Invalid - 1; /* -2 */
+            canceled = false;
+
+            //
+            // NOTE: Cancel all currently running scripts in all threads.
+            //       Only handle the first event generated by the Ctrl-C.
+            //
+            if (!ShouldHandleConsoleCancelEvent(sender, e))
+                return;
+
+            try
+            {
+#if WINFORMS
+                DialogResult dialogResult;
+
+                if (prompt)
+                {
+                    dialogResult = FormOps.YesOrNoOrCancel(
+                        demandCancelPromptFormat,
+                        GlobalState.GetPackageName(),
+                        DefaultCancelDialogResult);
+                }
+                else
+                {
+                    dialogResult = DefaultCancelDialogResult;
+                }
+
+                if (dialogResult == DialogResult.Cancel)
+                {
+                    canceled = true;
+                    return;
+                }
+
+                if (dialogResult == DialogResult.Yes)
+#else
+                bool? dialogResult;
+
+                if (prompt)
+                {
+                    dialogResult = WindowOps.YesOrNoOrCancel(
+                        demandCancelPromptFormat,
+                        GlobalState.GetPackageName(),
+                        DefaultCancelDialogResult);
+                }
+                else
+                {
+                    dialogResult = DefaultCancelDialogResult;
+                }
+
+                if (dialogResult == null)
+                {
+                    canceled = true;
+                    return;
+                }
+
+                if ((bool)dialogResult)
+#endif
+                {
+                    interpreterCount = AllCancelAnyEvaluate(true);
+                }
+                else
+                {
+                    interpreterCount = AllCancelInteractiveEvaluate(true);
+                }
+            }
+            finally
+            {
+                MaybeSetConsoleEventArgsCancelFlag(sender, e);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: For use by the _Hosts.Console class only.
+        //
+        internal static ConsoleCancelEventHandler
+                NewConsoleCancelEventHandler() /* THREAD-SAFE */
+        {
+            return new ConsoleCancelEventHandler(
+                ConsoleCancelEventHandler);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void ConsoleCancelEventHandler(
             object sender,
             ConsoleCancelEventArgs e
             ) /* THREAD-SAFE */
@@ -80206,37 +80612,41 @@ namespace Eagle._Components.Public
             try
             {
                 //
-                // NOTE: Is script cancellation via the console Ctrl-C handler
-                //       actually enabled right now?
+                // NOTE: Record local time event handler was entered.
                 //
-                int localCancelViaConsoleSetting = Interlocked.CompareExchange(
+                DateTime now = TimeOps.GetNow();
+
+                //
+                // NOTE: Is script cancellation via the console Ctrl-C
+                //       handler actually enabled right now?
+                //
+                int localSetting = Interlocked.CompareExchange(
                     ref cancelViaConsole[0], 0, 0);
 
                 //
-                // NOTE: Increment the number of times this static event handler
-                //       has been triggered.
+                // NOTE: Increment the number of times this static
+                //       event handler has been triggered.
                 //
-                int localCancelViaConsoleCount = Interlocked.Increment(
+                int localCount = Interlocked.Increment(
                     ref cancelViaConsole[1]);
 
                 //
                 // NOTE: Is the event handler totally disabled?
                 //
-                if (localCancelViaConsoleSetting <= 0)
+                if (localSetting <= 0)
                 {
-                    TraceOps.DebugTrace(String.Format(
-                        "ConsoleCancelEventHandler: disabled, sender = {0}, " +
-                        "e = {1}, cancelCount = {2}, cancelSetting = {3}, " +
-                        "dateTime = {4}", FormatOps.WrapOrNull(sender),
-                        FormatOps.WrapOrNull(e), localCancelViaConsoleCount,
-                        localCancelViaConsoleSetting, FormatOps.Iso8601DateTime(
-                        TimeOps.GetNow())), typeof(Interpreter).Name,
-                        TracePriority.HostDebug);
+                    TraceOps.DebugTrace(
+                        "ConsoleCancelEventHandler", "disabled",
+                        TracePriority.HostDebug, "sender", sender,
+                        "e", e, "cancelCount", localCount,
+                        "cancelSetting", localSetting, "dateTime",
+                        FormatOps.Iso8601DateTime(now));
 
                     //
-                    // HACK: *SPECIAL* Just let the process die, in order to
-                    //       cooperate better with shells and other software
-                    //       that uses the shell in batch mode.
+                    // HACK: *SPECIAL* Just let the process die, in
+                    //       order to cooperate better with shells
+                    //       and other software that uses the shell
+                    //       in batch mode.
                     //
                     // MaybeSetConsoleEventArgsCancelFlag(sender, e);
                     //
@@ -80244,105 +80654,65 @@ namespace Eagle._Components.Public
                 }
 
                 //
-                // NOTE: Is script cancellation via the console disabled?
+                // NOTE: Is script cancellation via the console
+                //       disabled?
                 //
-                if (localCancelViaConsoleSetting == 1)
+                if (localSetting == 1)
                 {
-                    TraceOps.DebugTrace(String.Format(
-                        "ConsoleCancelEventHandler: ignored, sender = {0}, " +
-                        "e = {1}, cancelCount = {2}, cancelSetting = {3}, " +
-                        "dateTime = {4}", FormatOps.WrapOrNull(sender),
-                        FormatOps.WrapOrNull(e), localCancelViaConsoleCount,
-                        localCancelViaConsoleSetting, FormatOps.Iso8601DateTime(
-                        TimeOps.GetNow())), typeof(Interpreter).Name,
-                        TracePriority.HostDebug);
+                    TraceOps.DebugTrace(
+                        "ConsoleCancelEventHandler", "ignored",
+                        TracePriority.HostDebug, "sender", sender,
+                        "e", e, "cancelCount", localCount,
+                        "cancelSetting", localSetting, "dateTime",
+                        FormatOps.Iso8601DateTime(now));
 
                     MaybeSetConsoleEventArgsCancelFlag(sender, e);
                     return;
                 }
 
                 //
-                // NOTE: If we get to this point, that means script cancellation
-                //       via the console is enabled.
+                // NOTE: If we get to this point, that means script
+                //       cancellation via the console is enabled.
                 //
-                TraceOps.DebugTrace(String.Format(
-                    "ConsoleCancelEventHandler: entered, sender = {0}, " +
-                    "e = {1}, cancelCount = {2}, cancelSetting = {3}, " +
-                    "dateTime = {4}", FormatOps.WrapOrNull(sender),
-                    FormatOps.WrapOrNull(e), localCancelViaConsoleCount,
-                    localCancelViaConsoleSetting, FormatOps.Iso8601DateTime(
-                    TimeOps.GetNow())), typeof(Interpreter).Name,
-                    TracePriority.HostDebug);
+                TraceOps.DebugTrace(
+                    "ConsoleCancelEventHandler", "entered",
+                    TracePriority.HostDebug, "sender", sender,
+                    "e", e, "cancelCount", localCount,
+                    "cancelSetting", localSetting, "dateTime",
+                    FormatOps.Iso8601DateTime(now));
 
-                //
-                // NOTE: Cancel all currently running scripts in all threads.  Only
-                //       handle the first event generated by the Ctrl-C.
-                //
-                int count = Count.Invalid - 1; /* -2 */
+                int interpreterCount;
+                bool canceled;
 
-                if (ShouldHandleConsoleCancelEvent(sender, e))
-                {
-#if WINFORMS
-                    DialogResult dialogResult;
+                MaybeShowPromptAndAllCancel(sender, e,
+                    (localSetting <= 2), out interpreterCount,
+                    out canceled);
 
-                    dialogResult = FormOps.YesOrNoOrCancel(
-                        demandCancelPromptFormat,
-                        GlobalState.GetPackageName(),
-                        DefaultCancelDialogResult);
-
-                    if (dialogResult == DialogResult.Cancel)
-                        goto canceled;
-
-                    if (dialogResult == DialogResult.Yes)
-#else
-                    bool? dialogResult;
-
-                    dialogResult = WindowOps.YesOrNoOrCancel(
-                        demandCancelPromptFormat,
-                        GlobalState.GetPackageName(),
-                        DefaultCancelDialogResult);
-
-                    if (dialogResult == null)
-                        goto canceled;
-
-                    if ((bool)dialogResult)
-#endif
-                    {
-                        count = AllCancelAnyEvaluate(true);
-                    }
-                    else
-                    {
-                        count = AllCancelInteractiveEvaluate(true);
-                    }
-
-                    MaybeSetConsoleEventArgsCancelFlag(sender, e);
-                }
+                if (canceled)
+                    goto canceled;
 
                 goto done;
 
             canceled:
 
-                TraceOps.DebugTrace(String.Format(
-                    "ConsoleCancelEventHandler: canceled, sender = {0}, " +
-                    "e = {1}, cancelCount = {2}, cancelSetting = {3}, " +
-                    "dateTime = {4}", FormatOps.WrapOrNull(sender),
-                    FormatOps.WrapOrNull(e), localCancelViaConsoleCount,
-                    localCancelViaConsoleSetting, FormatOps.Iso8601DateTime(
-                    TimeOps.GetNow())), typeof(Interpreter).Name,
-                    TracePriority.HostDebug);
+                TraceOps.DebugTrace(
+                    "ConsoleCancelEventHandler", "canceled",
+                    TracePriority.HostDebug, "sender", sender,
+                    "e", e, "cancelCount", localCount,
+                    "cancelSetting", localSetting, "dateTime",
+                    FormatOps.Iso8601DateTime(now));
 
                 MaybeSetConsoleEventArgsCancelFlag(sender, e);
 
             done:
 
-                TraceOps.DebugTrace(String.Format(
-                    "ConsoleCancelEventHandler: exited, sender = {0}, " +
-                    "e = {1}, cancelCount = {2}, cancelSetting = {3}, " +
-                    "dateTime = {4}, interpCount = {5}",
-                    FormatOps.WrapOrNull(sender), FormatOps.WrapOrNull(e),
-                    localCancelViaConsoleCount, localCancelViaConsoleSetting,
-                    FormatOps.Iso8601DateTime(TimeOps.GetNow()), count),
-                    typeof(Interpreter).Name, TracePriority.HostDebug);
+                TraceOps.DebugTrace(
+                    "ConsoleCancelEventHandler", "exited",
+                    TracePriority.HostDebug, "sender", sender,
+                    "e", e, "cancelCount", localCount,
+                    "cancelSetting", localSetting, "dateTime",
+                    FormatOps.Iso8601DateTime(now),
+                    "interpreterCount", interpreterCount);
             }
             finally
             {
@@ -85740,6 +86110,11 @@ namespace Eagle._Components.Public
 
                                                 code = ReturnCode.Error;
                                             }
+                                            else if (interpreter.HasChildLimit() &&
+                                                !otherInterpreter.HasChildLimit())
+                                            {
+                                                otherInterpreter.InternalChildLimit = Limits.Forbidden;
+                                            }
                                         }
                                         else
                                         {
@@ -85779,6 +86154,11 @@ namespace Eagle._Components.Public
                                     {
                                         result = localResult;
                                         code = ReturnCode.Error;
+                                    }
+                                    else if (interpreter.HasChildLimit() &&
+                                        !otherInterpreter.HasChildLimit())
+                                    {
+                                        otherInterpreter.InternalChildLimit = Limits.Forbidden;
                                     }
                                 }
                             }
@@ -94960,37 +95340,37 @@ namespace Eagle._Components.Public
                 if (empty || (extraStackSpace != 0))
                     list.Add("ExtraStackSpace", extraStackSpace.ToString());
 
-                if (empty || (childLimit != 0))
+                if (empty || (childLimit != Limits.Unlimited))
                     list.Add("ChildLimit", childLimit.ToString());
 
 #if CALLBACK_QUEUE
-                if (empty || (callbackLimit != 0))
+                if (empty || (callbackLimit != Limits.Unlimited))
                     list.Add("CallbackLimit", callbackLimit.ToString());
 #endif
 
-                if (empty || (namespaceLimit != 0))
+                if (empty || (namespaceLimit != Limits.Unlimited))
                     list.Add("NamespaceLimit", namespaceLimit.ToString());
 
-                if (empty || (scopeLimit != 0))
+                if (empty || (scopeLimit != Limits.Unlimited))
                     list.Add("ScopeLimit", scopeLimit.ToString());
 
-                if (empty || (eventLimit != 0))
+                if (empty || (eventLimit != Limits.Unlimited))
                     list.Add("EventLimit", eventLimit.ToString());
 
-                if (empty || (procedureLimit != 0))
+                if (empty || (procedureLimit != Limits.Unlimited))
                     list.Add("ProcedureLimit", procedureLimit.ToString());
 
-                if (empty || (variableLimit != 0))
+                if (empty || (variableLimit != Limits.Unlimited))
                     list.Add("VariableLimit", variableLimit.ToString());
 
-                if (empty || (arrayElementLimit != 0))
+                if (empty || (arrayElementLimit != Limits.Unlimited))
                     list.Add("ArrayElementLimit", arrayElementLimit.ToString());
 
 #if RESULT_LIMITS
-                if (empty || (executeResultLimit != 0))
+                if (empty || (executeResultLimit != Limits.Unlimited))
                     list.Add("ExecuteResultLimit", executeResultLimit.ToString());
 
-                if (empty || (nestedResultLimit != 0))
+                if (empty || (nestedResultLimit != Limits.Unlimited))
                     list.Add("NestedResultLimit", nestedResultLimit.ToString());
 #endif
 
@@ -105286,97 +105666,35 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private void CleanupAndMaybeResetPaths(
+            bool force,
             bool reset
             )
         {
             StringList list = null;
+            ResultList errors = null;
 
-            CleanupAndMaybeResetPaths(reset, ref list);
+            /* IGNORED */
+            CleanupAndMaybeResetPaths(
+                force, reset, ref list, ref errors);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        internal void CleanupAndMaybeResetPaths(
+        internal ReturnCode CleanupAndMaybeResetPaths(
+            bool force,
             bool reset,
-            ref StringList list
+            ref StringList list,
+            ref ResultList errors
             )
         {
-            if (cleanupPaths == null)
-                return;
+            ReturnCode code = FileOps.CleanupPaths(
+                this, cleanupPaths, false, false, ref list,
+                ref errors);
 
-            IEnumerable<CleanupPathPair> pairs =
-                cleanupPaths.GetPairsInOrder(true);
-
-            if (pairs == null)
-                return;
-
-            //
-            // BUGFIX: Make sure that we are *NOT* within any
-            //         directory that we may want to cleanup.
-            //
-            Directory.SetCurrentDirectory(
-                GlobalState.GetAnyEntryAssemblyPath());
-
-            foreach (CleanupPathPair pair in pairs)
-            {
-                string path = pair.Key;
-
-                if (String.IsNullOrEmpty(path))
-                    continue;
-
-                CleanupPathClientData clientData = pair.Value;
-                Result error = null;
-
-                if ((clientData == null) ||
-                    !clientData.MatchPathType(path, ref error))
-                {
-                    TraceOps.DebugTrace(String.Format(
-                        "CleanupAndMaybeResetPaths: cannot " +
-                        "delete {0}, mismatched {1}: {2}",
-                        FormatOps.WrapOrNull(path),
-                        FormatOps.WrapOrNull(clientData),
-                        FormatOps.WrapOrNull(error)),
-                        typeof(Interpreter).Name,
-                        TracePriority.FileSystemError);
-
-                    continue;
-                }
-
-                ReturnCode deleteCode;
-                Result deleteError = null;
-                string pathType = null;
-
-                deleteCode = FileOps.FileDelete(
-                    new string[] { path }, clientData.Recursive,
-                    clientData.Force, clientData.NoComplain,
-                    ref pathType, ref deleteError);
-
-                if (deleteCode == ReturnCode.Ok)
-                {
-                    if (list != null)
-                    {
-                        list.Add(path);
-                        list.Add(clientData.ToString());
-                    }
-                }
-                else
-                {
-                    DebugOps.Complain(this, deleteCode, deleteError);
-                    continue;
-                }
-
-                TraceOps.DebugTrace(String.Format(
-                    "CleanupAndMaybeResetPaths: DELETED {0}{1}: {2}",
-                    (pathType != null) ? String.Format("{0} ",
-                    pathType) : String.Empty, FormatOps.WrapOrNull(path),
-                    clientData.ToString()), typeof(Interpreter).Name,
-                    TracePriority.FileSystemDebug);
-            }
-
-            cleanupPaths.Clear();
-
-            if (reset)
+            if ((force || (code == ReturnCode.Ok)) && reset)
                 cleanupPaths = null;
+
+            return code;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -105656,19 +105974,19 @@ namespace Eagle._Components.Public
                 // NOTE: Wait for a while to give other threads a chance to
                 //       unwind out of their variable wait states.
                 //
-                ReturnCode code;
-                Result error = null;
+                ReturnCode sleepCode;
+                Result sleepError = null;
 
-                code = HostOps.ThreadSleep(sleepMilliseconds, ref error);
+                sleepCode = HostOps.ThreadSleep(sleepMilliseconds, ref sleepError);
 
-                if (code != ReturnCode.Ok)
+                if (sleepCode != ReturnCode.Ok)
                 {
                     TraceOps.DebugTrace(String.Format(
                         "DisposeVariableWaits: thread sleep failed, " +
                         "interpreter = {0}, sleepMilliseconds = {1}, " +
                         "elapsedMilliseconds = {2}, code = {3}, error = {4}",
-                        id, sleepMilliseconds, elapsedMilliseconds, code,
-                        FormatOps.WrapOrNull(error)), typeof(Interpreter).Name,
+                        id, sleepMilliseconds, elapsedMilliseconds, sleepCode,
+                        FormatOps.WrapOrNull(sleepError)), typeof(Interpreter).Name,
                         TracePriority.CleanupDebug);
 
                     break;
@@ -106129,15 +106447,33 @@ namespace Eagle._Components.Public
                         return false;
                     }
 
-                    HostOps.ThreadSleep(
-                        GetMinimumSleepTime(SleepType.Dispose));
+                    HostOps.ThreadSleep(GetMinimumSleepTime(
+                        SleepType.Dispose)); /* throw */
                 }
+            }
+            catch (ThreadAbortException e)
+            {
+                Thread.ResetAbort();
+
+                TraceOps.DebugTrace(
+                    e, typeof(Interpreter).Name,
+                    TracePriority.ThreadError2);
+
+                return false;
+            }
+            catch (ThreadInterruptedException e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(Interpreter).Name,
+                    TracePriority.ThreadError2);
+
+                return false;
             }
             catch (Exception e)
             {
                 TraceOps.DebugTrace(
                     e, typeof(Interpreter).Name,
-                    TracePriority.CleanupError);
+                    TracePriority.HostError);
 
                 return false;
             }
@@ -106203,7 +106539,7 @@ namespace Eagle._Components.Public
             //       tracing subsystem, we do this before disposing of the
             //       TextWriter instances (below).
             //
-            CleanupAndMaybeResetPaths(true);
+            CleanupAndMaybeResetPaths(true, true);
 
             ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -108201,8 +108537,7 @@ namespace Eagle._Components.Public
             //       sure all diagnostic messages have been flushed before
             //       doing anything else.
             //
-            DebugOps.TraceFlush();
-            DebugOps.DebugFlush();
+            DebugOps.Flush();
         }
         #endregion
 
@@ -108275,6 +108610,13 @@ namespace Eagle._Components.Public
             //
             /* NO RESULT */
             ObjectOps.Initialize(false);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if SHELL
+            /* NO RESULT */
+            MarshalOps.Initialize(false);
+#endif
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 

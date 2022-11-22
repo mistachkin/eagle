@@ -23,6 +23,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
@@ -1081,11 +1082,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: This method is used to support the IHost.Close method of the
-        //       console host.
+        // NOTE: This method is used to support the IHost.Close method
+        //       of the console host.
         //
         public static ReturnCode UnhookControlHandler(
             bool strict,
+            StringList list,
             ref Result error
             )
         {
@@ -1098,18 +1100,29 @@ namespace Eagle._Components.Private
                     return ReturnCode.Error;
 
                 //
-                // HACK: Because the System.Console object in the .NET Framework
-                //       provides no means to unhook it from its native console
-                //       callbacks, we must do it here by force.
+                // HACK: Because the System.Console object in the .NET
+                //       Framework provides no means to unhook it from
+                //       its native console callbacks, we must do it
+                //       here by force.
                 //
                 try
                 {
-                    string fieldName;
+                    string fieldName1;
+                    string fieldName2;
 
                     if (isDotNetCore)
-                        fieldName = "s_registrar";
+                    {
+                        //
+                        // HACK: These are current as of .NET 6.
+                        //
+                        fieldName1 = "s_sigIntRegistration";
+                        fieldName2 = "s_sigQuitRegistration";
+                    }
                     else
-                        fieldName = "_hooker";
+                    {
+                        fieldName1 = "_hooker";
+                        fieldName2 = null;
+                    }
 
                     BindingFlags bindingFlags; /* REUSED */
 
@@ -1119,32 +1132,17 @@ namespace Eagle._Components.Private
                     //
                     // NOTE: First, attempt to grab the private static
                     //       ControlCHooker or ControlCHandlerRegistrar
-                    //       field from the static System.Console object.
+                    //       field from static System.Console object.
                     //
-                    object hook = null;
+                    object hook1 = null;
 
-                    try
+                    if (fieldName1 != null)
                     {
-                        hook = type.InvokeMember(
-                            fieldName, bindingFlags, null, null, null);
-                    }
-                    catch
-                    {
-                        // do nothing.
-                    }
-
-                    if ((hook == null) && isDotNetCore)
-                    {
-                        //
-                        // NOTE: This is the older field name for .NET Core.
-                        //       It was in use as of .NET Core 2.0.6 RTM.
-                        //
-                        fieldName = "_registrar";
-
                         try
                         {
-                            hook = type.InvokeMember(
-                                fieldName, bindingFlags, null, null, null);
+                            hook1 = type.InvokeMember(
+                                fieldName1, bindingFlags, null, null,
+                                null);
                         }
                         catch
                         {
@@ -1152,56 +1150,198 @@ namespace Eagle._Components.Private
                         }
                     }
 
-                    if (hook != null)
+                    object hook2 = null;
+
+                    if (fieldName2 != null)
+                    {
+                        try
+                        {
+                            hook2 = type.InvokeMember(
+                                fieldName2, bindingFlags, null, null,
+                                null);
+                        }
+                        catch
+                        {
+                            // do nothing.
+                        }
+                    }
+
+                    if ((hook1 == null) && isDotNetCore)
                     {
                         //
-                        // NOTE: Next, grab and validate the type for the
-                        //       ControlCHooker field.
+                        // NOTE: This is the older field name for .NET
+                        //       Core.  It was in use as of .NET 5 RTM.
                         //
-                        Type hookType = hook.GetType();
+                        fieldName1 = "s_registrar";
+                        fieldName2 = null;
 
-                        if (hookType == null)
+                        try
                         {
-                            error = String.Format(
-                                "invalid internal {0} hook type",
-                                FormatOps.TypeName(type));
+                            hook1 = type.InvokeMember(
+                                fieldName1, bindingFlags, null, null,
+                                null);
+                        }
+                        catch
+                        {
+                            // do nothing.
+                        }
 
-                            return ReturnCode.Error;
+                        hook2 = null;
+                    }
+
+                    if ((hook1 == null) && isDotNetCore)
+                    {
+                        //
+                        // NOTE: This is the older field name for .NET
+                        //       Core.  It was in use as of .NET Core
+                        //       2.0.6 RTM.
+                        //
+                        fieldName1 = "_registrar";
+                        fieldName2 = null;
+
+                        try
+                        {
+                            hook1 = type.InvokeMember(
+                                fieldName1, bindingFlags, null, null,
+                                null);
+                        }
+                        catch
+                        {
+                            // do nothing.
+                        }
+
+                        hook2 = null;
+                    }
+
+                    if ((hook1 != null) || (hook2 != null))
+                    {
+                        //
+                        // NOTE: Next, grab and validate types for
+                        //       the ControlCHooker fields.
+                        //
+                        Type hook1Type = null;
+
+                        if (hook1 != null)
+                        {
+                            hook1Type = hook1.GetType();
+
+                            if (hook1Type == null)
+                            {
+                                error = String.Format(
+                                    "invalid internal {0} hook #1 type",
+                                    FormatOps.TypeName(type));
+
+                                return ReturnCode.Error;
+                            }
+                        }
+
+                        Type hook2Type = null;
+
+                        if (hook2 != null)
+                        {
+                            hook2Type = hook2.GetType();
+
+                            if (hook2Type == null)
+                            {
+                                error = String.Format(
+                                    "invalid internal {0} hook #2 type",
+                                    FormatOps.TypeName(type));
+
+                                return ReturnCode.Error;
+                            }
                         }
 
                         //
-                        // NOTE: Next, call the Unhook method of the returned
-                        //       ControlCHooker object so that it will unhook
-                        //       itself from its native callbacks.
+                        // NOTE: Next, call the appropriate method of
+                        //       the returned object so that it will
+                        //       unhook itself from native callbacks.
+                        //
+                        string methodName1 = isDotNetCore ?
+                            "Unregister" : "Unhook";
+
+                        string methodName2 = methodName1;
+
+                        bindingFlags = ObjectOps.GetBindingFlags(
+                            MetaBindingFlags.PrivateInstanceMethod,
+                            true);
+
+                        if ((hook1Type != null) && (hook1 != null))
+                        {
+                            hook1Type.InvokeMember(
+                                methodName1, bindingFlags, null, hook1,
+                                null);
+
+                            if (list != null)
+                            {
+                                list.Add("hook1Type");
+                                list.Add(FormatOps.RawTypeName(hook1Type));
+                                list.Add("methodName1");
+                                list.Add(methodName1);
+                            }
+                        }
+
+                        if ((hook2Type != null) && (hook2 != null))
+                        {
+                            hook2Type.InvokeMember(
+                                methodName2, bindingFlags, null, hook2,
+                                null);
+
+                            if (list != null)
+                            {
+                                list.Add("hook2Type");
+                                list.Add(FormatOps.RawTypeName(hook2Type));
+                                list.Add("methodName2");
+                                list.Add(methodName2);
+                            }
+                        }
+
+                        //
+                        // NOTE: Finally, null out the private static
+                        //       (cached) ControlCHooker field inside
+                        //       the System.Console object so that it
+                        //       will know to re-hook later.
                         //
                         bindingFlags = ObjectOps.GetBindingFlags(
-                            MetaBindingFlags.PrivateInstanceMethod, true);
+                            MetaBindingFlags.PrivateStaticSetField,
+                            true);
 
-                        hookType.InvokeMember(
-                            isDotNetCore ? "Unregister" : "Unhook",
-                            bindingFlags, null, hook, null);
+                        if (fieldName1 != null)
+                        {
+                            type.InvokeMember(
+                                fieldName1, bindingFlags, null, null,
+                                new object[] { null });
 
-                        //
-                        // NOTE: Finally, null out the private static (cached)
-                        //       ControlCHooker field inside the System.Console
-                        //       object so that it will know when it needs to
-                        //       be re-hooked later.
-                        //
-                        bindingFlags = ObjectOps.GetBindingFlags(
-                            MetaBindingFlags.PrivateStaticSetField, true);
+                            if (list != null)
+                            {
+                                list.Add("fieldName1");
+                                list.Add(fieldName1);
+                            }
+                        }
 
-                        type.InvokeMember(
-                            fieldName, bindingFlags, null, null,
-                            new object[] { null });
+                        if (fieldName2 != null)
+                        {
+                            type.InvokeMember(
+                                fieldName2, bindingFlags, null, null,
+                                new object[] { null });
+
+                            if (list != null)
+                            {
+                                list.Add("fieldName2");
+                                list.Add(fieldName2);
+                            }
+                        }
 
                         return ReturnCode.Ok;
                     }
                     else if (strict)
                     {
                         error = String.Format(
-                            "invalid internal \"{0}{1}{2}\" hook instance",
-                            FormatOps.RawTypeName(type), Type.Delimiter,
-                            fieldName);
+                            "missing internal {0} hook instance(s): " +
+                            "{1} and/or {2} using binding flags {3}",
+                            FormatOps.RawTypeName(type),
+                            FormatOps.MaybeNull(fieldName1),
+                            FormatOps.MaybeNull(fieldName2),
+                            FormatOps.WrapOrNull(bindingFlags));
                     }
                     else
                     {

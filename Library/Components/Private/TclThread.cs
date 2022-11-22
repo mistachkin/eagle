@@ -1258,7 +1258,7 @@ namespace Eagle._Components.Private.Tcl
                             ReturnCode yieldCode;
                             Result yieldError = null;
 
-                            yieldCode = HostOps.Yield(ref yieldError);
+                            yieldCode = HostOps.ThreadYield(ref yieldError);
 
                             //
                             // NOTE: If there was some kind of error just report it and

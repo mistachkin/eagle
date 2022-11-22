@@ -3426,6 +3426,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static string MaybeTrimStart(
+            string path /* in: CANNOT BE NULL */
+            )
+        {
+            char[] characters;
+
+            if (!TryGetDirectoryChars(out characters))
+                return path;
+
+            return path.TrimStart(characters);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string MaybeTrimEnd(
             string path /* in: CANNOT BE NULL */
             )
@@ -3551,85 +3565,104 @@ namespace Eagle._Components.Private
             IList list  /* in */
             )
         {
+            return CombinePath(
+                unix, list, Index.Invalid, Index.Invalid);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string CombinePath(
+            bool? unix,     /* in */
+            IList list,     /* in */
+            int startIndex, /* in */
+            int stopIndex   /* in */
+            )
+        {
             StringBuilder builder = StringOps.NewStringBuilder();
 
             if (list != null)
             {
-                char separator;
+                int count = list.Count;
 
-                if (unix != null)
+                if (ListOps.CheckStartAndStopIndex(
+                        0, count - 1, ref startIndex, ref stopIndex))
                 {
-                    separator = (bool)unix ?
-                        AltDirectorySeparatorChar :
-                        DirectorySeparatorChar;
-                }
-                else
-                {
-                    separator = NativeDirectorySeparatorChar;
-                    GetFirstDirectorySeparator(list, ref separator);
-                }
+                    char separator;
 
-                for (int index = 0; index < list.Count; index++)
-                {
-                    string path = StringOps.GetStringFromObject(list[index]);
-
-                    //
-                    // NOTE: Skip all null/empty path parts.
-                    //
-                    if (String.IsNullOrEmpty(path))
-                        continue;
-
-                    //
-                    // HACK: Remove surrounding whitespace.
-                    //
-                    string trimPath = path.Trim();
-
-                    if (trimPath.Length > 0)
+                    if (unix != null)
                     {
-                        //
-                        // NOTE: Have we already handled the first part of
-                        //       the path?
-                        //
-                        if (builder.Length > 0)
-                        {
-                            if (!IsDirectoryChar(builder[builder.Length - 1]))
-                                builder.Append(separator);
+                        separator = (bool)unix ?
+                            AltDirectorySeparatorChar :
+                            DirectorySeparatorChar;
+                    }
+                    else
+                    {
+                        separator = NativeDirectorySeparatorChar;
+                        GetFirstDirectorySeparator(list, ref separator);
+                    }
 
-                            builder.Append(MaybeTrim(trimPath));
-                        }
-                        else if ((trimPath.Length == 1) &&
-                            IsDirectoryChar(trimPath[0]))
+                    for (int index = startIndex; index <= stopIndex; index++)
+                    {
+                        string path = StringOps.GetStringFromObject(list[index]);
+
+                        //
+                        // NOTE: Skip all null/empty path parts.
+                        //
+                        if (String.IsNullOrEmpty(path))
+                            continue;
+
+                        //
+                        // HACK: Remove surrounding whitespace.
+                        //
+                        string trimPath = path.Trim();
+
+                        if (trimPath.Length > 0)
                         {
                             //
-                            // BUGFIX: If the first part of the path is just
-                            //         one separator character, append the
-                            //         selected separator character instead.
+                            // NOTE: Have we already handled the first part of
+                            //       the path?
                             //
-                            builder.Append(separator);
-                        }
-                        else
-                        {
-                            string trimPath2 = TrimEndOfPath(trimPath, null);
+                            if (builder.Length > 0)
+                            {
+                                if (!IsDirectoryChar(builder[builder.Length - 1]))
+                                    builder.Append(separator);
 
-                            if (trimPath2.Length > 0)
+                                builder.Append(MaybeTrim(trimPath));
+                            }
+                            else if ((trimPath.Length == 1) &&
+                                IsDirectoryChar(trimPath[0]))
                             {
                                 //
-                                // BUGFIX: *MONO* Do not trim any separator
-                                //         characters from the start of the
-                                //         string.
+                                // BUGFIX: If the first part of the path is just
+                                //         one separator character, append the
+                                //         selected separator character instead.
                                 //
-                                builder.Append(trimPath2);
+                                builder.Append(separator);
                             }
                             else
                             {
-                                //
-                                // BUGFIX: *MONO* If trimming the [first]
-                                //         non-empty part of the path ends
-                                //         removing all of its characters,
-                                //         append the selected separator
-                                //         character instead.
-                                //
-                                builder.Append(separator);
+                                string trimPath2 = TrimEndOfPath(trimPath, null);
+
+                                if (trimPath2.Length > 0)
+                                {
+                                    //
+                                    // BUGFIX: *MONO* Do not trim any separator
+                                    //         characters from the start of the
+                                    //         string.
+                                    //
+                                    builder.Append(trimPath2);
+                                }
+                                else
+                                {
+                                    //
+                                    // BUGFIX: *MONO* If trimming the [first]
+                                    //         non-empty part of the path ends
+                                    //         removing all of its characters,
+                                    //         append the selected separator
+                                    //         character instead.
+                                    //
+                                    builder.Append(separator);
+                                }
                             }
                         }
                     }
@@ -3685,6 +3718,19 @@ namespace Eagle._Components.Private
             )
         {
             return CombinePath(unix, (IList)paths);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string CombinePath(
+            bool? unix,           /* in */
+            int startIndex,       /* in */
+            int stopIndex,        /* in */
+            params string[] paths /* in */
+            )
+        {
+            return CombinePath(
+                unix, (IList)paths, startIndex, stopIndex);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4070,7 +4116,7 @@ namespace Eagle._Components.Private
             out bool application,            /* out */
             out bool applicationBase,        /* out */
             out bool vendor,                 /* out */
-            out bool strict,                 /* out */
+            out bool nullOnNotFound,         /* out */
             out bool directoryLocation,      /* out */
             out bool fileLocation,           /* out */
             out bool fullPath,               /* out */
@@ -4108,8 +4154,8 @@ namespace Eagle._Components.Private
             vendor = FlagOps.HasFlags(
                 fileSearchFlags, FileSearchFlags.Vendor, true);
 
-            strict = FlagOps.HasFlags(
-                fileSearchFlags, FileSearchFlags.Strict, true);
+            nullOnNotFound = FlagOps.HasFlags(
+                fileSearchFlags, FileSearchFlags.NullOnNotFound, true);
 
             directoryLocation = FlagOps.HasFlags(
                 fileSearchFlags, FileSearchFlags.DirectoryLocation, true);
@@ -4544,7 +4590,7 @@ namespace Eagle._Components.Private
             bool application;
             bool applicationBase;
             bool vendor;
-            bool strict;
+            bool nullOnNotFound;
             bool directoryLocation;
             bool fileLocation;
             bool fullPath;
@@ -4555,10 +4601,11 @@ namespace Eagle._Components.Private
             bool? unix;
 
             ExtractFileSearchFlags(fileSearchFlags,
-                out specificPath, out mapped, out autoSourcePath, out current,
-                out user, out externals, out application, out applicationBase,
-                out vendor, out strict, out directoryLocation, out fileLocation,
-                out fullPath, out stripBasePath, out tailOnly, out verbose,
+                out specificPath, out mapped, out autoSourcePath,
+                out current, out user, out externals, out application,
+                out applicationBase, out vendor, out nullOnNotFound,
+                out directoryLocation, out fileLocation, out fullPath,
+                out stripBasePath, out tailOnly, out verbose,
                 out isolated, out unix);
 
             string mode = GetSearchMode(isolated);
@@ -4734,7 +4781,7 @@ namespace Eagle._Components.Private
             //
             // NOTE: At this point, nothing was found.
             //
-            if (strict)
+            if (nullOnNotFound)
             {
                 //
                 // NOTE: If we get here, we found nothing and that is
@@ -4881,11 +4928,25 @@ namespace Eagle._Components.Private
         public static string GetVendorPath()
         {
             //
-            // NOTE: Return the vendor path "offset" to be appended to the
-            //       search directory when looking for files.
+            // NOTE: Return the vendor path "offset" to be appended
+            //       to search directories when looking for files.
             //
-            return GlobalConfiguration.GetValue(
-                EnvVars.VendorPath, ScalarConfigurationFlags);
+            return GlobalConfiguration.GetValue(EnvVars.VendorPath,
+                ScalarConfigurationFlags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void SetVendorPath(
+            string path
+            )
+        {
+            //
+            // NOTE: Set the vendor path "offset" to be appended
+            //       to search directories when looking for files.
+            //
+            GlobalConfiguration.SetValue(EnvVars.VendorPath,
+                path, ScalarConfigurationFlags);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6138,6 +6199,117 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string GetPackageRelativeFileName(
+            string fileName, /* in */
+            bool keepLib,    /* in */
+            bool verbatim,   /* in */
+            ref Result error /* out */
+            )
+        {
+            if (String.IsNullOrEmpty(fileName))
+            {
+                error = "invalid file name";
+                return null;
+            }
+
+            try
+            {
+                if (GetPathType(fileName) != PathType.Absolute)
+                {
+                    error = "file name not absolute";
+                    return null;
+                }
+
+                string[] paths = {
+                    GlobalState.GetAssemblyPackageRootPath(),
+                    GlobalState.GetPackagePeerBinaryPath()
+                };
+
+                foreach (string path in paths)
+                {
+                    if (String.IsNullOrEmpty(path))
+                        continue;
+
+                    if (!SharedStringOps.StartsWith(
+                            fileName, path, ComparisonType))
+                    {
+                        continue;
+                    }
+
+                    string relativeFileName = MaybeTrimStart(
+                        fileName.Substring(path.Length));
+
+                    string[] parts; /* REUSED */
+                    string part; /* REUSED */
+                    int length; /* REUSED */
+
+                    if (keepLib)
+                    {
+                        parts = MaybeSplit(path);
+
+                        if (parts != null)
+                        {
+                            length = parts.Length;
+
+                            if (length > 0)
+                            {
+                                part = parts[length - 1];
+
+                                if (CompareParts(
+                                        part, TclVars.Path.Lib) == 0)
+                                {
+                                    relativeFileName = Path.Combine(
+                                        part, relativeFileName);
+                                }
+                            }
+                        }
+                    }
+
+                    if (!verbatim)
+                    {
+                        parts = MaybeSplit(relativeFileName);
+
+                        if (parts != null)
+                        {
+                            length = parts.Length;
+
+                            if (length > 1)
+                            {
+                                part = parts[length - 2];
+
+                                if (StartsWithPart(
+                                        part, _Path.NetPrefix))
+                                {
+                                    if (length > 2)
+                                    {
+                                        relativeFileName = Path.Combine(
+                                            CombinePath(null, 0, length - 3,
+                                            parts), parts[length - 1]);
+                                    }
+                                    else
+                                    {
+                                        relativeFileName = parts[length - 1];
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return relativeFileName;
+                }
+
+                error = "file name not relative to package paths";
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string GetPluginRelativeFileName(
             IPlugin plugin,         /* in */
             IClientData clientData, /* in: NOT USED */
@@ -7030,6 +7202,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static bool StartsWithPart(
+            string part1, /* in */
+            string part2  /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(part1))
+                return false;
+
+            int length;
+
+            if (StringOps.IsNullOrEmpty(part2, out length))
+                return false;
+
+            return SharedStringOps.Equals(
+                part1, 0, part2, 0, length, ComparisonType);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static int CompareParts(
+            string part1, /* in */
+            string part2  /* in */
+            )
+        {
+            return SharedStringOps.Compare(part1, part2, ComparisonType);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static int CompareFileNames(
             string path1, /* in */
             string path2  /* in */
@@ -7070,13 +7271,13 @@ namespace Eagle._Components.Private
             string path2  /* in */
             )
         {
+            if (String.IsNullOrEmpty(path1))
+                return false;
+
             int length;
 
-            if (String.IsNullOrEmpty(path1) ||
-                StringOps.IsNullOrEmpty(path2, out length))
-            {
+            if (StringOps.IsNullOrEmpty(path2, out length))
                 return false;
-            }
 
             return SharedStringOps.Equals(
                 GetNativePath(path1), 0, GetNativePath(path2),
@@ -7715,6 +7916,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string RobustNormalizePath(
+            Interpreter interpreter, /* in */
+            string path              /* in */
+            )
+        {
+            bool isWindows = PlatformOps.IsWindowsOperatingSystem();
+
+            if (!CheckForValid(
+                    null, path, false, false, true, isWindows))
+            {
+                return path; /* NOTE: Garbage in, garbage out. */
+            }
+
+            bool? unix = null;
+
+            if (isWindows)
+                unix = true;
+
+            string newPath = null;
+            Result error = null; /* NOT USED */
+
+            if (NormalizePath(
+                    interpreter, null, path, unix, true,
+                    false, null, false, false, ref newPath,
+                    ref error) != ReturnCode.Ok)
+            {
+                return path; /* NOTE: Garbage in, garbage out. */
+            }
+
+            return newPath;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool ValidatePathAsFile(
             string path,  /* in */
             bool? rooted, /* in */
@@ -7997,7 +8232,7 @@ namespace Eagle._Components.Private
                             //       in the user directory.
                             //
                             string fileName = Search(interpreter, path,
-                                FileSearchFlags.StandardAndStrict);
+                                FileSearchFlags.StandardNullOnNotFound);
 
                             if (fileName != null)
                                 return fileName;
@@ -8296,6 +8531,20 @@ namespace Eagle._Components.Private
 
             if (!SharedStringOps.Equals(
                     parts[count - offset], _Path.Tests, ComparisonType))
+            {
+                done = false;
+                return path;
+            }
+
+            //
+            // NOTE: If there is already a "lib" just prior to "Tests", skip
+            //       doing anything.
+            //
+            int nextOffset = offset + 1;
+
+            if (((count - nextOffset) >= 0) && SharedStringOps.Equals(
+                    parts[count - nextOffset], TclVars.Path.Lib,
+                    ComparisonType))
             {
                 done = false;
                 return path;

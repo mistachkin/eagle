@@ -71,7 +71,7 @@ namespace Eagle._Containers.Private
                     list.Add(pair.Key);
 
             foreach (string element in list)
-                if ((limit == 0) || (removed < limit))
+                if ((limit == Limits.Unlimited) || (removed < limit))
                     removed += ConversionOps.ToInt(this.Remove(element));
 
             return removed;

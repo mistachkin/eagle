@@ -260,4 +260,53 @@ runTest {test host-1.6 {oversize host write to console with ending} -body {
 
 ###############################################################################
 
+runTest {test host-2.1 {CancelKeyPress handler unhooking} -setup {
+  set savedConsoleSetting [object invoke -create -flags \
+      +NonPublic Interpreter.cancelViaConsole GetValue 0]
+
+  set three [object invoke -create Int32 Parse 3]
+
+  object invoke -flags +NonPublic Interpreter \
+      cancelViaConsole.SetValue $three 0; # >2 no prompt
+
+  proc cancelAndWait { milliseconds } {
+    set oldCount [object invoke -flags +NonPublic \
+        Interpreter.cancelViaConsole GetValue 1]; # hit event count
+
+    after [expr {1 * $milliseconds}] [list host cancel true]
+    after [expr {2 * $milliseconds}] [list set ::forever 1]
+
+    catch {vwait ::forever}; # user canceled
+
+    set newCount [object invoke -flags +NonPublic \
+        Interpreter.cancelViaConsole GetValue 1]; # hit event count
+
+    return [expr {$newCount > $oldCount}]
+  }
+} -body {
+  object invoke -flags +NonPublic Interpreter.GetActive.Host \
+      UninstallCancelKeyPressHandler false
+
+  object invoke -flags +NonPublic Interpreter.GetActive.Host \
+      InstallCancelKeyPressHandler false
+
+  cancelAndWait $test_timeout
+} -cleanup {
+  cleanupAfterEvents
+
+  catch {
+    object invoke -flags +NonPublic Interpreter \
+        cancelViaConsole.SetValue $savedConsoleSetting 0
+  }
+
+  unset -nocomplain three savedConsoleSetting forever
+
+  rename cancelAndWait ""
+} -constraints {eagle dotNetCoreOrShell windows hostIsOpen compile.CONSOLE\
+compile.NATIVE compile.WINDOWS} -constraintExpression {[haveConstraint \
+hostType.Eagle__Hosts_Console] || [haveConstraint hostType.Demo_Hosts_Demo]} \
+-noCancel true -globalCancel true -returnCodes 1 -result {user canceled}}
+
+###############################################################################
+
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

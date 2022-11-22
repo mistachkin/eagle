@@ -252,7 +252,7 @@ namespace Eagle._Components.Private
                         //
                         MetaBindingFlags metaBindingFlags;
 
-                        if (CommonOps.Runtime.IsDotNetCore5xOr6x())
+                        if (CommonOps.Runtime.IsDotNetCore5xOrHigher())
                             metaBindingFlags = MetaBindingFlags.SocketPublic;
                         else
                             metaBindingFlags = MetaBindingFlags.SocketPrivate;
@@ -363,7 +363,7 @@ namespace Eagle._Components.Private
                         //       the timeframe of .NET 5.0.
                         //
                         socketCleanedUp = typeof(Socket).GetProperty(
-                            CommonOps.Runtime.IsDotNetCore5xOr6x() ?
+                            CommonOps.Runtime.IsDotNetCore5xOrHigher() ?
                                 "Disposed" : "CleanedUp",
                             ObjectOps.GetBindingFlags(
                                 MetaBindingFlags.SocketPrivate, true));

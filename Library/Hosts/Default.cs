@@ -4628,6 +4628,9 @@ namespace Eagle._Hosts
             if (FlagOps.HasFlags(detailFlags, DetailFlags.PathOps, true))
                 PathOps.AddInfo(list, detailFlags);
 
+            if (FlagOps.HasFlags(detailFlags, DetailFlags.HostOps, true))
+                HostOps.AddInfo(list, detailFlags);
+
             if (FlagOps.HasFlags(detailFlags, DetailFlags.FactoryOps, true))
                 FactoryOps.AddInfo(list, detailFlags);
 
@@ -5972,16 +5975,22 @@ namespace Eagle._Hosts
             //       among other things (e.g. character glyphs),
             //       and is deemed too complex for this code.
             //
+            // BUGFIX: Also, force cleaning of pre-existing
+            //         "replacement" characters for whitespace,
+            //         which may be Unicode, etc.
+            //
             if (!StringOps.IsSingleByte(encoding, new string(
                     Characters.WhiteSpace_Extended), true))
             {
                 whiteSpaceFlags &= ~WhiteSpaceFlags.Extended;
+                whiteSpaceFlags |= WhiteSpaceFlags.Clean;
             }
 
             if (!StringOps.IsSingleByte(encoding, new string(
                     Characters.WhiteSpace_Unicode), true))
             {
                 whiteSpaceFlags &= ~WhiteSpaceFlags.Unicode;
+                whiteSpaceFlags |= WhiteSpaceFlags.Clean;
             }
 
             return whiteSpaceFlags;
@@ -5996,19 +6005,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        protected virtual string GetBoxCharacterSet() /* MAY RETURN NULL */
+        protected virtual string MaybeGetBoxCharacterSet(
+            int index
+            ) /* MAY RETURN NULL */
         {
             StringList boxCharacterSets = BoxCharacterSets;
 
             if (boxCharacterSets == null)
                 return null;
 
-            int index = BoxCharacterSet;
-
             if ((index < 0) || (index >= boxCharacterSets.Count))
                 return null;
 
             return boxCharacterSets[index];
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        protected virtual string GetBoxCharacterSet() /* MAY RETURN NULL */
+        {
+            return MaybeGetBoxCharacterSet(BoxCharacterSet);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6023,6 +6039,32 @@ namespace Eagle._Hosts
 
         protected virtual void SelectBoxCharacterSet()
         {
+            Encoding encoding = null;
+
+            try
+            {
+                //
+                // HACK: Prevent a ScriptException with the error message
+                //       "system console output channel is not available"
+                //       from escaping this method when console I/O is not
+                //       available.
+                //
+                encoding = OutputEncoding; /* throw */
+            }
+            catch
+            {
+                // do nothing.
+            }
+
+            SelectBoxCharacterSet(encoding);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        protected virtual void SelectBoxCharacterSet(
+            Encoding encoding
+            )
+        {
 #if WINDOWS
             if (PlatformOps.IsWindowsOperatingSystem())
             {
@@ -6035,13 +6077,19 @@ namespace Eagle._Hosts
 
                 if (count > 0)
                 {
-                    BoxCharacterSet = count - 1;
-                    return;
+                    int index = count - 1;
+
+                    if (StringOps.IsSingleByte(encoding,
+                            boxCharacterSets[index], true))
+                    {
+                        BoxCharacterSet = index;
+                        return;
+                    }
                 }
             }
 #endif
 
-            BoxCharacterSet = 0;
+            BoxCharacterSet = 0; /* SAFE */
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

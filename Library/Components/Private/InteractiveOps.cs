@@ -7960,9 +7960,12 @@ namespace Eagle._Components.Private
                 try
                 {
                     //
-                    // NOTE: Simulate a Ctrl-C on the console.
+                    // NOTE: Roughly simulate hitting Ctrl-C
+                    //       on the console.
                     //
-                    Interpreter.ConsoleCancelEventHandler(null, null);
+                    /* NO RESULT */
+                    Interpreter.MaybeShowPromptAndAllCancel(
+                        null, false);
 
                     localResult = "cancellation initiated";
                     localCode = ReturnCode.Ok;

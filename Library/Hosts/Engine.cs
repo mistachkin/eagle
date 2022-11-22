@@ -196,17 +196,28 @@ namespace Eagle._Hosts
 
             try
             {
-                if (HostOps.ThreadSleepOrMaybeComplain(
-                        milliseconds, false) == ReturnCode.Ok)
-                {
-                    return true;
-                }
+                HostOps.ThreadSleep(milliseconds); /* throw */
+                return true;
+            }
+            catch (ThreadAbortException e)
+            {
+                Thread.ResetAbort();
+
+                TraceOps.DebugTrace(
+                    e, typeof(Engine).Name,
+                    TracePriority.ThreadError2);
+            }
+            catch (ThreadInterruptedException e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(Engine).Name,
+                    TracePriority.ThreadError2);
             }
             catch (Exception e)
             {
                 TraceOps.DebugTrace(
                     e, typeof(Engine).Name,
-                    TracePriority.HostError);
+                    TracePriority.ThreadError);
             }
 
             return false;
@@ -220,16 +231,30 @@ namespace Eagle._Hosts
 
             try
             {
-                if (HostOps.YieldOrMaybeComplain() == ReturnCode.Ok)
-                {
-                    return true;
-                }
+                HostOps.ThreadYield(); /* throw */
+                return true;
             }
+#if !NET_40
+            catch (ThreadAbortException e)
+            {
+                Thread.ResetAbort();
+
+                TraceOps.DebugTrace(
+                    e, typeof(Engine).Name,
+                    TracePriority.ThreadError2);
+            }
+            catch (ThreadInterruptedException e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(Engine).Name,
+                    TracePriority.ThreadError2);
+            }
+#endif
             catch (Exception e)
             {
                 TraceOps.DebugTrace(
                     e, typeof(Engine).Name,
-                    TracePriority.HostError);
+                    TracePriority.ThreadError);
             }
 
             return false;

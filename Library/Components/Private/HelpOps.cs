@@ -4548,6 +4548,13 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, EnvVars.TraceCategories));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], it will\n" +
+                                "{0}be interpreted as the format for trace messages.  It must be a format\n" +
+                                "{0}string, index, or one of the values of the {2} enumeration.\n" +
+                                "{0}If the value cannot be used as a trace format, it will be ignored.",
+                                Characters.HorizontalTab, EnvVars.TraceFormat, typeof(TraceFormatType).Name));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], its\n" +
                                 "{0}value will be used to alter or set the default trace priority mask.  If\n" +
                                 "{0}the value cannot be converted to a trace priority mask, it will be\n" +
@@ -4626,6 +4633,11 @@ namespace Eagle._Components.Private
                                 "{0}If the \"{1}\" environment variable is set [to anything], the\n" +
                                 "{0}internal wrapper class will be used for named events.",
                                 Characters.HorizontalTab, EnvVars.UseNamedEvents));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], its\n" +
+                                "{0}value will be used to override user interactivity detection.",
+                                Characters.HorizontalTab, EnvVars.UserInteractive));
                             displayHost.WriteLine();
 #if XML
                             displayHost.WriteLine(String.Format(

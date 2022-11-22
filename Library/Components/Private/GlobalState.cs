@@ -2158,7 +2158,7 @@ namespace Eagle._Components.Private
                     int count = 0;
 
                     if (allInterpreters != null)
-                        count += allEngineThreads.Count;
+                        count += allInterpreters.Count;
 
                     if (withTokens && (tokenInterpreters != null))
                         count += tokenInterpreters.Count;
@@ -3502,7 +3502,7 @@ namespace Eagle._Components.Private
                 "RefreshAssemblyPluginFlags: hashes = {0}, pluginFlags = {1}",
                 FormatOps.WrapOrNull(hashes), FormatOps.WrapOrNull(
                 thisAssemblyPluginFlags)), typeof(GlobalState).Name,
-                TracePriority.StartupDebug3);
+                TracePriority.StartupDebug2);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3539,7 +3539,7 @@ namespace Eagle._Components.Private
                 if (Interlocked.Increment(
                         ref thisAssemblyPluginFlagsCount) > 1)
                 {
-                    Thread.Sleep(ThreadOps.GetDefaultTimeout(
+                    HostOps.ThreadSleep(ThreadOps.GetDefaultTimeout(
                         null, TimeoutType.Start)); /* throw */
                 }
 
@@ -6504,6 +6504,68 @@ namespace Eagle._Components.Private
             }
 
             return result;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Package Path Global Variable Management Methods
+        public static string GetAssemblyPackageRootPath() /* THREAD-SAFE */
+        {
+            bool locked = false;
+
+            try
+            {
+                PathHardTryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    return assemblyPackageRootPath;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "GetAssemblyPackageRootPath",
+                        typeof(GlobalState).Name, true,
+                        TracePriority.LockError);
+                }
+            }
+            finally
+            {
+                ExitLock(ref locked); /* TRANSACTIONAL */
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetPackagePeerBinaryPath() /* THREAD-SAFE */
+        {
+            bool locked = false;
+
+            try
+            {
+                PathHardTryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    return packagePeerBinaryPath;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "GetPackagePeerBinaryPath",
+                        typeof(GlobalState).Name, true,
+                        TracePriority.LockError);
+                }
+            }
+            finally
+            {
+                ExitLock(ref locked); /* TRANSACTIONAL */
+            }
+
+            return null;
         }
         #endregion
         #endregion

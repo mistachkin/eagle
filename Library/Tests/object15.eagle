@@ -198,7 +198,7 @@ runTest {test object-15.4 {Interpreter/IInterpreter interface} -setup {
     set found false
 
     foreach interface $interfaces {
-      if {[lsearch -exact $members($interface) $member] != -1} then {
+      if {[lsearch -exact -- $members($interface) $member] != -1} then {
         set found true; break
       }
     }
@@ -322,10 +322,11 @@ EComP.Result&}} {memberType Method memberName Create methodType Method\
 methodName Create callingConvention Standard returnType EComP.Interpreter\
 parameterTypes {{System.Nullable`1[System.UInt64]}\
 {System.Collections.Generic.IEnumerable`1[System.String]} EComP.CreateFlags\
-EComP.HostCreateFlags EComP.InitializeFlags EComP.ScriptFlags EComP.PluginFlags\
-System.String EComP.Result&}} {memberType Method memberName Create methodType\
-Method methodName Create callingConvention Standard returnType\
-EComP.Interpreter parameterTypes {{System.Nullable`1[System.UInt64]}\
+EComP.HostCreateFlags EComP.InitializeFlags EComP.ScriptFlags\
+EComP.InterpreterFlags EComP.PluginFlags System.String EComP.Result&}}\
+{memberType Method memberName Create methodType Method methodName Create\
+callingConvention Standard returnType EComP.Interpreter parameterTypes\
+{{System.Nullable`1[System.UInt64]}\
 {System.Collections.Generic.IEnumerable`1[System.String]} EComP.Result&}}\
 {memberType Method memberName Equals methodType Method methodName Equals\
 callingConvention Standard returnType System.Boolean parameterTypes\
@@ -790,7 +791,7 @@ runTest {test object-17.1 {object invokeraw w/late binding & alias} -body {
         Title]
 
     if {[regexp -nocase -- {[^A-Z](KB\d+)} $title dummy kb] && \
-        [lsearch -exact -nocase $result $kb] == -1} then {
+        [lsearch -exact -nocase -- $result $kb] == -1} then {
       lappend result $kb
     }
   }

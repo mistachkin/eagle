@@ -3082,7 +3082,7 @@ namespace Eagle._Components.Private
                     //       closed from underneath a synchronous read on it.
                     //
                     /* IGNORED */
-                    HostOps.ThreadSleepOrMaybeComplain(anyPair.X, false);
+                    HostOps.ThreadSleep(anyPair.X); /* throw */
 
                     //
                     // NOTE: Grab the active interpreter.
@@ -3173,7 +3173,7 @@ namespace Eagle._Components.Private
                     //       closed from underneath a synchronous read on it.
                     //
                     /* IGNORED */
-                    HostOps.ThreadSleepOrMaybeComplain(anyPair.X, false);
+                    HostOps.ThreadSleep(anyPair.X); /* throw */
 
                     //
                     // NOTE: Grab the active interpreter.

@@ -385,7 +385,32 @@ namespace Eagle._Objects
                         }
 
                         if (retryDelay >= 0) /* <0 NO-DELAY */
-                            Thread.Sleep(retryDelay);
+                        {
+                            try
+                            {
+                                HostOps.ThreadSleep(retryDelay); /* throw */
+                            }
+                            catch (ThreadAbortException e)
+                            {
+                                Thread.ResetAbort();
+
+                                TraceOps.DebugTrace(
+                                    e, typeof(Default).Name,
+                                    TracePriority.ThreadError2);
+                            }
+                            catch (ThreadInterruptedException e)
+                            {
+                                TraceOps.DebugTrace(
+                                    e, typeof(Default).Name,
+                                    TracePriority.ThreadError2);
+                            }
+                            catch (Exception e)
+                            {
+                                TraceOps.DebugTrace(
+                                    e, typeof(Default).Name,
+                                    TracePriority.ThreadError);
+                            }
+                        }
                     }
 
                     //

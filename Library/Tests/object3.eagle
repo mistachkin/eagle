@@ -801,57 +801,50 @@ Eagle._Tests.Default.TestByRefByteArray} -match regexp -result {^0 \{\} null 0\
 "rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
 array\} nope1 1 \{could not convert method #\d+\
 "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
-was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
-\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: .*?\.\} \{1\
+nope2\} 0 \{\} null 0 \{\} \{\{System#Byte\[\]#\d+\}\} 1 \{could not convert\
+method #\d+ "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with\
+value "rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable\
+isn't array\} nope1 1 \{could not convert method #\d+\
 "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
-array\} nope1 1 \{could not convert method #\d+\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: .*?\.\} \{1\
+nope2\} 0 \{\} null 0 \{\} \{\{System#Byte\[\]#\d+\}\} 1 \{could not convert\
+method #\d+ "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with\
+value "rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable\
+isn't array\} nope1 1 \{could not convert method #\d+\
 "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
-was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
-\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: .*?\.\} \{1\
+nope2\} 0 \{\} null 0 \{\} \{\{System#Byte\[\]#\d+\}\} 1 \{could not convert\
+method #\d+ "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with\
+value "rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable\
+isn't array\} nope1 1 \{could not convert method #\d+\
 "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
-array\} nope1 1 \{could not convert method #\d+\
-"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
-was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
-\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
-"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
-array\} nope1 1 \{could not convert method #\d+\
-"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
-was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
-\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
-"Default#\d+\.TestByRefByteArray" argument #\d+\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: .*?\.\} \{1\
+nope2\} 0 \{\} null 0 \{\} \{\{System#Byte\[\]#\d+\}\} 1 \{could not convert\
+method #\d+ "Default#\d+\.TestByRefByteArray" argument #\d+\
 "byteArray" with value "rawData3" to type "System\.Byte\[\]&": can't read\
 "rawData3": variable isn't array\} nope1 1 \{could not convert method #\d+\
 "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
-was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
-\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: .*?\.\} \{1\
+nope2\} 0 \{\} null 0 \{\} \{\{System#Byte\[\]#\d+\}\} 1 \{could not convert\
+method #\d+ "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with\
+value "rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable\
+isn't array\} nope1 1 \{could not convert method #\d+\
 "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
-array\} nope1 1 \{could not convert method #\d+\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: .*?\.\} \{1\
+nope2\} 0 \{\} null 0 \{\} \{\{System#Byte\[\]#\d+\}\} 1 \{could not convert\
+method #\d+ "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with\
+value "rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable\
+isn't array\} nope1 1 \{could not convert method #\d+\
 "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
-was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
-\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: .*?\.\} \{1\
+nope2\} 0 \{\} null 0 \{\} \{\{System#Byte\[\]#\d+\}\} 1 \{could not convert\
+method #\d+ "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with\
+value "rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable\
+isn't array\} nope1 1 \{could not convert method #\d+\
 "Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
-array\} nope1 1 \{could not convert method #\d+\
-"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
-was not in a correct format\.\} \{1 nope2\} 0 \{\} null 0 \{\}\
-\{\{System#Byte\[\]#\d+\}\} 1 \{could not convert method #\d+\
-"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData3" to type "System\.Byte\[\]&": can't read "rawData3": variable isn't\
-array\} nope1 1 \{could not convert method #\d+\
-"Default#\d+\.TestByRefByteArray" argument #\d+ "byteArray" with value\
-"rawData4" to type "System\.Byte\[\]&": System\.FormatException: Input string\
-was not in a correct format\.\} \{1 nope2\}$}}
+"rawData4" to type "System\.Byte\[\]&": System\.FormatException: .*?\.\} \{1\
+nope2\}$}}
 
 ###############################################################################
 

@@ -2003,6 +2003,7 @@
     <None Include="Tests\data\script.eagle" />
     <None Include="Tests\data\settings.ini" />
     <None Include="Tests\data\settings.xml" />
+    <None Include="Tests\data\showArgv.eagle" />
     <None Include="Tests\data\source.eagle" />
     <None Include="Tests\data\substitute.eagle" />
     <None Include="Tests\data\tcl_unload.tcl" />

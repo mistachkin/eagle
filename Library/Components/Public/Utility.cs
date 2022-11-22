@@ -975,6 +975,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static byte[] HashFile(
+            string hashAlgorithmName,
+            string fileName,
+            Encoding encoding,
+            ref Result error
+            )
+        {
+            return _RuntimeOps.HashFile(
+                hashAlgorithmName, fileName, encoding, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static byte[] HashStringAndOrBytes(
             string value1,
             byte[] value2,
@@ -1248,6 +1261,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string GetFullPlatformName()
+        {
+            return FormatOps.FullPlatformName(GlobalState.GetAssembly());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string ScriptTypeToFileName(
             string type,
             PackageType packageType,
@@ -1485,6 +1505,19 @@ namespace Eagle._Components.Public
                 appDomain, assembly, assemblyName, dateTime,
                 fileName, typeName, uri, updateUri, clientData,
                 flags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetPackageRelativeFileName(
+            string fileName,
+            bool keepLib,
+            bool verbatim,
+            ref Result error
+            )
+        {
+            return PathOps.GetPackageRelativeFileName(
+                fileName, keepLib, verbatim, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3071,6 +3104,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string RobustNormalizePath(
+            Interpreter interpreter,
+            string path
+            )
+        {
+            return PathOps.RobustNormalizePath(interpreter, path);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string NormalizePath(
             string path
             )
@@ -3771,6 +3814,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string GetCurrentProcessFileName()
+        {
+            return ProcessOps.GetFileName();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static long GetCurrentThreadId()
         {
             return GlobalState.GetCurrentThreadId(); /* EXEMPT */
@@ -4006,6 +4056,16 @@ namespace Eagle._Components.Public
             )
         {
             return ArrayOps.Equals(array1, array2, length);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int ArrayIndexOf(
+            byte[] array1,
+            byte[] array2
+            )
+        {
+            return ArrayOps.IndexOf(array1, array2);
         }
 
         ///////////////////////////////////////////////////////////////////////

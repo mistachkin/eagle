@@ -121,16 +121,24 @@ runTest {test exec-1.3 {-nocapture with -success} -setup {
 runTest {test exec-2.1 {output capture stress test} -setup {
   unset -nocomplain expected output count i code
 } -body {
-  tputs $test_channel \
-      "---- doing test exec-2.1 which can take several minutes to run\n"
-
-  set expected [readFile [file join $test_data_path big_exec.txt]]
-
   if {[info exists test_stress_count]} then {
     set count $test_stress_count; # NOTE: Beta 45+.
   } else {
     set count 1000; # NOTE: Beta 44-.
   }
+
+  tputs $test_channel [appendArgs \
+      "---- doing test exec-2.1 with iteration count " \
+      $count ", which can take several minutes to run\n"]
+
+  set options [list]
+
+  set ids [list \
+      88cf0da6bc3fe69201d328495c3711f0f8b23177 \
+      651e1624bb48bc22a0ab28853b9310e99cf7425a]; # SHA1-Id: Lf, Cr/Lf
+
+  set errors [list]
+  set expected [readFile [file join $test_data_path big_exec.txt]]
 
   for {set i 0} {$i < $count} {incr i} {
     unset -nocomplain output code
@@ -140,35 +148,66 @@ runTest {test exec-2.1 {output capture stress test} -setup {
       # HACK: Use the "--chdir" option here in an attempt to make sure
       #       we are reading from the Eagle repository.
       #
-      testExec fossil [list] artifact \
-          --chdir [appendArgs \" $test_data_path \"] \
-          88cf0da6bc3fe69201d328495c3711f0f8b23177
+      testExec fossil $options artifact \
+          --chdir [appendArgs \" $test_data_path \"] [lindex $ids 0]
     } output]
 
     if {$code != 0} then {
-      error [appendArgs \
+      lappend errors [appendArgs \
           "bad return code " $code " at iteration #" [expr {$i + 1}] \
           ": " $output]
+
+      continue
     }
 
-    set output [string map [list \r\n \n] $output]; # normalize line-endings
+    if {[string tolower [hash normal sha1 $output]] ni $ids} then {
+      if {[hasRuntimeOption saveBadOutput]} then {
+        set fileName [file join [getTemporaryPath] \
+            [appendArgs exec-2.1-out- [expr {$i + 1}] .bad1]]
 
-    set output [join [split [regexp -all -line -inline -skip 1  -- \
-        {^F .* ([0-9a-f]{40})$} $output] " "] \n]; # extract all UUIDs
+        writeFile $fileName $output
 
-    if {$output ne $expected} then {
-      if {0} then {
-        writeFile [file join [getTemporaryPath] exec-2.1.out] $output
+        tputs $test_channel [appendArgs \
+            "---- saved bad raw output to \"" $fileName \"\n]
       }
 
-      error [appendArgs \
-          "bad output at iteration #" [expr {$i + 1}] ": " $output]
+      lappend errors [appendArgs \
+          "bad raw output at iteration #" [expr {$i + 1}] ": " \
+          $output]
+
+      continue
+    }
+
+    set savedOutput $output
+
+    set output [string map [list \r\n \n] $output]; # line-endings
+
+    set output [join [split [regexp -all -line -inline -skip 1  -- \
+        {^F .* ([0-9a-f]{40})$} $output] " "] \n]; # extract UUIDs
+
+    if {$output ne $expected} then {
+      if {[hasRuntimeOption saveBadOutput]} then {
+        set fileName [file join [getTemporaryPath] \
+            [appendArgs exec-2.1-out- [expr {$i + 1}] .bad2]]
+
+        writeFile $fileName $savedOutput
+
+        tputs $test_channel [appendArgs \
+            "---- saved bad processed output to \"" $fileName \"\n]
+      }
+
+      lappend errors [appendArgs \
+          "bad processed output at iteration #" [expr {$i + 1}] ": " \
+          $output]
     }
   }
+
+  set errors
 } -cleanup {
   catch {info previouspid true}
 
-  unset -nocomplain expected output count i code
+  unset -nocomplain expected output count i code options
+  unset -nocomplain ids errors fileName savedOutput
 } -constraints \
 {eagle testExec fossil_version fossil_repository_file file_big_exec.txt} \
 -time true -result {}}

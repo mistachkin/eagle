@@ -30,6 +30,9 @@ using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 
+using CleanupPathPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Components.Private.CleanupPathClientData>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -2888,6 +2891,175 @@ namespace Eagle._Components.Private
             }
 
             return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CleanupPaths(
+            Interpreter interpreter,
+            PathDictionary<CleanupPathClientData> paths,
+            bool quiet,
+            bool noComplain,
+            ref StringList list,
+            ref ResultList errors
+            )
+        {
+            if (paths == null)
+                return ReturnCode.Ok;
+
+            IEnumerable<CleanupPathPair> pairs =
+                paths.GetPairsInOrder(true);
+
+            if (pairs == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("cannot get paths in reverse order");
+                return ReturnCode.Error;
+            }
+
+            //
+            // BUGFIX: Make sure that we are *NOT* currently within
+            //         any directory that we may want to cleanup.
+            //
+            // BUGFIX: However, make 100% sure the current directory
+            //         is saved AND restored; otherwise, any external
+            //         code relying on the current directory may be
+            //         messed up.
+            //
+            string savedDirectory = Directory.GetCurrentDirectory();
+
+            try
+            {
+                Directory.SetCurrentDirectory(
+                    GlobalState.GetAnyEntryAssemblyPath());
+
+                int errorCount = 0;
+
+                foreach (CleanupPathPair pair in pairs)
+                {
+                    string path = pair.Key;
+
+                    if (String.IsNullOrEmpty(path))
+                        continue;
+
+                    CleanupPathClientData clientData = pair.Value;
+                    Result matchError = null;
+
+                    if ((clientData == null) ||
+                        !clientData.MatchPathType(path, ref matchError))
+                    {
+                        errorCount++;
+
+                        if (matchError != null)
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(matchError);
+                        }
+
+                        if (!quiet)
+                        {
+                            TraceOps.DebugTrace(String.Format(
+                                "CleanupPaths: cannot delete {0}, " +
+                                "mismatched {1}: {2}",
+                                FormatOps.WrapOrNull(path),
+                                FormatOps.WrapOrNull(clientData),
+                                FormatOps.WrapOrNull(matchError)),
+                                typeof(FileOps).Name,
+                                TracePriority.FileSystemError);
+                        }
+
+                        continue;
+                    }
+
+                    ReturnCode deleteCode;
+                    Result deleteError = null;
+                    string pathType = null;
+
+                    deleteCode = FileOps.FileDelete(
+                        new string[] { path }, clientData.Recursive,
+                        clientData.Force, clientData.NoComplain,
+                        ref pathType, ref deleteError);
+
+                    if (deleteCode == ReturnCode.Ok)
+                    {
+                        /* IGNORED */
+                        paths.Remove(path);
+
+                        if (list != null)
+                        {
+                            list.Add(path);
+                            list.Add(clientData.ToString());
+                        }
+                    }
+                    else
+                    {
+                        errorCount++;
+
+                        if (deleteError != null)
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(deleteError);
+                        }
+
+                        if (!noComplain)
+                        {
+                            DebugOps.Complain(
+                                interpreter, deleteCode,
+                                deleteError);
+                        }
+
+                        continue;
+                    }
+
+                    if (!quiet)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "CleanupPaths: DELETED {0}{1}: {2}",
+                            (pathType != null) ? String.Format(
+                            "{0} ", pathType) : String.Empty,
+                            FormatOps.WrapOrNull(path),
+                            clientData.ToString()),
+                            typeof(FileOps).Name,
+                            TracePriority.FileSystemDebug);
+                    }
+                }
+
+                return (errorCount == 0) ?
+                    ReturnCode.Ok : ReturnCode.Error;
+            }
+            catch (Exception e)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(e);
+                return ReturnCode.Error;
+            }
+            finally
+            {
+                if (savedDirectory != null)
+                {
+                    try
+                    {
+                        Directory.SetCurrentDirectory(
+                            savedDirectory); /* throw */
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(Interpreter).Name,
+                            TracePriority.CleanupError);
+                    }
+
+                    savedDirectory = null;
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

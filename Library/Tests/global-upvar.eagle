@@ -84,6 +84,7 @@ proc getVars { after } {
                    "(?:test_visual_studio )?" "(?:test_verbose )?" \
                    "(?:test_volume )?" "(?:test_wait )?" \
                    "(?:test_well_known )?" "(?:test_wix )?" \
+                   "(?:whatIfArgc )?" "(?:whatIfArgv )?" \
                    mushroomMushroom]
 
   #
@@ -174,7 +175,9 @@ proc getVars { after } {
       "{(?:test_volume )?} " "(?:test_volume )?" \
       "{(?:test_wait )?} " "(?:test_wait )?" \
       "{(?:test_well_known )?} " "(?:test_well_known )?" \
-      "{(?:test_wix )?} " "(?:test_wix )?"] $result]]
+      "{(?:test_wix )?} " "(?:test_wix )?" \
+      "{(?:whatIfArgc )?} " "(?:whatIfArgc )?" \
+      "{(?:whatIfArgv )?} " "(?:whatIfArgv )?"] $result]]
 
   return $result
 }

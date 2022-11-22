@@ -487,9 +487,9 @@ namespace Eagle._Hosts
             }
 
             if (FlagOps.HasFlags(
-                    scriptFlags, ScriptFlags.StrictGetFile, true))
+                    scriptFlags, ScriptFlags.NullOnNotFound, true))
             {
-                fileSearchFlags |= FileSearchFlags.Strict;
+                fileSearchFlags |= FileSearchFlags.NullOnNotFound;
             }
 
             if (FlagOps.HasFlags(

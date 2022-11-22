@@ -21,6 +21,10 @@ using Eagle._Containers.Public;
 using Eagle._Encodings;
 using Eagle._Interfaces.Public;
 
+#if NET_STANDARD_21
+using Index = Eagle._Constants.Index;
+#endif
+
 namespace Eagle._Components.Private
 {
     [ObjectId("e6709468-95a4-405e-8c9c-e0dbd1aa3a88")]
@@ -1030,6 +1034,62 @@ namespace Eagle._Components.Private
             )
         {
             return GenericCompareOps<byte>.Equals(array1, array2, length);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int IndexOf(
+            byte[] array1,
+            byte[] array2
+            )
+        {
+            if ((array1 == null) || (array2 == null))
+                return Index.Invalid;
+
+            int length1 = array1.Length;
+            int length2 = array2.Length;
+
+            if ((length1 == 0) || (length2 == 0))
+                return Index.Invalid;
+            else if (length2 > length1)
+                return Index.Invalid;
+
+            if (length1 == length2)
+            {
+                for (int index0 = 0; index0 < length1; index0++)
+                    if (array1[index0] != array2[index0])
+                        return Index.Invalid;
+
+                return 0;
+            }
+            else
+            {
+                int index1 = 0;
+                int index2;
+
+                while (true)
+                {
+                    index1 = Array.IndexOf(array1, array2[0], index1);
+
+                    if (index1 == Index.Invalid)
+                        return Index.Invalid;
+
+                    if ((index1 + length2) > length1)
+                        return Index.Invalid;
+
+                    int savedIndex1 = index1;
+
+                    index1++;
+                    index2 = 1;
+
+                    for (; index2 < length2; index1++, index2++)
+                        if (array1[index1] != array2[index2])
+                            break;
+
+                    if (index2 == length2)
+                        return savedIndex1;
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

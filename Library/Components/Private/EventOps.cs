@@ -480,7 +480,7 @@ namespace Eagle._Components.Private
                                     //       to cancel the script in progress
                                     //       on this thread.
                                     //
-                                    code = HostOps.Yield(ref error);
+                                    code = HostOps.ThreadYield(ref error);
                                 }
                             }
                             else

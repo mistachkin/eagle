@@ -8511,10 +8511,11 @@ namespace Eagle._Components.Private
                 }
 
                 //
-                // HACK: Cannot use the wrapper methods here because they
-                //       catch ThreadInterruptedException, et al.
+                // HACK: Cannot use the (complex) wrapper methods here
+                //       because they catch ThreadInterruptedException,
+                //       et al.
                 //
-                Thread.Sleep(timeout); /* throw */
+                HostOps.ThreadSleep(timeout); /* throw */
 
                 //
                 // HACK: If the specified interpreter does not actually

@@ -57,7 +57,7 @@ if {[isEagle]} then {
     #       See: https://bugzilla.novell.com/show_bug.cgi?id=472845
     #
     foreach skipName $skipNames {
-      if {[lsearch -exact $eagle_tests(SkipNames) $skipName] == -1} then {
+      if {[lsearch -exact -- $eagle_tests(SkipNames) $skipName] == -1} then {
         lappend eagle_tests(SkipNames) $skipName
       }
     }
@@ -146,7 +146,7 @@ if {[isEagle]} then {
     # NOTE: Remove the test names to be skipped that were added above.
     #
     foreach skipName $skipNames {
-      set skipIndex [lsearch -exact $eagle_tests(SkipNames) $skipName]
+      set skipIndex [lsearch -exact -- $eagle_tests(SkipNames) $skipName]
 
       if {$skipIndex != -1} then {
         set eagle_tests(SkipNames) [lreplace $eagle_tests(SkipNames) \

@@ -64,7 +64,7 @@ if {[haveConstraint tip405]} then {
       lappend skipNames lmap-8.2; # NOTE: Needs [coroutine].
 
       foreach skipName $skipNames {
-        if {[lsearch -exact $eagle_tests(SkipNames) $skipName] == -1} then {
+        if {[lsearch -exact -- $eagle_tests(SkipNames) $skipName] == -1} then {
           lappend eagle_tests(SkipNames) $skipName
         }
       }
@@ -97,7 +97,7 @@ if {[haveConstraint tip405]} then {
       # NOTE: Remove the test names to be skipped that were added above.
       #
       foreach skipName $skipNames {
-        set skipIndex [lsearch -exact $eagle_tests(SkipNames) $skipName]
+        set skipIndex [lsearch -exact -- $eagle_tests(SkipNames) $skipName]
 
         if {$skipIndex != -1} then {
           set eagle_tests(SkipNames) [lreplace $eagle_tests(SkipNames) \

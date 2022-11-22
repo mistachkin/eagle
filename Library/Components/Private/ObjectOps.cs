@@ -619,7 +619,11 @@ namespace Eagle._Components.Private
 
                     /* MetaBindingFlags.InterpreterSettings */
                     BindingFlags.Instance | BindingFlags.Public |
-                    BindingFlags.SetProperty
+                    BindingFlags.SetProperty,
+
+                    /* MetaBindingFlags.TypeDefaultLookup */
+                    BindingFlags.Instance | BindingFlags.Static |
+                    BindingFlags.Public
                 };
             }
         }

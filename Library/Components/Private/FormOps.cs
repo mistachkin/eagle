@@ -196,7 +196,7 @@ namespace Eagle._Components.Private
             }
             else
             {
-                DebugOps.Log(0, DebugOps.DefaultCategory, String.Format(
+                DebugOps.Log(String.Format(
                     "{0}{1}", message, Environment.NewLine));
 
                 return DialogResult.OK;

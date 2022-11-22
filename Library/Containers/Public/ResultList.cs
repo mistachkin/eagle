@@ -288,6 +288,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region AddRange Methods
+        public void AddRange(
+            IEnumerable<string> collection
+            )
+        {
+            if (collection == null)
+                return;
+
+            foreach (string item in collection)
+                base.Add(item);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region ToString Methods
         public string ToString(
             string pattern,

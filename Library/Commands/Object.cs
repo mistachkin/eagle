@@ -2531,29 +2531,42 @@ namespace Eagle._Commands
 
                                                                                                                     selectMethodInfo = methodInfo[methodIndex];
 
-                                                                                                                    object returnValue = selectMethodInfo.Invoke(
-                                                                                                                        @object, bindingFlags, interpreter.InternalBinder as Binder, args,
-                                                                                                                        interpreter.InternalCultureInfo);
-
-                                                                                                                    if (!noByRef && (argumentInfoList != null))
+#if SHELL
+                                                                                                                    if (!interpreter.IsKioskLock() ||
+                                                                                                                        !MarshalOps.IsForbiddenForKiosk(selectMethodInfo, @object))
+#endif
                                                                                                                     {
-                                                                                                                        code = MarshalOps.FixupByRefArguments(
-                                                                                                                            interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                                            argumentInfoList, objectFlags | byRefObjectFlags,
-                                                                                                                            options, objectOptionType, interpName, args,
-                                                                                                                            marshalFlags, byRefArgumentFlags, strictArgs, create,
-                                                                                                                            dispose, alias, aliasReference, toString, arrayAsValue,
-                                                                                                                            arrayAsLink, ref result);
-                                                                                                                    }
+                                                                                                                        object returnValue = selectMethodInfo.Invoke(
+                                                                                                                            @object, bindingFlags, interpreter.InternalBinder as Binder, args,
+                                                                                                                            interpreter.InternalCultureInfo);
 
-                                                                                                                    if (code == ReturnCode.Ok)
-                                                                                                                    {
-                                                                                                                        code = MarshalOps.FixupReturnValue(
-                                                                                                                            interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                                            returnType, objectFlags, options, objectOptionType,
-                                                                                                                            objectName, interpName, returnValue, create, dispose,
-                                                                                                                            alias, aliasReference, toString, ref result);
+                                                                                                                        if (!noByRef && (argumentInfoList != null))
+                                                                                                                        {
+                                                                                                                            code = MarshalOps.FixupByRefArguments(
+                                                                                                                                interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
+                                                                                                                                argumentInfoList, objectFlags | byRefObjectFlags,
+                                                                                                                                options, objectOptionType, interpName, args,
+                                                                                                                                marshalFlags, byRefArgumentFlags, strictArgs, create,
+                                                                                                                                dispose, alias, aliasReference, toString, arrayAsValue,
+                                                                                                                                arrayAsLink, ref result);
+                                                                                                                        }
+
+                                                                                                                        if (code == ReturnCode.Ok)
+                                                                                                                        {
+                                                                                                                            code = MarshalOps.FixupReturnValue(
+                                                                                                                                interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
+                                                                                                                                returnType, objectFlags, options, objectOptionType,
+                                                                                                                                objectName, interpName, returnValue, create, dispose,
+                                                                                                                                alias, aliasReference, toString, ref result);
+                                                                                                                        }
                                                                                                                     }
+#if SHELL
+                                                                                                                    else
+                                                                                                                    {
+                                                                                                                        result = "cannot exit when a kiosk";
+                                                                                                                        code = ReturnCode.Error;
+                                                                                                                    }
+#endif
                                                                                                                 }
                                                                                                                 catch (Exception e)
                                                                                                                 {

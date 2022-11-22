@@ -888,7 +888,11 @@ namespace Eagle._Components.Private
                 capacity = DefaultCapacity;
 
             if (result == null)
-                return new StringBuilder(capacity);
+            {
+                result = new StringBuilder(capacity);
+
+                return result;
+            }
 
             result.Length = 0;
             result.EnsureCapacity(capacity);
@@ -938,7 +942,11 @@ namespace Eagle._Components.Private
                     capacity = DefaultCapacity;
 
                 if (result == null)
-                    return new StringBuilder(capacity);
+                {
+                    result = new StringBuilder(capacity);
+
+                    return result;
+                }
 
                 result.Length = 0;
                 result.EnsureCapacity(capacity);
@@ -954,7 +962,11 @@ namespace Eagle._Components.Private
                     capacity = DefaultCapacity;
 
                 if (result == null)
-                    return new StringBuilder(value, startIndex, length, capacity);
+                {
+                    result = new StringBuilder(value, startIndex, length, capacity);
+
+                    return result;
+                }
 
                 result.Length = 0;
                 result.EnsureCapacity(capacity);
@@ -970,7 +982,11 @@ namespace Eagle._Components.Private
                     capacity = DefaultCapacity;
 
                 if (result == null)
-                    return new StringBuilder(value, capacity);
+                {
+                    result = new StringBuilder(value, capacity);
+
+                    return result;
+                }
 
                 result.Length = 0;
                 result.EnsureCapacity(capacity);
@@ -2499,15 +2515,18 @@ namespace Eagle._Components.Private
             ref string value /* in, out */
             )
         {
-            StringComparison comparisonType =
-                SharedStringOps.SystemComparisonType;
+            if (String.IsNullOrEmpty(value))
+                return;
 
-            if (!String.IsNullOrEmpty(value) &&
-                (Environment.NewLine != null) && value.EndsWith(
-                    Environment.NewLine, comparisonType))
+            string newLine = Environment.NewLine;
+
+            if (newLine == null) /* IMPOSSIBLE */
+                return;
+
+            if (SharedStringOps.SystemEndsWith(value, newLine))
             {
-                value = value.Substring(0,
-                    value.Length - Environment.NewLine.Length);
+                value = value.Substring(
+                    0, value.Length - newLine.Length);
             }
         }
 
@@ -3757,6 +3776,9 @@ namespace Eagle._Components.Private
             bool space = FlagOps.HasFlags(
                 flags, WhiteSpaceFlags.Space, true);
 
+            bool clean = FlagOps.HasFlags(
+                flags, WhiteSpaceFlags.Clean, true);
+
             //
             // NOTE: Replace all tabs, carriage-returns, line-feeds, etc.
             //
@@ -3831,6 +3853,36 @@ namespace Eagle._Components.Private
                         case Characters.Space:          /* HORIZONTAL */
                             {
                                 if (!space)
+                                    continue;
+
+                                break;
+                            }
+                        case Characters.VisualNull:          /* <== U+0000 */
+                        case Characters.VisualHorizontalTab: /* <== U+0009 */
+                        case Characters.SectionSign:         /* <== U+000A */
+                        case Characters.VisualVerticalTab:   /* <== U+000B */
+                        case Characters.VisualFormFeed:      /* <== U+000C */
+                        case Characters.PilcrowSign:         /* <== U+000D */
+                        case Characters.VisualSpace:         /* <== U+0020 */
+                            {
+                                if (!clean || extended)
+                                    continue;
+
+                                break;
+                            }
+                        case Characters.BellSymbol:          /* <== U+0007 */
+                        case Characters.BackspaceSymbol:     /* <== U+0008 */
+                        case Characters.FullBlock:           /* <== U+0020 */
+                            {
+                                if (!clean || unicode)
+                                    continue;
+
+                                break;
+                            }
+                        case Characters.DownwardsArrow:      /* <== U+000A */
+                        case Characters.LeftwardsArrow:      /* <== U+000D */
+                            {
+                                if (!clean || (unicode && !noArrows))
                                     continue;
 
                                 break;
@@ -3938,7 +3990,14 @@ namespace Eagle._Components.Private
                                 if (!horizontalTab)
                                     continue;
 
-                                builder[index] = Characters.VisualHorizontalTab;
+                                if (extended)
+                                {
+                                    builder[index] = Characters.VisualHorizontalTab;
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
                                 break;
                             }
                         case Characters.LineFeed:       /* VERTICAL */
@@ -4045,6 +4104,232 @@ namespace Eagle._Components.Private
                                 else if (extended)
                                 {
                                     builder[index] = Characters.VisualSpace;
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.VisualNull:          /* <== U+0000 */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (unicode)
+                                {
+                                    //
+                                    // TODO: This will likely not show up
+                                    //       correctly in the console window;
+                                    //       however, it's a bit better than
+                                    //       nothing.
+                                    //
+                                    builder[index] = Characters.Angzarr;
+                                }
+                                else if (extended)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.VisualHorizontalTab: /* <== U+0009 */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (extended)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.SectionSign:         /* <== U+000A */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (unicode && !noArrows)
+                                {
+                                    //
+                                    // NOTE: This means "advance to next
+                                    //       line" in this context.
+                                    //
+                                    builder[index] = Characters.DownwardsArrow;
+                                }
+                                else if (extended)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.VisualVerticalTab:   /* <== U+000B */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (extended)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.VisualFormFeed:      /* <== U+000C */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (extended)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.PilcrowSign:         /* <== U+000D */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (unicode && !noArrows)
+                                {
+                                    //
+                                    // NOTE: This means "reset to leftmost
+                                    //       position" in this context.
+                                    //
+                                    builder[index] = Characters.LeftwardsArrow;
+                                }
+                                else if (extended)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.VisualSpace:         /* <== U+0020 */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (unicode)
+                                {
+                                    //
+                                    // NOTE: With Unicode, we can make the
+                                    //       spaces more easily visible.
+                                    //
+                                    builder[index] = Characters.FullBlock;
+                                }
+                                else if (extended)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.BellSymbol:          /* <== U+0007 */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (unicode)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.BackspaceSymbol:     /* <== U+0008 */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (unicode)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.FullBlock:           /* <== U+0020 */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (unicode)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else if (extended)
+                                {
+                                    builder[index] = Characters.VisualSpace;
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.DownwardsArrow:      /* <== U+000A */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (unicode && !noArrows)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else if (extended)
+                                {
+                                    builder[index] = Characters.SectionSign;
+                                }
+                                else
+                                {
+                                    builder[index] = fallback;
+                                }
+                                break;
+                            }
+                        case Characters.LeftwardsArrow:      /* <== U+000D */
+                            {
+                                if (!clean)
+                                    continue;
+
+                                if (unicode && !noArrows)
+                                {
+                                    continue; /* NOP */
+                                }
+                                else if (extended)
+                                {
+                                    builder[index] = Characters.PilcrowSign;
                                 }
                                 else
                                 {
@@ -4209,7 +4494,7 @@ namespace Eagle._Components.Private
             }
 
             if (CommonOps.Runtime.IsDotNetCore3x() ||
-                CommonOps.Runtime.IsDotNetCore5xOr6x())
+                CommonOps.Runtime.IsDotNetCore5xOrHigher())
             {
                 noComplain = true;
                 error = "not implemented";

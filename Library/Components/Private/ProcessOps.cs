@@ -16,11 +16,17 @@ using System.Globalization;
 using System.IO;
 using System.Security;
 using System.Text;
+using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+
+#if NET_STANDARD_21
+using Index = Eagle._Constants.Index;
+#endif
 
 namespace Eagle._Components.Private
 {
@@ -59,6 +65,38 @@ namespace Eagle._Components.Private
 
         #region Private Data
         private static readonly object syncRoot = new object();
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        // NOTE: This field controls (the level of) checking performed
+        //       on the data received via the "OutputDataReceived" and
+        //       "ErrorDataReceived" process events.  The following
+        //       values are supported:
+        //
+        //       0: No checking is performed.  This is the default.
+        //
+        //       1. The strings are checked to make sure they are
+        //          not null or empty.
+        //
+        //       2: The strings are checked to see if they contain
+        //          only spaces.
+        //
+        //       3: The strings are checked to see if they contain
+        //          character values above the visible ASCII range
+        //          of 0x7E.
+        //
+        //       4: The strings are checked to see if they contain
+        //          character values below the visible ASCII range
+        //          of 0x20.
+        //
+        // WARNING: Any value other than zero here is potentially
+        //          very expensive in terms of compute time.  You
+        //          have been warned.
+        //
+        private static int DataReceivedCheckLevel = 0;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -393,45 +431,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static StringBuilder GetStandardOutput(
-            Process process /* in */
+        private static void MaybeCheckDataReceived(
+            string methodName, /* in */
+            string data        /* in */
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            int level = Interlocked.CompareExchange(
+                ref DataReceivedCheckLevel, 0, 0);
+
+            if (level <= 0)
+                return;
+
+            Result error = null;
+
+            if (!CheckDataReceived(data, level, ref error))
             {
-                StringBuilder builder;
-
-                if ((standardOutputs != null) &&
-                    standardOutputs.TryGetValue(process, out builder))
-                {
-                    return builder;
-                }
-                else
-                {
-                    return null;
-                }
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static StringBuilder GetStandardError(
-            Process process /* in */
-            )
-        {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                StringBuilder builder;
-
-                if ((standardErrors != null) &&
-                    standardErrors.TryGetValue(process, out builder))
-                {
-                    return builder;
-                }
-                else
-                {
-                    return null;
-                }
+                TraceOps.DebugTrace(String.Format(
+                    "{0}: possibly bad data received: {1}", methodName,
+                    FormatOps.WrapOrNull(error)), typeof(ProcessOps).Name,
+                    TracePriority.ProcessError2);
             }
         }
 
@@ -483,20 +501,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Captured Output & Handler Support Methods
-        private static StringBuilder NewStringBuilder()
-        {
-            return (StringBuilderCapacity != null) ?
-                StringOps.NewStringBuilder((int)StringBuilderCapacity) :
-                StringOps.NewStringBuilder();
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
         private static ReturnCode PreSetupCapturedOutput(
             ProcessStartInfo startInfo,             /* in */
             Process process,                        /* in */
             DataReceivedEventHandler outputHandler, /* in */
             DataReceivedEventHandler errorHandler,  /* in */
+            int? capacity,                          /* in */
             bool overrideCapture,                   /* in */
             ref Result error                        /* out */
             )
@@ -513,6 +523,8 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
+            bool success = true;
+
             try
             {
                 //
@@ -523,15 +535,16 @@ namespace Eagle._Components.Private
                 {
                     lock (syncRoot) /* TRANSACTIONAL */
                     {
-                        if (standardOutputs != null)
+                        if ((standardOutputs != null) &&
+                            !standardOutputs.NewData(process, capacity))
                         {
-                            standardOutputs.Add(
-                                process, NewStringBuilder());
+                            success = false;
                         }
 
-                        if ((outputHandlers != null) &&
+                        if (success && (outputHandlers != null) &&
                             !overrideCapture && (outputHandler != null))
                         {
+                            /* NO RESULT */
                             outputHandlers.Add(process, outputHandler);
                         }
                     }
@@ -545,25 +558,61 @@ namespace Eagle._Components.Private
                 {
                     lock (syncRoot) /* TRANSACTIONAL */
                     {
-                        if (standardErrors != null)
+                        if ((standardErrors != null) &&
+                            !standardErrors.NewData(process, capacity))
                         {
-                            standardErrors.Add(
-                                process, NewStringBuilder());
+                            success = false;
                         }
 
-                        if ((errorHandlers != null) &&
+                        if (success && (errorHandlers != null) &&
                             !overrideCapture && (errorHandler != null))
                         {
+                            /* NO RESULT */
                             errorHandlers.Add(process, errorHandler);
                         }
                     }
                 }
 
-                return ReturnCode.Ok;
+                if (success)
+                    return ReturnCode.Ok;
+                else
+                    error = "could not enable capture for process";
             }
             catch (Exception e)
             {
                 error = e;
+            }
+            finally
+            {
+                if (!success)
+                {
+                    lock (syncRoot) /* TRANSACTIONAL */
+                    {
+                        if (errorHandlers != null)
+                        {
+                            /* IGNORED */
+                            errorHandlers.Remove(process);
+                        }
+
+                        if (standardErrors != null)
+                        {
+                            /* IGNORED */
+                            standardErrors.RemoveData(process);
+                        }
+
+                        if (outputHandlers != null)
+                        {
+                            /* IGNORED */
+                            outputHandlers.Remove(process);
+                        }
+
+                        if (standardOutputs != null)
+                        {
+                            /* IGNORED */
+                            standardOutputs.RemoveData(process);
+                        }
+                    }
+                }
             }
 
             return ReturnCode.Error;
@@ -682,7 +731,6 @@ namespace Eagle._Components.Private
 
                 try
                 {
-                    StringBuilder builder; /* REUSED */
                     string localOutput = null;
 
                     if (startInfo.RedirectStandardOutput)
@@ -691,24 +739,8 @@ namespace Eagle._Components.Private
                         {
                             if (standardOutputs != null)
                             {
-                                if (standardOutputs.TryGetValue(
-                                        process, out builder))
-                                {
-                                    localOutput = (builder != null) ?
-                                        builder.ToString() : null;
-
-                                    //
-                                    // NOTE: Remove final trailing
-                                    //       newline sequence?
-                                    //
-                                    // COMPAT: Tcl.
-                                    //
-                                    if (!keepNewLine)
-                                    {
-                                        StringOps.StripNewLine(
-                                            ref localOutput);
-                                    }
-                                }
+                                localOutput = standardOutputs.GetData(
+                                    process);
                             }
                         }
                     }
@@ -721,26 +753,22 @@ namespace Eagle._Components.Private
                         {
                             if (standardErrors != null)
                             {
-                                if (standardErrors.TryGetValue(
-                                        process, out builder))
-                                {
-                                    localError = (builder != null) ?
-                                        builder.ToString() : null;
-
-                                    //
-                                    // NOTE: Remove final trailing
-                                    //       newline sequence?
-                                    //
-                                    // COMPAT: Tcl.
-                                    //
-                                    if (!keepNewLine)
-                                    {
-                                        StringOps.StripNewLine(
-                                            ref localError);
-                                    }
-                                }
+                                localError = standardErrors.GetData(
+                                    process);
                             }
                         }
+                    }
+
+                    //
+                    // NOTE: Remove final (trailing) newline sequence,
+                    //       if any?
+                    //
+                    // COMPAT: Tcl.
+                    //
+                    if (!keepNewLine)
+                    {
+                        StringOps.StripNewLine(ref localOutput);
+                        StringOps.StripNewLine(ref localError);
                     }
 
                     result = localOutput;
@@ -779,26 +807,14 @@ namespace Eagle._Components.Private
 
             try
             {
-                StringBuilder builder; /* REUSED */
-
                 if (startInfo.RedirectStandardOutput)
                 {
                     lock (syncRoot) /* TRANSACTIONAL */
                     {
                         if (standardOutputs != null)
                         {
-                            if (standardOutputs.TryGetValue(
-                                    process, out builder))
-                            {
-                                if (builder != null)
-                                {
-                                    builder.Length = 0;
-                                    builder = null;
-                                }
-
-                                /* IGNORED */
-                                standardOutputs.Remove(process);
-                            }
+                            /* IGNORED */
+                            standardOutputs.RemoveData(process);
                         }
 
                         if (outputHandlers != null)
@@ -815,18 +831,8 @@ namespace Eagle._Components.Private
                     {
                         if (standardErrors != null)
                         {
-                            if (standardErrors.TryGetValue(
-                                    process, out builder))
-                            {
-                                if (builder != null)
-                                {
-                                    builder.Length = 0;
-                                    builder = null;
-                                }
-
-                                /* IGNORED */
-                                standardErrors.Remove(process);
-                            }
+                            /* IGNORED */
+                            standardErrors.RemoveData(process);
                         }
 
                         if (errorHandlers != null)
@@ -851,6 +857,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Process Information Support Methods
+#if SHELL
+        public static bool IsCurrent(
+            Process process
+            )
+        {
+            if (process == null)
+                return false;
+
+            Process currentProcess = GetCurrent();
+
+            if (currentProcess == null)
+                return false;
+
+            if (Object.ReferenceEquals(process, currentProcess))
+                return true;
+
+            long currentProcessId = currentProcess.Id;
+
+            if (process.Id == currentProcessId)
+                return true;
+
+            return false;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static Process GetCurrent()
         {
             return Process.GetCurrentProcess();
@@ -893,6 +926,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string GetFileName()
+        {
+            Process process = GetCurrent();
+
+            if (process == null)
+                return null;
+
+            return GetFileName(process.Id);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string GetFileName(
             long id /* in */
             )
@@ -911,7 +956,8 @@ namespace Eagle._Components.Private
                     TracePriority.PlatformError);
             }
 
-            return PathOps.GetProcessMainModuleFileName(process, false);
+            return PathOps.GetProcessMainModuleFileName(
+                process, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2069,9 +2115,10 @@ namespace Eagle._Components.Private
                 //
                 localError = null;
 
-                if (PreSetupCapturedOutput(
-                        startInfo, process, outputHandler, errorHandler,
-                        overrideCapture, ref localError) != ReturnCode.Ok)
+                if (PreSetupCapturedOutput(startInfo,
+                        process, outputHandler, errorHandler,
+                        StringBuilderCapacity, overrideCapture,
+                        ref localError) != ReturnCode.Ok)
                 {
                     error = localError;
                     return ReturnCode.Error;
@@ -2449,6 +2496,92 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Data Helper Methods
+        private static bool CheckDataReceived(
+            string data,     /* in */
+            int level,       /* in */
+            ref Result error /* out */
+            )
+        {
+            if (data == null)
+            {
+                error = "invalid data";
+                return false;
+            }
+
+            int length = data.Length;
+
+            if (length == 0)
+            {
+                error = "empty data";
+                return false;
+            }
+
+            if (level < 2)
+                return true;
+
+            string trimData = data.Trim();
+
+            if (trimData == null) /* IMPOSSIBLE? */
+            {
+                error = "invalid trim data";
+                return false;
+            }
+
+            int trimLength = trimData.Length;
+
+            if (trimLength == 0)
+            {
+                error = "spaces only data";
+                return false;
+            }
+
+            if (level < 3)
+                return true;
+
+            int badIndex = Index.Invalid;
+            int badUpper = 0;
+            int badLower = 0;
+
+            for (int index = 0; index < length; index++)
+            {
+                char character = data[index];
+
+                if (character > Characters.Tilde) // U+007E
+                {
+                    if (badIndex == Index.Invalid)
+                        badIndex = index;
+
+                    badUpper++;
+                }
+                else if ((level > 3) &&
+                    (character < Characters.Space)) // U+0020
+                {
+                    if (badIndex == Index.Invalid)
+                        badIndex = index;
+
+                    badLower++;
+                }
+            }
+
+            if (badIndex != Index.Invalid)
+            {
+                error = String.Format(
+                    "out-of-bounds characters starting at index {0}: " +
+                    "{1} are too high, {2} are too low", badIndex,
+                    badUpper, badLower);
+
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Event Handlers
         private static void OutputDataReceived(
             object sender,          /* in */
@@ -2468,18 +2601,26 @@ namespace Eagle._Components.Private
                 return;
             }
 
-            StringBuilder builder = GetStandardOutput(process);
+            string data = e.Data;
 
-            if (builder != null)
+            MaybeCheckDataReceived("OutputDataReceived", data);
+
+            bool success;
+
+            lock (syncRoot) /* TRANSACTIONAL */
             {
-                builder.AppendLine(e.Data);
+                success = (standardOutputs != null) ?
+                    standardOutputs.AppendData(process, data) : false;
             }
-            else
+
+            if (!success)
             {
                 TraceOps.DebugTrace(String.Format(
-                    "OutputDataReceived: no builder for process {0}",
-                    EntityOps.GetNameNoThrow(process)),
-                    typeof(ProcessOps).Name, TracePriority.ProcessError);
+                    "OutputDataReceived: missing builder? {0}: dropping {1}",
+                    EntityOps.GetNameNoThrow(process),
+                    FormatOps.DisplayStringLength(data)),
+                    typeof(ProcessOps).Name,
+                    TracePriority.ProcessError);
             }
 
             DataReceivedEventHandler handler = GetOutputHandler(process);
@@ -2519,18 +2660,26 @@ namespace Eagle._Components.Private
                 return;
             }
 
-            StringBuilder builder = GetStandardError(process);
+            string data = e.Data;
 
-            if (builder != null)
+            MaybeCheckDataReceived("ErrorDataReceived", data);
+
+            bool success;
+
+            lock (syncRoot) /* TRANSACTIONAL */
             {
-                builder.AppendLine(e.Data);
+                success = (standardErrors != null) ?
+                    standardErrors.AppendData(process, data) : false;
             }
-            else
+
+            if (!success)
             {
                 TraceOps.DebugTrace(String.Format(
-                    "ErrorDataReceived: no builder for process {0}",
-                    EntityOps.GetNameNoThrow(process)),
-                    typeof(ProcessOps).Name, TracePriority.ProcessError);
+                    "ErrorDataReceived: missing builder? {0}: dropping {1}",
+                    EntityOps.GetNameNoThrow(process),
+                    FormatOps.DisplayStringLength(data)),
+                    typeof(ProcessOps).Name,
+                    TracePriority.ProcessError);
             }
 
             DataReceivedEventHandler handler = GetErrorHandler(process);

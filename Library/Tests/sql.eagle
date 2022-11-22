@@ -49,7 +49,7 @@ runTest {test sql-1.1.1 {System.Data integration (SqlClient)} -setup {
   list [regexp -- {^System#Data#SqlClient#SqlConnection#\d+$} $connection] \
       $info [string match "Microsoft SQL Server *" $version] \
       $rows(count) $rows(names) \
-      [lindex $rows(1) [lsearch -index 0 $rows(1) name] end] \
+      [lindex $rows(1) [lsearch -index 0 -- $rows(1) name] end] \
       $state1 $state2 $state3 [llength [info connections]] \
       [llength [info transactions]]
 } -cleanup {
@@ -847,7 +847,8 @@ runTest {test sql-1.19 {custom SQLite function} -setup {
 
   if {[isDotNetCore] && ([haveConstraint dotNetCore30] || \
       [haveConstraint dotNetCore50] || \
-      [haveConstraint dotNetCore60])} then {
+      [haveConstraint dotNetCore60] || \
+      [haveConstraint dotNetCore70])} then {
     set assembly [object load -loadtype file [file join \
         $core_bin_path System.Data.SQLite.dll]]
 

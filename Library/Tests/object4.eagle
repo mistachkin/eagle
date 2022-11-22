@@ -451,7 +451,7 @@ runTest {test object-4.6 {simple WMI query} -setup {
       # NOTE: Make sure the WMI process did not exist before this test (i.e.
       #       only kill WMI processes that we are responsible for starting).
       #
-      if {[lsearch -exact $ids(old) $id] == -1} then {
+      if {[lsearch -exact -- $ids(old) $id] == -1} then {
         #
         # NOTE: Forcibly kill the stale WMI process.  Any errors are simply
         #       caught and ignored.

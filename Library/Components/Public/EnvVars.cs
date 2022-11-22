@@ -34,6 +34,7 @@ namespace Eagle._Components.Public
         public static readonly string EllipsisLimit = "EllipsisLimit";
         public static readonly string Step = "Step";
         public static readonly string Interactive = "Interactive";
+        public static readonly string UserInteractive = "UserInteractive";
         public static readonly string ClearTrace = "ClearTrace";
         public static readonly string Console = "Console";
         public static readonly string Debug = "Debug";
@@ -146,6 +147,7 @@ namespace Eagle._Components.Public
         public static readonly string AlwaysWaitForGC = "AlwaysWaitForGC";
         public static readonly string UtilityPath = "UtilityPath";
         public static readonly string TraceToListeners = "TraceToListeners";
+        public static readonly string TraceFormat = "TraceFormat";
         public static readonly string TraceCategories = "TraceCategories";
         public static readonly string NoTraceCategories = "NoTraceCategories";
         public static readonly string PenaltyTraceCategories = "PenaltyTraceCategories";

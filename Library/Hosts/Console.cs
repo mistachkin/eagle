@@ -1821,8 +1821,8 @@ namespace Eagle._Hosts
             {
                 if (consoleCancelEventHandler == null)
                 {
-                    consoleCancelEventHandler = new ConsoleCancelEventHandler(
-                        Interpreter.ConsoleCancelEventHandler);
+                    consoleCancelEventHandler =
+                        Interpreter.NewConsoleCancelEventHandler();
                 }
 
                 return consoleCancelEventHandler;
@@ -1835,16 +1835,48 @@ namespace Eagle._Hosts
         #region Native Console CancelKeyPress Handling
 #if NATIVE && WINDOWS
         private ReturnCode UnhookSystemConsoleControlHandler(
+            bool force,
+            bool strict
+            )
+        {
+            Result error = null;
+
+            return UnhookSystemConsoleControlHandler(force, strict, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode UnhookSystemConsoleControlHandler(
+            bool force,
             bool strict,
             ref Result error
             )
         {
             try
             {
-                if (!NoCancel)
-                    return ConsoleOps.UnhookControlHandler(strict, ref error);
+                if (force || !NoCancel)
+                {
+                    ReturnCode code;
+                    StringList list = new StringList();
+
+                    code = ConsoleOps.UnhookControlHandler(
+                        strict, list, ref error);
+
+                    TraceOps.DebugTrace(
+                        "UnhookSystemConsoleControlHandler",
+                        "UnhookControlHandler",
+                        (code == ReturnCode.Ok) ?
+                            TracePriority.HostDebug2 :
+                            TracePriority.HostError2,
+                        "code", code, "list", list,
+                        "error", error);
+
+                    return code;
+                }
                 else
+                {
                     return ReturnCode.Ok; // NOTE: Fake success.
+                }
             }
             catch (Exception e)
             {
@@ -1932,6 +1964,29 @@ namespace Eagle._Hosts
                     if (force || !IsCancelViaConsolePending())
                     {
                         System.Console.CancelKeyPress -= handler;
+
+#if NATIVE && WINDOWS
+                        if (!CommonOps.Runtime.IsMono() &&
+                            !CommonOps.Runtime.IsDotNetCore())
+                        {
+                            //
+                            // HACK: Prior to .NET Framework 4.x (?),
+                            //       the System.Console handling for
+                            //       Ctrl-C events had a problem with
+                            //       fully unhooking from the native
+                            //       Win32 subsystem due to incorrect
+                            //       internal state management.  This
+                            //       works around that issue.
+                            //
+                            if (CommonOps.Runtime.IsFramework20() ||
+                                CommonOps.Runtime.IsFramework40())
+                            {
+                                UnhookSystemConsoleControlHandler(
+                                    true, true);
+                            }
+                        }
+#endif
+
                         return true; // success.
                     }
                     else
@@ -5301,7 +5356,7 @@ namespace Eagle._Hosts
                 if (Setup(this, false, true))
                 {
                     code = UnhookSystemConsoleControlHandler(
-                        false, ref error);
+                        false, false, ref error);
 
                     if (code == ReturnCode.Ok)
                     {

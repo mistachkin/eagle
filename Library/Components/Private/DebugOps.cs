@@ -2071,13 +2071,12 @@ namespace Eagle._Components.Private
                     if (Interlocked.Increment(ref retry) < ComplainRetryLimit)
                     {
                         //
-                        // NOTE: *IMPORTANT* The second parameter (noComplain)
-                        //       must be true here to avoid possible infinite
-                        //       recursion.
+                        // NOTE: *IMPORTANT* Sleep for a bit; this can throw
+                        //       an exception, e.g. ThreadAbortException.
                         //
                         /* IGNORED */
-                        HostOps.ThreadSleepOrMaybeComplain(
-                            ComplainRetryMilliseconds, true);
+                        HostOps.ThreadSleep(
+                            ComplainRetryMilliseconds); /* throw */
 
                         //
                         // NOTE: After waiting a bit, try again to escape the
@@ -4415,15 +4414,6 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static void Log(
-            string message
-            )
-        {
-            System.Diagnostics.Debugger.Log(0, DefaultCategory, message);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
         public static void Fail(
             string message,
             string detailMessage
@@ -4474,6 +4464,15 @@ namespace Eagle._Components.Private
         }
 #endif
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void Log(
+            string message
+            )
+        {
+            System.Diagnostics.Debugger.Log(0, DefaultCategory, message);
+        }
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -4568,7 +4567,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static void DebugFlush()
+        private static void DebugFlush()
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
@@ -4858,6 +4857,41 @@ namespace Eagle._Components.Private
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 Trace.Flush();
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Interpreter Integration Methods
+        public static void Flush()
+        {
+            try
+            {
+                TraceFlush(); /* throw */
+            }
+            catch
+            {
+                //
+                // BUGBUG: Maybe complain here?  Break
+                //         into the debugger, etc?
+                //
+                // do nothing.
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            try
+            {
+                DebugFlush(); /* throw */
+            }
+            catch
+            {
+                //
+                // BUGBUG: Maybe complain here?  Break
+                //         into the debugger, etc?
+                //
+                // do nothing.
             }
         }
         #endregion

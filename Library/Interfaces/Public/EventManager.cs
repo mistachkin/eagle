@@ -117,7 +117,7 @@ namespace Eagle._Interfaces.Public
         bool SetMinimumSleepTime(SleepType sleepType, int? sleepTime);
 
         bool Sleep(SleepType sleepType, bool minimum, ref Result error);
-        bool Yield();
+        bool Yield(ref Result error);
 
         ReturnCode ProcessEvents(EventFlags eventFlags, EventPriority priority,
             long? threadId, int limit, bool stopOnError, bool errorOnEmpty,

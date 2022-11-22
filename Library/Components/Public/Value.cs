@@ -1406,6 +1406,7 @@ namespace Eagle._Components.Public
             )
         {
             if (!String.IsNullOrEmpty(text) &&
+                Uri.IsWellFormedUriString(text, uriKind) &&
                 Uri.TryCreate(text, uriKind, out value))
             {
                 return ReturnCode.Ok;

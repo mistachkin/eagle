@@ -124,7 +124,7 @@ namespace Eagle._Commands
                                     }
                                 case "ifneeded":
                                     {
-                                        if ((arguments.Count == 4) || (arguments.Count == 5))
+                                        if ((arguments.Count >= 4) && (arguments.Count <= 6))
                                         {
                                             Version version = null;
 
@@ -136,17 +136,36 @@ namespace Eagle._Commands
                                             {
                                                 string text = null;
 
-                                                if (arguments.Count == 5)
+                                                if (arguments.Count >= 5)
                                                     text = arguments[4];
 
-                                                code = interpreter.PkgIfNeeded(
-                                                    arguments[2], version, text, _ClientData.Empty,
-                                                    interpreter.PackageFlags, ref result);
+                                                PackageFlags flags = interpreter.PackageFlags;
+
+                                                if (arguments.Count >= 6)
+                                                {
+                                                    object enumValue = EnumOps.TryParseFlags(
+                                                        interpreter, typeof(PackageFlags),
+                                                        flags.ToString(), arguments[5],
+                                                        interpreter.InternalCultureInfo,
+                                                        true, true, true, ref result);
+
+                                                    if (enumValue is PackageFlags)
+                                                        flags = (PackageFlags)enumValue;
+                                                    else
+                                                        code = ReturnCode.Error;
+                                                }
+
+                                                if (code == ReturnCode.Ok)
+                                                {
+                                                    code = interpreter.PkgIfNeeded(
+                                                        arguments[2], version, text, _ClientData.Empty,
+                                                        flags, ref result);
+                                                }
                                             }
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"package ifneeded package version ?script?\"";
+                                            result = "wrong # args: should be \"package ifneeded package version ?script? ?flags?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -351,10 +370,18 @@ namespace Eagle._Commands
                                                 Version version = null;
 
                                                 if (arguments.Count == 4)
-                                                    code = Value.GetVersion(arguments[3], interpreter.InternalCultureInfo, ref version, ref result);
+                                                {
+                                                    code = Value.GetVersion(
+                                                        arguments[3], interpreter.InternalCultureInfo,
+                                                        ref version, ref result);
+                                                }
 
                                                 if (code == ReturnCode.Ok)
-                                                    code = interpreter.PkgProvide(arguments[2], version, _ClientData.Empty, flags, ref result);
+                                                {
+                                                    code = interpreter.PkgProvide(
+                                                        arguments[2], version, _ClientData.Empty,
+                                                        flags, ref result);
+                                                }
                                             }
                                             else
                                             {
@@ -479,9 +506,11 @@ namespace Eagle._Commands
 
                                                         if (packageFallback != null)
                                                         {
+                                                            PackageFlags flags = interpreter.PackageFlags;
+
                                                             code = packageFallback(
-                                                                interpreter, packageName, version, null,
-                                                                interpreter.PackageFlags, exact, ref result);
+                                                                interpreter, packageName, version, null, flags,
+                                                                exact, ref result);
 
                                                             if (code == ReturnCode.Ok)
                                                             {
@@ -978,18 +1007,24 @@ namespace Eagle._Commands
                                             {
                                                 Version version1 = null;
 
-                                                code = Value.GetVersion(arguments[2], interpreter.InternalCultureInfo, ref version1, ref result);
+                                                code = Value.GetVersion(
+                                                    arguments[2], interpreter.InternalCultureInfo,
+                                                    ref version1, ref result);
 
                                                 Version version2 = null;
 
                                                 if (code == ReturnCode.Ok)
+                                                {
                                                     code = Value.GetVersion(
                                                         arguments[3], interpreter.InternalCultureInfo,
                                                         ref version2, ref result);
+                                                }
 
                                                 if (code == ReturnCode.Ok)
+                                                {
                                                     result = PackageOps.VersionSatisfies(
                                                         version1, version2, false);
+                                                }
                                             }
                                             else
                                             {

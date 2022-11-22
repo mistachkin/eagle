@@ -376,6 +376,63 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool IsDisabled(
+            string path
+            ) /* RECURSIVE */
+        {
+            if (String.IsNullOrEmpty(path))
+                return false;
+
+            string newPath; /* REUSED */
+
+            if (File.Exists(path))
+            {
+                //
+                // NOTE: The path is a file and indexing of it
+                //       can be prevented by creating another
+                //       file within the same directory, with
+                //       (almost) exactly the same name, i.e.
+                //       just append the suffix ".noPkgIndex"
+                //       to its name.
+                //
+                newPath = String.Format(
+                    "{0}{1}", path, FileExtension.NoPkgIndex);
+
+                if (File.Exists(newPath) ||
+                    Directory.Exists(newPath))
+                {
+                    return true;
+                }
+
+                if (!PathOps.HasDirectory(newPath))
+                    return false;
+
+                return IsDisabled(Path.GetDirectoryName(
+                    newPath)); /* RECURSIVE */
+            }
+            else if (Directory.Exists(path))
+            {
+                //
+                // NOTE: In this case, the path is a directory
+                //       and indexing within it can be stopped
+                //       by creating a file or directory named
+                //       ".noPkgIndex" within it.
+                //
+                newPath = Path.Combine(
+                    path, FileExtension.NoPkgIndex);
+
+                if (File.Exists(newPath) ||
+                    Directory.Exists(newPath))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static void AddFileNameWithFlags(
             PackageIndexDictionary packageIndexes,
             string fileName,
@@ -789,6 +846,12 @@ namespace Eagle._Components.Private
                     path);
 
                 //
+                // HACK: If path has been expicitly disabled, skip it.
+                //
+                if (IsDisabled(newPath))
+                    continue;
+
+                //
                 // NOTE: Make sure the directory exists prior to
                 //       attempting to find any files in it; otherwise,
                 //       we just ignore it to reduce the burden on the
@@ -880,6 +943,13 @@ namespace Eagle._Components.Private
                                 //       names.
                                 //
                                 if (String.IsNullOrEmpty(fileName))
+                                    continue;
+
+                                //
+                                // HACK: If this name has been expicitly
+                                //       disabled, skip it.
+                                //
+                                if (IsDisabled(fileName))
                                     continue;
 
                                 //
@@ -1172,6 +1242,12 @@ namespace Eagle._Components.Private
                     path);
 
                 //
+                // HACK: If path has been expicitly disabled, skip it.
+                //
+                if (IsDisabled(newPath))
+                    continue;
+
+                //
                 // NOTE: Make sure the directory exists prior to
                 //       attempting to find any files in it; otherwise,
                 //       we just ignore it to reduce the burden on the
@@ -1254,6 +1330,13 @@ namespace Eagle._Components.Private
                         // HACK: Skip over any obviously invalid names.
                         //
                         if (String.IsNullOrEmpty(fileName))
+                            continue;
+
+                        //
+                        // HACK: If this name has been expicitly
+                        //       disabled, skip it.
+                        //
+                        if (IsDisabled(fileName))
                             continue;
 
                         //

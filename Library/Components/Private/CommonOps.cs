@@ -105,6 +105,18 @@ namespace Eagle._Components.Private
             //
             private static readonly string DotNetCore5xLibType =
                 "System.Private.CoreLib.Strings";
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: The .NET 7.x (and later) runtime include new properties
+            //       in the DateTime class, namely Microsecond, et al.
+            //
+            private static readonly string DotNetCore7xLibType =
+                "System.DateTime";
+
+            private static readonly string DotNetCore7xLibProperty =
+                "Microsecond";
             #endregion
 
             ///////////////////////////////////////////////////////////////////
@@ -281,6 +293,7 @@ namespace Eagle._Components.Private
             //       obtained from MSDN.
             //
             private static readonly int FrameworkSetup481Value = 533325; // >= indicates 4.8.1
+            private static readonly int FrameworkSetup481OnWindows11Value = 533320; // >= indicates 4.8.1
             #endregion
 #endif
 #endif
@@ -690,7 +703,7 @@ namespace Eagle._Components.Private
                                 {
                                     if (IsDotNetCore2x() ||
                                         IsDotNetCore3x() ||
-                                        IsDotNetCore5xOr6x())
+                                        IsDotNetCore5xOrHigher())
                                     {
                                         isDotNetCore = true;
                                     }
@@ -755,12 +768,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
-            public static bool IsDotNetCore5xOr6x()
+            public static bool IsDotNetCore5xOrHigher()
             {
                 if (DotNetCore5xLibType == null)
                     return false;
 
                 return (Type.GetType(DotNetCore5xLibType) != null);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            public static bool IsDotNetCore7xOrHigher()
+            {
+                if (DotNetCore7xLibType == null)
+                    return false;
+
+                Type type = Type.GetType(DotNetCore7xLibType);
+
+                if (type == null)
+                    return false;
+
+                return (type.GetProperty(DotNetCore7xLibProperty) != null);
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -912,7 +940,7 @@ namespace Eagle._Components.Private
 
                 if (IsDotNetCore())
                 {
-                    if (IsDotNetCore5xOr6x())
+                    if (IsDotNetCore5xOrHigher())
                         return DotNetRuntimeName;
 
                     return DotNetCoreRuntimeName;
@@ -1214,7 +1242,8 @@ namespace Eagle._Components.Private
 
             private static int GetFrameworkSetup481Value()
             {
-                return FrameworkSetup481Value;
+                return PlatformOps.IsWindows11September2022Update() ?
+                    FrameworkSetup481OnWindows11Value : FrameworkSetup481Value;
             }
 #endif
 

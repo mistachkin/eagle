@@ -343,6 +343,19 @@ GOTO no_errors
   ENDLOCAL && SET PATH=%VALUE%;%PATH%
   GOTO :EOF
 
+:fn_UnsetVariable
+  SETLOCAL
+  SET VALUE=%1
+  IF DEFINED VALUE (
+    SET VALUE=
+    ENDLOCAL
+    SET %VALUE%=
+  ) ELSE (
+    ENDLOCAL
+  )
+  CALL :fn_ResetErrorLevel
+  GOTO :EOF
+
 :fn_ResetErrorLevel
   VERIFY > NUL
   GOTO :EOF

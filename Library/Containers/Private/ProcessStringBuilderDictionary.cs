@@ -16,7 +16,6 @@ using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
-using Eagle._Containers.Public;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -38,7 +37,104 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Methods
+        private bool TryGetBuilder(
+            Process process,
+            bool nullOk,
+            out StringBuilder builder
+            )
+        {
+            if (process == null)
+            {
+                builder = null;
+                return false;
+            }
+
+            if (!TryGetValue(process, out builder))
+                return false;
+
+            if (!nullOk && (builder == null))
+                return false;
+
+            return true;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public Methods
+        public bool NewData(
+            Process process,
+            int? capacity
+            )
+        {
+            StringBuilder builder;
+
+            if (TryGetBuilder(process, true, out builder))
+                return false;
+
+            /* NO RESULT */
+            Add(process, (capacity != null) ?
+                StringOps.NewStringBuilder((int)capacity) :
+                StringOps.NewStringBuilder());
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool AppendData(
+            Process process,
+            string data
+            )
+        {
+            StringBuilder builder;
+
+            if (!TryGetBuilder(process, false, out builder))
+                return false;
+
+            builder.AppendLine(data);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public string GetData(
+            Process process
+            )
+        {
+            StringBuilder builder;
+
+            if (!TryGetBuilder(process, false, out builder))
+                return null;
+
+            return builder.ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool RemoveData(
+            Process process
+            )
+        {
+            StringBuilder builder;
+
+            if (!TryGetBuilder(process, true, out builder))
+                return false;
+
+            if (builder != null)
+            {
+                builder.Length = 0;
+                builder = null;
+            }
+
+            return Remove(process);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ToString Methods
         public string ToString(
             string pattern,
             bool noCase

@@ -569,6 +569,18 @@ namespace Eagle._Components.Public
                             code = ReturnCode.Error;
                         }
                     }
+                    catch (ThreadAbortException e)
+                    {
+                        Thread.ResetAbort();
+
+                        error = e;
+                        code = ReturnCode.Error;
+                    }
+                    catch (ThreadInterruptedException e)
+                    {
+                        error = e;
+                        code = ReturnCode.Error;
+                    }
                     catch (Exception e)
                     {
                         error = e;
@@ -629,6 +641,18 @@ namespace Eagle._Components.Public
 
                                     code = ReturnCode.Error;
                                 }
+                            }
+                            catch (ThreadAbortException e)
+                            {
+                                Thread.ResetAbort();
+
+                                error = e;
+                                code = ReturnCode.Error;
+                            }
+                            catch (ThreadInterruptedException e)
+                            {
+                                error = e;
+                                code = ReturnCode.Error;
                             }
                             catch (Exception e)
                             {
@@ -3147,7 +3171,7 @@ namespace Eagle._Components.Public
             PrivateSignal(null);
 
             /* IGNORED */
-            HostOps.ThreadSleepOrMaybeComplain(timeout, true);
+            HostOps.ThreadSleep(timeout); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////

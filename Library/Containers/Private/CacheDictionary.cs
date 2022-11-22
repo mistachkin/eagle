@@ -284,8 +284,11 @@ namespace Eagle._Containers.Private
             if (list == null)
                 return false;
 
-            if ((limit != 0) && (list.Count >= limit))
+            if ((limit != Limits.Unlimited) &&
+                (list.Count >= limit))
+            {
                 return true;
+            }
 
             return false;
         }
@@ -370,8 +373,11 @@ namespace Eagle._Containers.Private
                 // NOTE: Are we now at -OR- over the limit?  If so,
                 //       stop now.
                 //
-                if ((limit != 0) && (keys.Count >= limit))
+                if ((limit != Limits.Unlimited) &&
+                    (keys.Count >= limit))
+                {
                     break;
+                }
             }
 
             return keys;
@@ -416,8 +422,11 @@ namespace Eagle._Containers.Private
                     // NOTE: Are we now at -OR- over the limit?  If so,
                     //       stop now.
                     //
-                    if ((limit != 0) && (keys.Count >= limit))
+                    if ((limit != Limits.Unlimited) &&
+                        (keys.Count >= limit))
+                    {
                         break;
+                    }
                 }
             }
 
@@ -453,8 +462,11 @@ namespace Eagle._Containers.Private
                         // NOTE: Are we now at -OR- over the limit?
                         //       If so, stop now.
                         //
-                        if ((limit != 0) && (keys.Count >= limit))
+                        if ((limit != Limits.Unlimited) &&
+                            (keys.Count >= limit))
+                        {
                             break;
+                        }
                     }
                 }
             }
@@ -526,7 +538,8 @@ namespace Eagle._Containers.Private
                             // NOTE: Are we now at -OR- over the limit?
                             //       If so, stop now.
                             //
-                            if ((limit != 0) && (keys.Count >= limit))
+                            if ((limit != Limits.Unlimited) &&
+                                (keys.Count >= limit))
                             {
                                 done = true;
                                 break;

@@ -28,6 +28,9 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 using TracePriorityDictionary = System.Collections.Generic.Dictionary<
     Eagle._Components.Public.TracePriority, int>;
 
+using FormatPair = Eagle._Components.Public.AnyPair<
+    Eagle._Components.Public.TraceFormatType, string>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -86,7 +89,7 @@ namespace Eagle._Components.Private
         //       There are several ways this could happen, including via use
         //       of static initializers.
         //
-        private static readonly string TraceNestedIndicator = "[NESTED] ";
+        private const string TraceNestedIndicator = "[NESTED] ";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -101,7 +104,7 @@ namespace Eagle._Components.Private
         //
         //       1. The trace message itself.
         //
-        private static readonly string TraceListenerFormat = "{0}: {1}";
+        private const string TraceListenerFormat = "{0}: {1}";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -109,7 +112,7 @@ namespace Eagle._Components.Private
         // NOTE: This is the portion of the format string used to insert the
         //       optional stack trace into the final output.
         //
-        private static readonly string TraceStackFormat = "{9}";
+        private const string TraceStackFormat = "{9}";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -117,7 +120,7 @@ namespace Eagle._Components.Private
         // NOTE: This is the portion of the format string used to insert one
         //       or more new lines into the final output.
         //
-        private static readonly string TraceNewLineFormat = "{11}";
+        private const string TraceNewLineFormat = "{11}";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -127,42 +130,67 @@ namespace Eagle._Components.Private
         //       same; therefore, we just omit the ones we do not need for a
         //       particular format.
         //
-        private static readonly string BareTraceFormat = "{10}" +
+        private const string BareTraceFormat = "{10}" +
             TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static readonly string MinimumTraceFormat = "{0}{10}" +
+        private const string MinimumTraceFormat = "{0}{10}" +
             TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static readonly string MediumLowTraceFormat = "{0}{1} {10}" +
+        private const string MediumLowTraceFormat = "{0}{1} {10}" +
             TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static readonly string MediumTraceFormat = "{0}{7}: {10}" +
+        private const string MediumTraceFormat = "{0}{7}: {10}" +
             TraceStackFormat + TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static readonly string MediumHighTraceFormat =
+        private const string MediumHighTraceFormat =
             "{0}[p:{2}] [s:{3}] [x:{4}] [a:{5}] [i:{6}] [t:{7}] [m:{8}]: " +
             "{10}" + TraceStackFormat + TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static readonly string MaximumTraceFormat =
+        private const string MaximumTraceFormat =
             "{0}[d:{1}] [p:{2}] [s:{3}] [x:{4}] [a:{5}] [i:{6}] [t:{7}] " +
             "[m:{8}]: {10}" + TraceStackFormat + TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static readonly string DefaultTraceFormat = MediumTraceFormat;
+        private const string DefaultTraceFormat = MediumTraceFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: The following replacements are made in all trace format
+        //       strings used by this class:
+        //
+        //        {0} = Special subsystem prefix, e.g. "[NESTED] ".
+        //        {1} = Message DateTime.Now, ISO-8601 formatted.
+        //        {2} = Message TracePriority, hexadecimal formatted.
+        //        {3} = Message server name (null when not web server).
+        //        {4} = Message test name (null when not test suite).
+        //        {5} = Message AppDomain.Id, decimal formatted.
+        //        {6} = Message Interpreter.Id, decimal formatted.
+        //        {7} = Message Thread.Id, decimal formatted.
+        //        {8} = Message method name (null when not available).
+        //        {9} = Message stack trace (null without special flags).
+        //       {10} = Message body.
+        //       {11} = Always has the value of Environment.NewLine.
+        //
+        private const int FormatParamterCount = 12;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This array must be manually kept synchronized with the
+        //       values of the TraceFormatType enumeration.
+        //
         private static readonly string[] TraceFormats = {
             DefaultTraceFormat,
             BareTraceFormat,
@@ -190,6 +218,40 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
+        // NOTE: These are the default values for the (overridden?) trace
+        //       format string and trace format index.
+        //
+        private const string DefaultTraceFormatString = null;
+        private static readonly int? DefaultTraceFormatIndex = null;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: What is the fallback trace format when no explicit format
+        //       string -OR- format index has been set?
+        //
+        private const string DefaultFallbackTraceFormat = MediumTraceFormat;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: If no trace format string -OR- trace format index has been
+        //       explicitly set by the user, should we use a fallback trace
+        //       format?
+        //
+        private const bool DefaultUseFallbackTraceFormat = true; // COMPAT: Eagle beta.
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: These are the "normal" range of trace format indexes.
+        //
+        private static readonly int MinimumTraceIndex = 2;
+        private static readonly int MaximumTraceIndex = Index.Invalid;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // NOTE: These are the default (reset) values for the isTracePossible
         //       and isWritePossible static fields.
         //
@@ -210,6 +272,8 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        // HACK: This is somewhat ugly naming; however, it is accurate.
+        //
         private static bool DefaultTraceEnabledByDefault = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -224,6 +288,25 @@ namespace Eagle._Components.Private
         //
         private static int DefaultMaximumTraceLevels = 2;
         private static int DefaultMaximumWriteLevels = 2;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: What is the fallback trace format when no explicit format
+        //       string -OR- format index has been set?
+        //
+        private static string FallbackTraceFormat = DefaultFallbackTraceFormat;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: If no trace format string -OR- trace format index has been
+        //       explicitly set by the user, should this class fallback to
+        //       using the system default trace format?
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool UseFallbackTraceFormat = DefaultUseFallbackTraceFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -407,13 +490,18 @@ namespace Eagle._Components.Private
         private static int traceToInterpreterHostLevels = 0;
 
         //
-        // NOTE: This is the current trace format.  Normally, this is set to
-        //       one of the constants defined above; however, it can be set
-        //       to any valid format string as long as out-of-bounds argument
-        //       indexes are not used.  If this is set to null, trace writes
-        //       will be disabled.
+        // NOTE: This is the current trace format string.  Normally, this is
+        //       set to null.  It can be set to any valid format string as
+        //       long as out-of-bounds argument (string replacement) indexes
+        //       are not used.
         //
-        private static string traceFormat;
+        private static string traceFormatString;
+
+        //
+        // NOTE: This is the current trace format index.  Normally, this is
+        //       set to null.  It can be set to any valid format index.
+        //
+        private static int? traceFormatIndex;
 
         //
         // NOTE: When this value is non-zero, the formatted DateTime (if any)
@@ -581,6 +669,26 @@ namespace Eagle._Components.Private
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
+                /* NO RESULT */
+                ResetTraceFormatString();
+
+                /* NO RESULT */
+                ResetTraceFormatIndex();
+
+                /* NO RESULT */
+                ResetTraceFormatFlags();
+
+                /* NO RESULT */
+                ResetFallbackTraceFormat();
+
+                /* NO RESULT */
+                ResetUseFallbackTraceFormat();
+
+                ///////////////////////////////////////////////////////////////
+
+                /* IGNORED */
+                InitializeTraceFormat(force, useDefaults);
+
                 /* IGNORED */
                 InitializeTraceCategories(
                     TraceStateType.CategoryTypeMask | (force ?
@@ -592,14 +700,6 @@ namespace Eagle._Components.Private
 
                 /* IGNORED */
                 InitializeTracePriority(force, useDefaults);
-
-                ///////////////////////////////////////////////////////////////
-
-                /* NO RESULT */
-                ResetTraceFormat();
-
-                /* NO RESULT */
-                ResetTraceFormatFlags();
             }
         }
 
@@ -756,10 +856,18 @@ namespace Eagle._Components.Private
                         isTraceToInterpreterHost.ToString());
                 }
 
-                if (empty || (traceFormat != null))
+                if (empty || (traceFormatString != null))
                 {
-                    localList.Add("TraceFormat",
-                        FormatOps.DisplayString(traceFormat));
+                    localList.Add("TraceFormatString",
+                        FormatOps.DisplayString(traceFormatString));
+                }
+
+                if (empty || (traceFormatIndex != null))
+                {
+                    localList.Add("TraceFormatIndex",
+                        (traceFormatIndex != null) ?
+                            traceFormatIndex.ToString() :
+                            FormatOps.DisplayNull);
                 }
 
                 if (empty || traceDateTime)
@@ -1029,7 +1137,12 @@ namespace Eagle._Components.Private
                 list.Add("bonusCategories", (categories != null) ?
                     categories.ToString() : null);
 
-                list.Add("format", GetTraceFormat());
+                list.Add("formatString", GetTraceFormatString());
+
+                int? formatIndex = GetTraceFormatIndex();
+
+                list.Add("formatIndex", (formatIndex != null) ?
+                    formatIndex.ToString() : null);
 
                 bool traceDateTime;
                 bool tracePriority;
@@ -1114,7 +1227,10 @@ namespace Eagle._Components.Private
                 ResetTraceCategories(TraceCategoryType.Bonus);
 
                 /* NO RESULT */
-                ResetTraceFormat();
+                ResetTraceFormatString();
+
+                /* NO RESULT */
+                ResetTraceFormatIndex();
 
                 /* NO RESULT */
                 ResetTraceFormatFlags();
@@ -1425,29 +1541,77 @@ namespace Eagle._Components.Private
                 if (FlagOps.HasFlags(
                         stateType, TraceStateType.Format, true))
                 {
-                    if (FlagOps.HasFlags(
-                            stateType, TraceStateType.ResetFormat, true))
+                    if (enabled)
                     {
-                        /* NO RESULT */
-                        ResetTraceFormat();
-
-                        result |= TraceStateType.ResetFormat;
+                        result |= InitializeTraceFormat(force, false);
                     }
                     else
                     {
-                        if (enabled)
-                        {
-                            /* IGNORED */
-                            SetMaximumTraceFormat();
-                        }
-                        else
-                        {
-                            /* IGNORED */
-                            SetMinimumTraceFormat();
-                        }
+                        /* NO RESULT */
+                        ResetTraceFormatString();
+
+                        /* NO RESULT */
+                        ResetTraceFormatIndex();
+
+                        /* NO RESULT */
+                        ResetTraceFormatFlags();
+
+                        /* NO RESULT */
+                        ResetFallbackTraceFormat();
+
+                        /* NO RESULT */
+                        ResetUseFallbackTraceFormat();
                     }
 
                     result |= TraceStateType.Format;
+                }
+
+                ///////////////////////////////////////////////////////////////
+
+                if (FlagOps.HasFlags(
+                        stateType, TraceStateType.FormatString, true))
+                {
+                    if (FlagOps.HasFlags(
+                            stateType, TraceStateType.ResetFormatString, true))
+                    {
+                        /* NO RESULT */
+                        ResetTraceFormatString();
+
+                        result |= TraceStateType.ResetFormatString;
+                    }
+                    else
+                    {
+                        /* NO RESULT */
+                        SetTraceFormatString(enabled ?
+                            GetMaximumTraceFormat() :
+                            GetMinimumTraceFormat());
+                    }
+
+                    result |= TraceStateType.FormatString;
+                }
+
+                ///////////////////////////////////////////////////////////////
+
+                if (FlagOps.HasFlags(
+                        stateType, TraceStateType.FormatIndex, true))
+                {
+                    if (FlagOps.HasFlags(
+                            stateType, TraceStateType.ResetFormatIndex, true))
+                    {
+                        /* NO RESULT */
+                        ResetTraceFormatIndex();
+
+                        result |= TraceStateType.ResetFormatIndex;
+                    }
+                    else
+                    {
+                        /* NO RESULT */
+                        SetTraceFormatIndex(enabled ?
+                            MaximumTraceIndex :
+                            MinimumTraceIndex);
+                    }
+
+                    result |= TraceStateType.FormatIndex;
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -1496,6 +1660,34 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////
 
+                if (FlagOps.HasFlags(
+                        stateType, TraceStateType.FallbackFormat, true))
+                {
+                    if (FlagOps.HasFlags(
+                            stateType, TraceStateType.ResetFallbackFormat, true))
+                    {
+                        /* NO RESULT */
+                        ResetFallbackTraceFormat();
+
+                        /* NO RESULT */
+                        ResetUseFallbackTraceFormat();
+
+                        result |= TraceStateType.ResetFallbackFormat;
+                    }
+                    else
+                    {
+                        /* NO RESULT */
+                        SetFallbackTraceFormat(enabled);
+
+                        /* NO RESULT */
+                        SetUseFallbackTraceFormat(enabled);
+                    }
+
+                    result |= TraceStateType.FallbackFormat;
+                }
+
+                ///////////////////////////////////////////////////////////////
+
                 //
                 // HACK: *SPECIAL* This enumeration value is used to mean that
                 //       all internal state should be changed *if* it involves
@@ -1506,6 +1698,7 @@ namespace Eagle._Components.Private
                 {
                     if (enabled)
                     {
+                        result |= InitializeTraceFormat(force, false);
                         result |= InitializeTraceCategories(stateType, false);
                         result |= InitializeTracePriorities(force, false);
                         result |= InitializeTracePriority(force, false);
@@ -1580,6 +1773,8 @@ namespace Eagle._Components.Private
             out IEnumerable<string> bonusCategories,
             out TraceStateType stateType,
             out TracePriority? priorities,
+            out string formatString,
+            out int? formatIndex,
             out bool? forceEnabled,
             out bool resetSystem,
             out bool resetListeners,
@@ -1604,6 +1799,8 @@ namespace Eagle._Components.Private
             bonusCategories = traceClientData.BonusCategories;
             stateType = traceClientData.StateType;
             priorities = traceClientData.Priorities;
+            formatString = traceClientData.FormatString;
+            formatIndex = traceClientData.FormatIndex;
             forceEnabled = traceClientData.ForceEnabled;
             resetSystem = traceClientData.ResetSystem;
             resetListeners = traceClientData.ResetListeners;
@@ -1643,6 +1840,8 @@ namespace Eagle._Components.Private
             IEnumerable<string> bonusCategories;
             TraceStateType stateType;
             TracePriority? priorities;
+            string formatString;
+            int? formatIndex;
             bool? forceEnabled;
             bool resetSystem;
             bool resetListeners;
@@ -1660,8 +1859,9 @@ namespace Eagle._Components.Private
                 out logEncoding, out enabledCategories,
                 out disabledCategories, out penaltyCategories,
                 out bonusCategories, out stateType, out priorities,
-                out forceEnabled, out resetSystem, out resetListeners,
-                out trace, out debug, out verbose, out useDefault,
+                out formatString, out formatIndex, out forceEnabled,
+                out resetSystem, out resetListeners, out trace,
+                out debug, out verbose, out useDefault,
                 out useConsole, out useNative, out rawLogFile);
 
             ///////////////////////////////////////////////////////////////////
@@ -1703,6 +1903,28 @@ namespace Eagle._Components.Private
 
                 traceClientData.AddResult("SetTracePriorities");
                 traceClientData.AddResult(priorities);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (formatString != null)
+            {
+                /* NO RESULT */
+                SetTraceFormatString(formatString);
+
+                traceClientData.AddResult("SetTraceFormatString");
+                traceClientData.AddResult(formatString);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (formatIndex != null)
+            {
+                /* NO RESULT */
+                SetTraceFormatIndex((int)formatIndex);
+
+                traceClientData.AddResult("SetTraceFormatIndex");
+                traceClientData.AddResult(formatIndex);
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -2028,6 +2250,44 @@ namespace Eagle._Components.Private
             }
 
             return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static FormatPair CheckForTraceFormat(
+            string envVarName /* in */
+            )
+        {
+            string stringValue = CommonOps.Environment.GetVariable(
+                envVarName);
+
+            if (stringValue == null)
+                return null; /* NOT OVERRIDDEN */
+
+            TraceFormatType formatType = TraceFormatType.Unknown;
+            ResultList errors = null;
+
+            if (VerifyTraceFormat(
+                    stringValue, ref formatType, ref errors))
+            {
+#if CONSOLE
+                AppendInitializationMessage(String.Format(
+                    _Constants.Prompt.DefaultTraceFormat,
+                    formatType));
+#endif
+
+                return new FormatPair(formatType, stringValue);
+            }
+            else
+            {
+#if CONSOLE
+                AppendInitializationMessage(String.Format(
+                    _Constants.Prompt.DefaultTraceFormatError,
+                    errors));
+#endif
+
+                return null; /* SYSTEM DEFAULT */
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4058,8 +4318,76 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Trace Format String Management
+        private static string GetTraceFormatString()
+        {
+            lock (syncRoot)
+            {
+                return traceFormatString;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ResetTraceFormatString()
+        {
+            lock (syncRoot)
+            {
+                traceFormatString = null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void SetTraceFormatString(
+            string format /* in */
+            )
+        {
+            lock (syncRoot)
+            {
+                traceFormatString = format;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Trace Format Index Management
+        private static int? GetTraceFormatIndex()
+        {
+            lock (syncRoot)
+            {
+                return traceFormatIndex;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ResetTraceFormatIndex()
+        {
+            lock (syncRoot)
+            {
+                traceFormatIndex = null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void SetTraceFormatIndex(
+            int? index /* in */
+            )
+        {
+            lock (syncRoot)
+            {
+                traceFormatIndex = index;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Trace Format Management
-        private static int GetTraceFormatIndex(
+        private static int TranslateTraceFormatIndex(
             int index, /* in */
             int length /* in */
             )
@@ -4072,28 +4400,8 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static string GetTraceFormat()
-        {
-            lock (syncRoot)
-            {
-                return traceFormat;
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static void ResetTraceFormat()
-        {
-            lock (syncRoot)
-            {
-                traceFormat = DefaultTraceFormat;
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static string GetTraceFormat(
-            int index /* in */
+        private static bool CheckBuiltInTraceFormatIndex(
+            ref int index /* in, out */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -4102,296 +4410,469 @@ namespace Eagle._Components.Private
                 {
                     int length = TraceFormats.Length;
 
-                    index = GetTraceFormatIndex(index, length);
+                    int localIndex = TranslateTraceFormatIndex(
+                        index, length);
 
-                    if ((index >= 0) && (index < length))
-                        return TraceFormats[index];
-                }
-
-                return null; /* DISABLE */
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool SetTraceFormat(
-            int index /* in */
-            )
-        {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                if (TraceFormats != null)
-                {
-                    int length = TraceFormats.Length;
-
-                    index = GetTraceFormatIndex(index, length);
-
-                    if ((index >= 0) && (index < length))
+                    if ((localIndex >= 0) && (localIndex < length))
                     {
-                        traceFormat = TraceFormats[index];
+                        index = localIndex;
                         return true;
                     }
                 }
 
-                traceFormat = null; /* DISABLE */
                 return false;
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static bool IsBareTraceFormat()
+        private static string GetBuiltInTraceFormat(
+            int index /* in */
+            )
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                return IsBareTraceFormat(traceFormat);
+                if ((TraceFormats != null) && /* REDUNDANT */
+                    CheckBuiltInTraceFormatIndex(ref index))
+                {
+                    return TraceFormats[index];
+                }
+                else
+                {
+                    return null;
+                }
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static bool IsBareTraceFormat(
-            string traceFormat /* in */
+        private static bool SetBuiltInTraceFormat(
+            int index /* in */
             )
-        {
-            return SharedStringOps.SystemEquals(
-                traceFormat, GetBareTraceFormat());
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static string GetBareTraceFormat()
-        {
-            return GetTraceFormat(1);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool SetBareTraceFormat()
-        {
-            return SetTraceFormat(1);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool IsMinimumTraceFormat()
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                return IsMinimumTraceFormat(traceFormat);
+                if ((TraceFormats != null) && /* REDUNDANT */
+                    CheckBuiltInTraceFormatIndex(ref index))
+                {
+                    SetTraceFormatIndex(index);
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static bool IsMinimumTraceFormat(
-            string traceFormat /* in */
-            )
-        {
-            return SharedStringOps.SystemEquals(
-                traceFormat, GetMinimumTraceFormat());
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static string GetMinimumTraceFormat()
-        {
-            return GetTraceFormat(2);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool SetMinimumTraceFormat()
-        {
-            return SetTraceFormat(2);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool IsMediumLowTraceFormat()
+        private static string GetEffectiveTraceFormat()
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                return IsMediumLowTraceFormat(traceFormat);
+                if (traceFormatString != null)
+                    return traceFormatString;
+
+                if (traceFormatIndex != null)
+                    return GetBuiltInTraceFormat((int)traceFormatIndex);
+
+                if (GetUseFallbackTraceFormat())
+                    return GetFallbackTraceFormat();
+
+                return null;
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static bool IsMediumLowTraceFormat(
-            string traceFormat /* in */
-            )
-        {
-            return SharedStringOps.SystemEquals(
-                traceFormat, GetMediumLowTraceFormat());
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static string GetMediumLowTraceFormat()
-        {
-            return GetTraceFormat(3);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool SetMediumLowTraceFormat()
-        {
-            return SetTraceFormat(3);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool IsMediumTraceFormat()
-        {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                return IsMediumTraceFormat(traceFormat);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool IsMediumTraceFormat(
-            string traceFormat /* in */
-            )
-        {
-            return SharedStringOps.SystemEquals(
-                traceFormat, GetMediumTraceFormat());
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static string GetMediumTraceFormat()
-        {
-            //
-            // TODO: Keep this manually synchronized with the
-            //       TraceFormats array.
-            //
-            return GetTraceFormat(4);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool SetMediumTraceFormat()
-        {
-            //
-            // TODO: Keep this manually synchronized with the
-            //       TraceFormats array.
-            //
-            return SetTraceFormat(4);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool IsMediumHighTraceFormat()
-        {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                return IsMediumHighTraceFormat(traceFormat);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool IsMediumHighTraceFormat(
-            string traceFormat /* in */
-            )
-        {
-            return SharedStringOps.SystemEquals(
-                traceFormat, GetMediumHighTraceFormat());
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static string GetMediumHighTraceFormat()
-        {
-            return GetTraceFormat(Index.Invalid - 1);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool SetMediumHighTraceFormat()
-        {
-            return SetTraceFormat(Index.Invalid - 1);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool IsMaximumTraceFormat()
-        {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                return IsMaximumTraceFormat(traceFormat);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool IsMaximumTraceFormat(
-            string traceFormat /* in */
-            )
-        {
-            return SharedStringOps.SystemEquals(
-                traceFormat, GetMaximumTraceFormat());
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static string GetMaximumTraceFormat()
-        {
-            return GetTraceFormat(Index.Invalid);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool SetMaximumTraceFormat()
-        {
-            return SetTraceFormat(Index.Invalid);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static string GetTraceFormat(
+        private static string GetEffectiveTraceFormat(
             ref TracePriority priorities /* in, out */
             )
         {
             if (FlagOps.HasFlags(
-                    priorities, TracePriority.EnableMinimumFormatFlag, true))
+                    priorities, TracePriority.EnableMinimumFormatFlag,
+                    true))
             {
                 priorities &= ~TracePriority.EnableMinimumFormatFlag;
                 return GetMinimumTraceFormat();
             }
 
             if (FlagOps.HasFlags(
-                    priorities, TracePriority.EnableMediumLowFormatFlag, true))
+                    priorities, TracePriority.EnableMediumLowFormatFlag,
+                    true))
             {
                 priorities &= ~TracePriority.EnableMediumLowFormatFlag;
                 return GetMediumLowTraceFormat();
             }
 
             if (FlagOps.HasFlags(
-                    priorities, TracePriority.EnableMediumFormatFlag, true))
+                    priorities, TracePriority.EnableMediumFormatFlag,
+                    true))
             {
                 priorities &= ~TracePriority.EnableMediumFormatFlag;
                 return GetMediumTraceFormat();
             }
 
             if (FlagOps.HasFlags(
-                    priorities, TracePriority.EnableMediumHighFormatFlag, true))
+                    priorities, TracePriority.EnableMediumHighFormatFlag,
+                    true))
             {
                 priorities &= ~TracePriority.EnableMediumHighFormatFlag;
                 return GetMediumHighTraceFormat();
             }
 
             if (FlagOps.HasFlags(
-                    priorities, TracePriority.EnableMaximumFormatFlag, true))
+                    priorities, TracePriority.EnableMaximumFormatFlag,
+                    true))
             {
                 priorities &= ~TracePriority.EnableMaximumFormatFlag;
                 return GetMaximumTraceFormat();
             }
 
-            return GetTraceFormat();
+            return GetEffectiveTraceFormat();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool VerifyTraceFormat(
+            string value,                   /* in */
+            ref TraceFormatType formatType, /* out */
+            ref ResultList errors           /* out */
+            )
+        {
+            if (String.IsNullOrEmpty(value))
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid trace format");
+                return false;
+            }
+
+            object enumValue;
+            Result error = null;
+
+            enumValue = EnumOps.TryParse(
+                typeof(TraceFormatType), value, true, true, ref error);
+
+            if (enumValue is TraceFormatType)
+            {
+                formatType = (TraceFormatType)enumValue;
+                return true;
+            }
+
+            //
+            // HACK: This code is doing something slightly "clever".
+            //       To verify caller provided trace format string,
+            //       it creates an empty string array of the number
+            //       of replacements used by the tracing subsystem,
+            //       then attempts to use the caller provided trace
+            //       format string with that array to make sure the
+            //       appropriate String.Format method overload does
+            //       not throw an exceptions.
+            //
+            try
+            {
+                string[] args = new string[FormatParamterCount];
+
+                string formatted = String.Format(
+                    value, args); /* throw */
+
+                if (formatted != null)
+                {
+                    formatType = TraceFormatType.String;
+                    return true;
+                }
+                else
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add("string formatting failed");
+                }
+            }
+            catch (Exception e)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(e);
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static TraceStateType InitializeTraceFormat(
+            bool force,      /* in */
+            bool useDefaults /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                TraceStateType result = TraceStateType.None;
+
+                ///////////////////////////////////////////////////////////////
+
+                if (force ||
+                    ((traceFormatString == null) && (traceFormatIndex == null)))
+                {
+                    //
+                    // HACK: Since there is nothing we can do about it here,
+                    //       and its initialization is non-critical, do not
+                    //       let exceptions escape from the method called
+                    //       here.  Also, there was the possibility of this
+                    //       method causing an issue for Interpreter.Create
+                    //       if an exception escaped from this point, per a
+                    //       variant of Coverity issue #236095.
+                    //
+                    try
+                    {
+                        FormatPair formatPair = CheckForTraceFormat(
+                            EnvVars.TraceFormat);
+
+                        if (formatPair != null)
+                        {
+                            int index = (int)formatPair.X;
+
+                            if (CheckBuiltInTraceFormatIndex(ref index))
+                            {
+                                traceFormatString = null;
+                                traceFormatIndex = index;
+
+                                result |= TraceStateType.FormatIndex;
+                            }
+                            else
+                            {
+                                traceFormatString = formatPair.Y;
+                                traceFormatIndex = null;
+
+                                result |= TraceStateType.FormatString;
+                            }
+                        }
+                        else if (useDefaults)
+                        {
+                            traceFormatString = DefaultTraceFormatString;
+                            traceFormatIndex = DefaultTraceFormatIndex;
+                        }
+                    }
+                    catch
+                    {
+                        // do nothing.
+                    }
+                }
+
+                ///////////////////////////////////////////////////////////////
+
+                return result;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Trace Built-In Formats
+        private static string GetBareTraceFormat()
+        {
+            return GetBuiltInTraceFormat(1);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SetBareTraceFormat()
+        {
+            return SetBuiltInTraceFormat(1);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsBareTraceFormat()
+        {
+            return SharedStringOps.SystemEquals(
+                GetEffectiveTraceFormat(), GetBareTraceFormat());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetMinimumTraceFormat()
+        {
+            return GetBuiltInTraceFormat(2);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SetMinimumTraceFormat()
+        {
+            return SetBuiltInTraceFormat(2);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsMinimumTraceFormat()
+        {
+            return SharedStringOps.SystemEquals(
+                GetEffectiveTraceFormat(), GetMinimumTraceFormat());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetMediumLowTraceFormat()
+        {
+            return GetBuiltInTraceFormat(3);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SetMediumLowTraceFormat()
+        {
+            return SetBuiltInTraceFormat(3);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsMediumLowTraceFormat()
+        {
+            return SharedStringOps.SystemEquals(
+                GetEffectiveTraceFormat(), GetMediumLowTraceFormat());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetMediumTraceFormat()
+        {
+            return GetBuiltInTraceFormat(4);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SetMediumTraceFormat()
+        {
+            return SetBuiltInTraceFormat(4);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsMediumTraceFormat()
+        {
+            return SharedStringOps.SystemEquals(
+                GetEffectiveTraceFormat(), GetMediumTraceFormat());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetMediumHighTraceFormat()
+        {
+            return GetBuiltInTraceFormat(Index.Invalid - 1);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SetMediumHighTraceFormat()
+        {
+            return SetBuiltInTraceFormat(Index.Invalid - 1);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsMediumHighTraceFormat()
+        {
+            return SharedStringOps.SystemEquals(
+                GetEffectiveTraceFormat(), GetMediumHighTraceFormat());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetMaximumTraceFormat()
+        {
+            return GetBuiltInTraceFormat(Index.Invalid);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SetMaximumTraceFormat()
+        {
+            return SetBuiltInTraceFormat(Index.Invalid);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsMaximumTraceFormat()
+        {
+            return SharedStringOps.SystemEquals(
+                GetEffectiveTraceFormat(), GetMaximumTraceFormat());
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Trace Fallback Format Management
+        private static string GetFallbackTraceFormat()
+        {
+            lock (syncRoot)
+            {
+                return FallbackTraceFormat;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ResetFallbackTraceFormat()
+        {
+            lock (syncRoot)
+            {
+                FallbackTraceFormat = DefaultFallbackTraceFormat;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: Be careful calling this method with a parameter value
+        //          of false because that could totally disable all trace
+        //          output.
+        //
+        private static void SetFallbackTraceFormat(
+            bool enabled /* in */
+            )
+        {
+            lock (syncRoot)
+            {
+                FallbackTraceFormat = enabled ? DefaultTraceFormat : null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool GetUseFallbackTraceFormat()
+        {
+            lock (syncRoot)
+            {
+                return UseFallbackTraceFormat;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ResetUseFallbackTraceFormat()
+        {
+            lock (syncRoot)
+            {
+                UseFallbackTraceFormat = DefaultUseFallbackTraceFormat;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void SetUseFallbackTraceFormat(
+            bool enabled /* in */
+            )
+        {
+            lock (syncRoot)
+            {
+                UseFallbackTraceFormat = enabled;
+            }
         }
         #endregion
 
@@ -4570,7 +5051,7 @@ namespace Eagle._Components.Private
                     /* IGNORED */
                     TracePrioritiesToFormatString();
 
-                    string traceFormat = GetTraceFormat();
+                    string traceFormat = GetEffectiveTraceFormat();
 
                     if (traceFormat == null)
                         return;
@@ -4807,7 +5288,7 @@ namespace Eagle._Components.Private
                     /* IGNORED */
                     TracePrioritiesToFormatString();
 
-                    string traceFormat = GetTraceFormat(ref priority);
+                    string traceFormat = GetEffectiveTraceFormat(ref priority);
 
                     if (traceFormat == null)
                     {
@@ -5521,8 +6002,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Policy Tracing Methods
-#if POLICY_TRACE
+        #region Trace Parameter Methods
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         private static void AppendTraceParameters(
@@ -5607,6 +6087,72 @@ namespace Eagle._Components.Private
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
+        public static void DebugTrace(
+            string methodName,         /* in */
+            string message,            /* in */
+            TracePriority priority,    /* in */
+            params object[] parameters /* in */
+            )
+        {
+            DebugTraceAlways(
+                methodName, message, priority, 1, parameters);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void DebugTraceAlways(
+            string methodName,         /* in */
+            string message,            /* in */
+            TracePriority priority,    /* in */
+            int skipFrames,            /* in */
+            params object[] parameters /* in */
+            )
+        {
+            StringBuilder builder = StringOps.NewStringBuilder();
+
+            AppendTraceParameters(builder, parameters);
+
+            if (builder.Length > 0)
+            {
+                string localMethodName;
+
+                if (!String.IsNullOrEmpty(methodName))
+                    localMethodName = methodName;
+                else
+                    localMethodName = "DebugTrace";
+
+                DebugTraceAlways(null, String.Format(
+                    "{0}: {1}, {2}", localMethodName,
+                    message, builder), typeof(TraceOps).Name,
+                    priority, skipFrames + 1);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Policy Tracing Methods
+#if POLICY_TRACE
+        private static bool ShouldEmitPolicyTrace(
+            Interpreter interpreter /* in: OPTIONAL */
+            )
+        {
+            if (GlobalState.PolicyTrace)
+                return true;
+
+            if ((interpreter != null) &&
+                interpreter.InternalPolicyTrace)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void MaybeEmitPolicyTrace(
             string methodName,         /* in */
             Interpreter interpreter,   /* in */
@@ -5622,11 +6168,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // WARNING: For (direct) use by the Interpreter.CheckPolicies method
+        // WARNING: For (direct) use by Interpreter.CheckPolicies method
         //          only.
         //
         [MethodImpl(MethodImplOptions.NoInlining)]
-        [Conditional("DEBUG_TRACE")]
         public static void MaybeEmitPolicyTrace(
             string methodName,         /* in */
             Interpreter interpreter,   /* in */
@@ -5636,8 +6181,7 @@ namespace Eagle._Components.Private
         {
             didEmit = false;
 
-            if (GlobalState.PolicyTrace ||
-                ((interpreter != null) && interpreter.InternalPolicyTrace))
+            if (ShouldEmitPolicyTrace(interpreter))
             {
                 StringBuilder builder = StringOps.NewStringBuilder();
 
@@ -5652,7 +6196,7 @@ namespace Eagle._Components.Private
                     else
                         localMethodName = "MaybeEmitPolicyTrace";
 
-                    DebugTrace(String.Format(
+                    DebugTraceAlways(String.Format(
                         "{0}: interpreter = {1}, {2}", localMethodName,
                         FormatOps.InterpreterNoThrow(interpreter), builder),
                         typeof(TraceOps).Name, TracePriority.PolicyTrace);

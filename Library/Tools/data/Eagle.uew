@@ -72,6 +72,7 @@ auto_source_path
 eagle_debugger eagle_paths eagle_platform eagle_shell eagle_tests
 null
 tcl_interactiveLoops tcl_shellLibrary
+whatIfArgc whatIfArgv
 /C6"Variables" STYLE_VARIABLE
 ** $
 /C7"Expression Operators" STYLE_OPERATOR

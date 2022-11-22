@@ -1775,7 +1775,7 @@ namespace Eagle._Commands
 
                                                                     int newCapacity = list.Count / 2;
 
-                                                                    if ((arrayElementLimit != 0) &&
+                                                                    if ((arrayElementLimit != Limits.Unlimited) &&
                                                                         (newCapacity > arrayElementLimit))
                                                                     {
                                                                         goto setLimitExceeded;
@@ -1797,7 +1797,7 @@ namespace Eagle._Commands
                                                                             //
                                                                             int newCount = oldCount + newCapacity;
 
-                                                                            if ((arrayElementLimit != 0) &&
+                                                                            if ((arrayElementLimit != Limits.Unlimited) &&
                                                                                 (newCount > arrayElementLimit))
                                                                             {
                                                                                 goto setLimitExceeded;

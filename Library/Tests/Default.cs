@@ -125,6 +125,16 @@ using OperatorDataDictionary = System.Collections.Generic.Dictionary<
 using Int32ObjectDictionary = System.Collections.Generic.Dictionary<int, object>;
 #endif
 
+#if SHELL
+using CLOAnyPair = Eagle._Components.Public.AnyPair<int?, int?>;
+
+using CLOPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Components.Public.AnyPair<int?, int?>>;
+
+using CLODictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Components.Public.AnyPair<int?, int?>>;
+#endif
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -745,6 +755,29 @@ namespace Eagle._Tests
         //       by this class will be reported in detail.
         //
         private static bool VerboseExceptions = true;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if SHELL
+        //
+        // NOTE: This is the list of command line arguments processed by the
+        //       shell on this thread.
+        //
+        [ThreadStatic()]
+        private static IList<string> processedArguments = null;
+
+        [ThreadStatic()]
+        private static StringBuilder processedBuilder = null;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is the list of command line options with each option
+        //       mapping to its minimum and/or maximum number of optional
+        //       arguments.
+        //
+        private static CLODictionary commandLineOptions;
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4681,6 +4714,162 @@ namespace Eagle._Tests
         }
 #endif
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if SHELL
+        public static IList<string> TestShellGetProcessedArguments() /* THREAD-SAFE */
+        {
+            return (processedArguments != null) ?
+                new StringList(processedArguments) : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string TestShellGetProcessedBuilder() /* THREAD-SAFE */
+        {
+            return (processedBuilder != null) ?
+                processedBuilder.ToString() : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static StringList TestShellGetOptions(
+            Interpreter interpreter,
+            string pattern,
+            bool nameOnly
+            ) /* THREAD-SAFE */
+        {
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (commandLineOptions == null)
+                    return null;
+
+                StringList list = new StringList();
+
+                foreach (CLOPair pair in commandLineOptions)
+                {
+                    if ((pattern != null) && !StringOps.Match(
+                            interpreter, MatchMode.Glob,
+                            pair.Key, pattern, false))
+                    {
+                        continue;
+                    }
+
+                    if (nameOnly)
+                    {
+                        list.Add(pair.Key);
+                    }
+                    else
+                    {
+                        list.Add(StringList.MakeList(
+                            pair.Key, pair.Value));
+                    }
+                }
+
+                return list;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void TestShellClearArguments() /* THREAD-SAFE */
+        {
+            if (processedArguments != null)
+            {
+                processedArguments.Clear();
+                processedArguments = null;
+            }
+
+            if (processedBuilder != null)
+            {
+                processedBuilder.Length = 0;
+                processedBuilder = null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void TestShellTrackArguments(
+            int retries,
+            int removeArgv,
+            bool withIndexes,
+            IList<string> argv
+            ) /* THREAD-SAFE */
+        {
+            if (argv != null)
+            {
+                if (processedArguments == null)
+                    processedArguments = new StringList();
+
+                if (processedBuilder == null)
+                    processedBuilder = StringOps.NewStringBuilder();
+
+                if (processedBuilder.Length > 0)
+                    processedBuilder.Append(Characters.NewLine);
+
+                int addedCount = 0;
+                int haveCount = argv.Count;
+
+                if (haveCount > 0)
+                {
+                    TestShellInitializeOptions();
+
+                    int? minimumCount;
+                    int? maximumCount;
+
+                    TestShellGetOptionArgumentCounts(
+                        argv[0], out minimumCount, out maximumCount);
+
+                    int maximumIndex;
+
+                    if (maximumCount != null)
+                    {
+                        if ((int)maximumCount > 0)
+                        {
+                            maximumIndex = Math.Min(
+                                (int)maximumCount, haveCount - 1);
+                        }
+                        else
+                        {
+                            maximumIndex = 0;
+                        }
+                    }
+                    else
+                    {
+                        maximumIndex = haveCount - 1;
+                    }
+
+                    for (int index = 0; index <= maximumIndex; index++)
+                    {
+                        string argString = FormatOps.DisplayString(
+                            argv[index]);
+
+                        if (withIndexes)
+                        {
+                            processedArguments.Add(
+                                String.Format("A{0}", index));
+                        }
+
+                        processedArguments.Add(argString);
+
+                        if (index > 0)
+                            processedBuilder.Append(Characters.Space);
+
+                        processedBuilder.Append(Parser.Quote(argString));
+
+                        addedCount++;
+                    }
+                }
+
+                if (withIndexes && (addedCount == 0))
+                {
+                    processedArguments.Add(
+                        String.Format("R{0}", retries));
+                }
+            }
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -9845,8 +10034,31 @@ namespace Eagle._Tests
                             //
                             if (localTimeout > 0)
                             {
-                                HostOps.ThreadSleepOrMaybeComplain(
-                                    localTimeout, false);
+                                try
+                                {
+                                    HostOps.ThreadSleep(
+                                        localTimeout); /* throw */
+                                }
+                                catch (ThreadAbortException e)
+                                {
+                                    Thread.ResetAbort();
+
+                                    TraceOps.DebugTrace(
+                                        e, typeof(Default).Name,
+                                        TracePriority.ThreadError2);
+                                }
+                                catch (ThreadInterruptedException e)
+                                {
+                                    TraceOps.DebugTrace(
+                                        e, typeof(Default).Name,
+                                        TracePriority.ThreadError2);
+                                }
+                                catch (Exception e)
+                                {
+                                    TraceOps.DebugTrace(
+                                        e, typeof(Default).Name,
+                                        TracePriority.ThreadError);
+                                }
                             }
 
 #if THREADING
@@ -11858,7 +12070,7 @@ namespace Eagle._Tests
             try
             {
                 if (timeout > 0)
-                    Thread.Sleep(timeout);
+                    HostOps.ThreadSleep(timeout); /* throw */
 
                 if (interpreter != null)
                 {
@@ -11867,6 +12079,18 @@ namespace Eagle._Tests
                 }
 
                 return true;
+            }
+            catch (ThreadAbortException e)
+            {
+                Thread.ResetAbort();
+
+                error = e;
+                return false;
+            }
+            catch (ThreadInterruptedException e)
+            {
+                error = e;
+                return false;
             }
             catch (Exception e)
             {
@@ -12151,6 +12375,169 @@ namespace Eagle._Tests
         }
 #endif
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if SHELL
+        private static void TestShellInitializeOptions()
+        {
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (commandLineOptions == null)
+                {
+                    commandLineOptions = new CLODictionary(
+                        new _Comparers.Custom(StringComparison.OrdinalIgnoreCase));
+
+                    commandLineOptions.Add(CommandLineOption.About, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.AnyFile, new CLOAnyPair(1, 1));
+
+#if !ENTERPRISE_LOCKDOWN
+                    commandLineOptions.Add(CommandLineOption.AnyInitialize, new CLOAnyPair(1, 1));
+#endif
+
+                    commandLineOptions.Add(CommandLineOption.Arguments, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.Break, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.Child, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.ClearTrace, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.CommandHelp, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.Debug, new CLOAnyPair(0, 0));
+
+                    commandLineOptions.Add(CommandLineOption.Encoding, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.EnvironmentHelp, new CLOAnyPair(0, 0));
+
+#if !ENTERPRISE_LOCKDOWN
+                    commandLineOptions.Add(CommandLineOption.Evaluate, new CLOAnyPair(null, null));
+                    commandLineOptions.Add(CommandLineOption.EvaluateEncoded, new CLOAnyPair(null, null));
+#endif
+
+                    commandLineOptions.Add(CommandLineOption.File, new CLOAnyPair(1, null));
+                    commandLineOptions.Add(CommandLineOption.ForceInitialize, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.FullHelp, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.Help, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.Initialize, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.Interactive, new CLOAnyPair(0, 0));
+
+#if ISOLATED_PLUGINS
+                    commandLineOptions.Add(CommandLineOption.Isolated, new CLOAnyPair(1, 1));
+#endif
+
+                    commandLineOptions.Add(CommandLineOption.Kiosk, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.LockHostArguments, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.Namespaces, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.NoArgumentsFileNames, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.NoAppSettings, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.NoExit, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.NoTrim, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.Parent, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.Pause, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.PluginArguments, new CLOAnyPair(2, 2));
+                    commandLineOptions.Add(CommandLineOption.PluginTest, new CLOAnyPair(null, null));
+                    commandLineOptions.Add(CommandLineOption.PostFile, new CLOAnyPair(1, 1));
+
+#if !ENTERPRISE_LOCKDOWN
+                    commandLineOptions.Add(CommandLineOption.PostInitialize, new CLOAnyPair(1, 1));
+#endif
+
+                    commandLineOptions.Add(CommandLineOption.PreFile, new CLOAnyPair(1, 1));
+
+#if !ENTERPRISE_LOCKDOWN
+                    commandLineOptions.Add(CommandLineOption.PreInitialize, new CLOAnyPair(1, 1));
+#endif
+
+                    commandLineOptions.Add(CommandLineOption.Profile, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.Quiet, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.Reconfigure, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.Recreate, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.RuntimeOption, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.Safe, new CLOAnyPair(0, 0));
+
+#if TEST
+                    commandLineOptions.Add(CommandLineOption.ScriptTrace, new CLOAnyPair(1, 1));
+#endif
+
+                    commandLineOptions.Add(CommandLineOption.Security, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.SetCreate, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.SetInitialize, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.SetLoop, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.SetupTrace, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.Standard, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.StartupLibrary, new CLOAnyPair(1, 1));
+
+#if TEST
+                    commandLineOptions.Add(CommandLineOption.StartupLogFile, new CLOAnyPair(1, 1));
+#endif
+
+#if !ENTERPRISE_LOCKDOWN
+                    commandLineOptions.Add(CommandLineOption.StartupPreInitialize, new CLOAnyPair(1, 1));
+#endif
+
+                    commandLineOptions.Add(CommandLineOption.Step, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.StopOnUnknown, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.Test, new CLOAnyPair(null, null));
+                    commandLineOptions.Add(CommandLineOption.TestDirectory, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.TraceToHost, new CLOAnyPair(0, 0));
+                    commandLineOptions.Add(CommandLineOption.VendorPath, new CLOAnyPair(1, 1));
+                    commandLineOptions.Add(CommandLineOption.Version, new CLOAnyPair(0, 0));
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void TestShellGetOptionArgumentCounts(
+            string optionName,
+            out int? minimumCount,
+            out int? maximumCount
+            ) /* THREAD-SAFE */
+        {
+            minimumCount = null;
+            maximumCount = null;
+
+            if (optionName != null)
+            {
+                int prefixCount = 0;
+
+                optionName = StringOps.TrimSwitchChars(
+                    optionName, ref prefixCount);
+
+                if (prefixCount > 0)
+                {
+                    lock (staticSyncRoot) /* TRANSACTIONAL */
+                    {
+                        if (commandLineOptions != null)
+                        {
+                            CLOAnyPair anyPair;
+
+                            if (commandLineOptions.TryGetValue(
+                                    optionName, out anyPair))
+                            {
+                                minimumCount = anyPair.X;
+                                maximumCount = anyPair.Y;
+                            }
+                            else
+                            {
+                                foreach (CLOPair pair in commandLineOptions)
+                                {
+                                    anyPair = pair.Value;
+
+                                    if (anyPair == null)
+                                        continue;
+
+                                    if (StringOps.MatchSwitch(
+                                            optionName, pair.Key))
+                                    {
+                                        minimumCount = anyPair.X;
+                                        maximumCount = anyPair.Y;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -12489,7 +12876,7 @@ namespace Eagle._Tests
             Interpreter interpreter,          /* in */
             IInteractiveHost interactiveHost, /* in */
             IClientData clientData,           /* in */
-            int count,                        /* in */
+            int switchCount,                  /* in */
             string arg,                       /* in */
             bool whatIf,                      /* in */
             ref IList<string> argv,           /* in, out */
@@ -12498,7 +12885,7 @@ namespace Eagle._Tests
         {
             int argc = (argv != null) ? argv.Count : 0;
 
-            if ((count > 0) &&
+            if ((switchCount > 0) &&
                 StringOps.MatchSwitch(arg, "one"))
             {
                 GenericOps<string>.PopFirstArgument(ref argv);
@@ -12509,7 +12896,7 @@ namespace Eagle._Tests
 
                 return ReturnCode.Ok;
             }
-            else if ((count > 0) &&
+            else if ((switchCount > 0) &&
                 StringOps.MatchSwitch(arg, "two"))
             {
                 if (argc >= 2)
@@ -12533,7 +12920,7 @@ namespace Eagle._Tests
                         Characters.Pipe);
                 }
             }
-            else if ((count > 0) &&
+            else if ((switchCount > 0) &&
                 StringOps.MatchSwitch(arg, "three"))
             {
                 GenericOps<string>.PopFirstArgument(ref argv);
@@ -21893,7 +22280,7 @@ namespace Eagle._Tests
                     }
                     else
                     {
-                        Thread.Sleep(timeout); /* throw */
+                        HostOps.ThreadSleep(timeout); /* throw */
                     }
 
                     //
@@ -25364,7 +25751,65 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            private void WriteTraceListener(
+            private void CloseTraceListener(
+                bool throwOnError
+                )
+            {
+                TraceListener listener;
+
+                GetTraceListener(out listener);
+
+                if (listener == null)
+                {
+                    if (!throwOnError)
+                        return;
+
+                    throw new InvalidOperationException(NoTraceListenerError);
+                }
+
+                if (Object.ReferenceEquals(listener, this))
+                {
+                    if (!throwOnError)
+                        return;
+
+                    throw new InvalidOperationException(BadTraceListenerError);
+                }
+
+                listener.Close(); /* throw */
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void FlushTraceListener(
+                bool throwOnError
+                )
+            {
+                TraceListener listener;
+
+                GetTraceListener(out listener);
+
+                if (listener == null)
+                {
+                    if (!throwOnError)
+                        return;
+
+                    throw new InvalidOperationException(NoTraceListenerError);
+                }
+
+                if (Object.ReferenceEquals(listener, this))
+                {
+                    if (!throwOnError)
+                        return;
+
+                    throw new InvalidOperationException(BadTraceListenerError);
+                }
+
+                listener.Flush(); /* throw */
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void WriteToTraceListener(
                 string message,
                 bool newLine
                 )
@@ -25377,6 +25822,24 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            private void WriteTraceListener(
+                string message
+                )
+            {
+                WriteTraceListener(message, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void WriteLineTraceListener(
+                string message
+                )
+            {
+                WriteLineTraceListener(message, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             private void CheckMessagesAndFlushTraceListener()
             {
                 if (!IsBufferingDisabled() && IsEmptyOnFlush())
@@ -25385,7 +25848,7 @@ namespace Eagle._Tests
                     EmptyMessages();
                 }
 
-                FlushTraceListener();
+                FlushTraceListener(false);
             }
             #endregion
 
@@ -25405,46 +25868,14 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            protected virtual void CloseTraceListener()
-            {
-                TraceListener listener;
-
-                GetTraceListener(out listener);
-
-                if (listener == null)
-                    throw new InvalidOperationException(NoTraceListenerError);
-
-                if (Object.ReferenceEquals(listener, this))
-                    throw new InvalidOperationException(BadTraceListenerError);
-
-                listener.Close(); /* throw */
-            }
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
-            protected virtual void FlushTraceListener()
-            {
-                TraceListener listener;
-
-                GetTraceListener(out listener);
-
-                if (listener == null)
-                    throw new InvalidOperationException(NoTraceListenerError);
-
-                if (Object.ReferenceEquals(listener, this))
-                    throw new InvalidOperationException(BadTraceListenerError);
-
-                listener.Flush(); /* throw */
-            }
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
             protected virtual bool MaybeFlushTraceListenerForClose()
             {
                 if (IsNeverFlush() || !IsFlushOnClose())
                     return false;
 
-                FlushTraceListener(); /* throw */
+                /* NO RESULT */
+                FlushTraceListener(false); /* throw */
+
                 return true;
             }
 
@@ -25455,7 +25886,9 @@ namespace Eagle._Tests
                 if (IsNeverFlush() || !IsFlushOnEmpty())
                     return false;
 
-                FlushTraceListener(); /* throw */
+                /* NO RESULT */
+                FlushTraceListener(false); /* throw */
+
                 return true;
             }
 
@@ -25473,7 +25906,8 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             protected virtual void WriteTraceListener(
-                string message
+                string message,
+                bool throwOnError
                 )
             {
                 TraceListener listener;
@@ -25481,10 +25915,20 @@ namespace Eagle._Tests
                 GetTraceListener(out listener);
 
                 if (listener == null)
+                {
+                    if (!throwOnError)
+                        return;
+
                     throw new InvalidOperationException(NoTraceListenerError);
+                }
 
                 if (Object.ReferenceEquals(listener, this))
+                {
+                    if (!throwOnError)
+                        return;
+
                     throw new InvalidOperationException(BadTraceListenerError);
+                }
 
                 listener.Write(message); /* throw */
             }
@@ -25492,7 +25936,8 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             protected virtual void WriteLineTraceListener(
-                string message
+                string message,
+                bool throwOnError
                 )
             {
                 TraceListener listener;
@@ -25500,10 +25945,20 @@ namespace Eagle._Tests
                 GetTraceListener(out listener);
 
                 if (listener == null)
+                {
+                    if (!throwOnError)
+                        return;
+
                     throw new InvalidOperationException(NoTraceListenerError);
+                }
 
                 if (Object.ReferenceEquals(listener, this))
+                {
+                    if (!throwOnError)
+                        return;
+
                     throw new InvalidOperationException(BadTraceListenerError);
+                }
 
                 listener.WriteLine(message); /* throw */
             }
@@ -25810,7 +26265,7 @@ namespace Eagle._Tests
                             {
                                 duplicateCount--;
 
-                                WriteTraceListener(String.Format(
+                                WriteToTraceListener(String.Format(
                                     formatString, message, duplicateCount,
                                     duplicateCount > 1 ? "times" : "time"),
                                     newLine); /* throw */
@@ -25820,13 +26275,13 @@ namespace Eagle._Tests
                             }
                             else
                             {
-                                WriteTraceListener(message, newLine); /* throw */
+                                WriteToTraceListener(message, newLine); /* throw */
                                 wrote = true;
                             }
                         }
                         else
                         {
-                            WriteTraceListener(message, newLine); /* throw */
+                            WriteToTraceListener(message, newLine); /* throw */
                             wrote = true;
                         }
                     }
@@ -25908,7 +26363,8 @@ namespace Eagle._Tests
                 /* IGNORED */
                 MaybeFlushTraceListener(true);
 
-                CloseTraceListener();
+                /* NO RESULT */
+                CloseTraceListener(true);
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////

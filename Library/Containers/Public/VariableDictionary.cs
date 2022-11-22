@@ -9,7 +9,7 @@
  * RCS: @(#) $Id: $
  */
 
-#if SERIALIZATION
+#if SERIALIZATION || DEAD_CODE
 using System;
 #endif
 

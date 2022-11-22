@@ -49,10 +49,10 @@ runTest {test nested-2.1 {nested package index prevention} -setup {
     lappend auto_path [file join $directory one]
   }
   list [expr {[interp eval $i {
-    lsearch -exact $auto_path [file join $directory one]
+    lsearch -exact -- $auto_path [file join $directory one]
   }] != -1}] \
   [expr {[interp eval $i {
-    lsearch -exact $auto_path [file join $directory two]
+    lsearch -exact -- $auto_path [file join $directory two]
   }] != -1}] \
       [interp eval $i [list package names Package1]] \
       [interp eval $i [list package names Package2]] \

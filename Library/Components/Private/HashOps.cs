@@ -198,14 +198,27 @@ namespace Eagle._Components.Private
             //
             // NOTE: When running on .NET Core, verify that the type name
             //       is valid and can be looked up.  This helps to filter
-            //       out other, non-type name entries.
+            //       out other, non-type name entries.  Also, for .NET 7,
+            //       filter out abstract classes.
             //
             if (CommonOps.Runtime.IsDotNetCore() && (typeName != null))
             {
-                if (Type.GetType(
-                        FormatOps.GetQualifiedTypeFullName(
+                Type localType = Type.GetType(
+                    FormatOps.GetQualifiedTypeFullName(
                         GetNamespaceNameForAlgorithms(), typeName,
-                        GetAssemblyForAlgorithms()), false, true) == null)
+                        GetAssemblyForAlgorithms()), false, true);
+
+                if (localType == null)
+                    return false;
+
+                //
+                // BUGBUG: Why is this required here?  What changed in
+                //         .NET 7 that causes this to be necessary?
+                //         Please refer to tests "hash-1.1.*" for some
+                //         additional context.
+                //
+                if (localType.IsAbstract &&
+                    CommonOps.Runtime.IsDotNetCore7xOrHigher())
                 {
                     return false;
                 }

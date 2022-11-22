@@ -268,7 +268,7 @@ namespace Eagle._Components.Public.Delegates
         Interpreter interpreter, // TODO: Change to use the IInterpreter type.
         IInteractiveHost interactiveHost,
         IClientData clientData,
-        int count,
+        int switchCount,
         string arg,
         bool whatIf,
         ref IList<string> argv,

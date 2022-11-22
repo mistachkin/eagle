@@ -15,6 +15,22 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Public
 {
+    [ObjectId("5c63ae27-058a-4f3b-a139-59c84e4b06cd")]
+    public enum TraceFormatType
+    {
+        Unknown = int.MinValue,
+        String = int.MaxValue,
+        Default = 0x0,
+        Bare = 0x1,
+        Minimum = 0x2,
+        MediumLow = 0x3,
+        Medium = 0x4,
+        MediumHigh = 0x5,
+        Maximum = 0x6
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if THREADING
     [Flags()]
     [ObjectId("a045e89d-0884-4565-9cb7-856a7c5b35db")]
@@ -580,6 +596,7 @@ namespace Eagle._Components.Public
         NetworkError = Higher | Error,            // data transfer over network, etc.
         ProcessError = Higher | Error,            // process handling, [exec], etc.
 
+        HostError2 = Highest | Error,             // interpreter hosts, etc.
         NamespaceError = Highest | Error,         // internal namespace processing, etc.
         TestError = Highest | Error,              // test suite infrastructure, etc.
         CleanupError = Highest | Error,           // object disposal and cleanup.
@@ -593,6 +610,7 @@ namespace Eagle._Components.Public
         InternalError3 = Highest | Error,         // miscellaneous unclassified
         PackageError3 = Highest | Error,          // high-level package handling, etc.
         PerformanceError2 = Highest | Error,      // for [time], etc.
+        ProcessError2 = Highest | Error,          // process handling, [exec], etc.
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -646,6 +664,7 @@ namespace Eagle._Components.Public
         ValueDebug = Low | Debug,                 // expression values, etc.
         PackageDebug3 = Low | Debug,              // high-level package handling, etc.
         NetworkDebug3 = Low | Debug,              // data transfer over network, etc.
+        PluginDebug = Low | Debug,                // plugin loader (high-level), etc.
 
         CleanupDebug = MediumLow | Debug,         // object disposal and cleanup.
         StartupDebug = MediumLow | Debug,         // library / interpreter startup.
@@ -671,8 +690,6 @@ namespace Eagle._Components.Public
         StatusDebug = Medium | Debug,             // from StatusFormOps, etc.
         PerformanceDebug = Medium | Debug,        // for [time], etc.
         ShellDebug3 = Medium | Debug,             // high-level interactive shell and loop.
-        ScriptDebug3 = Medium | Debug,            // high-level script evaluation
-        PluginDebug = Medium | Debug,             // plugin loader (high-level), etc.
         SecurityDebug2 = Medium | Debug,          // signatures, certificates, etc.
         ThreadDebug4 = Medium | Debug,            // thread exceptions, timeout, etc.
         RemotingDebug = Medium | Debug,           // remoting and serialization
@@ -941,26 +958,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        FormatFlags = 0x4000000,
-        ResetFormatFlags = 0x8000000,
-        VerboseFlags = 0x10000000,
+        FormatString = 0x4000000,
+        ResetFormatString = 0x8000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        FullContext = 0x20000000,
-        ResetFullContext = 0x40000000,
+        FormatIndex = 0x10000000,
+        ResetFormatIndex = 0x20000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Environment = 0x80000000,
-        Force = 0x100000000,
-        Reset = 0x200000000,
-        OverrideEnvironment = 0x400000000,
+        FormatFlags = 0x40000000,
+        ResetFormatFlags = 0x80000000,
+        VerboseFlags = 0x100000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForCommand = 0x800000000,
-        ForSdk = 0x1000000000,
+        FullContext = 0x200000000,
+        ResetFullContext = 0x400000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        FallbackFormat = 0x800000000,
+        ResetFallbackFormat = 0x1000000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Environment = 0x2000000000,
+        Force = 0x4000000000,
+        Reset = 0x8000000000,
+        OverrideEnvironment = 0x10000000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForCommand = 0x20000000000,
+        ForSdk = 0x40000000000,
+        ForDefault = 0x80000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -971,37 +1004,53 @@ namespace Eagle._Components.Public
         PriorityMask = Priority | ResetPriority,
         NullCategoriesMask = NullCategories | ResetNullCategories,
         FormatMask = Format | ResetFormat,
+        FormatStringMask = FormatString | ResetFormatString,
+        FormatIndexMask = FormatIndex | ResetFormatIndex,
         FormatFlagsMask = FormatFlags | ResetFormatFlags | VerboseFlags,
         FullContextMask = FullContext | ResetFullContext,
+        FallbackFormatMask = FallbackFormat | ResetFallbackFormat,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         CategoryTypeMask = EnabledCategories | DisabledCategories |
                            PenaltyCategories | BonusCategories,
 
-        AllCategoriesMask = Categories | CategoryTypeMask | NullCategoriesMask,
+        AllCategoriesMask = Categories | CategoryTypeMask |
+                            NullCategoriesMask,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         //
-        // TODO: Update this value if any other internal state ends up with
-        //       an associated environment variable.
+        // TODO: Update this value if any other internal state ends
+        //       up with an associated environment variable.
         //
-        EnvironmentMask = Categories | CategoryTypeMask | Priorities | Priority,
+        EnvironmentMask = Enabled | Priorities | Priority |
+                          Categories | CategoryTypeMask,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ResetMask = ResetPossible | ResetEnabled | ResetLimits |
-                    ResetPriorities | ResetPriority | ResetNullCategories |
-                    ResetFormat | ResetFormatFlags | ResetFullContext,
+        NormalMask = Initialized | ForceListeners | Possible |
+                     Enabled | FilterCallback | Limits |
+                     Priorities | Priority | Categories |
+                     EnabledCategories | DisabledCategories |
+                     PenaltyCategories | BonusCategories |
+                     NullCategories | Format | FormatString |
+                     FormatIndex | FormatFlags | VerboseFlags |
+                     FullContext | FallbackFormat,
 
-        SpecialMask = Environment | Force | Reset | OverrideEnvironment,
+        ResetMask = ResetPossible | ResetEnabled |
+                    ResetLimits | ResetPriorities |
+                    ResetPriority | ResetNullCategories |
+                    ResetFormatString | ResetFormatIndex |
+                    ResetFormatFlags | ResetFullContext |
+                    ResetFallbackFormat,
 
-        AllMask = Initialized | ForceListeners | PossibleMask |
-                  EnabledMask | FilterCallback | LimitsMask |
-                  PrioritiesMask | PriorityMask | AllCategoriesMask |
-                  FormatMask | FormatFlagsMask | FullContextMask |
-                  Environment | Force,
+        SpecialMask = Environment | Force | Reset |
+                      OverrideEnvironment,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        AllMask = NormalMask | ResetMask | SpecialMask,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1015,8 +1064,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        NonStandardMask = ForceListeners | Priority | FormatMask |
-                          FormatFlagsMask | SpecialMask,
+        NonStandardMask = ForceListeners | Priority |
+                          FormatStringMask | FormatIndexMask |
+                          FormatFlagsMask | FallbackFormatMask |
+                          SpecialMask,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1024,11 +1075,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        TraceCommand = Default | ForCommand,
+        TraceCommand = (Default | ForCommand) & ~ForDefault,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Default = PossibleMask | EnabledMask | LimitsMask | PrioritiesMask
+        Default = PossibleMask | EnabledMask | LimitsMask |
+                  PrioritiesMask | ForDefault
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1495,11 +1547,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForFormatted = 0x20000,
-        ForVariable = 0x40000,
-        ForBox = 0x80000,
-        ForTest = 0x100000,
-        ForLog = 0x200000,
+        Clean = 0x20000, /* Remove or replace any pre-existing
+                          * extended and/or Unicode characters
+                          * that may be present in the string.
+                          */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForFormatted = 0x40000,
+        ForVariable = 0x80000,
+        ForBox = 0x100000,
+        ForTest = 0x200000,
+        ForLog = 0x400000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2046,17 +2105,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Cancel = Interrupt | NoAbort | ForCancel | Reserved1,
-        Status = Interrupt | WaitAfter | NoAbort | NoReset | ForStatus | Reserved1,
-        Timeout = Cancel | WaitBefore | ForTimeout | Reserved1,
-        TimeoutAndWait = Timeout | WaitAfter | ForTimeoutAndWait | Reserved1,
-        ScriptEvent = ForScriptEvent | Reserved1,
-        ScriptTimeout = Interrupt | WaitAfter | ForScriptTimeout | Reserved1,
-        External = ForExternal | Reserved1,
+        Cancel = Interrupt | NoAbort | ForCancel | Reserved1, /* Interpreter.CancelThread */
+        Status = Interrupt | WaitAfter | NoAbort | NoReset | ForStatus | Reserved1, /* StatusFormOps */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Default = Interrupt | Reserved1
+        ScriptEvent = ForScriptEvent | Reserved1, /* Eagle._Tests.Default+ScriptEventThread */
+        ScriptTimeout = Interrupt | WaitAfter | NoAbort | ForScriptTimeout | Reserved1, /* [debug secureeval] */
+        External = ForExternal | Reserved1, /* Utility.MaybeShutdownThread */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Timeout = Cancel | WaitBefore | ForTimeout | Reserved1, /* NOT USED (?) */
+        TimeoutAndWait = Timeout | WaitAfter | ForTimeoutAndWait | Reserved1, /* NOT USED (?) */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Default = Interrupt | Reserved1 /* WARNING: Do not use. */
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3087,18 +3152,21 @@ namespace Eagle._Components.Public
         PerUser = 0x4000,            /* Attempt to include per-user information
                                       * when extracting metadata from candidate
                                       * paths. */
-        NoRegistry = 0x8000,         /* Avoid using the Windows registry. */
-        RegistryOnly = 0x10000,      /* Only use the Windows registry. */
-        SerialNumberOnly = 0x20000,  /* Only use the volume serial number. */
+        PerProcess = 0x8000,         /* Include process information. */
+        ProcessHashCode = 0x10000,   /* Include unique hash of the process
+                                      * executable code. */
+        NoRegistry = 0x20000,        /* Avoid using the Windows registry. */
+        RegistryOnly = 0x40000,      /* Only use the Windows registry. */
+        SerialNumberOnly = 0x80000,  /* Only use the volume serial number. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForDefault = 0x40000,
+        ForDefault = 0x100000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region WARNING: FOR HARPY USE ONLY
-        ForHarpy = 0x80000,
+        ForHarpy = 0x200000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3235,13 +3303,16 @@ namespace Eagle._Components.Public
         None = 0x0,
         Invalid = 0x1,
         Unknown = 0x2,
-        Script = 0x4,
-        File = 0x8,
-        Stream = 0x10,
-        License = 0x20,
-        KeyPair = 0x40,
-        Trace = 0x80,
-        Other = 0x100
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Script = 0x1000,
+        File = 0x2000,
+        Stream = 0x4000,
+        License = 0x8000,
+        KeyPair = 0x10000,
+        Trace = 0x20000,
+        Other = 0x40000
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6329,7 +6400,7 @@ namespace Eagle._Components.Public
         SkipTestsToLib = 0x200000000,                      /* the core host should skip fixing up the
                                                             * "Tests" path portion to "lib/Tests" during
                                                             * the search. */
-        StrictGetFile = 0x400000000,                       /* null must be returned if the script file is
+        NullOnNotFound = 0x400000000,                      /* null must be returned if the script file is
                                                             * not found on the file system */
         ErrorOnEmpty = 0x800000000,                        /* forbid null and empty script values even upon
                                                             * success unless they are flagged as optional
@@ -6455,8 +6526,8 @@ namespace Eagle._Components.Public
 
         SearchAny = SpecificPath | SearchDirectory | SearchFile,
 
-        RequiredFile = Required | StrictGetFile | SearchAny,
-        OptionalFile = Optional | StrictGetFile | SearchAny,
+        RequiredFile = Required | NullOnNotFound | SearchAny,
+        OptionalFile = Optional | NullOnNotFound | SearchAny,
 
         CoreRequiredFile = Core | RequiredFile | IgnoreCanRetry | EmbeddedLibrary,
         CoreLibraryRequiredFile = CoreRequiredFile | Library | MaybeCoreAssemblyOnly,
@@ -7524,7 +7595,7 @@ namespace Eagle._Components.Public
         Application = 0x80,         /* search application-specific locations. */
         ApplicationBase = 0x100,    /* search application base directory locations. */
         Vendor = 0x200,             /* also search vendor locations. */
-        Strict = 0x400,             /* return null if no existing file is found. */
+        NullOnNotFound = 0x400,     /* return null if no existing file is found. */
         DirectorySeparator = 0x800, /* normalize directory separators. */
         Unix = 0x1000,              /* use Unix directory separators. */
         DirectoryLocation = 0x2000, /* allow candidate location to be a directory. */
@@ -7556,7 +7627,7 @@ namespace Eagle._Components.Public
                    ApplicationBase | Vendor | DirectoryLocation |
                    FileLocation | PathMask,
 
-        StandardAndStrict = Standard | Strict,
+        StandardNullOnNotFound = Standard | NullOnNotFound,
 
         Default = PathMask
     }
@@ -7710,12 +7781,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        NoStartup = 0x100000,
+        NoStartup = 0x100000,              /* Skip evaluating "startup" scripts
+                                            * when creating an interpreter. */
+        NoThreadAbort = 0x200000,          /* Disallow any implicit use of the
+                                            * Thread.Abort() method. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Reserved1 = 0x200000,              /* Reserved value, do not use. */
-        Reserved2 = 0x400000,              /* Reserved value, do not use. */
+        Reserved1 = 0x2000000,             /* Reserved value, do not use. */
+        Reserved2 = 0x4000000,             /* Reserved value, do not use. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7736,7 +7810,7 @@ namespace Eagle._Components.Public
 #endif
                           NoPluginIsolatedOnly |
 #endif
-                          None,
+                          NoThreadAbort,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7747,7 +7821,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         Lowest = Reserved1 | CopyVariables,
-        Low = Lowest | ExistingOnly | NoStartup,
+        Low = Lowest | ExistingOnly | NoStartup | NoThreadAbort,
         Medium = Low | UseSafeInterpreter,
         High = Medium | UseStaticDataOnly,
         Highest = High | UseIsolatedInterpreter,
@@ -8404,6 +8478,8 @@ namespace Eagle._Components.Public
                                                     * the overall return code based on
                                                     * other conditions, e.g. whether the
                                                     * test was skipped, ignored, etc. */
+        NoThreadAbort = 0x200,                     /* Prevent any implicit use of the
+                                                    * Thread.Abort() method. */
         WriteTestData = 0x400,                     /* For [test1]/[test2], write the test
                                                     * data to the host. */
         NoReturnTestData = 0x800,                  /* For [test1]/[test2], do not return
@@ -10045,11 +10121,11 @@ namespace Eagle._Components.Public
         //
 #if DEBUG
         AutoPath = Host | Normal | NoNormal |
-                   Recursive | Trace | MaybeNoTrusted |
+                   Recursive | MaybeNoTrusted |
                    MaybeNoVerified | NoSort, /* TODO: Good default? */
 #else
         AutoPath = Host | Normal | NoNormal |
-                   Recursive | Trace | NoSort, /* TODO: Good default? */
+                   Recursive | NoSort, /* TODO: Good default? */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -10073,29 +10149,40 @@ namespace Eagle._Components.Public
     [ObjectId("753ee5b0-e42b-4c69-b398-960f54ba75dd")]
     public enum PackageFlags
     {
-        None = 0x0,            /* Nothing special. */
-        Invalid = 0x1,         /* Invalid, do not use. */
-        System = 0x2,          /* The package is a system package, do not use. */
-        Loading = 0x4,         /* The package is currently being loaded via
-                                * PackageRequire. */
-        Static = 0x8,          /* The package was provided statically. */
-        Core = 0x10,           /* The package is included with the runtime. */
-        Plugin = 0x20,         /* The package was provided by a plugin. */
-        Library = 0x40,        /* The package is part of the script library. */
-        Interactive = 0x80,    /* The package is included with the interactive
-                                * shell. */
-        Automatic = 0x100,     /* The package was added to the interpreter
-                                * automatically. */
-        NoUpdate = 0x200,      /* Skip updating package flags upon provide. */
-        NoProvide = 0x400,     /* The [package provide] sub-command should
-                                * always do nothing. */
-        AlwaysSatisfy = 0x800, /* The [package vsatisfies] sub-command should
-                                * always return true. */
-        KeepExisting = 0x1000, /* The [package ifneeded] sub-command should
-                                * preserve existing package information. */
-        FailExisting = 0x2000, /* The [package ifneeded] sub-command should
-                                * fail if existing package information is
-                                * present. */
+        None = 0x0,             /* Nothing special. */
+        Invalid = 0x1,          /* Invalid, do not use. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        System = 0x2,           /* The package is a system package, do not use. */
+        Loading = 0x4,          /* The package is currently being loaded via
+                                 * PackageRequire. */
+        Static = 0x8,           /* The package was provided statically. */
+        Core = 0x10,            /* The package is included with the runtime. */
+        Plugin = 0x20,          /* The package was provided by a plugin. */
+        Library = 0x40,         /* The package is part of the script library. */
+        Interactive = 0x80,     /* The package is included with the interactive
+                                 * shell. */
+        Automatic = 0x100,      /* The package was added to the interpreter
+                                 * automatically. */
+        Locked = 0x200,         /* The package is locked and cannot be replaced
+                                 * via the [package ifneeded] sub-command. */
+        Rejected = 0x400,       /* When used with the Locked flag, this flag
+                                 * will cause an error to be generated by the
+                                 * [package ifneeded] sub-command. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        NoUpdate = 0x1000,      /* Skip updating package flags upon provide. */
+        NoProvide = 0x2000,     /* The [package provide] sub-command should
+                                 * always do nothing. */
+        AlwaysSatisfy = 0x4000, /* The [package vsatisfies] sub-command should
+                                 * always return true. */
+        KeepExisting = 0x8000,  /* The [package ifneeded] sub-command should
+                                 * preserve existing package information. */
+        FailExisting = 0x10000, /* The [package ifneeded] sub-command should
+                                 * fail if existing package information is
+                                 * present. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -10106,6 +10193,15 @@ namespace Eagle._Components.Public
         //       -OR- by calling the ScriptOps.EnableOrDisableSecurity method.
         //
         SecurityPackageMask = NoProvide | AlwaysSatisfy,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ActionMask = NoUpdate | NoProvide | AlwaysSatisfy |
+                     KeepExisting | FailExisting,
+
+        InstanceMask = System | Loading | Static | Core |
+                       Plugin | Library | Interactive |
+                       Automatic | Locked | Rejected,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -10599,25 +10695,26 @@ namespace Eagle._Components.Public
 #endif
         ArrayOps = 0x10000000000000,
         PathOps = 0x20000000000000,
+        HostOps = 0x40000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ThreadInfo = 0x40000000000000,
+        ThreadInfo = 0x80000000000000,
 #if HISTORY
-        HistoryInfo = 0x80000000000000,
+        HistoryInfo = 0x100000000000000,
 #endif
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
-        ListCacheInfo = 0x100000000000000,
+        ListCacheInfo = 0x200000000000000,
 #endif
 #if (CACHE_ARGUMENTLIST_TOSTRING || CACHE_STRINGLIST_TOSTRING) && CACHE_STATISTICS
-        StringCacheInfo = 0x200000000000000,
+        StringCacheInfo = 0x400000000000000,
 #endif
-        CertificateCacheInfo = 0x400000000000000,
+        CertificateCacheInfo = 0x800000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        User = 0x800000000000000,      /* Indicates that the detail flags have been explicitly
-                                        * set by the user. */
+        User = 0x1000000000000000,      /* Indicates that the detail flags have been explicitly
+                                         * set by the user. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -10659,7 +10756,7 @@ namespace Eagle._Components.Public
 #if NETWORK
                       WebOps | SocketOps |
 #endif
-                      ArrayOps | PathOps,
+                      ArrayOps | PathOps | HostOps,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

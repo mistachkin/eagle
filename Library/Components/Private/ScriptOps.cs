@@ -1797,6 +1797,8 @@ namespace Eagle._Components.Private
                         Vars.Core.Paths,
                         Vars.Core.Shell,
                         Vars.Core.Tests,
+                        Vars.Core.WhatIfShellArgumentCount,
+                        Vars.Core.WhatIfShellArguments,
                         TclVars.Core.Environment,
                         TclVars.Core.ErrorCode,
                         TclVars.Core.ErrorInfo,
@@ -2107,6 +2109,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static void MaybeEnableInterpreterFlags(
+            Interpreter interpreter,              /* in: OPTIONAL */
+            ScriptDataFlags flags,                /* in */
+            ref InterpreterFlags interpreterFlags /* in, out */
+            )
+        {
+            if (FlagOps.HasFlags(
+                    flags, ScriptDataFlags.NoThreadAbort, true))
+            {
+                interpreterFlags |= InterpreterFlags.NoThreadAbort;
+            }
+
+            if ((interpreter != null) &&
+                interpreter.InternalNoThreadAbort)
+            {
+                interpreterFlags |= InterpreterFlags.NoThreadAbort;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static void MaybeEnablePluginFlags(
             ScriptDataFlags flags,      /* in */
             ref PluginFlags pluginFlags /* in, out */
@@ -2181,6 +2204,8 @@ namespace Eagle._Components.Private
                 createFlags = CreateFlags.None;
             }
 
+            ///////////////////////////////////////////////////////////////////
+
             if ((interpreter != null) && FlagOps.HasFlags(
                     creationFlagTypes,
                     CreationFlagTypes.CurrentHostCreateFlags, true))
@@ -2204,6 +2229,8 @@ namespace Eagle._Components.Private
             {
                 hostCreateFlags = HostCreateFlags.None;
             }
+
+            ///////////////////////////////////////////////////////////////////
 
             if ((interpreter != null) && FlagOps.HasFlags(
                     creationFlagTypes,
@@ -2229,6 +2256,8 @@ namespace Eagle._Components.Private
                 initializeFlags = InitializeFlags.None;
             }
 
+            ///////////////////////////////////////////////////////////////////
+
             if ((interpreter != null) && FlagOps.HasFlags(
                     creationFlagTypes,
                     CreationFlagTypes.CurrentScriptFlags, true))
@@ -2253,6 +2282,8 @@ namespace Eagle._Components.Private
                 scriptFlags = ScriptFlags.None;
             }
 
+            ///////////////////////////////////////////////////////////////////
+
             if ((interpreter != null) && FlagOps.HasFlags(
                     creationFlagTypes,
                     CreationFlagTypes.CurrentInterpreterFlags, true))
@@ -2276,6 +2307,8 @@ namespace Eagle._Components.Private
             {
                 interpreterFlags = InterpreterFlags.None;
             }
+
+            ///////////////////////////////////////////////////////////////////
 
             if ((interpreter != null) && FlagOps.HasFlags(
                     creationFlagTypes,
@@ -2391,6 +2424,14 @@ namespace Eagle._Components.Private
 
             if (noStartup)
                 initializeFlags &= ~InitializeFlags.ShellOrStartup;
+
+            //
+            // HACK: Maybe change interpreter flags based on properties of
+            //       the (parent) interpreter?  Important for users of the
+            //       Harpy SDK.
+            //
+            MaybeEnableInterpreterFlags(
+                interpreter, flags, ref interpreterFlags);
 
             //
             // HACK: If requested by the caller, set special plugin flags to

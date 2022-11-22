@@ -109,31 +109,8 @@ namespace Eagle._Hosts
 
             string text = RuntimeOps.GetAssemblyTextOrSuffix(assembly);
 
-            //
-            // HACK: The image runtime version is largely useless for
-            //       Mono and .NET Core as it will (basically) always
-            //       be "v4.0.30319" for backward compatibility with
-            //       the .NET Framework 4.x.
-            //
-            string runtimeVersion;
-
-            string imageRuntimeVersion =
-                AssemblyOps.GetImageRuntimeVersion(assembly);
-
-            if (SharedStringOps.SystemEquals(
-                    imageRuntimeVersion,
-                    DefaultImageRuntimeVersion) &&
-                (ShouldTreatAsMono() ||
-                ShouldTreatAsDotNetCore()))
-            {
-                runtimeVersion = FormatOps.ShortRuntimeVersion(
-                    CommonOps.Runtime.GetRuntimeVersion());
-            }
-            else
-            {
-                runtimeVersion = FormatOps.ShortImageRuntimeVersion(
-                    imageRuntimeVersion);
-            }
+            string runtimeVersion = FormatOps.ShortImageOrRuntimeVersion(
+                assembly, ShouldTreatAsMono(), ShouldTreatAsDotNetCore());
 
             string configuration = AttributeOps.GetAssemblyConfiguration(
                 assembly);

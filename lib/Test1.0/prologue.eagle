@@ -3067,7 +3067,8 @@ if {![info exists no([file tail [info script]])]} then {
         #
         # NOTE: For test "object-2.8".
         #
-        checkForObjectMember $test_channel Eagle._Tests.Default+Disposable \
+        checkForObjectMember $test_channel \
+            Eagle._Tests.Default+Disposable \
             *ToString* Eagle._Tests.Default.Disposable.ToString
       }
 
@@ -3078,7 +3079,8 @@ if {![info exists no([file tail [info script]])]} then {
         #
         # NOTE: For tests "redefine-2.*".
         #
-        checkForObjectMember $test_channel Eagle._Tests.Default+SubCommand \
+        checkForObjectMember $test_channel \
+            Eagle._Tests.Default+SubCommand \
             *ToString* Eagle._Tests.Default.SubCommand.ToString
       }
 
@@ -3089,7 +3091,8 @@ if {![info exists no([file tail [info script]])]} then {
         #
         # NOTE: For tests "resolver-1.*".
         #
-        checkForObjectMember $test_channel Eagle._Tests.Default+Resolve \
+        checkForObjectMember $test_channel \
+            Eagle._Tests.Default+Resolve \
             *ToString* Eagle._Tests.Default.Resolve.ToString
       }
 
@@ -3112,16 +3115,19 @@ if {![info exists no([file tail [info script]])]} then {
         #
         # NOTE: For test "basic-1.74".
         #
-        checkForObjectMember $test_channel Eagle._Tests.Default+Listener \
+        checkForObjectMember $test_channel \
+            Eagle._Tests.Default+Listener \
             *WriteLine* Eagle._Tests.Default.Listener.WriteLine
 
-        checkForObjectMember $test_channel Eagle._Tests.Default+Listener \
+        checkForObjectMember $test_channel \
+            Eagle._Tests.Default+Listener \
             *Flush* Eagle._Tests.Default.Listener.Flush
 
         #
         # NOTE: For test "basic-1.75".
         #
-        checkForObjectMember $test_channel Eagle._Tests.Default+Listener \
+        checkForObjectMember $test_channel \
+            Eagle._Tests.Default+Listener \
             * Eagle._Tests.Default.Listener
       }
 
@@ -3158,6 +3164,17 @@ if {![info exists no([file tail [info script]])]} then {
         #
         checkForObjectMember $test_channel Eagle._Tests.Default \
             *TestAddListStreamChannel*
+      }
+
+      #
+      # NOTE: For test "interp-1.50000".
+      #
+      if {![info exists no(testShellArguments)]} then {
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestMayEnterInteractiveLoop*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestShellGetProcessedArguments*
       }
     }
 
@@ -3685,6 +3702,13 @@ if {![info exists no([file tail [info script]])]} then {
     #
     if {![info exists no(evaluate.eagle)]} then {
       checkForFile $test_channel [file join $test_data_path evaluate.eagle]
+    }
+
+    #
+    # NOTE: For test "interp-1.50000".
+    #
+    if {![info exists no(showArgv.eagle)]} then {
+      checkForFile $test_channel [file join $test_data_path showArgv.eagle]
     }
 
     #
@@ -4651,6 +4675,7 @@ if {![info exists no([file tail [info script]])]} then {
     checkForOperatingSystemUpdate $test_channel "Windows 10, October 2020 Update"
     checkForOperatingSystemUpdate $test_channel "Windows 10, May 2021 Update"
     checkForOperatingSystemUpdate $test_channel "Windows 10, November 2021 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 10, October 2022 Update"
     checkForOperatingSystemUpdate $test_channel "Windows 11, RTM"
     checkForOperatingSystemUpdate $test_channel "Windows 11, September 2022 Update"
   }

@@ -126,6 +126,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            #region For Shell Argument Handling Use Only
+            public static readonly string WhatIfShellArgumentCount = "whatIfArgc";
+            public static readonly string WhatIfShellArguments = "whatIfArgv";
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////
+
             #region For Shell Support Use Only
             //
             // NOTE: Reserved for use by the interactive shell (this variable

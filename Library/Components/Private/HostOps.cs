@@ -108,6 +108,97 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Data
+        //
+        // NOTE: The total number of outstanding calls into Thread.Sleep in
+        //       this AppDomain.
+        //
+        private static int pendingSleepCount;
+
+        //
+        // NOTE: The total number of outstanding calls into Thread.Yield in
+        //       this AppDomain.
+        //
+        private static int pendingYieldCount;
+
+        //
+        // NOTE: The total number of milliseconds slept in this AppDomain.
+        //
+        private static long totalSleepMilliseconds;
+
+        //
+        // NOTE: The total number of calls to yield in this AppDomain.
+        //
+        private static long totalYieldCount;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Introspection Support Methods
+        //
+        // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
+        //
+        public static void AddInfo(
+            StringPairList list,    /* in, out */
+            DetailFlags detailFlags /* in */
+            )
+        {
+            if (list == null)
+                return;
+
+            bool empty = HostOps.HasEmptyContent(detailFlags);
+            StringPairList localList = new StringPairList();
+            int intValue; /* REUSED */
+            long longValue; /* REUSED */
+
+            intValue = Interlocked.CompareExchange(
+                ref pendingSleepCount, 0, 0);
+
+            if (empty || (intValue != 0))
+            {
+                localList.Add("PendingSleepCount",
+                    intValue.ToString());
+            }
+
+            intValue = Interlocked.CompareExchange(
+                ref pendingYieldCount, 0, 0);
+
+            if (empty || (intValue != 0))
+            {
+                localList.Add("PendingYieldCount",
+                    intValue.ToString());
+            }
+
+            longValue = Interlocked.CompareExchange(
+                ref totalSleepMilliseconds, 0, 0);
+
+            if (empty || (longValue != 0))
+            {
+                localList.Add("TotalSleepMilliseconds",
+                    longValue.ToString());
+            }
+
+            longValue = Interlocked.CompareExchange(
+                ref totalYieldCount, 0, 0);
+
+            if (empty || (longValue != 0))
+            {
+                localList.Add("TotalYieldCount",
+                    longValue.ToString());
+            }
+
+            if (localList.Count > 0)
+            {
+                list.Add((IPair<string>)null);
+                list.Add("Host Information");
+                list.Add((IPair<string>)null);
+                list.Add(localList);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Host Support Methods
         private static IHost TryGet(
             Interpreter interpreter
@@ -504,45 +595,6 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Sleep Support Methods
-        public static ReturnCode ThreadSleepOrMaybeComplain(
-            int milliseconds,
-            bool noComplain
-            ) /* THREAD-SAFE */
-        {
-            ReturnCode code;
-            Result error = null;
-
-            code = ThreadSleep(milliseconds, ref error);
-
-            if (!noComplain && (code != ReturnCode.Ok))
-            {
-#if DEBUG && VERBOSE
-                DebugOps.Complain(code, error);
-#else
-                TraceOps.DebugTrace(String.Format(
-                    "ThreadSleepOrMaybeComplain: code = {0}, error = {1}",
-                    code, FormatOps.WrapOrNull(error)), typeof(HostOps).Name,
-                    TracePriority.ThreadError);
-#endif
-            }
-
-            return code;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static ReturnCode ThreadSleep(
-            int milliseconds
-            ) /* THREAD-SAFE */
-        {
-            Exception exception = null;
-            Result error = null;
-
-            return ThreadSleep(milliseconds, ref exception, ref error);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
         public static ReturnCode ThreadSleep(
             int milliseconds,
             ref Result error
@@ -575,95 +627,75 @@ namespace Eagle._Components.Private
         {
             try
             {
-                Thread.Sleep(milliseconds);
-
+                ThreadSleep(milliseconds); /* throw */
                 return ReturnCode.Ok;
             }
             catch (ThreadAbortException e)
             {
                 Thread.ResetAbort();
 
-                TraceOps.DebugTrace(
-                    e, typeof(HostOps).Name,
-                    TracePriority.ThreadError2);
-
                 exception = e;
                 error = e;
             }
             catch (ThreadInterruptedException e)
             {
-                TraceOps.DebugTrace(
-                    e, typeof(HostOps).Name,
-                    TracePriority.ThreadError2);
-
                 exception = e;
                 error = e;
             }
             catch (Exception e)
             {
-                TraceOps.DebugTrace(
-                    e, typeof(HostOps).Name,
-                    TracePriority.ThreadError);
-
                 exception = e;
                 error = e;
             }
 
             return ReturnCode.Error;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void ThreadSleep(
+            int milliseconds
+            ) /* THREAD-SAFE */
+        {
+            Interlocked.Increment(ref pendingSleepCount);
+
+            try
+            {
+                Thread.Sleep(milliseconds); /* throw */
+
+                /* IGNORED */
+                Interlocked.Add(
+                    ref totalSleepMilliseconds, milliseconds);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref pendingSleepCount);
+            }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Yield Support Methods
-        public static ReturnCode YieldOrMaybeComplain() /* THREAD-SAFE */
-        {
-            ReturnCode code;
-            Result error = null;
-
-            code = Yield(ref error);
-
-            if (code != ReturnCode.Ok)
-            {
-#if DEBUG && VERBOSE
-                DebugOps.Complain(code, error);
-#else
-                TraceOps.DebugTrace(String.Format(
-                    "YieldOrMaybeComplain: code = {0}, error = {1}", code,
-                    FormatOps.WrapOrNull(error)), typeof(HostOps).Name,
-                    TracePriority.ThreadError);
-#endif
-            }
-
-            return code;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static ReturnCode Yield(
+        public static ReturnCode ThreadYield(
             ref Result error
             ) /* THREAD-SAFE */
         {
             Exception exception = null;
 
-            return Yield(ref exception, ref error);
+            return ThreadYield(ref exception, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static ReturnCode Yield(
+        private static ReturnCode ThreadYield(
             ref Exception exception,
             ref Result error
             ) /* THREAD-SAFE */
         {
             try
             {
-#if NET_40
-                Thread.Yield(); /* NOTE: .NET Framework 4.0+ only. */
-#else
-                Thread.Sleep(0);
-#endif
-
+                ThreadYield(); /* throw */
                 return ReturnCode.Ok;
             }
 #if !NET_40
@@ -671,34 +703,51 @@ namespace Eagle._Components.Private
             {
                 Thread.ResetAbort();
 
-                TraceOps.DebugTrace(
-                    e, typeof(HostOps).Name,
-                    TracePriority.ThreadError2);
-
                 exception = e;
                 error = e;
             }
             catch (ThreadInterruptedException e)
             {
-                TraceOps.DebugTrace(
-                    e, typeof(HostOps).Name,
-                    TracePriority.ThreadError2);
-
                 exception = e;
                 error = e;
             }
 #endif
             catch (Exception e)
             {
-                TraceOps.DebugTrace(
-                    e, typeof(HostOps).Name,
-                    TracePriority.ThreadError);
-
                 exception = e;
                 error = e;
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void ThreadYield() /* THREAD-SAFE */
+        {
+            Interlocked.Increment(ref pendingYieldCount);
+
+            try
+            {
+#if NET_40
+                //
+                // NOTE: Available on the .NET Framework 4.0+ only.
+                //
+                Thread.Yield(); /* throw */
+#else
+                //
+                // NOTE: Do something "fake" but useful here.
+                //
+                Thread.Sleep(0); /* throw */
+#endif
+
+                /* IGNORED */
+                Interlocked.Increment(ref totalYieldCount);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref pendingYieldCount);
+            }
         }
         #endregion
 
@@ -916,28 +965,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Yield Support Methods
-        public static ReturnCode YieldOrMaybeComplain(
-            Interpreter interpreter
-            ) /* THREAD-SAFE */
+        public static ReturnCode Yield(
+            Interpreter interpreter,
+            bool strict,
+            ref Result error
+            )
         {
-            ReturnCode code;
-            Result error = null;
-
-            code = Yield(TryGet(interpreter), false, ref error);
-
-            if (code != ReturnCode.Ok)
-            {
-#if DEBUG && VERBOSE
-                DebugOps.Complain(interpreter, code, error);
-#else
-                TraceOps.DebugTrace(String.Format(
-                    "YieldOrMaybeComplain: code = {0}, error = {1}", code,
-                    FormatOps.WrapOrNull(error)), typeof(HostOps).Name,
-                    TracePriority.ThreadError);
-#endif
-            }
-
-            return code;
+            return Yield(
+                TryGet(interpreter), strict, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -968,7 +1003,7 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        return Yield(ref error);
+                        return ThreadYield(ref error);
                     }
                 }
                 catch (Exception e)
@@ -982,7 +1017,7 @@ namespace Eagle._Components.Private
             }
             else
             {
-                return Yield(ref error);
+                return ThreadYield(ref error);
             }
 
             return ReturnCode.Error;

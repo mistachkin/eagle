@@ -1433,6 +1433,21 @@ namespace Eagle._Containers.Public
 
             return list;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static StringList MaybeCreate(
+            IEnumerable<string> collection
+            )
+        {
+            if (collection == null)
+                return null;
+
+            if (collection is StringList)
+                return (StringList)collection;
+
+            return new StringList(collection);
+        }
         #endregion
         #endregion
 

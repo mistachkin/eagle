@@ -4662,4 +4662,507 @@ runTest {test interp-1.40001 {var token w/ResultList value} -setup {
 
 ###############################################################################
 
+runTest {test interp-1.50000 {core shell argument synchronization} -setup {
+  proc haveCommandLineOption { name } {
+    object invoke -flags +NonPublic \
+        Eagle._Tests.Default TestShellInitializeOptions
+
+    if {[lsearch -exact -nocase -- [object invoke \
+        Eagle._Tests.Default TestShellGetOptions "" \
+        null true] [string trimleft $name -]] != -1} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  proc cleanupArgsFiles {} {
+    foreach fileName $::argsFileNames {
+      if {[file exists $fileName]} then {
+        catch {file delete $fileName}
+      }
+    }
+  }
+
+  proc getArgsFileData {} {
+    return [string map [list \
+        %argsFileName% $::argsFileName] $::argsFileData]
+  }
+
+  proc replaceFileNamesWithTokens { value } {
+    return [string map [list \
+        $::scriptFileName %scriptFileName% $::settingsFileName \
+        %settingsFileName% $::argsFileName %argsFileName%] $value]
+  }
+
+  proc reformatProcessedBuilderOutput { value } {
+    #
+    # HACK: Post-process the captured shell arguments to make them
+    #       easier to match against the expected result (which is
+    #       the list of original input arguments in this case).
+    #       In theory, this could be "easier" by using [resub], et
+    #       al; however, that is not strictly necessary.
+    #
+    # "data/showArgv.eagle" ==> "%scriptFileName%", etc (REPLACE)
+    set result [replaceFileNamesWithTokens $value]
+
+    # "error {should not be hit: %argsFileName%}\n" ==> "" (REMOVE)
+    set result [string map \
+        [list [appendArgs $::argsFileData \n] ""] $result]
+
+    # "error {should not be hit: %argsFileName%}" ==> "" (REMOVE)
+    set result [string map [list $::argsFileData ""] $result]
+
+    # "\n" ==> " " (REPLACE)
+    set result [string trim [string map [list \n " "] $result]]
+
+    return $result
+  }
+
+  proc buildCommandLineArgsList { args } {
+    set result [list]
+
+    foreach arg $args {
+      foreach value $arg {
+        switch -exact -- $value {
+          %scriptText% {
+            lappend result $::scriptText
+          }
+          %scriptBase64% {
+            lappend result [base64 encode $::scriptText]
+          }
+          %scriptFileName% {
+            lappend result $::scriptFileName
+          }
+          %settingsFileName% {
+            lappend result $::settingsFileName
+          }
+          %argsFileName% {
+            lappend result $::argsFileName
+          }
+          %testPattern% {
+            lappend result *
+          }
+          %testAll% {
+            lappend result false
+          }
+          %encoding% {
+            lappend result utf-8
+          }
+          %enable% {
+            lappend result false
+          }
+          %plugin% {
+            lappend result Not.Really.A.Plugin
+          }
+          %arguments% {
+            lappend result "some arguments"
+          }
+          %profile% {
+            lappend result Extreme
+          }
+          %runtimeOption% {
+            lappend result fakeRuntimeOption
+          }
+          %scriptTrace% {
+            lappend result [list $::scriptText interp-1.50000]
+          }
+          %library% {
+            lappend result fake/path/to/Eagle1.0
+          }
+          %logFileName% {
+            lappend result fake/path/to/file.log
+          }
+          %directory% {
+            lappend result fake/path/to/directory
+          }
+          %vendorPath% {
+            lappend result fake/vendor/path
+          }
+          default {
+            lappend result $value
+          }
+        }
+      }
+    }
+
+    return $result
+  }
+
+  set baseFileName [getShellExecutableName]
+  set argsFileNames [list "" [appendArgs $baseFileName .args]]
+
+  if {[isDotNetCore]} then {
+    #
+    # HACK: Why is "mscorlib" suffix needed for the "Environment"
+    #       type here?
+    #
+    lappend argsFileNames [appendArgs \
+        $baseFileName . [object invoke "Environment, mscorlib" \
+        UserName] .args]
+
+    lappend argsFileNames [appendArgs \
+        $baseFileName . [object invoke "Environment, mscorlib" \
+        MachineName] .args]
+  } else {
+    lappend argsFileNames [appendArgs \
+        $baseFileName . [object invoke Environment UserName] \
+        .args]
+
+    lappend argsFileNames [appendArgs \
+        $baseFileName . [object invoke Environment MachineName] \
+        .args]
+  }
+} -body {
+  tputs $test_channel \
+      "---- doing test interp-1.50000 which can take an hour to run\n"
+
+  set argsFileData [string trim {
+    -anyInitialize {error {should not be hit: %argsFileName%}}
+  }]
+
+  set scriptText {set ::argv}
+  set scriptFileName [file join $test_data_path showArgv.eagle]
+  set settingsFileName [file join $test_data_path settings.ini]
+
+  set options [list \
+      [list] \
+      [list -anyFile %scriptFileName%] \
+      [list -anyInitialize %scriptText%] \
+      [list -arguments %argsFileName%] \
+      [list -break] \
+      [list -child] \
+      [list -clearTrace] \
+      [list -debug] \
+      [list -encoding %encoding%] \
+      [list -forceInitialize] \
+      [list -initialize] \
+      [list -interactive] \
+      [list -isolated %enable%] \
+      [list -kiosk %enable%] \
+      [list -lockHostArguments] \
+      [list -namespaces %enable%] \
+      [list -noAppSettings] \
+      [list -noArgumentsFileNames] \
+      [list -noExit] \
+      [list -noTrim] \
+      [list -parent] \
+      [list -pause] \
+      [list -pluginArguments %plugin% %arguments%] \
+      [list -postFile %scriptFileName%] \
+      [list -postInitialize %scriptText%] \
+      [list -preFile %scriptFileName%] \
+      [list -preInitialize %scriptText%] \
+      [list -profile %profile%] \
+      [list -quiet %enable%] \
+      [list -reconfigure %settingsFileName%] \
+      [list -recreate] \
+      [list -safe] \
+      [list -scriptTrace %scriptTrace%] \
+      [list -security %enable%] \
+      [list -setCreate %enable%] \
+      [list -setInitialize %enable%] \
+      [list -setLoop %enable%] \
+      [list -setupTrace] \
+      [list -standard] \
+      [list -startupLibrary %library%] \
+      [list -startupLogFile %logFileName%] \
+      [list -startupPreInitialize %scriptText%] \
+      [list -step] \
+      [list -stopOnUnknown %enable%] \
+      [list -testDirectory %directory%] \
+      [list -traceToHost] \
+      [list -vendorPath %vendorPath%]]
+
+  set finalOptions [list \
+      [list] \
+      [list -?] \
+      [list -??] \
+      [list -???] \
+      [list -????] \
+      [list -evaluate %scriptText%] \
+      [list -evaluateEncoded %scriptBase64%] \
+      [list -file %scriptFileName%] \
+      [list -help] \
+      [list -pluginTest %testPattern% %testAll%] \
+      [list -test %testPattern% %testAll%] \
+      [list -version]]
+
+  set count(1) 0; # number of command lines processed.
+  set count(2) 0; # number of progress indicators emitted.
+
+  foreach argsFileName $argsFileNames {
+    cleanupArgsFiles
+
+    if {[string length $argsFileName] > 0} then {
+      writeFile $argsFileName [getArgsFileData]
+    }
+
+    foreach option1 $options {
+      foreach option2 $options {
+        #
+        # NOTE: Skip using the -arguments command line option when
+        #       there is no arguments file name.
+        #
+        if {[string length $argsFileName] == 0} then {
+          if {[lindex $option1 0] eq "-arguments" || \
+              [lindex $option2 0] eq "-arguments"} then {
+            continue
+          }
+        }
+
+        foreach option3 $finalOptions {
+          #
+          # NOTE: Skip using *any* command line option not present
+          #       in the built core library.
+          #
+          if {![haveCommandLineOption [lindex $option1 0]] || \
+              ![haveCommandLineOption [lindex $option2 0]] || \
+              ![haveCommandLineOption [lindex $option3 0]]} then {
+            continue
+          }
+
+          set arguments(in) \
+              [buildCommandLineArgsList $option1 $option2 $option3]
+
+          set arguments(list) [object invoke -create StringList \
+              FromString $arguments(in)]
+
+          object invoke Interpreter.GetActive ExitCode Success
+
+          set result false; set error null
+
+          set code [object invoke -flags +NonPublic \
+              Eagle._Tests.Default TestMayEnterInteractiveLoop \
+              "" $arguments(list) result error]
+
+          incr count(1)
+
+          if {![info exists ::no(showProgress)] && \
+              [haveConstraint interactive] && \
+              [haveConstraint userInteraction]} then {
+            if {$count(1) % 100 == 0} then {
+              host result Continue .; # show something...
+              incr count(2)
+            }
+          }
+
+          if {$code ne "Ok"} then {
+            error [appendArgs \
+                "return code should be Ok: " $arguments(in) \
+                ", error: " [getStringFromObjectHandle $error]]
+          }
+
+          if {[object invoke \
+              Interpreter.GetActive ExitCode] ne "Success"} then {
+            error [appendArgs \
+                "exit code should be success: " $arguments(in)]
+          }
+
+          if {$result && [string length $option3] > 0 && \
+              [lsearch -exact -- $arguments(in) -noExit] == -1} then {
+            error [appendArgs \
+                "processing should not end up interactive: " \
+                $arguments(in)]
+          }
+
+          set arguments(out) [object invoke \
+              Eagle._Tests.Default TestShellGetProcessedBuilder]
+
+          if {[string length $argsFileName] > 0} then {
+            if {[lsearch -exact -- \
+                $arguments(in) -noArgumentsFileNames] == -1 || \
+                [lsearch -exact -- \
+                $arguments(in) -arguments] != -1} then {
+              if {[string first \
+                  [getArgsFileData] $arguments(out)] == -1} then {
+                error [appendArgs \
+                    "arguments file data \"" [getArgsFileData] \
+                    "\" should be present in output arguments: " \
+                    $arguments(in)]
+              }
+            } else {
+              if {[string first \
+                  [getArgsFileData] $arguments(out)] != -1} then {
+                error [appendArgs \
+                    "arguments file data \"" [getArgsFileData] \
+                    "\" should not be present in output arguments: " \
+                    $arguments(in)]
+              }
+            }
+          }
+
+          set arguments(in) \
+              [replaceFileNamesWithTokens $arguments(in)]
+
+          set arguments(out) \
+              [reformatProcessedBuilderOutput $arguments(out)]
+
+          if {$arguments(out) ne $arguments(in)} then {
+            error [appendArgs \
+                "tracked arguments \"" $arguments(out) \
+                "\" do not match input arguments \"" \
+                $arguments(in) \"]
+          }
+        }
+      }
+    }
+  }
+
+  if {$count(2) > 0 && \
+      ![info exists ::no(showProgress)] && \
+      [haveConstraint interactive] && \
+      [haveConstraint userInteraction]} then {
+    host result Continue \n; # done
+  }
+
+  tputs $test_channel [appendArgs \
+      "---- processed " $count(1) " sets of command line arguments\n"]
+} -cleanup {
+  catch {cleanupArgsFiles}
+
+  unset -nocomplain baseFileName argsFileName argsFileNames
+  unset -nocomplain scriptText scriptFileName settingsFileName
+  unset -nocomplain options finalOptions option1 option2 option3
+  unset -nocomplain argsFileData arguments code result error
+  unset -nocomplain count
+
+  rename buildCommandLineArgsList ""
+  rename reformatProcessedBuilderOutput ""
+  rename replaceFileNamesWithTokens ""
+  rename getArgsFileData ""
+  rename cleanupArgsFiles ""
+  rename haveCommandLineOption ""
+} -constraints {eagle command.object compile.SHELL compile.TEST timeIntensive\
+file_showArgv.eagle Eagle._Tests.Default.TestMayEnterInteractiveLoop\
+Eagle._Tests.Default.TestShellGetProcessedArguments} -time true -result {}}
+
+###############################################################################
+
+runTest {test interp-1.60000 {save/restore [pwd] on disposal} -setup {
+  #
+  # NOTE: Save and change [pwd] as it cannot be the same as
+  #       [info binary] for this test to work as intended.
+  #
+  set savedPwd [pwd]; cd [getTemporaryPath]
+
+  set pwd(0) [pwd]
+  set i [interp create]
+} -body {
+  set pwd(1) [pwd]
+
+  interp eval $i {
+    set fileName [file tempname]
+    file cleanup $fileName
+    writeFile $fileName [expr {random()}]
+  }
+
+  set fileName [interp set $i fileName]
+  set exists(1) [file exists $fileName]
+
+  set pwd(2) [pwd]
+  interp delete $i
+  set pwd(3) [pwd]
+
+  set exists(2) [file exists $fileName]
+
+  list $exists(1) $exists(2) \
+      [string equal $pwd(0) $pwd(1)] \
+      [string equal $pwd(1) $pwd(2)] \
+      [string equal $pwd(2) $pwd(3)]
+} -cleanup {
+  catch {interp delete $i}
+  catch {cd $savedPwd}
+
+  unset -nocomplain exists i savedPwd pwd fileName
+} -constraints {eagle} -result {True False True True True}}
+
+###############################################################################
+
+runTest {test interp-1.60001 {kiosk mode use of [object invoke]} -setup {
+  set i [interp create]
+} -body {
+  set code(1) [catch {interp eval $i {
+    object invoke -flags +NonPublic \
+        Interpreter.GetActive SetKioskLock
+  }} result(1)]
+
+  set code(2) [catch {interp eval $i {
+    object invoke Environment Exit 601; # failure
+  }} result(2)]
+
+  set code(3) [catch {interp eval $i {
+    object invoke Environment FailFast fail1
+  }} result(3)]
+
+  if {[haveConstraint framework40] || \
+      [isMono] || [isDotNetCore]} then {
+    set code(4) [catch {interp eval $i {
+      object invoke Environment FailFast fail2 null
+    }} result(4)]
+  } else {
+    set code(4) $code(3); # fake
+    set result(4) $result(3); # fake
+  }
+
+  set code(5) [catch {interp eval $i {
+    object invoke \
+        System.Diagnostics.Process.GetCurrentProcess Close
+  }} result(5)]
+
+  set code(6) [catch {interp eval $i {
+    object invoke \
+        System.Diagnostics.Process.GetCurrentProcess Kill
+  }} result(6)]
+
+  list $code(1) $result(1) $code(2) $result(2) \
+      $code(3) $result(3) $code(4) $result(4) \
+      $code(5) $result(5) $code(6) $result(6)
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain i code result
+} -constraints {eagle compile.SHELL command.object} -result \
+{0 {} 1 {cannot exit when a kiosk} 1 {cannot exit when a kiosk} 1 {cannot exit\
+when a kiosk} 1 {cannot exit when a kiosk} 1 {cannot exit when a kiosk}}}
+
+###############################################################################
+
+runTest {test interp-1.60002 {file search w/NullOnNotFound} -setup {
+  unset -nocomplain flags
+  set flags {Standard +NullOnNotFound}
+} -body {
+  list [string equal [file nativename [info nameofexecutable]] \
+      [object invoke Utility SearchForPath "" [info nameofexecutable] \
+      $flags]] [string equal {} [object invoke Utility SearchForPath "" \
+      [appendArgs not_found_ [format %lX [expr {random()}]] .txt] $flags]]
+} -cleanup {
+  unset -nocomplain flags
+} -constraints {eagle command.object} -result {True True}}
+
+###############################################################################
+
+runTest {test interp-1.60003 {total interpreter count (AppDomain)} -body {
+  set count(1) [object invoke -flags +NonPublic \
+      Eagle._Components.Private.GlobalState CountInterpreters true]
+
+  set i [interp create]
+
+  set count(2) [object invoke -flags +NonPublic \
+      Eagle._Components.Private.GlobalState CountInterpreters true]
+
+  interp delete $i
+
+  set count(3) [object invoke -flags +NonPublic \
+      Eagle._Components.Private.GlobalState CountInterpreters true]
+
+  list [expr {$count(2) == $count(1) + 1}] [expr {$count(3) == $count(1)}]
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain count i
+} -constraints {eagle command.object} -result {True True}}
+
+###############################################################################
+
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

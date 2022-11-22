@@ -15,6 +15,46 @@ using Eagle._Attributes;
 namespace Eagle._Components.Private
 {
     //
+    // WARNING: This enumeration is for use by the WindowOps class only.
+    //          PLEASE DO NOT USE.  It is subject to change at any time.
+    //
+    [ObjectId("509325bb-f329-413f-b201-f1e4dc5e8246")]
+    internal enum UserInteractiveType
+    {
+        False = 0,
+        True = 1,
+
+        No = 0,
+        Yes = 1,
+
+        Off = 0,
+        On = 1,
+
+        Disable = 0,
+        Enable = 1,
+
+        Disabled = 0,
+        Enabled = 1,
+
+        Continue = 2,
+
+        Fallback = 3,
+        Environment = 4,
+        WinForms = 5,
+        Framework = 6,
+
+        Interpreter = 7,
+        InterpreterIfFalse = 8,
+        InterpreterIfTrue = 9,
+
+        MaybeInterpreter = 10,
+        MaybeInterpreterIfFalse = 11,
+        MaybeInterpreterIfTrue = 12
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    //
     // WARNING: This enumeration is for use by the WinTrustOps class only.
     //          PLEASE DO NOT USE.  It is subject to change at any time.
     //
@@ -400,6 +440,7 @@ namespace Eagle._Components.Private
         Trace = 40,                     /* _Plugins.Trace */
         TransferHelper = 41,            /* TransferHelper */
         InterpreterSettings = 42,       /* SettingsOps */
+        TypeDefaultLookup = 43,         /* MarshalOps (System.Type) */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

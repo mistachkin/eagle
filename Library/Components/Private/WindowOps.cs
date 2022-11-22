@@ -111,7 +111,7 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
-        private static bool? forceIsUserInteractive = null;
+        private static bool? overrideIsUserInteractive = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -575,101 +575,228 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static bool IsUserInteractive()
+        public static bool IsUserInteractiveViaEnvironment(
+            ref UserInteractiveType? userInteractive
+            )
         {
-            bool? isUserInteractive = null;
+            //
+            // HACK: Has the user interactivity status been manually
+            //       overridden via the environment?
+            //
+            string value = CommonOps.Environment.GetVariable(
+                EnvVars.UserInteractive);
 
-            return IsUserInteractive(ref isUserInteractive);
+            if (String.IsNullOrEmpty(value))
+                return false;
+
+            object enumValue = EnumOps.TryParse(
+                typeof(UserInteractiveType), value, true, true);
+
+            if (enumValue is UserInteractiveType)
+            {
+                userInteractive = (UserInteractiveType)enumValue;
+                return true;
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static bool IsUserInteractive(
+        private static bool IsUserInteractiveViaOverride(
             ref bool? isUserInteractive
             )
         {
-            isUserInteractive = forceIsUserInteractive;
+            //
+            // HACK: Has the user interactivity status been manually
+            //       overridden via our internal module state?
+            //
+            if (overrideIsUserInteractive != null)
+            {
+                isUserInteractive = overrideIsUserInteractive;
+                return true;
+            }
 
-            if (forceIsUserInteractive != null)
-                return (bool)forceIsUserInteractive;
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if WINFORMS
+        private static bool IsUserInteractiveViaWinForms()
+        {
             return FormOps.IsUserInteractive();
-#else
-            return Environment.UserInteractive;
+        }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsUserInteractiveViaEnvironment()
+        {
+            return Environment.UserInteractive;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsUserInteractiveViaFramework()
+        {
+#if WINFORMS
+            return IsUserInteractiveViaWinForms();
+#else
+            return IsUserInteractiveViaEnvironment();
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsInteractiveViaInterpreter()
+        {
+            //
+            // BUGFIX: The interpreter may have been disposed and we do
+            //         not want to throw any exception; therefore, wrap
+            //         interpreter property access in a try block.
+            //
+            Interpreter interpreter = Interpreter.GetActive();
+
+            if (interpreter == null)
+                return false;
+
+            bool locked = false;
+
+            try
+            {
+                //
+                // TODO: This was a soft lock; however, since there
+                //       is no easy way to communicate a failure to
+                //       our caller, try harder.
+                //
+                interpreter.InternalHardTryLock(
+                    ref locked); /* TRANSACTIONAL */
+
+                if (locked && !interpreter.Disposed)
+                    return interpreter.InternalInteractive; /* throw */
+            }
+            catch
+            {
+                // do nothing.
+            }
+            finally
+            {
+                interpreter.InternalExitLock(
+                    ref locked); /* TRANSACTIONAL */
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static bool IsInteractive()
         {
-#if MONO || MONO_HACKS
-            //
-            // HACK: On Mono, the "*.UserInteractive" properties always
-            //       return false; therefore, just use the "Interactive"
-            //       property of the active interpreter in that case.
-            //
-            if (CommonOps.Runtime.IsMono())
+            UserInteractiveType? userInteractive = null;
+
+            if (IsUserInteractiveViaEnvironment(ref userInteractive))
             {
-                //
-                // HACK: Just in case Mono gets their act together, use
-                //       a faster short-circuit.
-                //
-                bool? isUserInteractive = null;
-
-                if (IsUserInteractive(ref isUserInteractive))
-                    return true;
-
-                //
-                // HACK: Has the user interactivity status been manually
-                //       overridden?  If so, skip everything else.  This
-                //       extra checking is only necessary because a zero
-                //       return value from IsUserInteractive (above) is
-                //       not get honored by this Mono-specific block.
-                //
-                if (isUserInteractive != null)
-                    return (bool)isUserInteractive;
-
-                Interpreter interpreter = Interpreter.GetActive();
-
-                if (interpreter != null)
+                switch ((UserInteractiveType)userInteractive)
                 {
-                    //
-                    // BUGFIX: The interpreter may have been disposed
-                    //         and we do not want to throw an exception;
-                    //         therefore, wrap the interpreter property
-                    //         access in a try block.
-                    //
-                    bool locked = false;
+                    case UserInteractiveType.False:
+                        {
+                            return false;
+                        }
+                    case UserInteractiveType.True:
+                        {
+                            return true;
+                        }
+                    case UserInteractiveType.Continue:
+                        {
+                            break; // do nothing.
+                        }
+                    case UserInteractiveType.Fallback:
+                        {
+                            goto fallback;
+                        }
+                    case UserInteractiveType.Environment:
+                        {
+                            return IsUserInteractiveViaEnvironment();
+                        }
+                    case UserInteractiveType.WinForms:
+                        {
+#if WINFORMS
+                            return IsUserInteractiveViaWinForms();
+#else
+                            break;
+#endif
+                        }
+                    case UserInteractiveType.Framework:
+                        {
+                            return IsUserInteractiveViaFramework();
+                        }
+                    case UserInteractiveType.Interpreter:
+                        {
+                            return IsInteractiveViaInterpreter();
+                        }
+                    case UserInteractiveType.InterpreterIfFalse:
+                        {
+                            if (!IsInteractiveViaInterpreter())
+                                return false;
 
-                    try
-                    {
-                        //
-                        // TODO: This was a "soft" lock; however, since
-                        //       there is no easy way to communicate a
-                        //       failure to our caller, try harder.
-                        //
-                        interpreter.InternalHardTryLock(
-                            ref locked); /* TRANSACTIONAL */
+                            break;
+                        }
+                    case UserInteractiveType.InterpreterIfTrue:
+                        {
+                            if (IsInteractiveViaInterpreter())
+                                return true;
 
-                        if (locked && !interpreter.Disposed)
-                            return interpreter.InternalInteractive; /* throw */
-                    }
-                    catch
-                    {
-                        // do nothing.
-                    }
-                    finally
-                    {
-                        interpreter.InternalExitLock(
-                            ref locked); /* TRANSACTIONAL */
-                    }
+                            break;
+                        }
+                    case UserInteractiveType.MaybeInterpreter:
+                        {
+                            if (CommonOps.Runtime.IsMono())
+                                return IsInteractiveViaInterpreter();
+
+                            break;
+                        }
+                    case UserInteractiveType.MaybeInterpreterIfFalse:
+                        {
+                            if (CommonOps.Runtime.IsMono() &&
+                                !IsInteractiveViaInterpreter())
+                            {
+                                return false;
+                            }
+
+                            break;
+                        }
+                    case UserInteractiveType.MaybeInterpreterIfTrue:
+                        {
+                            if (CommonOps.Runtime.IsMono() &&
+                                IsInteractiveViaInterpreter())
+                            {
+                                return true;
+                            }
+
+                            break;
+                        }
                 }
             }
+
+            bool? isUserInteractive = null;
+
+            if (IsUserInteractiveViaOverride(ref isUserInteractive))
+                return (bool)isUserInteractive;
+
+#if MONO || MONO_HACKS
+            //
+            // HACK: On Mono, the "*.UserInteractive" properties may always
+            //       return false.  It is unknown whether this problem will
+            //       be fixed in future versions of Mono.
+            //
+            if (CommonOps.Runtime.IsMono() && IsInteractiveViaInterpreter())
+                return true;
 #endif
 
-            return IsUserInteractive();
+        fallback:
+
+            return IsUserInteractiveViaFramework();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

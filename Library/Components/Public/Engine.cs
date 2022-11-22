@@ -7645,7 +7645,7 @@ namespace Eagle._Components.Public
             {
                 executeResultLimit = interpreter.InternalExecuteResultLimit;
 
-                if (executeResultLimit != 0)
+                if (executeResultLimit != Limits.Unlimited)
                 {
                     int length = baseLength + extraLength;
 
@@ -7693,7 +7693,7 @@ namespace Eagle._Components.Public
             ref Result result
             )
         {
-            if ((executeResultLimit != 0) && (result != null))
+            if ((executeResultLimit != Limits.Unlimited) && (result != null))
             {
                 int length = result.Length;
 
@@ -7721,7 +7721,7 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
-            if ((executeResultLimit != 0) && (value != null))
+            if ((executeResultLimit != Limits.Unlimited) && (value != null))
             {
                 int length = value.Length;
 

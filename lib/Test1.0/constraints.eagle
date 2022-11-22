@@ -247,7 +247,7 @@ namespace eval ::Eagle {
 
     if {$force || ![info exists ::no(dotNetCoreVersions)]} then {
       return [list [list 2 0] [list 2 1] [list 2 2] [list 3 0] \
-          [list 3 1] [list 5 0] [list 6 0]]
+          [list 3 1] [list 5 0] [list 6 0] [list 7 0]]
     } else {
       return [list]
     }
@@ -6495,12 +6495,14 @@ namespace eval ::Eagle {
             } else {
               #
               # NOTE: Is the "May 2020 Update" -OR- "October 2020 Update"
-              #       installed?
+              #       -OR- "May 2021 Update" installed?
               #
               if {[haveTclPlatformOsExtraUpdateName \
                       "Windows 10, May 2020 Update"] || \
                   [haveTclPlatformOsExtraUpdateName \
-                      "Windows 10, October 2020 Update"]} then {
+                      "Windows 10, October 2020 Update"] || \
+                  [haveTclPlatformOsExtraUpdateName \
+                      "Windows 10, May 2021 Update"]} then {
                 #
                 # NOTE: Return the "special" value.
                 #
@@ -6532,6 +6534,37 @@ namespace eval ::Eagle {
     }
 
     proc getFrameworkSetup481Value {} {
+      #
+      # NOTE: Check if we are running on Windows.
+      #
+      if {[isWindows]} then {
+        if {[isOsProductType missing] || [isOsProductType client]} then {
+          #
+          # NOTE: Is this Windows 11 (NT v10.0)?
+          #
+          # BUGBUG: Is exact matching correct here?
+          #
+          if {[info exists ::tcl_platform(osVersion)] && \
+              $::tcl_platform(osVersion) == 10.0} then {
+            #
+            # NOTE: Is this Windows 11 (NT v10.0)?
+            #
+            if {[isOsWindows11]} then {
+              #
+              # NOTE: Is the "September 2022 Update" installed?
+              #
+              if {[haveTclPlatformOsExtraUpdateName \
+                      "Windows 11, September 2022 Update"]} then {
+                #
+                # NOTE: Return the "special" value.
+                #
+                return 533320; # BUGBUG: September 2022 Update only?
+              }
+            }
+          }
+        }
+      }
+
       #
       # NOTE: Return the "normal" value.
       #

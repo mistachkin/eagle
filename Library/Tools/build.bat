@@ -76,6 +76,19 @@ SET VSWHERE_EXE=%VSWHERE_EXE:\\=\%
 
 %_VECHO% VsWhereExe = '%VSWHERE_EXE%'
 
+IF DEFINED MAXCPUCOUNT (
+  %_AECHO% Maximum CPU count option already defined.
+) ELSE (
+  IF DEFINED NOMAXCPUCOUNT (
+    %_AECHO% Maximum CPU count option use disabled.
+  ) ELSE (
+    %_AECHO% Maximum CPU count option not set, using default...
+    SET MAXCPUCOUNT=/maxCpuCount:1
+  )
+)
+
+%_VECHO% MaxCpuCount = '%MAXCPUCOUNT%'
+
 REM ****************************************************************************
 REM ********************* .NET Framework Version Overrides *********************
 REM ****************************************************************************
@@ -715,6 +728,7 @@ IF NOT DEFINED RESTORE_SUBCOMMANDS (
 %_VECHO% MsBuild = '%MSBUILD%'
 %_VECHO% BuildSubCommands = '%BUILD_SUBCOMMANDS%'
 %_VECHO% RestoreSubCommands = '%RESTORE_SUBCOMMANDS%'
+%_VECHO% MaxCpuCount = '%MAXCPUCOUNT%'
 
 IF DEFINED USEPACKAGERESTORE (
   %_CECHO% "%DOTNET%" %RESTORE_SUBCOMMANDS% "%SOLUTION%"
@@ -726,8 +740,8 @@ IF DEFINED USEPACKAGERESTORE (
   )
 )
 
-%_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" "/target:%TARGET%" "/property:Configuration=%CONFIGURATION%" "/property:Platform=%PLATFORM%" %LOGGING% /property:BuildType=%ARGS%
-%__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" "/target:%TARGET%" "/property:Configuration=%CONFIGURATION%" "/property:Platform=%PLATFORM%" %LOGGING% /property:BuildType=%ARGS%
+%_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%CONFIGURATION%" "/property:Platform=%PLATFORM%" %LOGGING% /property:BuildType=%ARGS%
+%__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%SOLUTION%" %MAXCPUCOUNT% "/target:%TARGET%" "/property:Configuration=%CONFIGURATION%" "/property:Platform=%PLATFORM%" %LOGGING% /property:BuildType=%ARGS%
 
 IF ERRORLEVEL 1 (
   ECHO Build failed.
@@ -735,8 +749,8 @@ IF ERRORLEVEL 1 (
 )
 
 IF DEFINED EXTRA_SOLUTION (
-  %_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%EXTRA_SOLUTION%" "/target:%EXTRA_TARGET%" "/property:Configuration=%EXTRA_CONFIGURATION%" "/property:Platform=%EXTRA_PLATFORM%" %LOGGING% /property:BuildType=%ARGS%
-  %__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%EXTRA_SOLUTION%" "/target:%EXTRA_TARGET%" "/property:Configuration=%EXTRA_CONFIGURATION%" "/property:Platform=%EXTRA_PLATFORM%" %LOGGING% /property:BuildType=%ARGS%
+  %_CECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%EXTRA_SOLUTION%" %MAXCPUCOUNT% "/target:%EXTRA_TARGET%" "/property:Configuration=%EXTRA_CONFIGURATION%" "/property:Platform=%EXTRA_PLATFORM%" %LOGGING% /property:BuildType=%ARGS%
+  %__ECHO% "%MSBUILD%" %BUILD_SUBCOMMANDS% "%EXTRA_SOLUTION%" %MAXCPUCOUNT% "/target:%EXTRA_TARGET%" "/property:Configuration=%EXTRA_CONFIGURATION%" "/property:Platform=%EXTRA_PLATFORM%" %LOGGING% /property:BuildType=%ARGS%
 
   IF ERRORLEVEL 1 (
     ECHO Extra build failed.
@@ -801,6 +815,19 @@ REM ****************************************************************************
   %_AECHO% Using 32-bit version of MSBuild from Microsoft.NET...
   SET FRAMEWORKDIR1=%windir%\Microsoft.NET\Framework\%FRAMEWORKVER%
   CALL :fn_VerifyFrameworkDir
+  REM
+  REM HACK: If MSBuild in the .NET Framework directory was verified
+  REM       -AND- the .NET Framework version is 2.0, then we cannot
+  REM       use the "/maxCpuCount" command line option for MSBuild,
+  REM       because it was introduced in the version of MSBuild that
+  REM       shipped with the .NET Framework version 3.5.
+  REM
+  IF DEFINED FRAMEWORKDIR1 (
+    IF /I "%FRAMEWORKVER%" == "v2.0.50727" (
+      %_AECHO% Maximum CPU count option is unavailable.
+      CALL :fn_UnsetVariable MAXCPUCOUNT
+    )
+  )
   GOTO :EOF
 
 :fn_VerifyFrameworkDir

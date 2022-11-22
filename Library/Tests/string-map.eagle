@@ -2030,6 +2030,7 @@ runTest {test encoding-100.1 {encoding names (built-in)} -setup {
 } -body {
   list [expr {[haveConstraint dotNetCore50] || \
               [haveConstraint dotNetCore60] || \
+              [haveConstraint dotNetCore70] || \
           [lsearch -exact -- $names utf-7] != -1}] \
       [expr {[lsearch -exact -- $names utf-8] != -1}] \
       [expr {[lsearch -exact -- $names utf-16] != -1}] \
@@ -2191,7 +2192,7 @@ B0F5481AF150291BC602]\}"}
 
 ###############################################################################
 
-runTest {test hash-1.1.2 {hash algorithms (.NET Core)} -body {
+runTest {test hash-1.1.2 {hash algorithms (.NET Core before 7)} -body {
   set text "random processes do not produce information"
   set result [list]
 
@@ -2216,8 +2217,8 @@ runTest {test hash-1.1.2 {hash algorithms (.NET Core)} -body {
   lsort $result
 } -cleanup {
   unset -nocomplain name type pair result text
-} -constraints {eagle dotNetCore} -result "\{mac HMACMD5\
-55CD9EE051258D537966F6914B2907CB\} \{mac HMACSHA1\
+} -constraints [fixConstraints {eagle dotNetCore !dotNetCore70}] -result \
+"\{mac HMACMD5 55CD9EE051258D537966F6914B2907CB\} \{mac HMACSHA1\
 457B0A2E4834FF8AA0F9BFAD83F7CA51EA9272B5\} \{mac HMACSHA256\
 F4BB7209D8015710EC185E78F36C26B143DE6E891D42B0C83038BBA7EB65FE06\} \{mac\
 HMACSHA384 [appendArgs F0253DF25F461FC75D997FF45DAEEDCB5242E7B5D94ECD76608EE7A \
@@ -2247,6 +2248,58 @@ System.Security.Cryptography.SHA384 [appendArgs 817579DE79219516CED0CEFEC8E894 \
 System.Security.Cryptography.SHA512 [appendArgs 0B2D9383516B2170FB1CFE7E04DAE6 \
 BAD3DD26D31D923F17FDA211950DF4F60408E58986E3746C531D14BF1897023424D3AC68ACBE47 \
 B0F5481AF150291BC602]\}"}
+
+###############################################################################
+
+runTest {test hash-1.1.3 {hash algorithms (.NET Core after 7)} -body {
+  set text "random processes do not produce information"
+  set result [list]
+
+  foreach pair [lsort -unique [hash list]] {
+    set type [lindex $pair 0]
+    set name [lindex $pair 1]
+
+    if {[string match -nocase -- http:* $name] || \
+        [string match -nocase -- https:* $name]} then {
+      continue
+    }
+
+    if {$type eq "normal"} then {
+      lappend result [list $type $name \
+          [hash $type $name $text]]
+    } else {
+      lappend result [list $type $name \
+          [hash $type $name $text F96D8B9D49C6F03D]]
+    }
+  }
+
+  lsort $result
+} -cleanup {
+  unset -nocomplain name type pair result text
+} -constraints {eagle dotNetCore dotNetCore70} -result "\{mac HMACMD5\
+55CD9EE051258D537966F6914B2907CB\} \{mac HMACSHA1\
+457B0A2E4834FF8AA0F9BFAD83F7CA51EA9272B5\} \{mac HMACSHA256\
+F4BB7209D8015710EC185E78F36C26B143DE6E891D42B0C83038BBA7EB65FE06\} \{mac\
+HMACSHA384 [appendArgs F0253DF25F461FC75D997FF45DAEEDCB5242E7B5D94ECD76608EE7A \
+6D6B0701AF147E5CF1D5C9A0A2DF0CCC379432C6B]\} \{mac HMACSHA512 [appendArgs 089B \
+E78A5213E4C359CAC895E4187F5127B4E7B336F5440EC2DC907C3B8A92C95411FF1AE0A27E601C \
+BF7B47BA53DB7D5CB7FB316D2CB4930922AB7A0AA19819]\} \{mac\
+System.Security.Cryptography.HMACMD5 55CD9EE051258D537966F6914B2907CB\} \{mac\
+System.Security.Cryptography.HMACSHA1 [appendArgs \
+457B0A2E4834FF8AA0F9BFAD83F7CA51EA9272B5]\} \{mac\
+System.Security.Cryptography.HMACSHA256\
+F4BB7209D8015710EC185E78F36C26B143DE6E891D42B0C83038BBA7EB65FE06\} \{mac\
+System.Security.Cryptography.HMACSHA384 [appendArgs F0253DF25F461FC75D997FF45D \
+AEEDCB5242E7B5D94ECD76608EE7A6D6B0701AF147E5CF1D5C9A0A2DF0CCC379432C6B]\} \{mac\
+System.Security.Cryptography.HMACSHA512 [appendArgs 089BE78A5213E4C359CAC895E4 \
+187F5127B4E7B336F5440EC2DC907C3B8A92C95411FF1AE0A27E601CBF7B47BA53DB7D5CB7FB31 \
+6D2CB4930922AB7A0AA19819]\} \{normal MD5 4B002D94863407B17C9C9674F92B83D2\}\
+\{normal SHA1 9140A7C57CF2517AE1CA10742CEAA50C10D87DD3\} \{normal SHA256\
+555840126C25C86F319ECFDCDB9C41D2110AB33591FF2F18FF57A29E6C1FAB8E\} \{normal\
+SHA384 [appendArgs 817579DE79219516CED0CEFEC8E8943B06D6B01BE196C891A935073AF67 \
+7A4BC3782304A76641AA6BF098CE792A93533]\} \{normal SHA512 [appendArgs 0B2D93835 \
+16B2170FB1CFE7E04DAE6BAD3DD26D31D923F17FDA211950DF4F60408E58986E3746C531D14BF1 \
+897023424D3AC68ACBE47B0F5481AF150291BC602]\}"}
 
 ###############################################################################
 

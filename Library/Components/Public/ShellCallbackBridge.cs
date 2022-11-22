@@ -65,7 +65,7 @@ namespace Eagle._Components.Public
             Interpreter interpreter,
             IInteractiveHost interactiveHost,
             IClientData clientData,
-            int count,
+            int switchCount,
             string arg,
             bool whatIf,
             ref IList<string> argv,
@@ -79,7 +79,7 @@ namespace Eagle._Components.Public
             }
 
             return callback.UnknownArgument(
-                interpreter, interactiveHost, clientData, count, arg,
+                interpreter, interactiveHost, clientData, switchCount, arg,
                 whatIf, ref argv, ref result);
         }
 

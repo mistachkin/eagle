@@ -1434,8 +1434,11 @@ namespace Eagle._Components.Private
                                         (index > 0) ||
                                         !IsSame(frame, skipFrame))
                                     {
-                                        if ((limit == 0) || (newCallStack.Count < limit))
+                                        if ((limit == Limits.Unlimited) ||
+                                            (newCallStack.Count < limit))
+                                        {
                                             newCallStack.Add(frame);
+                                        }
                                     }
                                 }
 
@@ -1482,8 +1485,11 @@ namespace Eagle._Components.Private
                                         if (newCallStack == null)
                                             newCallStack = new CallStack(false);
 
-                                        if ((limit == 0) || (newCallStack.Count < limit))
+                                        if ((limit == Limits.Unlimited) ||
+                                            (newCallStack.Count < limit))
+                                        {
                                             newCallStack.Add(frame);
+                                        }
                                     }
                                 }
                             }

@@ -234,6 +234,7 @@ https://eagle.to/</URL>
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="script.eagle" url="../../Tests/data/script.eagle" id="071bb374-1572-44e0-9a90-c24338af96cf" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="settings.ini" url="../../Tests/data/settings.ini" id="affb48d7-9b5e-4c0b-adba-538a6d40197a" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="settings.xml" url="../../Tests/data/settings.xml" id="730e9b55-1cf3-46b3-884f-e0e9d0ad088b" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="showArgv.eagle" url="../../Tests/data/showArgv.eagle" id="7ef78385-1782-438d-964b-9b0105a3b24a" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="source.eagle" url="../../Tests/data/source.eagle" id="364f798a-4ff0-4069-9699-1d7eae98f13c" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="substitute.eagle" url="../../Tests/data/substitute.eagle" id="07109417-26d4-4f21-a5de-43b38e3e96be" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="tcl_unload.tcl" url="../../Tests/data/tcl_unload.tcl" id="0a76205c-af34-42e2-9ac1-0cd014fb352a" />

@@ -96,6 +96,9 @@ namespace Eagle._Components.Private
 
         private const int Windows10November2021UpdateBuildNumber = 19044;
         private const string Windows10November2021UpdateName = "Windows 10, November 2021 Update";
+
+        private const int Windows10October2022UpdateBuildNumber = 19045;
+        private const string Windows10October2022UpdateName = "Windows 10, October 2022 Update";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -1908,6 +1911,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool IsWindows10October2022Update()
+        {
+            Version osVersion = null;
+
+            if (!IsWindows10OrHigher(ref osVersion))
+                return false;
+
+            //
+            // BUGBUG: The language in MSDN seems to strongly imply that
+            //         the build number must be an exact match for the
+            //         associated .NET Framework version to be inclued
+            //         with the operating system; therefore, use the
+            //         "equal to" operator here, not the "greater than
+            //         or equal to" operator.
+            //
+            if ((osVersion != null) &&
+                (osVersion.Build == Windows10October2022UpdateBuildNumber))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IsWindows11()
         {
             Version osVersion = null; /* NOT USED */
@@ -1922,6 +1951,32 @@ namespace Eagle._Components.Private
             Version osVersion = null; /* NOT USED */
 
             return IsWindows11OrHigher(ref osVersion);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsWindows11September2022Update()
+        {
+            Version osVersion = null;
+
+            if (!IsWindows11OrHigher(ref osVersion))
+                return false;
+
+            //
+            // BUGBUG: The language in MSDN seems to strongly imply that
+            //         the build number must be an exact match for the
+            //         associated .NET Framework version to be inclued
+            //         with the operating system; therefore, use the
+            //         "equal to" operator here, not the "greater than
+            //         or equal to" operator.
+            //
+            if ((osVersion != null) &&
+                (osVersion.Build == Windows11September2022UpdateBuildNumber))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2487,6 +2542,8 @@ namespace Eagle._Components.Private
                         return Windows10May2021UpdateName;
                     case Windows10November2021UpdateBuildNumber:
                         return Windows10November2021UpdateName;
+                    case Windows10October2022UpdateBuildNumber:
+                        return Windows10October2022UpdateName;
                 }
             }
 

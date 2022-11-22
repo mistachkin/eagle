@@ -281,6 +281,58 @@ namespace Eagle._Components.Shared
                 left, leftIndex, right, rightIndex, length,
                 SystemNoCaseComparisonType) == 0;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SystemStartsWith(
+            string value,
+            string prefix
+            )
+        {
+            if ((value == null) || (prefix == null))
+                return false;
+
+            return value.StartsWith(prefix, SystemComparisonType);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SystemNoCaseStartsWith(
+            string value,
+            string prefix
+            )
+        {
+            if ((value == null) || (prefix == null))
+                return false;
+
+            return value.StartsWith(prefix, SystemNoCaseComparisonType);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SystemEndsWith(
+            string value,
+            string suffix
+            )
+        {
+            if ((value == null) || (suffix == null))
+                return false;
+
+            return value.EndsWith(suffix, SystemComparisonType);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SystemNoCaseEndsWith(
+            string value,
+            string suffix
+            )
+        {
+            if ((value == null) || (suffix == null))
+                return false;
+
+            return value.EndsWith(suffix, SystemNoCaseComparisonType);
+        }
         #endregion
     }
 }

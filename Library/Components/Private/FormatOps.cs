@@ -69,11 +69,13 @@ namespace Eagle._Components.Private
     internal static class FormatOps
     {
         #region Private Constants
+        private const string DefaultImageRuntimeVersion = "v4.0.30319";
         private static readonly string TracePriorityFormat = "X2";
 
         private const string RuntimeSeparator = " - ";
         private const string ConfigurationSeparator = " - ";
 
+        private static readonly string NoPlatformName = "none";
         private static readonly string UnknownTypeName = "unknown";
 
         private static readonly string DisplayNoType = "<noType>";
@@ -89,10 +91,7 @@ namespace Eagle._Components.Private
         private static readonly string DisplayTypeMismatch = "<typeMismatch>";
 #endif
 
-#if POLICY_TRACE
         internal static readonly string DisplayObject = "<object>";
-#endif
-
         private static readonly string DisplayNullString = "<nullString>";
         private static readonly string DisplayEmptyString = "<emptyString>";
         internal static readonly string DisplayEmpty = "<empty>";
@@ -2500,6 +2499,7 @@ namespace Eagle._Components.Private
             return String.Format("{0} {1}", length,
                 (length == 1) ? "byte" : "bytes");
         }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2518,7 +2518,6 @@ namespace Eagle._Components.Private
             return String.Format("{0} {1}", length,
                 (length == 1) ? "character" : "characters");
         }
-#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -4251,11 +4250,75 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string FullPlatformName(
+            Assembly assembly
+            )
+        {
+            StringList list = new StringList();
+
+            string[] values = {
+                RuntimeOps.GetAssemblyTextOrSuffix(assembly),
+                ShortImageOrRuntimeVersion(
+                    assembly, CommonOps.Runtime.IsMono(),
+                    CommonOps.Runtime.IsDotNetCore()),
+                AttributeOps.GetAssemblyConfiguration(assembly),
+                PlatformOps.GetPlatformName(),
+                String.Format("{0}-bit",
+                    PlatformOps.GetProcessBits().ToString()),
+                PlatformOps.GetMachineName()
+            };
+
+            foreach (string value in values)
+            {
+                if (value == null)
+                {
+                    list.Add(NoPlatformName);
+                    continue;
+                }
+
+                list.Add(value);
+            }
+
+            return list.ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string ShortImageOrRuntimeVersion(
+            Assembly assembly,
+            bool treatAsMono,
+            bool treatAsDotNetCore
+            )
+        {
+            //
+            // HACK: The image runtime version is mostly useless for the
+            //       (modern) Mono and/or .NET Core runtimes as it will
+            //       (basically) always be set to the value "v4.0.30319"
+            //       for backward compatibility with the .NET Framework
+            //       4.x.
+            //
+            string version = AssemblyOps.GetImageRuntimeVersion(assembly);
+
+            if (SharedStringOps.SystemEquals(
+                    version, DefaultImageRuntimeVersion) &&
+                (treatAsMono || treatAsDotNetCore))
+            {
+                return ShortRuntimeVersion(
+                    CommonOps.Runtime.GetRuntimeVersion());
+            }
+            else
+            {
+                return ShortImageRuntimeVersion(version);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static string ShortRuntimeName()
         {
             if (CommonOps.Runtime.IsDotNetCore())
             {
-                if (CommonOps.Runtime.IsDotNetCore5xOr6x())
+                if (CommonOps.Runtime.IsDotNetCore5xOrHigher())
                     return "NET"; // .NET 5.0, etc.
                 else
                     return "Core"; // CoreCLR 2.x, 3.x
@@ -5255,7 +5318,7 @@ namespace Eagle._Components.Private
                 TraceDateTime((DateTime)dateTime, false) : DisplayNull,
                 (priority != null) ? HexadecimalPrefix +
                 EnumOps.ToUIntOrULong(priority.Value).ToString(
-                TracePriorityFormat) : DisplayNull,
+                    TracePriorityFormat) : DisplayNull,
 #if WEB && !NET_STANDARD_20
                 (serverName != null) ? serverName : DisplayNull,
 #else

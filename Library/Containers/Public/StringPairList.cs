@@ -802,6 +802,21 @@ namespace Eagle._Containers.Public
 
             return list2;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static StringPairList MaybeCreate(
+            IEnumerable<IPair<string>> collection
+            )
+        {
+            if (collection == null)
+                return null;
+
+            if (collection is StringPairList)
+                return (StringPairList)collection;
+
+            return new StringPairList(collection);
+        }
         #endregion
         #endregion
 

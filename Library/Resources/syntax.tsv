@@ -501,7 +501,7 @@ object untype	object untype ?options?
 object verifyall	object verifyall ?options?
 open	open fileName ?access? ?permissions? ?type? ?options?
 package forget	package forget ?package package ...?
-package ifneeded	package ifneeded package version ?script?
+package ifneeded	package ifneeded package version ?script? ?flags?
 package indexes	package indexes ?pattern?
 package info	package info name
 package loaded	package loaded ?pattern?

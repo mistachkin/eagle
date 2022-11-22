@@ -1,6 +1,70 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
+BUGFIX: fix and/or address Coverity issues from #283423 to #299487.
+
+BUGFIX: correct argument synchronization in core shell support, including in
+        what-if mode handling, arguments file handling, and the -reconfigure
+        command line option handling, et al.
+
+BUGFIX: prevent extended box characters from being used when the encoding being
+        used for console output does not represent them in a single byte.
+
+BUGFIX: fix typo in CountInterpreters that prevented the DisableCreation method
+        from working correctly.
+
+BUGFIX: use save/restore semantics for the current directory when cleaning up
+        temporary files during interpreter disposal.
+
+BUGFIX: properly unhook console Ctrl-C handler(s) when running on the .NET 5
+        and/or .NET 6 runtimes.  also, codify (previously known?) workaround
+        to unhook console Ctrl-C handler when running on the .NET Framework
+        2.0.
+
+BUGFIX: stop leaking assembly object reference in [compileViaDotNetCoreCSharp]
+        core script library procedure.
+
+BUGFIX: add preliminary support for the .NET 7.0 runtime.
+
+BUGFIX: various fixes to version detection for Windows 10 and/or 11.
+
+BUGFIX: also remove extended and/or Unicode characters from content emitted by
+        the default interpreter host in boxed output mode.
+
+BUGFIX: *BREAKING CHANGE* created child interpreters may not create children
+        themselves if the parent interpreter has a child limit.
+
+REFACTOR: when an interpreter is in kiosk mode, prevent [object invoke] from
+          invoking methods that are well-known to exit the process.
+
+REFACTOR: major refactoring of the TraceOps class.  simplify handling of trace
+          format string and index management.  centralize and simplfy handling
+          of all named trace format strings.
+
+REFACTOR: *BREAKING CHANGE* rename Strict file search flag to NullOnNotFound.
+
+REFACTOR: *BREAKING CHANGE* introduce whatIfArgc / whatIfArgv global variables,
+          which are used (automatically) during core interactive shell argument
+          processing for script argument synchronization in what-if mode.
+
+FEATURE: add TraceFormat environment variable, which can be used to override
+         message formatting, both directly or indirectly.
+
+FEATURE: make it possible to skip package indexing for specific files and/or
+         directories.
+
+FEATURE: add MaybeCreate static method to the StringList and StringPairList
+         classes.
+
+FEATURE: add RobustNormalizePath, GetFullPlatformName, RobustNormalizePath,
+         GetPackageRelativeFileName, HashFile, and GetCurrentProcessFileName
+         methods to the Utility class.
+
+FEATURE: add NoThreadAbort interpreter flag and script data flag.  make sure it
+         is used when creating interpreters for use by Harpy and its SDK.
+
+************************* Beta 1.0.8251.52012 RELEASE *************************
+
 BUGFIX: fix and/or address Coverity issues from #277240 to #282887.
 
 BUGFIX: remove incorrect and superfluous checking for the -options option from

@@ -12,6 +12,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -287,6 +288,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static readonly object syncRoot = new object();
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private const char ParameterDelimiter = Characters.OpenBracket;
         private static readonly string TypeDelimiterString = Type.Delimiter.ToString();
 
@@ -362,6 +367,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private const string ResolveAssemblySearchOption = "ResolveAssemblySearch";
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if SHELL
+        private const string ExitMethodName = "Exit";
+        private const string FailFastMethodName = "FailFast";
+
+        private const string CloseMethodName = "Close";
+        private const string KillMethodName = "Kill";
+
+        private static MethodInfo ExitMethodInfo;
+        private static MethodInfo FailFast1MethodInfo;
+
+#if NET_40
+        private static MethodInfo FailFast2MethodInfo;
+#endif
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1305,6 +1327,187 @@ namespace Eagle._Components.Private
         }
 #endif
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if SHELL
+        private static MethodInfoList FindPublicMethods(
+            Type type,                 /* in */
+            string methodName,         /* in */
+            BindingFlags? bindingFlags /* in */
+            )
+        {
+            if (type == null)
+                return null;
+
+            MethodInfo[] methodInfo = null;
+
+            try
+            {
+                methodInfo = (bindingFlags != null) ?
+                    type.GetMethods((BindingFlags)bindingFlags) :
+                    type.GetMethods();
+
+                if (methodInfo == null)
+                    return null;
+            }
+            catch
+            {
+                return null;
+            }
+
+            MethodInfoList result = new MethodInfoList();
+            int length = methodInfo.Length;
+
+            for (int index = 0; index < length; index++)
+            {
+                if ((methodName == null) ||
+                    SharedStringOps.SystemEquals(
+                        methodInfo[index].Name, methodName))
+                {
+                    result.Add(methodInfo[index]);
+                }
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void Initialize(
+            bool force /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (force || (ExitMethodInfo == null))
+                {
+                    ExitMethodInfo = typeof(Environment).GetMethod(
+                        ExitMethodName);
+                }
+
+                if (force || (FailFast1MethodInfo == null)
+#if NET_40
+                        || (FailFast2MethodInfo == null)
+#endif
+                    )
+                {
+                    MethodInfoList methodInfoList = FindPublicMethods(
+                        typeof(Environment), FailFastMethodName, null);
+
+                    if (methodInfoList != null)
+                    {
+                        int index = 0;
+
+                        if ((force || (FailFast1MethodInfo == null)) &&
+                            (methodInfoList.Count > index))
+                        {
+                            FailFast1MethodInfo = methodInfoList[index++];
+                        }
+
+#if NET_40
+                        if ((force || (FailFast2MethodInfo == null)) &&
+                            (methodInfoList.Count > index))
+                        {
+                            FailFast2MethodInfo = methodInfoList[index++];
+                        }
+#endif
+                    }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsSameTypeForKiosk(
+            Type type1,
+            Type type2
+            )
+        {
+            if (IsSameType(type1, type2))
+                return true;
+
+            //
+            // HACK: Apparently, this level of hackery is needed
+            //       for the .NET Core (and .NET) runtime.
+            //
+            if (IsSameTypeName(type1, type2))
+                return true;
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsForbiddenForKiosk(
+            MethodInfo methodInfo,
+            object @object
+            )
+        {
+            if (methodInfo == null)
+                return false;
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if ((ExitMethodInfo != null) &&
+                    Object.ReferenceEquals(methodInfo, ExitMethodInfo))
+                {
+                    return true;
+                }
+
+                if ((FailFast1MethodInfo != null) &&
+                    Object.ReferenceEquals(methodInfo, FailFast1MethodInfo))
+                {
+                    return true;
+                }
+
+#if NET_40
+                if ((FailFast2MethodInfo != null) &&
+                    Object.ReferenceEquals(methodInfo, FailFast2MethodInfo))
+                {
+                    return true;
+                }
+#endif
+            }
+
+            Type type = methodInfo.DeclaringType;
+            string methodName = methodInfo.Name;
+
+            if (IsSameTypeForKiosk(type, typeof(Environment)))
+            {
+                if (SharedStringOps.SystemEquals(
+                        methodName, ExitMethodName))
+                {
+                    return true;
+                }
+
+                if (SharedStringOps.SystemEquals(
+                        methodName, FailFastMethodName))
+                {
+                    return true;
+                }
+            }
+            else if (IsSameTypeForKiosk(type, typeof(Process)))
+            {
+                if (!ProcessOps.IsCurrent(@object as Process))
+                    return false;
+
+                if (SharedStringOps.SystemEquals(
+                        methodName, CloseMethodName))
+                {
+                    return true;
+                }
+
+                if (SharedStringOps.SystemEquals(
+                        methodName, KillMethodName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -4406,7 +4609,7 @@ namespace Eagle._Components.Private
 
                     MethodInfo methodInfo = null;
 
-                    if (CommonOps.Runtime.IsFramework20()) // NOTE: Assumes !IsMono.
+                    if (CommonOps.Runtime.IsFramework20()) // BUGBUG: Assumes !IsMono and !IsDotNetCore.
                     {
                         //
                         // NOTE: The .NET Framework 2.0 and 3.5 define the method
@@ -4416,7 +4619,7 @@ namespace Eagle._Components.Private
                         methodInfo = typeof(Assembly).GetMethod(
                             EnumerateCacheMethodName, bindingFlags);
                     }
-                    else if (CommonOps.Runtime.IsFramework40()) // NOTE: Assumes !IsMono.
+                    else if (CommonOps.Runtime.IsFramework40()) // BUGBUG: Assumes !IsMono and !IsDotNetCore.
                     {
                         //
                         // NOTE: The .NET Framework 4.0 defines the method we need

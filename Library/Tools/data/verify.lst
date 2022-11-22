@@ -1135,6 +1135,7 @@ set eagle_manifests(source) {
   Eagle/Library/Tests/data/script.eagle
   Eagle/Library/Tests/data/settings.ini
   Eagle/Library/Tests/data/settings.xml
+  Eagle/Library/Tests/data/showArgv.eagle
   Eagle/Library/Tests/data/source.eagle
   Eagle/Library/Tests/data/substitute.eagle
   Eagle/Library/Tests/data/tcl_unload.tcl
@@ -2008,6 +2009,7 @@ set eagle_manifests(binaryTests) {
   Eagle/Tests/data/script.eagle
   Eagle/Tests/data/settings.ini
   Eagle/Tests/data/settings.xml
+  Eagle/Tests/data/showArgv.eagle
   Eagle/Tests/data/source.eagle
   Eagle/Tests/data/substitute.eagle
   Eagle/Tests/data/tcl_unload.tcl
@@ -2406,6 +2408,7 @@ set eagle_manifests(setupFull) {
   {{app}\tests\data\script.eagle}
   {{app}\tests\data\settings.ini}
   {{app}\tests\data\settings.xml}
+  {{app}\tests\data\showArgv.eagle}
   {{app}\tests\data\source.eagle}
   {{app}\tests\data\substitute.eagle}
   {{app}\tests\data\tcl_unload.tcl}

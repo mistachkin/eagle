@@ -587,19 +587,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void CommitToArguments(
-            IList<string> newArgv,
-            int count,
-            bool append,
-            ref IList<string> argv
+            IList<string> newArgv, /* in: OPTIONAL */
+            int popCount,          /* in */
+            bool append,           /* in */
+            ref IList<string> argv /* in, out */
             )
         {
             //
-            // NOTE: *WARNING* This assumes that the arguments that need
-            //       to be removed are at the start of the list provided by
-            //       the caller; the ShellMainCore method can guarantee that
-            //       will be the case and other callers should do so as well.
+            // NOTE: *WARNING* This assumes the arguments that need to be
+            //       removed are at the start of the list provided by the
+            //       caller.
             //
-            while ((argv != null) && (count-- > 0))
+            while ((argv != null) && (popCount-- > 0))
                 GenericOps<string>.PopFirstArgument(ref argv);
 
             //
@@ -612,14 +611,6 @@ namespace Eagle._Components.Private
                 argv = new StringList();
 
             //
-            // NOTE: The count may already be zero at this point (if the
-            //       above loop was actually fully executed); however, we
-            //       must be 100% sure that it is zero beyond this point
-            //       (for the loop below).
-            //
-            count = 0;
-
-            //
             // NOTE: If there are no new arguments then there is nothing
             //       left to do.
             //
@@ -630,24 +621,26 @@ namespace Eagle._Components.Private
             // NOTE: Insert each argument read from the file, in order,
             //       where the original argument(s) was/were removed.
             //
+            int index = 0;
+
             foreach (string arg in newArgv)
             {
                 if (append)
                     argv.Add(arg);
                 else
-                    argv.Insert(count++, arg);
+                    argv.Insert(index++, arg);
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode ReadArgumentsFromTextReader(
-            Interpreter interpreter,
-            TextReader textReader,
-            int count,
-            bool append,
-            ref IList<string> argv,
-            ref Result error
+            Interpreter interpreter, /* in */
+            TextReader textReader,   /* in */
+            int popCount,            /* in */
+            bool append,             /* in */
+            ref IList<string> argv,  /* in, out */
+            ref Result error         /* out */
             )
         {
             if (textReader == null)
@@ -692,23 +685,23 @@ namespace Eagle._Components.Private
                 }
             }
 
-            CommitToArguments(newArgv, count, append, ref argv);
+            CommitToArguments(newArgv, popCount, append, ref argv);
             return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode ReadArgumentsFromHost(
-            Interpreter interpreter,
-            StringList argvFileNames,
-            Encoding encoding,
-            int count,
-            bool append,
-            bool strict,
-            ref string argvFileName,
-            ref IList<string> argv,
-            ref bool readArgv,
-            ref ResultList errors
+            Interpreter interpreter,  /* in */
+            StringList argvFileNames, /* in */
+            Encoding encoding,        /* in */
+            int popCount,             /* in */
+            bool append,              /* in */
+            bool errorOnNotFound,     /* in */
+            ref string argvFileName,  /* out */
+            ref IList<string> argv,   /* in, out */
+            ref int readArgv,         /* in, out */
+            ref ResultList errors     /* in, out */
             )
         {
             if (interpreter == null)
@@ -798,8 +791,8 @@ namespace Eagle._Components.Private
                     }
 
                     localCode = ReadArgumentsFromTextReader(
-                        interpreter, textReader, count, append, ref argv,
-                        ref localResult);
+                        interpreter, textReader, popCount, append,
+                        ref argv, ref localResult);
 
                     if (localCode == ReturnCode.Ok)
                     {
@@ -819,7 +812,7 @@ namespace Eagle._Components.Private
                         //       know that the command line arguemnts,
                         //       if any, were read from the text reader.
                         //
-                        readArgv = true;
+                        readArgv++;
                     }
                     else
                     {
@@ -854,7 +847,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            if (strict)
+            if (errorOnNotFound)
             {
                 if (errors == null)
                     errors = new ResultList();
@@ -871,14 +864,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode ReadArgumentsFromFile(
-            Interpreter interpreter,
-            Encoding encoding,
-            string fileName,
-            int count,
-            bool console,
-            bool append,
-            ref IList<string> argv,
-            ref Result error
+            Interpreter interpreter, /* in */
+            Encoding encoding,       /* in */
+            string fileName,         /* in */
+            int popCount,            /* in */
+            bool console,            /* in */
+            bool append,             /* in */
+            ref IList<string> argv,  /* in, out */
+            ref Result error         /* out */
             )
         {
             //
@@ -901,7 +894,7 @@ namespace Eagle._Components.Private
                     return ReturnCode.Error;
 
                 return ReadArgumentsFromTextReader(
-                    interpreter, textReader, count, append, ref argv,
+                    interpreter, textReader, popCount, append, ref argv,
                     ref error);
             }
             finally
@@ -919,7 +912,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool ShouldUseArgumentsAppSettings(
-            IList<string> argv
+            IList<string> argv /* in */
             )
         {
             //
@@ -946,11 +939,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode ReadArgumentsFromAppSettings(
-            Interpreter interpreter,
-            int count,
-            bool append,
-            ref IList<string> argv,
-            ref Result error
+            Interpreter interpreter, /* in */
+            int popCount,            /* in */
+            bool append,             /* in */
+            ref IList<string> argv,  /* in, out */
+            ref Result error         /* out */
             )
         {
             int newArgc;
@@ -1040,7 +1033,7 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            CommitToArguments(newArgv, count, append, ref argv);
+            CommitToArguments(newArgv, popCount, append, ref argv);
             return ReturnCode.Ok;
         }
 
@@ -1229,7 +1222,7 @@ namespace Eagle._Components.Private
             IInteractiveHost interactiveHost, /* in */
             IClientData clientData,           /* in */
             IShellCallbackData callbackData,  /* in */
-            int count,                        /* in */
+            int switchCount,                  /* in */
             string arg,                       /* in */
             bool whatIf,                      /* in */
             ref bool wasHandled,              /* out */
@@ -1245,9 +1238,9 @@ namespace Eagle._Components.Private
             {
                 try
                 {
-                    code = unknownArgumentCallback(
-                        interpreter, interactiveHost, clientData,
-                        count, arg, whatIf, ref argv, ref result);
+                    code = unknownArgumentCallback(interpreter,
+                        interactiveHost, clientData, switchCount,
+                        arg, whatIf, ref argv, ref result);
                 }
                 catch (Exception e)
                 {
@@ -1471,9 +1464,10 @@ namespace Eagle._Components.Private
             IList<string> argv = null;
             Result result = null;
 
-            ShellMainCoreError(interpreter, savedArg, arg, localCode,
-                localResult, false, ref argv, ref interactiveHost,
-                ref quiet, ref result);
+            ShellMainCoreError(
+                interpreter, savedArg, arg, localCode, localResult,
+                false, ref argv, ref interactiveHost, ref quiet,
+                ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1495,9 +1489,9 @@ namespace Eagle._Components.Private
             //       No error line info, script stack trace, or return code is
             //       needed.
             //
-            ShellMainCoreError(interpreter, savedArg, arg, ReturnCode.Error,
-                localResult, whatIf, ref argv, ref interactiveHost, ref quiet,
-                ref result);
+            ShellMainCoreError(
+                interpreter, savedArg, arg, ReturnCode.Error, localResult,
+                whatIf, ref argv, ref interactiveHost, ref quiet, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////

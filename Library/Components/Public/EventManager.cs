@@ -3352,7 +3352,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public bool Yield() /* NOT USED BY CORE */
+        public bool Yield(
+            ref Result error
+            )
         {
             CheckDisposed();
 
@@ -3363,8 +3365,9 @@ namespace Eagle._Components.Public
                 interpreter = this.interpreter;
             }
 
-            if (HostOps.YieldOrMaybeComplain(
-                    interpreter) == ReturnCode.Ok)
+            if (HostOps.Yield(
+                    interpreter, false,
+                    ref error) == ReturnCode.Ok)
             {
                 return true;
             }

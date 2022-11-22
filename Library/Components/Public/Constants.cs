@@ -26,6 +26,15 @@ using ConsoleColor = Eagle._Components.Public.ConsoleColor;
 
 namespace Eagle._Constants
 {
+    [ObjectId("0c564d1c-a98a-4ed7-aabe-1685abae114f")]
+    public static class Limits
+    {
+        public static readonly int Unlimited = 0;
+        public static readonly int Forbidden = -1;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("919f62ff-f2a9-4b24-ac1f-accb23b94324")]
     public static class HashCode
     {
@@ -592,7 +601,8 @@ namespace Eagle._Constants
             EncryptedScript, /* 25: EncryptedScript */
             ".bak",          /* 26: Backup */
             ".settings",     /* 27: Settings */
-            ".*"             /* 28: Any */
+            ".noPkgIndex",   /* 28: NoPkgIndex */
+            ".*"             /* 29: Any */
         };
 
         ///////////////////////////////////////////////////////////////////////
@@ -635,7 +645,8 @@ namespace Eagle._Constants
         public static readonly string EncryptedMarkup = WellKnown[23];
         public static readonly string Backup = WellKnown[26];
         public static readonly string Settings = WellKnown[27];
-        public static readonly string Any = WellKnown[28];
+        public static readonly string NoPkgIndex = WellKnown[28];
+        public static readonly string Any = WellKnown[29];
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -800,6 +811,9 @@ namespace Eagle._Constants
         public static readonly string CacheFlags =
             "Cache flags overridden via configuration: {0}.";
 #endif
+
+        public static readonly string UserInteractive =
+            "User interactivity overridden via environment: {0}.";
 
 #if ISOLATED_PLUGINS
         public static readonly string Isolated = "Plugin isolation {0}{1}.";
@@ -1003,6 +1017,12 @@ namespace Eagle._Constants
         public static readonly string DefaultTraceCategoriesError =
             "Default {0} trace categories could not be overridden via environment: {1}.";
 
+        public static readonly string DefaultTraceFormat =
+            "Default trace format overridden via environment: {0}.";
+
+        public static readonly string DefaultTraceFormatError =
+            "Default trace format could not be overridden via environment: {0}.";
+
         public static readonly string DefaultTracePriorities =
             "Default trace priority mask overridden via environment: {0}.";
 
@@ -1025,7 +1045,7 @@ namespace Eagle._Constants
             "Trace priority overridden via configuration: {0}.";
 
         public static readonly string TraceToHost =
-            "Tracing to host enabled.";
+            "Tracing to host enabled{0}.";
 
         public static readonly string TraceError =
             "Tracing cannot be enabled: {0}.";
