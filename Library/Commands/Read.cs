@@ -140,7 +140,7 @@ namespace Eagle._Commands
 
             string channelId = arguments[argumentIndex];
 
-            IChannel channel = interpreter.GetChannel(
+            IChannel channel = interpreter.InternalGetChannel(
                 channelId, ref result);
 
             if (channel == null)
@@ -211,16 +211,14 @@ namespace Eagle._Commands
                         ObjectOptionType.Read | ObjectOps.GetOptionType(
                             aliasRaw, aliasAll);
 
-                    OptionDictionary readOptions =
-                        ObjectOps.GetInvokeOptions(objectOptionType);
-
                     return MarshalOps.FixupReturnValue(
                         interpreter, interpreter.InternalBinder,
-                        interpreter.InternalCultureInfo, returnType,
-                        objectFlags, readOptions, objectOptionType,
-                        objectName, interpName, buffer, create,
-                        dispose, alias, aliasReference, toString,
-                        ref result);
+                        interpreter.InternalCultureInfo,
+                        returnType, objectFlags, options,
+                        ObjectOps.GetInvokeOptions(objectOptionType),
+                        objectOptionType, objectName, interpName,
+                        buffer, create, dispose, alias,
+                        aliasReference, toString, ref result);
                 }
                 else
                 {

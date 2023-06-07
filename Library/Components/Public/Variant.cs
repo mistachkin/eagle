@@ -15,6 +15,7 @@ using System.Globalization;
 using System.Security;
 using System.Text;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
@@ -47,9 +48,9 @@ namespace Eagle._Components.Public
                 {
                     variantTypes = new TypeDelegateDictionary();
                     variantTypes.Add(typeof(Number), null);
-                    variantTypes.Add(typeof(Guid), null);
                     variantTypes.Add(typeof(DateTime), null);
                     variantTypes.Add(typeof(TimeSpan), null);
+                    variantTypes.Add(typeof(Guid), null);
                     variantTypes.Add(typeof(string), null);
                     variantTypes.Add(typeof(StringList), null);
                     variantTypes.Add(typeof(StringDictionary), null);
@@ -73,6 +74,7 @@ namespace Eagle._Components.Public
                     variantTypes.Add(typeof(IExecute), null);
                     variantTypes.Add(typeof(ICallback), null);
                     variantTypes.Add(typeof(IRuleSet), null);
+                    variantTypes.Add(typeof(byte[]), null);
                 }
             }
         }
@@ -130,15 +132,18 @@ namespace Eagle._Components.Public
             this.uriValue = null;
             this.versionValue = null;
             this.returnCodeListValue = null;
+            this.identifierValue = null;
             this.aliasValue = null;
             this.optionValue = null;
             this.namespaceValue = null;
             this.secureStringValue = null;
             this.encodingValue = null;
+            this.cultureInfoValue = null;
             this.pluginValue = null;
             this.executeValue = null;
             this.callbackValue = null;
             this.ruleSetValue = null;
+            this.byteArrayValue = null;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -545,6 +550,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public Variant(byte[] value)
+        {
+            Clear(false);
+
+            this.byteArrayValue = value;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public Variant(Variant value)
             : base(/* Number */ value)
         {
@@ -627,6 +641,9 @@ namespace Eagle._Components.Public
 
             if (@object is IRuleSet)
                 this.ruleSetValue = (IRuleSet)@object; /* Shallow Copy */
+
+            if (@object is byte[])
+                this.byteArrayValue = (byte[])@object; /* Shallow Copy */
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -635,59 +652,118 @@ namespace Eagle._Components.Public
         public override string ToString()
         {
             if (dateTimeValue is DateTime)
-                return dateTimeValue.ToString();
+            {
+                return FormatOps.Iso8601DateTime(dateTimeValue);
+            }
             else if (timeSpanValue is TimeSpan)
+            {
                 return timeSpanValue.ToString();
+            }
             else if (guidValue is Guid)
+            {
                 return guidValue.ToString();
+            }
             else if (stringValue is string)
+            {
                 return stringValue;
+            }
             else if (listValue is StringList)
+            {
                 return listValue.ToString();
+            }
             else if (dictionaryValue is StringDictionary)
+            {
                 return dictionaryValue.ToString();
+            }
             else if (objectValue is IObject)
+            {
                 return objectValue.ToString();
+            }
             else if (frameValue is ICallFrame)
+            {
                 return frameValue.ToString();
+            }
             else if (interpreterValue is Interpreter)
+            {
                 return interpreterValue.ToString();
+            }
             else if (typeValue is Type)
+            {
                 return typeValue.ToString();
+            }
             else if (typeListValue is TypeList)
+            {
                 return typeListValue.ToString();
+            }
             else if (enumListValue is EnumList)
+            {
                 return enumListValue.ToString();
+            }
             else if (uriValue is Uri)
+            {
                 return uriValue.ToString();
+            }
             else if (versionValue is Version)
+            {
                 return versionValue.ToString();
+            }
             else if (returnCodeListValue is ReturnCodeList)
+            {
                 return returnCodeListValue.ToString();
+            }
             else if (identifierValue is IIdentifier)
+            {
                 return identifierValue.ToString();
+            }
             else if (aliasValue is IAlias)
+            {
                 return aliasValue.ToString();
+            }
             else if (optionValue is IOption)
+            {
                 return optionValue.ToString();
+            }
             else if (namespaceValue is INamespace)
+            {
                 return namespaceValue.ToString();
+            }
             else if (secureStringValue is SecureString)
+            {
                 return secureStringValue.ToString();
+            }
             else if (encodingValue is Encoding)
+            {
                 return encodingValue.ToString();
+            }
             else if (cultureInfoValue is CultureInfo)
+            {
                 return cultureInfoValue.ToString();
+            }
             else if (pluginValue is IPlugin)
+            {
                 return pluginValue.ToString();
+            }
             else if (executeValue is IExecute)
+            {
                 return executeValue.ToString();
+            }
             else if (callbackValue is ICallback)
+            {
                 return callbackValue.ToString();
+            }
             else if (ruleSetValue is IRuleSet)
+            {
                 return ruleSetValue.ToString();
+            }
+            else if (byteArrayValue is byte[])
+            {
+                return Convert.ToBase64String(byteArrayValue,
+                    Base64FormattingOptions.InsertLineBreaks);
+            }
             else
+            {
                 return base.ToString();
+            }
         }
         #endregion
 
@@ -1465,6 +1541,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static bool ToByteArray(Variant variant, ref byte[] value)
+        {
+            bool result = false;
+
+            try
+            {
+                if (variant != null)
+                {
+                    if (variant.IsByteArray())
+                    {
+                        value = (byte[])variant.Value;
+
+                        result = true;
+                    }
+                }
+            }
+            catch
+            {
+                // do nothing.
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public virtual bool ToDateTime(ref DateTime value)
         {
             return ToDateTime(this, ref value);
@@ -1647,6 +1749,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public virtual bool ToByteArray(ref byte[] value)
+        {
+            return ToByteArray(this, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public virtual bool IsNumber()
         {
             return ((dateTimeValue == null) && (timeSpanValue == null) &&
@@ -1661,7 +1770,7 @@ namespace Eagle._Components.Public
                     (secureStringValue == null) && (encodingValue == null) &&
                     (cultureInfoValue == null) && (pluginValue == null) &&
                     (executeValue == null) && (callbackValue == null) &&
-                    (ruleSetValue == null));
+                    (ruleSetValue == null) && (byteArrayValue == null));
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1844,6 +1953,13 @@ namespace Eagle._Components.Public
         public virtual bool IsRuleSet()
         {
             return (ruleSetValue is IRuleSet);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public virtual bool IsByteArray()
+        {
+            return (byteArrayValue is byte[]);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2166,6 +2282,17 @@ namespace Eagle._Components.Public
                     ruleSetValue = ruleSet;
                 }
             }
+            else if (type == typeof(byte[]))
+            {
+                byte[] byteArray = null;
+
+                if (result = ToByteArray(ref byteArray))
+                {
+                    Clear(true);
+
+                    byteArrayValue = byteArray;
+                }
+            }
             else if (result = base.ConvertTo(type))
             {
                 Clear(false);
@@ -2209,6 +2336,7 @@ namespace Eagle._Components.Public
         private IExecute executeValue;
         private ICallback callbackValue;
         private IRuleSet ruleSetValue;
+        private byte[] byteArrayValue;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2272,6 +2400,8 @@ namespace Eagle._Components.Public
                     return callbackValue;
                 else if (ruleSetValue is IRuleSet)
                     return ruleSetValue;
+                else if (byteArrayValue is byte[])
+                    return byteArrayValue;
                 else
                     return base.Value;
             }
@@ -2432,6 +2562,12 @@ namespace Eagle._Components.Public
                     Clear(true); /* enforce logical union */
 
                     this.ruleSetValue = (IRuleSet)value; /* cannot fail */
+                }
+                else if (value is byte[])
+                {
+                    Clear(true); /* enforce logical union */
+
+                    this.byteArrayValue = (byte[])value; /* cannot fail */
                 }
                 else
                 {

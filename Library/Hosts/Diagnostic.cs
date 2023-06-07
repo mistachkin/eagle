@@ -174,11 +174,13 @@ namespace Eagle._Hosts
                 if ((offset + count) > length)
                     throw new ArgumentException();
 
+                StringBuilder builder = StringBuilderFactory.Create(count);
+
                 for (int index = offset; count > 0; index++, count--)
-                {
-                    DebugOps.TraceWrite(
-                        ConversionOps.ToChar(buffer[index])); /* EXEMPT */
-                }
+                    builder.Append(ConversionOps.ToChar(buffer[index]));
+
+                DebugOps.TraceWrite(StringBuilderCache.GetStringAndRelease(
+                    ref builder)); /* EXEMPT */
             }
             #endregion
 
@@ -883,13 +885,103 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////
 
         #region IReadHost Members
+        public override bool Read(
+            ref int value
+            )
+        {
+            CheckDisposed();
 
+            //
+            // NOTE: We have no input source; indicate this to the caller.
+            //
+            value = ChannelStream.EndOfFile;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public override bool ReadKey(
+            bool intercept,
+            ref IClientData value
+            )
+        {
+            CheckDisposed();
+
+            //
+            // NOTE: We have no input source; indicate this to the caller.
+            //
+            value = null;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if CONSOLE
+        [Obsolete()]
+        public override bool ReadKey(
+            bool intercept,
+            ref ConsoleKeyInfo value
+            )
+        {
+            CheckDisposed();
+
+            //
+            // NOTE: We have no input source; indicate this to the caller.
+            //
+            value = default(ConsoleKeyInfo);
+            return true;
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region IWriteHost Members
+        public override bool Write(
+            char value,
+            bool newLine
+            )
+        {
+            CheckDisposed();
 
+            try
+            {
+                if (newLine)
+                    DebugOps.TraceWriteLine(value); /* EXEMPT */
+                else
+                    DebugOps.TraceWrite(value); /* EXEMPT */
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public override bool Write(
+            string value,
+            bool newLine
+            )
+        {
+            CheckDisposed();
+
+            try
+            {
+                if (newLine)
+                    DebugOps.TraceWriteLine(value); /* EXEMPT */
+                else
+                    DebugOps.TraceWrite(value); /* EXEMPT */
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -944,6 +1036,18 @@ namespace Eagle._Hosts
             CheckDisposed();
 
             return PrivateResetHostFlags();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public override ReturnCode ResetHistory(
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            error = "not implemented";
+            return ReturnCode.Error;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1030,104 +1134,6 @@ namespace Eagle._Hosts
             }
 
             return ReturnCode.Error;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public override bool Read(
-            ref int value
-            )
-        {
-            CheckDisposed();
-
-            //
-            // NOTE: We have no input source; indicate this to the caller.
-            //
-            value = ChannelStream.EndOfFile;
-            return true;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public override bool ReadKey(
-            bool intercept,
-            ref IClientData value
-            )
-        {
-            CheckDisposed();
-
-            //
-            // NOTE: We have no input source; indicate this to the caller.
-            //
-            value = null;
-            return true;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-#if CONSOLE
-        [Obsolete()]
-        public override bool ReadKey(
-            bool intercept,
-            ref ConsoleKeyInfo value
-            )
-        {
-            CheckDisposed();
-
-            //
-            // NOTE: We have no input source; indicate this to the caller.
-            //
-            value = default(ConsoleKeyInfo);
-            return true;
-        }
-#endif
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public override bool Write(
-            char value,
-            bool newLine
-            )
-        {
-            CheckDisposed();
-
-            try
-            {
-                if (newLine)
-                    DebugOps.TraceWriteLine(value); /* EXEMPT */
-                else
-                    DebugOps.TraceWrite(value); /* EXEMPT */
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public override bool Write(
-            string value,
-            bool newLine
-            )
-        {
-            CheckDisposed();
-
-            try
-            {
-                if (newLine)
-                    DebugOps.TraceWriteLine(value); /* EXEMPT */
-                else
-                    DebugOps.TraceWrite(value); /* EXEMPT */
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         ///////////////////////////////////////////////////////////////////////

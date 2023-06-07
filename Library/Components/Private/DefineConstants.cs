@@ -186,6 +186,10 @@ namespace Eagle._Constants
             "DEMO_EDITION",
 #endif
 
+#if DEMO_KEY_PAIRS
+            "DEMO_KEY_PAIRS",
+#endif
+
 #if DRAWING
             "DRAWING",
 #endif
@@ -220,6 +224,10 @@ namespace Eagle._Constants
 
 #if EXPRESSION_FLAGS
             "EXPRESSION_FLAGS",
+#endif
+
+#if EXTRA_DIAGNOSTICS
+            "EXTRA_DIAGNOSTICS",
 #endif
 
 #if FAST_ERRORCODE

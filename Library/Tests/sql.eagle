@@ -506,8 +506,8 @@ runTest {test sql-1.12 {DatabaseVariable (SQLite)} -setup {
 } -body {
   set databaseVariable [object invoke \
       DatabaseVariable Create Default SQLite [file join $core_bin_path \
-      System.Data.SQLite.dll] null [appendArgs "Data Source=" $fileName \
-      ";"] t1 y z BeforeVariableScalar false]
+      System.Data.SQLite.dll] null null [appendArgs "Data Source=" \
+      $fileName ";"] t1 y z BeforeVariableScalar false]
 
   set traceCallback [object invoke Delegate CreateDelegate \
       Eagle._Components.Public.Delegates.TraceCallback $databaseVariable \
@@ -548,8 +548,8 @@ runTest {test sql-1.13 {DatabaseVariable (SQLite)} -setup {
 } -body {
   set databaseVariable [object invoke -alias \
       DatabaseVariable Create Default SQLite [file join $core_bin_path \
-      System.Data.SQLite.dll] null [appendArgs "Data Source=" $fileName \
-      ";"] t1 y z BeforeVariableScalar false]
+      System.Data.SQLite.dll] null null [appendArgs "Data Source=" \
+      $fileName ";"] t1 y z BeforeVariableScalar false]
 
   set result(0) null
   set code(0) [$databaseVariable AddVariable "" sql-1.13 result(0)]
@@ -598,8 +598,8 @@ runTest {test sql-1.14 {DatabaseVariable (SQLite)} -setup {
 } -body {
   set databaseVariable [object invoke -alias \
       DatabaseVariable Create Default SQLite [file join $core_bin_path \
-      System.Data.SQLite.dll] null [appendArgs "Data Source=" $fileName \
-      ";"] t1 y z BeforeVariableScalar true]
+      System.Data.SQLite.dll] null null [appendArgs "Data Source=" \
+      $fileName ";"] t1 y z BeforeVariableScalar true]
 
   set result(0) null
   set code(0) [$databaseVariable AddVariable "" sql-1.14 result(0)]
@@ -657,7 +657,7 @@ runTest {test sql-1.15 {DatabaseVariable (generic)} -setup {
   }
 } -body {
   set databaseVariable [object invoke \
-      -alias DatabaseVariable Create Default $test_database_type null \
+      -alias DatabaseVariable Create Default $test_database_type null null \
       null $test_database $test_database_table y z BeforeVariableScalar \
       false]
 
@@ -721,7 +721,7 @@ runTest {test sql-1.16 {DatabaseVariable (generic)} -setup {
   }
 } -body {
   set databaseVariable [object invoke \
-      -alias DatabaseVariable Create Default $test_database_type null \
+      -alias DatabaseVariable Create Default $test_database_type null null \
       null $test_database $test_database_table y z BeforeVariableScalar \
       true]
 
@@ -1136,6 +1136,145 @@ runTest {test sql-20.18 {custom number formatting} -setup {
 } -constraints {eagle command.object monoBug28 command.sql compile.DATA\
 file_sqlite3.dll file_System.Data.SQLite.dll file_test.sqlite3} -result \
 {F6 E7 7D CA E6 B4 18 01 20}}
+
+###############################################################################
+
+runTest {test sql-20.23 {foreach sub-command} -setup {
+  set fileName [file join [getTemporaryPath] test.sqlite3]
+  file copy -force [file join $test_data_path test.sqlite3] $fileName
+
+  proc getFields { execute format varName } {
+    set result [list]; upvar 1 $varName row
+
+    if {$execute in [list Reader ReaderAndCount] && \
+        $format eq "DataRecord" && [info exists row(count)]} then {
+      set rowCount $row(count)
+
+      if {$rowCount > 0} then {
+        set record $row($rowCount)
+        set fieldCount [$record FieldCount]
+
+        for {set index 0} {$index < $fieldCount} {incr index} {
+          set subResult [list]
+
+          lappend subResult [$record GetName $index]
+
+          set value [$record -create -alias GetValue $index]
+          lappend subResult [$value ToString]
+
+          lappend subResult [$record GetDataTypeName $index]
+
+          set type [$record -create -alias GetFieldType $index]
+          lappend subResult [$type ToString]
+
+          lappend result $subResult
+        }
+      }
+    }
+
+    return $result
+  }
+} -body {
+  set connection [sql open -type SQLite [subst {Data Source=${fileName}}]]
+
+  sql execute $connection {INSERT INTO t1(x, y, z) VALUES(1, 2, 3);}
+  sql execute $connection {INSERT INTO t1(x, y, z) VALUES(4, 5, 6);}
+  sql execute $connection {INSERT INTO t1(x, y, z) VALUES(7, 8, 9);}
+
+  set sql(1) {SELECT x FROM t1;}
+  set sql(2) {UPDATE t1 SET x = x WHERE x <= 4;}
+
+  foreach execute [list None NonQuery Scalar Reader ReaderAndCount] {
+    foreach format [list \
+        None RawArray RawList Array List Dictionary NestedList \
+        NestedDictionary DataRecord] {
+      lappend result [sql foreach -alias -execute $execute -format \
+          $format $connection $sql(1) {
+        lappend result Q1 $execute $format
+        lappend result [testArrayGet row]
+        lappend result [getFields $execute $format row]
+      }]
+
+      lappend result [sql foreach -alias -execute $execute -format \
+          $format $connection $sql(2) {
+        lappend result Q2 $execute $format
+        lappend result [testArrayGet row]
+        lappend result [getFields $execute $format row]
+      }]
+    }
+  }
+
+  sql close $connection
+
+  set result
+} -cleanup {
+  catch {sql close $connection}
+  catch {file delete $fileName}
+
+  rename getFields ""
+
+  unset -nocomplain result connection fileName sql row execute format
+} -constraints {eagle command.object monoBug28 command.sql compile.DATA\
+file_sqlite3.dll file_System.Data.SQLite.dll file_test.sqlite3} -match regexp \
+-result {^\{\} \{\} \{\} \{\} \{\} \{\} \{\} \{\} \{\} \{\} \{\} \{\} \{\} \{\}\
+\{\} \{\} \{\} \{\} Q1 NonQuery None \{count -1\} \{\} \{\} Q2 NonQuery None\
+\{count 2\} \{\} \{\} Q1 NonQuery RawArray \{count -1\} \{\} \{\} Q2 NonQuery\
+RawArray \{count 2\} \{\} \{\} Q1 NonQuery RawList \{count -1\} \{\} \{\} Q2\
+NonQuery RawList \{count 2\} \{\} \{\} Q1 NonQuery Array \{count -1\} \{\} \{\}\
+Q2 NonQuery Array \{count 2\} \{\} \{\} Q1 NonQuery List \{count -1\} \{\} \{\}\
+Q2 NonQuery List \{count 2\} \{\} \{\} Q1 NonQuery Dictionary \{count -1\} \{\}\
+\{\} Q2 NonQuery Dictionary \{count 2\} \{\} \{\} Q1 NonQuery NestedList\
+\{count -1\} \{\} \{\} Q2 NonQuery NestedList \{count 2\} \{\} \{\} Q1 NonQuery\
+NestedDictionary \{count -1\} \{\} \{\} Q2 NonQuery NestedDictionary \{count\
+2\} \{\} \{\} Q1 NonQuery DataRecord \{count -1\} \{\} \{\} Q2 NonQuery\
+DataRecord \{count 2\} \{\} \{\} Q1 Scalar None \{value 1\} \{\} \{\} Q2 Scalar\
+None \{value \{\}\} \{\} \{\} Q1 Scalar RawArray \{value 1\} \{\} \{\} Q2\
+Scalar RawArray \{value \{\}\} \{\} \{\} Q1 Scalar RawList \{value 1\} \{\}\
+\{\} Q2 Scalar RawList \{value \{\}\} \{\} \{\} Q1 Scalar Array \{value 1\}\
+\{\} \{\} Q2 Scalar Array \{value \{\}\} \{\} \{\} Q1 Scalar List \{value 1\}\
+\{\} \{\} Q2 Scalar List \{value \{\}\} \{\} \{\} Q1 Scalar Dictionary \{value\
+1\} \{\} \{\} Q2 Scalar Dictionary \{value \{\}\} \{\} \{\} Q1 Scalar\
+NestedList \{value 1\} \{\} \{\} Q2 Scalar NestedList \{value \{\}\} \{\} \{\}\
+Q1 Scalar NestedDictionary \{value 1\} \{\} \{\} Q2 Scalar NestedDictionary\
+\{value \{\}\} \{\} \{\} Q1 Scalar DataRecord \{value 1\} \{\} \{\} Q2 Scalar\
+DataRecord \{value \{\}\} \{\} \{\} Q1 Reader None \{\} \{\} Q1 Reader None\
+\{\} \{\} Q1 Reader None \{\} \{\} \{\} \{\} Q1 Reader RawArray \{1 \{\{x\
+1\}\}\} \{\} Q1 Reader RawArray \{2 \{\{x 4\}\}\} \{\} Q1 Reader RawArray \{3\
+\{\{x 7\}\}\} \{\} \{\} \{\} Q1 Reader RawList \{1 \{\{x 1\}\}\} \{\} Q1 Reader\
+RawList \{2 \{\{x 4\}\}\} \{\} Q1 Reader RawList \{3 \{\{x 7\}\}\} \{\} \{\}\
+\{\} Q1 Reader Array \{1 \{\{x 1\}\}\} \{\} Q1 Reader Array \{2 \{\{x 4\}\}\}\
+\{\} Q1 Reader Array \{3 \{\{x 7\}\}\} \{\} \{\} \{\} Q1 Reader List \{1 1\}\
+\{\} Q1 Reader List \{2 4\} \{\} Q1 Reader List \{3 7\} \{\} \{\} \{\} Q1\
+Reader Dictionary \{1 \{x 1\}\} \{\} Q1 Reader Dictionary \{2 \{x 4\}\} \{\} Q1\
+Reader Dictionary \{3 \{x 7\}\} \{\} \{\} \{\} Q1 Reader NestedList \{1 1\}\
+\{\} Q1 Reader NestedList \{2 4\} \{\} Q1 Reader NestedList \{3 7\} \{\} \{\}\
+\{\} Q1 Reader NestedDictionary \{1 \{\{x 1\}\}\} \{\} Q1 Reader\
+NestedDictionary \{2 \{\{x 4\}\}\} \{\} Q1 Reader NestedDictionary \{3 \{\{x\
+7\}\}\} \{\} \{\} \{\} Q1 Reader DataRecord \{1 DataRecord#\d+\} \{\} Q1 Reader\
+DataRecord \{2 DataRecord#\d+\} \{\} Q1 Reader DataRecord \{3 DataRecord#\d+\}\
+\{\} \{\} \{\} Q1 ReaderAndCount None \{count 1\} \{\} Q1 ReaderAndCount None\
+\{count 2\} \{\} Q1 ReaderAndCount None \{count 3\} \{\} \{\} \{\} Q1\
+ReaderAndCount RawArray \{1 \{\{x 1\}\} count 1\} \{\} Q1 ReaderAndCount\
+RawArray \{2 \{\{x 4\}\} count 2\} \{\} Q1 ReaderAndCount RawArray \{3 \{\{x\
+7\}\} count 3\} \{\} \{\} \{\} Q1 ReaderAndCount RawList \{1 \{1 \{x 1\}\}\
+count 1\} \{\} Q1 ReaderAndCount RawList \{2 \{2 \{x 4\}\} count 2\} \{\} Q1\
+ReaderAndCount RawList \{3 \{3 \{x 7\}\} count 3\} \{\} \{\} \{\} Q1\
+ReaderAndCount Array \{1 \{\{x 1\}\} count 1\} \{\} Q1 ReaderAndCount Array \{2\
+\{\{x 4\}\} count 2\} \{\} Q1 ReaderAndCount Array \{3 \{\{x 7\}\} count 3\}\
+\{\} \{\} \{\} Q1 ReaderAndCount List \{1 \{1 1\} count 1\} \{\} Q1\
+ReaderAndCount List \{2 \{2 4\} count 2\} \{\} Q1 ReaderAndCount List \{3 \{3\
+7\} count 3\} \{\} \{\} \{\} Q1 ReaderAndCount Dictionary \{1 \{1 x 1\} count\
+1\} \{\} Q1 ReaderAndCount Dictionary \{2 \{2 x 4\} count 2\} \{\} Q1\
+ReaderAndCount Dictionary \{3 \{3 x 7\} count 3\} \{\} \{\} \{\} Q1\
+ReaderAndCount NestedList \{1 \{1 1\} count 1\} \{\} Q1 ReaderAndCount\
+NestedList \{2 \{2 4\} count 2\} \{\} Q1 ReaderAndCount NestedList \{3 \{3 7\}\
+count 3\} \{\} \{\} \{\} Q1 ReaderAndCount NestedDictionary \{1 \{1 \{x 1\}\}\
+count 1\} \{\} Q1 ReaderAndCount NestedDictionary \{2 \{2 \{x 4\}\} count 2\}\
+\{\} Q1 ReaderAndCount NestedDictionary \{3 \{3 \{x 7\}\} count 3\} \{\} \{\}\
+\{\} Q1 ReaderAndCount DataRecord \{1 DataRecord#\d+ count 1\} \{\{x 1 INTEGER\
+System\.Int64\}\} Q1 ReaderAndCount DataRecord \{2 DataRecord#\d+ count 2\}\
+\{\{x 4 INTEGER System\.Int64\}\} Q1 ReaderAndCount DataRecord \{3\
+DataRecord#\d+ count 3\} \{\{x 7 INTEGER System\.Int64\}\} \{\} \{\}$}}
 
 ###############################################################################
 

@@ -165,8 +165,8 @@ namespace Eagle._Commands
                                     {
                                         comparer = new _Comparers.StringRandomComparer(
                                             interpreter, ascending, indexText, false, unique,
-                                            interpreter.InternalCultureInfo, interpreter.RandomNumberGenerator,
-                                            ref duplicates);
+                                            interpreter.InternalCultureInfo, interpreter.InternalProvideEntropy,
+                                            interpreter.RandomNumberGenerator, ref duplicates);
                                     }
                                     else if (options.IsPresent("-real"))
                                     {

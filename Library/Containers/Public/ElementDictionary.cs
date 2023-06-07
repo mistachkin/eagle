@@ -30,6 +30,7 @@ using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
+using Eagle._Interfaces.Public;
 
 using VariableFlagsDictionary = System.Collections.Generic.Dictionary<
     string, Eagle._Components.Public.VariableFlags>;
@@ -211,15 +212,8 @@ namespace Eagle._Containers.Public
                 if ((value is string) && (interpreter != null) &&
                     interpreter.HasZeroString())
                 {
-                    ReturnCode zeroCode;
-                    bool zeroNoComplain = false;
-                    Result zeroError = null;
-
-                    zeroCode = StringOps.ZeroString(
-                        (string)value, ref zeroNoComplain, ref zeroError);
-
-                    if (!zeroNoComplain && (zeroCode != ReturnCode.Ok))
-                        DebugOps.Complain(interpreter, zeroCode, zeroError);
+                    /* IGNORED */
+                    StringOps.ZeroStringOrTrace((string)value);
                 }
             }
 #endif
@@ -246,15 +240,8 @@ namespace Eagle._Containers.Public
 
                     if (value is string)
                     {
-                        ReturnCode zeroCode;
-                        bool zeroNoComplain = false;
-                        Result zeroError = null;
-
-                        zeroCode = StringOps.ZeroString(
-                            (string)value, ref zeroNoComplain, ref zeroError);
-
-                        if (!zeroNoComplain && (zeroCode != ReturnCode.Ok))
-                            DebugOps.Complain(interpreter, zeroCode, zeroError);
+                        /* IGNORED */
+                        StringOps.ZeroStringOrTrace((string)value);
                     }
                     else if (value is Argument)
                     {
@@ -430,25 +417,38 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         public string GetRandom(
-            RandomNumberGenerator rng, /* in */
-            ref Result error           /* out */
+            IProvideEntropy provideEntropy,              /* in */
+            RandomNumberGenerator randomNumberGenerator, /* in */
+            ref Result error                             /* out */
             )
         {
-            if (rng == null)
-            {
-                error = "random number generator not available";
-                return null;
-            }
-
             if (this.Count == 0)
             {
                 error = "no elements in array";
                 return null;
             }
 
-            byte[] bytes = new byte[sizeof(int)];
+            byte[] bytes;
 
-            rng.GetBytes(bytes);
+            if (provideEntropy != null)
+            {
+                bytes = new byte[sizeof(int)];
+
+                /* NO RESULT */
+                provideEntropy.GetBytes(ref bytes);
+            }
+            else if (randomNumberGenerator != null)
+            {
+                bytes = new byte[sizeof(int)];
+
+                /* NO RESULT */
+                randomNumberGenerator.GetBytes(bytes);
+            }
+            else
+            {
+                error = "random number generator not available";
+                return null;
+            }
 
             int index = BitConverter.ToInt32(bytes, 0);
 

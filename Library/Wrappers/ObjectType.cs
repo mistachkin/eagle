@@ -80,9 +80,11 @@ namespace Eagle._Wrappers
             get { return (objectType != null) ? objectType.Description : null; }
             set { if (objectType != null) { objectType.Description = value; } }
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
         public IClientData ClientData
         {
             get { return (objectType != null) ? objectType.ClientData : null; }

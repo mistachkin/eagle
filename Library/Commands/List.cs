@@ -19,7 +19,7 @@ namespace Eagle._Commands
     [ObjectId("5e0a255f-9c13-4239-bf86-299606048791")]
     [CommandFlags(
         CommandFlags.Safe | CommandFlags.Standard |
-        CommandFlags.SecuritySdk | CommandFlags.LicenseSdk)]
+        CommandFlags.SecuritySdk)]
     [ObjectGroup("list")]
     internal sealed class List : Core
     {

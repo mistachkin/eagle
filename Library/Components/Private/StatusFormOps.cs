@@ -495,7 +495,7 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
-        private static int LoopWaitMicroseconds = 50000;
+        private static int LoopWaitMicroseconds = 15000; // 15ms
         private static int RequestWaitMilliseconds = 100;
 
         ///////////////////////////////////////////////////////////////////////
@@ -503,9 +503,9 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
-        private static int DisposeSleepMilliseconds = 100;
-        private static int? DisposeMinimumMilliseconds = 1000;
-        private static int? DisposeMaximumMilliseconds = 2000;
+        private static int DisposeSleepMilliseconds = 25;
+        private static int? DisposeMinimumMilliseconds = null;
+        private static int? DisposeMaximumMilliseconds = 500;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -1705,8 +1705,17 @@ namespace Eagle._Components.Private
                 //       time has elapsed in this loop and
                 //       bail when the timeout is exceeded.
                 //
-                /* IGNORED */
-                WindowOps.ProcessEvents(interpreter);
+                GlobalState.PushActiveInterpreter(interpreter);
+
+                try
+                {
+                    /* IGNORED */
+                    WindowOps.ProcessEvents(interpreter);
+                }
+                finally
+                {
+                    GlobalState.PopActiveInterpreter();
+                }
 
                 //
                 // NOTE: Sleep for a bit after processing
@@ -1768,13 +1777,26 @@ namespace Eagle._Components.Private
                 }
             }
 
+            if (disposed)
+            {
+                if (!String.IsNullOrEmpty(exitStatus))
+                {
+                    exitStatus = String.Format(
+                        "form disposed and {0}", exitStatus);
+                }
+                else
+                {
+                    exitStatus = "form disposed";
+                }
+            }
+
             TracePriority priority = disposed ?
                 TracePriority.StatusDebug : TracePriority.StatusError;
 
-            TraceOps.DebugTrace(String.Format("WaitOnDisposed: " +
-                "{0} after {1} milliseconds in {2} iterations",
-                disposed ? "form disposed" : exitStatus, milliseconds,
-                iterations), typeof(StatusFormOps).Name, priority);
+            TraceOps.DebugTrace(String.Format(
+                "WaitOnDisposed: {0} after {1} milliseconds in {2} " +
+                "iterations", exitStatus, milliseconds, iterations),
+                typeof(StatusFormOps).Name, priority);
         }
 
         ///////////////////////////////////////////////////////////////////////

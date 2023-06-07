@@ -59,12 +59,20 @@ namespace eval ::Eagle {
 
       #
       # NOTE: In order for the embedded license certificate data to be
-      #       available here, the core library assembly must be compiled
-      #       with isolated plugin support enabled.  Unfortunately, this
-      #       means that the .NET Core builds do not support this check.
+      #       available here, the Harpy assembly must be compiled with
+      #       isolated plugin support enabled.  This means .NET Core
+      #       builds cannot support this check.
       #
-      if {[lsearch -exact -- \
-          $::eagle_platform(compileOptions) ISOLATED_PLUGINS] != -1} then {
+      # HACK: Also, since all embedded license certificates are now
+      #       encrypted, this check now requires SKUs of Harpy that
+      #       contain the necessary decryption code.
+      #
+      if {[catch {harpy options} harpyOptions] == 0 && \
+          [lsearch -exact -- $harpyOptions ISOLATED_PLUGINS] != -1 && \
+          [lsearch -exact -- $harpyOptions XML] != -1 && \
+          [lsearch -exact -- $harpyOptions CERTIFICATE_PLUGIN] != -1 && \
+          [lsearch -exact -- $harpyOptions CERTIFICATE_POLICY] != -1 && \
+          [lsearch -exact -- $harpyOptions PLUGIN_COMMANDS] != -1} then {
         append pattern [convertSpacingToRegExp \n]
         append pattern [convertSpacingToRegExp [string trim {
 !TAB!----------------------------------------

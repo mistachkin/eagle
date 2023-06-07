@@ -108,14 +108,13 @@ runTest {test infoPlugin-1.1.1 {info plugin} -body {
   info plugin [lindex [lindex [lsort [info loaded]] 0] 1]
 } -constraints {eagle windows strongName.official} -match regexp -result \
 [string map [list %testAsm% [getTestAssemblyName] %coreAsmFile% \
-[getAssemblyFileRootNameOnly]] {^kind Plugin id\
+[getAssemblyFileRootNameOnly] %publicKeyTokens% \
+[getKnownPublicKeyTokenPattern]] {^kind Plugin id\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
 name \{Eagle\._Plugins\.Core, %testAsm%, Version=1\.0\.\d+\.\d+,\
-Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
-version 1\.0\.\d+\.\d+ uri https://eagle\.to/ description \{\} assemblyName\
-\{%testAsm%, Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\} version 1\.0\.\d+\.\d+\
+uri https://eagle\.to/ description \{\} assemblyName \{%testAsm%,\
+Version=1\.0\.\d+\.\d+, Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\}\
 fileName \{.*?\\%coreAsmFile%\.(?:dll|exe)\} flags \{(?:(?:None|Default),\
 )?Primary, System, Host, Debugger, Command, Function, Trace, Policy, Resolver,\
 Static, (?:NativeCode, )?MergeCommands, NoPolicies, NoTraces(?:,\
@@ -135,14 +134,13 @@ runTest {test infoPlugin-1.1.2 {info plugin} -body {
 } -constraints \
 [fixConstraints {eagle !windows strongName.official}] -match regexp -result \
 [string map [list %testAsm% [getTestAssemblyName] %coreAsmFile% \
-[getAssemblyFileRootNameOnly]] {^kind Plugin id\
+[getAssemblyFileRootNameOnly] %publicKeyTokens% \
+[getKnownPublicKeyTokenPattern]] {^kind Plugin id\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
 name \{Eagle\._Plugins\.Core, %testAsm%, Version=1\.0\.\d+\.\d+,\
-Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
-version 1\.0\.\d+\.\d+ uri https://eagle\.to/ description \{\} assemblyName\
-\{%testAsm%, Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\} version 1\.0\.\d+\.\d+\
+uri https://eagle\.to/ description \{\} assemblyName \{%testAsm%,\
+Version=1\.0\.\d+\.\d+, Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\}\
 fileName .*?/%coreAsmFile%\.(?:dll|exe) flags \{(?:(?:None|Default),\
 )?Primary, System, Host, Debugger, Command, Function, Trace, Policy, Resolver,\
 Static, (?:NativeCode, )?MergeCommands, NoPolicies, NoTraces(?:,\
@@ -342,16 +340,16 @@ runTest {test infoWindows-1.1 {info windows (all)} -body {
   list [llength $windows] [expr {[llength $windows] > 0}]
 } -cleanup {
   unset -nocomplain window windows
-} -constraints {eagle windows compile.WINDOWS compile.NATIVE} -match regexp \
--result {^\d+ True$}}
+} -constraints {eagle native windows compile.WINDOWS compile.NATIVE} -match \
+regexp -result {^\d+ True$}}
 
 ###############################################################################
 
 runTest {test infoWindows-1.2 {info windows (matching)} -body {
   expr {[llength [info windows *Eagle*]] > 0}
 } -constraints \
-{eagle windows interactive hostIsOpen compile.WINDOWS compile.NATIVE} -result \
-{True}}
+{eagle native windows interactive hostIsOpen compile.WINDOWS compile.NATIVE} \
+-result {True}}
 
 ###############################################################################
 
@@ -392,8 +390,8 @@ debug do downlevel encoding eof error eval exec exit expr fblocked fconfigure\
 fcopy file flush for foreach format fpclassify (getf )?gets glob global guid\
 hash host if incr info interp invoke join kill lappend lassign lget (library\
 )?lindex linsert list llength lmap load lrange lremove lrepeat lreplace\
-lreverse lsearch lset lsort namespace nop nproc (object )?open package parse\
-pid proc puts pwd read regexp regsub rename return scope seek set (setf\
+lreverse lsearch lset lsort namespace napply nop nproc (object )?open package\
+parse pid proc puts pwd read regexp regsub rename return scope seek set (setf\
 )?(socket )?source split (sql )?string subst switch (tcl )?tell test1 test2\
 throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
 variable version vwait while( xml)?$}]}
@@ -426,9 +424,9 @@ array base64 bgerror break (callback )?catch close concat continue do downlevel\
 encoding eof error eval exit expr fblocked fconfigure fcopy flush for foreach\
 format fpclassify gets global guid hash if incr invoke join lappend lassign\
 lget lindex linsert list llength lmap lrange lremove lrepeat lreplace lreverse\
-lsearch lset lsort namespace nop nproc parse proc puts read regexp regsub\
-rename return scope seek set split string subst switch tell test1 test2 throw\
-time truncate try unset update uplevel upvar variable vwait while$}]}
+lsearch lset lsort namespace napply nop nproc parse proc puts read regexp\
+regsub rename return scope seek set split string subst switch tell test1 test2\
+throw time truncate try unset update uplevel upvar variable vwait while$}]}
 
 ###############################################################################
 
@@ -459,8 +457,8 @@ debug do downlevel encoding eof error eval exec exit expr fblocked fconfigure\
 fcopy file flush for foreach format fpclassify (getf )?gets glob global guid\
 hash host if incr info interp invoke join kill lappend lassign lget (library\
 )?lindex linsert list llength lmap load lrange lremove lrepeat lreplace\
-lreverse lsearch lset lsort namespace nop nproc (object )?open package parse\
-pid proc puts pwd read regexp regsub rename return scope seek set (setf\
+lreverse lsearch lset lsort namespace napply nop nproc (object )?open package\
+parse pid proc puts pwd read regexp regsub rename return scope seek set (setf\
 )?(socket )?source split (sql )?string subst switch (tcl )?tell test1 test2\
 throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
 variable version vwait while( xml)?$}]}
@@ -493,9 +491,9 @@ array base64 bgerror break (callback )?catch close concat continue do downlevel\
 encoding eof error eval exit expr fblocked fconfigure fcopy flush for foreach\
 format fpclassify gets global guid hash if incr invoke join lappend lassign\
 lget lindex linsert list llength lmap lrange lremove lrepeat lreplace lreverse\
-lsearch lset lsort namespace nop nproc parse proc puts read regexp regsub\
-rename return scope seek set split string subst switch tell test1 test2 throw\
-time truncate try unset update uplevel upvar variable vwait while$}]}
+lsearch lset lsort namespace napply nop nproc parse proc puts read regexp\
+regsub rename return scope seek set split string subst switch tell test1 test2\
+throw time truncate try unset update uplevel upvar variable vwait while$}]}
 
 ###############################################################################
 
@@ -529,8 +527,8 @@ debug do downlevel encoding eof error eval exec exit expr fblocked fconfigure\
 fcopy file flush for foreach format fpclassify (getf )?gets glob global guid\
 hash host if incr info interp invoke join kill lappend lassign lget (library\
 )?lindex linsert list llength lmap load lrange lremove lrepeat lreplace\
-lreverse lsearch lset lsort namespace nop nproc open package parse pid proc\
-puts pwd read regexp regsub rename return scope seek set (setf )?(socket\
+lreverse lsearch lset lsort namespace napply nop nproc open package parse pid\
+proc puts pwd read regexp regsub rename return scope seek set (setf )?(socket\
 )?source split (sql )?string subst switch (tcl )?tell test1 test2 throw time\
 truncate try unload unset (unsetf )?update uplevel upvar uri variable version\
 vwait while( xml)?\} \{(Eagle_Nop )?after append apply array base64 bgerror\
@@ -539,8 +537,8 @@ encoding eof error eval exec exit expr fblocked fconfigure fcopy file flush for\
 foreach format fpclassify (getf )?gets glob global guid hash host if incr info\
 interp invoke join kill lappend lassign lget (library )?lindex linsert list\
 llength lmap load lrange lremove lrepeat lreplace lreverse lsearch lset lsort\
-namespace nop nproc object open package parse pid proc puts pwd read regexp\
-regsub rename return scope seek set (setf )?(socket )?source split (sql\
+namespace napply nop nproc object open package parse pid proc puts pwd read\
+regexp regsub rename return scope seek set (setf )?(socket )?source split (sql\
 )?string subst switch (tcl )?tell test1 test2 throw time truncate try unload\
 unset (unsetf )?update uplevel upvar uri variable version vwait while(\
 xml)?\}$}]}

@@ -84,7 +84,7 @@ namespace Eagle._Commands
                             string errorInfo = "{0}    (\"if\" test expression)";
                             Result localResult = null;
 
-                            code = interpreter.EvaluateExpressionWithErrorInfo(
+                            code = interpreter.InternalEvaluateExpressionWithErrorInfo(
                                 arguments[index], errorInfo, ref localResult);
 
                             if (code == ReturnCode.Ok)

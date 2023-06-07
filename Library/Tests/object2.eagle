@@ -251,8 +251,9 @@ runTest {test object-2.9 {invoke with custom named object} -setup {
   set options [object invoke Utility GetInvokeOptions Default]
 
   set result null
-  set code [object invoke Utility FixupReturnValue "" null null null None \
-      $options Default $name null $interp true false true false false result]
+  set code [object invoke Utility FixupReturnValue "" null null null \
+      None null $options Default $name null $interp true false true \
+      false false result]
 
   if {$code ne "Ok"} then {
     error [getStringFromObjectHandle $result]

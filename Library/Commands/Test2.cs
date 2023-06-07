@@ -592,7 +592,7 @@ namespace Eagle._Commands
                                                     StringBuilder testData = null;
 
                                                     if (!noData)
-                                                        testData = StringOps.NewStringBuilder();
+                                                        testData = StringBuilderFactory.Create();
 
                                                     //
                                                     // NOTE: Check the specified test constraints, if any.
@@ -721,17 +721,20 @@ namespace Eagle._Commands
                                                                         //       interpreter.
                                                                         //
                                                                         InterpreterFlags testInterpreterFlags = interpreter.InterpreterFlags;
-
-                                                                        //
-                                                                        // HACK: For now, just clone the flags of the "parent"
-                                                                        //       interpreter.
-                                                                        //
                                                                         PluginFlags testPluginFlags = interpreter.PluginFlags;
+
+#if NATIVE && TCL
+                                                                        FindFlags testFindFlags = interpreter.TclFindFlags;
+                                                                        LoadFlags testLoadFlags = interpreter.TclLoadFlags;
+#endif
 
                                                                         testInterpreter = Interpreter.Create(ruleSet,
                                                                             argv, testCreateFlags, testHostCreateFlags,
                                                                             testInitializeFlags, testScriptFlags,
                                                                             testInterpreterFlags, testPluginFlags,
+#if NATIVE && TCL
+                                                                            testFindFlags, testLoadFlags,
+#endif
                                                                             text, libraryPath, autoPathList,
                                                                             ref isolationResult);
 
@@ -778,18 +781,22 @@ namespace Eagle._Commands
                                                                             //       interpreter.
                                                                             //
                                                                             InterpreterFlags testInterpreterFlags = interpreter.InterpreterFlags;
-
-                                                                            //
-                                                                            // HACK: For now, just clone the flags of the "parent"
-                                                                            //       interpreter.
-                                                                            //
                                                                             PluginFlags testPluginFlags = interpreter.PluginFlags;
+
+#if NATIVE && TCL
+                                                                            FindFlags testFindFlags = interpreter.TclFindFlags;
+                                                                            LoadFlags testLoadFlags = interpreter.TclLoadFlags;
+#endif
 
                                                                             testInterpreterHelper = InterpreterHelper.Create(
                                                                                 testAppDomain, ruleSet, argv, testCreateFlags,
                                                                                 testHostCreateFlags, testInitializeFlags,
                                                                                 testScriptFlags, testInterpreterFlags,
-                                                                                testPluginFlags, text, libraryPath,
+                                                                                testPluginFlags,
+#if NATIVE && TCL
+                                                                                testFindFlags, testLoadFlags,
+#endif
+                                                                                text, libraryPath,
                                                                                 autoPathList, ref isolationResult);
 
                                                                             if (testInterpreterHelper != null)
@@ -838,17 +845,20 @@ namespace Eagle._Commands
                                                                             //       interpreter.
                                                                             //
                                                                             InterpreterFlags testInterpreterFlags = interpreter.InterpreterFlags;
-
-                                                                            //
-                                                                            // HACK: For now, just clone the flags of the "parent"
-                                                                            //       interpreter.
-                                                                            //
                                                                             PluginFlags testPluginFlags = interpreter.PluginFlags;
+
+#if NATIVE && TCL
+                                                                            FindFlags testFindFlags = interpreter.TclFindFlags;
+                                                                            LoadFlags testLoadFlags = interpreter.TclLoadFlags;
+#endif
 
                                                                             testInterpreter = Interpreter.Create(ruleSet,
                                                                                 argv, testCreateFlags, testHostCreateFlags,
                                                                                 testInitializeFlags, testScriptFlags,
                                                                                 testInterpreterFlags, testPluginFlags,
+#if NATIVE && TCL
+                                                                                testFindFlags, testLoadFlags,
+#endif
                                                                                 text, libraryPath, autoPathList,
                                                                                 ref isolationResult);
 
@@ -2682,9 +2692,14 @@ namespace Eagle._Commands
                                                         //       entire test.
                                                         //
                                                         if (testData != null)
-                                                            result = testData;
+                                                        {
+                                                            result = StringBuilderCache.GetStringAndRelease(
+                                                                ref testData);
+                                                        }
                                                         else
+                                                        {
                                                             result = String.Empty;
+                                                        }
                                                     }
                                                 }
                                                 finally

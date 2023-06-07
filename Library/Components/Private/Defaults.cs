@@ -64,12 +64,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if SHELL
+        public static InteractiveLoopFlags InteractiveLoopFlags =
+            InteractiveLoopFlags.Default;
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static PluginFlags PluginFlags = PluginFlags.Default;
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NATIVE && TCL
+        public static FindFlags FindFlags = FindFlags.Default;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static LoadFlags LoadFlags = LoadFlags.Default;
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
         public static PackageIndexFlags PackageIndexFlags =
             PackageIndexFlags.Default;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static DataFlags DataFlags = DataFlags.Default;
         #endregion
     }
 }

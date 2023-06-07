@@ -221,6 +221,10 @@ namespace Eagle._Components.Private
             #region For Script Error Handling Use Only
             public static readonly string ErrorCode = "errorCode";
             public static readonly string ErrorInfo = "errorInfo";
+
+            ///////////////////////////////////////////////////////////////////
+
+            public static readonly string ChildStatus = "CHILDSTATUS";
             #endregion
 
             ///////////////////////////////////////////////////////////////////

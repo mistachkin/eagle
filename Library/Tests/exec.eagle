@@ -119,63 +119,138 @@ runTest {test exec-1.3 {-nocapture with -success} -setup {
 ###############################################################################
 
 runTest {test exec-2.1 {output capture stress test} -setup {
-  unset -nocomplain expected output count i code
-} -body {
-  if {[info exists test_stress_count]} then {
-    set count $test_stress_count; # NOTE: Beta 45+.
-  } else {
-    set count 1000; # NOTE: Beta 44-.
+  unset -nocomplain count j t i arg errors
+
+  proc shouldUseLoopback {} {
+    if {![isWindows] || ![haveConstraint comSpec_cmd.exe]} then {
+      return false
+    }
+
+    if {[hasRuntimeOption alwaysUseLoopbackForExecStress]} then {
+      return true
+    }
+
+    if {![hasRuntimeOption maybeUseLoopbackForExecStress]} then {
+      return false
+    }
+
+    return [expr {rand() >= 0.5}]
   }
 
-  tputs $test_channel [appendArgs \
-      "---- doing test exec-2.1 with iteration count " \
-      $count ", which can take several minutes to run\n"]
+  proc shouldUseThreads {} {
+    if {![haveConstraint compile.THREADING]} then {
+      return false
+    }
 
-  set options [list]
+    if {[hasRuntimeOption alwaysUseThreadsForExecStress]} then {
+      return true
+    }
 
-  set ids [list \
-      88cf0da6bc3fe69201d328495c3711f0f8b23177 \
-      651e1624bb48bc22a0ab28853b9310e99cf7425a]; # SHA1-Id: Lf, Cr/Lf
+    if {![hasRuntimeOption maybeUseThreadsForExecStress]} then {
+      return false
+    }
 
-  set errors [list]
-  set expected [readFile [file join $test_data_path big_exec.txt]]
+    return [expr {rand() >= 0.5}]
+  }
 
-  for {set i 0} {$i < $count} {incr i} {
-    unset -nocomplain output code
+  proc shouldRetryTestExec { retry varName } {
+    if {$retry > 10} then {
+      return false
+    }
 
-    set code [catch {
-      #
-      # HACK: Use the "--chdir" option here in an attempt to make sure
-      #       we are reading from the Eagle repository.
-      #
-      testExec fossil $options artifact \
-          --chdir [appendArgs \" $test_data_path \"] [lindex $ids 0]
-    } output]
+    upvar 1 $varName capture
+
+    if {[info exists capture(error)] && \
+        [string match "*database is locked*" $capture(error)]} then {
+      after [expr {int(rand() * $::test_timeout)}]
+      return true
+    }
+
+    return false
+  }
+
+  proc threadStart { arg } {
+    set options [list \
+        -setall -exitcode capture(exitCode) -stdout capture(output) \
+        -stderr capture(error)]
+
+    set ids [list \
+        88cf0da6bc3fe69201d328495c3711f0f8b23177 \
+        651e1624bb48bc22a0ab28853b9310e99cf7425a]; # SHA1-Id: Lf, Cr/Lf
+
+    set rawFileName [file join $::test_data_path big_exec_raw.txt]
+    set finalFileName [file join $::test_data_path big_exec.txt]
+
+    set expected [readFile $finalFileName]
+    set i [getStringFromObjectHandle $arg]
+    set retry 0
+
+    do {
+      if {[shouldUseLoopback]} then {
+        set code [catch {
+          #
+          # HACK: Skip using Fossil.  Execute a (simple) command that
+          #       should return the expected output directly.  If the
+          #       infrastructure used to capture [exec] output works,
+          #       this should never fail.
+          #
+          testExec $::env(ComSpec) $options /c type [appendArgs \
+              \" [file nativename $rawFileName] \"]
+        } output]
+      } else {
+        set code [catch {
+          #
+          # HACK: Use the "--chdir" option here in an attempt to make
+          #       sure we are reading from the Eagle repository.
+          #
+          testExec fossil $options artifact \
+              --chdir [appendArgs \" $::test_data_path \"] \
+              [lindex $ids 0]
+        } output]
+      }
+    } while {[shouldRetryTestExec [incr retry] capture]}
 
     if {$code != 0} then {
-      lappend errors [appendArgs \
+      set error [appendArgs \
           "bad return code " $code " at iteration #" [expr {$i + 1}] \
           ": " $output]
 
-      continue
+      tputs $::test_channel [appendArgs "---- " $error]
+
+      lappend ::errors $error
+      return
     }
 
     if {[string tolower [hash normal sha1 $output]] ni $ids} then {
-      if {[hasRuntimeOption saveBadOutput]} then {
-        set fileName [file join [getTemporaryPath] \
+      if {[hasRuntimeOption saveBadOutputForExecStress]} then {
+        set fileName(1) [file join [getTemporaryPath] \
             [appendArgs exec-2.1-out- [expr {$i + 1}] .bad1]]
 
-        writeFile $fileName $output
+        writeFile $fileName(1) $output
 
-        tputs $test_channel [appendArgs \
-            "---- saved bad raw output to \"" $fileName \"\n]
+        if {[array size capture] > 0 && \
+            [hasRuntimeOption saveCaptureDataForExecStress]} then {
+          set fileName(2) [file join [getTemporaryPath] \
+              [appendArgs exec-2.1-dump- [expr {$i + 1}] .bad1]]
+
+          writeFile $fileName(2) [testArrayGet capture]
+
+          tputs $::test_channel [appendArgs \
+              "---- saved capture data to \"" $fileName(2) \"\n]
+        }
+
+        tputs $::test_channel [appendArgs \
+            "---- saved bad raw output to \"" $fileName(1) \"\n]
       }
 
-      lappend errors [appendArgs \
+      set error [appendArgs \
           "bad raw output at iteration #" [expr {$i + 1}] ": " \
           $output]
 
-      continue
+      tputs $::test_channel [appendArgs "---- " $error]
+
+      lappend ::errors $error
+      return
     }
 
     set savedOutput $output
@@ -186,31 +261,110 @@ runTest {test exec-2.1 {output capture stress test} -setup {
         {^F .* ([0-9a-f]{40})$} $output] " "] \n]; # extract UUIDs
 
     if {$output ne $expected} then {
-      if {[hasRuntimeOption saveBadOutput]} then {
-        set fileName [file join [getTemporaryPath] \
+      if {[hasRuntimeOption saveBadOutputForExecStress]} then {
+        set fileName(1) [file join [getTemporaryPath] \
             [appendArgs exec-2.1-out- [expr {$i + 1}] .bad2]]
 
-        writeFile $fileName $savedOutput
+        writeFile $fileName(1) $savedOutput
 
-        tputs $test_channel [appendArgs \
-            "---- saved bad processed output to \"" $fileName \"\n]
+        if {[array size capture] > 0 && \
+            [hasRuntimeOption saveCaptureDataForExecStress]} then {
+          set fileName(2) [file join [getTemporaryPath] \
+              [appendArgs exec-2.1-dump- [expr {$i + 1}] .bad2]]
+
+          writeFile $fileName(2) [testArrayGet capture]
+
+          tputs $::test_channel [appendArgs \
+              "---- saved capture data to \"" $fileName(2) \"\n]
+        }
+
+        tputs $::test_channel [appendArgs \
+            "---- saved bad processed output to \"" $fileName(1) \"\n]
       }
 
-      lappend errors [appendArgs \
+      set error [appendArgs \
           "bad processed output at iteration #" [expr {$i + 1}] ": " \
           $output]
+
+      tputs $::test_channel [appendArgs "---- " $error]
+
+      lappend ::errors $error
+      return
     }
   }
 
-  set errors
+  if {[info exists test_stress_count]} then {
+    set count(1) $test_stress_count; # NOTE: Beta 45+.
+  } else {
+    set count(1) 10000; # NOTE: Beta 44-.
+  }
+
+  set count(2) 25; # thread count
+} -body {
+  tputs $test_channel [appendArgs \
+      "---- doing test exec-2.1 with iteration count " \
+      $count(1) ", which can take several minutes to run\n"]
+
+  set gcc(before) [object invoke -flags +NonPublic \
+      Eagle._Components.Private.DebugOps globalComplainCount]
+
+  set errors [list]
+
+  for {set i 0} {$i < $count(1)} {incr i} {
+    set arg [object invoke -create Int32 Parse $i]
+
+    if {[shouldUseThreads]} then {
+      for {set j 0} {$j < $count(2)} {incr j} {
+        set t($i,$j) [createThread threadStart true]
+        startThread $t($i,$j) true $arg
+      }
+
+      for {set j 0} {$j < $count(2)} {incr j} {
+        joinThread $t($i,$j) effective
+      }
+
+      for {set j 0} {$j < $count(2)} {incr j} {
+        cleanupThread $t($i,$j)
+        unset -nocomplain t($i,$j)
+      }
+    } else {
+      threadStart $arg
+    }
+
+    set gcc($i) [object invoke -flags +NonPublic \
+        Eagle._Components.Private.DebugOps globalComplainCount]
+
+    if {([llength $errors] > 0 || $gcc($i) > $gcc(before)) && \
+        [hasRuntimeOption failFastForExecStress]} then {
+      break
+    }
+  }
+
+  set gcc(after) [object invoke -flags +NonPublic \
+      Eagle._Components.Private.DebugOps globalComplainCount]
+
+  list $errors [expr {$gcc(after) == $gcc(before)}]
 } -cleanup {
+  for {set i 0} {$i < $count(1)} {incr i} {
+    for {set j 0} {$j < $count(2)} {incr j} {
+      if {[info exists t($i,$j)]} then {
+        cleanupThread $t($i,$j)
+        unset -nocomplain t($i,$j)
+      }
+    }
+  }
+
+  catch {object removecallback threadStart}
   catch {info previouspid true}
 
-  unset -nocomplain expected output count i code options
-  unset -nocomplain ids errors fileName savedOutput
-} -constraints \
-{eagle testExec fossil_version fossil_repository_file file_big_exec.txt} \
--time true -result {}}
+  rename threadStart ""
+  rename shouldRetryTestExec ""
+  rename shouldUseThreads ""
+  rename shouldUseLoopback ""
+
+  unset -nocomplain count j t i arg gcc errors
+} -constraints {eagle testExec fossil_version fossil_repository_file\
+file_big_exec.txt file_big_exec_raw.txt} -time true -result {{} True}}
 
 ###############################################################################
 

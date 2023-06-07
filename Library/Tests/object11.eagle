@@ -287,7 +287,8 @@ runTest {test object-11.11 {[object search] sub-command} -setup {
 } -constraints [fixConstraints {eagle command.object strongName.official\
 !dotNetCore}] -match regexp -result [string map [list %testAsm% \
 [getTestAssemblyName] %corAsm% [assemblyNameToRegexp [getRuntimeAssemblyName]] \
-%corAsmOnly% [getRuntimeAssemblyNameOnly]] {^1 \{\{type\
+%corAsmOnly% [getRuntimeAssemblyNameOnly] %publicKeyTokens% \
+[getKnownPublicKeyTokenPattern]] {^1 \{\{type\
 "Eagle\._Components\.Public\.foo" not found\} \{type\
 "Eagle\._Components\.Public\.foo, %testAsm%" not found\} \{type\
 "Eagle\._Components\.Public\.foo, System" not found\} \{type\
@@ -308,34 +309,29 @@ found\} \{type "foo, %corAsmOnly%" not found\}\} 1 \{\{type\
 "foo"\}(:?\})? 1 \{type "foo" not found\} 1 \{\{type\
 "Eagle\._Components\.Public\.foo" not found\} \{type\
 "Eagle\._Components\.Public\.foo, %testAsm%, Version=1\.0\.\d+\.\d+,\
-Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
-found\} \{type "Eagle\._Components\.Public\.foo, System, Version=[24]\.0\.0\.0,\
+Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)" not found\} \{type\
+"Eagle\._Components\.Public\.foo, System, Version=[24]\.0\.0\.0,\
 Culture=neutral, PublicKeyToken=b77a5c561934e089" not found\} \{type\
 "Eagle\._Components\.Public\.foo, %corAsm%" not found\} \{type\
 "Eagle\._Containers\.Public\.foo" not found\} \{type\
 "Eagle\._Containers\.Public\.foo, %testAsm%, Version=1\.0\.\d+\.\d+,\
-Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
-found\} \{type "Eagle\._Containers\.Public\.foo, System, Version=[24]\.0\.0\.0,\
+Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)" not found\} \{type\
+"Eagle\._Containers\.Public\.foo, System, Version=[24]\.0\.0\.0,\
 Culture=neutral, PublicKeyToken=b77a5c561934e089" not found\} \{type\
 "Eagle\._Containers\.Public\.foo, %corAsm%" not found\} \{type\
 "System\.foo" not found\} \{type "System\.foo, %testAsm%,\
-Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
-found\} \{type "System\.foo, System, Version=[24]\.0\.0\.0, Culture=neutral,\
-PublicKeyToken=b77a5c561934e089" not found\} \{type "System\.foo, %corAsm%" not\
-found\} \{type "foo" not found\} \{type "foo, %testAsm%,\
-Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
-found\} \{type "foo, System, Version=[24]\.0\.0\.0, Culture=neutral,\
-PublicKeyToken=b77a5c561934e089" not found\} \{type "foo, %corAsm%" not\
-found\}\} 1 \{\{type "foo" not found\} \{type "foo, %testAsm%,\
-Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
-found\} \{type "foo, System, Version=[24]\.0\.0\.0, Culture=neutral,\
-PublicKeyToken=b77a5c561934e089" not found\} \{type "foo, %corAsm%" not\
-found\}\}$}]}
+Version=1\.0\.\d+\.\d+, Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)"\
+not found\} \{type "System\.foo, System, Version=[24]\.0\.0\.0,\
+Culture=neutral, PublicKeyToken=b77a5c561934e089" not found\} \{type\
+"System\.foo, %corAsm%" not found\} \{type "foo" not found\} \{type "foo,\
+%testAsm%, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:%publicKeyTokens%)" not found\} \{type "foo, System,\
+Version=[24]\.0\.0\.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" not\
+found\} \{type "foo, %corAsm%" not found\}\} 1 \{\{type "foo" not found\}\
+\{type "foo, %testAsm%, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:%publicKeyTokens%)" not found\} \{type "foo, System,\
+Version=[24]\.0\.0\.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" not\
+found\} \{type "foo, %corAsm%" not found\}\}$}]}
 
 ###############################################################################
 

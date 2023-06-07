@@ -440,20 +440,6 @@ namespace Eagle._Components.Private
 
             // [DllImport(DllName.User32,
             //     CallingConvention = CallingConvention.Winapi)]
-            // internal static extern IntPtr GetFocus();
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
-            // [DllImport(DllName.User32,
-            //     CallingConvention = CallingConvention.Winapi)]
-            // internal static extern IntPtr SetFocus(
-            //     IntPtr hWnd
-            // );
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
-            // [DllImport(DllName.User32,
-            //     CallingConvention = CallingConvention.Winapi)]
             // internal static extern IntPtr GetParent(
             //     IntPtr hWnd
             // );
@@ -959,7 +945,7 @@ namespace Eagle._Components.Private
                     return GetCascadiaInputWindow(false, ref error);
                 else
                 #endregion
-                    return NativeConsole.GetConsoleWindow(ref error);
+                    return NativeConsole.GetWindow(ref error);
             }
             else
             {
@@ -1002,7 +988,7 @@ namespace Eagle._Components.Private
                     return GetCascadiaMainWindow(false, ref error);
                 else
                 #endregion
-                    return NativeConsole.GetConsoleWindow(ref error);
+                    return NativeConsole.GetWindow(ref error);
             }
             else
             {
@@ -1447,7 +1433,7 @@ namespace Eagle._Components.Private
                     {
                         length++; /* NUL terminator */
 
-                        buffer = StringOps.NewStringBuilder(buffer, length);
+                        buffer = StringBuilderFactory.CreateNoCache(buffer, length); /* EXEMPT */
 
                         if (UnsafeNativeMethods.GetWindowText(
                                 hWnd, buffer, length) > 0)
@@ -1459,7 +1445,7 @@ namespace Eagle._Components.Private
                     string @class = null;
                     length = UnsafeNativeMethods.MAX_CLASS_NAME;
 
-                    buffer = StringOps.NewStringBuilder(buffer, length);
+                    buffer = StringBuilderFactory.CreateNoCache(buffer, length); /* EXEMPT */
 
                     if (UnsafeNativeMethods.GetClassName(
                             hWnd, buffer, length) > 0)
@@ -1687,12 +1673,12 @@ namespace Eagle._Components.Private
                 {
                     length++; /* NUL terminator */
 
-                    StringBuilder buffer = StringOps.NewStringBuilder(length);
+                    StringBuilder buffer = StringBuilderFactory.Create(length);
 
                     if (UnsafeNativeMethods.GetWindowText(
                             handle, buffer, length) > 0)
                     {
-                        return buffer.ToString();
+                        return StringBuilderCache.GetStringAndRelease(ref buffer);
                     }
                 }
             }
@@ -1763,6 +1749,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SimulateReturnKey(
+            ref Result error
+            )
+        {
+            IntPtr handle = GetInputWindow(ref error);
+
+            if (handle == IntPtr.Zero)
+                return ReturnCode.Error;
+
+            return SimulateReturnKey(handle, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode SimulateReturnKey(
             IntPtr handle,
             ref Result error
             )

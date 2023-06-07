@@ -35,5 +35,15 @@ namespace Eagle._Components.Public
         public static readonly string TestPackage = PathOps.GetUnixPath(
             PathOps.CombinePath(null, TclVars.Path.Lib, GlobalState.GetPackagePath(
             PackageType.Test, GlobalState.GetPackageVersion(), String.Empty)));
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is the "path fragment" to the Eagle test package.  It
+        //       should look something like "lib/Kit1.0".
+        //
+        public static readonly string KitPackage = PathOps.GetUnixPath(
+            PathOps.CombinePath(null, TclVars.Path.Lib, GlobalState.GetPackagePath(
+            PackageType.Kit, GlobalState.GetPackageVersion(), String.Empty)));
     }
 }

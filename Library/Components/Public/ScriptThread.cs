@@ -1625,8 +1625,9 @@ namespace Eagle._Components.Public
             CheckRestricted();
 
             return FixupReturnValue(
-                null, objectOptionType, objectName, objectFlags, value, alias,
-                aliasReference, ref result);
+                null, null, objectOptionType, objectName,
+                objectFlags, value, alias, aliasReference,
+                ref result);
         }
         #endregion
 
@@ -2668,7 +2669,8 @@ namespace Eagle._Components.Public
 
         private static ReturnCode FixupReturnValue(
             Interpreter interpreter,
-            OptionDictionary options,
+            OptionDictionary currentOptions,
+            OptionDictionary aliasOptions,
             ObjectOptionType objectOptionType,
             string objectName,
             ObjectFlags objectFlags,
@@ -2692,8 +2694,9 @@ namespace Eagle._Components.Public
 
             return MarshalOps.FixupReturnValue(
                 interpreter, interpreter.InternalBinder,
-                interpreter.InternalCultureInfo, null, objectFlags, options,
-                objectOptionType, objectName, null, value, true, false, alias,
+                interpreter.InternalCultureInfo, null, objectFlags,
+                currentOptions, aliasOptions, objectOptionType,
+                objectName, null, value, true, false, alias,
                 aliasReference, false, ref result);
         }
 
@@ -3203,7 +3206,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         private ReturnCode FixupReturnValue(
-            OptionDictionary options,
+            OptionDictionary currentOptions,
+            OptionDictionary aliasOptions,
             ObjectOptionType objectOptionType,
             string objectName,
             ObjectFlags objectFlags,
@@ -3233,8 +3237,9 @@ namespace Eagle._Components.Public
             }
 
             return FixupReturnValue(
-                interpreter, options, objectOptionType, objectName,
-                objectFlags, value, alias, aliasReference, ref result);
+                interpreter, currentOptions, aliasOptions,
+                objectOptionType, objectName, objectFlags,
+                value, alias, aliasReference, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3436,7 +3441,7 @@ namespace Eagle._Components.Public
                         if (useSelf)
                         {
                             code = FixupReturnValue(
-                                interpreter, null,
+                                interpreter, null, null,
                                 DefaultObjectOptionType,
                                 scriptThreadObjectName,
                                 ObjectFlags.NoDispose, this,
@@ -3637,7 +3642,7 @@ namespace Eagle._Components.Public
                     if (useSelf)
                     {
                         code = FixupReturnValue(
-                            interpreter, null,
+                            interpreter, null, null,
                             DefaultObjectOptionType,
                             scriptThreadObjectName,
                             ObjectFlags.NoDispose, this,

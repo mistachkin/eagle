@@ -67,14 +67,14 @@ namespace Eagle._Lambdas
                             {
                                 int argumentCount = arguments.Count;
 
-                                if (((argumentCount - 1) % 2) == 0)
+                                if (namedArguments.IsGoodCount(argumentCount - 1, true))
                                 {
                                     {
                                         ICallFrame frame = null;
 
                                         try
                                         {
-                                            bool hasArgs = namedArguments.IsVariadic(true);
+                                            bool hasArgs = namedArguments.IsVariadic(null, true);
                                             int maximumId = namedArguments.GetMaximumId();
 
                                             if (hasArgs)
@@ -89,86 +89,109 @@ namespace Eagle._Lambdas
                                                 procedureName, CallFrameFlags.Procedure | CallFrameFlags.Lambda,
                                                 null, this, arguments);
 
-                                            VariableDictionary variables = frame.Variables;
+                                            StringDictionary alreadySet = new StringDictionary();
                                             ArgumentList argsArguments = hasArgs ? new ArgumentList() : null;
+                                            ArgumentList frameProcedureArguments = new ArgumentList();
 
-                                            frame.ProcedureArguments = new ArgumentList(arguments[0]);
+                                            frameProcedureArguments.Add(arguments[0]);
+                                            frame.ProcedureArguments = frameProcedureArguments;
 
-                                            for (int argumentIndex = 1; argumentIndex < argumentCount; argumentIndex += 2)
+                                            int argumentIndex = 1;
+
+                                            for (; argumentIndex < argumentCount; argumentIndex += 2)
                                             {
                                                 string varName = arguments[argumentIndex];
 
-                                                if (!variables.ContainsKey(varName))
+                                                if ((argumentIndex + 1) >= argumentCount)
                                                 {
-                                                    ArgumentFlags flags = ArgumentFlags.None;
-                                                    object varValue;
-
-                                                    Argument argument = arguments[argumentIndex + 1];
-                                                    IAnyPair<int, Argument> anyPair;
-
-                                                    if (namedArguments.TryGetValue(varName, out anyPair))
+                                                    if (!hasArgs)
                                                     {
-                                                        //
-                                                        // NOTE: The named argument exists and has been specified.
-                                                        //
-                                                        if ((anyPair != null) && (foundArguments != null))
-                                                        {
-                                                            int id = anyPair.X;
+                                                        result = String.Format(
+                                                            "procedure \"{0}\" missing value for argument named \"{1}\"",
+                                                            procedureName, varName);
 
-                                                            if ((id >= 0) && (id < foundArguments.Length))
-                                                                foundArguments[id] = true;
-                                                        }
-
-                                                        //
-                                                        // NOTE: Sync up the argument name for use when debugging
-                                                        //       (below) and use the value supplied by the caller.
-                                                        //
-                                                        varValue = Argument.GetOrCreate(
-                                                            interpreter, argument.Flags | flags, varName,
-                                                            argument, interpreter.HasNoCacheArgument());
+                                                        code = ReturnCode.Error;
                                                     }
-                                                    else if (hasArgs)
-                                                    {
-                                                        //
-                                                        // NOTE: This argument is part of an argument list.
-                                                        //
-                                                        flags |= ArgumentFlags.ArgumentList;
 
-                                                        //
-                                                        // NOTE: Add to the list for the final argument value, which
-                                                        //       consists of all the remaining named argument values.
-                                                        //
+                                                    break;
+                                                }
+
+                                                if (hasArgs && namedArguments.IsVariadicName(varName))
+                                                {
+                                                    Argument argument = arguments[argumentIndex + 1];
+                                                    StringList list4 = null;
+
+                                                    code = ListOps.GetOrCopyOrSplitList(
+                                                        interpreter, argument, true, ref list4,
+                                                        ref result);
+
+                                                    if (code != ReturnCode.Ok)
+                                                        break;
+
+                                                    for (int index = 0; index < list4.Count; index++)
+                                                    {
                                                         Argument argsArgument = Argument.GetOrCreate(
-                                                            interpreter, argument.Flags | flags,
-                                                            String.Format("{0}{1}{2}", varName, Characters.Space,
-                                                            argsArguments.Count), argument,
+                                                            interpreter, argument.Flags |
+                                                                ArgumentFlags.Named |
+                                                                ArgumentFlags.List,
+                                                            String.Format("{0}{1}{2}{3}{4}",
+                                                                namedArguments.GetVariadicName(),
+                                                                Characters.Space, argumentIndex,
+                                                                Characters.Space, index), list4[index],
                                                             interpreter.HasNoCacheArgument());
 
-                                                        argsArguments.Add(varName);
                                                         argsArguments.Add(argsArgument);
-
-                                                        //
-                                                        // NOTE: Setting the "args" variable is done after this loop.
-                                                        //
-                                                        continue;
                                                     }
-                                                    else
+                                                }
+
+                                                IAnyPair<int, Argument> anyPair;
+
+                                                if (!namedArguments.TryGetValue(varName, out anyPair))
+                                                {
+                                                    if (!hasArgs)
                                                     {
                                                         //
-                                                        // NOTE: This is an error.  The named argument is not supported
-                                                        //       -AND- there was no "args" argument in the definition of
-                                                        //       the procedure.
+                                                        // NOTE: This is an error.  The named argument is not
+                                                        //       supported -AND- there was no "args" argument
+                                                        //       in the definition of the procedure.
                                                         //
                                                         result = String.Format(
                                                             "procedure \"{0}\" unsupported argument named \"{1}\"",
                                                             procedureName, varName);
 
                                                         code = ReturnCode.Error;
-                                                        break;
                                                     }
 
-                                                    code = interpreter.SetVariableValue2(VariableFlags.Argument, frame,
-                                                        varName, varValue, ref result);
+                                                    break;
+                                                }
+
+                                                if (!alreadySet.ContainsKey(varName))
+                                                {
+                                                    //
+                                                    // HACK: Set the found flag on this named argument.
+                                                    //
+                                                    if ((anyPair != null) && (foundArguments != null))
+                                                    {
+                                                        int id = anyPair.X;
+
+                                                        if ((id >= 0) && (id < foundArguments.Length))
+                                                            foundArguments[id] = true;
+                                                    }
+
+                                                    //
+                                                    // NOTE: Sync up the argument name for use when debugging
+                                                    //       (below) and use the value supplied by the caller.
+                                                    //
+                                                    object varValue;
+                                                    Argument argument = arguments[argumentIndex + 1];
+
+                                                    varValue = Argument.GetOrCreate(
+                                                        interpreter, argument.Flags | ArgumentFlags.Named,
+                                                        varName, argument, interpreter.HasNoCacheArgument());
+
+                                                    code = interpreter.SetVariableValue2(
+                                                        VariableFlags.Argument, frame, varName, varValue,
+                                                        ref result);
 
                                                     if (code != ReturnCode.Ok)
                                                         break;
@@ -178,18 +201,19 @@ namespace Eagle._Lambdas
                                                     //         arguments list.  Primarily because we do not want to
                                                     //         have to redo this logic later (i.e. for [scope]).
                                                     //
-                                                    frame.ProcedureArguments.Add(varName);
-
                                                     if (varValue is Argument)
                                                     {
-                                                        frame.ProcedureArguments.Add((Argument)varValue);
+                                                        frameProcedureArguments.Add((Argument)varValue);
                                                     }
                                                     else
                                                     {
-                                                        frame.ProcedureArguments.Add(Argument.GetOrCreate(
-                                                            interpreter, flags, varName, varValue,
+                                                        frameProcedureArguments.Add(Argument.GetOrCreate(
+                                                            interpreter, ArgumentFlags.Named |
+                                                            ArgumentFlags.FrameOnly, varName, varValue,
                                                             interpreter.HasNoCacheArgument()));
                                                     }
+
+                                                    alreadySet.Add(varName, null);
                                                 }
                                             }
 
@@ -244,17 +268,16 @@ namespace Eagle._Lambdas
                                                             //         because we do not want to have to redo
                                                             //         this logic later (i.e. for [scope]).
                                                             //
-                                                            frame.ProcedureArguments.Add(varName);
-
                                                             if (varValue is Argument)
                                                             {
-                                                                frame.ProcedureArguments.Add((Argument)varValue);
+                                                                frameProcedureArguments.Add((Argument)varValue);
                                                             }
                                                             else
                                                             {
-                                                                frame.ProcedureArguments.Add(Argument.GetOrCreate(
-                                                                    interpreter, ArgumentFlags.None, varName,
-                                                                    varValue, interpreter.HasNoCacheArgument()));
+                                                                frameProcedureArguments.Add(Argument.GetOrCreate(
+                                                                    interpreter, ArgumentFlags.Named |
+                                                                    ArgumentFlags.FrameOnly, varName, varValue,
+                                                                    interpreter.HasNoCacheArgument()));
                                                             }
                                                         }
                                                         else
@@ -277,19 +300,47 @@ namespace Eagle._Lambdas
 
                                             if (code == ReturnCode.Ok)
                                             {
+                                                if (hasArgs)
+                                                {
+                                                    //
+                                                    // NOTE: Add to the list for the final argument value,
+                                                    //       which consists of all the remaining argument
+                                                    //       values.
+                                                    //
+                                                    for (; argumentIndex < argumentCount; argumentIndex++)
+                                                    {
+                                                        Argument argument = arguments[argumentIndex];
+
+                                                        Argument argsArgument = Argument.GetOrCreate(
+                                                            interpreter, argument.Flags |
+                                                                ArgumentFlags.Named |
+                                                                ArgumentFlags.List,
+                                                            String.Format("{0}{1}{2}",
+                                                                namedArguments.GetVariadicName(),
+                                                                Characters.Space,
+                                                                argumentIndex), argument,
+                                                            interpreter.HasNoCacheArgument());
+
+                                                        argsArguments.Add(argsArgument);
+                                                    }
+                                                }
+                                            }
+
+                                            if (code == ReturnCode.Ok)
+                                            {
                                                 if (argsArguments != null)
                                                 {
                                                     code = interpreter.SetVariableValue2(
                                                         VariableFlags.Argument, frame,
-                                                        TclVars.Core.Arguments,
+                                                        namedArguments.GetVariadicName(),
                                                         argsArguments, ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                     {
-                                                        frame.ProcedureArguments.Add(TclVars.Core.Arguments);
-                                                        frame.ProcedureArguments.Add(Argument.GetOrCreate(
-                                                            interpreter, ArgumentFlags.ArgumentList,
-                                                            TclVars.Core.Arguments, argsArguments,
+                                                        frameProcedureArguments.Add(Argument.GetOrCreate(
+                                                            interpreter, ArgumentFlags.Named |
+                                                            ArgumentFlags.FrameOnly | ArgumentFlags.List,
+                                                            namedArguments.GetVariadicName(), argsArguments,
                                                             interpreter.HasNoCacheArgument()));
                                                     }
                                                 }

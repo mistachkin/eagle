@@ -107,6 +107,7 @@ namespace Eagle._Interfaces.Public
 
         ReturnCode VerifyIdentifiers(
             IdentifierKind kind,
+            MatchMode mode,
             IRuleSet ruleSet,
             ref int unverified,
             ref ResultList errors
@@ -193,7 +194,21 @@ namespace Eagle._Interfaces.Public
             ref Result result
             );
 
+        ReturnCode MaybeRenameIExecute(
+            string oldName,
+            string newName,
+            bool delete,
+            ref Result result
+            );
+
         ReturnCode RenameHiddenIExecute(
+            string oldName,
+            string newName,
+            bool delete,
+            ref Result result
+            );
+
+        ReturnCode MaybeRenameHiddenIExecute(
             string oldName,
             string newName,
             bool delete,
@@ -462,6 +477,15 @@ namespace Eagle._Interfaces.Public
             ref Result error
             );
 
+        ReturnCode GetCommandForPlugin(
+            IPlugin plugin,
+            string name,
+            LookupFlags lookupFlags,
+            ref long token,
+            ref ICommand command,
+            ref Result error
+            );
+
         ReturnCode ListCommands(
             CommandFlags hasFlags,
             CommandFlags notHasFlags,
@@ -527,7 +551,21 @@ namespace Eagle._Interfaces.Public
             ref Result result
             );
 
+        ReturnCode MaybeRenameCommand(
+            string oldName,
+            string newName,
+            bool delete,
+            ref Result result
+            );
+
         ReturnCode RenameHiddenCommand(
+            string oldName,
+            string newName,
+            bool delete,
+            ref Result result
+            );
+
+        ReturnCode MaybeRenameHiddenCommand(
             string oldName,
             string newName,
             bool delete,
@@ -553,6 +591,24 @@ namespace Eagle._Interfaces.Public
             string name,
             IClientData clientData,
             ref Result result
+            );
+
+        ReturnCode RemoveCommands(
+            IEnumerable<long> tokens,
+            IClientData clientData,
+            bool stopOnError,
+            bool failOnError,
+            ref StringList names,
+            ref ResultList errors
+            );
+
+        ReturnCode RemoveCommands(
+            IEnumerable<string> names,
+            IClientData clientData,
+            bool stopOnError,
+            bool failOnError,
+            ref LongList tokens,
+            ref ResultList errors
             );
 
         ReturnCode MatchCommand(
@@ -846,7 +902,21 @@ namespace Eagle._Interfaces.Public
             ref Result result
             );
 
+        ReturnCode MaybeRenameProcedure(
+            string oldName,
+            string newName,
+            bool delete,
+            ref Result result
+            );
+
         ReturnCode RenameHiddenProcedure(
+            string oldName,
+            string newName,
+            bool delete,
+            ref Result result
+            );
+
+        ReturnCode MaybeRenameHiddenProcedure(
             string oldName,
             string newName,
             bool delete,
@@ -997,6 +1067,20 @@ namespace Eagle._Interfaces.Public
             );
 
         ReturnCode GetDbTransaction(
+            string name,
+            LookupFlags lookupFlags,
+            ref IDbTransaction transaction,
+            ref Result error
+            );
+
+        ReturnCode GetAnyDbConnection(
+            string name,
+            LookupFlags lookupFlags,
+            ref IDbConnection connection,
+            ref Result error
+            );
+
+        ReturnCode GetAnyDbTransaction(
             string name,
             LookupFlags lookupFlags,
             ref IDbTransaction transaction,

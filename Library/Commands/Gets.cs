@@ -126,7 +126,7 @@ namespace Eagle._Commands
 
             string channelId = arguments[argumentIndex];
 
-            IChannel channel = interpreter.GetChannel(
+            IChannel channel = interpreter.InternalGetChannel(
                 channelId, ref result);
 
             if (channel == null)

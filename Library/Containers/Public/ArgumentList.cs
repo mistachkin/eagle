@@ -216,6 +216,7 @@ namespace Eagle._Containers.Public
         {
             if (list != null)
             {
+                string variadicName = GetVariadicName();
                 int count = list.Count;
 
                 for (int index = 0; index < count; index++)
@@ -237,11 +238,12 @@ namespace Eagle._Containers.Public
                     //
                     ArgumentFlags nameFlags = ArgumentFlags.None;
 
-                    if ((index == (count - 1)) &&
+                    if ((variadicName != null) &&
                         SharedStringOps.SystemEquals(
-                            element.X, TclVars.Core.Arguments))
+                            element.X, variadicName) &&
+                        (index == (count - 1)))
                     {
-                        nameFlags |= ArgumentFlags.ArgumentList;
+                        nameFlags |= ArgumentFlags.List;
                     }
 
                     ArgumentFlags valueFlags = (element.Y != null) ?
@@ -527,8 +529,10 @@ namespace Eagle._Containers.Public
             if (argument == null)
                 return false;
 
-            return SharedStringOps.SystemEquals(
-                argument.Name, TclVars.Core.Arguments);
+            string variadicName = GetVariadicName();
+
+            return (variadicName != null) &&
+                SharedStringOps.SystemEquals(argument.Name, variadicName);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -582,12 +586,12 @@ namespace Eagle._Containers.Public
 
         public string ToRawString()
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (Argument element in this)
                 result.Append(element);
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -597,7 +601,7 @@ namespace Eagle._Containers.Public
             string separator
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (Argument element in this)
             {
@@ -610,7 +614,7 @@ namespace Eagle._Containers.Public
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -728,6 +732,15 @@ namespace Eagle._Containers.Public
         }
 #endif
         #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Methods
+        private string GetVariadicName()
+        {
+            return TclVars.Core.Arguments;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

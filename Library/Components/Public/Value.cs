@@ -311,7 +311,7 @@ namespace Eagle._Components.Public
                 //
                 if (namedSingles == null)
                 {
-                    namedSingles = new SingleDictionary(new _Comparers.Custom(
+                    namedSingles = new SingleDictionary(new _Comparers.StringCustom(
                         SharedStringOps.GetSystemComparisonType(true)));
 
                     namedSingles.Add(
@@ -345,7 +345,7 @@ namespace Eagle._Components.Public
 
                 if (namedDoubles == null)
                 {
-                    namedDoubles = new DoubleDictionary(new _Comparers.Custom(
+                    namedDoubles = new DoubleDictionary(new _Comparers.StringCustom(
                         SharedStringOps.GetSystemComparisonType(true)));
 
                     namedDoubles.Add(
@@ -512,6 +512,16 @@ namespace Eagle._Components.Public
             CultureInfo cultureInfo
             )
         {
+#if MONO || MONO_HACKS
+            //
+            // HACK: Sometimes Mono 6.12 will throw a NullReferenceException
+            //       from DateTime.TryParseExact when it is used from within
+            //       a non-default AppDomain and non-null IFormatProvider.
+            //
+            if (CommonOps.Runtime.IsMono() && !AppDomainOps.IsCurrentDefault())
+                return null;
+#endif
+
             return (cultureInfo != null) ?
                 cultureInfo.DateTimeFormat : GetDateTimeFormatProvider();
         }
@@ -5260,7 +5270,8 @@ namespace Eagle._Components.Public
                 {
                     Number number = new Number(innerValue);
 
-                    if (number.ToWideInteger(ref value))
+                    if (number.IsIntegral() &&
+                        number.ToWideInteger(ref value))
                     {
                         return ReturnCode.Ok;
                     }
@@ -9956,8 +9967,8 @@ namespace Eagle._Components.Public
                         bool variant2SkipConvertTo = variant2NoConvertTo ||
                             (variant2Type != null);
 
-                        if (variant1.IsIntegral() &&
-                            variant2.IsIntegral())
+                        if (variant1.IsIntegralOrEnum() &&
+                            variant2.IsIntegralOrEnum())
                         {
                             //
                             // TODO: Add more of the supported Variant sub-types

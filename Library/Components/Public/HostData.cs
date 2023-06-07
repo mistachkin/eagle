@@ -126,7 +126,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        #region IHostData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -136,6 +136,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IHostData Members
 #if SERIALIZATION
         [NonSerialized()]
 #endif

@@ -26,7 +26,7 @@ namespace eval ::Eagle {
   #       any existing values will be overwritten and set back to their
   #       default values.
   #
-  proc setupPackageToolsetVars { force } {
+  proc setupPackageToolsetVars { force {cleanup false} } {
     #
     # NOTE: Using the [getAuxiliaryBaseUri] procedure requires the update
     #       package.
@@ -36,7 +36,9 @@ namespace eval ::Eagle {
     #
     variable baseUri; # DEFAULT: [getAuxiliaryBaseUri] -OR- https://urn.to/r
 
-    if {$force || ![info exists baseUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain baseUri
+    } elseif {$force || ![info exists baseUri]} then {
       if {[isEagle]} then {
         set baseUri [getAuxiliaryBaseUri]
       } else {
@@ -50,7 +52,9 @@ namespace eval ::Eagle {
     #
     variable packageToolsetUrn; # DEFAULT: pkg_client_only
 
-    if {$force || ![info exists packageToolsetUrn]} then {
+    if {$cleanup} then {
+      unset -nocomplain packageToolsetUrn
+    } elseif {$force || ![info exists packageToolsetUrn]} then {
       set packageToolsetUrn pkg_client_only
     }
 
@@ -59,7 +63,9 @@ namespace eval ::Eagle {
     #
     variable packageToolsetUri; # DEFAULT: ${baseUri}/${packageToolsetUrn}
 
-    if {$force || ![info exists packageToolsetUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain packageToolsetUri
+    } elseif {$force || ![info exists packageToolsetUri]} then {
       set packageToolsetUri {${baseUri}/${packageToolsetUrn}}
     }
 
@@ -69,7 +75,9 @@ namespace eval ::Eagle {
     #
     variable tclKitDllUrn; # DEFAULT: tclkit_dll_${platform}
 
-    if {$force || ![info exists tclKitDllUrn]} then {
+    if {$cleanup} then {
+      unset -nocomplain tclKitDllUrn
+    } elseif {$force || ![info exists tclKitDllUrn]} then {
       set tclKitDllUrn {tclkit_dll_${platform}}
     }
 
@@ -79,7 +87,9 @@ namespace eval ::Eagle {
     #
     variable tclKitDllUri; # DEFAULT: ${baseUri}/${urn}
 
-    if {$force || ![info exists tclKitDllUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain tclKitDllUri
+    } elseif {$force || ![info exists tclKitDllUri]} then {
       set tclKitDllUri {${baseUri}/${urn}}
     }
 
@@ -89,7 +99,9 @@ namespace eval ::Eagle {
     #
     variable securityToolsetUrn; # DEFAULT: security_toolset_${platform}
 
-    if {$force || ![info exists securityToolsetUrn]} then {
+    if {$cleanup} then {
+      unset -nocomplain securityToolsetUrn
+    } elseif {$force || ![info exists securityToolsetUrn]} then {
       set securityToolsetUrn {security_toolset_${platform}}
     }
 
@@ -99,7 +111,9 @@ namespace eval ::Eagle {
     #
     variable securityToolsetUri; # DEFAULT: ${baseUri}/${urn}
 
-    if {$force || ![info exists securityToolsetUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain securityToolsetUri
+    } elseif {$force || ![info exists securityToolsetUri]} then {
       set securityToolsetUri {${baseUri}/${urn}}
     }
 
@@ -110,7 +124,9 @@ namespace eval ::Eagle {
     #
     variable licenseUrns; # DEFAULT: get_license_01 ... get_license_NN
 
-    if {$force || ![info exists licenseUrns]} then {
+    if {$cleanup} then {
+      unset -nocomplain licenseUrns
+    } elseif {$force || ![info exists licenseUrns]} then {
       set licenseUrns [list \
           get_license_01 get_license_02 get_license_03 get_license_04 \
           get_license_05 get_license_06 get_license_07]
@@ -121,7 +137,9 @@ namespace eval ::Eagle {
     #
     variable licenseUri; # DEFAULT: ${baseUri}/${urn}
 
-    if {$force || ![info exists licenseUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain licenseUri
+    } elseif {$force || ![info exists licenseUri]} then {
       set licenseUri {${baseUri}/${urn}}
     }
 
@@ -132,7 +150,9 @@ namespace eval ::Eagle {
     #
     variable sandboxEvalUrns; # DEFAULT: eval_01 ... eval_NN
 
-    if {$force || ![info exists sandboxEvalUrns]} then {
+    if {$cleanup} then {
+      unset -nocomplain sandboxEvalUrns
+    } elseif {$force || ![info exists sandboxEvalUrns]} then {
       set sandboxEvalUrns [list \
           eval_01 eval_02 eval_03 eval_04 eval_05 eval_06 eval_07]
     }
@@ -143,7 +163,9 @@ namespace eval ::Eagle {
     #
     variable sandboxEvalUri; # DEFAULT: ${baseUri}/${urn}
 
-    if {$force || ![info exists sandboxEvalUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain sandboxEvalUri
+    } elseif {$force || ![info exists sandboxEvalUri]} then {
       set sandboxEvalUri {${baseUri}/${urn}}
     }
 
@@ -154,7 +176,9 @@ namespace eval ::Eagle {
     #
     variable scriptUrns; # DEFAULT: script_01 ... script_NN
 
-    if {$force || ![info exists scriptUrns]} then {
+    if {$cleanup} then {
+      unset -nocomplain scriptUrns
+    } elseif {$force || ![info exists scriptUrns]} then {
       set scriptUrns [list \
           script_01 script_02 script_03 script_04 script_05 script_06 \
           script_07]
@@ -165,7 +189,9 @@ namespace eval ::Eagle {
     #
     variable scriptUri; # DEFAULT: ${baseUri}/${urn}
 
-    if {$force || ![info exists scriptUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain scriptUri
+    } elseif {$force || ![info exists scriptUri]} then {
       set scriptUri {${baseUri}/${urn}}
     }
 
@@ -176,7 +202,9 @@ namespace eval ::Eagle {
     #
     variable packageIndexUrns; # DEFAULT: package_index_01 ... package_index_NN
 
-    if {$force || ![info exists packageIndexUrns]} then {
+    if {$cleanup} then {
+      unset -nocomplain packageIndexUrns
+    } elseif {$force || ![info exists packageIndexUrns]} then {
       set packageIndexUrns [list \
           package_index_01 package_index_02 package_index_03 package_index_04 \
           package_index_05 package_index_06 package_index_07]
@@ -187,7 +215,9 @@ namespace eval ::Eagle {
     #
     variable packageIndexUri; # DEFAULT: ${baseUri}/${urn}
 
-    if {$force || ![info exists packageIndexUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain packageIndexUri
+    } elseif {$force || ![info exists packageIndexUri]} then {
       set packageIndexUri {${baseUri}/${urn}}
     }
   }
@@ -313,10 +343,6 @@ namespace eval ::Eagle {
       #       this point?
       #
       if {$needDirectory} then {
-        if {![isWindows]} then {
-          error "directory discovery not supported on this platform"
-        }
-
         set extractRootDirectory [getPackageInstallPath]
 
         foreach directory [findDirectoriesRecursive \
@@ -594,7 +620,7 @@ namespace eval ::Eagle {
     #
     set varName1 YES_PLEASE_FORCE_A_LICENSE_CERTIFICATE_REQUEST
 
-    if {![info exists ::env($varName1)] && [isWindows]} then {
+    if {![info exists ::env($varName1)]} then {
       set processFileNames [list]
 
       foreach processDirectory [findDirectories \

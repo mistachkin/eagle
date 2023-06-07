@@ -134,8 +134,8 @@ proc getCmdList84 {} {
                     {extra cmd library} : ""}] \
                 {extra cmd lmap} \
                 {extra cmd lremove} {extra cmd lrepeat} \
-                {extra cmd lreverse} {extra cmd nop} \
-                {extra cmd nproc} \
+                {extra cmd lreverse} {extra cmd napply} \
+                {extra cmd nop} {extra cmd nproc} \
                 [expr {[llength [info commands object]] > 0 ? \
                     {extra cmd object} : ""}] \
                 {extra cmd parse} \
@@ -185,7 +185,7 @@ proc getCmdList85 {} {
                 [expr {[llength [info commands library]] > 0 ? \
                     {extra cmd library} : ""}] \
                 {extra cmd lmap} {extra cmd lremove} \
-                {extra cmd nop} \
+                {extra cmd napply} {extra cmd nop} \
                 {extra cmd nproc} \
                 [expr {[llength [info commands object]] > 0 ? \
                     {extra cmd object} : ""}] \
@@ -257,8 +257,8 @@ proc getCmdList86 {} {
                     {extra cmd library} : ""}] \
                 [expr {[lsearch $tcl_commands lmap] == -1 ? \
                     {extra cmd lmap} : ""}] \
-                {extra cmd lremove} {extra cmd nop} \
-                {extra cmd nproc} \
+                {extra cmd lremove} {extra cmd napply} \
+                {extra cmd nop} {extra cmd nproc} \
                 [expr {[llength [info commands object]] > 0 ? \
                     {extra cmd object} : ""}] \
                 {extra cmd parse} \
@@ -521,9 +521,9 @@ nativeEnvironment} {lappend list} {lassign list} {lget list} {library\
 nativeEnvironment} {lindex list} {linsert list} {list list} {llength list}\
 {lmap loop} {load managedEnvironment} {lrange list} {lremove list} {lrepeat\
 list} {lreplace list} {lreverse list} {lsearch list} {lset list} {lsort list}\
-{namespace scriptEnvironment} {nop nop} {nproc procedure} {object\
-managedEnvironment} {open fileSystem} {package scriptEnvironment} {parse\
-string} {pid nativeEnvironment} {proc procedure} {puts channel} {pwd\
+{namespace scriptEnvironment} {napply procedure} {nop nop} {nproc procedure}\
+{object managedEnvironment} {open fileSystem} {package scriptEnvironment}\
+{parse string} {pid nativeEnvironment} {proc procedure} {puts channel} {pwd\
 fileSystem} {read channel} {regexp string} {regsub string} {rename\
 scriptEnvironment} {return control} {scope variable} {seek channel} {set\
 variable} {socket network} {source engine} {split string} {sql\

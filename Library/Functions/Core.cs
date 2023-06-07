@@ -24,19 +24,25 @@ namespace Eagle._Functions
     {
         #region Public Constructors
         //
-        // NOTE: In the future, behavior specific to functions in the core will
-        //       be implemented here rather than in _Functions.Default (which
-        //       is available to external functions to derive from).  For now,
-        //       the primary job of this class is to set the cached function
-        //       flags correctly for all functions in the core function set.
+        // NOTE: In the future, behavior specific to functions in the core
+        //       will be implemented here rather than in _Functions.Default
+        //       (which is available to external functions to derive from).
+        //       For now, the primary job of this class is to set the
+        //       cached function flags correctly for all functions in the
+        //       core function set.
         //
         public Core(
             IFunctionData functionData
             )
             : base(functionData)
         {
-            this.Flags |= AttributeOps.GetFunctionFlags(GetType().BaseType) |
-                AttributeOps.GetFunctionFlags(this);
+            if ((functionData == null) || !FlagOps.HasFlags(
+                    functionData.Flags, FunctionFlags.NoAttributes, true))
+            {
+                this.Flags |=
+                    AttributeOps.GetFunctionFlags(GetType().BaseType) |
+                    AttributeOps.GetFunctionFlags(this);
+            }
         }
         #endregion
 

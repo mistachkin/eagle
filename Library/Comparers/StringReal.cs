@@ -1,5 +1,5 @@
 /*
- * Command.cs --
+ * StringReal.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -9,25 +9,21 @@
  * RCS: @(#) $Id: $
  */
 
-using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Containers.Private;
-using Eagle._Containers.Public;
-using Eagle._Interfaces.Public;
 
 namespace Eagle._Comparers
 {
-    [ObjectId("8be45be8-9736-4387-b896-a84c3ac2b627")]
-    internal sealed class StringCommandComparer : IComparer<string>, IEqualityComparer<string>
+    [ObjectId("974d030b-d68c-4f14-9d92-b7539ebc42af")]
+    internal sealed class StringRealComparer : IComparer<string>, IEqualityComparer<string>
     {
         #region Private Data
         private int levels;
         private Interpreter interpreter;
-        private ICallback callback;
         private bool ascending;
         private string indexText;
         private bool leftOnly;
@@ -39,9 +35,8 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
-        public StringCommandComparer(
+        public StringRealComparer(
             Interpreter interpreter,
-            ICallback callback,
             bool ascending,
             string indexText,
             bool leftOnly,
@@ -51,11 +46,10 @@ namespace Eagle._Comparers
             )
         {
             if (duplicates == null)
-                duplicates = new IntDictionary(new Custom(this, this));
+                duplicates = new IntDictionary(new StringCustom(this, this));
 
             this.levels = 0;
             this.interpreter = interpreter;
-            this.callback = callback;
             this.ascending = ascending;
             this.indexText = indexText;
             this.leftOnly = leftOnly;
@@ -73,58 +67,40 @@ namespace Eagle._Comparers
             string right
             )
         {
+            Result error = null;
+
             ListOps.GetElementsToCompare(
                 interpreter, ascending, indexText, leftOnly, false,
                 cultureInfo, ref left, ref right); /* throw */
 
-            ReturnCode code;
-            Result result = null;
+            Number leftNumber = null;
 
-            if (callback != null)
+            if ((Value.GetNumber(left, ValueFlags.AnyNumberAnyRadix, cultureInfo,
+                    ref leftNumber, ref error) == ReturnCode.Ok) &&
+                leftNumber.ConvertTo(typeof(double)))
             {
-                code = callback.Invoke(new StringList(left, right), ref result);
+                double leftDouble = (double)leftNumber.Value;
+                Number rightNumber = null;
 
-                if (code == ReturnCode.Ok)
+                if ((Value.GetNumber(right, ValueFlags.AnyNumberAnyRadix, cultureInfo,
+                        ref rightNumber, ref error) == ReturnCode.Ok) &&
+                    rightNumber.ConvertTo(typeof(double)))
                 {
-                    int order = 0;
+                    double rightDouble = (double)rightNumber.Value;
 
-                    code = Value.GetInteger2((string)result, ValueFlags.AnyInteger,
-                        cultureInfo, ref order, ref result);
+                    int result = LogicOps.Compare(leftDouble, rightDouble);
 
-                    if (code == ReturnCode.Ok)
-                    {
-                        ListOps.UpdateDuplicateCount(this, duplicates, left, right,
-                            unique, order, ref levels); /* throw */
+                    ListOps.UpdateDuplicateCount(this, duplicates, leftDouble.ToString(),
+                        rightDouble.ToString(), unique, result, ref levels); /* throw */
 
-                        return order;
-                    }
-                    else
-                    {
-                        result = "-compare command returned non-integer result"; /* COMPAT */
-                    }
-                }
-                else
-                {
-                    //
-                    // NOTE: Fetch the innermost active interpreter on the call stack since we 
-                    //       are inside of a non-extensible .NET Framework callback interface 
-                    //       and therefore have no direct access to our calling interpreter.
-                    //
-                    Engine.AddErrorInformation(interpreter, result,
-                        String.Format("{0}    (-compare command)",
-                            Environment.NewLine));
+                    return result;
                 }
             }
-            else
-            {
-                result = "invalid sort command callback";
-                code = ReturnCode.Error;
-            }
 
-            if (code != ReturnCode.Ok)
-                throw new ScriptException(code, result);
+            if (error != null)
+                throw new ScriptException(error);
             else
-                throw new ScriptException(); /* NOT REACHED */
+                throw new ScriptException();
         }
         #endregion
 
@@ -136,7 +112,7 @@ namespace Eagle._Comparers
             string right
             )
         {
-            return ListOps.ComparerEquals(this, left, right);
+            return ListOps.ComparerEquals<string>(this, left, right);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,7 +121,7 @@ namespace Eagle._Comparers
             string value
             )
         {
-            return ListOps.ComparerGetHashCode(this, value, false);
+            return ListOps.ComparerGetHashCode<string>(this, value, false);
         }
         #endregion
     }

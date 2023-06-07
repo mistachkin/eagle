@@ -30,6 +30,7 @@ namespace Eagle._Components.Public
             string description,
             IClientData clientData,
             string typeName,
+            Type type,
             int arguments,
             TypeList types,
             FunctionFlags flags,
@@ -37,8 +38,8 @@ namespace Eagle._Components.Public
             long token
             )
             : this(Guid.Empty, name, group, description,
-                   clientData, typeName, arguments, types,
-                   flags, plugin, token)
+                   clientData, typeName, type, arguments,
+                   types, flags, plugin, token)
         {
             this.id = AttributeOps.GetObjectId(this);
         }
@@ -54,6 +55,7 @@ namespace Eagle._Components.Public
             string description,
             IClientData clientData,
             string typeName,
+            Type type,
             int arguments,
             TypeList types,
             FunctionFlags flags,
@@ -68,6 +70,7 @@ namespace Eagle._Components.Public
             this.description = description;
             this.clientData = clientData;
             this.typeName = typeName;
+            this.type = type;
             this.arguments = arguments;
             this.types = types;
             this.flags = flags;
@@ -151,7 +154,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IFunctionData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -161,6 +164,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IFunctionData Members
         private int arguments;
         public virtual int Arguments
         {

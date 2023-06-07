@@ -92,9 +92,11 @@ namespace Eagle._ObjectTypes
             get { return description; }
             set { description = value; }
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
         private IClientData clientData;
         public virtual IClientData ClientData
         {

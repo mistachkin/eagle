@@ -56,6 +56,7 @@ namespace Eagle._Components.Private
             levels = 0;
             maximumLevels = 0;
 
+            trustedLevels = 0;
             scriptLevels = 0;
             maximumScriptLevels = 0;
 
@@ -296,6 +297,15 @@ namespace Eagle._Components.Private
         {
             get { CheckDisposed(); return maximumLevels; }
             set { CheckDisposed(); maximumLevels = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private int trustedLevels;
+        public int TrustedLevels
+        {
+            get { CheckDisposed(); return trustedLevels; }
+            set { CheckDisposed(); trustedLevels = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -937,6 +947,7 @@ namespace Eagle._Components.Private
                     levels = 0;
                     maximumLevels = 0;
 
+                    trustedLevels = 0;
                     scriptLevels = 0;
                     maximumScriptLevels = 0;
 

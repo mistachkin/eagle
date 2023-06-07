@@ -79,6 +79,14 @@ namespace Eagle._Interfaces.Public
             ref Result error
             );
 
+        bool TryGetRuleSet(
+            Interpreter interpreter,
+            string name,
+            bool toString,
+            out IRuleSet value,
+            ref Result error
+            );
+
         bool TryGetObject(
             Interpreter interpreter,
             string name,

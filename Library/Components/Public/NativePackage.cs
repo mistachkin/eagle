@@ -767,6 +767,8 @@ namespace Eagle._Components.Public
             HostCreateFlags hostCreateFlags,
             InitializeFlags initializeFlags,
             ScriptFlags scriptFlags,
+            FindFlags findFlags,
+            LoadFlags loadFlags,
             string text,
             string libraryPath,
             ref Result result
@@ -781,7 +783,8 @@ namespace Eagle._Components.Public
 
             return Interpreter.Create(
                 args, createFlags, hostCreateFlags, initializeFlags,
-                scriptFlags, text, libraryPath, ref result);
+                scriptFlags, findFlags, loadFlags, text, libraryPath,
+                ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1529,6 +1532,16 @@ namespace Eagle._Components.Public
                                 TracePriority.NativeDebug);
 
                             //
+                            // HACK: Figure out if we should use console
+                            //       for trace messages, errors, etc.
+                            //
+                            bool console;
+                            bool verbose;
+
+                            Interpreter.RefreshConsoleAndVerbose(
+                                out console, out verbose);
+
+                            //
                             // NOTE: Starting with the mandatory creation
                             //       flags then calculate out the exact
                             //       creation flags necessary to properly
@@ -1545,7 +1558,7 @@ namespace Eagle._Components.Public
                                 Interpreter.GetStartupCreateFlags(
                                     list, CreateFlags.NativeUse,
                                     OptionOriginFlags.NativePackage,
-                                    true, true);
+                                    console, verbose);
 
                             //
                             // NOTE: Starting with the mandatory host
@@ -1562,7 +1575,7 @@ namespace Eagle._Components.Public
                                 Interpreter.GetStartupHostCreateFlags(
                                     list, HostCreateFlags.NativeUse,
                                     OptionOriginFlags.NativePackage,
-                                    true, true);
+                                    console, verbose);
 
                             //
                             // NOTE: Starting with the default initialize
@@ -1574,7 +1587,7 @@ namespace Eagle._Components.Public
                                 Interpreter.GetStartupInitializeFlags(
                                     list, Defaults.InitializeFlags,
                                     OptionOriginFlags.NativePackage,
-                                    true, true);
+                                    console, verbose);
 
                             //
                             // NOTE: Starting with the default script
@@ -1586,18 +1599,7 @@ namespace Eagle._Components.Public
                                 Interpreter.GetStartupScriptFlags(
                                     list, Defaults.ScriptFlags,
                                     OptionOriginFlags.NativePackage,
-                                    true, true);
-
-                            //
-                            // HACK: Always forbid changes to the native
-                            //       Tcl integration subsystem while it
-                            //       is being actively modified by this
-                            //       method (i.e. during any script
-                            //       evaluation that may take place from
-                            //       within the Interpreter.Create
-                            //       method).
-                            //
-                            createFlags |= CreateFlags.TclReadOnly;
+                                    console, verbose);
 
                             //
                             // NOTE: Create the Eagle interpreter as
@@ -1618,7 +1620,7 @@ namespace Eagle._Components.Public
 
                             code = Interpreter.GetStartupPreInitializeText(list,
                                 createFlags, OptionOriginFlags.NativePackage,
-                                true, true, ref text, ref result);
+                                console, verbose, ref text, ref result);
 
                             string libraryPath = null;
 
@@ -1632,22 +1634,32 @@ namespace Eagle._Components.Public
                                 //
                                 code = Interpreter.GetStartupLibraryPath(list,
                                     createFlags, OptionOriginFlags.NativePackage,
-                                    true, true, ref libraryPath, ref result);
+                                    console, verbose, ref libraryPath, ref result);
                             }
 
                             if (code == ReturnCode.Ok)
                             {
                                 //
-                                // NOTE: Attempt to create an Eagle interpreter
-                                //       now.  This can fail for any number of
-                                //       reasons (e.g. no script library found,
-                                //       etc).
+                                // HACK: Always forbid changes to the native
+                                //       Tcl integration subsystem while it
+                                //       is being actively modified by this
+                                //       method (i.e. during any script
+                                //       evaluation that may take place from
+                                //       within the Interpreter.Create
+                                //       method).
+                                //
+                                // NOTE: Attempt to create a new (Eagle)
+                                //       interpreter now.  This can fail
+                                //       for any number of reasons (e.g.
+                                //       no script library found, etc).
                                 //
                                 interpreter = CreateInterpreter(
                                     safe ? null : list, createFlags,
                                     hostCreateFlags, initializeFlags,
-                                    scriptFlags, text, libraryPath,
-                                    ref result);
+                                    scriptFlags, Defaults.FindFlags,
+                                    Defaults.LoadFlags |
+                                        LoadFlags.NativePackage,
+                                    text, libraryPath, ref result);
 
                                 created[0] = true; /* NOTE: Owned. */
 
@@ -1662,7 +1674,7 @@ namespace Eagle._Components.Public
                                     code = Interpreter.ProcessStartupOptions(
                                         interpreter, list, createFlags,
                                         OptionOriginFlags.NativePackage,
-                                        true, true, ref result);
+                                        console, verbose, ref result);
                                 }
                             }
 
@@ -1711,7 +1723,7 @@ namespace Eagle._Components.Public
                                 //
                                 IExecute execute = null;
 
-                                code = interpreter.GetIExecuteViaResolvers(
+                                code = interpreter.InternalGetIExecuteViaResolvers(
                                     interpreter.GetResolveEngineFlagsNoLock(true),
                                     managedCommandName,
                                     new ArgumentList(managedCommandName),

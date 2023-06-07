@@ -29,8 +29,8 @@ namespace Eagle._SubCommands
             : base(subCommandData)
         {
             //
-            // NOTE: This is not a strictly vanilla "sub-command", it is
-            //       a wrapped delegate.
+            // NOTE: This is not a strictly vanilla "sub-command", it is a
+            //       wrapped delegate.
             //
             this.Kind |= IdentifierKind.Delegate;
 
@@ -40,9 +40,14 @@ namespace Eagle._SubCommands
             //       core library; however, this class does not inherit
             //       from _SubCommands.Core.
             //
-            this.CommandFlags |=
-                AttributeOps.GetCommandFlags(GetType().BaseType) |
-                AttributeOps.GetCommandFlags(this);
+            if ((subCommandData == null) || !FlagOps.HasFlags(
+                    subCommandData.CommandFlags, CommandFlags.NoAttributes,
+                    true))
+            {
+                this.CommandFlags |=
+                    AttributeOps.GetCommandFlags(GetType().BaseType) |
+                    AttributeOps.GetCommandFlags(this);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

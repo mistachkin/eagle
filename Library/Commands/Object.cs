@@ -818,23 +818,28 @@ namespace Eagle._Commands
                                                                                                         if (!noByRef && (argumentInfoList != null))
                                                                                                         {
                                                                                                             code = MarshalOps.FixupByRefArguments(
-                                                                                                                interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                                argumentInfoList, objectFlags | byRefObjectFlags,
+                                                                                                                interpreter, interpreter.InternalBinder,
+                                                                                                                interpreter.InternalCultureInfo,
+                                                                                                                argumentInfoList,
+                                                                                                                objectFlags | byRefObjectFlags, options,
                                                                                                                 ObjectOps.GetInvokeOptions(objectOptionType),
-                                                                                                                objectOptionType, interpName, args, marshalFlags,
-                                                                                                                byRefArgumentFlags, strictArgs, create, dispose,
-                                                                                                                alias, aliasReference, toString, arrayAsValue,
-                                                                                                                arrayAsLink, ref result);
+                                                                                                                objectOptionType, interpName, args,
+                                                                                                                marshalFlags, byRefArgumentFlags, strictArgs,
+                                                                                                                create, dispose, alias, aliasReference,
+                                                                                                                toString, arrayAsValue, arrayAsLink,
+                                                                                                                ref result);
                                                                                                         }
 
                                                                                                         if (code == ReturnCode.Ok)
                                                                                                         {
                                                                                                             code = MarshalOps.FixupReturnValue(
-                                                                                                                interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                                returnType, objectFlags, ObjectOps.GetInvokeOptions(
-                                                                                                                objectOptionType), objectOptionType, objectName, interpName,
-                                                                                                                @object, create, dispose, alias, aliasReference, toString,
-                                                                                                                ref result);
+                                                                                                                interpreter, interpreter.InternalBinder,
+                                                                                                                interpreter.InternalCultureInfo,
+                                                                                                                returnType, objectFlags, options,
+                                                                                                                ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                                objectOptionType, objectName, interpName,
+                                                                                                                @object, create, dispose, alias,
+                                                                                                                aliasReference, toString, ref result);
                                                                                                         }
                                                                                                     }
                                                                                                     else
@@ -889,11 +894,13 @@ namespace Eagle._Commands
                                                                                     }
 
                                                                                     code = MarshalOps.FixupReturnValue(
-                                                                                        interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                        returnType, objectFlags, ObjectOps.GetInvokeOptions(
-                                                                                        objectOptionType), objectOptionType, objectName, interpName,
-                                                                                        constructorInfoList, create, dispose, alias, aliasReference,
-                                                                                        toString, ref result);
+                                                                                        interpreter, interpreter.InternalBinder,
+                                                                                        interpreter.InternalCultureInfo,
+                                                                                        returnType, objectFlags, options,
+                                                                                        ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                        objectOptionType, objectName, interpName,
+                                                                                        constructorInfoList, create, dispose, alias,
+                                                                                        aliasReference, toString, ref result);
                                                                                 }
                                                                             }
                                                                         }
@@ -939,11 +946,13 @@ namespace Eagle._Commands
                                                                         if (@object != null)
                                                                         {
                                                                             code = MarshalOps.FixupReturnValue(
-                                                                                interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                returnType, objectFlags, ObjectOps.GetInvokeOptions(
-                                                                                objectOptionType), objectOptionType, objectName, interpName,
-                                                                                @object, create, dispose, alias, aliasReference, toString,
-                                                                                ref result);
+                                                                                interpreter, interpreter.InternalBinder,
+                                                                                interpreter.InternalCultureInfo,
+                                                                                returnType, objectFlags, options,
+                                                                                ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                objectOptionType, objectName, interpName,
+                                                                                @object, create, dispose, alias,
+                                                                                aliasReference, toString, ref result);
                                                                         }
                                                                         else
                                                                         {
@@ -1334,6 +1343,12 @@ namespace Eagle._Commands
 
                                                             if (enumerator != null)
                                                             {
+                                                                int iterationLimit = interpreter.InternalIterationLimit;
+                                                                int iterationCount = 0;
+
+                                                                ObjectOptionType objectOptionType = ObjectOptionType.ForEach |
+                                                                    ObjectOps.GetOptionType(aliasRaw, aliasAll);
+
                                                                 string varName = arguments[argumentIndex];
                                                                 string body = arguments[argumentIndex + 2];
                                                                 IScriptLocation location = arguments[argumentIndex + 2];
@@ -1373,7 +1388,7 @@ namespace Eagle._Commands
                                                                     if (code != ReturnCode.Ok)
                                                                     {
                                                                         Engine.AddErrorInformation(interpreter, result,
-                                                                            String.Format("{0}    (advancing object {1} enumerator \"{2}\"",
+                                                                            String.Format("{0}    (advancing object {1} enumerator \"{2}\")",
                                                                                 Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
 
                                                                         break;
@@ -1382,18 +1397,17 @@ namespace Eagle._Commands
                                                                     MarshalOps.CheckForStickyAlias(
                                                                         @object, ref objectFlags, ref alias);
 
-                                                                    ObjectOptionType objectOptionType = ObjectOptionType.ForEach |
-                                                                        ObjectOps.GetOptionType(aliasRaw, aliasAll);
-
                                                                     //
                                                                     // NOTE: Now create an object handle for it.
                                                                     //
                                                                     code = MarshalOps.FixupReturnValue(
-                                                                        interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                        returnType, objectFlags, ObjectOps.GetInvokeOptions(
-                                                                        objectOptionType), objectOptionType, objectName, interpName,
-                                                                        newValue, create, dispose, alias, aliasReference, toString,
-                                                                        ref result);
+                                                                        interpreter, interpreter.InternalBinder,
+                                                                        interpreter.InternalCultureInfo,
+                                                                        returnType, objectFlags, options,
+                                                                        ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                        objectOptionType, objectName, interpName,
+                                                                        newValue, create, dispose, alias,
+                                                                        aliasReference, toString, ref result);
 
                                                                     //
                                                                     // NOTE: If we fail at adding the object handle, bail
@@ -1402,7 +1416,7 @@ namespace Eagle._Commands
                                                                     if (code != ReturnCode.Ok)
                                                                     {
                                                                         Engine.AddErrorInformation(interpreter, result,
-                                                                            String.Format("{0}    (adding object {1} object handle \"{2}\"",
+                                                                            String.Format("{0}    (adding object {1} object handle \"{2}\")",
                                                                                 Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
 
                                                                         break;
@@ -1439,7 +1453,7 @@ namespace Eagle._Commands
                                                                             DebugOps.Complain(interpreter, removeCode, removeResult);
 
                                                                         Engine.AddErrorInformation(interpreter, result,
-                                                                            String.Format("{0}    (setting object {1} loop variable \"{2}\"",
+                                                                            String.Format("{0}    (setting object {1} loop variable \"{2}\")",
                                                                                 Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
 
                                                                         break;
@@ -1481,6 +1495,17 @@ namespace Eagle._Commands
                                                                             break;
                                                                         }
                                                                     }
+
+                                                                    if ((iterationLimit != Limits.Unlimited) &&
+                                                                        (++iterationCount > iterationLimit))
+                                                                    {
+                                                                        result = String.Format(
+                                                                            "iteration limit {0} exceeded",
+                                                                            iterationLimit);
+
+                                                                        code = ReturnCode.Error;
+                                                                        break;
+                                                                    }
                                                                 }
 
                                                                 //
@@ -1502,7 +1527,7 @@ namespace Eagle._Commands
                                                                     result = "invalid object enumerator";
 
                                                                 Engine.AddErrorInformation(interpreter, result,
-                                                                    String.Format("{0}    (getting object {1} enumerator \"{2}\"",
+                                                                    String.Format("{0}    (getting object {1} enumerator \"{2}\")",
                                                                         Environment.NewLine, subCommand, FormatOps.Ellipsis(arguments[argumentIndex + 1])));
 
                                                                 code = ReturnCode.Error;
@@ -1591,11 +1616,13 @@ namespace Eagle._Commands
                                                                 object @object = value.Value;
 
                                                                 code = MarshalOps.FixupReturnValue(
-                                                                    interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                    returnType, objectFlags, ObjectOps.GetInvokeOptions(
-                                                                    objectOptionType), objectOptionType, objectName, interpName,
-                                                                    @object, create, dispose, alias, aliasReference, toString,
-                                                                    ref result);
+                                                                    interpreter, interpreter.InternalBinder,
+                                                                    interpreter.InternalCultureInfo,
+                                                                    returnType, objectFlags, options,
+                                                                    ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                    objectOptionType, objectName, interpName,
+                                                                    @object, create, dispose, alias,
+                                                                    aliasReference, toString, ref result);
                                                             }
                                                             else
                                                             {
@@ -1733,11 +1760,13 @@ namespace Eagle._Commands
                                                                     ObjectOps.GetOptionType(aliasRaw, aliasAll);
 
                                                                 code = MarshalOps.FixupReturnValue(
-                                                                    interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                    returnType, objectFlags, ObjectOps.GetInvokeOptions(
-                                                                    objectOptionType), objectOptionType, objectName, interpName,
-                                                                    returnValue, create, dispose, alias, aliasReference, toString,
-                                                                    ref result);
+                                                                    interpreter, interpreter.InternalBinder,
+                                                                    interpreter.InternalCultureInfo,
+                                                                    returnType, objectFlags, options,
+                                                                    ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                    objectOptionType, objectName, interpName,
+                                                                    returnValue, create, dispose, alias,
+                                                                    aliasReference, toString, ref result);
                                                             }
                                                             catch (Exception e)
                                                             {
@@ -2287,10 +2316,13 @@ namespace Eagle._Commands
                                                                                             object returnValue = fieldInfo.GetValue(@object);
 
                                                                                             code = MarshalOps.FixupReturnValue(
-                                                                                                interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                returnType, objectFlags, options, objectOptionType,
-                                                                                                objectName, interpName, returnValue, create, dispose,
-                                                                                                alias, aliasReference, toString, ref result);
+                                                                                                interpreter, interpreter.InternalBinder,
+                                                                                                interpreter.InternalCultureInfo,
+                                                                                                returnType, objectFlags, options,
+                                                                                                ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                objectOptionType, objectName, interpName,
+                                                                                                returnValue, create, dispose, alias,
+                                                                                                aliasReference, toString, ref result);
                                                                                         }
                                                                                         catch (Exception e)
                                                                                         {
@@ -2371,10 +2403,13 @@ namespace Eagle._Commands
                                                                                 else
                                                                                 {
                                                                                     code = MarshalOps.FixupReturnValue(
-                                                                                        interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                        returnType, objectFlags, options, objectOptionType,
-                                                                                        objectName, interpName, fieldInfo, create, dispose,
-                                                                                        alias, aliasReference, toString, ref result);
+                                                                                        interpreter, interpreter.InternalBinder,
+                                                                                        interpreter.InternalCultureInfo,
+                                                                                        returnType, objectFlags, options,
+                                                                                        ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                        objectOptionType, objectName, interpName,
+                                                                                        fieldInfo, create, dispose, alias,
+                                                                                        aliasReference, toString, ref result);
                                                                                 }
                                                                             }
                                                                             else
@@ -2543,21 +2578,28 @@ namespace Eagle._Commands
                                                                                                                         if (!noByRef && (argumentInfoList != null))
                                                                                                                         {
                                                                                                                             code = MarshalOps.FixupByRefArguments(
-                                                                                                                                interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                                                argumentInfoList, objectFlags | byRefObjectFlags,
-                                                                                                                                options, objectOptionType, interpName, args,
-                                                                                                                                marshalFlags, byRefArgumentFlags, strictArgs, create,
-                                                                                                                                dispose, alias, aliasReference, toString, arrayAsValue,
-                                                                                                                                arrayAsLink, ref result);
+                                                                                                                                interpreter, interpreter.InternalBinder,
+                                                                                                                                interpreter.InternalCultureInfo,
+                                                                                                                                argumentInfoList,
+                                                                                                                                objectFlags | byRefObjectFlags, options,
+                                                                                                                                ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                                                objectOptionType, interpName, args,
+                                                                                                                                marshalFlags, byRefArgumentFlags, strictArgs,
+                                                                                                                                create, dispose, alias, aliasReference,
+                                                                                                                                toString, arrayAsValue, arrayAsLink,
+                                                                                                                                ref result);
                                                                                                                         }
 
                                                                                                                         if (code == ReturnCode.Ok)
                                                                                                                         {
                                                                                                                             code = MarshalOps.FixupReturnValue(
-                                                                                                                                interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                                                returnType, objectFlags, options, objectOptionType,
-                                                                                                                                objectName, interpName, returnValue, create, dispose,
-                                                                                                                                alias, aliasReference, toString, ref result);
+                                                                                                                                interpreter, interpreter.InternalBinder,
+                                                                                                                                interpreter.InternalCultureInfo,
+                                                                                                                                returnType, objectFlags, options,
+                                                                                                                                ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                                                objectOptionType, objectName, interpName,
+                                                                                                                                returnValue, create, dispose, alias,
+                                                                                                                                aliasReference, toString, ref result);
                                                                                                                         }
                                                                                                                     }
 #if SHELL
@@ -2614,10 +2656,13 @@ namespace Eagle._Commands
                                                                                                     }
 
                                                                                                     code = MarshalOps.FixupReturnValue(
-                                                                                                        interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                        returnType, objectFlags, options, objectOptionType,
-                                                                                                        objectName, interpName, methodInfoList, create, dispose,
-                                                                                                        alias, aliasReference, toString, ref result);
+                                                                                                        interpreter, interpreter.InternalBinder,
+                                                                                                        interpreter.InternalCultureInfo,
+                                                                                                        returnType, objectFlags, options,
+                                                                                                        ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                        objectOptionType, objectName, interpName,
+                                                                                                        methodInfoList, create, dispose, alias,
+                                                                                                        aliasReference, toString, ref result);
                                                                                                 }
                                                                                             }
                                                                                         }
@@ -2824,21 +2869,28 @@ namespace Eagle._Commands
                                                                                                                     if (!noByRef && (argumentInfoList != null))
                                                                                                                     {
                                                                                                                         code = MarshalOps.FixupByRefArguments(
-                                                                                                                            interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                                            argumentInfoList, objectFlags | byRefObjectFlags,
-                                                                                                                            options, objectOptionType, interpName, args,
-                                                                                                                            marshalFlags, byRefArgumentFlags, strictArgs, create,
-                                                                                                                            dispose, alias, aliasReference, toString, arrayAsValue,
-                                                                                                                            arrayAsLink, ref result);
+                                                                                                                            interpreter, interpreter.InternalBinder,
+                                                                                                                            interpreter.InternalCultureInfo,
+                                                                                                                            argumentInfoList,
+                                                                                                                            objectFlags | byRefObjectFlags, options,
+                                                                                                                            ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                                            objectOptionType, interpName, args,
+                                                                                                                            marshalFlags, byRefArgumentFlags, strictArgs,
+                                                                                                                            create, dispose, alias, aliasReference,
+                                                                                                                            toString, arrayAsValue, arrayAsLink,
+                                                                                                                            ref result);
                                                                                                                     }
 
                                                                                                                     if (code == ReturnCode.Ok)
                                                                                                                     {
                                                                                                                         code = MarshalOps.FixupReturnValue(
-                                                                                                                            interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                                            returnType, objectFlags, options, objectOptionType,
-                                                                                                                            objectName, interpName, returnValue, create, dispose,
-                                                                                                                            alias, aliasReference, toString, ref result);
+                                                                                                                            interpreter, interpreter.InternalBinder,
+                                                                                                                            interpreter.InternalCultureInfo,
+                                                                                                                            returnType, objectFlags, options,
+                                                                                                                            ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                                            objectOptionType, objectName, interpName,
+                                                                                                                            returnValue, create, dispose, alias,
+                                                                                                                            aliasReference, toString, ref result);
                                                                                                                     }
                                                                                                                 }
                                                                                                                 catch (Exception e)
@@ -2885,10 +2937,13 @@ namespace Eagle._Commands
                                                                                                         }
 
                                                                                                         code = MarshalOps.FixupReturnValue(
-                                                                                                            interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                                                            returnType, objectFlags, options, objectOptionType,
-                                                                                                            objectName, interpName, methodInfoList, create, dispose,
-                                                                                                            alias, aliasReference, toString, ref result);
+                                                                                                            interpreter, interpreter.InternalBinder,
+                                                                                                            interpreter.InternalCultureInfo,
+                                                                                                            returnType, objectFlags, options,
+                                                                                                            ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                                                            objectOptionType, objectName, interpName,
+                                                                                                            methodInfoList, create, dispose, alias,
+                                                                                                            aliasReference, toString, ref result);
                                                                                                     }
                                                                                                 }
                                                                                             }
@@ -3225,7 +3280,7 @@ namespace Eagle._Commands
                                                         {
                                                             Result localResult = null;
 
-                                                            if (interpreter.DoesObjectExist(
+                                                            if (interpreter.InternalDoesObjectExist(
                                                                     newResult, ref localResult) == ReturnCode.Ok)
                                                             {
                                                                 objectName = newResult;
@@ -3610,11 +3665,12 @@ namespace Eagle._Commands
                                                                     interpreter.InternalCultureInfo,
                                                                     argumentInfoList,
                                                                     objectFlags | byRefObjectFlags,
-                                                                    options, objectOptionType, interpName,
-                                                                    args, marshalFlags, byRefArgumentFlags,
-                                                                    strictArgs, create, dispose, alias,
-                                                                    aliasReference, toString, arrayAsValue,
-                                                                    arrayAsLink, ref result);
+                                                                    options, ObjectOps.GetInvokeOptions(
+                                                                    objectOptionType), objectOptionType,
+                                                                    interpName, args, marshalFlags,
+                                                                    byRefArgumentFlags, strictArgs, create,
+                                                                    dispose, alias, aliasReference, toString,
+                                                                    arrayAsValue, arrayAsLink, ref result);
                                                             }
 
                                                             if (code == ReturnCode.Ok)
@@ -3622,7 +3678,8 @@ namespace Eagle._Commands
                                                                 code = MarshalOps.FixupReturnValue(
                                                                     interpreter, interpreter.InternalBinder,
                                                                     interpreter.InternalCultureInfo, returnType,
-                                                                    objectFlags, options, objectOptionType,
+                                                                    objectFlags, options, ObjectOps.GetInvokeOptions(
+                                                                    objectOptionType), objectOptionType,
                                                                     objectName, interpName, returnValue,
                                                                     create, dispose, alias, aliasReference,
                                                                     toString, ref result);
@@ -4117,10 +4174,12 @@ namespace Eagle._Commands
                                                                     ObjectOps.GetOptionType(aliasRaw, aliasAll);
 
                                                                 code = MarshalOps.FixupReturnValue(
-                                                                    interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                    returnType, objectFlags, ObjectOps.GetInvokeOptions(
-                                                                    objectOptionType), objectOptionType, objectName,
-                                                                    interpName, assembly, create, dispose, alias,
+                                                                    interpreter, interpreter.InternalBinder,
+                                                                    interpreter.InternalCultureInfo,
+                                                                    returnType, objectFlags, options,
+                                                                    ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                    objectOptionType, objectName, interpName,
+                                                                    assembly, create, dispose, alias,
                                                                     aliasReference, toString, ref result);
                                                             }
 

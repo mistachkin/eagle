@@ -33,8 +33,14 @@ namespace Eagle._Procedures
             )
         {
             kind = IdentifierKind.Procedure;
-            id = AttributeOps.GetObjectId(this);
-            group = AttributeOps.GetObjectGroups(this);
+
+            if ((procedureData == null) ||
+                !FlagOps.HasFlags(procedureData.Flags,
+                    ProcedureFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             if (procedureData != null)
             {

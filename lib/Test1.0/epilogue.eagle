@@ -282,119 +282,15 @@ if {![info exists no([file tail [info script]])]} then {
     }
 
     #
-    # NOTE: Check for and display any duplicate test names that we found.  In
-    #       theory, this checking may produce false positives if a test file
-    #       (or the entire test suite) is run multiple times without resetting
-    #       the test statistics and/or restarting Eagle; however, duplicate
-    #       test names must be avoided and this is considered a good trade-off.
-    #
-    foreach {name count} $eagle_tests(Counts) {
-      if {$count > 1} then {
-        tputs $test_channel [appendArgs \
-            "==== test name \"" $name "\" DUPLICATED (" $count ")\n"]
-      } elseif {$count <= 0} then {
-        tputs $test_channel [appendArgs \
-            "==== test name \"" $name "\" BAD COUNT (" $count ")\n"]
-      }
-    }
-
-    unset -nocomplain name count
-
-    tputs $test_channel \n; # NOTE: Blank line.
-    reportTestConstraintCounts $test_channel $eagle_tests(SkippedNames)
-
-    #
-    # NOTE: Check if this build (i.e. of Eagle) has support for tracking
-    #       statistics of tests that contain the "knownBug" constraint.
-    #
-    set trackBugs false
-
-    if {[info exists eagle_tests(KnownBugs)]} then {
-      set trackBugs true
-
-      if {[llength $eagle_tests(KnownBugs)] > 0} then {
-        tresult Continue [appendArgs \
-            "KNOWN BUGS: " $eagle_tests(KnownBugs) \n]
-      }
-    }
-
-    if {$eagle_tests(Passed) > 0} then {
-      tresult Ok [appendArgs "PASSED: " $eagle_tests(Passed) \n]
-    }
-
-    if {$trackBugs && $eagle_tests(PassedBug) > 0} then {
-      tresult Ok [appendArgs \
-          "PASSED (BUG): " $eagle_tests(PassedBug) \n]
-    }
-
-    if {$eagle_tests(Failed) > 0} then {
-      tresult Error [appendArgs "FAILED: " $eagle_tests(Failed) \n]
-
-      if {[llength $eagle_tests(FailedNames)] > 0} then {
-        tresult Error [appendArgs "FAILED: " $eagle_tests(FailedNames) \n]
-      }
-    }
-
-    if {$trackBugs && $eagle_tests(FailedBug) > 0} then {
-      tresult Error [appendArgs \
-          "FAILED (BUG): " $eagle_tests(FailedBug) \n]
-    }
-
-    if {$eagle_tests(Skipped) > 0} then {
-      tresult Break [appendArgs "SKIPPED: " $eagle_tests(Skipped) \n]
-
-      if {[llength $eagle_tests(SkippedNames)] > 0} then {
-        tresult Break [appendArgs "SKIPPED: " $eagle_tests(SkippedNames) \n]
-      }
-    }
-
-    if {$trackBugs && $eagle_tests(SkippedBug) > 0} then {
-      tresult Break [appendArgs \
-          "SKIPPED (BUG): " $eagle_tests(SkippedBug) \n]
-    }
-
-    if {$eagle_tests(Disabled) > 0} then {
-      tresult WhatIf [appendArgs "DISABLED: " $eagle_tests(Disabled) \n]
-    }
-
-    if {$trackBugs && $eagle_tests(DisabledBug) > 0} then {
-      tresult WhatIf [appendArgs \
-          "DISABLED (BUG): " $eagle_tests(DisabledBug) \n]
-    }
-
-    if {$eagle_tests(Total) > 0} then {
-      tresult Return [appendArgs "TOTAL: " $eagle_tests(Total) \n]
-
-      if {$eagle_tests(Skipped) > 0} then {
-        set percent [getSkippedPercentage]
-
-        tresult Break [appendArgs \
-            "SKIP PERCENTAGE: " [formatDecimal $percent] %\n]
-      }
-
-      if {$eagle_tests(Disabled) > 0} then {
-        set percent [getDisabledPercentage]
-
-        tresult WhatIf [appendArgs \
-            "DISABLED PERCENTAGE: " [formatDecimal $percent] %\n]
-      }
-
-      set percent [getPassedPercentage]
-
-      tresult Return [appendArgs \
-          "PASS PERCENTAGE: " [formatDecimal $percent] %\n]
-    } else {
-      #
-      # NOTE: No tests.
-      #
-      set percent 0
-    }
-
-    unset trackBugs
-
-    #
     # NOTE: Check the overall test suite results and report them now.
     #
+    reportTestDuplicateNames $test_channel
+
+    tputs $test_channel \n; # NOTE: Blank line.
+
+    reportTestConstraintCounts $test_channel $eagle_tests(SkippedNames)
+    reportTestResultCounts $test_channel percent
+
     set success [testCheckOverallResult \
         $test_channel $percent $haveStartSentry exitCode]
 
@@ -411,53 +307,13 @@ if {![info exists no([file tail [info script]])]} then {
 
     unset percent success
   } else {
-    tputs $test_channel \n; # NOTE: Blank line.
-
-    if {$::tcltest::numTests(Passed) > 0} then {
-      tputs $test_channel [appendArgs \
-          "PASSED: " $::tcltest::numTests(Passed) \n]
-    }
-
-    if {$::tcltest::numTests(Failed) > 0} then {
-      tputs $test_channel [appendArgs \
-          "FAILED: " $::tcltest::numTests(Failed) \n]
-
-      if {[llength $::tcltest::failFiles] > 0} then {
-        tputs $test_channel [appendArgs \
-            "FAILED: " $::tcltest::failFiles \n]
-      }
-    }
-
-    if {$::tcltest::numTests(Skipped) > 0} then {
-      tputs $test_channel [appendArgs \
-          "SKIPPED: " $::tcltest::numTests(Skipped) \n]
-    }
-
-    if {$::tcltest::numTests(Total) > 0} then {
-      tputs $test_channel [appendArgs \
-          "TOTAL: " $::tcltest::numTests(Total) \n]
-
-      if {$::tcltest::numTests(Skipped) > 0} then {
-        set percent [getSkippedPercentage]
-
-        tputs $test_channel [appendArgs \
-            "SKIP PERCENTAGE: " [formatDecimal $percent] %\n]
-      }
-
-      set percent [getPassedPercentage]
-
-      tputs $test_channel [appendArgs \
-          "PASS PERCENTAGE: " [formatDecimal $percent] %\n]
-    } else {
-      #
-      # NOTE: No tests.
-      #
-      set percent 0
-    }
-
     #
     # NOTE: Check the overall test suite results and report them now.
     #
+    tputs $test_channel \n; # NOTE: Blank line.
+
+    reportTestResultCounts $test_channel percent
+
     set success [testCheckOverallResult \
         $test_channel $percent $haveStartSentry exitCode]
 

@@ -83,8 +83,8 @@ namespace Eagle._Commands
                 callbacks.Add("dict", null);        // *SPECIAL CASE*, whole string only
                 callbacks.Add("directory", null);   // *SPECIAL CASE*, whole string only
                 callbacks.Add("double", null);      // *SPECIAL CASE*, whole string only
-                callbacks.Add("encoding", null);    // *SPECIAL CASE*, whole string only
                 callbacks.Add("element", null);     // *SPECIAL CASE*, whole string only
+                callbacks.Add("encoding", null);    // *SPECIAL CASE*, whole string only
                 callbacks.Add("false", null);       // *SPECIAL CASE*, whole string only
                 callbacks.Add("file", null);        // *SPECIAL CASE*, whole string only
                 callbacks.Add("guid", null);        // *SPECIAL CASE*, whole string only
@@ -251,7 +251,7 @@ namespace Eagle._Commands
                                                     capacity += arguments[argumentIndex].Length;
                                                 }
 
-                                                StringBuilder builder = StringOps.NewStringBuilder(capacity);
+                                                StringBuilder builder = StringBuilderFactory.Create(capacity);
 
                                                 for (int argumentIndex = 2;
                                                         argumentIndex < arguments.Count;
@@ -260,7 +260,7 @@ namespace Eagle._Commands
                                                     builder.Append(arguments[argumentIndex]);
                                                 }
 
-                                                result = builder.ToString();
+                                                result = StringBuilderCache.GetStringAndRelease(ref builder);
                                                 code = ReturnCode.Ok;
                                             }
                                             else
@@ -970,7 +970,7 @@ namespace Eagle._Commands
                                                                             }
                                                                         case "command":
                                                                             {
-                                                                                if (interpreter.DoesIExecuteExistViaResolvers(
+                                                                                if (interpreter.InternalDoesIExecuteExistViaResolvers(
                                                                                         @string) == ReturnCode.Ok)
                                                                                 {
                                                                                     valid = !not;
@@ -2096,7 +2096,7 @@ namespace Eagle._Commands
                                                             if (firstIndex < 0)
                                                                 firstIndex = 0;
 
-                                                            StringBuilder builder = StringOps.NewStringBuilder();
+                                                            StringBuilder builder = StringBuilderFactory.Create();
 
                                                             builder.Append(arguments[2].Substring(0, firstIndex));
 
@@ -2106,7 +2106,7 @@ namespace Eagle._Commands
                                                             if ((lastIndex + 1) < arguments[2].Length)
                                                                 builder.Append(arguments[2].Substring(lastIndex + 1));
 
-                                                            result = builder;
+                                                            result = StringBuilderCache.GetStringAndRelease(ref builder);
                                                         }
                                                     }
                                                 }
@@ -2322,7 +2322,7 @@ namespace Eagle._Commands
 
                                                                 if (lastIndex >= firstIndex)
                                                                 {
-                                                                    StringBuilder builder = StringOps.NewStringBuilder();
+                                                                    StringBuilder builder = StringBuilderFactory.Create();
 
                                                                     if (firstIndex > 0)
                                                                         builder.Append(text.Substring(0, firstIndex));
@@ -2367,7 +2367,7 @@ namespace Eagle._Commands
                                                                             lastIndex + 1, text.Length - (lastIndex + 1)));
                                                                     }
 
-                                                                    result = builder;
+                                                                    result = StringBuilderCache.GetStringAndRelease(ref builder);
                                                                 }
                                                                 else
                                                                 {

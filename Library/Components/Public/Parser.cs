@@ -31,6 +31,69 @@ namespace Eagle._Components.Public
 #endif
         IToken
     {
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData; // RESERVED for application usage.
+        public virtual IClientData ClientData
+        {
+            get { return clientData; }
+            set { if (immutable) throw new InvalidOperationException(); clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IScriptLocation Members
+        private string fileName;
+        public virtual string FileName
+        {
+            get { return fileName; }
+            set { if (immutable) throw new InvalidOperationException(); fileName = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        private int startLine;
+        public virtual int StartLine
+        {
+            get { return startLine; }
+            set { if (immutable) throw new InvalidOperationException(); startLine = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        private int endLine;
+        public virtual int EndLine
+        {
+            get { return endLine; }
+            set { if (immutable) throw new InvalidOperationException(); endLine = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool viaSource;
+        public virtual bool ViaSource
+        {
+            get { return viaSource; }
+            set { if (immutable) throw new InvalidOperationException(); viaSource = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        public virtual StringPairList ToList()
+        {
+            return ToList(GetText(), false);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        public virtual StringPairList ToList(bool scrub)
+        {
+            return ToList(GetText(), scrub);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         #region IToken Members
         private IParseState parseState;    // Parser state that this token belongs to.
         public virtual IParseState ParseState
@@ -95,15 +158,6 @@ namespace Eagle._Components.Public
         {
             get { return components; }
             set { if (immutable) throw new InvalidOperationException(); components = value; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        private IClientData clientData; // RESERVED for application usage.
-        public virtual IClientData ClientData
-        {
-            get { return clientData; }
-            set { if (immutable) throw new InvalidOperationException(); clientData = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -299,58 +353,6 @@ namespace Eagle._Components.Public
                 return parseState.Text;
 
             return null;
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        #region IScriptLocation Members
-        private string fileName;
-        public virtual string FileName
-        {
-            get { return fileName; }
-            set { if (immutable) throw new InvalidOperationException(); fileName = value; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        private int startLine;
-        public virtual int StartLine
-        {
-            get { return startLine; }
-            set { if (immutable) throw new InvalidOperationException(); startLine = value; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        private int endLine;
-        public virtual int EndLine
-        {
-            get { return endLine; }
-            set { if (immutable) throw new InvalidOperationException(); endLine = value; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        private bool viaSource;
-        public virtual bool ViaSource
-        {
-            get { return viaSource; }
-            set { if (immutable) throw new InvalidOperationException(); viaSource = value; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual StringPairList ToList()
-        {
-            return ToList(GetText(), false);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual StringPairList ToList(bool scrub)
-        {
-            return ToList(GetText(), scrub);
         }
         #endregion
 
@@ -4051,12 +4053,35 @@ namespace Eagle._Components.Public
             )
         {
             int length = (text != null) ? text.Length : 0;
-            StringBuilder result = StringOps.NewStringBuilder(2 * length + 2);
+            StringBuilder result = StringBuilderFactory.Create(2 * length + 2);
 
             ScanElement(/* null, */ text, 0, length, ref flags);
             ConvertElement(/* null, */ text, 0, length, flags, ref result);
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool NeedsQuoting(
+            string text
+            )
+        {
+            return NeedsQuoting(text, ListElementFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool NeedsQuoting(
+            string text,
+            ListElementFlags flags
+            )
+        {
+            int length = (text != null) ? text.Length : 0;
+
+            ScanElement(/* null, */ text, 0, length, ref flags);
+
+            return ((flags & ListElementFlags.UseBraces) == ListElementFlags.UseBraces);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -4173,7 +4198,7 @@ namespace Eagle._Components.Public
                 length = text.Length;
 
             if (element == null)
-                element = StringOps.NewStringBuilder();
+                element = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
 
             int elementStartLength = element.Length;
 

@@ -26,6 +26,7 @@ namespace Eagle._Components.Public
         public static readonly string CacheFlags = "CacheFlags";
 #endif
 
+        public static readonly string CreateFailSafe = "CreateFailSafe";
         public static readonly string CreateFlags = "CreateFlags";
         public static readonly string HostCreateFlags = "HostCreateFlags";
         public static readonly string InterpreterFlags = "InterpreterFlags";
@@ -37,6 +38,7 @@ namespace Eagle._Components.Public
         public static readonly string UserInteractive = "UserInteractive";
         public static readonly string ClearTrace = "ClearTrace";
         public static readonly string Console = "Console";
+        public static readonly string Verbose = "Verbose";
         public static readonly string Debug = "Debug";
         public static readonly string MeasureTime = "MeasureTime";
 
@@ -115,6 +117,7 @@ namespace Eagle._Components.Public
         public static readonly string NoVerbose = "NoVerbose";
         public static readonly string NoVerified = "NoVerified";
         public static readonly string NoTrusted = "NoTrusted";
+        public static readonly string ForceTrustedHashes = "ForceTrustedHashes";
         public static readonly string NoTrustedHashes = "NoTrustedHashes";
         public static readonly string NoUpdates = "NoUpdates";
         public static readonly string DefaultQuiet = "DefaultQuiet";
@@ -218,6 +221,8 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static readonly string XdgRuntimeDir = "XDG_RUNTIME_DIR";
+        public static readonly string XdgShellsDir = "XDG_SHELLS_DIR";
+        public static readonly string XdgRuleSetDir = "XDG_RULESET_DIR";
 
         ///////////////////////////////////////////////////////////////////////
 

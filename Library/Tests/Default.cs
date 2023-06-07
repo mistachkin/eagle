@@ -85,6 +85,10 @@ using SecurityProtocolType = Eagle._Components.Public.SecurityProtocolType;
 using _RuntimeOps = Eagle._Components.Private.RuntimeOps;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using _Public = Eagle._Components.Public;
+using _Rule = Eagle._Components.Public.Rule;
+
+using RuleDictionary = System.Collections.Generic.Dictionary<
+    string, Eagle._Interfaces.Public.IRule>;
 
 using MessageCountDictionary = System.Collections.Generic.Dictionary<string, long>;
 using IsolationLevel = System.Data.IsolationLevel;
@@ -135,6 +139,23 @@ using CLODictionary = System.Collections.Generic.Dictionary<
     string, Eagle._Components.Public.AnyPair<int?, int?>>;
 #endif
 
+#if NATIVE && WINDOWS
+using EventTriplet = Eagle._Components.Public.AnyTriplet<
+    System.Threading.EventWaitHandle, System.Threading.EventWaitHandle,
+    Eagle._Components.Public.SimulatedKeyFlags>;
+
+using NativeTriplet = Eagle._Components.Public.MutableAnyTriplet<
+    System.IO.TextReader, Eagle._Components.Public.AnyTriplet<
+        System.Threading.EventWaitHandle, System.Threading.EventWaitHandle,
+        Eagle._Components.Public.SimulatedKeyFlags>, int>;
+#endif
+
+using SyntaxData = System.Collections.Generic.Dictionary<
+    string, Eagle._Containers.Public.StringList>;
+
+using AssemblyFilePluginNames = System.Collections.Generic.Dictionary<
+    string, Eagle._Containers.Public.StringList>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -155,10 +176,18 @@ namespace Eagle._Tests
         //
         // HACK: These are purposely not read-only.
         //
-        private static Regex GoodPkgNameRegEx = RegExOps.Create(
+        private static Regex GoodNameOnlyRegEx = RegExOps.Create(
+            "^[A-Z][0-9A-Z_]*$", RegexOptions.IgnoreCase);
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static Regex GoodNameRegEx = RegExOps.Create(
             "^[A-Z][0-9A-Z\\._]*$", RegexOptions.IgnoreCase);
 
-        private static Regex BadPkgNameRegEx = RegExOps.Create(
+        private static Regex BadNameRegEx = RegExOps.Create(
             "\\.\\.|\\.$");
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -201,6 +230,30 @@ namespace Eagle._Tests
         private static SecurityProtocolType? SavedSecurityProtocol = null;
         private static SecurityProtocolType? BestSecurityProtocol = null;
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NATIVE && WINDOWS
+        private static int PlayKeyboardMilliseconds = 50;
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private const ExitCode DefaultFailSafeExitCode = ExitCode.FailSafe;
+        private const string DefaultFailSafeErrorFormat = "FATAL abort due to fail-safe: {0}";
+        private const string DefaultFailSafeCategory = "Default";
+        private const TracePriority DefaultFailSafePriority = TracePriority.FailSafeFatal;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static ExitCode FailSafeExitCode = DefaultFailSafeExitCode;
+        private static string FailSafeErrorFormat = DefaultFailSafeErrorFormat;
+        private static string FailSafeCategory = DefaultFailSafeCategory;
+        private static TracePriority FailSafePriority = DefaultFailSafePriority;
+        private static int FailSafeCount = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -680,6 +733,7 @@ namespace Eagle._Tests
         private static int traceFilterStubSetting;
         private static string traceFilterPattern;
         private static MatchMode traceFilterMatchMode;
+        private static StringBuilder traceFilterOutput;
         private static string traceErrorPattern;
         private static int shouldTraceError;
         private static int? staticTimeout = null;
@@ -701,52 +755,6 @@ namespace Eagle._Tests
 #if DEBUGGER
         private static InteractiveLoopCallback savedInteractiveLoopCallback;
 #endif
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        #region Public Data
-        public int[] intArrayField;
-        public bool boolField;
-        public byte byteField;
-        public short shortField;
-        public int intField;
-        public long longField;
-        public decimal decimalField;
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        #region Private Data
-        private long id;
-        internal sbyte internalField;
-        private EventWaitHandle @event;
-        private Result asyncResult;
-        private string privateField;
-        private Type typeField;
-        private object objectField;
-        private Array intPtrArrayField;
-        private Array objectArrayField;
-        private Interpreter callbackInterpreter;
-        private string newInterpreterText;
-        private string useInterpreterText;
-        private string freeInterpreterText;
-        private string sleepWaitCallbackText;
-        private string newCommandText;
-        private string complainCommandName;
-        private bool complainWithThrow;
-        private ReturnCode complainCode;
-        private Result complainResult;
-        private int complainErrorLine;
-        private bool dynamicInvoke;
-        private string unknownCallbackText;
-        private string packageFallbackText;
-        private bool idToString;
-        private bool uniqueToString;
-        private bool throwOnDispose;
-        private object[] miscellaneousData;
-        private string tempPath;
-        private bool tempException;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -782,7 +790,109 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Public Data
+        public int[] intArrayField;
+        public bool boolField;
+        public byte byteField;
+        public short shortField;
+        public int intField;
+        public long longField;
+        public decimal decimalField;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Private Data
+        private long id;
+        internal sbyte internalField;
+        private EventWaitHandle @event;
+        private Result asyncResult;
+        private string privateField;
+        private Type typeField;
+        private object objectField;
+        private Array intPtrArrayField;
+        private Array objectArrayField;
+        private Interpreter callbackInterpreter;
+        private string newInterpreterText;
+        private string useInterpreterText;
+        private string prepareInterpreterText;
+        private string initializeInterpreterText;
+        private string freeInterpreterText;
+        private string sleepWaitCallbackText;
+        private string newCommandText;
+        private string complainCommandName;
+        private bool complainWithThrow;
+        private ReturnCode complainCode;
+        private Result complainResult;
+        private int complainErrorLine;
+        private bool dynamicInvoke;
+        private string unknownCallbackText;
+        private string packageFallbackText;
+        private bool idToString;
+        private bool uniqueToString;
+        private bool throwOnDispose;
+        private object[] miscellaneousData;
+        private string tempPath;
+        private bool tempException;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Public Static Methods
+        #region Methods for AssemblyFilePluginNames
+        public static AssemblyFilePluginNames TestGetAssemblyFilePluginNames(
+            Interpreter interpreter,    /* in: NOT USED */
+            Assembly assembly,          /* in */
+            PackageIfNeededFlags flags, /* in: NOT USED */
+            ref Result error            /* out */
+            )
+        {
+            Stream stream = null;
+
+            try
+            {
+                if (assembly == null)
+                    assembly = GlobalState.GetAssembly();
+
+                stream = RuntimeOps.GetStream(
+                    assembly, FileNameOnly.WellKnownAssemblyFilePluginNames,
+                    ref error);
+
+                if (stream == null)
+                    return null;
+
+                using (StreamReader streamReader = new StreamReader(stream))
+                {
+                    SyntaxData data = null;
+
+                    if (SyntaxOps.LoadData(
+                            streamReader.ReadToEnd(), false, true,
+                            ref data, ref error) != ReturnCode.Ok)
+                    {
+                        return null;
+                    }
+
+                    return data;
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return null;
+            }
+            finally
+            {
+                if (stream != null)
+                {
+                    stream.Close();
+                    stream = null;
+                }
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Methods for Reflection
         //
         // HACK: This method is a placeholder for the ExecuteCallback
@@ -790,6 +900,7 @@ namespace Eagle._Tests
         //       only be used by the TestAddExecuteCallbacks method,
         //       below.
         //
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         public static ReturnCode TestNopExecuteCallback(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in, out */
@@ -812,7 +923,7 @@ namespace Eagle._Tests
             string excludePattern,   /* in: OPTIONAL */
             bool stopOnError,        /* in */
             ref LongList tokens,     /* in, out */
-            ref ResultList errors    /* out */
+            ref ResultList errors    /* in, out */
             )
         {
             if (interpreter == null)
@@ -1024,7 +1135,7 @@ namespace Eagle._Tests
             string excludePattern,   /* in: OPTIONAL */
             bool stopOnError,        /* in */
             ref LongList tokens,     /* in, out */
-            ref ResultList errors    /* out */
+            ref ResultList errors    /* in, out */
             )
         {
             if (interpreter == null)
@@ -1062,6 +1173,15 @@ namespace Eagle._Tests
 
                     if (type.GetInterface(
                             matchTypeName) == null)
+                    {
+                        continue;
+                    }
+
+                    CommandFlags typeFlags =
+                        AttributeOps.GetCommandFlags(type);
+
+                    if (FlagOps.HasFlags(
+                            typeFlags, CommandFlags.Proxy, true))
                     {
                         continue;
                     }
@@ -1201,14 +1321,71 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        #region Methods for TraceOps.DebugTrace
-        public static bool TestHasTraceListener(
-            bool debug,
-            TraceListenerType? listenerType,
-            IClientData clientData
+        #region Methods for TraceFilterCallback
+        public static string TestTraceFilterGetOutput()
+        {
+            Result result = null;
+
+            if (TestTraceFilterGetOutput(
+                    true, true, ref result) == ReturnCode.Ok)
+            {
+                return result;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestTraceFilterGetOutput(
+            bool errorOnNull,
+            bool errorOnEmpty,
+            ref Result result
             )
         {
-            return DebugOps.HasTraceListener(debug, listenerType, clientData);
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (traceFilterOutput != null)
+                {
+                    if (errorOnEmpty &&
+                        (traceFilterOutput.Length == 0))
+                    {
+                        result = "trace output is empty";
+                        return ReturnCode.Error;
+                    }
+                    else
+                    {
+                        result = traceFilterOutput.ToString();
+                        return ReturnCode.Ok;
+                    }
+                }
+                else if (errorOnNull)
+                {
+                    result = "trace output is null";
+                    return ReturnCode.Error;
+                }
+                else
+                {
+                    result = null;
+                    return ReturnCode.Ok;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void TestTraceFilterResetOutput()
+        {
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (traceFilterOutput != null)
+                {
+                    traceFilterOutput.Length = 0;
+                    traceFilterOutput = null;
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1222,10 +1399,15 @@ namespace Eagle._Tests
             ref Result error
             )
         {
-            TraceFilterCallback callback = null;
+            TraceFilterCallback callback;
 
             switch (index)
             {
+                case -1:
+                    {
+                        callback = null;
+                        break;
+                    }
                 case 0:
                     {
                         callback = new TraceFilterCallback(
@@ -1247,9 +1429,35 @@ namespace Eagle._Tests
 
                         break;
                     }
+                case 3:
+                    {
+                        callback = new TraceFilterCallback(
+                            TestTraceFilterCaptureCallback);
+
+                        break;
+                    }
+                case 4:
+                    {
+                        callback = new TraceFilterCallback(
+                            TestTraceFilterMessageSpyCallback);
+
+                        break;
+                    }
+                case 5:
+                    {
+                        callback = new TraceFilterCallback(
+                            TestTraceFilterCategorySpyCallback);
+
+                        break;
+                    }
+                default:
+                    {
+                        error = "unknown trace filter callback index";
+                        return ReturnCode.Error;
+                    }
             }
 
-            if (callback == null)
+            if (setup && (callback == null))
             {
                 error = String.Format(
                     "unsupported trace filter callback #{0}",
@@ -1295,6 +1503,19 @@ namespace Eagle._Tests
                 Interlocked.Increment(ref traceFilterStubSetting);
             else
                 Interlocked.Decrement(ref traceFilterStubSetting);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for TraceOps.DebugTrace
+        public static bool TestHasTraceListener(
+            bool debug,
+            TraceListenerType? listenerType,
+            IClientData clientData
+            )
+        {
+            return DebugOps.HasTraceListener(debug, listenerType, clientData);
         }
         #endregion
 
@@ -1430,6 +1651,7 @@ namespace Eagle._Tests
 
         public static ReturnCode TestRuleIterationCallback(
             Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
             IRule rule,              /* in */
             ref bool stopOnError,    /* in, out */
             ref ResultList errors    /* in, out */
@@ -1443,6 +1665,7 @@ namespace Eagle._Tests
                 ObjectDictionary objects = new ObjectDictionary();
 
                 objects.Add("interpreter", interpreter);
+                objects.Add("clientData", clientData);
                 objects.Add("rule", rule);
                 objects.Add("stopOnError", stopOnErrorValue);
 
@@ -1483,6 +1706,7 @@ namespace Eagle._Tests
 
         public static ReturnCode TestRuleMatchCallback(
             Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
             IdentifierKind? kind,    /* in */
             MatchMode mode,          /* in */
             string text,             /* in */
@@ -1499,6 +1723,7 @@ namespace Eagle._Tests
                 ObjectDictionary objects = new ObjectDictionary();
 
                 objects.Add("interpreter", interpreter);
+                objects.Add("clientData", clientData);
                 objects.Add("kind", kind);
                 objects.Add("mode", mode);
                 objects.Add("text", text);
@@ -2635,9 +2860,9 @@ namespace Eagle._Tests
         #region Methods for HealthCallback
 #if THREADING
         public static ReturnCode TestHealthCallback(
-            Interpreter interpreter,
-            CheckStatus status,
-            ref ResultList errors
+            Interpreter interpreter, /* in */
+            CheckStatus status,      /* in */
+            ref ResultList errors    /* in, out */
             )
         {
             if (interpreter == null)
@@ -3020,6 +3245,7 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Methods for AddExecuteCallback
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         public static ReturnCode TestExecuteCallback1(
             Interpreter interpreter,
             IClientData clientData,
@@ -3057,6 +3283,7 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         public static ReturnCode TestExecuteCallback2(
             Interpreter interpreter,
             IClientData clientData,
@@ -3223,7 +3450,7 @@ namespace Eagle._Tests
                 return null;
 
             string methodName = methodInfo.Name;
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             builder.Append(methodName);
 
@@ -3255,7 +3482,7 @@ namespace Eagle._Tests
                 }
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4375,7 +4602,107 @@ namespace Eagle._Tests
                 FormatOps.InterpreterNoThrow(interpreter));
 
             if (calledMethods == null)
-                calledMethods = StringOps.NewStringBuilder();
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for UseInterpreterCallback
+        public static ReturnCode TestPublicStaticUseInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPublicStaticUseInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for PrepareInterpreterCallback
+        public static ReturnCode TestPublicStaticPrepareInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPublicStaticPrepareInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for InitializeInterpreterCallback
+        public static ReturnCode TestPublicStaticInitializeInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPublicStaticInitializeInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for FreeInterpreterCallback
+        public static ReturnCode TestPublicStaticFreeInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPublicStaticFreeInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
 
             calledMethods.AppendLine(formatted);
 
@@ -4389,6 +4716,7 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Methods for [pkgInstallLog]
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         public static ReturnCode TestPkgInstallLogCallback(
             Interpreter interpreter,
             IClientData clientData,
@@ -4490,9 +4818,9 @@ namespace Eagle._Tests
 
         #region Command Callback Methods
         public static ReturnCode TestAddCommands(
-            Interpreter interpreter,
-            IClientData clientData,
-            ref ResultList results
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ref ResultList results   /* in, out */
             )
         {
             if (interpreter == null)
@@ -4717,6 +5045,118 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Methods for SimulateKeyboardString
+#if NATIVE && WINDOWS
+        public static ReturnCode TestStartKeyboardStream(
+            int? milliseconds,         /* in */
+            TextReader textReader,     /* in */
+            EventWaitHandle stopEvent, /* in */
+            EventWaitHandle doneEvent, /* in */
+            SimulatedKeyFlags flags,   /* in */
+            ref Result error           /* out */
+            )
+        {
+            int localMilliseconds;
+
+            if (milliseconds != null)
+                localMilliseconds = (int)milliseconds;
+            else
+                localMilliseconds = PlayKeyboardMilliseconds;
+
+            if (ThreadPool.QueueUserWorkItem(
+                    new WaitCallback(
+                        TestPlayKeyboardStreamThreadStart),
+                    new NativeTriplet(
+                        true, textReader, new EventTriplet(
+                            stopEvent, doneEvent, flags),
+                        localMilliseconds)))
+            {
+                return ReturnCode.Ok;
+            }
+            else
+            {
+                error = "could not start stream";
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestCheckWindowFocus(
+            IntPtr hWnd,     /* in */
+            bool setFocus,   /* in */
+            ref Result error /* out */
+            )
+        {
+            return NativeConsole.CheckWindowFocus(
+                hWnd, setFocus, ref error);
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for Fail-Safe
+        public static void TestFailSafeAbortWithTrace( /* NO-RETURN */
+            ReturnCode? returnCode, /* in: OPTIONAL */
+            Result result,          /* in: OPTIONAL */
+            bool whatIf,            /* in */
+            bool withTrace          /* in */
+            )
+        {
+            Interlocked.Increment(ref FailSafeCount);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            string formatted = null;
+
+            if (withTrace)
+            {
+                try
+                {
+                    string format;
+                    string category;
+                    TracePriority priority;
+
+                    TestGetFailSafeTraceParameters(
+                        out format, out category,
+                        out priority);
+
+                    if (!String.IsNullOrEmpty(format))
+                    {
+                        formatted = String.Format(
+                            format, ResultOps.Format(
+                            returnCode, result, true));
+
+#if NATIVE
+                        DebugOps.Output(formatted);
+#endif
+
+                        TraceOps.DebugTrace(
+                            formatted, category,
+                            priority); /* throw */
+                    }
+
+                    DebugOps.Flush();
+                }
+                catch
+                {
+                    // do nothing.
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            if (!whatIf)
+            {
+                TestExitNow(FailSafeExitCode, formatted);
+                TestKillOrAbortSelfNow();
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if SHELL
         public static IList<string> TestShellGetProcessedArguments() /* THREAD-SAFE */
         {
@@ -4803,7 +5243,7 @@ namespace Eagle._Tests
                     processedArguments = new StringList();
 
                 if (processedBuilder == null)
-                    processedBuilder = StringOps.NewStringBuilder();
+                    processedBuilder = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
 
                 if (processedBuilder.Length > 0)
                     processedBuilder.Append(Characters.NewLine);
@@ -5392,8 +5832,10 @@ namespace Eagle._Tests
                 Result result = null;
 
                 if (fileSystemHost.GetData(
-                        name, DataFlags.Script, ref scriptFlags,
-                        ref clientData, ref result) == ReturnCode.Ok)
+                        name, HostOps.CombineDataFlags(
+                            interpreter, DataFlags.Script),
+                        ref scriptFlags, ref clientData,
+                        ref result) == ReturnCode.Ok)
                 {
                     return result;
                 }
@@ -5404,6 +5846,10 @@ namespace Eagle._Tests
             }
             catch (Exception e)
             {
+                TraceOps.DebugTrace(
+                    e, typeof(Default).Name,
+                    TracePriority.HostError);
+
                 error = e;
             }
 
@@ -5736,6 +6182,45 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if DEBUGGER
+        public ReturnCode TestEnqueueInteractiveInput(
+            Interpreter interpreter, /* in */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            return interpreter.EnqueueInteractiveInput(ref error);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestBufferInteractiveInput(
+            Interpreter interpreter, /* in */
+            string text,             /* in */
+            bool newLine,            /* in */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            /* NO RESULT */
+            interpreter.BufferInteractiveInput(text, newLine);
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode TestMayEnterInteractiveLoop(
             Interpreter interpreter,
             ref bool result,
@@ -5989,11 +6474,11 @@ namespace Eagle._Tests
 
 #if EMIT
         public static void TestExecuteDelegateCommands(
-            Interpreter interpreter,
-            ArgumentList arguments,
-            bool dynamic,
-            ref ReturnCodeList returnCodes,
-            ref ResultList results
+            Interpreter interpreter,        /* in */
+            ArgumentList arguments,         /* in */
+            bool dynamic,                   /* in */
+            ref ReturnCodeList returnCodes, /* in, out */
+            ref ResultList results          /* in, out */
             )
         {
             if (returnCodes == null)
@@ -6284,9 +6769,9 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static void TestExecuteStaticDelegates(
-            ArgumentList arguments,
-            ref ReturnCodeList returnCodes,
-            ref ResultList results
+            ArgumentList arguments,         /* in */
+            ref ReturnCodeList returnCodes, /* in, out */
+            ref ResultList results          /* in, out */
             )
         {
             if (returnCodes == null)
@@ -7171,6 +7656,7 @@ namespace Eagle._Tests
             string name,
             string value,
             int length,
+            bool original,
             ref Result result
             )
         {
@@ -7196,16 +7682,17 @@ namespace Eagle._Tests
             using (StringReader stringReader = new StringReader(value))
             {
                 EngineFlags engineFlags = EngineFlags.ForceSoftEof;
+                string originalText = null;
                 string text = null;
                 bool canRetry = false; /* NOT USED */
 
                 code[0] = Engine.ReadScriptStream(
                     interpreter, name, stringReader, 0,
-                    length, ref engineFlags, ref text,
-                    ref canRetry, ref localResult[0]);
+                    length, ref engineFlags, ref originalText,
+                    ref text, ref canRetry, ref localResult[0]);
 
                 if (code[0] == ReturnCode.Ok)
-                    localResult[0] = text;
+                    localResult[0] = original ? originalText : text;
 
                 extra[0] = stringReader.ReadToEnd();
             }
@@ -7220,15 +7707,17 @@ namespace Eagle._Tests
             using (StringReader stringReader = new StringReader(value))
             {
                 EngineFlags engineFlags = EngineFlags.ForceSoftEof;
+                string originalText = null;
                 string text = null;
+                bool canRetry = false; /* NOT USED */
 
                 code[1] = Engine.ReadScriptStream(
                     interpreter, name, stringReader, 0,
-                    Count.Invalid, ref engineFlags, ref text,
-                    ref localResult[1]);
+                    Count.Invalid, ref engineFlags, ref originalText,
+                    ref text, ref canRetry, ref localResult[1]);
 
                 if (code[1] == ReturnCode.Ok)
-                    localResult[1] = text;
+                    localResult[1] = original ? originalText : text;
 
                 extra[1] = stringReader.ReadToEnd();
             }
@@ -7374,7 +7863,7 @@ namespace Eagle._Tests
                     try
                     {
                         PathDictionary<int> paths = new PathDictionary<int>(
-                            new _Comparers.Match(mode, noCase, regExOptions));
+                            new _Comparers.StringMatch(mode, noCase, regExOptions));
 
                         paths.Add(list);
                         match = paths.ContainsKey(value);
@@ -7885,8 +8374,7 @@ namespace Eagle._Tests
                         new StringPair("name1", String.Empty),
                         new StringPair("name2", "value1"),
                         new StringPair("name3", TimeOps.GetUtcNow().ToString()),
-                        new StringPair("name4", (interpreter.Random != null) ?
-                            interpreter.Random.Next().ToString() : "0"));
+                        new StringPair("name4", interpreter.GetRandomNumber().ToString()));
                 }
             }
             else
@@ -8048,9 +8536,9 @@ namespace Eagle._Tests
             error = null;
 
             if (_RuntimeOps.PopulatePluginEntities(
-                    interpreter, plugin, null, ruleSet,
-                    PluginFlags.None, null, false,
-                    false, true, ref error) != ReturnCode.Ok)
+                    interpreter, plugin, null, ruleSet, null,
+                    false, false, true, Interpreter.IsVerbose(
+                    interpreter), ref error) != ReturnCode.Ok)
             {
                 if (error != null)
                 {
@@ -8069,9 +8557,9 @@ namespace Eagle._Tests
             error = null;
 
             if (_RuntimeOps.PopulatePluginEntities(
-                    interpreter, plugin, null, ruleSet,
-                    PluginFlags.None, null, true,
-                    false, true, ref error) != ReturnCode.Ok)
+                    interpreter, plugin, null, ruleSet, null,
+                    true, false, true, Interpreter.IsVerbose(
+                    interpreter), ref error) != ReturnCode.Ok)
             {
                 if (error != null)
                 {
@@ -8121,13 +8609,14 @@ namespace Eagle._Tests
                 return ReturnCode.Error;
             }
 
+            bool verbose = Interpreter.IsVerbose(interpreter);
             Result error; /* REUSED */
             List<IFunctionData> list1 = null;
 
             error = null;
 
             if (_RuntimeOps.GetPluginFunctions(
-                    plugin, null, PluginFlags.None, standard,
+                    plugin, null, standard, verbose,
                     ref list1, ref error) != ReturnCode.Ok)
             {
                 if (error != null)
@@ -8146,8 +8635,8 @@ namespace Eagle._Tests
             error = null;
 
             if (_RuntimeOps.GetBuiltInFunctions(
-                    plugin, PluginFlags.None, standard,
-                    ref list2, ref error) != ReturnCode.Ok)
+                    plugin, standard, ref list2,
+                    ref error) != ReturnCode.Ok)
             {
                 if (error != null)
                 {
@@ -8199,6 +8688,7 @@ namespace Eagle._Tests
                 return ReturnCode.Error;
             }
 
+            bool verbose = Interpreter.IsVerbose(interpreter);
             Result error; /* REUSED */
             List<IOperatorData> list1 = null;
 
@@ -8206,8 +8696,8 @@ namespace Eagle._Tests
 
             if (_RuntimeOps.GetPluginOperators(
                     plugin, null, StringOps.GetComparisonType(
-                    interpreterFlags, false), PluginFlags.None,
-                    standard, ref list1, ref error) != ReturnCode.Ok)
+                    interpreterFlags, false), standard, verbose,
+                    ref list1, ref error) != ReturnCode.Ok)
             {
                 if (error != null)
                 {
@@ -8226,8 +8716,8 @@ namespace Eagle._Tests
 
             if (_RuntimeOps.GetBuiltInOperators(
                     plugin, StringOps.GetComparisonType(
-                    interpreterFlags, false), PluginFlags.None,
-                    standard, ref list2, ref error) != ReturnCode.Ok)
+                    interpreterFlags, false), standard,
+                    ref list2, ref error) != ReturnCode.Ok)
             {
                 if (error != null)
                 {
@@ -8241,6 +8731,2415 @@ namespace Eagle._Tests
             }
 
             return TestCompareOperatorDataLists(list1, list2, ref results);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestAlwaysAddRuleCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 2)
+            {
+                result = "wrong # args: should be \"rule definition\"";
+                return ReturnCode.Error;
+            }
+
+            CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+
+            IRule rule = _Rule.Create(
+                arguments[1], cultureInfo, ref result);
+
+            if (rule == null)
+                return ReturnCode.Error;
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            IRuleSet ruleSet = ruleSetClientData.RuleSet;
+
+            if (ruleSet == null)
+            {
+                ruleSet = RuleSet.Create(ref result);
+
+                if (ruleSet == null)
+                    return ReturnCode.Error;
+
+                ruleSetClientData.RuleSet = ruleSet;
+            }
+
+            if (!ruleSet.AddRule(rule, ref result))
+                return ReturnCode.Error;
+
+            result = rule.ToString();
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestMaybeAddRuleCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 2)
+            {
+                result = "wrong # args: should be \"rule definition\"";
+                return ReturnCode.Error;
+            }
+
+            CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+
+            IRule rule = _Rule.Create(
+                arguments[1], cultureInfo, ref result);
+
+            if (rule == null)
+                return ReturnCode.Error;
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            IRuleSet ruleSet = ruleSetClientData.RuleSet;
+
+            if (ruleSet == null)
+            {
+                ruleSet = RuleSet.Create(ref result);
+
+                if (ruleSet == null)
+                    return ReturnCode.Error;
+
+                ruleSetClientData.RuleSet = ruleSet;
+            }
+
+            Result error = null; /* REUSED */
+
+            if (ruleSet.FindRules(
+                    rule, false, ref error) != null)
+            {
+                result = rule.ToString();
+                return ReturnCode.Ok;
+            }
+
+            error = null;
+
+            if (ruleSet.AddRule(rule, ref error))
+            {
+                result = rule.ToString();
+                return ReturnCode.Ok;
+            }
+
+            result = error;
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestFindRulesCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 2)
+            {
+                result = "wrong # args: should be \"findRules definition\"";
+                return ReturnCode.Error;
+            }
+
+            CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+
+            IRule rule = _Rule.Create(
+                arguments[1], cultureInfo, ref result);
+
+            if (rule == null)
+                return ReturnCode.Error;
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            IRuleSet ruleSet = ruleSetClientData.RuleSet;
+
+            if (ruleSet == null)
+            {
+                result = "invalid ruleset";
+                return ReturnCode.Error;
+            }
+
+            IEnumerable<IRule> rules = ruleSet.FindRules(
+                rule, false, ref result);
+
+            if (rules == null)
+                return ReturnCode.Error;
+
+            result = new StringList(rules);
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestClearRulesCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 1)
+            {
+                result = "wrong # args: should be \"noRules\"";
+                return ReturnCode.Error;
+            }
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            IRuleSet ruleSet = ruleSetClientData.RuleSet;
+
+            if (ruleSet == null)
+            {
+                result = "invalid ruleset";
+                return ReturnCode.Error;
+            }
+
+            result = ruleSet.CountRules();
+            ruleSet.ClearRules();
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestDiscardRulesCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 1)
+            {
+                result = "wrong # args: should be \"discardRules\"";
+                return ReturnCode.Error;
+            }
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            ruleSetClientData.RuleSet = null;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestNewRulesCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if ((argumentCount < 1) || (argumentCount > 4))
+            {
+                result = "wrong # args: should be " +
+                    "\"newRules ?pattern? ?withIds? ?addToSet?\"";
+
+                return ReturnCode.Error;
+            }
+
+            string pattern = null;
+
+            if (argumentCount >= 2)
+            {
+                pattern = arguments[1];
+
+                if (String.IsNullOrEmpty(pattern))
+                    pattern = null;
+            }
+
+            CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+            bool withIds = false; /* TODO: Good default? */
+
+            if (argumentCount >= 3)
+            {
+                string valueString = arguments[2];
+
+                if (String.IsNullOrEmpty(valueString))
+                    valueString = null;
+
+                if (valueString != null)
+                {
+                    if (Value.GetBoolean2(
+                            valueString, ValueFlags.AnyBoolean,
+                            cultureInfo, ref withIds,
+                            ref result) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+            }
+
+            bool addToSet = false; /* TODO: Good default? */
+
+            if (argumentCount == 4)
+            {
+                string valueString = arguments[3];
+
+                if (String.IsNullOrEmpty(valueString))
+                    valueString = null;
+
+                if (valueString != null)
+                {
+                    if (Value.GetBoolean2(
+                            valueString, ValueFlags.AnyBoolean,
+                            cultureInfo, ref addToSet,
+                            ref result) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+            }
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            IRuleSet ruleSet = null;
+
+            if (addToSet)
+            {
+                ruleSet = ruleSetClientData.RuleSet;
+
+                if (ruleSet == null)
+                {
+                    ruleSet = RuleSet.Create(ref result);
+
+                    if (ruleSet == null)
+                        return ReturnCode.Error;
+
+                    ruleSetClientData.RuleSet = ruleSet;
+                }
+            }
+
+            IPlugin plugin = interpreter.GetCorePlugin(ref result);
+
+            if (plugin == null)
+                return ReturnCode.Error;
+
+            LongList tokens = plugin.CommandTokens;
+
+            if (tokens == null)
+            {
+                result = "invalid core plugin tokens";
+                return ReturnCode.Error;
+            }
+
+            StringList list = new StringList();
+
+            foreach (long token in tokens)
+            {
+                string name = null;
+
+                if (interpreter.GetCommandName(
+                        token, LookupFlags.Default, ref name,
+                        ref result) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                if ((pattern != null) && !Parser.StringMatch(
+                        interpreter, name, 0, pattern, 0,
+                        false))
+                {
+                    continue;
+                }
+
+                IRule rule = null;
+
+                if (withIds && (ruleSet == null))
+                {
+                    rule = new _Rule(
+                        interpreter.NextId(), RuleType.Include,
+                        IdentifierKind.Command, MatchMode.Exact,
+                        RegexOptions.None, new StringList(name),
+                        null, false);
+                }
+                else
+                {
+                    rule = new _Rule(
+                        null, RuleType.Include,
+                        IdentifierKind.Command, MatchMode.Exact,
+                        RegexOptions.None, new StringList(name),
+                        null, false);
+                }
+
+                if ((ruleSet != null) && !ruleSet.AddRule(
+                        rule, ref result))
+                {
+                    return ReturnCode.Error;
+                }
+
+                list.Add(rule.ToString());
+            }
+
+            result = list;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestMergeRulesCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 2)
+            {
+                result = "wrong # args: should be \"mergeRules script\"";
+                return ReturnCode.Error;
+            }
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            string commandName = null;
+            ICommand command = null;
+
+            if (interpreter.GetCommand(
+                    ruleSetClientData.AlwaysAddCommandToken,
+                    LookupFlags.Default, ref commandName,
+                    ref command, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            ExecuteCallback savedCallback = command.Callback;
+
+            try
+            {
+                command.Callback = new ExecuteCallback(
+                    TestMaybeAddRuleCommandCallback);
+
+                Result localResult = null;
+
+                if (interpreter.EvaluateScript(arguments[1],
+                        ref localResult) != ReturnCode.Ok)
+                {
+                    result = localResult;
+                    return ReturnCode.Error;
+                }
+
+                IRuleSet ruleSet = ruleSetClientData.RuleSet;
+
+                result = (ruleSet != null) ?
+                    ruleSet.ToString() : null;
+
+                return ReturnCode.Ok;
+            }
+            finally
+            {
+                command.Callback = savedCallback;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestIncludeRuleSetCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 2)
+            {
+                result = "wrong # args: should be \"includeRuleSet name\"";
+                return ReturnCode.Error;
+            }
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            IRuleSet ruleSet = ruleSetClientData.RuleSet;
+
+            if (ruleSet == null)
+            {
+                ruleSet = RuleSet.Create(ref result);
+
+                if (ruleSet == null)
+                    return ReturnCode.Error;
+
+                ruleSetClientData.RuleSet = ruleSet;
+            }
+
+            string name = arguments[1];
+
+            if (!TestIsValidNameOnly(name, ref result))
+                return ReturnCode.Error;
+
+            string fileName = Path.Combine(
+                ruleSetClientData.RuleSetDirectory, String.Format(
+                "{0}{1}", name, FileExtension.RuleSet));
+
+            IRuleSet loadRuleSet = null;
+
+            if (TestLoadRuleSet(fileName,
+                    ref loadRuleSet, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            int count = 0; /* NOT USED */
+
+            if (!ruleSet.AddRules(
+                    loadRuleSet, ruleSetClientData.StopOnError,
+                    ruleSetClientData.MoveRules, ref count,
+                    ref result))
+            {
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestSaveRulesCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 1)
+            {
+                result = "wrong # args: should be \"saveRules\"";
+                return ReturnCode.Error;
+            }
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            return TestSaveRuleSet(
+                interpreter, null, ruleSetClientData.RuleSet,
+                ref ruleSetClientData, ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestCreateInterpreter(
+            ScriptInterpreterSettings scriptInterpreterSettings, /* in */
+            ref Result result                                    /* out */
+            )
+        {
+            if (scriptInterpreterSettings == null)
+            {
+                result = "invalid script interpreter settings";
+                return ReturnCode.Error;
+            }
+
+            Interpreter interpreter;
+            IClientData clientData;
+            ulong? token;
+            IRuleSet ruleSet;
+            bool isolated;
+            bool safe;
+            bool security;
+            bool namespaces;
+
+            scriptInterpreterSettings.GetProperties(
+                out interpreter, out clientData, out token,
+                out ruleSet, out isolated, out safe,
+                out security, out namespaces);
+
+            InterpreterSettings interpreterSettings =
+                InterpreterSettings.CreateDefault();
+
+            interpreterSettings.RuleSet = ruleSet;
+
+            if (safe)
+            {
+                interpreterSettings.MakeSafe();
+                interpreterSettings.RemoveUnsafeOptions();
+            }
+
+            if (namespaces)
+                interpreterSettings.EnableNamespaces();
+            else
+                interpreterSettings.DisableNamespaces();
+
+            if ((ruleSet != null) || safe)
+            {
+                //
+                // HACK: When creating "safe" interpreters
+                //       -OR- an interpreter that may have
+                //       an "incomplete" set of commands,
+                //       skip initialization of the script
+                //       library as that (optional) step
+                //       could easily fail.
+                //
+                interpreterSettings.DisableInitialization();
+                interpreterSettings.DisableSetAutoPath();
+            }
+
+            if ((token != null) || (interpreter == null))
+            {
+                if (security)
+                    interpreterSettings.EnableSecurity();
+                else
+                    interpreterSettings.DisableSecurity();
+
+                Interpreter localInterpreter;
+                Result localResult; /* REUSED */
+
+                if (isolated)
+                {
+#if APPDOMAINS && ISOLATED_INTERPRETERS
+                    bool success = false;
+                    string friendlyName = null;
+                    AppDomain appDomain = null;
+
+                    try
+                    {
+                        friendlyName = TestGetFriendlyName(false);
+
+                        CreateFlags createFlags =
+                            scriptInterpreterSettings.GetIsolatedCreateFlags(
+                                interpreter, interpreterSettings);
+
+                        localResult = null;
+
+                        if (AppDomainOps.Create(
+                                interpreter, friendlyName, null, null,
+#if CAS_POLICY
+                                null,
+#endif
+                                clientData, true,
+                                FlagOps.HasFlags(createFlags,
+                                    CreateFlags.VerifyCoreAssembly,
+                                    true),
+                                !FlagOps.HasFlags(createFlags,
+                                    CreateFlags.NoUseEntryAssembly,
+                                    true),
+                                FlagOps.HasFlags(createFlags,
+                                    CreateFlags.OptionalEntryAssembly,
+                                    true),
+                                !FlagOps.HasFlags(createFlags,
+                                    CreateFlags.NoConfiguration,
+                                    true), ref appDomain,
+                                ref localResult) != ReturnCode.Ok)
+                        {
+                            result = localResult;
+                            return ReturnCode.Error;
+                        }
+
+                        localResult = null;
+
+                        using (InterpreterHelper interpreterHelper =
+                                InterpreterHelper.Create(appDomain,
+                                    interpreterSettings, true,
+                                    ref localResult))
+                        {
+                            if (interpreterHelper == null)
+                            {
+                                result = localResult;
+                                return ReturnCode.Error;
+                            }
+
+                            localInterpreter = interpreterHelper.Interpreter;
+
+                            if (localInterpreter == null)
+                            {
+                                result = "interpreter helper has no interpreter";
+                                return ReturnCode.Error;
+                            }
+
+                            interpreterHelper.RemoveInterpreter();
+                            success = true;
+
+                            result = localInterpreter;
+                            return ReturnCode.Ok;
+                        }
+                    }
+                    finally
+                    {
+                        if (!success && (appDomain != null))
+                        {
+                            Result unloadError = null;
+
+                            if (AppDomainOps.Unload(
+                                    friendlyName, appDomain, clientData,
+                                    ref unloadError) != ReturnCode.Ok)
+                            {
+                                DebugOps.Complain(
+                                    interpreter, ReturnCode.Error,
+                                    unloadError);
+                            }
+                        }
+                    }
+#else
+                    result = "not implemented";
+                    return ReturnCode.Error;
+#endif
+                }
+                else
+                {
+                    localResult = null;
+
+                    localInterpreter = Interpreter.Create(
+                        token, interpreterSettings, true,
+                        ref localResult);
+
+                    if (localInterpreter != null)
+                    {
+                        result = localInterpreter;
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        result = localResult;
+                        return ReturnCode.Error;
+                    }
+                }
+            }
+            else
+            {
+                return interpreter.CreateChildInterpreter(
+                    null, clientData, interpreterSettings,
+                    isolated, security, ref result);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestDeleteInterpreter(
+            ref Interpreter interpreter, /* in, out */
+            ref Result result            /* out */
+            )
+        {
+            try
+            {
+                if ((interpreter == null) || interpreter.Disposed)
+                    return ReturnCode.Ok;
+
+                if (!interpreter.InternalIsOrphanInterpreter())
+                {
+                    result = "cannot delete child interpreter";
+                    return ReturnCode.Error;
+                }
+
+#if APPDOMAINS && ISOLATED_INTERPRETERS
+                AppDomain appDomain = interpreter.GetAppDomain();
+#endif
+
+                interpreter.Dispose(); /* throw */
+                interpreter = null;
+
+#if APPDOMAINS && ISOLATED_INTERPRETERS
+                if ((appDomain != null) &&
+                    !appDomain.IsDefaultAppDomain() &&
+                    !appDomain.IsFinalizingForUnload())
+                {
+                    string friendlyName = appDomain.FriendlyName;
+
+                    if (StringOps.Match(
+                            null, MatchMode.Glob, friendlyName,
+                            TestGetFriendlyName(true), false))
+                    {
+                        Result unloadError = null;
+
+                        if (AppDomainOps.Unload(
+                                friendlyName, appDomain, null,
+                                ref unloadError) != ReturnCode.Ok)
+                        {
+                            DebugOps.Complain(
+                                ReturnCode.Error, unloadError);
+                        }
+                    }
+                }
+#endif
+
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                result = e;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestCreateWithRulesCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount < 1)
+            {
+                result = "wrong # args: should be \"createWithRules ?options?\"";
+                return ReturnCode.Error;
+            }
+
+            OptionDictionary options = new OptionDictionary(
+                new IOption[] {
+                new Option(null, OptionFlags.MustHaveUnsignedWideIntegerValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-token", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-namespaces", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-safe", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-isolated", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                    "-security", null),
+                Option.CreateEndOfOptions()
+            });
+
+            int argumentIndex = Index.Invalid;
+
+            if (argumentCount > 1)
+            {
+                if (interpreter.GetOptions(
+                        options, arguments, 0, 1, Index.Invalid, false,
+                        ref argumentIndex, ref result) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+            }
+
+            Variant value = null;
+            ulong? token = null;
+
+            if (options.IsPresent("-token", ref value))
+                token = (ulong)value.Value;
+
+            bool? namespaces = null;
+
+            if (options.IsPresent("-namespaces", ref value))
+                namespaces = (bool)value.Value;
+
+            bool? safe = null;
+
+            if (options.IsPresent("-safe", ref value))
+                safe = (bool)value.Value;
+
+            bool? isolated = null;
+
+            if (options.IsPresent("-isolated", ref value))
+                isolated = (bool)value.Value;
+
+            bool? security = null;
+
+            if (options.IsPresent("-security", ref value))
+                security = (bool)value.Value;
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            IRuleSet ruleSet = ruleSetClientData.RuleSet;
+
+            if (ruleSet == null)
+            {
+                result = "invalid ruleset";
+                return ReturnCode.Error;
+            }
+
+            using (ScriptInterpreterSettings scriptInterpreterSettings =
+                    new ScriptInterpreterSettings())
+            {
+                scriptInterpreterSettings.Interpreter = interpreter;
+                scriptInterpreterSettings.ClientData = clientData;
+                scriptInterpreterSettings.Token = token;
+                scriptInterpreterSettings.RuleSet = ruleSet;
+                scriptInterpreterSettings.Isolated = isolated;
+                scriptInterpreterSettings.Safe = safe;
+                scriptInterpreterSettings.Security = security;
+                scriptInterpreterSettings.Namespaces = namespaces;
+
+                Result localResult = null;
+
+                if (TestCreateInterpreter(
+                        scriptInterpreterSettings,
+                        ref localResult) != ReturnCode.Ok)
+                {
+                    result = localResult;
+                    return ReturnCode.Error;
+                }
+
+                if (localResult == null)
+                {
+                    result = "null result from interpreter creation";
+                    return ReturnCode.Error;
+                }
+
+                if (token != null)
+                {
+                    if (Helpers.FixupReturnValue(
+                            interpreter, FormatOps.Id("testTokenInterpreter",
+                            null, interpreter.NextId()), localResult.Value,
+                            ObjectFlags.None, ref result) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+                else
+                {
+                    result = localResult;
+                }
+
+                return ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestIntrospectCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 2)
+            {
+                result = "wrong # args: should be \"introspect interpreter\"";
+                return ReturnCode.Error;
+            }
+
+            Interpreter childInterpreter = null;
+
+            if (Value.GetInterpreter(
+                    interpreter, arguments[1], InterpreterType.Default,
+                    ref childInterpreter, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            StringList list1 = null;
+
+            if (childInterpreter.ListCommands(
+                    CommandFlags.None, CommandFlags.None, false,
+                    false, null, false, true, false, ref list1,
+                    ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            StringList list2 = null;
+
+            if (childInterpreter.ListHiddenCommands(
+                    CommandFlags.None, CommandFlags.None, false,
+                    false, null, false, true, false, ref list2,
+                    ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            result = StringList.MakeList(
+                "commands", list1, "hiddenCommands", list2);
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestDefineCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 4)
+            {
+                result = "wrong # args: should be \"define type name value\"";
+                return ReturnCode.Error;
+            }
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            RuleSetDictionary ruleSets = ruleSetClientData.RuleSets;
+            RuleDictionary rules = ruleSetClientData.Rules;
+
+            object enumValue = EnumOps.TryParse(
+                typeof(DefinitionType), arguments[1], true, true, ref result);
+
+            if (enumValue == null)
+                return ReturnCode.Error;
+
+            string nameOnly = arguments[2];
+
+            if (String.IsNullOrEmpty(nameOnly))
+                nameOnly = null;
+
+            if (nameOnly == null)
+            {
+                result = "invalid definition name";
+                return ReturnCode.Error;
+            }
+
+            if (!TestIsValidNameOnly(nameOnly, ref result))
+                return ReturnCode.Error;
+
+            IRuleSet oldRuleSet = ruleSetClientData.DefineRuleSet;
+            DefinitionType definitionType = (DefinitionType)enumValue;
+
+            definitionType = ruleSetClientData.TranslateDefinitionType(
+                definitionType);
+
+            switch (definitionType)
+            {
+                case DefinitionType.Rule:
+                    {
+                        if (rules == null)
+                        {
+                            result = "invalid rules";
+                            return ReturnCode.Error;
+                        }
+
+                        IRule rule = _Rule.Create(
+                            arguments[3], interpreter.InternalCultureInfo,
+                            ref result);
+
+                        if (rule == null)
+                            return ReturnCode.Error;
+
+                        if ((oldRuleSet != null) &&
+                            !oldRuleSet.AddRule(rule, ref result))
+                        {
+                            return ReturnCode.Error;
+                        }
+
+                        rules[nameOnly] = rule;
+                        result = rule.ToString();
+
+                        return ReturnCode.Ok;
+                    }
+                case DefinitionType.RuleSet:
+                    {
+                        if (ruleSets == null)
+                        {
+                            result = "invalid rulesets";
+                            return ReturnCode.Error;
+                        }
+
+                        IRuleSet newRuleSet = oldRuleSet;
+
+                        if (TestDefineRuleSet(
+                                null, arguments[3], ruleSetClientData,
+                                ref newRuleSet, ref result) != ReturnCode.Ok)
+                        {
+                            return ReturnCode.Error;
+                        }
+
+                        ruleSets[nameOnly] = newRuleSet;
+
+                        result = (newRuleSet != null) ?
+                            newRuleSet.ToString() : String.Empty;
+
+                        return ReturnCode.Ok;
+                    }
+                default:
+                    {
+                        result = String.Format(
+                            "unsupported definition type {0}",
+                            FormatOps.WrapOrNull(definitionType));
+
+                        return ReturnCode.Error;
+                    }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestIncludeCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount != 3)
+            {
+                result = "wrong # args: should be \"include type name\"";
+                return ReturnCode.Error;
+            }
+
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                result = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            RuleSetDictionary ruleSets = ruleSetClientData.RuleSets;
+
+            if (ruleSets == null)
+            {
+                result = "invalid rulesets";
+                return ReturnCode.Error;
+            }
+
+            RuleDictionary rules = ruleSetClientData.Rules;
+
+            if (rules == null)
+            {
+                result = "invalid rules";
+                return ReturnCode.Error;
+            }
+
+            object enumValue = EnumOps.TryParse(
+                typeof(DefinitionType), arguments[1], true, true, ref result);
+
+            if (enumValue == null)
+                return ReturnCode.Error;
+
+            string nameOnly = arguments[2];
+
+            if (String.IsNullOrEmpty(nameOnly))
+                nameOnly = null;
+
+            if (nameOnly == null)
+            {
+                result = "invalid definition name";
+                return ReturnCode.Error;
+            }
+
+            if (!TestIsValidName(nameOnly, ref result))
+                return ReturnCode.Error;
+
+            IRuleSet oldRuleSet = ruleSetClientData.DefineRuleSet;
+            DefinitionType definitionType = (DefinitionType)enumValue;
+
+            definitionType = ruleSetClientData.TranslateDefinitionType(
+                definitionType);
+
+            switch (definitionType)
+            {
+                case DefinitionType.Rule:
+                    {
+                        if (oldRuleSet == null)
+                        {
+                            result = "invalid definition ruleset";
+                            return ReturnCode.Error;
+                        }
+
+                        IRule rule;
+
+                        if (!rules.TryGetValue(nameOnly, out rule))
+                        {
+                            result = String.Format(
+                                "named rule {0} is missing",
+                                FormatOps.WrapOrNull(nameOnly));
+
+                            return ReturnCode.Error;
+                        }
+
+                        if (!oldRuleSet.AddRule(rule, ref result))
+                            return ReturnCode.Error;
+
+                        result = (rule != null) ?
+                            rule.ToString() : String.Empty;
+
+                        return ReturnCode.Ok;
+                    }
+                case DefinitionType.RuleSet:
+                    {
+                        string fileName = ruleSetClientData.IncludeFileName(
+                            nameOnly, ref result);
+
+                        if (fileName == null)
+                            return ReturnCode.Error;
+
+                        IRuleSet newRuleSet = null;
+
+                        if (TestDefineRuleSet(
+                                fileName, null, ruleSetClientData,
+                                ref newRuleSet, ref result) != ReturnCode.Ok)
+                        {
+                            return ReturnCode.Error;
+                        }
+
+                        if (oldRuleSet != null)
+                        {
+                            int count = 0; /* NOT USED */
+
+                            if (!oldRuleSet.AddRules(
+                                    newRuleSet, true, true, ref count,
+                                    ref result))
+                            {
+                                return ReturnCode.Error;
+                            }
+                        }
+
+                        ruleSets[nameOnly] = newRuleSet;
+
+                        result = fileName;
+                        return ReturnCode.Ok;
+                    }
+                default:
+                    {
+                        result = String.Format(
+                            "unsupported definition type {0}",
+                            FormatOps.WrapOrNull(definitionType));
+
+                        return ReturnCode.Error;
+                    }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestAddDefinitionCommands(
+            Interpreter interpreter,             /* in */
+            RuleSetClientData ruleSetClientData, /* in */
+            ref LongList tokens,                 /* in, out */
+            ref ResultList results               /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            if (ruleSetClientData == null)
+            {
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add("invalid ruleset clientData");
+                return ReturnCode.Error;
+            }
+
+            int errorCount = 0;
+            long token; /* REUSED */
+            Result result; /* REUSED */
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "define", TestDefineCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "include", TestIncludeCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            ruleSetClientData.AddTokens(tokens);
+
+            return (errorCount > 0) ?
+                ReturnCode.Error : ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestRemoveDefinitionCommands(
+            Interpreter interpreter,             /* in */
+            RuleSetClientData ruleSetClientData, /* in */
+            ref ResultList results               /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            LongList tokens = ruleSetClientData.Tokens;
+
+            if (tokens != null)
+            {
+                StringList names = null; /* NOT USED */
+
+                if (interpreter.RemoveCommands(
+                        tokens, ruleSetClientData, false, true,
+                        ref names, ref results) == ReturnCode.Ok)
+                {
+                    tokens.Clear();
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                int errorCount = 0;
+                Result result; /* REUSED */
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "define", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "include", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                return (errorCount > 0) ?
+                    ReturnCode.Error : ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestAddRuleSetCommands(
+            Interpreter interpreter,             /* in */
+            RuleSetClientData ruleSetClientData, /* in */
+            ref LongList tokens,                 /* in, out */
+            ref ResultList results               /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            if (ruleSetClientData == null)
+            {
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add("invalid ruleset clientData");
+                return ReturnCode.Error;
+            }
+
+            int errorCount = 0;
+            long token; /* REUSED */
+            Result result; /* REUSED */
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "rule", TestAlwaysAddRuleCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                ruleSetClientData.AlwaysAddCommandToken = token;
+
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "findRules", TestFindRulesCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "noRules", TestClearRulesCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "discardRules", TestDiscardRulesCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "newRules", TestNewRulesCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "mergeRules", TestMergeRulesCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "includeRuleSet", TestIncludeRuleSetCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "saveRules", TestSaveRulesCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "createWithRules", TestCreateWithRulesCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "introspect", TestIntrospectCommandCallback,
+                    ruleSetClientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                errorCount++;
+            }
+
+            if (results == null)
+                results = new ResultList();
+
+            results.Add(result);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            ruleSetClientData.AddTokens(tokens);
+
+            return (errorCount > 0) ?
+                ReturnCode.Error : ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestRemoveRuleSetCommands(
+            Interpreter interpreter,             /* in */
+            RuleSetClientData ruleSetClientData, /* in */
+            ref ResultList results               /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            LongList tokens = ruleSetClientData.Tokens;
+
+            if (tokens != null)
+            {
+                StringList names = null; /* NOT USED */
+
+                if (interpreter.RemoveCommands(
+                        tokens, ruleSetClientData, false, true,
+                        ref names, ref results) == ReturnCode.Ok)
+                {
+                    tokens.Clear();
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                int errorCount = 0;
+                Result result; /* REUSED */
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "rule", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "findRules", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "noRules", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "discardRules", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "newRules", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "mergeRules", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "includeRuleSet", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "saveRules", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "createWithRules", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                result = null;
+
+                if (interpreter.RemoveCommand(
+                        "introspect", ruleSetClientData,
+                        ref result) != ReturnCode.Ok)
+                {
+                    errorCount++;
+                }
+
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(result);
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                return (errorCount > 0) ?
+                    ReturnCode.Error : ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestDefineRuleSet(
+            string fileName,                     /* in: OPTIONAL */
+            string text,                         /* in: OPTIONAL */
+            RuleSetClientData ruleSetClientData, /* in */
+            ref IRuleSet ruleSet,                /* in, out */
+            ref Result error                     /* out */
+            )
+        {
+            if (ruleSetClientData == null)
+            {
+                error = "invalid ruleset clientData";
+                return ReturnCode.Error;
+            }
+
+            int levels = ruleSetClientData.EnterDefineLevel();
+
+            try
+            {
+                IRuleSet newRuleSet = ruleSet;
+
+                if (newRuleSet == null)
+                {
+                    newRuleSet = RuleSet.Create(ref error);
+
+                    if (newRuleSet == null)
+                        return ReturnCode.Error;
+                }
+
+                Result result; /* REUSED */
+
+                CreateFlags createFlags = CreateFlags.RuleSetUse;
+                HostCreateFlags hostCreateFlags = HostCreateFlags.Disable;
+
+                result = null;
+
+                using (Interpreter interpreter = Interpreter.Create(
+                        null, createFlags, hostCreateFlags, ref result))
+                {
+                    if (interpreter == null)
+                    {
+                        error = result;
+                        return ReturnCode.Error;
+                    }
+
+                    LongList tokens = null; /* NOT USED */
+                    ResultList results = null;
+
+                    if (TestAddDefinitionCommands(
+                            interpreter, ruleSetClientData, ref tokens,
+                            ref results) != ReturnCode.Ok)
+                    {
+                        error = results;
+                        return ReturnCode.Error;
+                    }
+
+                    if (fileName == null)
+                        fileName = ruleSetClientData.RuleSetFileName;
+
+                    IRuleSet savedRuleSet = null;
+
+                    ruleSetClientData.BeginDefineRuleSet(
+                        newRuleSet, ref savedRuleSet);
+
+                    try
+                    {
+                        string savedFileName = null;
+
+                        ruleSetClientData.BeginRuleSetFile(
+                            fileName, ref savedFileName);
+
+                        try
+                        {
+                            if (text != null)
+                            {
+                                result = null;
+
+                                if (interpreter.EvaluateScript(
+                                        text, ref result) != ReturnCode.Ok)
+                                {
+                                    error = result;
+                                    return ReturnCode.Error;
+                                }
+                            }
+                            else
+                            {
+                                result = null;
+
+                                if (interpreter.EvaluateFile(
+                                        fileName, ref result) != ReturnCode.Ok)
+                                {
+                                    error = result;
+                                    return ReturnCode.Error;
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            ruleSetClientData.EndRuleSetFile(
+                                ref savedFileName);
+                        }
+                    }
+                    finally
+                    {
+                        ruleSetClientData.EndDefineRuleSet(
+                            ref savedRuleSet);
+                    }
+
+                    ruleSet = newRuleSet;
+                    return ReturnCode.Ok;
+                }
+            }
+            finally
+            {
+                if (levels == 1)
+                    ruleSetClientData.ResetForDefine();
+
+                /* IGNORED */
+                ruleSetClientData.ExitDefineLevel();
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestLoadRuleSet(
+            string fileName,      /* in */
+            ref IRuleSet ruleSet, /* in, out */
+            ref Result error      /* out */
+            )
+        {
+            Result result; /* REUSED */
+
+            CreateFlags createFlags = CreateFlags.RuleSetUse;
+            HostCreateFlags hostCreateFlags = HostCreateFlags.Disable;
+
+            result = null;
+
+            using (Interpreter interpreter = Interpreter.Create(
+                    null, createFlags, hostCreateFlags, ref result))
+            {
+                if (interpreter == null)
+                {
+                    error = result;
+                    return ReturnCode.Error;
+                }
+
+                RuleSetClientData ruleSetClientData =
+                    new RuleSetClientData(null, ruleSet);
+
+                LongList tokens = null; /* NOT USED */
+                ResultList results = null;
+
+                if (TestAddRuleSetCommands(
+                        interpreter, ruleSetClientData, ref tokens,
+                        ref results) != ReturnCode.Ok)
+                {
+                    error = results;
+                    return ReturnCode.Error;
+                }
+
+                string savedFileName = null;
+
+                ruleSetClientData.BeginRuleSetFile(
+                    fileName, ref savedFileName);
+
+                try
+                {
+                    result = null;
+
+                    if (interpreter.EvaluateFile(
+                            fileName, ref result) != ReturnCode.Ok)
+                    {
+                        error = result;
+                        return ReturnCode.Error;
+                    }
+                }
+                finally
+                {
+                    ruleSetClientData.EndRuleSetFile(
+                        ref savedFileName);
+                }
+
+                ruleSet = ruleSetClientData.RuleSet;
+                return ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestLoadRuleSets(
+            Interpreter interpreter,          /* in */
+            string directory,                 /* in: OPTIONAL */
+            bool recursive,                   /* in */
+            ref RuleSetDictionary dictionary, /* in, out */
+            ref Result error                  /* out */
+            )
+        {
+            if (directory == null)
+            {
+                directory = CommonOps.Environment.GetVariable(
+                    EnvVars.XdgRuleSetDir);
+            }
+
+            string[] fileNames;
+
+            try
+            {
+                fileNames = Directory.GetFiles(
+                    directory, String.Format("{0}{1}",
+                    Characters.Asterisk, FileExtension.RuleSet),
+                    recursive ? SearchOption.AllDirectories :
+                    SearchOption.TopDirectoryOnly);
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+
+            if ((fileNames == null) || (fileNames.Length == 0))
+            {
+                error = "no file names were found";
+                return ReturnCode.Error;
+            }
+
+            if (dictionary == null)
+                dictionary = new RuleSetDictionary();
+
+            foreach (string fileName in fileNames)
+            {
+                IRuleSet ruleSet = null;
+
+                if (TestLoadRuleSet(
+                        fileName, ref ruleSet,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                dictionary[fileName] = ruleSet;
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestSaveRuleSet(
+            Interpreter interpreter,                 /* in */
+            string fileName,                         /* in: OPTIONAL */
+            IRuleSet ruleSet,                        /* in */
+            ref RuleSetClientData ruleSetClientData, /* in, out */
+            ref Result result                        /* out */
+            )
+        {
+            if (ruleSet == null)
+            {
+                result = "invalid ruleset";
+                return ReturnCode.Error;
+            }
+
+            if (ruleSetClientData == null)
+                ruleSetClientData = new RuleSetClientData();
+
+            RuleIterationCallback callback = new RuleIterationCallback(
+                TestSaveRuleIterationCallback);
+
+            if (ruleSet.ForEachRule(
+                    callback, interpreter, ruleSetClientData, null,
+                    MatchMode.None, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            string text = ruleSetClientData.GetStringAndRelease();
+
+            if (!String.IsNullOrEmpty(fileName))
+            {
+                if (File.Exists(fileName))
+                {
+                    result = String.Format(
+                        "cannot save rules: file {0} exists",
+                        FormatOps.WrapOrNull(fileName));
+
+                    return ReturnCode.Error;
+                }
+
+                try
+                {
+                    File.WriteAllText(fileName, text); /* throw */
+                }
+                catch (Exception e)
+                {
+                    result = e;
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                result = text;
+            }
+
+            return ReturnCode.Ok;
         }
         #endregion
 
@@ -8502,7 +11401,7 @@ namespace Eagle._Tests
                 FormatOps.InterpreterNoThrow(interpreter));
 
             if (calledMethods == null)
-                calledMethods = StringOps.NewStringBuilder();
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
 
             calledMethods.AppendLine(formatted);
 
@@ -8530,6 +11429,119 @@ namespace Eagle._Tests
             Interpreter.UseInterpreterCallback = setup ?
                 (EventCallback)TestUseInterpreterCallback : null;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode TestPublicInstanceUseInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
+            string formatted = String.Format(
+                "TestPublicInstanceUseInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for PrepareInterpreterCallback
+        public void TestSetPrepareInterpreterCallback(
+            Interpreter interpreter,
+            string text,
+            bool setup
+            )
+        {
+            CheckDisposed();
+
+            callbackInterpreter = interpreter;
+            prepareInterpreterText = text;
+
+            Interpreter.PrepareInterpreterCallback = setup ?
+                (EventCallback)TestPrepareInterpreterCallback : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode TestPublicInstancePrepareInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
+            string formatted = String.Format(
+                "TestPublicInstancePrepareInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for InitializeInterpreterCallback
+        public void TestSetInitializeInterpreterCallback(
+            Interpreter interpreter,
+            string text,
+            bool setup
+            )
+        {
+            CheckDisposed();
+
+            callbackInterpreter = interpreter;
+            initializeInterpreterText = text;
+
+            Interpreter.InitializeInterpreterCallback = setup ?
+                (EventCallback)TestInitializeInterpreterCallback : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode TestPublicInstanceInitializeInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
+            string formatted = String.Format(
+                "TestPublicInstanceInitializeInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -8548,6 +11560,31 @@ namespace Eagle._Tests
 
             Interpreter.FreeInterpreterCallback = setup ?
                 (EventCallback)TestFreeInterpreterCallback : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public ReturnCode TestPublicInstanceFreeInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
+            string formatted = String.Format(
+                "TestPublicInstanceFreeInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
         }
         #endregion
 
@@ -8954,10 +11991,9 @@ namespace Eagle._Tests
             if (randomize)
             {
                 byte[] randomByteArray = new byte[inByteArray.Length];
-                Random random = interpreter.Random;
 
-                if (random != null)
-                    random.NextBytes(randomByteArray);
+                /* NO RESULT */
+                interpreter.GetRandomBytes(ref randomByteArray);
 
                 outByteArray = new byte[inByteArray.Length];
 
@@ -10365,53 +13401,6 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        #region Methods for StatusCallback
-#if WINFORMS
-        private static ReturnCode TestStatusCallback(
-            Interpreter interpreter,
-            IClientData clientData,
-            string text,
-            bool clear,
-            ref Result error
-            )
-        {
-            int localShouldStatusCallback = Interlocked.CompareExchange(
-                ref shouldStatusCallback, 0, 0);
-
-            if (localShouldStatusCallback == 1)
-            {
-                error = "status callback error";
-                return ReturnCode.Error;
-            }
-
-            if (localShouldStatusCallback == 2)
-            {
-                error = "status callback return";
-                return ReturnCode.Return;
-            }
-
-            if (localShouldStatusCallback == 3)
-            {
-                error = "status callback break";
-                return ReturnCode.Break;
-            }
-
-            if (localShouldStatusCallback == 4)
-            {
-                error = "status callback continue";
-                return ReturnCode.Continue;
-            }
-
-            if (localShouldStatusCallback == 5)
-                throw new ScriptException("status callback exception");
-
-            return ReturnCode.Ok;
-        }
-#endif
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
         #region Methods for SleepWaitCallback
         private ReturnCode TestSleepWaitCallback(
             Interpreter interpreter,
@@ -10529,7 +13518,7 @@ namespace Eagle._Tests
                 FormatOps.InterpreterNoThrow(interpreter));
 
             if (calledMethods == null)
-                calledMethods = StringOps.NewStringBuilder();
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
 
             calledMethods.AppendLine(formatted);
 
@@ -10567,6 +13556,133 @@ namespace Eagle._Tests
             result = null;
             return ReturnCode.Ok;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode TestPrivateInstanceUseInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPrivateInstanceUseInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for PrepareInterpreterCallback
+        private ReturnCode TestPrepareInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            // CheckDisposed();
+
+            if ((callbackInterpreter != null) &&
+                !String.IsNullOrEmpty(prepareInterpreterText))
+            {
+                ObjectDictionary objects = new ObjectDictionary();
+
+                objects.Add("interpreter", interpreter);
+                objects.Add("clientData", clientData);
+
+                return Helpers.EvaluateScript(
+                    callbackInterpreter, prepareInterpreterText,
+                    objects, ref result);
+            }
+
+            result = null;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode TestPrivateInstancePrepareInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPrivateInstancePrepareInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for InitializeInterpreterCallback
+        private ReturnCode TestInitializeInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            // CheckDisposed();
+
+            if ((callbackInterpreter != null) &&
+                !String.IsNullOrEmpty(initializeInterpreterText))
+            {
+                ObjectDictionary objects = new ObjectDictionary();
+
+                objects.Add("interpreter", interpreter);
+                objects.Add("clientData", clientData);
+
+                return Helpers.EvaluateScript(
+                    callbackInterpreter, initializeInterpreterText,
+                    objects, ref result);
+            }
+
+            result = null;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode TestPrivateInstanceInitializeInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPrivateInstanceInitializeInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -10594,6 +13710,29 @@ namespace Eagle._Tests
             }
 
             result = null;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private ReturnCode TestPrivateInstanceFreeInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPrivateInstanceFreeInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
             return ReturnCode.Ok;
         }
         #endregion
@@ -10832,7 +13971,7 @@ namespace Eagle._Tests
 
                 localResult = null;
 
-                code = interpreter.GetIExecuteViaResolvers(
+                code = interpreter.InternalGetIExecuteViaResolvers(
                     engineFlags, commandName, arguments, lookupFlags,
                     ref localExecute, ref localResult);
 
@@ -11042,7 +14181,7 @@ namespace Eagle._Tests
 
                 localError = null;
 
-                if (interpreter.GetIExecuteViaResolvers(
+                if (interpreter.InternalGetIExecuteViaResolvers(
                         engineFlags | EngineFlags.ToExecute,
                         executeName, localArguments,
                         LookupFlags.EngineDefault,
@@ -11180,6 +14319,83 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        #region Methods for StatusCallback
+#if WINFORMS
+        private static ReturnCode TestStatusCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            string text,
+            bool clear,
+            ref Result error
+            )
+        {
+            int localShouldStatusCallback = Interlocked.CompareExchange(
+                ref shouldStatusCallback, 0, 0);
+
+            if (localShouldStatusCallback == 1)
+            {
+                error = "status callback error";
+                return ReturnCode.Error;
+            }
+
+            if (localShouldStatusCallback == 2)
+            {
+                error = "status callback return";
+                return ReturnCode.Return;
+            }
+
+            if (localShouldStatusCallback == 3)
+            {
+                error = "status callback break";
+                return ReturnCode.Break;
+            }
+
+            if (localShouldStatusCallback == 4)
+            {
+                error = "status callback continue";
+                return ReturnCode.Continue;
+            }
+
+            if (localShouldStatusCallback == 5)
+                throw new ScriptException("status callback exception");
+
+            return ReturnCode.Ok;
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for Monitor
+        private static void TryLock(
+            ref bool locked /* out */
+            )
+        {
+            if (staticSyncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(staticSyncRoot);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void ExitLock(
+            ref bool locked /* in, out */
+            )
+        {
+            if (staticSyncRoot == null)
+                return;
+
+            if (locked)
+            {
+                Monitor.Exit(staticSyncRoot);
+                locked = false;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Methods for Ad-Hoc Commands
         private static void TestVoidMethod(
             string value
@@ -11360,7 +14576,7 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        #region Methods for TraceOps.DebugTrace
+        #region Methods for TraceFilterCallback
         private static bool TestTraceFilterStubCallback(
             Interpreter interpreter,
             string message,
@@ -11437,6 +14653,91 @@ namespace Eagle._Tests
                     interpreter, mode, category, pattern, false))
             {
                 return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool TestTraceFilterCaptureCallback(
+            Interpreter interpreter,
+            string message,
+            string category,
+            TracePriority priority
+            )
+        {
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (traceFilterOutput == null)
+                    traceFilterOutput = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+                traceFilterOutput.AppendLine(
+                    FormatOps.InterpreterNoThrow(interpreter, false));
+
+                traceFilterOutput.AppendLine(
+                    FormatOps.DisplayString(category));
+
+                traceFilterOutput.AppendLine(
+                    FormatOps.DisplayString(message));
+
+                traceFilterOutput.AppendLine(priority.ToString());
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool TestTraceFilterMessageSpyCallback(
+            Interpreter interpreter,
+            string message,
+            string category,
+            TracePriority priority
+            )
+        {
+            MatchMode mode;
+            string pattern;
+
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                mode = traceFilterMatchMode;
+                pattern = traceFilterPattern;
+            }
+
+            if ((pattern == null) || StringOps.Match(
+                    interpreter, mode, message, pattern, false))
+            {
+                return TestTraceFilterCaptureCallback(
+                    interpreter, message, category, priority);
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool TestTraceFilterCategorySpyCallback(
+            Interpreter interpreter,
+            string message,
+            string category,
+            TracePriority priority
+            )
+        {
+            MatchMode mode;
+            string pattern;
+
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                mode = traceFilterMatchMode;
+                pattern = traceFilterPattern;
+            }
+
+            if ((pattern == null) || StringOps.Match(
+                    interpreter, mode, category, pattern, false))
+            {
+                return TestTraceFilterCaptureCallback(
+                    interpreter, message, category, priority);
             }
 
             return false;
@@ -11680,6 +14981,7 @@ namespace Eagle._Tests
         [MethodFlags(
             MethodFlags.PluginPolicy | MethodFlags.System |
             MethodFlags.NoAdd)]
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         private static ReturnCode TestLoadPluginPolicy( /* POLICY */
             Interpreter interpreter,
             IClientData clientData,
@@ -11739,6 +15041,7 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Command Callback Methods
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         private static ReturnCode TestAddVariableCommandCallback(
             Interpreter interpreter,
             IClientData clientData,
@@ -11771,6 +15074,7 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         private static ReturnCode TestUsableVariableCommandCallback(
             Interpreter interpreter,
             IClientData clientData,
@@ -11826,6 +15130,7 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         private static ReturnCode TestIsLockedVariableCommandCallback(
             Interpreter interpreter,
             IClientData clientData,
@@ -11882,6 +15187,7 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         private static ReturnCode TestLockVariableCommandCallback(
             Interpreter interpreter,
             IClientData clientData,
@@ -11932,6 +15238,7 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         private static ReturnCode TestUnlockVariableCommandCallback(
             Interpreter interpreter,
             IClientData clientData,
@@ -12140,7 +15447,107 @@ namespace Eagle._Tests
                 FormatOps.InterpreterNoThrow(interpreter));
 
             if (calledMethods == null)
-                calledMethods = StringOps.NewStringBuilder();
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for UseInterpreterCallback
+        private static ReturnCode TestPrivateStaticUseInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPrivateStaticUseInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for PrepareInterpreterCallback
+        private static ReturnCode TestPrivateStaticPrepareInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPrivateStaticPrepareInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for InitializeInterpreterCallback
+        private static ReturnCode TestPrivateStaticInitializeInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPrivateStaticInitializeInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            calledMethods.AppendLine(formatted);
+
+            TraceOps.DebugTrace(
+                formatted, typeof(Default).Name, TracePriority.Highest);
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for FreeInterpreterCallback
+        private static ReturnCode TestPrivateStaticFreeInterpreterCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref Result result
+            )
+        {
+            string formatted = String.Format(
+                "TestPrivateStaticFreeInterpreterCallback: interpreter = {0}",
+                FormatOps.InterpreterNoThrow(interpreter));
+
+            if (calledMethods == null)
+                calledMethods = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
 
             calledMethods.AppendLine(formatted);
 
@@ -12227,19 +15634,8 @@ namespace Eagle._Tests
 
             string localName = arguments[2];
 
-            if ((GoodPkgNameRegEx != null) &&
-                !GoodPkgNameRegEx.Match(localName).Success)
-            {
-                error = "this is not a good package name";
+            if (!TestIsValidName(localName, ref error))
                 return ReturnCode.Error;
-            }
-
-            if ((BadPkgNameRegEx != null) &&
-                BadPkgNameRegEx.Match(localName).Success)
-            {
-                error = "this is a bad package name";
-                return ReturnCode.Error;
-            }
 
             string localDirectory = arguments[3];
 
@@ -12378,6 +15774,422 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Methods for SimulateKeyboardString
+#if NATIVE && WINDOWS
+        private static ReturnCode TestPlayKeyboardStream(
+            int milliseconds,          /* in */
+            TextReader textReader,     /* in */
+            EventWaitHandle stopEvent, /* in */
+            EventWaitHandle doneEvent, /* in */
+            SimulatedKeyFlags flags,   /* in */
+            ref Result error           /* out */
+            )
+        {
+            if (textReader == null)
+            {
+                error = "invalid text reader";
+                return ReturnCode.Error;
+            }
+
+            CheckCancelCallback cancelCallback = new CheckCancelCallback(
+                TestCheckKeyboardCancelCallback);
+
+            CheckStringCallback stringCallback = new CheckStringCallback(
+                TestCheckKeyboardStringCallback);
+
+            IClientData clientData = new ClientData(stopEvent);
+
+            try
+            {
+                StringBuilder builder = new StringBuilder();
+
+                while (true)
+                {
+                    string line = textReader.ReadLine();
+
+                    if (line == null)
+                        return ReturnCode.Ok;
+
+                    builder.Length = 0;
+                    builder.Append(line);
+                    builder.Append(Characters.CarriageReturn);
+
+                    if (FlagOps.HasFlags(
+                            flags, SimulatedKeyFlags.ConsoleOnly, true))
+                    {
+                        if (NativeConsole.SimulateKeyboardString(
+                                stringCallback, clientData, builder.ToString(),
+                                milliseconds, flags, ref error) != ReturnCode.Ok)
+                        {
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        if (NativeOps.SimulateKeyboardString(
+                                cancelCallback, stringCallback, clientData,
+                                builder.ToString(), milliseconds,
+                                flags, ref error) != ReturnCode.Ok)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+            finally
+            {
+                if (doneEvent != null)
+                    ThreadOps.SetEvent(doneEvent);
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /* System.Threading.ParameterizedThreadStart */
+        private static void TestPlayKeyboardStreamThreadStart(
+            object obj /* in */
+            )
+        {
+            TextReader textReader = null;
+
+            try
+            {
+                NativeTriplet anyTriplet = obj as NativeTriplet;
+
+                if (anyTriplet != null)
+                {
+                    EventTriplet anyTriplet2 = anyTriplet.Y as EventTriplet;
+
+                    if (anyTriplet2 != null)
+                    {
+                        textReader = anyTriplet.X;
+                        anyTriplet.X = null;
+
+                        Result error = null;
+
+                        if (TestPlayKeyboardStream(anyTriplet.Z,
+                                textReader, anyTriplet2.X,
+                                anyTriplet2.Y, anyTriplet2.Z,
+                                ref error) != ReturnCode.Ok)
+                        {
+                            Utility.Complain(
+                                null, ReturnCode.Error, error);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                if (textReader != null)
+                {
+                    textReader.Close();
+                    textReader = null;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.CheckCancelCallback */
+        private static bool TestCheckKeyboardCancelCallback(
+            IClientData clientData, /* in */
+            ref Result error        /* out */
+            )
+        {
+            if (clientData == null)
+            {
+                error = "invalid clientData";
+                return false;
+            }
+
+            EventWaitHandle stopEvent = clientData.Data as EventWaitHandle;
+
+            if (stopEvent == null)
+            {
+                error = "invalid stop event";
+                return false;
+            }
+
+            if (ThreadOps.WaitEvent(stopEvent, 0))
+            {
+                error = "playback has been stopped";
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.CheckStringCallback */
+        private static bool TestCheckKeyboardStringCallback(
+            IClientData clientData, /* in */
+            string value,           /* in */
+            int? index,             /* in */
+            ref Result error        /* out */
+            )
+        {
+            return TestCheckKeyboardCancelCallback(clientData, ref error);
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Methods for Fail-Safe
+        private static void TestSafeGetProcessAndThread(
+            out Process process, /* out */
+            out Thread thread    /* out */
+            )
+        {
+            process = null;
+
+            try
+            {
+                process = Process.GetCurrentProcess();
+            }
+            catch
+            {
+                // do nothing.
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            thread = null;
+
+            try
+            {
+                thread = Thread.CurrentThread;
+            }
+            catch
+            {
+                // do nothing.
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void TestGetFailSafeTraceParameters(
+            out string format,         /* out */
+            out string category,       /* out */
+            out TracePriority priority /* out */
+            )
+        {
+            bool locked = false;
+
+            try
+            {
+                TryLock(ref locked);
+
+                if (locked)
+                {
+                    format = FailSafeErrorFormat;
+                    category = FailSafeCategory;
+                    priority = FailSafePriority;
+                }
+                else
+                {
+                    format = DefaultFailSafeErrorFormat;
+                    category = DefaultFailSafeCategory;
+                    priority = DefaultFailSafePriority;
+                }
+            }
+            finally
+            {
+                ExitLock(ref locked);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void TestExitNow(
+            ExitCode exitCode, /* in */
+            string message     /* in */
+            )
+        {
+            try
+            {
+                Environment.Exit((int)exitCode); /* throw */
+            }
+            catch
+            {
+                // do nothing.
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            try
+            {
+                Environment.FailFast(message); /* throw */
+            }
+            catch
+            {
+                // do nothing.
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void TestKillOrAbortSelfNow()
+        {
+            Process process;
+            Thread thread;
+
+            TestSafeGetProcessAndThread(out process, out thread);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            if (process != null)
+            {
+                try
+                {
+                    process.Kill(); /* throw */
+                }
+                catch
+                {
+                    // do nothing.
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            if (thread != null)
+            {
+                try
+                {
+                    thread.Abort(); /* throw */
+                }
+                catch
+                {
+                    // do nothing.
+                }
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string TestGetFriendlyName(
+            bool asPattern
+            )
+        {
+            if (asPattern)
+            {
+                return String.Format(
+                    "testCreateInterpreter{0}{1}",
+                    Characters.NumberSign,
+                    Characters.Asterisk);
+            }
+            else
+            {
+                return FormatOps.Id(
+                    "testCreateInterpreter", null,
+                    GlobalState.NextInterpreterId());
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.RuleIterationCallback */
+        private static ReturnCode TestSaveRuleIterationCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            IRule rule,
+            ref bool stopOnError,
+            ref ResultList errors
+            )
+        {
+            RuleSetClientData ruleSetClientData =
+                clientData as RuleSetClientData;
+
+            if (ruleSetClientData == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid ruleset clientData");
+                return ReturnCode.Error;
+            }
+
+            if (rule == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid rule");
+                return ReturnCode.Error;
+            }
+
+            rule.SetId(null);
+
+            StringBuilder builder = ruleSetClientData.Builder;
+
+            if (builder == null)
+            {
+                builder = StringBuilderFactory.Create();
+                ruleSetClientData.Builder = builder;
+            }
+
+            builder.AppendLine();
+            builder.AppendFormat("rule {0}", Characters.OpenBrace);
+            builder.AppendLine();
+            builder.AppendFormat("{0}{1}", Characters.Indent, rule);
+            builder.AppendLine();
+            builder.Append(Characters.CloseBrace);
+            builder.AppendLine();
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool TestIsValidName(
+            string name,
+            ref Result error
+            )
+        {
+            if ((GoodNameRegEx != null) &&
+                !GoodNameRegEx.Match(name).Success)
+            {
+                error = "this is not a good name";
+                return false;
+            }
+
+            if ((BadNameRegEx != null) &&
+                BadNameRegEx.Match(name).Success)
+            {
+                error = "this is a bad name";
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool TestIsValidNameOnly(
+            string nameOnly,
+            ref Result error
+            )
+        {
+            if ((GoodNameOnlyRegEx != null) &&
+                !GoodNameOnlyRegEx.Match(nameOnly).Success)
+            {
+                error = "this is not a good name";
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if SHELL
         private static void TestShellInitializeOptions()
         {
@@ -12386,7 +16198,7 @@ namespace Eagle._Tests
                 if (commandLineOptions == null)
                 {
                     commandLineOptions = new CLODictionary(
-                        new _Comparers.Custom(StringComparison.OrdinalIgnoreCase));
+                        new _Comparers.StringCustom(StringComparison.OrdinalIgnoreCase));
 
                     commandLineOptions.Add(CommandLineOption.About, new CLOAnyPair(0, 0));
                     commandLineOptions.Add(CommandLineOption.AnyFile, new CLOAnyPair(1, 1));
@@ -13885,7 +17697,7 @@ namespace Eagle._Tests
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
-                #region IFunctionData Members
+                #region ITypeAndName Members
                 if (SharedStringOps.SystemEquals(
                         data1.TypeName, data2.TypeName))
                 {
@@ -13910,9 +17722,11 @@ namespace Eagle._Tests
                         FormatOps.WrapOrNull(data1.TypeName),
                         FormatOps.WrapOrNull(data2.TypeName)));
                 }
+                #endregion
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
+                #region IFunctionData Members
                 if (data1.Arguments == data2.Arguments)
                 {
                     if (results == null)
@@ -14368,7 +18182,7 @@ namespace Eagle._Tests
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
-                #region IOperatorData Members
+                #region ITypeAndName Members
                 if (SharedStringOps.SystemEquals(
                         data1.TypeName, data2.TypeName))
                 {
@@ -14393,9 +18207,11 @@ namespace Eagle._Tests
                         FormatOps.WrapOrNull(data1.TypeName),
                         FormatOps.WrapOrNull(data2.TypeName)));
                 }
+                #endregion
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
+                #region IOperatorData Members
                 if (data1.Lexeme == data2.Lexeme)
                 {
                     if (results == null)
@@ -14908,6 +18724,7 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IExecute Members
+            /* Eagle._Components.Public.Delegates.ExecuteCallback */
             public ReturnCode Execute(
                 Interpreter interpreter,
                 IClientData clientData,
@@ -15365,7 +19182,7 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            private static ReturnCode FixupReturnValue(
+            internal static ReturnCode FixupReturnValue(
                 Interpreter interpreter, /* in */
                 string objectName,       /* in */
                 object value,            /* in */
@@ -15373,10 +19190,9 @@ namespace Eagle._Tests
                 ref Result result        /* out */
                 )
             {
-                return MarshalOps.FixupReturnValue(
-                    interpreter, null, objectFlags | DefaultObjectFlags,
-                    null, DefaultObjectOptionType, objectName, value, true,
-                    true, false, ref result);
+                return FixupReturnValue(
+                    interpreter, objectName, value, objectFlags, false,
+                    ref result);
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -15586,6 +19402,7 @@ namespace Eagle._Tests
                 long token,
                 IClientData clientData,
                 IdentifierKind kind,
+                ref string name,
                 ref bool dispose,
                 ref Result error
                 )
@@ -15614,9 +19431,10 @@ namespace Eagle._Tests
                             //       are using integer identifiers at
                             //       the moment, it will work.
                             //
+                            name = token.ToString();
+
                             if (interpreter.RemoveChildInterpreter(
-                                    token.ToString(), clientData,
-                                    ref error) != ReturnCode.Ok)
+                                    name, clientData, ref error) != ReturnCode.Ok)
                             {
                                 error = result;
                                 return ReturnCode.Error;
@@ -15625,8 +19443,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.Policy:
                         {
-                            if (interpreter.RemovePolicy(
-                                    token, clientData,
+                            if (interpreter.InternalRemovePolicy(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15636,8 +19454,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.Trace:
                         {
-                            if (interpreter.RemoveTrace(
-                                    token, clientData,
+                            if (interpreter.InternalRemoveTrace(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15647,8 +19465,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.Command:
                         {
-                            if (interpreter.RemoveCommand(
-                                    token, clientData,
+                            if (interpreter.InternalRemoveCommand(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15658,8 +19476,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.HiddenCommand:
                         {
-                            if (interpreter.RemoveHiddenCommand(
-                                    token, clientData,
+                            if (interpreter.InternalRemoveHiddenCommand(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15669,8 +19487,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.Procedure:
                         {
-                            if (interpreter.RemoveProcedure(
-                                    token, clientData,
+                            if (interpreter.InternalRemoveProcedure(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15680,8 +19498,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.HiddenProcedure:
                         {
-                            if (interpreter.RemoveHiddenProcedure(
-                                    token, clientData,
+                            if (interpreter.InternalRemoveHiddenProcedure(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15691,8 +19509,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.IExecute:
                         {
-                            if (interpreter.RemoveIExecute(
-                                    token, clientData,
+                            if (interpreter.InternalRemoveIExecute(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15702,8 +19520,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.HiddenIExecute:
                         {
-                            if (interpreter.RemoveHiddenIExecute(
-                                    token, clientData,
+                            if (interpreter.InternalRemoveHiddenIExecute(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15713,8 +19531,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.Function:
                         {
-                            if (interpreter.RemoveFunction(
-                                    token, clientData,
+                            if (interpreter.InternalRemoveFunction(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15724,8 +19542,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.Package:
                         {
-                            if (interpreter.RemovePackage(
-                                    token, clientData,
+                            if (interpreter.InternalRemovePackage(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15735,8 +19553,8 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.Plugin:
                         {
-                            if (interpreter.RemovePlugin(
-                                    token, clientData,
+                            if (interpreter.InternalRemovePlugin(
+                                    token, clientData, ref name,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15746,8 +19564,9 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.Object:
                         {
-                            if (interpreter.RemoveObject(
-                                    token, clientData, ref dispose,
+                            if (interpreter.InternalRemoveObject(
+                                    token, clientData, ref name,
+                                    ref dispose,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15758,8 +19577,9 @@ namespace Eagle._Tests
 #if EMIT && NATIVE && LIBRARY
                     case IdentifierKind.NativeModule:
                         {
-                            if (interpreter.RemoveModule(
-                                    token, clientData, ref dispose,
+                            if (interpreter.InternalRemoveModule(
+                                    token, clientData, ref name,
+                                    ref dispose,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15769,8 +19589,9 @@ namespace Eagle._Tests
                         }
                     case IdentifierKind.NativeDelegate:
                         {
-                            if (interpreter.RemoveDelegate(
-                                    token, clientData, ref dispose,
+                            if (interpreter.InternalRemoveDelegate(
+                                    token, clientData, ref name,
+                                    ref dispose,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15781,8 +19602,301 @@ namespace Eagle._Tests
 #endif
                     case IdentifierKind.Alias:
                         {
-                            if (interpreter.RemoveAlias(
-                                    token, clientData,
+                            if (interpreter.InternalRemoveAlias(
+                                    token, clientData, ref name,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.AnyIExecute:
+                    case IdentifierKind.Ensemble:
+                    case IdentifierKind.Lambda:
+                    case IdentifierKind.Operator:
+                    case IdentifierKind.Variable:
+                    case IdentifierKind.CallFrame:
+                    case IdentifierKind.Host:
+                    case IdentifierKind.Callback:
+                    case IdentifierKind.Resolve:
+                    case IdentifierKind.Namespace:
+                    case IdentifierKind.SubCommand:
+                    case IdentifierKind.InteractiveLoopData:
+                    case IdentifierKind.ShellCallbackData:
+                    case IdentifierKind.UpdateData:
+                    case IdentifierKind.Certificate:
+                    case IdentifierKind.KeyPair:
+                    case IdentifierKind.KeyRing:
+                    case IdentifierKind.Channel:
+                    case IdentifierKind.None:
+                    case IdentifierKind.PolicyData:
+                    case IdentifierKind.TraceData:
+                    case IdentifierKind.CommandData:
+                    case IdentifierKind.SubCommandData:
+                    case IdentifierKind.ProcedureData:
+                    case IdentifierKind.LambdaData:
+                    case IdentifierKind.OperatorData:
+                    case IdentifierKind.FunctionData:
+                    case IdentifierKind.EnsembleData:
+                    case IdentifierKind.PackageData:
+                    case IdentifierKind.PluginData:
+                    case IdentifierKind.ObjectData:
+                    case IdentifierKind.ObjectTypeData:
+                    case IdentifierKind.ObjectType:
+                    case IdentifierKind.Option:
+                    case IdentifierKind.Module:
+                    case IdentifierKind.HostData:
+                    case IdentifierKind.AliasData:
+                    case IdentifierKind.DelegateData:
+                    case IdentifierKind.Delegate:
+                    case IdentifierKind.SubDelegate:
+                    case IdentifierKind.ResolveData:
+                    case IdentifierKind.ClockData:
+                    case IdentifierKind.Clock:
+                    case IdentifierKind.Script:
+                    case IdentifierKind.ScriptBuilder:
+                    case IdentifierKind.NamespaceData:
+                    case IdentifierKind.InteractiveLoop:
+                    case IdentifierKind.ShellCallback:
+                    case IdentifierKind.Update:
+                    case IdentifierKind.Path:
+                    case IdentifierKind.Uri:
+                    case IdentifierKind.Type:
+                    case IdentifierKind.Hash:
+                    case IdentifierKind.TrustedPath:
+                    case IdentifierKind.TrustedUri:
+                    case IdentifierKind.TrustedType:
+                    case IdentifierKind.TrustedHash:
+                        {
+                            error = "identifier kind not supported";
+                            return ReturnCode.Error;
+                        }
+                    default:
+                        {
+                            error = "unknown identifier kind";
+                            return ReturnCode.Error;
+                        }
+                }
+
+                return ReturnCode.Ok;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static ReturnCode RemoveFromInterpreter(
+                Interpreter interpreter,
+                string name,
+                IClientData clientData,
+                IdentifierKind kind,
+                ref long token,
+                ref bool dispose,
+                ref Result error
+                )
+            {
+                if (interpreter == null)
+                {
+                    error = "invalid interpreter";
+                    return ReturnCode.Error;
+                }
+
+                if (name == null)
+                {
+                    error = "invalid name";
+                    return ReturnCode.Error;
+                }
+
+                Result result = null;
+
+                switch (kind)
+                {
+                    case IdentifierKind.Interpreter:
+                        {
+                            //
+                            // HACK: This is not technically correct;
+                            //       however, since the interpreters
+                            //       are using integer identifiers at
+                            //       the moment, it will work.
+                            //
+                            if (interpreter.RemoveChildInterpreter(
+                                    name, clientData, ref error) == ReturnCode.Ok)
+                            {
+                                /* IGNORED */
+                                Value.GetWideInteger2(
+                                    name, ValueFlags.AnyWideInteger,
+                                    interpreter.InternalCultureInfo,
+                                    ref token);
+                            }
+                            else
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.Policy:
+                        {
+                            if (interpreter.InternalRemovePolicy(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.Trace:
+                        {
+                            if (interpreter.InternalRemoveTrace(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.Command:
+                        {
+                            if (interpreter.InternalRemoveCommand(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.HiddenCommand:
+                        {
+                            if (interpreter.InternalRemoveHiddenCommand(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.Procedure:
+                        {
+                            if (interpreter.InternalRemoveProcedure(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.HiddenProcedure:
+                        {
+                            if (interpreter.InternalRemoveHiddenProcedure(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.IExecute:
+                        {
+                            if (interpreter.InternalRemoveIExecute(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.HiddenIExecute:
+                        {
+                            if (interpreter.InternalRemoveHiddenIExecute(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.Function:
+                        {
+                            if (interpreter.InternalRemoveFunction(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.Package:
+                        {
+                            if (interpreter.InternalRemovePackage(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.Plugin:
+                        {
+                            if (interpreter.InternalRemovePlugin(
+                                    name, clientData, ref token,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.Object:
+                        {
+                            if (interpreter.InternalRemoveObject(
+                                    name, clientData, ref token,
+                                    ref dispose,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+#if EMIT && NATIVE && LIBRARY
+                    case IdentifierKind.NativeModule:
+                        {
+                            if (interpreter.InternalRemoveModule(
+                                    name, clientData, ref token,
+                                    ref dispose,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+                    case IdentifierKind.NativeDelegate:
+                        {
+                            if (interpreter.InternalRemoveDelegate(
+                                    name, clientData, ref token,
+                                    ref dispose,
+                                    ref result) != ReturnCode.Ok)
+                            {
+                                error = result;
+                                return ReturnCode.Error;
+                            }
+                            break;
+                        }
+#endif
+                    case IdentifierKind.Alias:
+                        {
+                            if (interpreter.InternalRemoveAlias(
+                                    name, clientData, ref token,
                                     ref result) != ReturnCode.Ok)
                             {
                                 error = result;
@@ -15972,6 +20086,28 @@ namespace Eagle._Tests
                 }
 
                 return interpreter;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static ReturnCode FixupReturnValue(
+                Interpreter interpreter,   /* in */
+                string objectName,         /* in */
+                object value,              /* in */
+                ObjectFlags objectFlags,   /* in */
+                bool noDefaultObjectFlags, /* in */
+                ref Result result          /* out */
+                )
+            {
+                ObjectFlags localObjectFlags = objectFlags;
+
+                if (!noDefaultObjectFlags)
+                    localObjectFlags |= DefaultObjectFlags;
+
+                return MarshalOps.FixupReturnValue(
+                    interpreter, null, localObjectFlags, null,
+                    null, DefaultObjectOptionType, objectName,
+                    value, true, true, false, ref result);
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -16978,7 +21114,7 @@ namespace Eagle._Tests
                                             break;
                                         }
 
-                                        StringBuilder builder = StringOps.NewStringBuilder();
+                                        StringBuilder builder = StringBuilderFactory.Create();
 
                                         while (true)
                                         {
@@ -16993,9 +21129,7 @@ namespace Eagle._Tests
                                             builder.AppendLine(line);
                                         }
 
-                                        string text = builder.ToString();
-
-                                        builder.Length = 0;
+                                        string text = StringBuilderCache.GetStringAndRelease(ref builder);
 
                                         if (localTrace)
                                         {
@@ -18435,13 +22569,16 @@ namespace Eagle._Tests
                 if (text == null)
                     throw new InvalidOperationException(error);
 
-                StringBuilder builder = StringOps.NewStringBuilder(text);
+                StringBuilder builder = StringBuilderFactory.Create(text);
 
                 for (int index = offset; count > 0; index++, count--)
                     builder.Append((char)buffer[index]);
 
-                if (!SetText(builder.ToString(), out error))
+                if (!SetText(StringBuilderCache.GetStringAndRelease(
+                        ref builder), out error))
+                {
                     throw new IOException(error);
+                }
             }
             #endregion
 
@@ -22323,7 +26460,7 @@ namespace Eagle._Tests
                                 FormatOps.InterpreterNoThrow(interpreter),
                                 newRequestId, oldRequestId, timeout),
                                 typeof(ScriptTimeoutThread).Name,
-                                TracePriority.LowThreadDebug);
+                                TracePriority.ThreadDebug5);
 
                             return;
                         }
@@ -23066,6 +27203,16 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            #region IResolveData Members
+            public ResolveFlags Flags
+            {
+                get { throw new NotImplementedException(); }
+                set { throw new NotImplementedException(); }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             #region IResolve Members
             public ReturnCode GetVariableFrame(
                 ref ICallFrame frame,
@@ -23665,7 +27812,7 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region ICommandBaseData Members
+            #region ITypeAndName Members
             public string TypeName
             {
                 get { throw new NotImplementedException(); }
@@ -23674,6 +27821,16 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            public Type Type
+            {
+                get { throw new NotImplementedException(); }
+                set { throw new NotImplementedException(); }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region ICommandBaseData Members
             private CommandFlags commandFlags;
             public CommandFlags CommandFlags
             {
@@ -23866,6 +28023,7 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IExecute Members
+            /* Eagle._Components.Public.Delegates.ExecuteCallback */
             public ReturnCode Execute(
                 Interpreter interpreter,
                 IClientData clientData,
@@ -23997,6 +28155,7 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IExecute Members
+            /* Eagle._Components.Public.Delegates.ExecuteCallback */
             ReturnCode IExecute.Execute(
                 Interpreter interpreter,
                 IClientData clientData,
@@ -24063,6 +28222,7 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IExecute Members
+            /* Eagle._Components.Public.Delegates.ExecuteCallback */
             public ReturnCode Execute(
                 Interpreter interpreter,
                 IClientData clientData,
@@ -24167,6 +28327,7 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IExecute Members
+            /* Eagle._Components.Public.Delegates.ExecuteCallback */
             public ReturnCode Execute(
                 Interpreter interpreter,
                 IClientData clientData,
@@ -24425,7 +28586,7 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region ICommandBaseData Members
+            #region ITypeAndName Members
             public string TypeName
             {
                 get { throw new NotImplementedException(); }
@@ -24434,6 +28595,16 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            public Type Type
+            {
+                get { throw new NotImplementedException(); }
+                set { throw new NotImplementedException(); }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region ICommandBaseData Members
             private CommandFlags commandFlags;
             public CommandFlags CommandFlags
             {
@@ -24622,6 +28793,7 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IExecute Members
+            /* Eagle._Components.Public.Delegates.ExecuteCallback */
             public ReturnCode Execute(
                 Interpreter interpreter,
                 IClientData clientData,
@@ -25294,7 +29466,7 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region TraceListener Overrides
+            #region System.Diagnostics.TraceListener Overrides
             public override void Close()
             {
                 CheckDisposed();
@@ -26346,7 +30518,7 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region TraceListener Overrides
+            #region System.Diagnostics.TraceListener Overrides
             public override void Close()
             {
                 CheckDisposed();
@@ -26750,7 +30922,7 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region TraceListener Overrides
+            #region System.Diagnostics.TraceListener Overrides
             public override void Close()
             {
                 CheckDisposed();
@@ -27199,7 +31371,7 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region TraceListener Overrides
+            #region System.Diagnostics.TraceListener Overrides
             public override void Close()
             {
                 CheckDisposed();
@@ -27393,7 +31565,7 @@ namespace Eagle._Tests
             #region Private Constructors
             private DatabaseTraceListener()
             {
-                buffer = StringOps.NewStringBuilder(BufferCapacity);
+                buffer = StringBuilderFactory.CreateNoCache(BufferCapacity); /* EXEMPT */
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -27403,6 +31575,7 @@ namespace Eagle._Tests
                 DbConnectionType dbConnectionType,
                 string assemblyFileName,
                 string typeName,
+                Type type,
                 string connectionString,
                 string tableName,
                 string messageColumnName,
@@ -27416,6 +31589,7 @@ namespace Eagle._Tests
                 this.dbConnectionType = dbConnectionType;
                 this.assemblyFileName = assemblyFileName;
                 this.typeName = typeName;
+                this.type = type;
                 this.connectionString = connectionString;
                 this.tableName = tableName;
                 this.messageColumnName = messageColumnName;
@@ -27433,6 +31607,7 @@ namespace Eagle._Tests
                 DbConnectionType dbConnectionType,
                 string assemblyFileName,
                 string typeName,
+                Type type,
                 string connectionString,
                 string tableName,
                 string messageColumnName,
@@ -27441,10 +31616,11 @@ namespace Eagle._Tests
                 bool autoCommit
                 )
             {
-                return new DatabaseTraceListener(interpreter,
-                    dbConnectionType, assemblyFileName, typeName,
-                    connectionString, tableName, messageColumnName,
-                    categoryColumnName, autoFlush, autoCommit);
+                return new DatabaseTraceListener(
+                    interpreter, dbConnectionType, assemblyFileName,
+                    typeName, type, connectionString, tableName,
+                    messageColumnName, categoryColumnName, autoFlush,
+                    autoCommit);
             }
             #endregion
 
@@ -27459,7 +31635,7 @@ namespace Eagle._Tests
 
                 if (DataOps.CreateDbConnection(
                         interpreter, dbConnectionType, connectionString,
-                        assemblyFileName, typeName, typeName,
+                        assemblyFileName, typeName, typeName, type,
                         ObjectOps.GetDefaultObjectValueFlags(),
                         ref connection, ref error) == ReturnCode.Ok)
                 {
@@ -28023,6 +32199,40 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            #region ITypeAndName Members
+            private string typeName;
+            public virtual string TypeName
+            {
+                get
+                {
+                    CheckDisposed();
+
+                    lock (syncRoot)
+                    {
+                        return typeName;
+                    }
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private Type type;
+            public virtual Type Type
+            {
+                get
+                {
+                    CheckDisposed();
+
+                    lock (syncRoot)
+                    {
+                        return type;
+                    }
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             #region Public Properties
             private DbConnectionType dbConnectionType;
             public virtual DbConnectionType DbConnectionType
@@ -28050,22 +32260,6 @@ namespace Eagle._Tests
                     lock (syncRoot)
                     {
                         return assemblyFileName;
-                    }
-                }
-            }
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
-            private string typeName;
-            public virtual string TypeName
-            {
-                get
-                {
-                    CheckDisposed();
-
-                    lock (syncRoot)
-                    {
-                        return typeName;
                     }
                 }
             }
@@ -28276,7 +32470,7 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region TraceListener Overrides
+            #region System.Diagnostics.TraceListener Overrides
             public override void Close()
             {
                 CheckDisposed();
@@ -28537,6 +32731,7 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Data
+            private string path;
             private Stream stream;
             private Encoding encoding;
 
@@ -28545,6 +32740,7 @@ namespace Eagle._Tests
             private byte[] buffer;
             private bool expandBuffer;
             private bool zeroBuffer;
+            private bool keepOpen;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -28575,13 +32771,13 @@ namespace Eagle._Tests
                 string path,       /* in */
                 Encoding encoding, /* in: may be NULL. */
                 int bufferSize,    /* in: may be zero. */
-                bool expandBuffer, /* in */
-                bool zeroBuffer    /* in */
+                LogFlags? flags    /* in: may be NULL. */
                 )
                 : this(name)
             {
-                SetupStream(path); /* throw */
+                SetupPath(path);
                 SetupEncoding(encoding);
+                SetupFlags(flags);
 
                 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -28591,33 +32787,29 @@ namespace Eagle._Tests
                 ///////////////////////////////////////////////////////////////////////////////////////
 
                 //
-                // NOTE: Should the allocated buffer automatically expand
-                //       to fit a request size?  If this is false, a brand
-                //       new buffer will be allocated each time a request
-                //       size cannot be satisfied by the existing buffer.
+                // NOTE: If underlying stream is supposed to be kept open,
+                //       start now.
                 //
-                this.expandBuffer = expandBuffer;
-
-                //
-                // NOTE: Should the existing buffer always be zeroed before
-                //       being returned?
-                //
-                this.zeroBuffer = zeroBuffer;
+                if (keepOpen) SetupStream(); /* throw */
             }
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Methods
-            private void SetupStream(
+            private void SetupPath(
                 string path
                 )
             {
-                CloseStream();
+                this.path = path;
+            }
 
-                stream = new FileStream(
-                    path, FileMode.Append, FileAccess.Write,
-                    FileShare.ReadWrite); /* throw */
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void SetupStream()
+            {
+                CloseStream();
+                OpenStream();
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -28641,14 +32833,51 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            private void OpenStream()
+            {
+                if (stream == null)
+                {
+                    stream = new FileStream(
+                        path, FileMode.Append, FileAccess.Write,
+                        FileShare.ReadWrite); /* throw */
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             private void SetupEncoding(
                 Encoding encoding
                 )
             {
-                if (encoding == null)
-                    encoding = DefaultEncoding;
+                this.encoding = (encoding != null) ?
+                    encoding : DefaultEncoding;
+            }
 
-                this.encoding = encoding;
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void SetupFlags(
+                LogFlags? flags
+                )
+            {
+                //
+                // NOTE: Should the allocated buffer automatically expand
+                //       to fit a request size?  If this is false, a brand
+                //       new buffer will be allocated each time a request
+                //       size cannot be satisfied by the existing buffer.
+                //
+                expandBuffer = FlagOps.HasFlags(flags, LogFlags.ExpandBuffer, true);
+
+                //
+                // NOTE: Should the existing buffer always be zeroed before
+                //       being returned?
+                //
+                zeroBuffer = FlagOps.HasFlags(flags, LogFlags.ZeroBuffer, true);
+
+                //
+                // NOTE: Should the underlying stream be kept open for the
+                //       entire lifetime of this object instance?
+                //
+                keepOpen = FlagOps.HasFlags(flags, LogFlags.KeepOpen, true);
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -28744,7 +32973,7 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region TraceListener Overrides
+            #region System.Diagnostics.TraceListener Overrides
             public override void Close()
             {
                 CheckDisposed();
@@ -28771,18 +33000,29 @@ namespace Eagle._Tests
             {
                 CheckDisposed();
 
-                if (stream == null)
-                    throw new InvalidOperationException();
+                try
+                {
+                    if (!keepOpen)
+                        OpenStream();
 
-                byte[] buffer = null; int offset = 0; int count = 0;
+                    if (stream == null)
+                        throw new InvalidOperationException();
 
-                GetWriteParameters(
-                    message, ref buffer, ref offset, ref count);
+                    byte[] buffer = null; int offset = 0; int count = 0;
 
-                if ((buffer == null) || (count == 0))
-                    return;
+                    GetWriteParameters(
+                        message, ref buffer, ref offset, ref count);
 
-                stream.Write(buffer, offset, count);
+                    if ((buffer == null) || (count == 0))
+                        return;
+
+                    stream.Write(buffer, offset, count);
+                }
+                finally
+                {
+                    if (!keepOpen)
+                        CloseStream();
+                }
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -29679,6 +33919,312 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region ScriptInterpreterSettings Test Class
+        [ObjectId("b44825c3-339d-44bd-a388-03a151d855b2")]
+        public sealed class ScriptInterpreterSettings :
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+            ScriptMarshalByRefObject,
+#endif
+            IHaveInterpreter, IHaveClientData, IDisposable
+        {
+            #region Private Constants
+            //
+            // HACK: These are purposely not read-only.
+            //
+            private static bool DefaultIsolated = false;
+            private static bool DefaultSafe = false;
+            private static bool DefaultSecurity = false;
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: This is purposely not read-only.
+            //
+#if USE_NAMESPACES
+            private static bool DefaultNamespaces = true;
+#else
+            private static bool DefaultNamespaces = false;
+#endif
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Constructors
+            public ScriptInterpreterSettings()
+            {
+                // do nothing.
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IGetInterpreter / ISetInterpreter Members
+            private Interpreter interpreter;
+            public Interpreter Interpreter
+            {
+                get { CheckDisposed(); return interpreter; }
+                set { CheckDisposed(); interpreter = value; }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IGetClientData / ISetClientData Members
+            private IClientData clientData;
+            public IClientData ClientData
+            {
+                get { CheckDisposed(); return clientData; }
+                set { CheckDisposed(); clientData = value; }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Properties
+            private ulong? token;
+            public ulong? Token
+            {
+                get { CheckDisposed(); return token; }
+                set { CheckDisposed(); token = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private IRuleSet ruleSet;
+            public IRuleSet RuleSet
+            {
+                get { CheckDisposed(); return ruleSet; }
+                set { CheckDisposed(); ruleSet = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool? isolated;
+            public bool? Isolated
+            {
+                get { CheckDisposed(); return isolated; }
+                set { CheckDisposed(); isolated = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public bool IsolatedOrDefault
+            {
+                get
+                {
+                    CheckDisposed();
+
+                    if (isolated != null)
+                        return (bool)isolated;
+
+                    return DefaultIsolated;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool? safe;
+            public bool? Safe
+            {
+                get { CheckDisposed(); return safe; }
+                set { CheckDisposed(); safe = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public bool SafeOrDefault
+            {
+                get
+                {
+                    CheckDisposed();
+
+                    if (safe != null)
+                        return (bool)safe;
+
+                    if (interpreter != null)
+                        return interpreter.InternalIsSafe();
+
+                    return DefaultSafe;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool? security;
+            public bool? Security
+            {
+                get { CheckDisposed(); return security; }
+                set { CheckDisposed(); security = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public bool SecurityOrDefault
+            {
+                get
+                {
+                    CheckDisposed();
+
+                    if (security != null)
+                        return (bool)security;
+
+                    if (interpreter != null)
+                        return interpreter.HasSecurity();
+
+                    return DefaultSecurity;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool? namespaces;
+            public bool? Namespaces
+            {
+                get { CheckDisposed(); return namespaces; }
+                set { CheckDisposed(); namespaces = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public bool NamespacesOrDefault
+            {
+                get
+                {
+                    CheckDisposed();
+
+                    if (namespaces != null)
+                        return (bool)namespaces;
+
+                    if (interpreter != null)
+                        return interpreter.AreNamespacesEnabled();
+
+                    return DefaultNamespaces;
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Methods
+            internal void GetProperties(
+                out Interpreter interpreter, /* out */
+                out IClientData clientData,  /* out */
+                out ulong? token,            /* out */
+                out IRuleSet ruleSet,        /* out */
+                out bool isolated,           /* out */
+                out bool safe,               /* out */
+                out bool security,           /* out */
+                out bool namespaces          /* out */
+                )
+            {
+                interpreter = this.Interpreter;
+                clientData = this.ClientData;
+                token = this.Token;
+                ruleSet = this.RuleSet;
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                isolated = this.IsolatedOrDefault;
+                safe = this.SafeOrDefault;
+                security = this.SecurityOrDefault;
+                namespaces = this.NamespacesOrDefault;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if APPDOMAINS && ISOLATED_INTERPRETERS
+            internal CreateFlags GetIsolatedCreateFlags(
+                Interpreter interpreter,                /* in */
+                InterpreterSettings interpreterSettings /* in */
+                )
+            {
+                CreateFlags createFlags = CreateFlags.None;
+
+                if (interpreter != null)
+                    createFlags |= interpreter.CreateFlags;
+
+                if (interpreterSettings != null)
+                    createFlags |= interpreterSettings.CreateFlags;
+
+                return createFlags & CreateFlags.IsolatedMask;
+            }
+#endif
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IDisposable "Pattern" Members
+            private bool disposed;
+            private void CheckDisposed() /* throw */
+            {
+#if THROW_ON_DISPOSED
+                if (disposed && Engine.IsThrowOnDisposed(null, false))
+                {
+                    throw new InterpreterDisposedException(
+                        typeof(ScriptInterpreterSettings));
+                }
+#endif
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private /* protected virtual */ void Dispose(
+                bool disposing /* in */
+                )
+            {
+                if (!disposed)
+                {
+                    if (disposing)
+                    {
+                        ////////////////////////////////////
+                        // dispose managed resources here...
+                        ////////////////////////////////////
+
+                        interpreter = null; /* NOT OWNED */
+                        clientData = null; /* NOT OWNED */
+                        token = null;
+                        ruleSet = null; /* NOT OWNED */
+
+                        ////////////////////////////////////
+
+                        isolated = null;
+                        safe = null;
+                        security = null;
+                        namespaces = null;
+                    }
+
+                    //////////////////////////////////////
+                    // release unmanaged resources here...
+                    //////////////////////////////////////
+
+                    disposed = true;
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IDisposable Members
+            public void Dispose()
+            {
+                Dispose(true);
+                GC.SuppressFinalize(this);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Destructor
+            ~ScriptInterpreterSettings()
+            {
+                Dispose(false);
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region ScriptStringTransformCallback Test Class
         [ObjectId("0a94e612-1327-4c50-b217-151c779b4f5c")]
         public sealed class ScriptStringTransformCallback
@@ -29772,6 +34318,570 @@ namespace Eagle._Tests
             ~ScriptStringTransformCallback()
             {
                 Dispose(false);
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region ScriptRules Test Class
+        [ObjectId("c0bd9a32-cec6-4a92-bc60-56e6cd48be55")]
+        public static class ScriptRules
+        {
+            #region Public Constants
+            public static readonly IRule Empty = _Public.Rule.Empty;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Methods
+            private static IEnumerable<string> MakePatterns(
+                params string[] args /* in */
+                )
+            {
+                return args;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Methods
+            public static IRule IncludeAnyCommand(
+                ref Result error /* out: NOT USED */
+                )
+            {
+                return new _Rule(
+                    null, RuleType.Include, IdentifierKind.Command,
+                    MatchMode.Glob, RegexOptions.None, MakePatterns(
+                    Characters.Asterisk.ToString()), null, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static IRule ExcludeAnyCommand(
+                ref Result error /* out: NOT USED */
+                )
+            {
+                return new _Rule(
+                    null, RuleType.Exclude, IdentifierKind.Command,
+                    MatchMode.Glob, RegexOptions.None, MakePatterns(
+                    Characters.Asterisk.ToString()), null, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static IRule IncludeExactCommand(
+                string name,     /* in */
+                ref Result error /* out: NOT USED */
+                )
+            {
+                return new _Rule(
+                    null, RuleType.Include, IdentifierKind.Command,
+                    MatchMode.Exact, RegexOptions.None, MakePatterns(
+                    name), null, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static IRule ExcludeExactCommand(
+                string name,     /* in */
+                ref Result error /* out: NOT USED */
+                )
+            {
+                return new _Rule(
+                    null, RuleType.Exclude, IdentifierKind.Command,
+                    MatchMode.Exact, RegexOptions.None, MakePatterns(
+                    name), null, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static IRule IncludeAnyPolicy(
+                ref Result error /* out: NOT USED */
+                )
+            {
+                return new _Rule(
+                    null, RuleType.Include, IdentifierKind.Policy,
+                    MatchMode.Glob, RegexOptions.None, MakePatterns(
+                    Characters.Asterisk.ToString()), null, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static IRule ExcludeAnyPolicy(
+                ref Result error /* out: NOT USED */
+                )
+            {
+                return new _Rule(
+                    null, RuleType.Exclude, IdentifierKind.Policy,
+                    MatchMode.Glob, RegexOptions.None, MakePatterns(
+                    Characters.Asterisk.ToString()), null, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static IRule IncludeExactPolicy(
+                string name,     /* in */
+                ref Result error /* out: NOT USED */
+                )
+            {
+                return new _Rule(
+                    null, RuleType.Include, IdentifierKind.Policy,
+                    MatchMode.Exact, RegexOptions.None, MakePatterns(
+                    name), null, true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static IRule ExcludeExactPolicy(
+                string name,     /* in */
+                ref Result error /* out: NOT USED */
+                )
+            {
+                return new _Rule(
+                    null, RuleType.Exclude, IdentifierKind.Policy,
+                    MatchMode.Exact, RegexOptions.None, MakePatterns(
+                    name), null, true);
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region ScriptRuleSets Test Class
+        [ObjectId("9f34bf00-4715-4c72-8a3e-2307cb373542")]
+        public static class ScriptRuleSets
+        {
+            #region Public Methods
+            public static IRuleSet CreateCommand(
+                ref Result error /* out */
+                )
+            {
+                bool success = false;
+                IRuleSet ruleSet = null;
+                IRule rule = null;
+
+                try
+                {
+                    ruleSet = RuleSet.Create(ref error);
+
+                    if (ruleSet == null)
+                        return null;
+
+                    rule = ScriptRules.IncludeAnyCommand(
+                        ref error);
+
+                    if (rule == null)
+                        return null;
+
+                    if (!ruleSet.AddRule(rule, ref error))
+                        return null;
+
+                    success = true;
+                    return ruleSet;
+                }
+                finally
+                {
+                    if (!success)
+                    {
+                        if (rule != null)
+                        {
+                            /* IGNORED */
+                            ObjectOps.TryDisposeOrTrace<IRule>(
+                                ref rule);
+                        }
+
+                        if (ruleSet != null)
+                        {
+                            /* IGNORED */
+                            ObjectOps.TryDisposeOrTrace<IRuleSet>(
+                                ref ruleSet);
+                        }
+                    }
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static IRuleSet CreatePolicy(
+                ref Result error /* out */
+                )
+            {
+                bool success = false;
+                IRuleSet ruleSet = null;
+                IRule rule = null;
+
+                try
+                {
+                    ruleSet = RuleSet.Create(ref error);
+
+                    if (ruleSet == null)
+                        return null;
+
+                    rule = ScriptRules.IncludeAnyPolicy(
+                        ref error);
+
+                    if (rule == null)
+                        return null;
+
+                    if (!ruleSet.AddRule(rule, ref error))
+                        return null;
+
+                    success = true;
+                    return ruleSet;
+                }
+                finally
+                {
+                    if (!success)
+                    {
+                        if (rule != null)
+                        {
+                            /* IGNORED */
+                            ObjectOps.TryDisposeOrTrace<IRule>(
+                                ref rule);
+                        }
+
+                        if (ruleSet != null)
+                        {
+                            /* IGNORED */
+                            ObjectOps.TryDisposeOrTrace<IRuleSet>(
+                                ref ruleSet);
+                        }
+                    }
+                }
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region RuleSetClientData Test Class
+        [ObjectId("39ad692e-bf4f-4225-860a-8d7cb107a92c")]
+        public sealed class RuleSetClientData : ClientData
+        {
+            #region Private Data
+            private int defineLevels;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Constructors
+            public RuleSetClientData()
+                : this(null, null)
+            {
+                // do nothing.
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public RuleSetClientData(
+                object data,     /* in */
+                IRuleSet ruleSet /* in */
+                )
+                : base(data)
+            {
+                this.ruleSet = ruleSet;
+
+                ///////////////////////////////////////////////////////////////////////////////////////
+
+                InitializeForLoad(false);
+                InitializeForDefine(false);
+                InitializeForInclude(false);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Methods
+            private void InitializeForLoad(
+                bool force
+                )
+            {
+                if (force || (ruleSetDirectory == null))
+                    ruleSetDirectory = PathOps.GetUserRuleSetDirectory();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void InitializeForInclude(
+                bool force
+                )
+            {
+                if (force || (includeDirectory == null))
+                    includeDirectory = PathOps.GetUserRuleSetDirectory();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void InitializeForDefine(
+                bool force
+                )
+            {
+                if (force || (ruleSets == null))
+                    ruleSets = new RuleSetDictionary();
+
+                if (force || (rules == null))
+                    rules = new RuleDictionary();
+
+                if (force || (defineRuleSet == null))
+                    defineRuleSet = null;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Properties
+            private RuleSetDictionary ruleSets;
+            public RuleSetDictionary RuleSets
+            {
+                get { return ruleSets; }
+                set { ruleSets = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private RuleDictionary rules;
+            public RuleDictionary Rules
+            {
+                get { return rules; }
+                set { rules = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private IRuleSet ruleSet;
+            public IRuleSet RuleSet
+            {
+                get { return ruleSet; }
+                set { ruleSet = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private string ruleSetDirectory;
+            public string RuleSetDirectory
+            {
+                get { return ruleSetDirectory; }
+                set { ruleSetDirectory = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private string ruleSetFileName;
+            public string RuleSetFileName
+            {
+                get { return ruleSetFileName; }
+                set { ruleSetFileName = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private IRuleSet defineRuleSet;
+            public IRuleSet DefineRuleSet
+            {
+                get { return defineRuleSet; }
+                set { defineRuleSet = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private string includeDirectory;
+            public string IncludeDirectory
+            {
+                get { return includeDirectory; }
+                set { includeDirectory = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private long alwaysAddCommandToken;
+            public long AlwaysAddCommandToken
+            {
+                get { return alwaysAddCommandToken; }
+                set { alwaysAddCommandToken = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool stopOnError;
+            public bool StopOnError
+            {
+                get { return stopOnError; }
+                set { stopOnError = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private bool moveRules;
+            public bool MoveRules
+            {
+                get { return moveRules; }
+                set { moveRules = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private StringBuilder builder;
+            public StringBuilder Builder
+            {
+                get { return builder; }
+                set { builder = value; }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private LongList tokens;
+            public LongList Tokens
+            {
+                get { return tokens; }
+                set { tokens = value; }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Methods
+            public DefinitionType TranslateDefinitionType(
+                DefinitionType definitionType
+                )
+            {
+                if (definitionType != DefinitionType.Automatic)
+                    return definitionType;
+
+                return (defineRuleSet != null) ?
+                    DefinitionType.Rule : DefinitionType.RuleSet;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void ResetForDefine()
+            {
+                InitializeForDefine(true);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public int EnterDefineLevel()
+            {
+                return Interlocked.Increment(ref defineLevels);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public int ExitDefineLevel()
+            {
+                return Interlocked.Decrement(ref defineLevels);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void BeginDefineRuleSet(
+                IRuleSet ruleSet,
+                ref IRuleSet savedRuleSet
+                )
+            {
+                savedRuleSet = defineRuleSet;
+                defineRuleSet = ruleSet;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void EndDefineRuleSet(
+                ref IRuleSet savedRuleSet
+                )
+            {
+                defineRuleSet = savedRuleSet;
+                savedRuleSet = null;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void BeginRuleSetFile(
+                string fileName,
+                ref string savedFileName
+                )
+            {
+                savedFileName = ruleSetFileName;
+                ruleSetFileName = fileName;
+
+                if (!String.IsNullOrEmpty(fileName))
+                {
+                    includeDirectory = Path.GetDirectoryName(
+                        fileName);
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void EndRuleSetFile(
+                ref string savedFileName
+                )
+            {
+                if (!String.IsNullOrEmpty(savedFileName))
+                {
+                    includeDirectory = Path.GetDirectoryName(
+                        savedFileName);
+                }
+                else
+                {
+                    InitializeForInclude(true);
+                }
+
+                ruleSetFileName = savedFileName;
+                savedFileName = null;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public string IncludeFileName(
+                string nameOnly,
+                ref Result error
+                )
+            {
+                if (String.IsNullOrEmpty(includeDirectory))
+                {
+                    error = String.Format(
+                        "invalid include directory {0}",
+                        FormatOps.WrapOrNull(includeDirectory));
+
+                    return null;
+                }
+
+                if (!Directory.Exists(includeDirectory))
+                {
+                    error = String.Format(
+                        "include directory {0} does not exist",
+                        FormatOps.WrapOrNull(includeDirectory));
+
+                    return null;
+                }
+
+                return Path.Combine(
+                    includeDirectory, String.Format("{0}{1}",
+                    nameOnly, FileExtension.RuleSet));
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void AddTokens(
+                IEnumerable<long> collection
+                )
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                if (collection != null)
+                    tokens.AddRange(collection);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public string GetStringAndRelease()
+            {
+                return StringBuilderCache.GetStringAndRelease(ref builder);
             }
             #endregion
         }
@@ -30292,6 +35402,7 @@ namespace Eagle._Tests
         public static ReturnCode TestScriptStreamXml(
             Interpreter interpreter,
             bool fault,
+            bool original,
             bool write,
             ref Result result
             )
@@ -30317,18 +35428,19 @@ namespace Eagle._Tests
             using (StringReader stringReader = new StringReader(value))
             {
                 EngineFlags engineFlags = EngineFlags.ForceSoftEof;
+                string originalText = null;
                 string text = null;
                 bool canRetry = false; /* NOT USED */
 
                 localResult = null;
 
                 code = Engine.ReadScriptStream(
-                    interpreter, null, stringReader, 0,
-                    Count.Invalid, ref engineFlags, ref text,
+                    interpreter, null, stringReader, 0, Count.Invalid,
+                    ref engineFlags, ref originalText, ref text,
                     ref canRetry, ref localResult);
 
                 if (code == ReturnCode.Ok)
-                    localResult = text;
+                    localResult = original ? originalText : text;
 
                 if (localResult != null)
                 {

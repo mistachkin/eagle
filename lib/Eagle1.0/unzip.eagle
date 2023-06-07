@@ -26,7 +26,7 @@ namespace eval ::Eagle {
   #       any existing values will be overwritten and set back to their
   #       default values.
   #
-  proc setupUnzipVars { force } {
+  proc setupUnzipVars { force {cleanup false} } {
     #
     # NOTE: Using the [getAuxiliaryBaseUri] procedure requires the update
     #       package.
@@ -36,7 +36,9 @@ namespace eval ::Eagle {
     #
     variable baseUri; # DEFAULT: [getAuxiliaryBaseUri] -OR- https://urn.to/r
 
-    if {$force || ![info exists baseUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain baseUri
+    } elseif {$force || ![info exists baseUri]} then {
       if {[isEagle]} then {
         set baseUri [getAuxiliaryBaseUri]
       } else {
@@ -50,7 +52,9 @@ namespace eval ::Eagle {
     #
     variable unzipUrn; # DEFAULT: unzip
 
-    if {$force || ![info exists unzipUrn]} then {
+    if {$cleanup} then {
+      unset -nocomplain unzipUrn
+    } elseif {$force || ![info exists unzipUrn]} then {
       set unzipUrn unzip
     }
 
@@ -59,7 +63,9 @@ namespace eval ::Eagle {
     #
     variable unzipUri; # DEFAULT: ${baseUri}/${unzipUrn}
 
-    if {$force || ![info exists unzipUri]} then {
+    if {$cleanup} then {
+      unset -nocomplain unzipUri
+    } elseif {$force || ![info exists unzipUri]} then {
       set unzipUri {${baseUri}/${unzipUrn}}
     }
 
@@ -69,7 +75,9 @@ namespace eval ::Eagle {
     #
     variable unzipInstalledCommand; # DEFAULT: unzip
 
-    if {$force || ![info exists unzipInstalledCommand]} then {
+    if {$cleanup} then {
+      unset -nocomplain unzipInstalledCommand
+    } elseif {$force || ![info exists unzipInstalledCommand]} then {
       set unzipInstalledCommand unzip
     }
 
@@ -79,7 +87,9 @@ namespace eval ::Eagle {
     #
     variable unzipInstalledPattern; # DEFAULT: ^UnZip ..., by Info-ZIP\.
 
-    if {$force || ![info exists unzipInstalledPattern]} then {
+    if {$cleanup} then {
+      unset -nocomplain unzipInstalledPattern
+    } elseif {$force || ![info exists unzipInstalledPattern]} then {
       set unzipInstalledPattern \
           {^UnZip \d+\.\d+ of \d{1,2} \w+ \d{4},[\w\s\.]* by Info-ZIP\.}
     }
@@ -89,7 +99,9 @@ namespace eval ::Eagle {
     #
     variable unzipExtractCommand; # DEFAULT: unzip ...
 
-    if {$force || ![info exists unzipExtractCommand]} then {
+    if {$cleanup} then {
+      unset -nocomplain unzipExtractCommand
+    } elseif {$force || ![info exists unzipExtractCommand]} then {
       set unzipExtractCommand {unzip -n {${fileName}} -d {${directory}}}
     }
   }

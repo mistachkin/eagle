@@ -144,7 +144,7 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IOperatorData Members
+        #region ITypeAndName Members
         public string TypeName
         {
             get { return (@operator != null) ? @operator.TypeName : null; }
@@ -153,6 +153,16 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        public Type Type
+        {
+            get { return (@operator != null) ? @operator.Type : null; }
+            set { if (@operator != null) { @operator.Type = value; } }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IOperatorData Members
         public Lexeme Lexeme
         {
             get { return (@operator != null) ? @operator.Lexeme : Lexeme.Unknown; }

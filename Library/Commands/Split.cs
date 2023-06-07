@@ -52,23 +52,39 @@ namespace Eagle._Commands
                     if ((arguments.Count >= 2) && (arguments.Count <= 4))
                     {
                         string value = arguments[1];
-                        string separators = Characters.Space.ToString();
+                        string separators;
 
                         if (arguments.Count >= 3)
+                        {
                             separators = arguments[2];
+                        }
+                        else
+                        {
+                            separators = String.Format(
+                                "{0}{1}{2}{3}", Characters.HorizontalTab,
+                                Characters.LineFeed, Characters.CarriageReturn,
+                                Characters.Space);
+                        }
 
                         OptionDictionary options = new OptionDictionary(
                             new IOption[] {
-                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-string", null),
+                            new Option(null, OptionFlags.None, Index.Invalid,
+                                Index.Invalid, "-string", null),
                             Option.CreateEndOfOptions()
                         });
 
                         int argumentIndex = Index.Invalid;
 
                         if (arguments.Count > 3)
-                            code = interpreter.GetOptions(options, arguments, 0, 3, Index.Invalid, true, ref argumentIndex, ref result);
+                        {
+                            code = interpreter.GetOptions(
+                                options, arguments, 0, 3, Index.Invalid,
+                                true, ref argumentIndex, ref result);
+                        }
                         else
+                        {
                             code = ReturnCode.Ok;
+                        }
 
                         if (code == ReturnCode.Ok)
                         {
@@ -79,26 +95,45 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-string"))
                                     @string = true;
 
-                                StringList list;
-
-                                if (@string)
+                                if (!String.IsNullOrEmpty(value))
                                 {
-                                    if (!String.IsNullOrEmpty(separators))
-                                        list = new StringList(value.Split(
-                                            new string[] { separators }, StringSplitOptions.None));
+                                    StringList list;
+
+                                    if (@string)
+                                    {
+                                        if (!String.IsNullOrEmpty(separators))
+                                        {
+                                            list = new StringList(value.Split(
+                                                new string[] { separators },
+                                                StringSplitOptions.None));
+                                        }
+                                        else
+                                        {
+                                            list = new StringList(
+                                                value.ToCharArray());
+                                        }
+                                    }
                                     else
-                                        list = new StringList(value.ToCharArray());
+                                    {
+                                        if (!String.IsNullOrEmpty(separators))
+                                        {
+                                            list = new StringList(value.Split(
+                                                separators.ToCharArray(),
+                                                StringSplitOptions.None));
+                                        }
+                                        else
+                                        {
+                                            list = new StringList(
+                                                value.ToCharArray());
+                                        }
+                                    }
+
+                                    result = list;
                                 }
                                 else
                                 {
-                                    if (!String.IsNullOrEmpty(separators))
-                                        list = new StringList(value.Split(
-                                            separators.ToCharArray(), StringSplitOptions.None));
-                                    else
-                                        list = new StringList(value.ToCharArray());
+                                    result = String.Empty; /* COMPAT: Tcl. */
                                 }
-
-                                result = list;
                             }
                             else
                             {

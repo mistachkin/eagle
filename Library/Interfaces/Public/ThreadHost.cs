@@ -26,6 +26,8 @@ namespace Eagle._Interfaces.Public
             int maxStackSize, bool userInterface, bool isBackground,
             bool useActiveStack, ref Thread thread, ref Result error);
 
+        ReturnCode QueueWorkItem(ThreadStart callback, ref Result error);
+
         ReturnCode QueueWorkItem(WaitCallback callback, object state,
             ref Result error);
 

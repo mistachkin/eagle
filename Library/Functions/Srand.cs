@@ -70,7 +70,7 @@ namespace Eagle._Functions
                                 lock (interpreter.InternalSyncRoot)
                                 {
                                     random = new Random(intValue);
-                                    interpreter.Random = random;
+                                    interpreter.Random = random; /* EXEMPT */
                                 }
 
                                 value = random.NextDouble();

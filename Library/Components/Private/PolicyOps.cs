@@ -26,6 +26,9 @@ using SubCommandPair =
     System.Collections.Generic.KeyValuePair<
         string, Eagle._Interfaces.Public.ISubCommand>;
 
+using UriPair = System.Collections.Generic.KeyValuePair<
+    System.Uri, object>;
+
 namespace Eagle._Components.Private
 {
     [ObjectId("ab00e89a-8a1f-404b-91fd-32d10d0f44ba")]
@@ -47,6 +50,11 @@ namespace Eagle._Components.Private
 
         private const string UnsafeTypeError =
             "permission denied: safe interpreter cannot use type from {0}";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private const string UnsafeUriError =
+            "permission denied: safe interpreter cannot use uri from {0}";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -137,6 +145,18 @@ namespace Eagle._Components.Private
             new StringDictionary(new string[] {
             "indexes", "relativefilename", "reset", "scan", "vloaded"
         }, true, false);
+
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: Default list of [uri] sub-commands that are ALLOWED to be
+        //       used by scripts running in a "safe" interpreter.
+        //
+        internal static readonly StringDictionary AllowedUriSubCommandNames =
+            new StringDictionary(new string[] {
+            "get", "isvalid", "post"
+        }, true, false);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -149,7 +169,7 @@ namespace Eagle._Components.Private
             ClockCommandCallback, FileCommandCallback,
             InfoCommandCallback, InterpCommandCallback,
             ObjectCommandCallback, PackageCommandCallback,
-            SourceCommandCallback
+            SourceCommandCallback, UriCommandCallback
         };
         #endregion
 
@@ -271,13 +291,14 @@ namespace Eagle._Components.Private
                 //       arguments as a single string to the script
                 //       (separated by a single intervening space).
                 //
-                StringBuilder builder = StringOps.NewStringBuilder(
+                StringBuilder builder = StringBuilderFactory.Create(
                     text);
 
                 builder.Append(Characters.Space);
                 builder.Append(arguments);
 
-                text = builder.ToString();
+                text = StringBuilderCache.GetStringAndRelease(
+                    ref builder);
             }
 
             //
@@ -719,7 +740,7 @@ namespace Eagle._Components.Private
 
             _Policies.Core policy = new _Policies.Core(new PolicyData(
                 FormatOps.PolicyDelegateName(callback), null,
-                null, clientData, type.FullName, methodInfo.Name,
+                null, clientData, type.FullName, type, methodInfo.Name,
                 ObjectOps.GetBindingFlags(MetaBindingFlags.Delegate,
                 true), AttributeOps.GetMethodFlags(methodInfo),
                 policyFlags, plugin, 0));
@@ -794,6 +815,42 @@ namespace Eagle._Components.Private
 
             error = String.Format(
                 UnsafeTypeError, FormatOps.WrapOrNull(text));
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsTrustedUri(
+            Interpreter interpreter, /* in */
+            Uri uri,                 /* in */
+            ref Result error         /* in */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return false;
+            }
+
+            if (uri == null)
+            {
+                error = "invalid uri";
+                return false;
+            }
+
+            UriDictionary<object> trustedUris = new UriDictionary<object>();
+
+            AddTrustedUris(interpreter, trustedUris, false);
+
+            if ((trustedUris != null) &&
+                trustedUris.ContainsSchemeAndServer(uri))
+            {
+                return true;
+            }
+
+            error = String.Format(
+                UnsafeUriError, FormatOps.WrapOrNull(uri));
 
             return false;
         }
@@ -1082,6 +1139,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static void CopyTrustedHashes(
+            Interpreter sourceInterpreter, /* in */
+            Interpreter targetInterpreter  /* in */
+            )
+        {
+            if ((sourceInterpreter == null) || (targetInterpreter == null))
+                return;
+
+            targetInterpreter.InternalMergeTrustedHashes(
+                sourceInterpreter.CopyTrustedHashes());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool CanBeTrustedUri(
             Interpreter interpreter, /* in: NOT USED */
             Uri uri                  /* in */
@@ -1100,8 +1171,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void AddTrustedUris(
-            Interpreter interpreter,   /* in */
-            UriDictionary<object> uris /* in, out */
+            Interpreter interpreter,    /* in */
+            UriDictionary<object> uris, /* in, out */
+            bool fromAssembly           /* in */
             )
         {
             if ((interpreter == null) || (uris == null))
@@ -1111,64 +1183,40 @@ namespace Eagle._Components.Private
             {
                 Uri uri; /* REUSED */
 
-                //
-                // NOTE: Add the URI for this assembly, if any; however, make
-                //       sure it is relatively secure (HTTPS).
-                //
-                uri = GlobalState.GetAssemblyUri();
-
-                if ((uri != null) && CanBeTrustedUri(interpreter, uri))
+                if (fromAssembly)
                 {
-                    if (!uris.ContainsKey(uri))
+                    uri = GlobalState.GetAssemblyUri();
+
+                    if ((uri != null) &&
+                        CanBeTrustedUri(interpreter, uri) &&
+                        !uris.ContainsKey(uri))
                     {
-                        //
-                        // NOTE: For now, the value null is always used here.
-                        //
+                        uris.Add(uri, null);
+                    }
+
+                    uri = GlobalState.GetAssemblyScriptBaseUri();
+
+                    if ((uri != null) &&
+                        CanBeTrustedUri(interpreter, uri) &&
+                        !uris.ContainsKey(uri))
+                    {
                         uris.Add(uri, null);
                     }
                 }
 
-                //
-                // NOTE: Add script URI for this assembly, if any; however,
-                //       make sure it is secure (HTTPS).
-                //
-                uri = GlobalState.GetAssemblyScriptBaseUri();
-
-                if ((uri != null) && CanBeTrustedUri(interpreter, uri))
-                {
-                    if (!uris.ContainsKey(uri))
-                    {
-                        //
-                        // NOTE: For now, the value null is always used here.
-                        //
-                        uris.Add(uri, null);
-                    }
-                }
-
-                //
-                // NOTE: Add the other URIs trusted by the interpreter, if
-                //       any; however, make sure they are relatively secure
-                //       (HTTPS).
-                //
                 UriDictionary<object> trustedUris =
                     interpreter.InternalTrustedUris;
 
-                if (trustedUris == null)
-                    return;
-
-                foreach (KeyValuePair<Uri, object> pair in trustedUris)
+                if (trustedUris != null)
                 {
-                    uri = pair.Key;
-
-                    if ((uri != null) &&
-                        CanBeTrustedUri(interpreter, uri))
+                    foreach (UriPair pair in trustedUris)
                     {
-                        if (!uris.ContainsKey(uri))
+                        uri = pair.Key;
+
+                        if ((uri != null) &&
+                            CanBeTrustedUri(interpreter, uri) &&
+                            !uris.ContainsKey(uri))
                         {
-                            //
-                            // TODO: Currently, the "pair.Value" value is
-                            //       purposely ignored here.
-                            //
                             uris.Add(uri, null);
                         }
                     }
@@ -2259,7 +2307,7 @@ namespace Eagle._Components.Private
                 //
                 UriDictionary<object> trustedUris = new UriDictionary<object>();
 
-                AddTrustedUris(interpreter, trustedUris);
+                AddTrustedUris(interpreter, trustedUris, true);
 
                 return CheckViaUri(
                     PolicyFlags.Uri, typeof(_Commands.Source), 0, uri,
@@ -2277,6 +2325,26 @@ namespace Eagle._Components.Private
                     fileName, directories, true, interpreter, clientData,
                     arguments, ref result);
             }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region The Default [uri] Command Policy
+        [MethodFlags(
+            MethodFlags.CommandPolicy | MethodFlags.System |
+            MethodFlags.NoAdd)]
+        private static ReturnCode UriCommandCallback( /* POLICY */
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            return CheckViaSubCommand(
+                PolicyFlags.SubCommand, typeof(_Commands._Uri),
+                0, null, true, interpreter, clientData, arguments,
+                ref result);
         }
         #endregion
         #endregion

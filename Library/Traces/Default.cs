@@ -34,15 +34,13 @@ namespace Eagle._Traces
         {
             kind = IdentifierKind.Trace;
 
-            //
-            // VIRTUAL: Id of the deepest derived class.
-            //
-            id = AttributeOps.GetObjectId(this);
-
-            //
-            // VIRTUAL: Group of the deepest derived class.
-            //
-            group = AttributeOps.GetObjectGroups(this);
+            if ((traceData == null) ||
+                !FlagOps.HasFlags(traceData.TraceFlags,
+                    TraceFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             //
             // NOTE: Is the supplied trace data valid?
@@ -154,7 +152,7 @@ namespace Eagle._Traces
 
         ////////////////////////////////////////////////////////////////////////
 
-        #region ITraceData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -164,6 +162,17 @@ namespace Eagle._Traces
 
         ////////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ////////////////////////////////////////////////////////////////////////
+
+        #region ITraceData Members
         private string methodName;
         public virtual string MethodName
         {

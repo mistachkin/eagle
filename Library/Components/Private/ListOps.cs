@@ -384,7 +384,7 @@ namespace Eagle._Components.Private
 
         public static string Concat(IList list, int startIndex, int stopIndex, string separator)
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (list != null)
             {
@@ -425,7 +425,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -708,36 +708,48 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static bool ComparerEquals(
-            IComparer<string> comparer,
-            string left,
-            string right
+        public static bool ComparerEquals<T>(
+            IComparer<T> comparer,
+            T left,
+            T right
             )
         {
             if (comparer != null)
                 return (comparer.Compare(left, right) == 0 /* EQUAL */);
             else
-                return Comparer<string>.Default.Compare(left, right) == 0 /* EQUAL */;
+                return Comparer<T>.Default.Compare(left, right) == 0 /* EQUAL */;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static int ComparerGetHashCode(
-            IComparer<string> comparer,
-            string value,
+        public static int ComparerGetHashCode<T>(
+            IComparer<T> comparer,
+            T value,
             bool noCase
             )
         {
             //
-            // NOTE: The only thing that we must guarantee here, according
-            //       to the MSDN documentation for IEqualityComparer, is
-            //       that for two given strings, if Equals return true then
-            //       the two strings must hash to the same value.
+            // NOTE: The only thing that we must guarantee here,
+            //       according to the MSDN documentation for
+            //       IEqualityComparer, is that for two given
+            //       strings, if Equals return true then the two
+            //       strings must hash to the same value.
             //
-            if (value != null)
-                return noCase ? value.ToLower().GetHashCode() : value.GetHashCode();
-            else
+            if (value == null)
                 throw new ArgumentNullException("value");
+
+            string stringValue = value as string;
+
+            if (stringValue != null)
+            {
+                return noCase ?
+                    stringValue.ToLower().GetHashCode() :
+                    stringValue.GetHashCode();
+            }
+            else
+            {
+                return value.GetHashCode();
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1101,8 +1113,8 @@ namespace Eagle._Components.Private
                         if (element2 != null)
                             capacity += element2.Length;
 
-                        StringBuilder element3 = StringOps.NewStringBuilder(
-                            capacity);
+                        StringBuilder element3 = StringBuilderFactory.CreateNoCache(
+                            capacity); /* EXEMPT */
 
                         element3.Append(element1);
                         element3.Append(element2);

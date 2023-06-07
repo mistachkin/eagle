@@ -691,7 +691,7 @@ namespace Eagle._Components.Private
             if (String.IsNullOrEmpty(text))
                 return text;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             for (int index = 0; index < text.Length; index++)
             {
@@ -703,7 +703,7 @@ namespace Eagle._Components.Private
                     character, ref index);
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
         #endregion
 

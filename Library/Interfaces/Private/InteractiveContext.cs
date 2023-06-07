@@ -10,8 +10,10 @@
  */
 
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Components.Public.Delegates;
 using Eagle._Interfaces.Public;
@@ -26,6 +28,8 @@ namespace Eagle._Interfaces.Private
 #endif
 
         bool Interactive { get; set; }
+        MaybeEnableType InteractiveInputEnabled { get; set; }
+        StringBuilder InteractiveInputBuffer { get; set; }
         string InteractiveInput { get; set; }
         string PreviousInteractiveInput { get; set; }
         string InteractiveMode { get; set; }

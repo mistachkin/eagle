@@ -143,7 +143,7 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IFunctionData Members
+        #region ITypeAndName Members
         public string TypeName
         {
             get { return (function != null) ? function.TypeName : null; }
@@ -152,6 +152,16 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        public Type Type
+        {
+            get { return (function != null) ? function.Type : null; }
+            set { if (function != null) { function.Type = value; } }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IFunctionData Members
         public int Arguments
         {
             get { return (function != null) ? function.Arguments : 0; }

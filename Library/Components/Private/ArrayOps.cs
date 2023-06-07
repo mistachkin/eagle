@@ -87,6 +87,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static void Initialize<T>(
+            TypedReference arrayReference, /* in, out */
+            IEnumerable<T> collection      /* in */
+            )
+        {
+            T[] array = (collection != null) ?
+                new List<T>(collection).ToArray() : null;
+
+            __refvalue(arrayReference, T[]) = array;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static void GetFieldInfo(
             Type type,                   /* in */
             out FieldInfo itemsFieldInfo /* out */
@@ -1200,14 +1213,15 @@ namespace Eagle._Components.Private
             if (array == null)
                 return null;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             int length = array.Length;
 
             for (int index = 0; index < length; index++)
                 builder.Append(FormatOps.Hexadecimal(array[index], false));
 
-            string result = builder.ToString();
+            string result = StringBuilderCache.GetStringAndRelease(
+                ref builder);
 
             if (noCase && (result != null))
                 result = result.ToUpperInvariant();
@@ -1228,7 +1242,7 @@ namespace Eagle._Components.Private
             if (array == null)
                 return null;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             int length = array.Length;
 
@@ -1253,7 +1267,8 @@ namespace Eagle._Components.Private
                 }
             }
 
-            string result = builder.ToString();
+            string result = StringBuilderCache.GetStringAndRelease(
+                ref builder);
 
             if (noCase && (result != null))
                 result = result.ToUpperInvariant();

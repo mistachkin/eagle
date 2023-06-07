@@ -348,9 +348,11 @@ runTest {test nproc-1.1 {nproc command tests} -setup {
     } elseif {[string match "*unsupported argument*" $error]} then {
       return <unsupported>
     } elseif {[string match "*missing argument*" $error]} then {
-      return <missing>
+      return <missingArg>
     } elseif {[string match "*wrong # args*" $error]} then {
       return <wrong>
+    } elseif {[string match "*missing value*" $error]} then {
+      return <missingVal>
     }
 
     return $error
@@ -395,57 +397,175 @@ runTest {test nproc-1.1 {nproc command tests} -setup {
     set code [catch $nproc result]
 
     if {$code == 0} then {
-      lappend results [list $code $result]
+      lappend results [list $nproc $code $result]
 
       foreach call $calls {
         set code [catch $call result]
 
         if {$code == 0} then {
-          lappend results [list $code $result]
+          lappend results [list $call $code $result]
         } else {
-          lappend results [list $code [simplifyError $result]]
+          lappend results [list $call $code [simplifyError $result]]
         }
       }
     } else {
-      lappend results [list $code [simplifyError $result]]
+      lappend results [list $nproc $code [simplifyError $result]]
     }
   }
 
-  set results
+  string trim [join $results \n]
 } -cleanup {
   catch {rename foo ""}
   catch {rename simplifyError ""}
 
   unset -nocomplain code result results call calls nproc nprocs procBody
-} -constraints {command.nproc} -result \
-{{0 {}} {0 foo} {1 <wrong>} {1 <unsupported>} {1 <wrong>} {1 <unsupported>} {1\
-<unsupported>} {1 <unsupported>} {1 <unsupported>} {1 <unsupported>} {1\
-<wrong>} {0 {}} {0 foo} {1 <wrong>} {0 {foo 0 1}} {1 <wrong>} {0 {foo a {}}} {0\
-{foo a 0}} {0 {foo a 2 b 1}} {0 {foo a 2 c 3}} {0 {foo a 2 c 3 d 4}} {1\
-<wrong>} {0 {}} {0 foo} {1 <wrong>} {0 {foo 0 1}} {1 <wrong>} {0 {foo a {}}} {0\
-{foo a 0}} {0 {foo a 2 b 1}} {0 {foo a 2 c 3}} {0 {foo a 2 c 3 d 4}} {1\
-<wrong>} {0 {}} {1 <missing>} {1 <wrong>} {1 <unsupported>} {1 <wrong>} {0 {foo\
-a {}}} {0 {foo a 0}} {1 <unsupported>} {1 <unsupported>} {1 <unsupported>} {1\
-<wrong>} {0 {}} {0 foo} {1 <wrong>} {1 <unsupported>} {1 <wrong>} {0 {foo a\
-{}}} {0 {foo a 0}} {1 <unsupported>} {1 <unsupported>} {1 <unsupported>} {1\
-<wrong>} {1 <duplicate>} {1 <duplicate>} {0 {}} {1 <missing>} {1 <wrong>} {1\
-<unsupported>} {1 <wrong>} {1 <missing>} {1 <missing>} {0 {foo a 2 b 1}} {1\
-<unsupported>} {1 <unsupported>} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>}\
-{1 <unsupported>} {1 <wrong>} {0 {foo a {}}} {0 {foo a 0}} {0 {foo a 2 b 1}} {1\
-<unsupported>} {1 <unsupported>} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>}\
-{1 <missing>} {1 <wrong>} {0 {foo a {}}} {0 {foo a 0}} {0 {foo a 2 b 1}} {0\
-{foo a 2 c 3}} {0 {foo a 2 c 3 d 4}} {1 <wrong>} {0 {}} {0 foo} {1 <wrong>} {0\
-{foo 0 1}} {1 <wrong>} {0 {foo a {}}} {0 {foo a 0}} {0 {foo a 2 b 1}} {0 {foo a\
-2 c 3}} {0 {foo a 2 c 3 d 4}} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>} {1\
-<missing>} {1 <wrong>} {1 <missing>} {1 <missing>} {0 {foo a 2 b 1}} {1\
-<missing>} {1 <missing>} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>} {1\
-<missing>} {1 <wrong>} {0 {foo a {}}} {0 {foo a 0}} {0 {foo a 2 b 1}} {0 {foo a\
-2 c 3}} {0 {foo a 2 c 3 d 4}} {1 <wrong>} {0 {}} {1 <missing>} {1 <wrong>} {1\
-<unsupported>} {1 <wrong>} {1 <missing>} {1 <missing>} {1 <unsupported>} {1\
-<unsupported>} {1 <unsupported>} {1 <wrong>} {1 <duplicate>} {0 {}} {1\
-<missing>} {1 <wrong>} {1 <unsupported>} {1 <wrong>} {1 <missing>} {1\
-<missing>} {1 <unsupported>} {1 <unsupported>} {1 <unsupported>} {1 <wrong>} {1\
-<duplicate>}}}
+} -constraints {command.nproc} -result {{nproc foo {} $procBody} 0 {}
+foo 0 foo
+{foo 0} 1 <wrong>
+{foo 0 1} 1 <wrong>
+{foo a} 1 <wrong>
+{foo a {}} 1 <wrong>
+{foo a 0} 1 <wrong>
+{foo a 2 b 1} 1 <wrong>
+{foo a 2 c 3} 1 <wrong>
+{foo a 2 c 3 d 4} 1 <wrong>
+{foo a 2 c 3 d 4 e} 1 <wrong>
+{nproc foo { args } $procBody} 0 {}
+foo 0 foo
+{foo 0} 0 {foo 0}
+{foo 0 1} 0 {foo 0 1}
+{foo a} 0 {foo a}
+{foo a {}} 0 {foo a {}}
+{foo a 0} 0 {foo a 0}
+{foo a 2 b 1} 0 {foo a 2 b 1}
+{foo a 2 c 3} 0 {foo a 2 c 3}
+{foo a 2 c 3 d 4} 0 {foo a 2 c 3 d 4}
+{foo a 2 c 3 d 4 e} 0 {foo a 2 c 3 d 4 e}
+{nproc foo { {args 1} } $procBody} 0 {}
+foo 0 foo
+{foo 0} 0 {foo 0}
+{foo 0 1} 0 {foo 0 1}
+{foo a} 0 {foo a}
+{foo a {}} 0 {foo a {}}
+{foo a 0} 0 {foo a 0}
+{foo a 2 b 1} 0 {foo a 2 b 1}
+{foo a 2 c 3} 0 {foo a 2 c 3}
+{foo a 2 c 3 d 4} 0 {foo a 2 c 3 d 4}
+{foo a 2 c 3 d 4 e} 0 {foo a 2 c 3 d 4 e}
+{nproc foo { a } $procBody} 0 {}
+foo 1 <wrong>
+{foo 0} 1 <wrong>
+{foo 0 1} 1 <unsupported>
+{foo a} 1 <wrong>
+{foo a {}} 0 {foo a {}}
+{foo a 0} 0 {foo a 0}
+{foo a 2 b 1} 1 <wrong>
+{foo a 2 c 3} 1 <wrong>
+{foo a 2 c 3 d 4} 1 <wrong>
+{foo a 2 c 3 d 4 e} 1 <wrong>
+{nproc foo { {a 1} } $procBody} 0 {}
+foo 0 foo
+{foo 0} 1 <missingVal>
+{foo 0 1} 1 <unsupported>
+{foo a} 1 <missingVal>
+{foo a {}} 0 {foo a {}}
+{foo a 0} 0 {foo a 0}
+{foo a 2 b 1} 1 <wrong>
+{foo a 2 c 3} 1 <wrong>
+{foo a 2 c 3 d 4} 1 <wrong>
+{foo a 2 c 3 d 4 e} 1 <wrong>
+{nproc foo { a a } $procBody} 1 <duplicate>
+{nproc foo { {a 1} {a 2} } $procBody} 1 <duplicate>
+{nproc foo { {a 1} b } $procBody} 0 {}
+foo 1 <wrong>
+{foo 0} 1 <wrong>
+{foo 0 1} 1 <unsupported>
+{foo a} 1 <wrong>
+{foo a {}} 1 <missingArg>
+{foo a 0} 1 <missingArg>
+{foo a 2 b 1} 0 {foo a 2 b 1}
+{foo a 2 c 3} 1 <unsupported>
+{foo a 2 c 3 d 4} 1 <wrong>
+{foo a 2 c 3 d 4 e} 1 <wrong>
+{nproc foo { a {b 2} } $procBody} 0 {}
+foo 1 <wrong>
+{foo 0} 1 <wrong>
+{foo 0 1} 1 <unsupported>
+{foo a} 1 <wrong>
+{foo a {}} 0 {foo a {}}
+{foo a 0} 0 {foo a 0}
+{foo a 2 b 1} 0 {foo a 2 b 1}
+{foo a 2 c 3} 1 <unsupported>
+{foo a 2 c 3 d 4} 1 <wrong>
+{foo a 2 c 3 d 4 e} 1 <wrong>
+{nproc foo { a args } $procBody} 0 {}
+foo 1 <wrong>
+{foo 0} 1 <wrong>
+{foo 0 1} 1 <missingArg>
+{foo a} 1 <wrong>
+{foo a {}} 0 {foo a {}}
+{foo a 0} 0 {foo a 0}
+{foo a 2 b 1} 0 {foo a 2 b 1}
+{foo a 2 c 3} 0 {foo a 2 c 3}
+{foo a 2 c 3 d 4} 0 {foo a 2 c 3 d 4}
+{foo a 2 c 3 d 4 e} 0 {foo a 2 c 3 d 4 e}
+{nproc foo { {a 1} args } $procBody} 0 {}
+foo 0 foo
+{foo 0} 0 {foo 0}
+{foo 0 1} 0 {foo 0 1}
+{foo a} 0 {foo a}
+{foo a {}} 0 {foo a {}}
+{foo a 0} 0 {foo a 0}
+{foo a 2 b 1} 0 {foo a 2 b 1}
+{foo a 2 c 3} 0 {foo a 2 c 3}
+{foo a 2 c 3 d 4} 0 {foo a 2 c 3 d 4}
+{foo a 2 c 3 d 4 e} 0 {foo a 2 c 3 d 4 e}
+{nproc foo { {a 1} b args } $procBody} 0 {}
+foo 1 <wrong>
+{foo 0} 1 <wrong>
+{foo 0 1} 1 <missingArg>
+{foo a} 1 <wrong>
+{foo a {}} 1 <missingArg>
+{foo a 0} 1 <missingArg>
+{foo a 2 b 1} 0 {foo a 2 b 1}
+{foo a 2 c 3} 1 <missingArg>
+{foo a 2 c 3 d 4} 1 <missingArg>
+{foo a 2 c 3 d 4 e} 1 <missingArg>
+{nproc foo { a {b 2} args } $procBody} 0 {}
+foo 1 <wrong>
+{foo 0} 1 <wrong>
+{foo 0 1} 1 <missingArg>
+{foo a} 1 <wrong>
+{foo a {}} 0 {foo a {}}
+{foo a 0} 0 {foo a 0}
+{foo a 2 b 1} 0 {foo a 2 b 1}
+{foo a 2 c 3} 0 {foo a 2 c 3}
+{foo a 2 c 3 d 4} 0 {foo a 2 c 3 d 4}
+{foo a 2 c 3 d 4 e} 0 {foo a 2 c 3 d 4 e}
+{nproc foo { args a } $procBody} 0 {}
+foo 1 <wrong>
+{foo 0} 1 <wrong>
+{foo 0 1} 1 <wrong>
+{foo a} 1 <wrong>
+{foo a {}} 1 <wrong>
+{foo a 0} 1 <wrong>
+{foo a 2 b 1} 1 <unsupported>
+{foo a 2 c 3} 1 <unsupported>
+{foo a 2 c 3 d 4} 1 <wrong>
+{foo a 2 c 3 d 4 e} 1 <wrong>
+{nproc foo { args a args } $procBody} 1 <duplicate>
+{nproc foo { args {a 1} } $procBody} 0 {}
+foo 1 <wrong>
+{foo 0} 1 <wrong>
+{foo 0 1} 1 <unsupported>
+{foo a} 1 <wrong>
+{foo a {}} 1 <missingArg>
+{foo a 0} 1 <missingArg>
+{foo a 2 b 1} 1 <unsupported>
+{foo a 2 c 3} 1 <unsupported>
+{foo a 2 c 3 d 4} 1 <wrong>
+{foo a 2 c 3 d 4 e} 1 <wrong>
+{nproc foo { args {a 1} args } $procBody} 1 <duplicate>}}
 
 ###############################################################################
 

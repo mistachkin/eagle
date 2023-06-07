@@ -69,6 +69,8 @@ runTest {test debug-2.86 {ScriptArguments stack balance} -setup {
 } -constraints {eagle command.object compile.SCRIPT_ARGUMENTS} -result \
 {emergency mode now enabled
 debugger created
+script cancellation not reset
+interpreter halt state not reset
 debugger types are missing
 debugger types added
 debugger is enabled

@@ -28,8 +28,14 @@ namespace Eagle._Packages
             )
         {
             kind = IdentifierKind.Package;
-            id = AttributeOps.GetObjectId(this);
-            group = AttributeOps.GetObjectGroups(this);
+
+            if ((packageData == null) ||
+                !FlagOps.HasFlags(packageData.Flags,
+                    PackageFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             if (packageData != null)
             {

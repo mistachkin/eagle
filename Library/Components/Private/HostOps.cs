@@ -97,6 +97,19 @@ namespace Eagle._Components.Private
         private static ConsoleColor highContrastLightColor = ConsoleColor.White;
         private static ConsoleColor highContrastDarkColor = ConsoleColor.Black;
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Native Console
+#if CONSOLE && NATIVE && WINDOWS
+        //
+        // NOTE: This is the minimum size for the console history buffer.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static uint MinimumHistoryBufferSize = 200;
+#endif
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -1788,7 +1801,8 @@ namespace Eagle._Components.Private
 
                                     uniqueResourceNames.Add(name, null);
 
-                                    DataFlags dataFlags = DataFlags.Script;
+                                    DataFlags dataFlags = CombineDataFlags(
+                                        interpreter, DataFlags.Script);
 
                                     EngineFlags engineFlags =
                                         fileHost.GetEngineFlagsForReadScriptStream(
@@ -1837,7 +1851,8 @@ namespace Eagle._Components.Private
                                     isolatedHostFlags, HostFlags.Data, true))
                             {
                                 return isolatedFileSystemHost.GetData(
-                                    name, DataFlags.Script, ref scriptFlags,
+                                    name, CombineDataFlags(interpreter,
+                                    DataFlags.Script), ref scriptFlags,
                                     ref clientData, ref result); /* throw */
                             }
                         }
@@ -1848,7 +1863,8 @@ namespace Eagle._Components.Private
                             hostFlags, HostFlags.Data, true))
                     {
                         return fileSystemHost.GetData(
-                            name, DataFlags.Script, ref scriptFlags,
+                            name, CombineDataFlags(interpreter,
+                            DataFlags.Script), ref scriptFlags,
                             ref clientData, ref result); /* throw */
                     }
                     else
@@ -1858,6 +1874,10 @@ namespace Eagle._Components.Private
                 }
                 catch (Exception e)
                 {
+                    TraceOps.DebugTrace(
+                        e, typeof(HostOps).Name,
+                        TracePriority.HostError);
+
                     result = e;
                 }
             }
@@ -1968,6 +1988,28 @@ namespace Eagle._Components.Private
             }
 
             return ReturnCode.Error;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Data Support Methods
+        public static DataFlags CombineDataFlags(
+            Interpreter interpreter, /* in */
+            DataFlags dataFlags      /* in */
+            )
+        {
+            DataFlags result = dataFlags;
+
+            if (interpreter != null)
+            {
+                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                {
+                    result |= interpreter.DataFlags;
+                }
+            }
+
+            return result;
         }
         #endregion
 
@@ -2621,6 +2663,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static void HistoryNativeConsole(
+            Interpreter interpreter,
+            bool quiet
+            )
+        {
+            ReturnCode consoleCode;
+            Result consoleError = null;
+
+#if NATIVE && WINDOWS
+            if (NativeConsole.IsSupported())
+            {
+                consoleCode = NativeConsole.SetupHistory(
+                    MinimumHistoryBufferSize, ref consoleError);
+            }
+            else
+            {
+                consoleError = "not implemented";
+                consoleCode = ReturnCode.Error;
+            }
+#else
+            consoleError = "not implemented";
+            consoleCode = ReturnCode.Error;
+#endif
+
+            if (!quiet && (consoleCode != ReturnCode.Ok))
+                DebugOps.Complain(interpreter, consoleCode, consoleError);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void SetupNativeConsole(
             Interpreter interpreter,
             HostCreateFlags hostCreateFlags
@@ -2679,6 +2751,14 @@ namespace Eagle._Components.Private
                     hostCreateFlags, HostCreateFlags.PushConsole, true))
             {
                 PushNativeConsole(interpreter, quiet);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (FlagOps.HasFlags(
+                    hostCreateFlags, HostCreateFlags.HistoryConsole, true))
+            {
+                HistoryNativeConsole(interpreter, quiet);
             }
         }
 #endif

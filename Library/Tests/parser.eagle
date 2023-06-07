@@ -56,9 +56,9 @@ runTest {test parser-1.2 {parsing deeply nested commands} -setup {
   unset -nocomplain x
 
   rename foo ""
-} -constraints \
-{native windows compile.NATIVE compile.WINDOWS intel.32bit debug tclCrash\
-stackIntensive} -returnCodes 1 -result {out of stack space (infinite loop?)}}
+} -constraints {native windows compile.NATIVE compile.WINDOWS intel.32bit\
+debug tclCrash stackIntensive} -returnCodes 1 -result {out of stack space\
+(infinite loop?)}}
 
 ###############################################################################
 

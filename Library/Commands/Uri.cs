@@ -47,19 +47,39 @@ namespace Eagle._Commands
             // do nothing.
         }
 
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region IEnsemble Members
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
-            "compare", "create", "download", "escape", "host",
-            "isvalid", "join", "offline", "parse", "ping",
+            "compare", "create", "download", "escape", "get", "host",
+            "isvalid", "join", "offline", "parse", "ping", "post",
             "scheme", "security", "softwareupdates", "time",
             "unescape", "upload"
         });
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
         }
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IPolicyEnsemble Members
+        private readonly EnsembleDictionary allowedSubCommands = new EnsembleDictionary(
+            PolicyOps.AllowedUriSubCommandNames);
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public override EnsembleDictionary AllowedSubCommands
+        {
+            get { return allowedSubCommands; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
         public override ReturnCode Execute(
@@ -291,27 +311,31 @@ namespace Eagle._Commands
                                         break;
                                     }
                                 case "download":
+                                case "get":
                                     {
                                         if (arguments.Count >= 3)
                                         {
+                                            bool isMethod = SharedStringOps.SystemEquals(subCommand, "get");
+
 #if NETWORK
                                             OptionDictionary options = new OptionDictionary(
                                                 new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null),
-                                                new Option(null, OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-callback", null),
-                                                new Option(typeof(CallbackFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid,
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-callback", null),
+                                                new Option(typeof(CallbackFlags), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid,
                                                     "-callbackflags", new Variant(CallbackFlags.Default)),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-inline", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trusted", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-inline", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noinline", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-trusted", null),
 #if TEST
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noprotocol", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-obsolete", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noprotocol", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-obsolete", null),
 #else
-                                                new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noprotocol", null),
-                                                new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-obsolete", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noprotocol", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-obsolete", null),
 #endif
-                                                new Option(null, OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
-                                                new Option(null, OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-webclientdata", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-webclientdata", null),
                                                 Option.CreateEndOfOptions()
                                             });
 
@@ -361,10 +385,13 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-callbackflags", ref value))
                                                             callbackFlags = (CallbackFlags)value.Value;
 
-                                                        bool inline = false;
+                                                        bool inline = isMethod;
 
                                                         if (options.IsPresent("-inline"))
                                                             inline = true;
+
+                                                        if (options.IsPresent("-noinline"))
+                                                            inline = false;
 
                                                         bool trusted = false;
 
@@ -395,120 +422,128 @@ namespace Eagle._Commands
 
                                                         if (code == ReturnCode.Ok)
                                                         {
-                                                            string argument = null;
-
-                                                            if ((argumentIndex + 2) == arguments.Count)
-                                                                argument = PathOps.GetNativePath(arguments[argumentIndex + 1]);
-
-                                                            if (inline)
+                                                            if (!interpreter.InternalIsSafe() ||
+                                                                PolicyOps.IsTrustedUri(interpreter, uri, ref result))
                                                             {
-                                                                //
-                                                                // NOTE: Do nothing.
-                                                                //
-                                                            }
-#if !NET_STANDARD_20 && !MONO
-                                                            else if (!CommonOps.Runtime.IsMono())
-                                                            {
-                                                                FilePermission permissions = FilePermission.Write |
-                                                                    FilePermission.NotExists | FilePermission.File;
+                                                                string argument = null;
 
-                                                                code = FileOps.VerifyPath(argument, permissions, ref result);
-                                                            }
-#endif
-                                                            else if (String.IsNullOrEmpty(argument))
-                                                            {
-                                                                result = "invalid path";
-                                                                code = ReturnCode.Error;
-                                                            }
+                                                                if ((argumentIndex + 2) == arguments.Count)
+                                                                    argument = PathOps.GetNativePath(arguments[argumentIndex + 1]);
 
-#if TEST
-                                                            if ((code == ReturnCode.Ok) && !noProtocol)
-                                                                code = WebOps.SetSecurityProtocol(obsolete, ref result);
-#endif
-
-                                                            if (code == ReturnCode.Ok)
-                                                            {
                                                                 if (inline)
                                                                 {
                                                                     //
-                                                                    // NOTE: Is this an asynchronous request?
+                                                                    // NOTE: Do nothing.
                                                                     //
-                                                                    if (callbackArguments != null)
+                                                                }
+#if !NET_STANDARD_20 && !MONO
+                                                                else if (!CommonOps.Runtime.IsMono())
+                                                                {
+                                                                    FilePermission permissions = FilePermission.Write |
+                                                                        FilePermission.NotExists | FilePermission.File;
+
+                                                                    code = FileOps.VerifyPath(argument, permissions, ref result);
+                                                                }
+#endif
+                                                                else if (String.IsNullOrEmpty(argument))
+                                                                {
+                                                                    result = "invalid path";
+                                                                    code = ReturnCode.Error;
+                                                                }
+
+#if TEST
+                                                                if ((code == ReturnCode.Ok) && !noProtocol)
+                                                                    code = WebOps.SetSecurityProtocol(obsolete, ref result);
+#endif
+
+                                                                if (code == ReturnCode.Ok)
+                                                                {
+                                                                    if (inline)
                                                                     {
                                                                         //
-                                                                        // NOTE: The "-trusted" option is not supported for
-                                                                        //       asynchronous downloads.  Instead, use the
-                                                                        //       [uri softwareupdates] sub-command before
-                                                                        //       and after (i.e. to allow for proper saving
-                                                                        //       and restoring of the current trust setting).
+                                                                        // NOTE: Is this an asynchronous request?
                                                                         //
-                                                                        if (!trusted)
+                                                                        if (callbackArguments != null)
                                                                         {
-                                                                            code = WebOps.DownloadDataAsync(
-                                                                                interpreter, localClientData, callbackArguments,
-                                                                                callbackFlags, uri, timeout, ref result);
+                                                                            //
+                                                                            // NOTE: The "-trusted" option is not supported for
+                                                                            //       asynchronous downloads.  Instead, use the
+                                                                            //       [uri softwareupdates] sub-command before
+                                                                            //       and after (i.e. to allow for proper saving
+                                                                            //       and restoring of the current trust setting).
+                                                                            //
+                                                                            if (!trusted)
+                                                                            {
+                                                                                code = WebOps.DownloadDataAsync(
+                                                                                    interpreter, localClientData, callbackArguments,
+                                                                                    callbackFlags, uri, timeout, ref result);
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                result = "-trusted cannot be used with -callback option";
+                                                                                code = ReturnCode.Error;
+                                                                            }
                                                                         }
                                                                         else
                                                                         {
-                                                                            result = "-trusted cannot be used with -callback option";
-                                                                            code = ReturnCode.Error;
-                                                                        }
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        byte[] responseBytes = null;
+                                                                            byte[] responseBytes = null;
 
-                                                                        code = WebOps.DownloadData(
-                                                                            interpreter, localClientData, uri, timeout, trusted,
-                                                                            ref responseBytes, ref result);
-
-                                                                        if (code == ReturnCode.Ok)
-                                                                        {
-                                                                            string stringValue = null;
-
-                                                                            code = StringOps.GetString(
-                                                                                encoding, responseBytes,
-                                                                                EncodingType.RemoteUri,
-                                                                                ref stringValue, ref result);
+                                                                            code = WebOps.DownloadData(
+                                                                                interpreter, localClientData, uri, timeout, trusted,
+                                                                                ref responseBytes, ref result);
 
                                                                             if (code == ReturnCode.Ok)
-                                                                                result = stringValue;
-                                                                        }
-                                                                    }
-                                                                }
-                                                                else
-                                                                {
-                                                                    //
-                                                                    // NOTE: Is this an asynchronous request?
-                                                                    //
-                                                                    if (callbackArguments != null)
-                                                                    {
-                                                                        //
-                                                                        // NOTE: The "-trusted" option is not supported for
-                                                                        //       asynchronous downloads.  Instead, use the
-                                                                        //       [uri softwareupdates] sub-command before
-                                                                        //       and after (i.e. to allow for proper saving
-                                                                        //       and restoring of the current trust setting).
-                                                                        //
-                                                                        if (!trusted)
-                                                                        {
-                                                                            code = WebOps.DownloadFileAsync(
-                                                                                interpreter, localClientData, callbackArguments,
-                                                                                callbackFlags, uri, argument, timeout, ref result);
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            result = "-trusted cannot be used with -callback option";
-                                                                            code = ReturnCode.Error;
+                                                                            {
+                                                                                string stringValue = null;
+
+                                                                                code = StringOps.GetString(
+                                                                                    encoding, responseBytes,
+                                                                                    EncodingType.RemoteUri,
+                                                                                    ref stringValue, ref result);
+
+                                                                                if (code == ReturnCode.Ok)
+                                                                                    result = stringValue;
+                                                                            }
                                                                         }
                                                                     }
                                                                     else
                                                                     {
-                                                                        code = WebOps.DownloadFile(
-                                                                            interpreter, localClientData, uri, argument, timeout,
-                                                                            trusted, ref result);
+                                                                        //
+                                                                        // NOTE: Is this an asynchronous request?
+                                                                        //
+                                                                        if (callbackArguments != null)
+                                                                        {
+                                                                            //
+                                                                            // NOTE: The "-trusted" option is not supported for
+                                                                            //       asynchronous downloads.  Instead, use the
+                                                                            //       [uri softwareupdates] sub-command before
+                                                                            //       and after (i.e. to allow for proper saving
+                                                                            //       and restoring of the current trust setting).
+                                                                            //
+                                                                            if (!trusted)
+                                                                            {
+                                                                                code = WebOps.DownloadFileAsync(
+                                                                                    interpreter, localClientData, callbackArguments,
+                                                                                    callbackFlags, uri, argument, timeout, ref result);
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                result = "-trusted cannot be used with -callback option";
+                                                                                code = ReturnCode.Error;
+                                                                            }
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            code = WebOps.DownloadFile(
+                                                                                interpreter, localClientData, uri, argument, timeout,
+                                                                                trusted, ref result);
+                                                                        }
                                                                     }
                                                                 }
+                                                            }
+                                                            else
+                                                            {
+                                                                code = ReturnCode.Error;
                                                             }
                                                         }
                                                     }
@@ -523,7 +558,9 @@ namespace Eagle._Commands
                                                     }
                                                     else
                                                     {
-                                                        result = "wrong # args: should be \"uri download ?options? uri ?argument?\"";
+                                                        result = String.Format(
+                                                            "wrong # args: should be \"{0} {1} ?options? uri ?argument?\"",
+                                                            this.Name, subCommand);
                                                     }
 
                                                     code = ReturnCode.Error;
@@ -536,7 +573,10 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"uri download ?options? uri ?argument?\"";
+                                            result = String.Format(
+                                                "wrong # args: should be \"{0} {1} ?options? uri ?argument?\"",
+                                                this.Name, subCommand);
+
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -1087,30 +1127,34 @@ namespace Eagle._Commands
                                         break;
                                     }
                                 case "upload":
+                                case "post":
                                     {
                                         if (arguments.Count >= 3)
                                         {
+                                            bool isMethod = SharedStringOps.SystemEquals(subCommand, "post");
+
 #if NETWORK
                                             OptionDictionary options = new OptionDictionary(
                                                 new IOption[] {
-                                                new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null),
-                                                new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-method", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-method", null),
                                                 new Option(null, OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-data", null),
-                                                new Option(null, OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-callback", null),
-                                                new Option(typeof(CallbackFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid,
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-callback", null),
+                                                new Option(typeof(CallbackFlags), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid,
                                                     "-callbackflags", new Variant(CallbackFlags.Default)),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-inline", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-raw", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trusted", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-inline", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noinline", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-raw", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-trusted", null),
 #if TEST
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noprotocol", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-obsolete", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noprotocol", null),
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-obsolete", null),
 #else
-                                                new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noprotocol", null),
-                                                new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-obsolete", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noprotocol", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-obsolete", null),
 #endif
-                                                new Option(null, OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
-                                                new Option(null, OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-webclientdata", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-webclientdata", null),
                                                 Option.CreateEndOfOptions()
                                             });
 
@@ -1170,10 +1214,13 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-callbackflags", ref value))
                                                             callbackFlags = (CallbackFlags)value.Value;
 
-                                                        bool inline = false;
+                                                        bool inline = isMethod;
 
                                                         if (options.IsPresent("-inline"))
                                                             inline = true;
+
+                                                        if (options.IsPresent("-noinline"))
+                                                            inline = false;
 
                                                         bool raw = false;
 
@@ -1209,55 +1256,95 @@ namespace Eagle._Commands
 
                                                         if (code == ReturnCode.Ok)
                                                         {
-                                                            string argument = null;
-
-                                                            if ((argumentIndex + 2) == arguments.Count)
-                                                                argument = PathOps.GetNativePath(arguments[argumentIndex + 1]);
-
-                                                            if (inline)
+                                                            if (!interpreter.InternalIsSafe() ||
+                                                                PolicyOps.IsTrustedUri(interpreter, uri, ref result))
                                                             {
-                                                                //
-                                                                // NOTE: Do nothing.
-                                                                //
-                                                            }
-#if !NET_STANDARD_20 && !MONO
-                                                            else if (!CommonOps.Runtime.IsMono())
-                                                            {
-                                                                FilePermission permissions = FilePermission.Read |
-                                                                    FilePermission.Exists | FilePermission.File;
+                                                                string argument = null;
 
-                                                                code = FileOps.VerifyPath(argument, permissions, ref result);
-                                                            }
-#endif
-                                                            else if (String.IsNullOrEmpty(argument))
-                                                            {
-                                                                result = "invalid path";
-                                                                code = ReturnCode.Error;
-                                                            }
+                                                                if ((argumentIndex + 2) == arguments.Count)
+                                                                    argument = PathOps.GetNativePath(arguments[argumentIndex + 1]);
 
-#if TEST
-                                                            if ((code == ReturnCode.Ok) && !noProtocol)
-                                                                code = WebOps.SetSecurityProtocol(obsolete, ref result);
-#endif
-
-                                                            if (code == ReturnCode.Ok)
-                                                            {
                                                                 if (inline)
                                                                 {
                                                                     //
-                                                                    // NOTE: Is this an asynchronous request?
+                                                                    // NOTE: Do nothing.
                                                                     //
-                                                                    if (callbackArguments != null)
+                                                                }
+#if !NET_STANDARD_20 && !MONO
+                                                                else if (!CommonOps.Runtime.IsMono())
+                                                                {
+                                                                    FilePermission permissions = FilePermission.Read |
+                                                                        FilePermission.Exists | FilePermission.File;
+
+                                                                    code = FileOps.VerifyPath(argument, permissions, ref result);
+                                                                }
+#endif
+                                                                else if (String.IsNullOrEmpty(argument))
+                                                                {
+                                                                    result = "invalid path";
+                                                                    code = ReturnCode.Error;
+                                                                }
+
+#if TEST
+                                                                if ((code == ReturnCode.Ok) && !noProtocol)
+                                                                    code = WebOps.SetSecurityProtocol(obsolete, ref result);
+#endif
+
+                                                                if (code == ReturnCode.Ok)
+                                                                {
+                                                                    if (inline)
                                                                     {
                                                                         //
-                                                                        // NOTE: The "-trusted" option is not supported for
-                                                                        //       asynchronous uploads.  Instead, use the
-                                                                        //       [uri softwareupdates] sub-command before
-                                                                        //       and after (i.e. to allow for proper saving
-                                                                        //       and restoring of the current trust setting).
+                                                                        // NOTE: Is this an asynchronous request?
                                                                         //
-                                                                        if (!trusted)
+                                                                        if (callbackArguments != null)
                                                                         {
+                                                                            //
+                                                                            // NOTE: The "-trusted" option is not supported for
+                                                                            //       asynchronous uploads.  Instead, use the
+                                                                            //       [uri softwareupdates] sub-command before
+                                                                            //       and after (i.e. to allow for proper saving
+                                                                            //       and restoring of the current trust setting).
+                                                                            //
+                                                                            if (!trusted)
+                                                                            {
+                                                                                if (raw)
+                                                                                {
+                                                                                    byte[] requestBytes = null;
+
+                                                                                    code = ArrayOps.GetBytesFromList(
+                                                                                        interpreter, listData, encoding,
+                                                                                        ref requestBytes, ref result);
+
+                                                                                    if (code == ReturnCode.Ok)
+                                                                                    {
+                                                                                        code = WebOps.UploadDataAsync(
+                                                                                            interpreter, localClientData, callbackArguments,
+                                                                                            callbackFlags, uri, method, requestBytes, timeout,
+                                                                                            ref result);
+
+                                                                                    }
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    code = WebOps.UploadValuesAsync(
+                                                                                        interpreter, localClientData, callbackArguments,
+                                                                                        callbackFlags, uri, method,
+                                                                                        ListOps.ToNameValueCollection(
+                                                                                            listData, new NameValueCollection()),
+                                                                                        timeout, ref result);
+                                                                                }
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                result = "-trusted cannot be used with -callback option";
+                                                                                code = ReturnCode.Error;
+                                                                            }
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            byte[] responseBytes = null;
+
                                                                             if (raw)
                                                                             {
                                                                                 byte[] requestBytes = null;
@@ -1268,106 +1355,74 @@ namespace Eagle._Commands
 
                                                                                 if (code == ReturnCode.Ok)
                                                                                 {
-                                                                                    code = WebOps.UploadDataAsync(
-                                                                                        interpreter, localClientData, callbackArguments,
-                                                                                        callbackFlags, uri, method, requestBytes, timeout,
+                                                                                    code = WebOps.UploadData(
+                                                                                        interpreter, localClientData, uri, method,
+                                                                                        requestBytes, timeout, trusted, ref responseBytes,
                                                                                         ref result);
-
                                                                                 }
                                                                             }
                                                                             else
                                                                             {
-                                                                                code = WebOps.UploadValuesAsync(
-                                                                                    interpreter, localClientData, callbackArguments,
-                                                                                    callbackFlags, uri, method,
+                                                                                code = WebOps.UploadValues(
+                                                                                    interpreter, localClientData, uri, method,
                                                                                     ListOps.ToNameValueCollection(
                                                                                         listData, new NameValueCollection()),
-                                                                                    timeout, ref result);
+                                                                                    timeout, trusted, ref responseBytes, ref result);
                                                                             }
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            result = "-trusted cannot be used with -callback option";
-                                                                            code = ReturnCode.Error;
-                                                                        }
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        byte[] responseBytes = null;
-
-                                                                        if (raw)
-                                                                        {
-                                                                            byte[] requestBytes = null;
-
-                                                                            code = ArrayOps.GetBytesFromList(
-                                                                                interpreter, listData, encoding,
-                                                                                ref requestBytes, ref result);
 
                                                                             if (code == ReturnCode.Ok)
                                                                             {
-                                                                                code = WebOps.UploadData(
-                                                                                    interpreter, localClientData, uri, method,
-                                                                                    requestBytes, timeout, trusted, ref responseBytes,
-                                                                                    ref result);
+                                                                                string stringValue = null;
+
+                                                                                code = StringOps.GetString(
+                                                                                    encoding, responseBytes,
+                                                                                    EncodingType.RemoteUri,
+                                                                                    ref stringValue, ref result);
+
+                                                                                if (code == ReturnCode.Ok)
+                                                                                    result = stringValue;
                                                                             }
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            code = WebOps.UploadValues(
-                                                                                interpreter, localClientData, uri, method,
-                                                                                ListOps.ToNameValueCollection(
-                                                                                    listData, new NameValueCollection()),
-                                                                                timeout, trusted, ref responseBytes, ref result);
-                                                                        }
-
-                                                                        if (code == ReturnCode.Ok)
-                                                                        {
-                                                                            string stringValue = null;
-
-                                                                            code = StringOps.GetString(
-                                                                                encoding, responseBytes,
-                                                                                EncodingType.RemoteUri,
-                                                                                ref stringValue, ref result);
-
-                                                                            if (code == ReturnCode.Ok)
-                                                                                result = stringValue;
-                                                                        }
-                                                                    }
-                                                                }
-                                                                else
-                                                                {
-                                                                    //
-                                                                    // NOTE: Is this an asynchronous request?
-                                                                    //
-                                                                    if (callbackArguments != null)
-                                                                    {
-                                                                        //
-                                                                        // NOTE: The "-trusted" option is not supported for
-                                                                        //       asynchronous uploads.  Instead, use the
-                                                                        //       [uri softwareupdates] sub-command before
-                                                                        //       and after (i.e. to allow for proper saving
-                                                                        //       and restoring of the current trust setting).
-                                                                        //
-                                                                        if (!trusted)
-                                                                        {
-                                                                            code = WebOps.UploadFileAsync(
-                                                                                interpreter, localClientData, callbackArguments,
-                                                                                callbackFlags, uri, method,
-                                                                                argument, timeout, ref result);
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            result = "-trusted cannot be used with -callback option";
-                                                                            code = ReturnCode.Error;
                                                                         }
                                                                     }
                                                                     else
                                                                     {
-                                                                        code = WebOps.UploadFile(
-                                                                            interpreter, localClientData, uri, method, argument,
-                                                                            timeout, trusted, ref result);
+                                                                        //
+                                                                        // NOTE: Is this an asynchronous request?
+                                                                        //
+                                                                        if (callbackArguments != null)
+                                                                        {
+                                                                            //
+                                                                            // NOTE: The "-trusted" option is not supported for
+                                                                            //       asynchronous uploads.  Instead, use the
+                                                                            //       [uri softwareupdates] sub-command before
+                                                                            //       and after (i.e. to allow for proper saving
+                                                                            //       and restoring of the current trust setting).
+                                                                            //
+                                                                            if (!trusted)
+                                                                            {
+                                                                                code = WebOps.UploadFileAsync(
+                                                                                    interpreter, localClientData, callbackArguments,
+                                                                                    callbackFlags, uri, method,
+                                                                                    argument, timeout, ref result);
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                result = "-trusted cannot be used with -callback option";
+                                                                                code = ReturnCode.Error;
+                                                                            }
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            code = WebOps.UploadFile(
+                                                                                interpreter, localClientData, uri, method, argument,
+                                                                                timeout, trusted, ref result);
+                                                                        }
                                                                     }
                                                                 }
+                                                            }
+                                                            else
+                                                            {
+                                                                code = ReturnCode.Error;
                                                             }
                                                         }
                                                     }
@@ -1382,7 +1437,9 @@ namespace Eagle._Commands
                                                     }
                                                     else
                                                     {
-                                                        result = "wrong # args: should be \"uri upload ?options? uri ?argument?\"";
+                                                        result = String.Format(
+                                                            "wrong # args: should be \"{0} {1} ?options? uri ?argument?\"",
+                                                            this.Name, subCommand);
                                                     }
 
                                                     code = ReturnCode.Error;
@@ -1395,7 +1452,10 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"uri upload ?options? uri ?argument?\"";
+                                            result = String.Format(
+                                                "wrong # args: should be \"{0} {1} ?options? uri ?argument?\"",
+                                                this.Name, subCommand);
+
                                             code = ReturnCode.Error;
                                         }
                                         break;

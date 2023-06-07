@@ -243,7 +243,7 @@ namespace Eagle._Commands
                     // NOTE: The command is being deleted.  Delete the alias
                     //       as well.
                     //
-                    code = interpreter.RemoveAlias(
+                    code = interpreter.InternalRemoveAlias(
                         nameToken, clientData, ref result);
                 }
                 else

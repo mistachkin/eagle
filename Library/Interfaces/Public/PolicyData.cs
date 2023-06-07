@@ -16,14 +16,8 @@ using Eagle._Components.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("30de3027-a7fc-4433-840e-d968ce4847e4")]
-    public interface IPolicyData : IIdentifier, IHavePlugin, IWrapperData
+    public interface IPolicyData : IIdentifier, IHavePlugin, IWrapperData, ITypeAndName
     {
-        //
-        // NOTE: The fully qualified type name for this policy (not including
-        //       the assembly name).
-        //
-        string TypeName { get; set; }
-
         //
         // NOTE: The name of the policy method.
         //

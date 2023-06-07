@@ -27,5 +27,8 @@ namespace Eagle._Interfaces.Public
 
         string HashAlgorithmName { set; }
         bool HashAlgorithmNameSet { get; }
+
+        string Signature { set; }
+        bool SignatureSet { get; }
     }
 }

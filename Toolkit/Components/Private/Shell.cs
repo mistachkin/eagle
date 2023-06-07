@@ -70,9 +70,8 @@ namespace Eagle._Shell
                             null, null, null, null, null, 0));
 
                         code = Utility.PopulatePluginEntities(
-                            interpreter, plugin, null, null,
-                            PluginFlags.None, null, false, false,
-                            ref result);
+                            interpreter, plugin, null, null, null,
+                            false, false, false, ref result);
 
                         if (code == ReturnCode.Ok)
                             code = interpreter.AddPlugin(plugin, null,

@@ -22,5 +22,6 @@ namespace Eagle._Interfaces.Public
         bool AllowNull { get; set; }
         bool Pairs { get; set; }
         bool Names { get; set; }
+        bool NoFixup { get; set; }
     }
 }

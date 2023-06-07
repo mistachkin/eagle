@@ -84,7 +84,7 @@ namespace Eagle._Commands
                                 if ((argumentIndex + 1) < arguments.Count)
                                     channelId = arguments[argumentIndex];
 
-                                IChannel channel = interpreter.GetChannel(channelId, ref result);
+                                IChannel channel = interpreter.InternalGetChannel(channelId, ref result);
 
                                 if (channel != null)
                                 {
@@ -96,14 +96,14 @@ namespace Eagle._Commands
 
                                         if (newLine)
                                         {
-                                            StringBuilder builder = StringOps.NewStringBuilder(
+                                            StringBuilder builder = StringBuilderFactory.Create(
                                                 arguments[arguments.Count - 1]);
 
                                             builder.Append(
                                                 ConversionOps.ToChar(ChannelOps.NewLine));
 
-                                            output = builder.ToString();
-                                            builder.Length = 0; /* Clear(); */
+                                            output = StringBuilderCache.GetStringAndRelease(
+                                                ref builder);
                                         }
                                         else
                                         {

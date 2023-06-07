@@ -69,7 +69,6 @@ namespace Eagle._Components.Private
     internal static class FormatOps
     {
         #region Private Constants
-        private const string DefaultImageRuntimeVersion = "v4.0.30319";
         private static readonly string TracePriorityFormat = "X2";
 
         private const string RuntimeSeparator = " - ";
@@ -77,6 +76,9 @@ namespace Eagle._Components.Private
 
         private static readonly string NoPlatformName = "none";
         private static readonly string UnknownTypeName = "unknown";
+
+        internal static readonly string DisplayNoMessage = "<noMessage>";
+        internal static readonly string DisplayNoCategory = "<noCategory>";
 
         private static readonly string DisplayNoType = "<noType>";
         private static readonly string DisplayNoAssembly = "<noAssembly>";
@@ -92,6 +94,7 @@ namespace Eagle._Components.Private
 #endif
 
         internal static readonly string DisplayObject = "<object>";
+        private static readonly string DisplayNullObject = "<nullObject>";
         private static readonly string DisplayNullString = "<nullString>";
         private static readonly string DisplayEmptyString = "<emptyString>";
         internal static readonly string DisplayEmpty = "<empty>";
@@ -107,7 +110,7 @@ namespace Eagle._Components.Private
         internal static readonly string DisplayPresent = "<present>";
         internal static readonly string DisplayFormat = "<{0}>";
         private static readonly string DisplayAnonymous = "<anonymous>";
-        private static readonly string DisplayUnavailable = "<unavailable>";
+        internal static readonly string DisplayUnavailable = "<unavailable>";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -153,7 +156,7 @@ namespace Eagle._Components.Private
         private static int HistoryEllipsisLimit = 78;
 #endif
 
-        private static int DefaultEllipsisLimit = 60;
+        private static int DefaultEllipsisLimit = 200;
         private static int WrapEllipsisLimit = 200;
         #endregion
 
@@ -1059,7 +1062,7 @@ namespace Eagle._Components.Private
         {
             if (waitHandles != null)
             {
-                StringBuilder result = StringOps.NewStringBuilder();
+                StringBuilder result = StringBuilderFactory.Create();
 
                 for (int index = 0; index < waitHandles.Length; index++)
                 {
@@ -1074,7 +1077,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                return result.ToString();
+                return StringBuilderCache.GetStringAndRelease(ref result);
             }
 
             return DisplayNull;
@@ -1595,7 +1598,7 @@ namespace Eagle._Components.Private
             if (statistics == null)
                 return DisplayNull;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
             int length = statistics.Length;
 
             if (length > (int)BufferStats.Length)
@@ -1659,9 +1662,12 @@ namespace Eagle._Components.Private
             }
 
             if (builder.Length == 0)
+            {
+                StringBuilderCache.Release(ref builder);
                 return DisplayEmpty;
+            }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1941,7 +1947,7 @@ namespace Eagle._Components.Private
             if (collection == null)
                 return DisplayNull;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             foreach (KeyValuePair<string, int> pair in collection)
             {
@@ -1970,7 +1976,7 @@ namespace Eagle._Components.Private
                     "{0}{1}", Characters.HorizontalTab, pair.Value);
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2135,25 +2141,79 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string CommandLogEntry(
-            Interpreter interpreter,
-            IPlugin plugin,
-            IClientData clientData,
-            ArgumentList arguments,
-            int indentSpaces,
-            bool allowNewLines
+        private static string MaybeQuote(
+            object value
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder();
+            if (value == null)
+                return DisplayNullObject;
+
+            string stringValue = value.ToString();
+
+            if (stringValue == null)
+                return DisplayNullString;
+
+            if (stringValue.Length == 0)
+                return DisplayEmptyString;
+
+            if (!Parser.NeedsQuoting(stringValue))
+                return stringValue;
+
+            if (stringValue.IndexOf(
+                    Characters.QuotationMark) != Index.Invalid)
+            {
+                return Parser.Quote(stringValue,
+                    ListElementFlags.DontQuoteHash);
+            }
+            else
+            {
+                return String.Format("{0}{1}{0}",
+                    Characters.QuotationMark, /* EXEMPT */
+                    stringValue);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string CommandLogEntry(
+            Interpreter interpreter,
+            IPluginData pluginData,
+            IClientData clientData,
+            ArgumentList arguments,
+            ReturnCode? returnCode,
+            Result result,
+            int indentSpaces,
+            bool allowNewLines,
+            ref long entryId
+            )
+        {
+            if (entryId == 0)
+                entryId = GlobalState.NextEntryId();
+
+            bool haveResult;
+
+            if ((returnCode != null) || (result != null))
+                haveResult = true;
+            else
+                haveResult = false;
+
+            StringBuilder builder = StringBuilderFactory.Create();
 
             builder.AppendFormat(
-                "[{0}, {1}, {2}, {3}, {4}, {5}]:",
-                ProcessOps.GetId(),
+                "{0}{1} #{2}, p:{3}, a:{4}, t:{5}, i:{6}, n:{7}, c:{8}{9}:",
+                Characters.OpenBracket,
+                haveResult ? "EXIT" : "ENTER",
+                entryId, ProcessOps.GetId(),
                 AppDomainOps.GetCurrentId(),
                 GlobalState.GetCurrentSystemThreadId(),
                 InterpreterNoThrow(interpreter, false),
-                PluginName(plugin, false),
-                ClientDataName(clientData));
+                PluginName(pluginData, false),
+                ClientDataName(clientData),
+                Characters.CloseBracket);
+
+            StringBuilder builder2; /* REUSED */
+            string newLine; /* REUSED */
+            string indent; /* REUSED */
 
             if (arguments != null)
             {
@@ -2161,7 +2221,7 @@ namespace Eagle._Components.Private
 
                 if (count > 0)
                 {
-                    StringBuilder builder2 = StringOps.NewStringBuilder();
+                    builder2 = StringBuilderFactory.Create();
 
                     for (int index = 0; index < count; index++)
                     {
@@ -2170,23 +2230,11 @@ namespace Eagle._Components.Private
                         if (index > 0)
                             builder2.Append(Characters.Space);
 
-                        if (argument == null)
-                        {
-                            builder2.Append(DisplayNullString);
-                            continue;
-                        }
-
-                        if (argument.Length == 0)
-                        {
-                            builder2.Append(DisplayEmptyString);
-                            continue;
-                        }
-
-                        builder2.Append(Parser.Quote(argument));
+                        builder2.Append(MaybeQuote(argument));
                     }
 
-                    string newLine = null;
-                    string indent = null;
+                    newLine = null;
+                    indent = null;
 
                     if (StringOps.IsMultiLine(
                             builder2, indentSpaces, ref newLine,
@@ -2212,7 +2260,9 @@ namespace Eagle._Components.Private
                         builder.Append(Characters.Space);
                     }
 
-                    builder.Append(builder2);
+                    builder.Append(
+                        StringBuilderCache.GetStringAndRelease(
+                        ref builder2));
                 }
                 else
                 {
@@ -2226,7 +2276,52 @@ namespace Eagle._Components.Private
                 builder.Append(DisplayNullList);
             }
 
-            return builder.ToString();
+            if (haveResult)
+            {
+                builder.AppendFormat(
+                    " ==> {0}code {1}, result",
+                    Characters.OpenBracket,
+                    MaybeNull(returnCode));
+
+                builder2 = StringBuilderFactory.Create();
+                builder2.Append(MaybeQuote(result));
+
+                newLine = null;
+                indent = null;
+
+                if (StringOps.IsMultiLine(
+                        builder2, indentSpaces, ref newLine,
+                        ref indent))
+                {
+                    if (allowNewLines)
+                    {
+                        builder2.Append(newLine);
+                        builder2.Insert(0, indent);
+                        builder2.Insert(0, newLine);
+                    }
+                    else
+                    {
+                        StringOps.FixupWhiteSpace(
+                            builder2, Characters.Space,
+                            WhiteSpaceFlags.LogUse);
+
+                        builder.Append(Characters.Space);
+                    }
+                }
+                else
+                {
+                    builder.Append(Characters.Space);
+                }
+
+                builder.Append(
+                    StringBuilderCache.GetStringAndRelease(
+                    ref builder2));
+
+                builder.Append(Characters.CloseBracket);
+            }
+
+            return StringBuilderCache.GetStringAndRelease(
+                ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2270,7 +2365,7 @@ namespace Eagle._Components.Private
             {
                 try
                 {
-                    StringBuilder result = StringOps.NewStringBuilder();
+                    StringBuilder result = StringBuilderFactory.Create();
 
                     result.AppendFormat(
                         "{0}: {1}, ", "Name", WrapOrNull(thread.Name));
@@ -2302,7 +2397,7 @@ namespace Eagle._Components.Private
                     result.AppendFormat(
                         "{0}: {1}", "CurrentUICulture", WrapOrNull(thread.CurrentUICulture));
 
-                    return result.ToString();
+                    return StringBuilderCache.GetStringAndRelease(ref result);
                 }
                 catch (Exception e)
                 {
@@ -2324,7 +2419,7 @@ namespace Eagle._Components.Private
             bool showLines
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (!String.IsNullOrEmpty(body))
             {
@@ -2356,7 +2451,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2369,7 +2464,7 @@ namespace Eagle._Components.Private
             string complainStackTrace
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder(
+            StringBuilder builder = StringBuilderFactory.Create(
                 String.Format("{0} ({1}): {2}", threadId, id,
                 DisplayString(message)));
 
@@ -2385,7 +2480,7 @@ namespace Eagle._Components.Private
                     Environment.NewLine, complainStackTrace);
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2431,7 +2526,7 @@ namespace Eagle._Components.Private
             byte width
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
 
             if (value > 0)
             {
@@ -2461,8 +2556,8 @@ namespace Eagle._Components.Private
                 // NOTE: Finally, reverse the string to put the digits in
                 //       the correct order.
                 //
-                result = StringOps.NewStringBuilder(
-                    StringOps.StrReverse(result.ToString()));
+                result = StringBuilderFactory.CreateNoCache(
+                    StringOps.StrReverse(result.ToString())); /* EXEMPT */
             }
             else
             {
@@ -2476,7 +2571,10 @@ namespace Eagle._Components.Private
             // NOTE: If requested, 'zero' pad to the requested width.
             //
             if (width > result.Length)
-                result.Insert(0, StringOps.StrRepeat(width - result.Length, HexavigesimalAlphabet[0]));
+            {
+                result.Insert(0, StringOps.StrRepeat(
+                    width - result.Length, HexavigesimalAlphabet[0]));
+            }
 
             return result.ToString();
         }
@@ -2525,7 +2623,7 @@ namespace Eagle._Components.Private
             DateTime value
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder(
+            StringBuilder builder = StringBuilderFactory.Create(
                 value.ToString(PackageDateTimeOutputFormat));
 
             if (IncludeBuildSecondsForPackageDateTime)
@@ -2540,7 +2638,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2641,11 +2739,11 @@ namespace Eagle._Components.Private
             if (String.IsNullOrEmpty(value))
                 return value;
 
-            StringBuilder builder = StringOps.NewStringBuilder(value);
+            StringBuilder builder = StringBuilderFactory.Create(value);
 
             StringOps.FixupDisplayLineEndings(builder, false);
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2656,7 +2754,7 @@ namespace Eagle._Components.Private
         {
             if (value != null)
             {
-                StringBuilder result = StringOps.NewStringBuilder();
+                StringBuilder result = StringBuilderFactory.Create();
 
                 result.AppendFormat(
                     "{0}: {1}, ", "ReturnCode", value.ReturnCode);
@@ -2682,7 +2780,7 @@ namespace Eagle._Components.Private
                     "{0}: {1}", "Exception",
                     WrapOrNull(true, true, value.Exception));
 
-                return result.ToString();
+                return StringBuilderCache.GetStringAndRelease(ref result);
             }
 
             return DisplayNull;
@@ -3463,6 +3561,15 @@ namespace Eagle._Components.Private
 
                                 break;
                             }
+                        case PackageType.Kit:
+                            {
+                                result = PathOps.GetUnixPath(
+                                    PathOps.CombinePath(null,
+                                    ScriptPaths.KitPackage,
+                                    result));
+
+                                break;
+                            }
                     }
                 }
 
@@ -3534,7 +3641,7 @@ namespace Eagle._Components.Private
             //       (Tcl 8.5+) and translated from Tcl
             //       to C#.
             //
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (totalSeconds < 0)
             {
@@ -3555,7 +3662,7 @@ namespace Eagle._Components.Private
             if (totalSeconds != 0)
                 result.AppendFormat("{0:00}", totalSeconds);
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3656,14 +3763,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-#if CONSOLE || NATIVE
         public static string Iso8601DateTime(
             DateTime? value
             )
         {
             return Iso8601DateTime(value, false);
         }
-#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -4083,7 +4188,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string DisplayString(
+        private static string DisplayString(
             string value,
             bool wrap
             )
@@ -4092,6 +4197,33 @@ namespace Eagle._Components.Private
             {
                 if (value.Length > 0)
                     return wrap ? WrapOrNull(value) : value;
+
+                return DisplayEmpty;
+            }
+
+            return DisplayNull;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string DisplayString(
+            StringBuilder value
+            )
+        {
+            return DisplayString(value, false);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string DisplayString(
+            StringBuilder value,
+            bool wrap
+            )
+        {
+            if (value != null)
+            {
+                if (value.Length > 0)
+                    return wrap ? WrapOrNull(value.ToString()) : value.ToString();
 
                 return DisplayEmpty;
             }
@@ -4111,11 +4243,11 @@ namespace Eagle._Components.Private
             if (value.Length == 0)
                 return DisplayEmpty;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             builder.Append(value);
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4297,18 +4429,46 @@ namespace Eagle._Components.Private
             //       for backward compatibility with the .NET Framework
             //       4.x.
             //
-            string version = AssemblyOps.GetImageRuntimeVersion(assembly);
+            string assemblyVersion = AssemblyOps.GetImageRuntimeVersion(
+                assembly);
 
-            if (SharedStringOps.SystemEquals(
-                    version, DefaultImageRuntimeVersion) &&
+            if (SharedStringOps.SystemEquals(assemblyVersion,
+                    CommonOps.Runtime.ImageRuntimeVersion4) &&
                 (treatAsMono || treatAsDotNetCore))
             {
+                //
+                // NOTE: This is not using the image runtime version,
+                //       but the runtime version (see above comment).
+                //
                 return ShortRuntimeVersion(
                     CommonOps.Runtime.GetRuntimeVersion());
             }
             else
             {
-                return ShortImageRuntimeVersion(version);
+                string runtimeVersion =
+                    CommonOps.Runtime.GetImageRuntimeVersion();
+
+                if (SharedStringOps.SystemEquals(assemblyVersion,
+                        runtimeVersion))
+                {
+                    return ShortImageRuntimeVersion(runtimeVersion);
+                }
+                else if (SharedStringOps.SystemEquals(assemblyVersion,
+                        CommonOps.Runtime.ImageRuntimeVersion2) &&
+                    SharedStringOps.SystemEquals(runtimeVersion,
+                        CommonOps.Runtime.ImageRuntimeVersion4))
+                {
+                    //
+                    // HACK: *SPECIAL* This is the case when a CLRv2
+                    //       assembly is running on the CLRv4, which
+                    //       is a non-standard usage.
+                    //
+                    return "CLRv2/4";
+                }
+                else
+                {
+                    return ShortImageRuntimeVersion(assemblyVersion);
+                }
             }
         }
 
@@ -4382,7 +4542,7 @@ namespace Eagle._Components.Private
             string suffix
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             if (!String.IsNullOrEmpty(text))
                 builder.Append(text);
@@ -4404,9 +4564,14 @@ namespace Eagle._Components.Private
             }
 
             if (builder.Length == 0)
+            {
+                StringBuilderCache.Release(ref builder);
                 return String.Empty;
+            }
 
-            return String.Format("{0}{1}{2}", prefix, builder, suffix);
+            return String.Format("{0}{1}{2}", prefix,
+                StringBuilderCache.GetStringAndRelease(
+                ref builder), suffix);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4444,7 +4609,7 @@ namespace Eagle._Components.Private
             string index
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (!String.IsNullOrEmpty(name))
             {
@@ -4457,7 +4622,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4526,6 +4691,23 @@ namespace Eagle._Components.Private
         {
             return TypeNameOrFullName(@object, null, null, false);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if DATA
+        public static string TypeOrName(
+            object typeOrName
+            )
+        {
+            if (typeOrName is Type)
+                return TypeName((Type)typeOrName, DisplayNull, true);
+
+            if (typeOrName is string)
+                return WrapOrNull((string)typeOrName);
+
+            return DisplayTypeMismatch;
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -4886,15 +5068,16 @@ namespace Eagle._Components.Private
             if (name.Length == 0)
                 return DisplayEmpty;
 
-            if (name.IndexOf(Characters.QuotationMark) != Index.Invalid)
+            if (name.IndexOf(
+                    Characters.QuotationMark) != Index.Invalid)
             {
-                return Parser.Quote(
-                    name, ListElementFlags.DontQuoteHash);
+                return Parser.Quote(name,
+                    ListElementFlags.DontQuoteHash);
             }
             else
             {
-                return String.Format(
-                    "{0}{1}{0}", Characters.QuotationMark, /* EXEMPT */
+                return String.Format("{0}{1}{0}",
+                    Characters.QuotationMark, /* EXEMPT */
                     name);
             }
         }
@@ -4926,15 +5109,30 @@ namespace Eagle._Components.Private
             {
                 location = assembly.Location;
             }
-            catch (NotSupportedException)
+            catch (Exception e) // (NotSupportedException)
             {
-                // do nothing.
+                Type type = (e != null) ? e.GetType() : null;
+
+                location = String.Format(DisplayError0,
+                    (type != null) ? type.Name : UnknownTypeName);
             }
 
             if (location == null)
                 location = DisplayNull;
 
-            string codeBase = assembly.CodeBase;
+            string codeBase;
+
+            try
+            {
+                codeBase = assembly.CodeBase;
+            }
+            catch (Exception e)
+            {
+                Type type = (e != null) ? e.GetType() : null;
+
+                codeBase = String.Format(DisplayError0,
+                    (type != null) ? type.Name : UnknownTypeName);
+            }
 
             if (codeBase == null)
                 codeBase = DisplayNull;
@@ -5004,12 +5202,19 @@ namespace Eagle._Components.Private
                     {
                         list.Add(assembly.Location);
                     }
-                    catch (NotSupportedException)
+                    catch // (NotSupportedException)
                     {
                         list.Add((string)null);
                     }
 
-                    list.Add(assembly.CodeBase);
+                    try
+                    {
+                        list.Add(assembly.CodeBase);
+                    }
+                    catch // (PlatformNotSupportedException)
+                    {
+                        list.Add((string)null);
+                    }
                 }
             }
 
@@ -5402,7 +5607,7 @@ namespace Eagle._Components.Private
             string id6
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (!String.IsNullOrEmpty(prefix))
             {
@@ -5468,7 +5673,7 @@ namespace Eagle._Components.Private
                 result.Append(id6);
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6229,7 +6434,7 @@ namespace Eagle._Components.Private
             MarshalFlags marshalFlags
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             string qualifiedMethodName = QualifiedName(
                 objectName, methodName);
@@ -6256,7 +6461,7 @@ namespace Eagle._Components.Private
                     Characters.NumberSign, index, Characters.Space));
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6318,14 +6523,14 @@ namespace Eagle._Components.Private
             {
                 try
                 {
-                    StringBuilder result = StringOps.NewStringBuilder();
+                    StringBuilder result = StringBuilderFactory.Create();
 
                     result.AppendFormat(
                         "[id = {0}, default = {1}]",
                         AppDomainOps.GetId(appDomain),
                         AppDomainOps.IsDefault(appDomain));
 
-                    return result.ToString();
+                    return StringBuilderCache.GetStringAndRelease(ref result);
                 }
                 catch (Exception e)
                 {
@@ -6556,7 +6761,7 @@ namespace Eagle._Components.Private
         {
             if (tries > 0)
             {
-                StringBuilder builder = StringOps.NewStringBuilder();
+                StringBuilder builder = StringBuilderFactory.Create();
 
                 builder.AppendFormat(
                     "after {0} of {1} tries", tries, (limit >= 0) ?
@@ -6570,7 +6775,7 @@ namespace Eagle._Components.Private
                         " or about {2} milliseconds", milliseconds);
                 }
 
-                return builder.ToString();
+                return StringBuilderCache.GetStringAndRelease(ref builder);
             }
             else
             {

@@ -159,6 +159,7 @@ runTest {test object-15.4 {Interpreter/IInterpreter interface} -setup {
                        Eagle._Interfaces.Public.IShellManager \
                        Eagle._Interfaces.Public.IStatusManager \
                        Eagle._Interfaces.Public.ISynchronize \
+                       Eagle._Interfaces.Public.ISynchronizeBase \
                        Eagle._Interfaces.Public.ITclEntityManager \
                        Eagle._Interfaces.Public.ITclManager \
                        Eagle._Interfaces.Public.ITraceManager \
@@ -252,18 +253,24 @@ runTest {test object-15.5 {Interpreter public static members} -body {
 {memberType Method memberName TryStaticLock}\
 {memberType Method memberName get_ComplainCallback}\
 {memberType Method memberName get_FreeInterpreterCallback}\
+{memberType Method memberName get_InitializeInterpreterCallback}\
 {memberType Method memberName get_NewHostCallback}\
 {memberType Method memberName get_NewInterpreterCallback}\
+{memberType Method memberName get_PrepareInterpreterCallback}\
 {memberType Method memberName get_UseInterpreterCallback}\
 {memberType Method memberName set_ComplainCallback}\
 {memberType Method memberName set_FreeInterpreterCallback}\
+{memberType Method memberName set_InitializeInterpreterCallback}\
 {memberType Method memberName set_NewHostCallback}\
 {memberType Method memberName set_NewInterpreterCallback}\
+{memberType Method memberName set_PrepareInterpreterCallback}\
 {memberType Method memberName set_UseInterpreterCallback}\
 {memberType Property memberName ComplainCallback}\
 {memberType Property memberName FreeInterpreterCallback}\
+{memberType Property memberName InitializeInterpreterCallback}\
 {memberType Property memberName NewHostCallback}\
 {memberType Property memberName NewInterpreterCallback}\
+{memberType Property memberName PrepareInterpreterCallback}\
 {memberType Property memberName UseInterpreterCallback}}}
 
 ###############################################################################
@@ -433,10 +440,16 @@ EComPD.ComplainCallback parameterTypes {}} {memberType Method memberName\
 get_FreeInterpreterCallback methodType Method methodName\
 get_FreeInterpreterCallback callingConvention Standard returnType\
 EComPD.EventCallback parameterTypes {}} {memberType Method memberName\
+get_InitializeInterpreterCallback methodType Method methodName\
+get_InitializeInterpreterCallback callingConvention Standard returnType\
+EComPD.EventCallback parameterTypes {}} {memberType Method memberName\
 get_NewHostCallback methodType Method methodName get_NewHostCallback\
 callingConvention Standard returnType EComPD.NewHostCallback parameterTypes {}}\
 {memberType Method memberName get_NewInterpreterCallback methodType Method\
 methodName get_NewInterpreterCallback callingConvention Standard returnType\
+EComPD.EventCallback parameterTypes {}} {memberType Method memberName\
+get_PrepareInterpreterCallback methodType Method methodName\
+get_PrepareInterpreterCallback callingConvention Standard returnType\
 EComPD.EventCallback parameterTypes {}} {memberType Method memberName\
 get_UseInterpreterCallback methodType Method methodName\
 get_UseInterpreterCallback callingConvention Standard returnType\
@@ -447,12 +460,18 @@ EComPD.ComplainCallback} {memberType Method memberName\
 set_FreeInterpreterCallback methodType Method methodName\
 set_FreeInterpreterCallback callingConvention Standard returnType System.Void\
 parameterTypes EComPD.EventCallback} {memberType Method memberName\
+set_InitializeInterpreterCallback methodType Method methodName\
+set_InitializeInterpreterCallback callingConvention Standard returnType\
+System.Void parameterTypes EComPD.EventCallback} {memberType Method memberName\
 set_NewHostCallback methodType Method methodName set_NewHostCallback\
 callingConvention Standard returnType System.Void parameterTypes\
 EComPD.NewHostCallback} {memberType Method memberName\
 set_NewInterpreterCallback methodType Method methodName\
 set_NewInterpreterCallback callingConvention Standard returnType System.Void\
 parameterTypes EComPD.EventCallback} {memberType Method memberName\
+set_PrepareInterpreterCallback methodType Method methodName\
+set_PrepareInterpreterCallback callingConvention Standard returnType\
+System.Void parameterTypes EComPD.EventCallback} {memberType Method memberName\
 set_UseInterpreterCallback methodType Method methodName\
 set_UseInterpreterCallback callingConvention Standard returnType System.Void\
 parameterTypes EComPD.EventCallback} {memberType Property memberName\
@@ -465,7 +484,12 @@ get_FreeInterpreterCallback callingConvention Standard returnType\
 EComPD.EventCallback parameterTypes {} methodType Method methodName\
 set_FreeInterpreterCallback callingConvention Standard returnType System.Void\
 parameterTypes EComPD.EventCallback} {memberType Property memberName\
-NewHostCallback methodType Method methodName get_NewHostCallback\
+InitializeInterpreterCallback methodType Method methodName\
+get_InitializeInterpreterCallback callingConvention Standard returnType\
+EComPD.EventCallback parameterTypes {} methodType Method methodName\
+set_InitializeInterpreterCallback callingConvention Standard returnType\
+System.Void parameterTypes EComPD.EventCallback} {memberType Property\
+memberName NewHostCallback methodType Method methodName get_NewHostCallback\
 callingConvention Standard returnType EComPD.NewHostCallback parameterTypes {}\
 methodType Method methodName set_NewHostCallback callingConvention Standard\
 returnType System.Void parameterTypes EComPD.NewHostCallback} {memberType\
@@ -474,10 +498,16 @@ get_NewInterpreterCallback callingConvention Standard returnType\
 EComPD.EventCallback parameterTypes {} methodType Method methodName\
 set_NewInterpreterCallback callingConvention Standard returnType System.Void\
 parameterTypes EComPD.EventCallback} {memberType Property memberName\
-UseInterpreterCallback methodType Method methodName get_UseInterpreterCallback\
-callingConvention Standard returnType EComPD.EventCallback parameterTypes {}\
-methodType Method methodName set_UseInterpreterCallback callingConvention\
-Standard returnType System.Void parameterTypes EComPD.EventCallback}}}
+PrepareInterpreterCallback methodType Method methodName\
+get_PrepareInterpreterCallback callingConvention Standard returnType\
+EComPD.EventCallback parameterTypes {} methodType Method methodName\
+set_PrepareInterpreterCallback callingConvention Standard returnType\
+System.Void parameterTypes EComPD.EventCallback} {memberType Property\
+memberName UseInterpreterCallback methodType Method methodName\
+get_UseInterpreterCallback callingConvention Standard returnType\
+EComPD.EventCallback parameterTypes {} methodType Method methodName\
+set_UseInterpreterCallback callingConvention Standard returnType System.Void\
+parameterTypes EComPD.EventCallback}}}
 
 ###############################################################################
 

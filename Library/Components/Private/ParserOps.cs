@@ -460,13 +460,13 @@ namespace Eagle._Components.Private
                     // NOTE: If we are in braces, don't worry about
                     //       processing backslash escapes.
                     //
-                    element = StringOps.NewStringBuilder(
+                    element = StringBuilderFactory.Create(
                         element, text, elementIndex, elementLength,
-                        capacity);
+                        capacity, false);
                 }
                 else
                 {
-                    element = StringOps.NewStringBuilder(
+                    element = StringBuilderFactory.Create(
                         element, capacity);
 
                     for (char character = text[elementIndex];
@@ -513,6 +513,8 @@ namespace Eagle._Components.Private
 
                 localList.Add(element.ToString());
             }
+
+            StringBuilderCache.Release(ref element);
 
 #if LIST_CACHE
             if (useCache)
@@ -1153,7 +1155,7 @@ namespace Eagle._Components.Private
             Interlocked.Increment(
                 ref ParserOpsData.managedJoinCount);
 
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (list != null)
             {
@@ -1221,7 +1223,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1239,7 +1241,7 @@ namespace Eagle._Components.Private
             Interlocked.Increment(
                 ref ParserOpsData.managedJoinCount);
 
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (list != null)
             {
@@ -1313,7 +1315,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
         #endregion
 

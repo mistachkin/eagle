@@ -21,6 +21,7 @@ using System.IO.Compression;
 
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Private.Delegates;
@@ -66,6 +67,12 @@ namespace Eagle._Components.Private
 
         private static readonly string DefaultKit32FileName =
             "EagleKit32" + FileExtension.Executable;
+
+        private static readonly string DefaultEnterpriseKitFileName =
+            "EeeKit" + FileExtension.Executable;
+
+        private static readonly string DefaultEnterpriseKit32FileName =
+            "EeeKit32" + FileExtension.Executable;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -95,7 +102,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static readonly string SecurityCertificateResourceName =
-            String.Format("{0}.Resources.Certificates.certificate.xml",
+            String.Format("{0}.Resources.Certificates.certificate.exml",
             GlobalState.GetPackageName());
 
         private static readonly string SecurityCertificateRequestName =
@@ -199,7 +206,23 @@ namespace Eagle._Components.Private
         //
         private static readonly string UnzipFileNameOnly =
             PlatformOps.IsWindowsOperatingSystem() ? "unzip.exe" : "unzip";
+
+        //
+        // NOTE: The number of milliseconds to wait before attempting to
+        //       delete the (temporary) downloaded "unzip.exe" tool file.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static int UnzipDeleteDelayMilliseconds = 1000;
 #endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Core Script Class Support Constants
+        private static Regex EmbeddedIdRegEx = RegExOps.Create(
+            "^\\s*#\\s*<Id>([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-" +
+            "[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})</Id>$", RegexOptions.Multiline);
         #endregion
         #endregion
 
@@ -292,7 +315,7 @@ namespace Eagle._Components.Private
             Version version
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder(text);
+            StringBuilder builder = StringBuilderFactory.Create(text);
 
             if (name != null)
             {
@@ -306,7 +329,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
         #endregion
 
@@ -601,17 +624,41 @@ namespace Eagle._Components.Private
             string fileNameOnly /* in */
             )
         {
-            if (PathOps.IsEqualFileName(fileNameOnly, DefaultShellFileName))
+            if (PathOps.IsEqualFileName(
+                    fileNameOnly, DefaultShellFileName))
+            {
                 return true;
+            }
 
-            if (PathOps.IsEqualFileName(fileNameOnly, DefaultShell32FileName))
+            if (PathOps.IsEqualFileName(
+                    fileNameOnly, DefaultShell32FileName))
+            {
                 return true;
+            }
 
-            if (PathOps.IsEqualFileName(fileNameOnly, DefaultKitFileName))
+            if (PathOps.IsEqualFileName(
+                    fileNameOnly, DefaultKitFileName))
+            {
                 return true;
+            }
 
-            if (PathOps.IsEqualFileName(fileNameOnly, DefaultKit32FileName))
+            if (PathOps.IsEqualFileName(
+                    fileNameOnly, DefaultKit32FileName))
+            {
                 return true;
+            }
+
+            if (PathOps.IsEqualFileName(
+                    fileNameOnly, DefaultEnterpriseKitFileName))
+            {
+                return true;
+            }
+
+            if (PathOps.IsEqualFileName(
+                    fileNameOnly, DefaultEnterpriseKit32FileName))
+            {
+                return true;
+            }
 
             return false;
         }
@@ -623,7 +670,8 @@ namespace Eagle._Components.Private
             bool wow64 /* in */
             )
         {
-            return GetShellFileName(PathOps.GetExecutableNameOnly(), wow64);
+            return GetShellFileName(
+                PathOps.GetExecutableNameOnly(), wow64);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2172,12 +2220,20 @@ namespace Eagle._Components.Private
             ScriptFlags? fallbackScriptFlags,           /* in: OPTIONAL */
             InterpreterFlags? fallbackInterpreterFlags, /* in: OPTIONAL */
             PluginFlags? fallbackPluginFlags,           /* in: OPTIONAL */
+#if NATIVE && TCL
+            FindFlags? fallbackFindFlags,               /* in: OPTIONAL */
+            LoadFlags? fallbackLoadFlags,               /* in: OPTIONAL */
+#endif
             out CreateFlags createFlags,                /* out */
             out HostCreateFlags hostCreateFlags,        /* out */
             out InitializeFlags initializeFlags,        /* out */
             out ScriptFlags scriptFlags,                /* out */
             out InterpreterFlags interpreterFlags,      /* out */
             out PluginFlags pluginFlags                 /* out */
+#if NATIVE && TCL
+            , out FindFlags findFlags,                  /* out */
+            out LoadFlags loadFlags                     /* out */
+#endif
             )
         {
             if ((interpreter != null) && FlagOps.HasFlags(
@@ -2333,6 +2389,60 @@ namespace Eagle._Components.Private
             {
                 pluginFlags = PluginFlags.None;
             }
+
+            ///////////////////////////////////////////////////////////////////
+
+#if NATIVE && TCL
+            if ((interpreter != null) && FlagOps.HasFlags(
+                    creationFlagTypes,
+                    CreationFlagTypes.CurrentFindFlags, true))
+            {
+                findFlags = interpreter.TclFindFlags;
+            }
+            else if ((interpreter != null) && FlagOps.HasFlags(
+                    creationFlagTypes,
+                    CreationFlagTypes.DefaultFindFlags, true))
+            {
+                findFlags = interpreter.DefaultTclFindFlags;
+            }
+            else if (FlagOps.HasFlags(creationFlagTypes,
+                    CreationFlagTypes.FallbackFindFlags, true))
+            {
+                findFlags = (fallbackFindFlags != null) ?
+                    (FindFlags)fallbackFindFlags :
+                    Defaults.FindFlags;
+            }
+            else
+            {
+                findFlags = FindFlags.None;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if ((interpreter != null) && FlagOps.HasFlags(
+                    creationFlagTypes,
+                    CreationFlagTypes.CurrentLoadFlags, true))
+            {
+                loadFlags = interpreter.TclLoadFlags;
+            }
+            else if ((interpreter != null) && FlagOps.HasFlags(
+                    creationFlagTypes,
+                    CreationFlagTypes.DefaultLoadFlags, true))
+            {
+                loadFlags = interpreter.DefaultTclLoadFlags;
+            }
+            else if (FlagOps.HasFlags(creationFlagTypes,
+                    CreationFlagTypes.FallbackLoadFlags, true))
+            {
+                loadFlags = (fallbackLoadFlags != null) ?
+                    (LoadFlags)fallbackLoadFlags :
+                    Defaults.LoadFlags;
+            }
+            else
+            {
+                loadFlags = LoadFlags.None;
+            }
+#endif
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2402,19 +2512,35 @@ namespace Eagle._Components.Private
             InterpreterFlags interpreterFlags;
             PluginFlags pluginFlags;
 
+#if NATIVE && TCL
+            FindFlags findFlags;
+            LoadFlags loadFlags;
+#endif
+
             ExtractInterpreterCreationFlags(
                 interpreter, CreationFlagTypes.SettingsFlags,
                 defaultCreateFlags, defaultHostCreateFlags,
-                null, null, null, null, out createFlags,
+                null, null, null, null,
+#if NATIVE && TCL
+                null, null,
+#endif
+                out createFlags,
                 out hostCreateFlags, out initializeFlags,
                 out scriptFlags, out interpreterFlags,
-                out pluginFlags);
+                out pluginFlags
+#if NATIVE && TCL
+                , out findFlags, out loadFlags
+#endif
+                );
 
             bool disableSecurity = FlagOps.HasFlags(
                 flags, ScriptDataFlags.DisableSecurity, true);
 
             if (disableSecurity)
+            {
+                initializeFlags &= ~InitializeFlags.Scan;
                 initializeFlags &= ~InitializeFlags.Security;
+            }
 
             bool useIsolated = FlagOps.HasFlags(
                 flags, ScriptDataFlags.UseIsolatedInterpreter, true);
@@ -2461,7 +2587,11 @@ namespace Eagle._Components.Private
                             null, clientData, null, createFlags,
                             hostCreateFlags, initializeFlags,
                             scriptFlags, interpreterFlags,
-                            pluginFlags, useIsolated,
+                            pluginFlags,
+#if NATIVE && TCL
+                            findFlags, loadFlags,
+#endif
+                            useIsolated,
                             !disableSecurity, false,
                             ref localResult) == ReturnCode.Ok)
                     {
@@ -2476,6 +2606,15 @@ namespace Eagle._Components.Private
                                 ref otherInterpreter,
                                 ref localResult) == ReturnCode.Ok)
                         {
+                            //
+                            // HACK: Copy the list of trusted
+                            //       hashes to the newly created
+                            //       interpreter so Harpy will
+                            //       be able to load properly.
+                            //
+                            PolicyOps.CopyTrustedHashes(
+                                interpreter, otherInterpreter);
+
                             childName = path;
                             return otherInterpreter;
                         }
@@ -2514,6 +2653,13 @@ namespace Eagle._Components.Private
                     //       parents.
                     //
                     Interpreter.PutInGroup(otherInterpreter, interpreter);
+
+                    //
+                    // HACK: Copy the list of trusted hashes to the newly
+                    //       created interpreter so Harpy will be able to
+                    //       load properly.
+                    //
+                    PolicyOps.CopyTrustedHashes(interpreter, otherInterpreter);
 
                     return otherInterpreter;
                 }
@@ -3821,9 +3967,12 @@ namespace Eagle._Components.Private
             return new _SubCommands.Default(new SubCommandData(
                 name, null, null, clientData,
                 typeof(_SubCommands.Default).FullName,
-                GetSubCommandNameIndex(), CommandFlags.None,
-                subCommandFlags, command, 0), new DelegateData(
-                @delegate, delegateFlags, 0));
+                typeof(_SubCommands.Default),
+                GetSubCommandNameIndex(),
+                CommandFlags.None, subCommandFlags,
+                command, 0), new DelegateData(@delegate,
+                delegateFlags, 0)
+            );
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3838,10 +3987,12 @@ namespace Eagle._Components.Private
             )
         {
             return new _SubCommands.Command(new SubCommandData(
-                name, null, null, ClientData.WrapOrReplace(clientData,
-                scriptCommand), typeof(_SubCommands.Command).FullName,
-                nameIndex, CommandFlags.None, subCommandFlags, command,
-                0));
+                name, null, null, ClientData.WrapOrReplace(
+                clientData, scriptCommand),
+                typeof(_SubCommands.Command).FullName,
+                typeof(_SubCommands.Command), nameIndex,
+                CommandFlags.None, subCommandFlags, command, 0)
+            );
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4891,7 +5042,7 @@ namespace Eagle._Components.Private
             ReturnCode code;
             IExecute execute = null;
 
-            code = interpreter.GetIExecuteViaResolvers(
+            code = interpreter.InternalGetIExecuteViaResolvers(
                 interpreter.GetResolveEngineFlagsNoLock(true), commandName,
                 null, LookupFlags.Default, ref execute, ref result);
 
@@ -5290,7 +5441,7 @@ namespace Eagle._Components.Private
                 ReturnCode removeCode;
                 Result removeResult = null;
 
-                removeCode = interpreter.RemoveObject(
+                removeCode = interpreter.InternalRemoveObject(
                     EntityOps.GetToken(oldWrapper), null,
                     ObjectOps.GetDefaultSynchronous(), ref removeResult);
 
@@ -5470,8 +5621,8 @@ namespace Eagle._Components.Private
                     if (type != null)
                     {
                         _Traces.Core trace = new _Traces.Core(new TraceData(
-                            FormatOps.TraceDelegateName(callback), null,
-                            null, clientData, type.FullName, methodInfo.Name,
+                            FormatOps.TraceDelegateName(callback), null, null,
+                            clientData, type.FullName, type, methodInfo.Name,
                             ObjectOps.GetBindingFlags(MetaBindingFlags.Delegate,
                             true), AttributeOps.GetMethodFlags(methodInfo),
                             traceFlags, plugin, 0));
@@ -6706,6 +6857,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Core Script Class Support Methods
+        public static bool ExtractId(
+            string text, /* in */
+            ref Guid id  /* in, out */
+            )
+        {
+            if (String.IsNullOrEmpty(text))
+                return false;
+
+            Regex regEx = EmbeddedIdRegEx;
+
+            if (regEx == null)
+                return false;
+
+            string value = RegExOps.GetMatchValue(
+                regEx.Match(text), 1);
+
+            if (String.IsNullOrEmpty(value))
+                return false;
+
+            if (Value.GetGuid(
+                    value, null, ref id) != ReturnCode.Ok)
+            {
+                return false;
+            }
+
+            return true;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Core Command Support Methods
         public static ICommand NewStubCommand(
             string name,
@@ -6917,6 +7100,9 @@ namespace Eagle._Components.Private
                     maximumIterations = iterations;
             }
 
+            int iterationLimit = interpreter.InternalIterationLimit;
+            int iterationCount = 0;
+
             string body = arguments[arguments.Count - 1];
             IScriptLocation location = arguments[arguments.Count - 1];
             StringList resultList = collect ? new StringList() : null;
@@ -6946,7 +7132,7 @@ namespace Eagle._Components.Private
                         {
                             Engine.AddErrorInformation(interpreter, result,
                                 String.Format(
-                                    "{0}    (setting {1} loop variable \"{2}\"",
+                                    "{0}    (setting {1} loop variable \"{2}\")",
                                     Environment.NewLine, commandName,
                                     FormatOps.Ellipsis(variableName)));
 
@@ -6998,6 +7184,19 @@ namespace Eagle._Components.Private
 
                         break;
                     }
+                }
+
+                if ((iterationLimit != Limits.Unlimited) &&
+                    (++iterationCount > iterationLimit))
+                {
+                    localResult = String.Format(
+                        "iteration limit {0} exceeded",
+                        iterationLimit);
+
+                    result = localResult;
+                    code = ReturnCode.Error;
+
+                    break;
                 }
             }
 
@@ -7264,6 +7463,9 @@ namespace Eagle._Components.Private
                     maximumIterations = iterations;
             }
 
+            int iterationLimit = interpreter.InternalIterationLimit;
+            int iterationCount = 0;
+
             string body = arguments[arguments.Count - 1];
             IScriptLocation location = arguments[arguments.Count - 1];
             StringList resultList = collect ? new StringList() : null;
@@ -7299,7 +7501,7 @@ namespace Eagle._Components.Private
                         {
                             Engine.AddErrorInformation(interpreter, result,
                                 String.Format(
-                                    "{0}    (setting {1} {2} loop variable \"{3}\"",
+                                    "{0}    (setting {1} {2} loop variable \"{3}\")",
                                     Environment.NewLine, commandName, subCommandName,
                                     FormatOps.Ellipsis(variableName)));
 
@@ -7352,6 +7554,19 @@ namespace Eagle._Components.Private
 
                         break;
                     }
+                }
+
+                if ((iterationLimit != Limits.Unlimited) &&
+                    (++iterationCount > iterationLimit))
+                {
+                    localResult = String.Format(
+                        "iteration limit {0} exceeded",
+                        iterationLimit);
+
+                    result = localResult;
+                    code = ReturnCode.Error;
+
+                    break;
                 }
             }
 
@@ -7593,6 +7808,9 @@ namespace Eagle._Components.Private
                 }
             }
 
+            int iterationLimit = interpreter.InternalIterationLimit;
+            int iterationCount = 0;
+
             string body = arguments[arguments.Count - 1];
             IScriptLocation location = arguments[arguments.Count - 1];
             StringList resultList = collect ? new StringList() : null;
@@ -7616,7 +7834,7 @@ namespace Eagle._Components.Private
                 {
                     Engine.AddErrorInformation(interpreter, result,
                         String.Format(
-                            "{0}    (getting {1} {2} loop variable \"{3}\"",
+                            "{0}    (getting {1} {2} loop variable \"{3}\")",
                             Environment.NewLine, commandName, subCommandName,
                             FormatOps.VariableName(varName, varIndex)));
 
@@ -7631,7 +7849,7 @@ namespace Eagle._Components.Private
                 {
                     Engine.AddErrorInformation(interpreter, result,
                         String.Format(
-                            "{0}    (setting {1} {2} loop name variable \"{3}\"",
+                            "{0}    (setting {1} {2} loop name variable \"{3}\")",
                             Environment.NewLine, commandName, subCommandName,
                             FormatOps.Ellipsis(variableList[0])));
 
@@ -7649,7 +7867,7 @@ namespace Eagle._Components.Private
                     {
                         Engine.AddErrorInformation(interpreter, result,
                             String.Format(
-                                "{0}    (setting {1} {2} loop value variable \"{3}\"",
+                                "{0}    (setting {1} {2} loop value variable \"{3}\")",
                                 Environment.NewLine, commandName, subCommandName,
                                 FormatOps.Ellipsis(variableList[1])));
 
@@ -7701,6 +7919,19 @@ namespace Eagle._Components.Private
 
                         break;
                     }
+                }
+
+                if ((iterationLimit != Limits.Unlimited) &&
+                    (++iterationCount > iterationLimit))
+                {
+                    localResult = String.Format(
+                        "iteration limit {0} exceeded",
+                        iterationLimit);
+
+                    result = localResult;
+                    code = ReturnCode.Error;
+
+                    break;
                 }
             }
 
@@ -8008,7 +8239,7 @@ namespace Eagle._Components.Private
 
         #region Zip Archive Support Methods
 #if NETWORK
-        private static ReturnCode ExtractToDirectory(
+        public static ReturnCode ExtractZipFileToDirectory(
             Interpreter interpreter,  /* in: OPTIONAL */
             IClientData clientData,   /* in: OPTIONAL */
             string downloadDirectory, /* in: OPTIONAL (Windows) */
@@ -8042,27 +8273,11 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            string resourceName = UnzipResourceName;
-
-            Uri uri = PathOps.BuildAuxiliaryUri(
-                ref resourceName, ref error);
-
-            if (uri == null)
-                return ReturnCode.Error;
-
             bool deleteUnzipFileName = false;
             string unzipFileName = null;
 
             try
             {
-#if TEST
-                if (WebOps.SetSecurityProtocol(
-                        false, ref error) != ReturnCode.Ok)
-                {
-                    return ReturnCode.Error;
-                }
-#endif
-
                 if (PlatformOps.IsWindowsOperatingSystem())
                 {
                     //
@@ -8084,14 +8299,33 @@ namespace Eagle._Components.Private
                     unzipFileName = Path.Combine(
                         downloadDirectory, UnzipFileNameOnly);
 
-                    deleteUnzipFileName = true;
-
-                    if (WebOps.DownloadFile(
-                            interpreter, clientData, uri,
-                            unzipFileName, null, false,
-                            ref error) != ReturnCode.Ok)
+                    if (!File.Exists(unzipFileName))
                     {
-                        return ReturnCode.Error;
+#if TEST
+                        if (WebOps.SetSecurityProtocol(
+                                false, ref error) != ReturnCode.Ok)
+                        {
+                            return ReturnCode.Error;
+                        }
+#endif
+
+                        string resourceName = UnzipResourceName;
+
+                        Uri uri = PathOps.BuildAuxiliaryUri(
+                            ref resourceName, ref error);
+
+                        if (uri == null)
+                            return ReturnCode.Error;
+
+                        deleteUnzipFileName = true;
+
+                        if (WebOps.DownloadFile(
+                                interpreter, clientData, uri,
+                                unzipFileName, null, false,
+                                ref error) != ReturnCode.Ok)
+                        {
+                            return ReturnCode.Error;
+                        }
                     }
 
                     //
@@ -8149,22 +8383,41 @@ namespace Eagle._Components.Private
 
                 ExitCode exitCode = ResultOps.UnknownExitCode();
                 Result result = null;
+                Result localError = null;
 
                 if (ProcessOps.ExecuteProcess(
                         interpreter, unzipFileName, unzipArguments,
                         localEventFlags, ref exitCode, ref result,
-                        ref error) != ReturnCode.Ok)
+                        ref localError) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
 
                 if (exitCode != ResultOps.SuccessExitCode())
                 {
+                    ResultList errors = null;
+
+                    if (localError != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(localError);
+                    }
+
+                    if (result != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(result);
+                    }
+
                     error = String.Format(
                         "command line tool {0} {1} failed: {2}",
                         FormatOps.WrapOrNull(unzipFileName),
                         FormatOps.WrapOrNull(unzipArguments),
-                        FormatOps.WrapOrNull(result));
+                        FormatOps.WrapOrNull(errors));
 
                     return ReturnCode.Error;
                 }
@@ -8176,9 +8429,98 @@ namespace Eagle._Components.Private
                 if (deleteUnzipFileName &&
                     (unzipFileName != null) && File.Exists(unzipFileName))
                 {
+                    if (UnzipDeleteDelayMilliseconds >= 0)
+                    {
+                        HostOps.ThreadSleep(
+                            UnzipDeleteDelayMilliseconds);
+                    }
+
                     File.Delete(unzipFileName);
                 }
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ExtractZipFileToDirectory(
+            Interpreter interpreter,  /* in: OPTIONAL */
+            IClientData clientData,   /* in: OPTIONAL */
+            string downloadDirectory, /* in: OPTIONAL (Windows) */
+            string downloadFileName,  /* in */
+            string extractDirectory,  /* in */
+            EventFlags? eventFlags,   /* in */
+            bool? useFallback,        /* in */
+            ref Result error          /* out */
+            )
+        {
+            if (String.IsNullOrEmpty(downloadFileName))
+            {
+                error = "invalid download file name";
+                return ReturnCode.Error;
+            }
+
+            if (!File.Exists(downloadFileName))
+            {
+                error = "download file name does not exist";
+                return ReturnCode.Error;
+            }
+
+            if (String.IsNullOrEmpty(extractDirectory))
+            {
+                error = "invalid extract directory name";
+                return ReturnCode.Error;
+            }
+
+            if (!Directory.Exists(extractDirectory))
+            {
+                error = "extract directory does not exist";
+                return ReturnCode.Error;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+#if COMPRESSION
+            if ((useFallback == null) || !(bool)useFallback)
+            {
+                try
+                {
+                    ZipFile.ExtractToDirectory(
+                        downloadFileName, extractDirectory);
+
+                    return ReturnCode.Ok;
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                    return ReturnCode.Error;
+                }
+            }
+#endif
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: Attempt to fallback to using the "unzip" command
+            //       line tool, which will be downloaded via auxiliary
+            //       base URI for this assembly.  It must be digitally
+            //       signed with a trusted certificate in order to be
+            //       used.
+            //
+            if ((useFallback == null) || (bool)useFallback)
+            {
+                if (ExtractZipFileToDirectory(
+                        interpreter, clientData, downloadDirectory,
+                        downloadFileName, extractDirectory, eventFlags,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                return ReturnCode.Ok;
+            }
+
+            error = "cannot extract zip file";
+            return ReturnCode.Error;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -8258,40 +8600,10 @@ namespace Eagle._Components.Private
                     return ReturnCode.Error;
                 }
 
-#if COMPRESSION
-                if ((useFallback == null) || !(bool)useFallback)
-                {
-                    ZipFile.ExtractToDirectory(
-                        downloadFileName, extractDirectory);
-
-                    return ReturnCode.Ok;
-                }
-#endif
-
-                //
-                // HACK: Attempt to fallback to using the
-                //       "unzip" command line tool, which
-                //       will be downloaded via auxiliary
-                //       base URI for this assembly.  It
-                //       must be digitally signed with a
-                //       trusted certificate in order to
-                //       be used.
-                //
-                if ((useFallback == null) || (bool)useFallback)
-                {
-                    if (ExtractToDirectory(interpreter,
-                            clientData, downloadDirectory,
-                            downloadFileName, extractDirectory,
-                            null, ref error) != ReturnCode.Ok)
-                    {
-                        return ReturnCode.Error;
-                    }
-
-                    return ReturnCode.Ok;
-                }
-
-                error = "cannot extract zip file";
-                return ReturnCode.Error;
+                return ExtractZipFileToDirectory(
+                    interpreter, clientData, downloadDirectory,
+                    downloadFileName, extractDirectory, null,
+                    useFallback, ref error);
             }
             catch (Exception e)
             {

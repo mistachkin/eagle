@@ -1471,7 +1471,7 @@ namespace Eagle._Components.Private
             )
         {
             WriteWithoutFail(
-                debugHost, value, UseHostForWithoutFail);
+                debugHost, value, false, UseHostForWithoutFail);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1479,11 +1479,12 @@ namespace Eagle._Components.Private
         public static void WriteWithoutFail(
             IDebugHost debugHost,
             string value,
+            bool viaOutput,
             bool viaHost
             )
         {
             WriteWithoutFail(
-                debugHost, value, Build.Debug, true, viaHost);
+                debugHost, value, viaOutput || Build.Debug, true, viaHost);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1508,7 +1509,8 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
-            if (viaHost && (debugHost != null))
+            if (viaHost && (debugHost != null) &&
+                !AppDomainOps.IsTransparentProxy(debugHost))
             {
                 try
                 {
@@ -2704,10 +2706,10 @@ namespace Eagle._Components.Private
             )
         {
             Interpreter interpreter;
+            IAnyClientData anyClientData = clientData as IAnyClientData;
 
-            if (clientData is IAnyClientData)
+            if (anyClientData != null)
             {
-                IAnyClientData anyClientData = (IAnyClientData)clientData;
                 Result error = null;
 
                 /* IGNORED */
@@ -2731,10 +2733,10 @@ namespace Eagle._Components.Private
             )
         {
             Encoding encoding;
+            IAnyClientData anyClientData = clientData as IAnyClientData;
 
-            if (clientData is IAnyClientData)
+            if (anyClientData != null)
             {
-                IAnyClientData anyClientData = (IAnyClientData)clientData;
                 Result error = null;
 
                 /* IGNORED */
@@ -2757,10 +2759,10 @@ namespace Eagle._Components.Private
             )
         {
             string name;
+            IAnyClientData anyClientData = clientData as IAnyClientData;
 
-            if (clientData is IAnyClientData)
+            if (anyClientData != null)
             {
-                IAnyClientData anyClientData = (IAnyClientData)clientData;
                 Result error = null;
 
                 /* IGNORED */
@@ -2779,6 +2781,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static LogFlags? GetTraceLogFlags(
+            Interpreter interpreter, /* in */
+            IClientData clientData   /* in */
+            )
+        {
+            LogFlags? flags;
+            IAnyClientData anyClientData = clientData as IAnyClientData;
+
+            if (anyClientData != null)
+            {
+                Enum enumValue;
+                Result error = null;
+
+                if (anyClientData.TryGetEnum(
+                        interpreter, TraceLogEncodingDataName,
+                        typeof(LogFlags), true, out enumValue,
+                        ref error))
+                {
+                    flags = (LogFlags)enumValue;
+                }
+                else
+                {
+                    flags = null;
+                }
+            }
+            else
+            {
+                flags = null;
+            }
+
+            return flags;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static string GetTraceLogFileName(
             IClientData clientData, /* in */
             ref Result error        /* out */
@@ -2793,11 +2830,10 @@ namespace Eagle._Components.Private
             string fileName; /* REUSED */
             Result localError; /* REUSED */
             ResultList errors = null;
+            IAnyClientData anyClientData = clientData as IAnyClientData;
 
-            if (clientData is IAnyClientData)
+            if (anyClientData != null)
             {
-                IAnyClientData anyClientData = (IAnyClientData)clientData;
-
                 localError = null;
 
                 if (!anyClientData.TryGetString(
@@ -2951,8 +2987,11 @@ namespace Eagle._Components.Private
                         Encoding encoding = GetTraceLogEncoding(
                             interpreter, clientData);
 
+                        LogFlags? flags = GetTraceLogFlags(
+                            interpreter, clientData);
+
                         return NewTestTraceListener(
-                            logName, logFileName, encoding);
+                            logName, logFileName, encoding, flags);
 #else
                         error = String.Format(
                             "unimplemented trace listener type {0}",
@@ -3029,7 +3068,7 @@ namespace Eagle._Components.Private
             string fileName
             )
         {
-            return NewTestTraceListener(name, fileName, null);
+            return NewTestTraceListener(name, fileName, null, null);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3037,11 +3076,12 @@ namespace Eagle._Components.Private
         private static TraceListener NewTestTraceListener(
             string name,
             string fileName,
-            Encoding encoding
+            Encoding encoding,
+            LogFlags? flags
             )
         {
             return NewTestTraceListener(
-                name, fileName, encoding, 0, true, false);
+                name, fileName, encoding, 0, flags);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3051,13 +3091,11 @@ namespace Eagle._Components.Private
             string fileName,
             Encoding encoding,
             int bufferSize,
-            bool expandBuffer,
-            bool zeroBuffer
+            LogFlags? flags
             )
         {
             return new _Tests.Default.Listener(
-                name, fileName, encoding, bufferSize,
-                expandBuffer, zeroBuffer);
+                name, fileName, encoding, bufferSize, flags);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4258,21 +4296,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SetupTraceLogFile(
-            string name,                /* in: OPTIONAL */
-            string fileName,            /* in */
-            Encoding encoding,          /* in: OPTIONAL */
-            bool trace,                 /* in */
-            bool debug,                 /* in */
-            bool console,               /* in */
-            bool verbose,               /* in */
-            bool typeOnly,              /* in */
-            ref Result error            /* out */
+            string name,       /* in: OPTIONAL */
+            string fileName,   /* in */
+            Encoding encoding, /* in: OPTIONAL */
+            LogFlags? flags,   /* in */
+            bool trace,        /* in */
+            bool debug,        /* in */
+            bool console,      /* in */
+            bool verbose,      /* in */
+            bool typeOnly,     /* in */
+            ref Result error   /* out */
             )
         {
             TraceListener listener = null;
 
             return SetupTraceLogFile(
-                name, fileName, encoding, trace, debug, console,
+                name, fileName, encoding, flags, trace, debug, console,
                 verbose, typeOnly, ref listener, ref error);
         }
 
@@ -4282,6 +4321,7 @@ namespace Eagle._Components.Private
             string name,                /* in: OPTIONAL */
             string fileName,            /* in */
             Encoding encoding,          /* in: OPTIONAL */
+            LogFlags? flags,            /* in */
             bool trace,                 /* in */
             bool debug,                 /* in */
             bool console,               /* in */
@@ -4297,7 +4337,7 @@ namespace Eagle._Components.Private
             try
             {
                 localListener = NewTestTraceListener(
-                    name, fileName, encoding);
+                    name, fileName, encoding, flags);
 
                 if (localListener != null)
                 {

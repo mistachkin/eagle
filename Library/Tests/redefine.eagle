@@ -307,7 +307,7 @@ if {[isEagle]} then {
 
     set execute null; set error null
 
-    set code [$interpreter -flags +NonPublic GetIExecuteViaResolvers \
+    set code [$interpreter -flags +NonPublic InternalGetIExecuteViaResolvers \
         UseAllMask $name null Default execute error]
 
     if {$code ne "Ok"} then {
@@ -2230,16 +2230,16 @@ runTest {test framework-1.1 {GetFramework method for general types} -body {
 } -cleanup {
   unset -nocomplain int32 results result code
 } -constraints {eagle command.object strongName.official} -match regexp \
--result {^Ok Eagle\._Commands\.After Error \{framework with Id\
+-result [string map [list %publicKeyTokens% [getKnownPublicKeyTokenPattern]] \
+{^Ok Eagle\._Commands\.After Error \{framework with Id\
 "4f867f2c-e65f-48d8-bf81-e794d10f7466" and flags "BuiltIn, NonPublic, Instance"\
 within assembly "Eagle, Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
-available\} Ok \{Eagle\._Components\.Public\.AnyPair`2\[T1,T2\]\} Error\
-\{framework with Id "2dacac40-7b18-4fc6-841a-35ffa7550dc9" and flags "BuiltIn,\
-NonPublic, Instance" within assembly "Eagle, Version=\d+\.\d+\.\d+\.\d+,\
-Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)" not\
-available\} Ok Eagle\._Components\.Public\.Number Ok 12345678$}}
+PublicKeyToken=(?:%publicKeyTokens%)" not available\} Ok\
+\{Eagle\._Components\.Public\.AnyPair`2\[T1,T2\]\} Error \{framework with Id\
+"2dacac40-7b18-4fc6-841a-35ffa7550dc9" and flags "BuiltIn, NonPublic, Instance"\
+within assembly "Eagle, Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:%publicKeyTokens%)" not available\} Ok\
+Eagle\._Components\.Public\.Number Ok 12345678$}]}
 
 ###############################################################################
 

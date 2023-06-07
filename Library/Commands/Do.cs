@@ -13,6 +13,7 @@ using System;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
+using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
@@ -115,6 +116,9 @@ namespace Eagle._Commands
                                 //
                                 // NOTE: Evaluate script and then check the "test" expression.
                                 //
+                                int iterationLimit = interpreter.InternalIterationLimit;
+                                int iterationCount = 0;
+
                                 string errorInfo = "{0}    (\"do\" test expression)";
 
                                 while (true)
@@ -134,7 +138,7 @@ namespace Eagle._Commands
                                         break;
                                     }
 
-                                    code = interpreter.EvaluateExpressionWithErrorInfo(
+                                    code = interpreter.InternalEvaluateExpressionWithErrorInfo(
                                         arguments[index], errorInfo, ref result);
 
                                     if (code != ReturnCode.Ok)
@@ -150,6 +154,17 @@ namespace Eagle._Commands
 
                                     if ((@while && !value) || (until && value))
                                         break;
+
+                                    if ((iterationLimit != Limits.Unlimited) &&
+                                        (++iterationCount > iterationLimit))
+                                    {
+                                        result = String.Format(
+                                            "iteration limit {0} exceeded",
+                                            iterationLimit);
+
+                                        code = ReturnCode.Error;
+                                        break;
+                                    }
                                 }
 
                                 if (code == ReturnCode.Break)

@@ -25,11 +25,23 @@ namespace Eagle._Components.Private
     {
         #region Private Constants
         #region Wait Handling
-        private static readonly int WaitDivisor = 2;
-        private static readonly int WaitMaximumSleepTime = 50; /* milliseconds */
+        private static readonly int DisposeSleepMinimumTime = 1; /* milliseconds */
+        private static readonly int DisposeSleepDivisor = 10;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly int WaitGeneralDivisor = 2;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly int WaitSleepMaximumTime = 50; /* milliseconds */
+
+        ///////////////////////////////////////////////////////////////////////
 
         private static readonly int WaitSlopDivisor = 40;
         private static readonly int WaitSlopMinimumTime = 25000; /* microseconds */
+
+        ///////////////////////////////////////////////////////////////////////
 
         private static readonly int WaitTraceMinimumTime = 2000000; /* microseconds */
         #endregion
@@ -48,6 +60,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Event Manager Support Methods
+        public static int GetDisposeSleepMilliseconds(
+            int milliseconds
+            )
+        {
+            return Math.Max(DisposeSleepMinimumTime,
+                milliseconds / DisposeSleepDivisor);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static long GetMicroseconds(
             long? microseconds
             )
@@ -56,7 +78,7 @@ namespace Eagle._Components.Private
                 return (long)microseconds;
 
             return PerformanceOps.GetMicrosecondsFromMilliseconds(
-                WaitMaximumSleepTime);
+                WaitSleepMaximumTime);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -67,7 +89,7 @@ namespace Eagle._Components.Private
         {
             return ConversionOps.ToInt(
                 PerformanceOps.GetMillisecondsFromMicroseconds(
-                    microseconds) / WaitDivisor);
+                    microseconds) / WaitGeneralDivisor);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -525,8 +547,8 @@ namespace Eagle._Components.Private
                             if (waitMilliseconds < 0)
                                 waitMilliseconds = 0;
 
-                            if (waitMilliseconds > WaitMaximumSleepTime)
-                                waitMilliseconds = WaitMaximumSleepTime;
+                            if (waitMilliseconds > WaitSleepMaximumTime)
+                                waitMilliseconds = WaitSleepMaximumTime;
 
                             int readyMilliseconds = GetMilliseconds(
                                 localReadyMicroseconds);
@@ -972,7 +994,7 @@ namespace Eagle._Components.Private
                     Result resolveError = null;
                     IExecute bgExecute = null;
 
-                    resolveCode = interpreter.GetIExecuteViaResolvers(
+                    resolveCode = interpreter.InternalGetIExecuteViaResolvers(
                         interpreter.GetResolveEngineFlagsNoLock(true),
                         handlerName, bgArguments, LookupFlags.Default,
                         ref bgExecute, ref resolveError);

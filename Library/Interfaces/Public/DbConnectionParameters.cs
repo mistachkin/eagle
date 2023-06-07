@@ -15,13 +15,11 @@ using Eagle._Components.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("7cc7b141-f01d-4acd-ba59-8a717680d913")]
-    public interface IDbConnectionParameters
+    public interface IDbConnectionParameters : ITypeAndFullName
     {
         DbConnectionType DbConnectionType { get; set; }
         string ConnectionString { get; set; }
         string AssemblyFileName { get; set; }
-        string TypeFullName { get; set; }
-        string TypeName { get; set; }
         ValueFlags ValueFlags { get; set; }
     }
 }

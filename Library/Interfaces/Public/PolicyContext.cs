@@ -20,7 +20,7 @@ namespace Eagle._Interfaces.Public
 {
     [ObjectId("94d0d340-c819-4054-abbf-bb6ccfed0ed3")]
     public interface IPolicyContext :
-            IGetClientData, IHaveInterpreter, IHavePlugin
+            IGetClientData, IHaveInterpreter, IHavePlugin, ITypeAndName
     {
         //
         // NOTE: *WARNING* This is the plugin that contains
@@ -32,7 +32,6 @@ namespace Eagle._Interfaces.Public
         PolicyFlags Flags { get; }
 
         AssemblyName AssemblyName { get; }
-        string TypeName { get; }
 
         IExecute Execute { get; }
         ArgumentList Arguments { get; }

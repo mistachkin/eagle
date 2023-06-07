@@ -472,6 +472,19 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////
 
         public ReturnCode QueueWorkItem(
+            ThreadStart callback,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            error = "not implemented";
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode QueueWorkItem(
             WaitCallback callback,
             object state,
             ref Result error
@@ -2589,6 +2602,18 @@ namespace Eagle._Hosts
             CheckDisposed();
 
             return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode ResetHistory(
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            error = "not implemented";
+            return ReturnCode.Error;
         }
 
         ///////////////////////////////////////////////////////////////////////

@@ -20,6 +20,41 @@
 #       namespace if this script actually ends up being evaluated in Tcl.
 #
 namespace eval ::Eagle {
+  proc evalPackageIndexFile {
+          fileName {directory ""} {ignoreFileDirectory false} } {
+    if {[string length $directory] == 0} then {
+      set directory [expr {
+        $ignoreFileDirectory ? "" : [file dirname $fileName]
+      }]
+
+      if {[string length $directory] == 0 || $directory eq "."} then {
+        if {[isEagle]} then {
+          set directory [file dirname [lindex [info assembly true] end]]
+        } else {
+          set directory [file dirname [info nameofexecutable]]
+        }
+      }
+    }
+
+    if {[info exists ::dir]} then {
+      set savedDir $::dir
+    } else {
+      unset -nocomplain savedDir
+    }
+
+    try {
+      set ::dir $directory
+
+      return [uplevel #0 [list source $fileName]]
+    } finally {
+      if {[info exists savedDir]} then {
+        set ::dir $savedDir
+      } else {
+        unset -nocomplain ::dir
+      }
+    }
+  }
+
   proc cleanupAfterEvents { {quiet false} } {
     set count 0
 
@@ -584,7 +619,7 @@ namespace eval ::Eagle {
         set sentry [string trim [getTestLogStartSentry]]
 
         if {[string length $sentry] > 0} then {
-          set data [readFile $fileName]
+          set data [readSharedFile $fileName]
 
           if {[string first $sentry $data] != -1} then {
             return true
@@ -877,12 +912,21 @@ namespace eval ::Eagle {
     return $result
   }
 
-  proc isCorePublicKeyToken { publicKeyToken } {
+  proc getKnownPublicKeyTokens {} {; # TODO: Move to "constraints.eagle"?
+    if {[info exists ::test_well_known(publicKeyTokens)]} then {
+      return $::test_well_known(publicKeyTokens)
+    }
+
     #
     # HACK: This list of "well-known" public key tokens is hard-coded.
     #
-    set publicKeyTokens [list \
-        29c6297630be05eb 1e22ec67879739a2 358030063a832bc3]
+    return [list \
+        29c6297630be05eb 1e22ec67879739a2 358030063a832bc3 \
+        8bf43b4749e46a0b]
+  }
+
+  proc isCorePublicKeyToken { publicKeyToken } {
+    set publicKeyTokens [getKnownPublicKeyTokens]
 
     if {[isEagle]} then {
       set expr {$publicKeyToken in $publicKeyTokens}
@@ -3022,7 +3066,7 @@ namespace eval ::Eagle {
           1.0.6483.12345 1.0.6543.58654 1.0.6781.49000 1.0.6781.49042 \
           1.0.6848.11041 1.0.7213.50727 1.0.7790.43198 1.0.7897.33333 \
           1.0.7900.33333 1.0.7945.33333 1.0.8192.54321 1.0.8251.52012 \
-          1.0.8369.11942]
+          1.0.8369.11942 1.0.8503.24499]
     } else {
       return [list]
     }
@@ -3139,6 +3183,21 @@ namespace eval ::Eagle {
     if {[info exists array(listed,$index)] && \
         [lsearch -exact $array(listed,$index) files] != -1} then {
       set array(files,$index,list) $list
+    }
+
+    ###########################################################################
+
+    if {[info exists ::bin_path]} then {
+      set list [getFiles $::bin_path *]
+    } else {
+      set list [list]; # NOTE: Information not available.
+    }
+
+    set array(binaryFiles,$index) [llength $list]
+
+    if {[info exists array(listed,$index)] && \
+        [lsearch -exact $array(listed,$index) binaryFiles] != -1} then {
+      set array(binaryFiles,$index,list) $list
     }
 
     ###########################################################################
@@ -3529,8 +3588,8 @@ namespace eval ::Eagle {
   proc reportTestStatistics {
           channel fileName stop statsVarName filesVarName {quiet false} } {
     set statistics [list afters variables commands procedures namespaces \
-        files temporaryFiles channels aliases interpreters environment \
-        loaded]
+        files binaryFiles temporaryFiles channels aliases interpreters \
+        environment loaded]
 
     if {[isEagle]} then {
       #
@@ -5088,6 +5147,14 @@ namespace eval ::Eagle {
       append header ", argv " [list $argv]
     }
 
+    if {[isEagle]} then {
+      set cmdLine [info cmdline]
+
+      if {[string length $cmdLine] > 0} then {
+        append header ", command line " [list $cmdLine]
+      }
+    }
+
     set detail ""
 
     if {[isEagle]} then {
@@ -5797,6 +5864,113 @@ namespace eval ::Eagle {
       }
     }
 
+    proc reportTestResultCounts { channel {varName ""} } {
+      #
+      # NOTE: Does the caller want to change the percent to an appropriate
+      #       value based on the overall test results?
+      #
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName percent
+      }
+
+      #
+      # NOTE: Check if this build (i.e. of Eagle) has support for tracking
+      #       statistics of tests that contain the "knownBug" constraint.
+      #
+      set trackBugs false
+
+      if {[info exists ::eagle_tests(KnownBugs)]} then {
+        set trackBugs true
+
+        if {[llength $::eagle_tests(KnownBugs)] > 0} then {
+          tresult Continue [appendArgs \
+              "KNOWN BUGS: " $::eagle_tests(KnownBugs) \n]
+        }
+      }
+
+      if {$::eagle_tests(Passed) > 0} then {
+        tresult Ok [appendArgs \
+            "PASSED: " $::eagle_tests(Passed) \n]
+      }
+
+      if {$trackBugs && $::eagle_tests(PassedBug) > 0} then {
+        tresult Ok [appendArgs \
+            "PASSED (BUG): " $::eagle_tests(PassedBug) \n]
+      }
+
+      if {$::eagle_tests(Failed) > 0} then {
+        tresult Error [appendArgs \
+            "FAILED: " $::eagle_tests(Failed) \n]
+
+        if {[llength $::eagle_tests(FailedNames)] > 0} then {
+          tresult Error [appendArgs \
+              "FAILED: " $::eagle_tests(FailedNames) \n]
+        }
+      }
+
+      if {$trackBugs && $::eagle_tests(FailedBug) > 0} then {
+        tresult Error [appendArgs \
+            "FAILED (BUG): " $::eagle_tests(FailedBug) \n]
+      }
+
+      if {$::eagle_tests(Skipped) > 0} then {
+        tresult Break [appendArgs \
+            "SKIPPED: " $::eagle_tests(Skipped) \n]
+
+        if {[llength $::eagle_tests(SkippedNames)] > 0} then {
+          tresult Break [appendArgs \
+              "SKIPPED: " $::eagle_tests(SkippedNames) \n]
+        }
+      }
+
+      if {$trackBugs && $::eagle_tests(SkippedBug) > 0} then {
+        tresult Break [appendArgs \
+            "SKIPPED (BUG): " $::eagle_tests(SkippedBug) \n]
+      }
+
+      if {$::eagle_tests(Disabled) > 0} then {
+        tresult WhatIf [appendArgs \
+            "DISABLED: " $::eagle_tests(Disabled) \n]
+      }
+
+      if {$trackBugs && $::eagle_tests(DisabledBug) > 0} then {
+        tresult WhatIf [appendArgs \
+            "DISABLED (BUG): " $::eagle_tests(DisabledBug) \n]
+      }
+
+      if {$::eagle_tests(Total) > 0} then {
+        tresult Return [appendArgs \
+            "TOTAL: " $::eagle_tests(Total) \n]
+
+        if {$::eagle_tests(Skipped) > 0} then {
+          set percent [getSkippedPercentage]
+
+          tresult Break [appendArgs \
+              "SKIP PERCENTAGE: " [formatDecimal $percent] %\n]
+        }
+
+        if {$::eagle_tests(Disabled) > 0} then {
+          set percent [getDisabledPercentage]
+
+          tresult WhatIf [appendArgs \
+              "DISABLED PERCENTAGE: " [formatDecimal $percent] %\n]
+        }
+
+        set percent [getPassedPercentage]
+
+        tresult Return [appendArgs \
+            "PASS PERCENTAGE: " [formatDecimal $percent] %\n]
+      } else {
+        #
+        # NOTE: No tests.
+        #
+        set percent 0
+      }
+
+      unset trackBugs
+      return ""
+    }
+
     proc testObjectMembers { args } {
       if {[llength $args] == 0} then {
         error [appendArgs \
@@ -6057,6 +6231,31 @@ namespace eval ::Eagle {
       return false; # still alive (or error).
     }
 
+    proc reportTestDuplicateNames { channel } {
+      #
+      # NOTE: Check and display any duplicate test names that we
+      #       found.  In theory, this checking may produce false
+      #       positives if a test file (or the entire test suite)
+      #       is run multiple times without resetting statistics
+      #       and/or restarting Eagle; however, duplicate test
+      #       names must be avoided and this is considered a good
+      #       trade-off.
+      #
+      foreach {name count} $::eagle_tests(Counts) {
+        if {$count > 1} then {
+          tputs $channel [appendArgs \
+              "==== test name \"" $name "\" DUPLICATED (" \
+              $count ")\n"]
+        } elseif {$count <= 0} then {
+          tputs $channel [appendArgs \
+              "==== test name \"" $name "\" BAD COUNT (" \
+              $count ")\n"]
+        }
+      }
+
+      return ""
+    }
+
     proc reportTestConstraintCounts { channel skippedNames } {
       #
       # NOTE: Produce the final output, which includes a single line header
@@ -6127,10 +6326,10 @@ namespace eval ::Eagle {
           "---- StringOps cleanup results: " $result \n]
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
-          Eagle._Comparers.FileName ClearCache]} result
+          Eagle._Comparers.StringFileName ClearCache]} result
 
       tputs $channel [appendArgs \
-          "---- Comparers.FileName cleanup results: " $result \n]
+          "---- Comparers.StringFileName cleanup results: " $result \n]
 
       catch {uplevel 1 [list object invoke -flags +NonPublic \
           Eagle._Components.Private.HashOps Cleanup]} result
@@ -6185,6 +6384,12 @@ namespace eval ::Eagle {
 
       tputs $channel [appendArgs \
           "---- RuntimeOps cleanup results: " $result \n]
+
+      catch {uplevel 1 [list object invoke -flags +NonPublic \
+          Eagle._Components.Private.StringBuilderCache Clear]} result
+
+      tputs $channel [appendArgs \
+          "---- StringBuilderCache cleanup results: " $result \n]
     }
 
     proc evalWithTimeout { script {milliseconds 2000} {resultVarName ""} } {
@@ -6830,6 +7035,56 @@ namespace eval ::Eagle {
       }
     }
 
+    proc reportTestResultCounts { channel {varName ""} } {
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName percent
+      }
+
+      if {$::tcltest::numTests(Passed) > 0} then {
+        tputs $channel [appendArgs \
+            "PASSED: " $::tcltest::numTests(Passed) \n]
+      }
+
+      if {$::tcltest::numTests(Failed) > 0} then {
+        tputs $channel [appendArgs \
+            "FAILED: " $::tcltest::numTests(Failed) \n]
+
+        if {[llength $::tcltest::failFiles] > 0} then {
+          tputs $channel [appendArgs \
+              "FAILED: " $::tcltest::failFiles \n]
+        }
+      }
+
+      if {$::tcltest::numTests(Skipped) > 0} then {
+        tputs $channel [appendArgs \
+            "SKIPPED: " $::tcltest::numTests(Skipped) \n]
+      }
+
+      if {$::tcltest::numTests(Total) > 0} then {
+        tputs $channel [appendArgs \
+            "TOTAL: " $::tcltest::numTests(Total) \n]
+
+        if {$::tcltest::numTests(Skipped) > 0} then {
+          set percent [getSkippedPercentage]
+
+          tputs $channel [appendArgs \
+              "SKIP PERCENTAGE: " [formatDecimal $percent] %\n]
+        }
+
+        set percent [getPassedPercentage]
+
+        tputs $channel [appendArgs \
+            "PASS PERCENTAGE: " [formatDecimal $percent] %\n]
+      } else {
+        #
+        # NOTE: No tests.
+        #
+        set percent 0
+      }
+
+      return ""
+    }
+
     #
     # NOTE: Check for the test path in the various well-known locations
     #       and set the associated variable.
@@ -6885,8 +7140,8 @@ namespace eval ::Eagle {
         tryVerifyTestPath checkForAndSetTestPath configureTcltest \
         machineToPlatform architectureForPlatform \
         calculateTestConstraintCounts logRemoteMessage logRemoteTestResults \
-        getPassedPercentage getSkippedPercentage testCheckOverallResult] \
-        false false
+        getPassedPercentage getSkippedPercentage testCheckOverallResult \
+        reportTestResultCounts] false false
 
     ###########################################################################
     ############################## END Tcl ONLY ###############################

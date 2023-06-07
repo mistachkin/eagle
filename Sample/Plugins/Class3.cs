@@ -236,6 +236,27 @@ namespace Sample
         {
             return new Class14(plugin);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Creates an instance of a class (<see cref="Class14" />) that
+        /// can handle the <see cref="WebTransferCallback" /> delegate.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin context we are executing in.
+        /// </param>
+        /// <returns>
+        /// The newly created class that handles the
+        /// <see cref="WebTransferCallback" /> delegate -OR- null if it
+        /// cannot be created.
+        /// </returns>
+        private static Class14 CreateWebTransferCallbackClass(
+            IPlugin plugin /* in */
+            )
+        {
+            return new Class14(plugin);
+        }
 #endif
 
         ///////////////////////////////////////////////////////////////////////
@@ -310,6 +331,27 @@ namespace Sample
             )
         {
             return CreateNewWebClientCallbackClass(plugin);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Creates an instance of a class (<see cref="Class14" />) that
+        /// implements the <see cref="IWebTransferCallback" /> interface.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin context we are executing in.
+        /// </param>
+        /// <returns>
+        /// The newly created class that implements the
+        /// <see cref="IWebTransferCallback" /> interface -OR- null if it
+        /// cannot be created.
+        /// </returns>
+        private static IWebTransferCallback CreateWebTransferCallback(
+            IPlugin plugin /* in */
+            )
+        {
+            return CreateWebTransferCallbackClass(plugin);
         }
 #endif
 #endif
@@ -642,6 +684,112 @@ namespace Sample
 
             return ReturnCode.Error;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method is used to install -OR- uninstall the per-interpreter
+        /// callbacks used for the <see cref="System.Net.WebClient" />
+        /// subsystem.  It is designed to work correctly even when the plugin
+        /// has been loaded into an isolated application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context we are executing in.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin context we are executing in.
+        /// </param>
+        /// <param name="install">
+        /// Non-zero is used to install the callbacks and zero is used to
+        /// uninstall them.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// </returns>
+        private static ReturnCode InstallWebTransferCallbacks(
+            Interpreter interpreter, /* in */
+            IPlugin plugin,          /* in */
+            bool install,            /* in */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+            WebTransferCallbackBridge callbackBridge = null;
+#endif
+
+            if (install && Utility.IsCrossAppDomain(interpreter, plugin))
+            {
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+                callbackBridge = WebTransferCallbackBridge.Create(
+                    CreateWebTransferCallback(plugin), ref error);
+
+                if (callbackBridge == null)
+                    return ReturnCode.Error;
+#else
+                error = "cannot set delegates with plugin isolated";
+                return ReturnCode.Error;
+#endif
+            }
+
+            bool locked = false;
+
+            try
+            {
+                interpreter.TryLockWithWait(
+                    ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    if (install)
+                    {
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+                        if (callbackBridge != null)
+                        {
+                            interpreter.WebTransferCallback =
+                                new WebTransferCallback(
+                                    callbackBridge.WebTransferCallback);
+                        }
+                        else
+#endif
+                        {
+                            interpreter.WebTransferCallback =
+                                CreateWebTransferCallbackClass(
+                                    plugin).WebTransfer;
+                        }
+                    }
+                    else
+                    {
+                        interpreter.WebTransferCallback = null;
+                    }
+
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    error = "interpreter is locked";
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+            finally
+            {
+                interpreter.ExitLock(
+                    ref locked); /* TRANSACTIONAL */
+            }
+
+            return ReturnCode.Error;
+        }
 #endif
         #endregion
 
@@ -688,6 +836,12 @@ namespace Sample
             {
                 return ReturnCode.Error;
             }
+
+            if (InstallWebTransferCallbacks(
+                    interpreter, this, true, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
 #endif
 
             string extraPackageDirectory = GetExtraPackageDirectory();
@@ -709,9 +863,9 @@ namespace Sample
             }
 
             IFunction function = new Class8(new FunctionData(
-                typeof(Class8).Name, null, null, clientData, null,
-                1, null, Utility.GetFunctionFlags(typeof(Class8)),
-                this, functionToken));
+                typeof(Class8).Name, null, null, clientData, null, null,
+                1, null, Utility.GetFunctionFlags(typeof(Class8)), this,
+                functionToken));
 
             if (interpreter.AddFunction(function, clientData,
                     ref functionToken, ref result) == ReturnCode.Ok)
@@ -778,6 +932,12 @@ namespace Sample
             }
 
 #if NETWORK && WEB
+            if (InstallWebTransferCallbacks(
+                    interpreter, this, false, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
             if (InstallNewWebClientCallbacks(
                     interpreter, this, false, ref result) != ReturnCode.Ok)
             {

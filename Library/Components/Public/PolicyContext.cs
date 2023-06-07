@@ -131,9 +131,10 @@ namespace Eagle._Components.Public
             )
         {
             return new PolicyContext(
-                flags, assemblyName, typeName, execute, arguments, script,
-                fileName, bytes, text, encoding, hashValue, hashAlgorithmName,
-                clientData, interpreter, plugin, originalDecision);
+                flags, assemblyName, typeName, execute, arguments,
+                script, fileName, bytes, text, encoding, hashValue,
+                hashAlgorithmName, clientData, interpreter, plugin,
+                originalDecision);
         }
         #endregion
 
@@ -387,6 +388,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region ITypeAndName Members
+        private string typeName;
+        public string TypeName
+        {
+            get { return typeName; }
+            set { throw new NotSupportedException(); }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public Type Type
+        {
+            get { throw new NotSupportedException(); }
+            set { throw new NotSupportedException(); }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IPolicyContext Members
         private PolicyFlags flags;
         public PolicyFlags Flags
@@ -400,14 +420,6 @@ namespace Eagle._Components.Public
         public AssemblyName AssemblyName
         {
             get { return assemblyName; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private string typeName;
-        public string TypeName
-        {
-            get { return typeName; }
         }
 
         ///////////////////////////////////////////////////////////////////////

@@ -499,7 +499,7 @@ namespace Eagle._Commands
                                                 if (arguments.Count == 3)
                                                 {
                                                     string channelId = arguments[2];
-                                                    IChannel channel = interpreter.GetChannel(channelId, ref result);
+                                                    IChannel channel = interpreter.InternalGetChannel(channelId, ref result);
 
                                                     if (channel != null)
                                                     {
@@ -607,7 +607,7 @@ namespace Eagle._Commands
                                                 if (arguments.Count == 3)
                                                 {
                                                     string channelId = arguments[2];
-                                                    IChannel channel = interpreter.GetChannel(channelId, ref result);
+                                                    IChannel channel = interpreter.InternalGetChannel(channelId, ref result);
 
                                                     if (channel != null)
                                                     {
@@ -880,7 +880,7 @@ namespace Eagle._Commands
                                                 if (arguments.Count == 3)
                                                 {
                                                     string channelId = arguments[2];
-                                                    IChannel channel = interpreter.GetChannel(channelId, ref result);
+                                                    IChannel channel = interpreter.InternalGetChannel(channelId, ref result);
 
                                                     if (channel != null)
                                                     {
@@ -1398,6 +1398,7 @@ namespace Eagle._Commands
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-all", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-channels", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-flags", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-history", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-interface", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-input", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-output", null),
@@ -1438,6 +1439,11 @@ namespace Eagle._Commands
 
                                                         if (options.IsPresent("-flags"))
                                                             flags = true;
+
+                                                        bool history = false;
+
+                                                        if (options.IsPresent("-history"))
+                                                            history = true;
 
                                                         bool @interface = false;
 
@@ -1484,97 +1490,109 @@ namespace Eagle._Commands
                                                         {
                                                             if ((!flags && !all) || host.ResetHostFlags())
                                                             {
-                                                                if ((!input && !all) || host.ResetIn())
+                                                                if ((!history && !all) || (host.ResetHistory(
+                                                                        ref result) == ReturnCode.Ok))
                                                                 {
-                                                                    if ((!output && !all) || host.ResetOut())
+                                                                    if ((!input && !all) || host.ResetIn())
                                                                     {
-                                                                        if ((!error && !all) || host.ResetError())
+                                                                        if ((!output && !all) || host.ResetOut())
                                                                         {
-                                                                            if ((!size && !all) || host.ResetSize(hostSizeType))
+                                                                            if ((!error && !all) || host.ResetError())
                                                                             {
-                                                                                if ((!position && !all) || host.ResetPosition())
+                                                                                if ((!size && !all) || host.ResetSize(hostSizeType))
                                                                                 {
-                                                                                    if ((!colors && !all) || host.ResetColors())
+                                                                                    if ((!position && !all) || host.ResetPosition())
                                                                                     {
-                                                                                        if ((!channels && !all) ||
-                                                                                            (interpreter.ResetStandardChannels(
-                                                                                                host, ref result) == ReturnCode.Ok))
+                                                                                        if ((!colors && !all) || host.ResetColors())
                                                                                         {
-                                                                                            StringList list = new StringList();
+                                                                                            if ((!channels && !all) ||
+                                                                                                (interpreter.ResetStandardChannels(
+                                                                                                    host, ref result) == ReturnCode.Ok))
+                                                                                            {
+                                                                                                StringList list = new StringList();
 
-                                                                                            if (all || @interface)
-                                                                                                list.Add("interface");
+                                                                                                if (all || @interface)
+                                                                                                    list.Add("interface");
 
-                                                                                            if (all || flags)
-                                                                                                list.Add("flags");
+                                                                                                if (all || flags)
+                                                                                                    list.Add("flags");
 
-                                                                                            if (all || input)
-                                                                                                list.Add("input");
+                                                                                                if (all || history)
+                                                                                                    list.Add("history");
 
-                                                                                            if (all || output)
-                                                                                                list.Add("output");
+                                                                                                if (all || input)
+                                                                                                    list.Add("input");
 
-                                                                                            if (all || error)
-                                                                                                list.Add("error");
+                                                                                                if (all || output)
+                                                                                                    list.Add("output");
 
-                                                                                            if (all || size)
-                                                                                                list.Add("size");
+                                                                                                if (all || error)
+                                                                                                    list.Add("error");
 
-                                                                                            if (all || position)
-                                                                                                list.Add("position");
+                                                                                                if (all || size)
+                                                                                                    list.Add("size");
 
-                                                                                            if (all || colors)
-                                                                                                list.Add("colors");
+                                                                                                if (all || position)
+                                                                                                    list.Add("position");
 
-                                                                                            if (all || channels)
-                                                                                                list.Add("channels");
+                                                                                                if (all || colors)
+                                                                                                    list.Add("colors");
 
-                                                                                            result = GenericOps<string>.ListToEnglish(
-                                                                                                list, ", ", Characters.Space.ToString(),
-                                                                                                "and ");
+                                                                                                if (all || channels)
+                                                                                                    list.Add("channels");
 
-                                                                                            if (!String.IsNullOrEmpty(result))
-                                                                                                result += " reset";
+                                                                                                result = GenericOps<string>.ListToEnglish(
+                                                                                                    list, ", ", Characters.Space.ToString(),
+                                                                                                    "and ");
+
+                                                                                                if (!String.IsNullOrEmpty(result))
+                                                                                                    result += " reset";
+                                                                                            }
+                                                                                            else
+                                                                                            {
+                                                                                                result = "could not reset interpreter standard channels";
+                                                                                                code = ReturnCode.Error;
+                                                                                            }
                                                                                         }
                                                                                         else
                                                                                         {
-                                                                                            result = "could not reset interpreter standard channels";
+                                                                                            result = "could not reset interpreter host colors";
                                                                                             code = ReturnCode.Error;
                                                                                         }
                                                                                     }
                                                                                     else
                                                                                     {
-                                                                                        result = "could not reset interpreter host colors";
+                                                                                        result = "could not reset interpreter host position";
                                                                                         code = ReturnCode.Error;
                                                                                     }
                                                                                 }
                                                                                 else
                                                                                 {
-                                                                                    result = "could not reset interpreter host position";
+                                                                                    result = "could not reset interpreter host size";
                                                                                     code = ReturnCode.Error;
                                                                                 }
                                                                             }
                                                                             else
                                                                             {
-                                                                                result = "could not reset interpreter host size";
+                                                                                result = "could not reset interpreter host error stream";
                                                                                 code = ReturnCode.Error;
                                                                             }
                                                                         }
                                                                         else
                                                                         {
-                                                                            result = "could not reset interpreter host error stream";
+                                                                            result = "could not reset interpreter host output stream";
                                                                             code = ReturnCode.Error;
                                                                         }
                                                                     }
                                                                     else
                                                                     {
-                                                                        result = "could not reset interpreter host output stream";
+                                                                        result = "could not reset interpreter host input stream";
                                                                         code = ReturnCode.Error;
                                                                     }
                                                                 }
                                                                 else
                                                                 {
-                                                                    result = "could not reset interpreter host input stream";
+                                                                    result = "could not reset interpreter host history";
                                                                     code = ReturnCode.Error;
                                                                 }
                                                             }

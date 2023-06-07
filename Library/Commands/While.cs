@@ -12,6 +12,7 @@
 using System;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
@@ -51,11 +52,14 @@ namespace Eagle._Commands
                         //
                         // NOTE: Evaluate and check the "test" expression.
                         //
+                        int iterationLimit = interpreter.InternalIterationLimit;
+                        int iterationCount = 0;
+
                         string errorInfo = "{0}    (\"while\" test expression)";
 
                         while (true)
                         {
-                            code = interpreter.EvaluateExpressionWithErrorInfo(
+                            code = interpreter.InternalEvaluateExpressionWithErrorInfo(
                                 arguments[1], errorInfo, ref result);
 
                             if (code != ReturnCode.Ok)
@@ -77,10 +81,22 @@ namespace Eagle._Commands
                                 Engine.AddErrorInformation(interpreter, result,
                                     String.Format("{0}    (\"while\" body line {1})",
                                         Environment.NewLine, Interpreter.GetErrorLine(interpreter)));
+
                                 break;
                             }
                             else if ((code != ReturnCode.Ok) && (code != ReturnCode.Continue))
                                 break;
+
+                            if ((iterationLimit != Limits.Unlimited) &&
+                                (++iterationCount > iterationLimit))
+                            {
+                                result = String.Format(
+                                    "iteration limit {0} exceeded",
+                                    iterationLimit);
+
+                                code = ReturnCode.Error;
+                                break;
+                            }
                         }
 
                         if (code == ReturnCode.Break)

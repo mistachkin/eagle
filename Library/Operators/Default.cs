@@ -30,8 +30,14 @@ namespace Eagle._Operators
             )
         {
             kind = IdentifierKind.Operator;
-            id = AttributeOps.GetObjectId(this);
-            group = AttributeOps.GetObjectGroups(this);
+
+            if ((operatorData == null) ||
+                !FlagOps.HasFlags(operatorData.Flags,
+                    OperatorFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             if (operatorData != null)
             {
@@ -173,7 +179,7 @@ namespace Eagle._Operators
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IOperatorData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -183,6 +189,17 @@ namespace Eagle._Operators
 
         ///////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IOperatorData Members
         private Lexeme lexeme;
         public virtual Lexeme Lexeme
         {

@@ -1,5 +1,5 @@
 /*
- * AsynchronousBridge.cs --
+ * ExecuteCallbackBridge.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -10,22 +10,23 @@
  */
 
 using Eagle._Attributes;
+using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
-    [ObjectId("ca9cccc0-56a7-4656-a69b-2b50f1df2b1a")]
-    public sealed class AsynchronousBridge : ScriptMarshalByRefObject
+    [ObjectId("1dca16ef-c448-478d-a255-fc03f54b7a13")]
+    public sealed class ExecuteCallbackBridge : ScriptMarshalByRefObject
     {
         #region Private Data
-        private IAsynchronousCallback callback;
+        private IExecute callback;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
-        private AsynchronousBridge(
-            IAsynchronousCallback callback
+        private ExecuteCallbackBridge(
+            IExecute callback
             )
         {
             this.callback = callback;
@@ -35,30 +36,39 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
-        public void AsynchronousCallback(
-            IAsynchronousContext context
+        public ReturnCode ExecuteCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ArgumentList arguments,
+            ref Result result
             )
         {
-            if (callback != null)
-                callback.Invoke(context);
+            if (callback == null)
+            {
+                result = "invalid execute callback";
+                return ReturnCode.Error;
+            }
+
+            return callback.Execute(
+                interpreter, clientData, arguments, ref result);
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
-        public static AsynchronousBridge Create(
-            IAsynchronousCallback callback,
+        public static ExecuteCallbackBridge Create(
+            IExecute callback,
             ref Result error
             )
         {
             if (callback == null)
             {
-                error = "invalid asynchronous callback";
+                error = "invalid execute callback";
                 return null;
             }
 
-            return new AsynchronousBridge(callback);
+            return new ExecuteCallbackBridge(callback);
         }
         #endregion
     }

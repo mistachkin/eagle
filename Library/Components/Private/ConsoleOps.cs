@@ -195,7 +195,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Console Configuration Methods
-        private static void MaybeDisableConsole(
+        #region Dead Code
+#if DEAD_CODE
+        public static void MaybeEnableConsole( /* NOT USED */
+            ref bool console
+            )
+        {
+            if (!console && GlobalConfiguration.DoesValueExist(
+                    EnvVars.Console, ConfigurationFlags.ConsoleOps))
+            {
+                console = true;
+            }
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void MaybeDisableConsole(
             ref bool console
             )
         {
@@ -208,7 +225,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void MaybeDisableVerbose(
+        #region Dead Code
+#if DEAD_CODE
+        public static void MaybeEnableVerbose( /* NOT USED */
+            ref bool verbose
+            )
+        {
+            if (!verbose && GlobalConfiguration.DoesValueExist(
+                    EnvVars.Verbose, ConfigurationFlags.ConsoleOps))
+            {
+                verbose = true;
+            }
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void MaybeDisableVerbose(
             ref bool verbose
             )
         {

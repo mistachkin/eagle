@@ -370,11 +370,12 @@ namespace Eagle._Components.Private
             if (interpreter == null)
                 return false;
 
-            InterpreterFlags interpreterFlags = interpreter.InterpreterFlags;
+            InteractiveLoopFlags interactiveLoopFlags =
+                interpreter.InternalInteractiveLoopFlags;
 
             /* EXEMPT */
-            return FlagOps.HasFlags(interpreterFlags,
-                InterpreterFlags.TraceInteractiveCommand, true);
+            return FlagOps.HasFlags(interactiveLoopFlags,
+                InteractiveLoopFlags.TraceCommand, true);
         }
 
         ///////////////////////////////////////////////////////////////////////////
@@ -466,7 +467,7 @@ namespace Eagle._Components.Private
             if (name.Length <= prefix.Length)
                 engineFlags |= EngineFlags.ExactMatch;
 
-            if (interpreter.GetIExecuteViaResolvers(
+            if (interpreter.InternalGetIExecuteViaResolvers(
                     engineFlags, name, arguments, LookupFlags.NoVerbose,
                     ref execute) == ReturnCode.Ok)
             {
@@ -8187,9 +8188,21 @@ namespace Eagle._Components.Private
                         ref localResult);
                 }
 
+                bool verbose = false;
+
+                if ((localCode == ReturnCode.Ok) &&
+                    (debugArguments.Count >= 3) &&
+                    !String.IsNullOrEmpty(debugArguments[2]))
+                {
+                    localCode = Value.GetBoolean2(
+                        debugArguments[2], ValueFlags.AnyBoolean,
+                        interpreter.InternalCultureInfo, ref verbose,
+                        ref localResult);
+                }
+
                 if (localCode == ReturnCode.Ok)
                     localCode = interpreter.RestoreCorePlugin(
-                        strict, ref localResult);
+                        strict, verbose, ref localResult);
 
                 if (localCode == ReturnCode.Ok)
                     localResult = "core plugin restored";
@@ -8221,9 +8234,21 @@ namespace Eagle._Components.Private
                         ref localResult);
                 }
 
+                bool verbose = false;
+
+                if ((localCode == ReturnCode.Ok) &&
+                    (debugArguments.Count >= 3) &&
+                    !String.IsNullOrEmpty(debugArguments[2]))
+                {
+                    localCode = Value.GetBoolean2(
+                        debugArguments[2], ValueFlags.AnyBoolean,
+                        interpreter.InternalCultureInfo, ref verbose,
+                        ref localResult);
+                }
+
                 if (localCode == ReturnCode.Ok)
                     localCode = interpreter.RestoreMonitorPlugin(
-                        strict, ref localResult);
+                        strict, verbose, ref localResult);
 
                 if (localCode == ReturnCode.Ok)
                     localResult = "monitor plugin restored";
@@ -10757,8 +10782,16 @@ namespace Eagle._Components.Private
                 //
                 if (!done && !canceled && !notReady)
                 {
-                    if (!String.IsNullOrEmpty(text) &&
-                        (text.Trim().Length > 0))
+                    if ((interpreter != null) &&
+                        !interpreter.IsInteractiveInputEnabled())
+                    {
+                        /* NO RESULT */
+                        interpreter.BufferInteractiveInput(text, false);
+
+                        localResult = "queue input buffered";
+                        localCode = ReturnCode.Ok;
+                    }
+                    else if (!String.IsNullOrEmpty(text) && (text.Trim().Length > 0))
                     {
                         string name = FormatOps.Id(String.Format(
                             "loop{0}", interpreter.ActiveInteractiveLoops),

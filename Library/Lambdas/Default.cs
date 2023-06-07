@@ -30,8 +30,14 @@ namespace Eagle._Lambdas
             )
         {
             kind = IdentifierKind.Lambda;
-            id = AttributeOps.GetObjectId(this);
-            group = AttributeOps.GetObjectGroups(this);
+
+            if ((lambdaData == null) ||
+                !FlagOps.HasFlags(lambdaData.Flags,
+                    ProcedureFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             if (lambdaData != null)
             {
@@ -113,9 +119,11 @@ namespace Eagle._Lambdas
             get { return description; }
             set { description = value; }
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
         private IClientData clientData;
         public virtual IClientData ClientData
         {

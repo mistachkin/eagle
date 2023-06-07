@@ -5420,7 +5420,7 @@ namespace Eagle._Components.Private.Tcl
                 return result;
 
             string processorName = PlatformOps.GetAlternateProcessorName(
-                RuntimeOps.GetProcessorArchitecture(), true, false);
+                PlatformOps.QueryProcessorArchitecture(), IfNotFoundType.Null);
 
             if (processorName != null)
                 result = PathOps.CombinePath(null, result, processorName);

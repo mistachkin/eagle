@@ -58,6 +58,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+#if NATIVE
+        //
+        // HACK: Setting this value to non-zero will disable script cancellation
+        //       from being triggered via the Cancel (PrivateForceCancel) method.
+        //
+        private static bool defaultForceNoCancel = false;
+#endif
+
         //
         // HACK: Setting this value to non-zero will force this class to treat
         //       non-default application domains [more-or-less] like the default
@@ -119,6 +127,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Constants
+        #region Native Console CancelKeyPress Handling
+#if NATIVE
+        private static int forceCancelTimeout = 5000;
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Output Size Constants
         //
         // NOTE: Apparently, the underlying WriteConsoleW call used by the
@@ -843,7 +859,8 @@ namespace Eagle._Hosts
                     TraceOps.LockTrace(
                         "SaveSize",
                         typeof(Console).Name, false,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        null);
                 }
             }
             catch (Exception e)
@@ -1175,7 +1192,8 @@ namespace Eagle._Hosts
                     TraceOps.LockTrace(
                         "SaveColors",
                         typeof(Console).Name, false,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        null);
                 }
             }
             catch (Exception e)
@@ -1224,7 +1242,8 @@ namespace Eagle._Hosts
                     TraceOps.LockTrace(
                         "ShouldResetColorsForSetColors",
                         typeof(Console).Name, false,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        null);
                 }
             }
             catch (Exception e)
@@ -1275,7 +1294,8 @@ namespace Eagle._Hosts
                     TraceOps.LockTrace(
                         "RestoreColors",
                         typeof(Console).Name, false,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        null);
                 }
             }
             catch (Exception e)
@@ -1473,7 +1493,7 @@ namespace Eagle._Hosts
             bool? useCertificate
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             string[] values = {
                 RuntimeOps.IsAdministrator() ?
@@ -1498,7 +1518,7 @@ namespace Eagle._Hosts
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1865,10 +1885,11 @@ namespace Eagle._Hosts
                     TraceOps.DebugTrace(
                         "UnhookSystemConsoleControlHandler",
                         "UnhookControlHandler",
+                        typeof(Console).Name,
                         (code == ReturnCode.Ok) ?
                             TracePriority.HostDebug2 :
                             TracePriority.HostError2,
-                        "code", code, "list", list,
+                        false, "code", code, "list", list,
                         "error", error);
 
                     return code;
@@ -3051,13 +3072,17 @@ namespace Eagle._Hosts
         #region Native Console CancelKeyPress Handling
 #if NATIVE
         private static ReturnCode PrivateForceCancel(
+            bool noCancel,
             ref Result error
             )
         {
             int result;
             Result localError = null;
 
-            result = NativeOps.RaiseConsoleSignal(ref localError);
+            result = noCancel ?
+                NativeOps.RaiseConsoleSignalNoCancel(
+                    forceCancelTimeout, ref localError) :
+                NativeOps.RaiseConsoleSignal(ref localError);
 
             if (result == 0)
             {
@@ -3102,7 +3127,7 @@ namespace Eagle._Hosts
             //       read cancellation handling (see above), it should be very
             //       reliable.
             //
-            code = force ? PrivateForceCancel(ref error) : ReturnCode.Ok;
+            code = force ? PrivateForceCancel(defaultForceNoCancel, ref error) : ReturnCode.Ok;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -3111,23 +3136,14 @@ namespace Eagle._Hosts
 #if WINDOWS
             if ((code == ReturnCode.Ok) && PlatformOps.IsWindowsOperatingSystem())
             {
-                IntPtr handle = WindowOps.GetInputWindow(ref error);
-
-                if (handle != IntPtr.Zero)
-                {
-                    //
-                    // NOTE: This is an attempt to "nicely" break out of the
-                    //       synchronous Console.ReadLine call so that the
-                    //       interactive loop can realize any changes in the
-                    //       interpreter state (i.e. has the interpreter been
-                    //       marked as "exited"?).
-                    //
-                    code = WindowOps.SimulateReturnKey(handle, ref error);
-                }
-                else
-                {
-                    code = ReturnCode.Error;
-                }
+                //
+                // NOTE: This is an attempt to "nicely" break out of the
+                //       synchronous Console.ReadLine call so that the
+                //       interactive loop can realize any changes in the
+                //       interpreter state (i.e. has the interpreter been
+                //       marked as "exited"?).
+                //
+                code = WindowOps.SimulateReturnKey(ref error);
             }
 #endif
             #endregion
@@ -3160,6 +3176,34 @@ namespace Eagle._Hosts
                 MaybeComplain(code, error);
 
             return code;
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Native Console History Handling
+#if NATIVE && WINDOWS
+        private ReturnCode PrivateResetHistory(
+            ref Result error
+            )
+        {
+            if (NativeConsole.IsSupported())
+            {
+                ReturnCode code;
+
+                code = NativeConsole.ClearHistory(ref error);
+
+                if (code != ReturnCode.Ok)
+                    MaybeComplain(code, error);
+
+                return code;
+            }
+            else
+            {
+                error = "not implemented";
+                return ReturnCode.Error;
+            }
         }
 #endif
         #endregion
@@ -5259,6 +5303,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public override ReturnCode ResetHistory(
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+#if NATIVE && WINDOWS
+            return PrivateResetHistory(ref error);
+#else
+            error = "not implemented";
+            return ReturnCode.Error;
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public override ReturnCode GetMode(
             ChannelType channelType,
             ref uint mode,
@@ -5476,14 +5536,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        #region ISynchronize Members
+        #region ISynchronizeBase Members
         public virtual object SyncRoot
         {
             get { CheckDisposed(); return syncRoot; }
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region ISynchronize Members
         public virtual void TryLock(
             ref bool locked
             )

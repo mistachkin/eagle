@@ -13,8 +13,16 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
+#if DYNAMIC
+using System.Reflection;
+#endif
+
 #if !STATIC
 using System.Runtime.InteropServices;
+#endif
+
+#if DYNAMIC
+using System.Text;
 #endif
 
 #if STATIC
@@ -120,6 +128,27 @@ namespace Eagle._Shell
                 Debugger.Break(); /* throw */
             }
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Dynamic Support Methods
+#if DYNAMIC
+        public static string GetPublicKeyTokenAsString()
+        {
+            StringBuilder builder = new StringBuilder();
+
+            byte[] publicKeyToken = Assembly.GetExecutingAssembly().
+                    GetName().GetPublicKeyToken();
+
+            int length = publicKeyToken.Length;
+
+            for (int index = 0; index < length; index++)
+                builder.AppendFormat("{0:x2}", publicKeyToken[index]);
+
+            return builder.ToString();
+        }
+#endif
         #endregion
     }
 }

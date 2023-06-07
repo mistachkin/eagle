@@ -528,7 +528,7 @@ namespace Eagle._Commands
                                                     string executeName = arguments[3];
                                                     IExecute execute = null;
 
-                                                    code = childInterpreter.GetIExecuteViaResolvers(
+                                                    code = childInterpreter.InternalGetIExecuteViaResolvers(
                                                         childInterpreter.GetResolveEngineFlagsNoLock(true),
                                                         executeName, null, LookupFlags.Default,
                                                         ref execute, ref result);
@@ -598,7 +598,7 @@ namespace Eagle._Commands
                                             string executeName = arguments[2];
                                             IExecute execute = null;
 
-                                            code = interpreter.GetIExecuteViaResolvers(
+                                            code = interpreter.InternalGetIExecuteViaResolvers(
                                                 interpreter.GetResolveEngineFlagsNoLock(true),
                                                 executeName, null, LookupFlags.NoWrapper,
                                                 ref execute, ref result);

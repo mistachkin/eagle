@@ -34,10 +34,35 @@ namespace Eagle._Components.Public
             long token
             )
             : this(Guid.Empty, name, group, description,
-                   clientData, typeName, flags, plugin,
-                   token)
+                   clientData, typeName, null, flags,
+                   plugin, token)
         {
             this.id = AttributeOps.GetObjectId(this);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public CommandData(
+            ICommandData commandData
+            )
+            : this(Guid.Empty, null, null, null,
+                   null, null, null, CommandFlags.None,
+                   null, 0)
+        {
+            if (commandData != null)
+            {
+                this.kind = commandData.Kind;
+                this.id = commandData.Id;
+                this.name = commandData.Name;
+                this.group = commandData.Group;
+                this.description = commandData.Description;
+                this.clientData = commandData.ClientData;
+                this.typeName = commandData.TypeName;
+                this.type = commandData.Type;
+                this.flags = commandData.Flags;
+                this.plugin = commandData.Plugin;
+                this.token = commandData.Token;
+            }
         }
         #endregion
 
@@ -51,6 +76,7 @@ namespace Eagle._Components.Public
             string description,
             IClientData clientData,
             string typeName,
+            Type type,
             CommandFlags flags,
             IPlugin plugin,
             long token
@@ -63,6 +89,7 @@ namespace Eagle._Components.Public
             this.description = description;
             this.clientData = clientData;
             this.typeName = typeName;
+            this.type = type;
             this.flags = flags;
             this.plugin = plugin;
             this.token = token;
@@ -133,7 +160,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ICommandBaseData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -143,6 +170,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ICommandBaseData Members
         public virtual CommandFlags CommandFlags
         {
             get { return flags; }

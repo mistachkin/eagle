@@ -464,6 +464,18 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////
 
         public virtual ReturnCode QueueWorkItem(
+            ThreadStart callback,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            throw new NotImplementedException();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public virtual ReturnCode QueueWorkItem(
             WaitCallback callback,
             object state,
             ref Result error
@@ -2591,6 +2603,17 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool ResetHostFlags()
+        {
+            CheckDisposed();
+
+            throw new NotImplementedException();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public virtual ReturnCode ResetHistory(
+            ref Result error
+            )
         {
             CheckDisposed();
 

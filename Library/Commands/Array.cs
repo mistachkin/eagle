@@ -1610,7 +1610,9 @@ namespace Eagle._Commands
                                                                         if (strict || (arrayValue.Count > 0))
                                                                         {
                                                                             string name = arrayValue.GetRandom(
-                                                                                interpreter.RandomNumberGenerator, ref result);
+                                                                                interpreter.InternalProvideEntropy,
+                                                                                interpreter.RandomNumberGenerator,
+                                                                                ref result);
 
                                                                             if (name != null)
                                                                             {

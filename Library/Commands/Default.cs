@@ -35,19 +35,14 @@ namespace Eagle._Commands
         {
             kind = IdentifierKind.Command;
 
-            //
-            // VIRTUAL: Id of the deepest derived class.
-            //
-            id = AttributeOps.GetObjectId(this);
+            if ((commandData == null) ||
+                !FlagOps.HasFlags(commandData.Flags,
+                    CommandFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
-            //
-            // VIRTUAL: Group of the deepest derived class.
-            //
-            group = AttributeOps.GetObjectGroups(this);
-
-            //
-            // NOTE: Is the supplied command data valid?
-            //
             if (commandData != null)
             {
                 EntityOps.MaybeSetGroup(
@@ -395,7 +390,7 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ICommandBaseData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -405,6 +400,17 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ICommandBaseData Members
         public virtual CommandFlags CommandFlags
         {
             get { return flags; }

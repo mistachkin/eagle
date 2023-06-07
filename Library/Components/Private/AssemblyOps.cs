@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
@@ -60,6 +61,62 @@ namespace Eagle._Components.Private
             }
 
             return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MatchAssemblyName(
+            AssemblyName assemblyName, /* in */
+            string name,               /* in: OPTIONAL */
+            Version version,           /* in: OPTIONAL */
+            CultureInfo cultureInfo,   /* in: OPTIONAL */
+            byte[] publicKeyToken      /* in: OPTIONAL */
+            )
+        {
+            if (assemblyName == null)
+                return false;
+
+            if ((name != null) && !SharedStringOps.SystemEquals(
+                    assemblyName.Name, name))
+            {
+                return false;
+            }
+
+            if ((version != null) && (PackageOps.VersionCompare(
+                    assemblyName.Version, version) != 0))
+            {
+                return false;
+            }
+
+            if ((cultureInfo != null) &&
+                !cultureInfo.Equals(assemblyName.CultureInfo))
+            {
+                return false;
+            }
+
+            if ((publicKeyToken != null) && !ArrayOps.Equals(
+                    assemblyName.GetPublicKeyToken(), publicKeyToken))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MatchAssemblyName(
+            Interpreter interpreter,   /* in */
+            AssemblyName assemblyName, /* in */
+            string pattern,            /* in */
+            MatchMode mode             /* in */
+            )
+        {
+            if (assemblyName == null)
+                return false;
+
+            return StringOps.Match(
+                interpreter, mode, assemblyName.FullName, pattern, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -128,11 +185,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static Assembly FindInAppDomain(
-            AppDomain appDomain,
-            string name,
-            Version version,
-            byte[] publicKeyToken,
-            ref Result error
+            Interpreter interpreter, /* in: NOT USED */
+            IClientData clientData,  /* in: NOT USED */
+            AppDomain appDomain,     /* in: OPTIONAL */
+            string path,             /* in */
+            int? startIndex,         /* in: OPTIONAL */
+            ref Result error         /* out */
             )
         {
             if (appDomain == null)
@@ -140,39 +198,203 @@ namespace Eagle._Components.Private
 
             if (appDomain != null)
             {
-                Assembly[] assemblies = appDomain.GetAssemblies();
+                Assembly[] assemblies = null;
+
+                try
+                {
+                    assemblies = appDomain.GetAssemblies();
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                    return null;
+                }
 
                 if (assemblies != null)
                 {
-                    foreach (Assembly assembly in assemblies)
+                    int length = assemblies.Length;
+
+                    if (length > 0)
                     {
-                        if (assembly == null)
-                            continue;
+                        int index = (startIndex != null) ?
+                            (int)startIndex : 0;
 
-                        AssemblyName assemblyName = assembly.GetName();
-
-                        if (assemblyName == null)
-                            continue;
-
-                        if ((name != null) && !SharedStringOps.SystemEquals(
-                                assemblyName.Name, name))
+                        for (; index < length; index++)
                         {
-                            continue;
-                        }
+                            Assembly assembly = assemblies[index];
 
-                        if ((version != null) && (PackageOps.VersionCompare(
-                                assemblyName.Version, version) != 0))
+                            if (assembly == null)
+                                continue;
+
+                            string location;
+
+                            try
+                            {
+                                location = assembly.Location; /* throw */
+                            }
+                            catch (Exception e)
+                            {
+                                TraceOps.DebugTrace(
+                                    e, typeof(AssemblyOps).Name,
+                                    TracePriority.AssemblyError);
+
+                                continue;
+                            }
+
+                            if ((path != null) && !PathOps.IsSameFile(
+                                    interpreter, location, path))
+                            {
+                                continue;
+                            }
+
+                            return assembly;
+                        }
+                    }
+                }
+            }
+
+            error = "assembly not found in application domain";
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static Assembly FindInAppDomain(
+            AppDomain appDomain,   /* in: OPTIONAL */
+            string name,           /* in: OPTIONAL */
+            Version version,       /* in: OPTIONAL */
+            byte[] publicKeyToken, /* in: OPTIONAL */
+            ref Result error       /* out */
+            )
+        {
+            return FindInAppDomain(
+                null, null, appDomain, name, version, null,
+                publicKeyToken, null, null, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static Assembly FindInAppDomain(
+            Interpreter interpreter, /* in: NOT USED */
+            IClientData clientData,  /* in: NOT USED */
+            AppDomain appDomain,     /* in: OPTIONAL */
+            string name,             /* in: OPTIONAL */
+            Version version,         /* in: OPTIONAL */
+            CultureInfo cultureInfo, /* in: OPTIONAL */
+            byte[] publicKeyToken,   /* in: OPTIONAL */
+            MatchMode? mode,         /* in: NOT USED */
+            int? startIndex,         /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            if (appDomain == null)
+                appDomain = AppDomainOps.GetCurrent();
+
+            if (appDomain != null)
+            {
+                Assembly[] assemblies = null;
+
+                try
+                {
+                    assemblies = appDomain.GetAssemblies();
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                    return null;
+                }
+
+                if (assemblies != null)
+                {
+                    int length = assemblies.Length;
+
+                    if (length > 0)
+                    {
+                        int index = (startIndex != null) ?
+                            (int)startIndex : 0;
+
+                        for (; index < length; index++)
                         {
-                            continue;
-                        }
+                            Assembly assembly = assemblies[index];
 
-                        if ((publicKeyToken != null) && !ArrayOps.Equals(
-                                assemblyName.GetPublicKeyToken(), publicKeyToken))
+                            if (assembly == null)
+                                continue;
+
+                            AssemblyName assemblyName = assembly.GetName();
+
+                            if (!MatchAssemblyName(
+                                    assemblyName, name, version,
+                                    cultureInfo, publicKeyToken))
+                            {
+                                continue;
+                            }
+
+                            return assembly;
+                        }
+                    }
+                }
+            }
+
+            error = "assembly not found in application domain";
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static Assembly FindInAppDomain(
+            Interpreter interpreter, /* in: OPTIONAL */
+            AppDomain appDomain,     /* in: OPTIONAL */
+            MatchMode mode,          /* in */
+            string pattern,          /* in: OPTIONAL */
+            bool noCase,             /* in */
+            int? startIndex,         /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            if (appDomain == null)
+                appDomain = AppDomainOps.GetCurrent();
+
+            if (appDomain != null)
+            {
+                Assembly[] assemblies = null;
+
+                try
+                {
+                    assemblies = appDomain.GetAssemblies();
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                    return null;
+                }
+
+                if (assemblies != null)
+                {
+                    int length = assemblies.Length;
+
+                    if (length > 0)
+                    {
+                        int index = (startIndex != null) ?
+                            (int)startIndex : 0;
+
+                        for (; index < length; index++)
                         {
-                            continue;
-                        }
+                            Assembly assembly = assemblies[index];
 
-                        return assembly;
+                            if (assembly == null)
+                                continue;
+
+                            AssemblyName assemblyName = assembly.GetName();
+
+                            if ((pattern != null) && !StringOps.Match(
+                                    interpreter, mode, assemblyName.FullName,
+                                    pattern, noCase))
+                            {
+                                continue;
+                            }
+
+                            return assembly;
+                        }
                     }
                 }
             }

@@ -819,7 +819,7 @@ Eagle._Interfaces.Public.ICallFrame Eagle._Interfaces.Public.ICallback\
 Eagle._Interfaces.Public.IExecute Eagle._Interfaces.Public.IIdentifier\
 Eagle._Interfaces.Public.INamespace Eagle._Interfaces.Public.IObject\
 Eagle._Interfaces.Public.IOption Eagle._Interfaces.Public.IPlugin\
-Eagle._Interfaces.Public.IRuleSet\
+Eagle._Interfaces.Public.IRuleSet {System.Byte[]}\
 System.DateTime System.Globalization.CultureInfo System.Guid\
 System.Security.SecureString System.String System.Text.Encoding\
 System.TimeSpan System.Type System.Uri System.Version}}
@@ -858,12 +858,12 @@ Eagle._Interfaces.Public.IExecute Eagle._Interfaces.Public.IIdentifier\
 Eagle._Interfaces.Public.INamespace Eagle._Interfaces.Public.IObject\
 Eagle._Interfaces.Public.IOption Eagle._Interfaces.Public.IPlugin\
 Eagle._Interfaces.Public.IRuleSet\
-System.Boolean System.Byte System.Char System.DateTime System.Decimal\
-System.Double System.Enum System.Globalization.CultureInfo System.Guid\
-System.Int16 System.Int32 System.Int64 System.MidpointRounding System.SByte\
-System.Security.SecureString System.Single System.String System.Text.Encoding\
-System.TimeSpan System.Type System.UInt16 System.UInt32 System.UInt64\
-System.Uri System.Version}}
+System.Boolean System.Byte {System.Byte[]} System.Char System.DateTime\
+System.Decimal System.Double System.Enum System.Globalization.CultureInfo\
+System.Guid System.Int16 System.Int32 System.Int64 System.MidpointRounding\
+System.SByte System.Security.SecureString System.Single System.String\
+System.Text.Encoding System.TimeSpan System.Type System.UInt16 System.UInt32\
+System.UInt64 System.Uri System.Version}}
 
 ###############################################################################
 
@@ -1495,6 +1495,22 @@ runTest {test expr-700.1 {fpclassify command} -body {
       [fpclassify NaN]
 } -constraints {tip521} -result \
 {normal normal zero zero zero zero subnormal infinite infinite nan}}
+
+###############################################################################
+
+runTest {test wide-1.1 {incr with non-integer type} -setup {
+  unset -nocomplain x dbl dec error
+} -body {
+  set x 0
+  set dbl [expr {double(12.34)}]
+  set dec [expr {decimal(43.21)}]
+
+  list [catch {incr x $dbl} error] $error \
+      [catch {incr x $dec} error] $error
+} -cleanup {
+  unset -nocomplain x dbl dec error
+} -constraints {eagle} -result {1 {could not convert "12.34" to wide integer} 1\
+{could not convert "43.21" to wide integer}}}
 
 ###############################################################################
 

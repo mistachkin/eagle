@@ -28,6 +28,10 @@ using NamedEventWaitHandleDictionary =
     System.Collections.Generic.Dictionary<string,
         Eagle._Components.Private.ThreadOps.NamedEventWaitHandle>;
 
+using ThreadStartPair =
+    Eagle._Components.Public.AnyPair<
+        System.Threading.ThreadStart, object>;
+
 using WaitCallbackPair =
     Eagle._Components.Public.AnyPair<
         System.Threading.WaitCallback, object>;
@@ -1193,9 +1197,11 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        TraceOps.DebugTrace(
-                            "TranslateTimeoutType: could not lock interpreter",
-                            typeof(ThreadOps).Name, TracePriority.LockWarning);
+                        TraceOps.LockTrace(
+                            "TranslateTimeoutType",
+                            typeof(ThreadOps).Name, false,
+                            TracePriority.LockWarning2,
+                            interpreter.MaybeWhoHasLock());
                     }
                 }
                 finally
@@ -1254,9 +1260,11 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        TraceOps.DebugTrace(
-                            "GetTimeout: could not lock interpreter",
-                            typeof(ThreadOps).Name, TracePriority.LockWarning);
+                        TraceOps.LockTrace(
+                            "GetTimeout",
+                            typeof(ThreadOps).Name, false,
+                            TracePriority.LockWarning2,
+                            interpreter.MaybeWhoHasLock());
                     }
                 }
                 finally
@@ -1577,6 +1585,49 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ThreadPool Helper Methods
+        private static void ThreadStartWrapper(
+            object state /* in */
+            ) /* System.Threading.WaitCallback */
+        {
+            ThreadStartPair anyPair = state as ThreadStartPair;
+
+            if (anyPair == null)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "ThreadStartWrapper: cannot convert state to {0}",
+                    MarshalOps.GetErrorTypeName(typeof(ThreadStartPair))),
+                    typeof(ThreadOps).Name, TracePriority.ThreadError);
+
+                return;
+            }
+
+            ThreadStart newCallback = anyPair.X;
+
+            if (newCallback == null)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "ThreadStartWrapper: missing {0} delegate from {1}",
+                    MarshalOps.GetErrorTypeName(typeof(ThreadStart)),
+                    MarshalOps.GetErrorTypeName(typeof(ThreadStartPair))),
+                    typeof(ThreadOps).Name, TracePriority.ThreadError);
+
+                return;
+            }
+
+            Interlocked.Increment(ref queueActiveCount);
+
+            try
+            {
+                newCallback(); /* throw */
+            }
+            finally
+            {
+                Interlocked.Decrement(ref queueActiveCount);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static void WaitCallbackWrapper(
             object state /* in */
             ) /* System.Threading.WaitCallback */
@@ -1618,6 +1669,16 @@ namespace Eagle._Components.Private
             {
                 Interlocked.Decrement(ref queueActiveCount);
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool QueueUserWorkItem(
+            ThreadStart callBack /* in */
+            )
+        {
+            return ThreadPool.QueueUserWorkItem(new WaitCallback(
+                ThreadStartWrapper), new ThreadStartPair(callBack));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1832,12 +1893,16 @@ namespace Eagle._Components.Private
                     @event = EventWaitHandle.OpenExisting(name);
                 }
             }
-#if DEBUG
-            catch (WaitHandleCannotBeOpenedException)
+            catch (WaitHandleCannotBeOpenedException e)
             {
+                TraceOps.DebugTrace(
+                    e, typeof(ThreadOps).Name,
+                    TracePriority.HandleError2);
+
+#if DEBUG
                 DebugOps.MaybeBreak();
-            }
 #endif
+            }
             catch (Exception e)
             {
                 TraceOps.DebugTrace(

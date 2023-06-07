@@ -107,6 +107,21 @@ namespace Eagle._Containers.Public
             foreach (KeyValuePair<string, IOption> pair in collection2)
                 MaybeAdd(pair.Key, pair.Value);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal OptionDictionary(
+            IEnumerable<KeyValuePair<string, IOption>> collection1,
+            IEnumerable<KeyValuePair<string, IOption>> collection2
+            )
+            : this()
+        {
+            foreach (KeyValuePair<string, IOption> pair in collection1)
+                MaybeAdd(pair.Key, pair.Value);
+
+            foreach (KeyValuePair<string, IOption> pair in collection2)
+                MaybeAdd(pair.Key, pair.Value);
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

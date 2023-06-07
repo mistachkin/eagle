@@ -20,13 +20,23 @@ namespace Eagle._Interfaces.Public
     [ObjectId("ab967cb8-e9dd-4855-82c1-4ee5960f0616")]
     public interface IRuleSet : IRuleSetData
     {
+        string GetName();
+
         bool IsEmpty();
 
         void MakeReadOnly();
 
+        int CountRules();
+
         void ClearRules();
 
         IEnumerable<IRule> CopyRules(
+            ref Result error
+        );
+
+        IEnumerable<IRule> FindRules(
+            IRule rule,
+            bool allowNone,
             ref Result error
         );
 
@@ -76,14 +86,24 @@ namespace Eagle._Interfaces.Public
         );
 
         bool AddRules(
+            IRuleSet ruleSet,
+            bool stopOnError,
+            bool moveRules,
+            ref int count,
+            ref Result error
+        );
+
+        bool AddRules(
             IEnumerable<IRule> rules,
             bool stopOnError,
+            ref int count,
             ref Result error
         );
 
         ReturnCode ForEachRule(
             RuleIterationCallback callback,
             Interpreter interpreter,
+            IClientData clientData,
             IdentifierKind? kind,
             MatchMode mode,
             ref Result error
@@ -92,6 +112,7 @@ namespace Eagle._Interfaces.Public
         bool ApplyRules(
             Interpreter interpreter,
             IdentifierKind? kind,
+            MatchMode mode,
             string text
         );
 
@@ -107,6 +128,7 @@ namespace Eagle._Interfaces.Public
         ReturnCode ApplyRules(
             RuleMatchCallback callback,
             Interpreter interpreter,
+            IClientData clientData,
             IdentifierKind? kind,
             MatchMode mode,
             string text,

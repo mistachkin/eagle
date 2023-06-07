@@ -164,6 +164,30 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////
 
         public override ReturnCode QueueWorkItem(
+            ThreadStart callback,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            try
+            {
+                if (_Engine.QueueWorkItem(callback))
+                    return ReturnCode.Ok;
+                else
+                    error = "could not queue work item";
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public override ReturnCode QueueWorkItem(
             WaitCallback callback,
             object state,
             ref Result error

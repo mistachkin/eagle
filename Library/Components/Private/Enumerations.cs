@@ -14,6 +14,64 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Private
 {
+    [ObjectId("fe64b30e-2c31-4a1c-925b-8556a3fd2229")]
+    internal enum IfNotFoundType
+    {
+        None = 0x0,
+        Invalid = 0x1,
+        Null = 0x2,
+        Unknown = 0x4
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if SHELL
+    [Flags()]
+    [ObjectId("cac467bd-9d4a-46b2-aeb3-4a790523b8df")]
+    internal enum InteractiveLoopFlags
+    {
+        None = 0x0,           /* No special handling. */
+        Invalid = 0x1,        /* Invalid, do not use. */
+        NoTimeout = 0x2,      /* The interactive loop should not mess with
+                               * the timeout thread. */
+        TraceInput = 0x4,     /* Trace interactive input processing.
+                               * Used by the interactive loop. */
+        NoSemaphore = 0x8,    /* Do not use the semaphore when dealing with
+                               * interactive input from within the
+                               * * interactive loop. */
+        WaitSemaphore = 0x10, /* Wait (forever) for the interactive
+                               * semaphore to be available.  If this flag
+                               * is not set, the inability to obtain the
+                               * interactive semaphore will bail out of
+                               * the interactive loop. */
+        NoRefreshHost = 0x20, /* Do not refresh the interactive host when
+                               * preparing to read interactive input from
+                               * within the interactive loop. */
+        TraceCommand = 0x40,  /* Trace interactive commands.  Used by the
+                               * interactive loop. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForDefault = 0x100000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Default = ForDefault
+    }
+#endif
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [ObjectId("b374f974-c19e-4706-b323-033c4d09fb34")]
+    internal enum MaybeEnableType
+    {
+        False = 0,
+        True = 1,
+        Automatic = 2
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     //
     // WARNING: This enumeration is for use by the WindowOps class only.
     //          PLEASE DO NOT USE.  It is subject to change at any time.
@@ -263,9 +321,14 @@ namespace Eagle._Components.Private
         Core = 0x100,
         Plugins = 0x200,
 
-        ForDefault = 0x1000,
+        AllowNull = 0x1000,
 
-        Default = Core | Plugins | ForDefault
+        ForSetup = 0x10000,
+        ForDefault = 0x20000,
+
+        Setup = Core | ForSetup,
+
+        Default = Core | Plugins | AllowNull | ForDefault
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -322,7 +385,7 @@ namespace Eagle._Components.Private
     {
         VER_NT_UNKNOWN = 0xFF,          /* Cannot query: possibly Linux, etc. */
         VER_NT_NONE = 0x0,              /* Not yet queried. */
-        VER_NT_WORKSTATION = 0x1,       /* Windows 2000/XP/7/8/8.1/10, etc. */
+        VER_NT_WORKSTATION = 0x1,       /* Windows 2000/XP/7/8/8.1/10/11, etc. */
         VER_NT_DOMAIN_CONTROLLER = 0x2, /* Windows Server -AND- Domain Controller */
         VER_NT_SERVER = 0x3             /* Windows Server */
     }

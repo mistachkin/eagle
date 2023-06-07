@@ -11,8 +11,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Resources;
+using System.Text.RegularExpressions;
 using Eagle._Attributes;
 using Eagle._Components.Private.Delegates;
 using Eagle._Components.Public;
@@ -20,6 +22,15 @@ using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+
+using PathList = System.Collections.Generic.IEnumerable<string>;
+using SearchDictionary = Eagle._Containers.Public.PathDictionary<object>;
+
+using AssemblyPluginPair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Containers.Public.StringList>;
+
+using AssemblyFilePluginNames = System.Collections.Generic.Dictionary<
+    string, Eagle._Containers.Public.StringList>;
 
 using PackageFileNameTriplet = Eagle._Components.Public.AnyTriplet<
     Eagle._Components.Public.PackageType, string, string>;
@@ -67,6 +78,15 @@ namespace Eagle._Components.Private
         // HACK: This is purposely not read-only.
         //
         private static string HostListFileName = "hostPackageIndexes";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is used to check if a string value appears to be a
+        //       public key token.
+        //
+        private static readonly Regex PublicKeyTokenRegEx = RegExOps.Create(
+            "^(?:0x)?([0-9a-f]{16})$");
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -126,6 +146,680 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Package Support Methods
+        private static string GetLoadCommandName()
+        {
+            return NamespaceOps.MakeAbsoluteName(
+                ScriptOps.TypeNameToEntityName(typeof(_Commands.Load)));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetCommandName()
+        {
+            return NamespaceOps.MakeAbsoluteName(
+                ScriptOps.TypeNameToEntityName(typeof(_Commands.Package)));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetVersionString(
+            Version version /* in: OPTIONAL */
+            )
+        {
+            if (version != null)
+                return version.ToString();
+
+            version = GlobalState.GetTwoPartAssemblyVersion();
+
+            if (version != null)
+                return version.ToString();
+
+            return Vars.Version.DefaultValue;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsDirectory(
+            Interpreter interpreter,   /* in: OPTIONAL */
+            string directory,          /* in */
+            PackageIfNeededFlags flags /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(directory))
+                return false;
+
+            if (!Directory.Exists(directory))
+                return false;
+
+            bool ignoreDisabled = FlagOps.HasFlags(
+                flags, PackageIfNeededFlags.IgnoreDisabled, true);
+
+            if (!ignoreDisabled && IsDisabled(directory))
+                return false;
+
+            string indexFileName = PathOps.CombinePath(
+                null, directory, FileNameOnly.PackageIndex);
+
+            if (String.IsNullOrEmpty(indexFileName))
+                return false;
+
+            if ((ignoreDisabled || !IsDisabled(indexFileName)) &&
+                File.Exists(indexFileName))
+            {
+                return true;
+            }
+
+            if (!FlagOps.HasFlags(
+                    flags, PackageIfNeededFlags.IgnoreFileName, true))
+            {
+                string[] fileNames = null;
+
+                try
+                {
+                    fileNames = Directory.GetFiles(
+                        directory, Characters.Asterisk.ToString(),
+                        SearchOption.TopDirectoryOnly);
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(PackageOps).Name,
+                        TracePriority.FileSystemError);
+                }
+
+                if (fileNames != null)
+                {
+                    bool mustHaveAssembly = FlagOps.HasFlags(
+                        flags, PackageIfNeededFlags.MustHaveAssembly, true);
+
+                    bool noTrusted = FlagOps.HasFlags(
+                        flags, PackageIfNeededFlags.NoTrusted, true);
+
+                    bool noVerified = FlagOps.HasFlags(
+                        flags, PackageIfNeededFlags.NoVerified, true);
+
+                    Array.Sort(fileNames);
+
+                    foreach (string fileName in fileNames)
+                    {
+                        if (!ignoreDisabled && IsDisabled(fileName))
+                            continue;
+
+                        if (PathOps.MatchExtension(
+                                fileName, FileExtension.Script) ||
+                            PathOps.MatchExtension(
+                                fileName, FileExtension.EncryptedScript))
+                        {
+                            return true;
+                        }
+
+                        if (PathOps.MatchExtension(
+                                fileName, FileExtension.Library) ||
+                            PathOps.MatchExtension(
+                                fileName, FileExtension.Executable))
+                        {
+                            if (GlobalState.IsAssemblyLocation(fileName))
+                                continue;
+
+                            if (mustHaveAssembly &&
+                                !RuntimeOps.IsManagedAssembly(fileName))
+                            {
+                                continue;
+                            }
+
+                            if (!noTrusted &&
+                                !RuntimeOps.IsFileTrusted(
+                                    interpreter, null, fileName, IntPtr.Zero))
+                            {
+                                continue;
+                            }
+
+                            if (!noVerified &&
+                                !RuntimeOps.IsStrongNameVerified(fileName, true))
+                            {
+                                continue;
+                            }
+
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This method cannot (currently) fail.  The error parameter
+        //       is here just in case this needs to change in the future.
+        //
+        public static string GetLoadCommand(
+            Interpreter interpreter, /* in: NOT USED */
+            string commandName,      /* in: OPTIONAL */
+            byte[] publicKeyToken,   /* in: OPTIONAL */
+            string fileName,         /* in */
+            string typeName,         /* in */
+            ref Result error         /* out: NOT USED */
+            )
+        {
+            StringList list = new StringList();
+
+            if (commandName != null)
+                list.Add(commandName);
+            else
+                list.Add(GetLoadCommandName());
+
+            if (publicKeyToken != null)
+            {
+                list.Add("-publickeytoken");
+
+                list.Add(String.Format("0x{0}",
+                    ArrayOps.ToHexadecimalString(publicKeyToken)));
+            }
+
+            list.Add(Option.EndOfOptions);
+            list.Add(fileName);
+            list.Add(typeName);
+
+            return list.ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This method cannot (currently) fail.  The error parameter
+        //       is here just in case this needs to change in the future.
+        //
+        public static string GetIfNeededCommand(
+            Interpreter interpreter, /* in: NOT USED */
+            string commandName,      /* in: OPTIONAL */
+            string packageName,      /* in: OPTIONAL */
+            Version version,         /* in: OPTIONAL */
+            string text,             /* in: OPTIONAL */
+            bool locked,             /* in: OPTIONAL */
+            ref Result error         /* out: NOT USED */
+            )
+        {
+            StringList list = new StringList();
+
+            if (commandName != null)
+                list.Add(commandName);
+            else
+                list.Add(GetCommandName());
+
+            list.Add("ifneeded");
+            list.Add(packageName);
+            list.Add(GetVersionString(version));
+            list.Add(text);
+
+            if (locked)
+            {
+                list.Add(String.Format(
+                    "{0}{1}", AttributeFlags.AddCharacter,
+                    PackageFlags.Locked));
+            }
+
+            return list.ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string FindFileNameOnly(
+            PathList directories, /* in */
+            string fileNameOnly   /* in */
+            )
+        {
+            if ((directories == null) ||
+                String.IsNullOrEmpty(fileNameOnly))
+            {
+                return null;
+            }
+
+            foreach (string directory in directories)
+            {
+                if (String.IsNullOrEmpty(directory))
+                    continue;
+
+                if (!Directory.Exists(directory))
+                    continue;
+
+                string fileName = PathOps.CombinePath(
+                    null, directory, fileNameOnly);
+
+                if (!File.Exists(fileName))
+                    continue;
+
+                return fileName;
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetIfNeededScript(
+            Interpreter interpreter, /* in */
+            string fileName,         /* in */
+            string typeName,         /* in */
+            Version version,         /* in */
+            byte[] publicKeyToken,   /* in: OPTIONAL */
+            bool locked,             /* in */
+            ref Result error         /* out */
+            )
+        {
+            string text = GetLoadCommand(
+                interpreter, null, publicKeyToken,
+                fileName, typeName, ref error);
+
+            if (text == null)
+                return null;
+
+            return GetIfNeededCommand(
+                interpreter, null, typeName,
+                version, text, locked, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeAddDirectory(
+            Interpreter interpreter,         /* in */
+            string directory,                /* in */
+            PackageIfNeededFlags flags,      /* in */
+            ref SearchDictionary directories /* out */
+            )
+        {
+            if ((directory == null) ||
+                !IsDirectory(interpreter, directory, flags))
+            {
+                return false;
+            }
+
+            if (directories == null)
+                directories = new SearchDictionary();
+
+            if (directories.ContainsKey(directory))
+                return false;
+
+            directories.Add(directory, null);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static PathList GetAllDirectories(
+            string path,               /* in */
+            PackageIfNeededFlags flags /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(path))
+                return null;
+
+            bool recursive = FlagOps.HasFlags(
+                flags, PackageIfNeededFlags.AllDirectories, true);
+
+            SearchDictionary paths = null;
+
+            try
+            {
+                paths = SearchDictionary.ForAllDirectories(
+                    path, recursive);
+            }
+            catch (Exception e)
+            {
+                if (!FlagOps.HasFlags(
+                        flags, PackageIfNeededFlags.Silent, true))
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(PackageOps).Name,
+                        TracePriority.FileSystemError);
+                }
+            }
+
+            if (paths == null)
+                return null;
+
+            return paths.GetKeysInOrder(false);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long MaybeAddAllDirectories(
+            Interpreter interpreter,    /* in */
+            string path,                /* in */
+            PackageIfNeededFlags flags, /* in */
+            ref SearchDictionary paths  /* out */
+            )
+        {
+            int count = 0;
+
+            if (String.IsNullOrEmpty(path))
+                return count;
+
+            PathList directories = GetAllDirectories(path, flags);
+
+            if (directories == null)
+                return count;
+
+            foreach (string directory in directories)
+            {
+                if (MaybeAddDirectory(
+                        interpreter, directory, flags, ref paths))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static PathList GetDirectories(
+            Interpreter interpreter,   /* in */
+            string path,               /* in */
+            PackageIfNeededFlags flags /* in */
+            )
+        {
+            SearchDictionary subResult1 = null;
+
+            if (FlagOps.HasFlags(
+                    flags, PackageIfNeededFlags.UseThePath, true))
+            {
+                /* IGNORED */
+                MaybeAddDirectory(
+                    interpreter, path, flags, ref subResult1);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            SearchDictionary subResult2 = null;
+
+            if (FlagOps.HasFlags(
+                    flags, PackageIfNeededFlags.UseBinaryPath, true))
+            {
+                /* IGNORED */
+                MaybeAddDirectory(interpreter,
+                    GlobalState.InitializeOrGetBinaryPath(true),
+                    flags, ref subResult2);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            SearchDictionary subResult3 = null;
+
+            if (FlagOps.HasFlags(
+                    flags, PackageIfNeededFlags.UseParentPath, true) &&
+                (path != null))
+            {
+                string parentPath = null;
+
+                try
+                {
+                    parentPath = Path.GetDirectoryName(path);
+                }
+                catch (Exception e)
+                {
+                    if (!FlagOps.HasFlags(
+                            flags, PackageIfNeededFlags.Silent, true))
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(PackageOps).Name,
+                            TracePriority.FileSystemError);
+                    }
+                }
+
+                /* IGNORED */
+                MaybeAddAllDirectories(
+                    interpreter, parentPath, flags, ref subResult3);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            SearchDictionary subResult4 = null;
+
+            if (FlagOps.HasFlags(
+                    flags, PackageIfNeededFlags.UseBasePath, true))
+            {
+                /* IGNORED */
+                MaybeAddAllDirectories(
+                    interpreter, GlobalState.GetBasePath(), flags,
+                    ref subResult4);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            StringList result = null;
+
+            if ((subResult1 != null) || (subResult2 != null) ||
+                (subResult3 != null) || (subResult4 != null))
+            {
+                result = new StringList();
+
+                if (subResult1 != null)
+                    result.AddRange(subResult1.GetKeysInOrder(false));
+
+                if (subResult2 != null)
+                    result.AddRange(subResult2.GetKeysInOrder(false));
+
+                if (subResult3 != null)
+                    result.AddRange(subResult3.GetKeysInOrder(false));
+
+                if (subResult4 != null)
+                    result.AddRange(subResult4.GetKeysInOrder(false));
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool ExtractPublicKeyToken(
+            string value,               /* in */
+            CultureInfo cultureInfo,    /* in */
+            PackageIfNeededFlags flags, /* in */
+            ref byte[] publicKeyToken   /* in, out */
+            )
+        {
+            if (String.IsNullOrEmpty(value))
+                return false;
+
+            Regex regEx = PublicKeyTokenRegEx;
+
+            if (regEx == null)
+                return false;
+
+            Match match = regEx.Match(value);
+
+            if ((match == null) || !match.Success)
+                return false;
+
+            byte[] localPublicKeyToken = null;
+            Result error = null;
+
+            if (ArrayOps.GetBytesFromHexadecimalString(
+                    RegExOps.GetMatchValue(match, 1),
+                    cultureInfo, ref localPublicKeyToken,
+                    ref error) != ReturnCode.Ok)
+            {
+                if (!FlagOps.HasFlags(
+                        flags, PackageIfNeededFlags.Silent, true))
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "ExtractPublicKeyToken: error = {0}",
+                        FormatOps.WrapOrNull(error)),
+                        typeof(PackageOps).Name,
+                        TracePriority.InputError);
+                }
+
+                return false;
+            }
+
+            publicKeyToken = localPublicKeyToken;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CreateAndEvaluateIfNeededScripts(
+            Interpreter interpreter,          /* in */
+            AssemblyFilePluginNames mappings, /* in */
+            string path,                      /* in: OPTIONAL */
+            Version version,                  /* in: OPTIONAL */
+            byte[] publicKeyToken,            /* in: OPTIONAL */
+            CultureInfo cultureInfo,          /* in: OPTIONAL */
+            PackageIfNeededFlags flags,       /* in */
+            ref Result result                 /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (mappings == null)
+            {
+                result = "invalid mappings dictionary";
+                return ReturnCode.Error;
+            }
+
+            bool locked = FlagOps.HasFlags(
+                flags, PackageIfNeededFlags.Locked, true);
+
+            bool whatIf = FlagOps.HasFlags(
+                flags, PackageIfNeededFlags.WhatIf, true);
+
+            StringList list = null;
+            PathList directories = GetDirectories(interpreter, path, flags);
+
+            foreach (AssemblyPluginPair pair in mappings)
+            {
+                string fileNameOnly = pair.Key;
+
+                if (String.IsNullOrEmpty(fileNameOnly))
+                    continue;
+
+                string fileName = FindFileNameOnly(
+                    directories, fileNameOnly);
+
+                if (fileName == null)
+                    continue;
+
+                IList<string> typeNames = pair.Value;
+
+                if (typeNames == null)
+                    continue;
+
+                byte[] localPublicKeyToken = publicKeyToken;
+
+                foreach (string typeName in typeNames)
+                {
+                    if (typeName == null)
+                        continue;
+
+                    if (ExtractPublicKeyToken(
+                            typeName, cultureInfo, flags,
+                            ref localPublicKeyToken))
+                    {
+                        continue;
+                    }
+
+                    string text = GetIfNeededScript(
+                        interpreter, fileName, typeName,
+                        version, localPublicKeyToken,
+                        locked, ref result);
+
+                    if (text == null)
+                        return ReturnCode.Error;
+
+                    Result localResult = null;
+
+                    if (!whatIf)
+                    {
+                        if (interpreter.EvaluateScript(text,
+                                ref localResult) != ReturnCode.Ok)
+                        {
+                            result = localResult;
+                            return ReturnCode.Error;
+                        }
+                    }
+
+                    if (list == null)
+                        list = new StringList();
+
+                    list.Add(text);
+                }
+            }
+
+            result = list;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This method cannot (currently) fail.  The error parameter
+        //       is here just in case this needs to change in the future.
+        //
+        public static string GetScanCommand(
+            Interpreter interpreter, /* in: OPTIONAL */
+            string commandName,      /* in: OPTIONAL */
+            PathList paths,          /* in: OPTIONAL */
+            ref Result error         /* out: NOT USED */
+            )
+        {
+            //
+            // TODO: This method contains several hard-coded option names
+            //       for the [package scan] sub-command and must be kept
+            //       manually synchronized if those options change.
+            //
+            StringList list = new StringList();
+
+            if (commandName != null)
+                list.Add(commandName);
+            else
+                list.Add(GetCommandName());
+
+            list.Add("scan");
+            list.Add("-host");
+
+#if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+            //
+            // BUGFIX: When scanning for new package indexes, be sure to
+            //         include probing of plugin assemblies whenever the
+            //         associated interpreter has that option enabled.
+            //
+            if ((interpreter != null) &&
+                interpreter.HasProbePlugins())
+            {
+                list.Add("-plugin");
+            }
+#endif
+
+            list.Add("-normal");
+            list.Add("-refresh");
+
+#if NATIVE && DEBUG
+            //
+            // BUGFIX: For debug builds, the trusted status of assemblies
+            //         cannot be checked, due to lack of build signing;
+            //         therefore, just skip trust checking in that case.
+            //
+            list.Add("-notrusted");
+#endif
+
+            list.Add(Option.EndOfOptions);
+
+            if (paths != null)
+                list.AddRange(paths);
+
+            return list.ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string GetRelativeFileName(
             Interpreter interpreter,               /* in */
             string name,                           /* in, script name */
@@ -210,7 +904,7 @@ namespace Eagle._Components.Private
             }
             else
             {
-                packageIndexFileNames.Sort(_Comparers.FileName.Create(
+                packageIndexFileNames.Sort(_Comparers.StringFileName.Create(
                     pathComparisonType));
             }
 
@@ -812,13 +1506,11 @@ namespace Eagle._Components.Private
             bool verbose = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.Verbose, true);
 
-#if NATIVE
             bool noTrusted = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.NoTrusted, true);
 
             bool noVerified = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.NoVerified, true);
-#endif
 
             bool noSort = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.NoSort, true);
@@ -832,7 +1524,7 @@ namespace Eagle._Components.Private
             if (!noSort &&
                 (pathComparisonType != PathComparisonType.BuiltIn))
             {
-                comparer = _Comparers.FileName.Create(
+                comparer = _Comparers.StringFileName.Create(
                     pathComparisonType);
             }
 
@@ -1007,67 +1699,57 @@ namespace Eagle._Components.Private
                                     continue;
                                 }
 
-#if NATIVE
                                 //
-                                // BUGBUG: This only work on Windows with
-                                //         native code enabled.
+                                // NOTE: Unless forbidden, check that
+                                //       the candidate plugin assembly
+                                //       is signed using Authenticode.
                                 //
-                                if (PlatformOps.IsWindowsOperatingSystem())
+                                if (!noTrusted &&
+                                    !RuntimeOps.IsFileTrusted(
+                                        interpreter, null, fileName, IntPtr.Zero))
                                 {
-                                    //
-                                    // NOTE: Unless forbidden, check that
-                                    //       the candidate plugin assembly
-                                    //       is signed using Authenticode.
-                                    //
-                                    if (!noTrusted &&
-                                        !RuntimeOps.IsFileTrusted(
-                                            interpreter, null, fileName, IntPtr.Zero))
+                                    if (trace && verbose)
                                     {
-                                        if (trace && verbose)
-                                        {
-                                            TraceOps.DebugTrace(String.Format(
-                                                "FindPlugin: SKIPPING " +
-                                                "UNTRUSTED, interpreter = {0}, " +
-                                                "fileName = {1}, flags = {2}",
-                                                FormatOps.InterpreterNoThrow(
-                                                interpreter), FormatOps.WrapOrNull(
-                                                fileName), FormatOps.WrapOrNull(
-                                                    packageIndexFlags)),
-                                                typeof(PackageOps).Name,
-                                                TracePriority.PackageDebug3);
-                                        }
-
-                                        continue;
+                                        TraceOps.DebugTrace(String.Format(
+                                            "FindPlugin: SKIPPING " +
+                                            "UNTRUSTED, interpreter = {0}, " +
+                                            "fileName = {1}, flags = {2}",
+                                            FormatOps.InterpreterNoThrow(
+                                            interpreter), FormatOps.WrapOrNull(
+                                            fileName), FormatOps.WrapOrNull(
+                                                packageIndexFlags)),
+                                            typeof(PackageOps).Name,
+                                            TracePriority.PackageDebug3);
                                     }
 
-                                    //
-                                    // NOTE: Unless forbidden, check that
-                                    //       the candidate plugin assembly
-                                    //       is signed with a StrongName
-                                    //       key pair.
-                                    //
-                                    if (!noVerified &&
-                                        !RuntimeOps.IsStrongNameVerified(
-                                            fileName, true))
-                                    {
-                                        if (trace && verbose)
-                                        {
-                                            TraceOps.DebugTrace(String.Format(
-                                                "FindPlugin: SKIPPING " +
-                                                "UNVERIFIED, interpreter = {0}, " +
-                                                "fileName = {1}, flags = {2}",
-                                                FormatOps.InterpreterNoThrow(
-                                                interpreter), FormatOps.WrapOrNull(
-                                                fileName), FormatOps.WrapOrNull(
-                                                    packageIndexFlags)),
-                                                typeof(PackageOps).Name,
-                                                TracePriority.PackageDebug3);
-                                        }
-
-                                        continue;
-                                    }
+                                    continue;
                                 }
-#endif
+
+                                //
+                                // NOTE: Unless forbidden, check that
+                                //       the candidate plugin assembly
+                                //       is signed with a StrongName
+                                //       key pair.
+                                //
+                                if (!noVerified &&
+                                    !RuntimeOps.IsStrongNameVerified(fileName, true))
+                                {
+                                    if (trace && verbose)
+                                    {
+                                        TraceOps.DebugTrace(String.Format(
+                                            "FindPlugin: SKIPPING " +
+                                            "UNVERIFIED, interpreter = {0}, " +
+                                            "fileName = {1}, flags = {2}",
+                                            FormatOps.InterpreterNoThrow(
+                                            interpreter), FormatOps.WrapOrNull(
+                                            fileName), FormatOps.WrapOrNull(
+                                                packageIndexFlags)),
+                                            typeof(PackageOps).Name,
+                                            TracePriority.PackageDebug3);
+                                    }
+
+                                    continue;
+                                }
 
                                 //
                                 // NOTE: Have we seen this package index
@@ -1228,7 +1910,7 @@ namespace Eagle._Components.Private
             if (!noSort &&
                 (pathComparisonType != PathComparisonType.BuiltIn))
             {
-                comparer = _Comparers.FileName.Create(
+                comparer = _Comparers.StringFileName.Create(
                     pathComparisonType);
             }
 
@@ -1464,6 +2146,11 @@ namespace Eagle._Components.Private
                         fileName = FileName.TestPackageIndex;
                         break;
                     }
+                case PackageType.Kit:
+                    {
+                        fileName = FileName.KitPackageIndex;
+                        break;
+                    }
                 default:
                     {
                         fileName = null;
@@ -1544,7 +2231,8 @@ namespace Eagle._Components.Private
             PackageFileNameList fileNames = new PackageFileNameList();
 
             foreach (PackageType packageType in new PackageType[] {
-                    PackageType.Library, PackageType.Test })
+                    PackageType.Library, PackageType.Test,
+                    PackageType.Kit })
             {
                 //
                 // NOTE: For each package type, the "non-full" file name
@@ -1651,11 +2339,11 @@ namespace Eagle._Components.Private
             //
             StringList list = new StringList();
 
-            list.Add(FileNameOnly.LibraryPackageIndex);
+            list.Add(FileNameOnly.PackageIndex);
 
             list.Add(PathOps.GetUnixPath(PathOps.CombinePath(
                 null, Characters.Asterisk.ToString(),
-                FileNameOnly.LibraryPackageIndex)));
+                FileNameOnly.PackageIndex)));
 
             return list;
         }
@@ -2288,14 +2976,14 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            if (interpreter.DoesIExecuteExistViaResolvers(
+            if (interpreter.InternalDoesIExecuteExistViaResolvers(
                     sourceWithInfoCommand) == ReturnCode.Ok)
             {
                 return ReturnCode.Ok;
             }
 
-            if ((ruleSet != null) && !ruleSet.ApplyRules(
-                    interpreter, IdentifierKind.Command,
+            if ((ruleSet != null) && !ruleSet.ApplyRules(interpreter,
+                    IdentifierKind.Command, MatchMode.IncludeRuleSetMask,
                     ScriptOps.MakeCommandName(sourceWithInfoCommand)))
             {
                 return ReturnCode.Ok;
@@ -2348,7 +3036,7 @@ namespace Eagle._Components.Private
 
             IExecute execute = null;
 
-            if (interpreter.GetIExecuteViaResolvers(
+            if (interpreter.InternalGetIExecuteViaResolvers(
                     interpreter.GetResolveEngineFlagsNoLock(true),
                     newArguments[0], newArguments,
                     LookupFlags.Default, ref execute,
@@ -2690,7 +3378,7 @@ namespace Eagle._Components.Private
 
                                 code = RuntimeOps.PreviewPluginResources(
                                     interpreter, newFileName, GetIndexPatterns(),
-                                    interpreter.PluginFlags, ref resources,
+                                    interpreter.PluginFlags, verbose, ref resources,
                                     ref result);
 
                                 if ((code == ReturnCode.Ok) &&

@@ -1,5 +1,5 @@
 /*
- * FileName.cs --
+ * StringFileName.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -21,7 +21,8 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 namespace Eagle._Comparers
 {
     [ObjectId("7300d32f-8c23-49fc-9234-8812ad5813b9")]
-    internal sealed class FileName : IComparer<string>, IEqualityComparer<string>
+    internal sealed class StringFileName :
+        IComparer<string>, IEqualityComparer<string>
     {
         #region Private Data
         private Encoding encoding;
@@ -43,19 +44,19 @@ namespace Eagle._Comparers
         // NOTE: This is a cache for instances of this class, stored on the
         //       basis of the chosen path comparison type.
         //
-        private static Dictionary<PathComparisonType, FileName> cache;
+        private static Dictionary<PathComparisonType, StringFileName> cache;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
-        public static FileName Create(
+        public static StringFileName Create(
             PathComparisonType pathComparisonType
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                FileName value;
+                StringFileName value;
 
                 if (cache != null)
                 {
@@ -64,10 +65,10 @@ namespace Eagle._Comparers
                 }
                 else
                 {
-                    cache = new Dictionary<PathComparisonType, FileName>();
+                    cache = new Dictionary<PathComparisonType, StringFileName>();
                 }
 
-                value = new FileName(pathComparisonType);
+                value = new StringFileName(pathComparisonType);
                 cache[pathComparisonType] = value;
 
                 return value;
@@ -98,7 +99,7 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
-        private FileName(
+        private StringFileName(
             PathComparisonType pathComparisonType
             )
             : this(Encoding.UTF8, pathComparisonType)
@@ -108,7 +109,7 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
-        private FileName(
+        private StringFileName(
             Encoding encoding,
             PathComparisonType pathComparisonType
             )

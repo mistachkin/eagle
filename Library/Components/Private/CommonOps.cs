@@ -39,6 +39,13 @@ namespace Eagle._Components.Private
         [ObjectId("e9622641-301b-4208-a5cc-3801edf4854e")]
         internal static class Runtime
         {
+            #region Public Constants
+            public static readonly string ImageRuntimeVersion2 = "v2.0.50727";
+            public static readonly string ImageRuntimeVersion4 = "v4.0.30319";
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////
+
             #region Private Constants
             private static readonly string MonoRuntimeType = "Mono.Runtime";
             private static readonly string MonoDisplayNameMember = "GetDisplayName";
@@ -138,8 +145,18 @@ namespace Eagle._Components.Private
             #region Runtime Name Constants
             private static readonly string DotNetCoreRuntimeName = ".NET Core";
             private static readonly string DotNetRuntimeName = ".NET";
+
             private static readonly string MonoRuntimeName = "Mono";
             private static readonly string MicrosoftRuntimeName = "Microsoft.NET";
+
+            ///////////////////////////////////////////////////////////////////
+
+            private static readonly string AltDotNetCoreRuntimeName = "CoreCLR";
+            private static readonly string AltMicrosoftRuntimeName = "CLR";
+            private static readonly string AltMonoRuntimeName = "Mono";
+
+            ///////////////////////////////////////////////////////////////////
+
             private static readonly string UnknownRuntimeName = "Unknown";
             #endregion
 
@@ -306,6 +323,10 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            private static long lockThreadId = 0;
+
+            ///////////////////////////////////////////////////////////////////
+
             private static bool? isFramework20 = null;
 
             ///////////////////////////////////////////////////////////////////
@@ -333,6 +354,44 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            #region Threading Cooperative Locking Diagnostic Methods
+            private static long MaybeWhoHasLock()
+            {
+                return Interlocked.CompareExchange(
+                    ref lockThreadId, 0, 0);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            private static void MaybeSomebodyHasLock(
+                bool locked /* in */
+                )
+            {
+                if (locked)
+                {
+                    /* IGNORED */
+                    Interlocked.CompareExchange(ref lockThreadId,
+                        GlobalState.GetCurrentThreadId(), 0);
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            private static void MaybeNobodyHasLock(
+                bool locked /* in */
+                )
+            {
+                if (locked)
+                {
+                    /* IGNORED */
+                    Interlocked.CompareExchange(ref lockThreadId,
+                        0, GlobalState.GetCurrentThreadId());
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////
+
             #region Threading Cooperative Locking Methods
             private static void TryLock(
                 ref bool locked /* out */
@@ -342,6 +401,7 @@ namespace Eagle._Components.Private
                     return;
 
                 locked = Monitor.TryEnter(syncRoot);
+                MaybeSomebodyHasLock(locked);
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -355,6 +415,7 @@ namespace Eagle._Components.Private
 
                 if (locked)
                 {
+                    MaybeNobodyHasLock(locked);
                     Monitor.Exit(syncRoot);
                     locked = false;
                 }
@@ -368,35 +429,54 @@ namespace Eagle._Components.Private
                 bool force
                 )
             {
-                lock (syncRoot) /* TRANSACTIONAL */
+                bool locked = false;
+
+                try
                 {
-                    #region Forcibly Reset Detection State
-                    if (force) ResetState();
-                    #endregion
+                    TryLock(ref locked); /* TRANSACTIONAL */
 
-                    ///////////////////////////////////////////////////////////
+                    if (locked)
+                    {
+                        #region Forcibly Reset Detection State
+                        if (force) ResetState();
+                        #endregion
 
-                    #region Initialize Detection State
-                    /* IGNORED */
-                    IsFramework20();
+                        ///////////////////////////////////////////////////////
 
-                    /* IGNORED */
-                    IsFramework40();
+                        #region Initialize Detection State
+                        /* IGNORED */
+                        IsFramework20();
 
-                    /* IGNORED */
-                    IsMono();
+                        /* IGNORED */
+                        IsFramework40();
 
-                    /* IGNORED */
-                    IsDotNetCore();
+                        /* IGNORED */
+                        IsMono();
+
+                        /* IGNORED */
+                        IsDotNetCore();
 
 #if !NET_STANDARD_20
-                    /* IGNORED */
-                    GetFrameworkExtraVersion();
+                        /* IGNORED */
+                        GetFrameworkExtraVersion();
 #endif
 
-                    /* IGNORED */
-                    GetFrameworkVersion();
-                    #endregion
+                        /* IGNORED */
+                        GetFrameworkVersion();
+                        #endregion
+                    }
+                    else
+                    {
+                        TraceOps.LockTrace(
+                            "Initialize",
+                            typeof(CommonOps.Runtime).Name, true,
+                            TracePriority.LockWarning,
+                            MaybeWhoHasLock());
+                    }
+                }
+                finally
+                {
+                    ExitLock(ref locked); /* TRANSACTIONAL */
                 }
             }
 
@@ -413,24 +493,45 @@ namespace Eagle._Components.Private
                     if (locked)
                     {
                         return new StringList(
-                            "isMono", (isMono != null) ?
+                            "isFramework20",
+                            (isFramework20 != null) ?
+                                ((bool)isFramework20).ToString() :
+                                FormatOps.DisplayNull,
+                            "isFramework40",
+                            (isFramework40 != null) ?
+                                ((bool)isFramework40).ToString() :
+                                FormatOps.DisplayNull,
+                            "isMono",
+                            (isMono != null) ?
                                 ((bool)isMono).ToString() :
-                            FormatOps.DisplayNull,
-                            "isDotNetCore", (isDotNetCore != null) ?
+                                FormatOps.DisplayNull,
+                            "isDotNetCore",
+                            (isDotNetCore != null) ?
                                 ((bool)isDotNetCore).ToString() :
-                            FormatOps.DisplayNull);
+                                FormatOps.DisplayNull,
+#if !NET_STANDARD_20
+                            "frameworkExtraVersion",
+                            (frameworkExtraVersion != null) ?
+                                ((string)frameworkExtraVersion).ToString() :
+                                FormatOps.DisplayNull,
+#endif
+                            "frameworkVersion",
+                            (FrameworkVersion != null) ?
+                                ((Version)FrameworkVersion).ToString() :
+                                FormatOps.DisplayNull);
                     }
                     else
                     {
                         TraceOps.LockTrace(
                             "GetState",
                             typeof(CommonOps.Runtime).Name, true,
-                            TracePriority.LockWarning);
+                            TracePriority.LockWarning,
+                            MaybeWhoHasLock());
                     }
                 }
                 finally
                 {
-                    ExitLock(ref locked);
+                    ExitLock(ref locked); /* TRANSACTIONAL */
                 }
 
                 return null;
@@ -440,16 +541,37 @@ namespace Eagle._Components.Private
 
             private static void ResetState()
             {
-                lock (syncRoot) /* TRANSACTIONAL */
+                bool locked = false;
+
+                try
                 {
-                    isMono = null;
-                    isDotNetCore = null;
+                    TryLock(ref locked); /* TRANSACTIONAL */
+
+                    if (locked)
+                    {
+                        isFramework20 = null;
+                        isFramework40 = null;
+                        isMono = null;
+                        isDotNetCore = null;
 
 #if !NET_STANDARD_20
-                    frameworkExtraVersion = null;
+                        frameworkExtraVersion = null;
 #endif
 
-                    FrameworkVersion = null;
+                        FrameworkVersion = null;
+                    }
+                    else
+                    {
+                        TraceOps.LockTrace(
+                            "ResetState",
+                            typeof(CommonOps.Runtime).Name, true,
+                            TracePriority.LockWarning,
+                            MaybeWhoHasLock());
+                    }
+                }
+                finally
+                {
+                    ExitLock(ref locked); /* TRANSACTIONAL */
                 }
             }
 
@@ -474,6 +596,8 @@ namespace Eagle._Components.Private
                                 {
                                     StringList list = GetState();
 
+                                    isFramework20 = null;
+                                    isFramework40 = null;
                                     isMono = null;
                                     isDotNetCore = null;
 
@@ -485,6 +609,17 @@ namespace Eagle._Components.Private
                                 }
                             case RuntimeName.NetFx:
                                 {
+                                    if (IsBuiltForCLRv4())
+                                    {
+                                        isFramework20 = false;
+                                        isFramework40 = true;
+                                    }
+                                    else
+                                    {
+                                        isFramework20 = true;
+                                        isFramework40 = false;
+                                    }
+
                                     isMono = false;
                                     isDotNetCore = false;
 
@@ -496,6 +631,17 @@ namespace Eagle._Components.Private
                                 }
                             case RuntimeName.Mono:
                                 {
+                                    if (IsBuiltForCLRv4())
+                                    {
+                                        isFramework20 = false;
+                                        isFramework40 = true;
+                                    }
+                                    else
+                                    {
+                                        isFramework20 = true;
+                                        isFramework40 = false;
+                                    }
+
                                     isMono = true;
                                     isDotNetCore = false;
 
@@ -507,6 +653,8 @@ namespace Eagle._Components.Private
                                 }
                             case RuntimeName.DotNetCore:
                                 {
+                                    isFramework20 = false;
+                                    isFramework40 = true;
                                     isMono = false;
                                     isDotNetCore = true;
 
@@ -518,6 +666,8 @@ namespace Eagle._Components.Private
                                 }
                             case RuntimeName.DotNet: /* Mostly same as above. */
                                 {
+                                    isFramework20 = false;
+                                    isFramework40 = true;
                                     isMono = false;
                                     isDotNetCore = true;
 
@@ -612,7 +762,8 @@ namespace Eagle._Components.Private
                             TraceOps.LockTrace(
                                 "IsMono",
                                 typeof(CommonOps.Runtime).Name, true,
-                                TracePriority.LockWarning);
+                                TracePriority.LockWarning,
+                                MaybeWhoHasLock());
 #endif
 
                             DebugOps.MaybeBreak(
@@ -726,7 +877,8 @@ namespace Eagle._Components.Private
                             TraceOps.LockTrace(
                                 "IsDotNetCore",
                                 typeof(CommonOps.Runtime).Name, true,
-                                TracePriority.LockWarning);
+                                TracePriority.LockWarning,
+                                MaybeWhoHasLock());
 #endif
 
                             DebugOps.MaybeBreak(
@@ -935,19 +1087,42 @@ namespace Eagle._Components.Private
             #region Runtime Information Methods
             public static string GetRuntimeName()
             {
+                return GetRuntimeName(false);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            private static string GetRuntimeName(
+                bool alternate
+                )
+            {
                 if (IsMono())
-                    return MonoRuntimeName;
+                {
+                    return alternate ?
+                        AltMonoRuntimeName :
+                        MonoRuntimeName;
+                }
 
                 if (IsDotNetCore())
                 {
                     if (IsDotNetCore5xOrHigher())
-                        return DotNetRuntimeName;
+                    {
+                        return alternate ?
+                            AltDotNetCoreRuntimeName :
+                            DotNetRuntimeName;
+                    }
 
-                    return DotNetCoreRuntimeName;
+                    return alternate ?
+                        AltDotNetCoreRuntimeName :
+                        DotNetCoreRuntimeName;
                 }
 
                 if (IsFramework20() || IsFramework40())
-                    return MicrosoftRuntimeName;
+                {
+                    return alternate ?
+                        AltMicrosoftRuntimeName :
+                        MicrosoftRuntimeName;
+                }
 
                 return UnknownRuntimeName;
             }
@@ -972,6 +1147,28 @@ namespace Eagle._Components.Private
                 return null;
             }
 #endif
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: This method returns what the image runtime version
+            //       should be, not based on any assembly, but based on
+            //       the runtime currently running.
+            //
+            public static string GetImageRuntimeVersion()
+            {
+                //
+                // HACK: This code assumes that Mono and .NET Core
+                //       always identify themselves as the CLRv4,
+                //       which is true for (almost?) all "modern"
+                //       versions of Mono and is always true for
+                //       all released versions of .NET Core.
+                //
+                if (IsMono() || IsDotNetCore() || IsFramework40())
+                    return ImageRuntimeVersion4;
+                else
+                    return ImageRuntimeVersion2;
+            }
 
             ///////////////////////////////////////////////////////////////////
 
@@ -1069,6 +1266,23 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            public static string GetRuntimeNameAndVMajorMinor()
+            {
+                return GetRuntimeNameAndVMajorMinor(true);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            public static string GetRuntimeNameAndVMajorMinor(
+                bool alternate
+                )
+            {
+                return String.Format("{0} {1}", GetRuntimeName(alternate),
+                    FormatOps.VMajorMinorOrNull(GetRuntimeVersion()));
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
             private static string GetRuntimeDirectory()
             {
                 try
@@ -1133,6 +1347,17 @@ namespace Eagle._Components.Private
                 return (version != null) && (version.Major == 2);
             }
 #endif
+
+            ///////////////////////////////////////////////////////////////////
+
+            private static bool IsBuiltForCLRv4()
+            {
+#if NET_40
+                return true;
+#else
+                return false;
+#endif
+            }
             #endregion
 
             ///////////////////////////////////////////////////////////////////
@@ -1279,7 +1504,8 @@ namespace Eagle._Components.Private
                         TraceOps.LockTrace(
                             "GetFrameworkVersion",
                             typeof(CommonOps.Runtime).Name, true,
-                            TracePriority.LockWarning);
+                            TracePriority.LockWarning,
+                            MaybeWhoHasLock());
 #endif
 
                         DebugOps.MaybeBreak(
@@ -1363,7 +1589,8 @@ namespace Eagle._Components.Private
                             TraceOps.LockTrace(
                                 "GetFrameworkExtraVersion",
                                 typeof(CommonOps.Runtime).Name, true,
-                                TracePriority.LockWarning);
+                                TracePriority.LockWarning,
+                                MaybeWhoHasLock());
 #endif
 
                             DebugOps.MaybeBreak(
@@ -1440,7 +1667,8 @@ namespace Eagle._Components.Private
                             TraceOps.LockTrace(
                                 "IsFramework20",
                                 typeof(CommonOps.Runtime).Name, true,
-                                TracePriority.LockWarning);
+                                TracePriority.LockWarning,
+                                MaybeWhoHasLock());
 #endif
 
                             DebugOps.MaybeBreak(
@@ -1514,7 +1742,8 @@ namespace Eagle._Components.Private
                             TraceOps.LockTrace(
                                 "IsFramework40",
                                 typeof(CommonOps.Runtime).Name, true,
-                                TracePriority.LockWarning);
+                                TracePriority.LockWarning,
+                                MaybeWhoHasLock());
 #endif
 
                             DebugOps.MaybeBreak(

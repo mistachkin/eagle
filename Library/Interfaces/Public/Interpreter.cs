@@ -57,6 +57,10 @@ namespace Eagle._Interfaces.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        CreateStateFlags CreateStateFlags { get; }
+
+        ///////////////////////////////////////////////////////////////////////
+
         [Throw(false)]
         long IdNoThrow { get; }            /* INTERNAL USE ONLY. */
 
@@ -144,6 +148,8 @@ namespace Eagle._Interfaces.Public
         //
         IBinder Binder { get; set; }
 
+        IProvideEntropy ProvideEntropy { get; set; }
+
         bool Quiet { get; set; }
 
 #if POLICY_TRACE
@@ -162,6 +168,7 @@ namespace Eagle._Interfaces.Public
 #if NETWORK
         PreWebClientCallback PreWebClientCallback { get; set; }
         NewWebClientCallback NewWebClientCallback { get; set; }
+        WebTransferCallback WebTransferCallback { get; set; }
 #endif
 
 #if THREADING
@@ -228,6 +235,7 @@ namespace Eagle._Interfaces.Public
         int CallbackLimit { get; set; }
 #endif
 
+        int IterationLimit { get; set; }
         int NamespaceLimit { get; set; }
         int ScopeLimit { get; set; }
         int EventLimit { get; set; }
@@ -270,6 +278,7 @@ namespace Eagle._Interfaces.Public
         ///////////////////////////////////////////////////////////////////////
 
         int Levels { get; } // WARNING: NOT GUARANTEED TO BE ACCURATE OR USEFUL.
+        int TrustedLevels { get; } // WARNING: NOT GUARANTEED TO BE ACCURATE OR USEFUL.
 
         ///////////////////////////////////////////////////////////////////////
         // XML DATA HANDLING

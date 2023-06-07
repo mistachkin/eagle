@@ -142,6 +142,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region ITypeAndName Members
+        private string typeName;
+        public virtual string TypeName
+        {
+            get { return typeName; }
+            set { typeName = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IPluginData Members
         private PluginFlags flags;
         public virtual PluginFlags Flags
@@ -226,15 +246,6 @@ namespace Eagle._Components.Public
         {
             get { return fileName; }
             set { fileName = value; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private string typeName;
-        public virtual string TypeName
-        {
-            get { return typeName; }
-            set { typeName = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////

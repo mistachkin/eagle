@@ -83,16 +83,24 @@ namespace Eagle._Components.Public
             ScriptFlags scriptFlags,
             InterpreterFlags interpreterFlags,
             PluginFlags pluginFlags,
+#if NATIVE && TCL
+            FindFlags findFlags,
+            LoadFlags loadFlags,
+#endif
             string text,
             string libraryPath,
             StringList autoPathList,
             ref Result result
             )
         {
-            interpreter = Interpreter.Create(ruleSet,
-                args, createFlags, hostCreateFlags, initializeFlags,
-                scriptFlags, interpreterFlags, pluginFlags, text,
-                libraryPath, autoPathList, ref result);
+            interpreter = Interpreter.Create(
+                ruleSet, args, createFlags, hostCreateFlags,
+                initializeFlags, scriptFlags, interpreterFlags,
+                pluginFlags,
+#if NATIVE && TCL
+                findFlags, loadFlags,
+#endif
+                text, libraryPath, autoPathList, ref result);
 
             //
             // HACK: The "ref" result parameter for this constructor
@@ -249,6 +257,10 @@ namespace Eagle._Components.Public
             ScriptFlags scriptFlags,
             InterpreterFlags interpreterFlags,
             PluginFlags pluginFlags,
+#if NATIVE && TCL
+            FindFlags findFlags,
+            LoadFlags loadFlags,
+#endif
             string text,
             string libraryPath,
             StringList autoPathList,
@@ -278,8 +290,11 @@ namespace Eagle._Components.Public
                 object[] ctorArgs = {
                     ruleSet, args, createFlags, hostCreateFlags,
                     initializeFlags, scriptFlags, interpreterFlags,
-                    pluginFlags, text, libraryPath, autoPathList,
-                    result
+                    pluginFlags,
+#if NATIVE && TCL
+                    findFlags, loadFlags,
+#endif
+                    text, libraryPath, autoPathList, result
                 };
 
                 InterpreterHelper interpreterHelper =
@@ -333,6 +348,23 @@ namespace Eagle._Components.Public
         public Result Result
         {
             get { CheckDisposed(); return result; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Methods
+        public bool RemoveInterpreter()
+        {
+            CheckDisposed();
+
+            if (interpreter != null)
+            {
+                interpreter = null;
+                return true;
+            }
+
+            return false;
         }
         #endregion
 

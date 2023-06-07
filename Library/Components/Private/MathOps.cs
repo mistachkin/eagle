@@ -11,7 +11,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Eagle._Attributes;
+using Eagle._Components.Public;
+using Eagle._Constants;
 
 namespace Eagle._Components.Private
 {
@@ -45,7 +48,114 @@ namespace Eagle._Components.Private
         //
         private static double DoubleEpsilon = 0.00001;
         private static decimal DecimalEpsilon = 0.00001m;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static readonly ulong[] PowersOfTwo = {
+            /*  0 */ 1,
+            /*  1 */ 2,
+            /*  2 */ 4,
+            /*  3 */ 8,
+            /*  4 */ 16,
+            /*  5 */ 32,
+            /*  6 */ 64,
+            /*  7 */ 128,
+            /*  8 */ 256,
+            /*  9 */ 512,
+            /* 10 */ 1024,
+            /* 11 */ 2048,
+            /* 12 */ 4096,
+            /* 13 */ 8192,
+            /* 14 */ 16384,
+            /* 15 */ 32768,
+            /* 16 */ 65536,
+            /* 17 */ 131072,
+            /* 18 */ 262144,
+            /* 19 */ 524288,
+            /* 20 */ 1048576,
+            /* 21 */ 2097152,
+            /* 22 */ 4194304,
+            /* 23 */ 8388608,
+            /* 24 */ 16777216,
+            /* 25 */ 33554432,
+            /* 26 */ 67108864,
+            /* 27 */ 134217728,
+            /* 28 */ 268435456,
+            /* 29 */ 536870912,
+            /* 30 */ 1073741824,
+            /* 31 */ 2147483648,
+            /* 32 */ 4294967296,
+            /* 33 */ 8589934592,
+            /* 34 */ 17179869184,
+            /* 35 */ 34359738368,
+            /* 36 */ 68719476736,
+            /* 37 */ 137438953472,
+            /* 38 */ 274877906944,
+            /* 39 */ 549755813888,
+            /* 40 */ 1099511627776,
+            /* 41 */ 2199023255552,
+            /* 42 */ 4398046511104,
+            /* 43 */ 8796093022208,
+            /* 44 */ 17592186044416,
+            /* 45 */ 35184372088832,
+            /* 46 */ 70368744177664,
+            /* 47 */ 140737488355328,
+            /* 48 */ 281474976710656,
+            /* 49 */ 562949953421312,
+            /* 50 */ 1125899906842624,
+            /* 51 */ 2251799813685248,
+            /* 52 */ 4503599627370496,
+            /* 53 */ 9007199254740992,
+            /* 54 */ 18014398509481984,
+            /* 55 */ 36028797018963968,
+            /* 56 */ 72057594037927936,
+            /* 57 */ 144115188075855872,
+            /* 58 */ 288230376151711744,
+            /* 59 */ 576460752303423488,
+            /* 60 */ 1152921504606846976,
+            /* 61 */ 2305843009213693952,
+            /* 62 */ 4611686018427387904,
+            /* 63 */ 9223372036854775808
+        };
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ulong? Pow2(int X)
+        {
+            if (PowersOfTwo == null)
+                return null;
+
+            int length = PowersOfTwo.Length;
+
+            if ((X < 0) || (X >= length))
+                return null;
+
+            return PowersOfTwo[X];
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool WithinMagnitudes(
+            long X,       /* in */
+            long Y,       /* in */
+            int? minimum, /* in: OPTIONAL */
+            int? maximum  /* in: OPTIONAL */
+            )
+        {
+            int logX = Log10(X);
+            int logY = Log10(Y);
+
+            int difference = Math.Abs(logX - logY);
+
+            if ((minimum != null) && (difference < (int)minimum))
+                return false;
+
+            if ((maximum != null) && (difference > (int)maximum))
+                return false;
+
+            return true;
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -527,6 +637,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static int Log10(long X)
+        {
+            //
+            // HACK: Convert to string and use the length to help
+            //       determine the log10() of the integer value.
+            //
+            string value = X.ToString(
+                CultureInfo.InvariantCulture).Trim().TrimStart(
+                Characters.MinusSign);
+
+            int length;
+
+            if (StringOps.IsNullOrEmpty(value, out length))
+                return Count.Invalid;
+
+            return length - 1;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static int? Max(
             IEnumerable<int?> collection
             )
@@ -545,6 +675,26 @@ namespace Eagle._Components.Private
                     {
                         maximum = value;
                     }
+                }
+            }
+
+            return maximum;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static int? Max(
+            params int[] args
+            )
+        {
+            int? maximum = null;
+
+            foreach (int value in args)
+            {
+                if ((maximum == null) ||
+                    (value > (int)maximum))
+                {
+                    maximum = value;
                 }
             }
 
@@ -573,6 +723,26 @@ namespace Eagle._Components.Private
                     {
                         minimum = value;
                     }
+                }
+            }
+
+            return minimum;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static int? Min(
+            params int[] args
+            )
+        {
+            int? minimum = null;
+
+            foreach (int value in args)
+            {
+                if ((minimum == null) ||
+                    (value < (int)minimum))
+                {
+                    minimum = value;
                 }
             }
 

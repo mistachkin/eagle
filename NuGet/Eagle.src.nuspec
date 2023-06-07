@@ -30,6 +30,8 @@
     <file src="ReleaseNetFx20\bin\Eagle.pdb" target="lib\net20" />
     <file src="ReleaseNetFx20\bin\Eagle.Eye.dll" target="build\net20" />
     <file src="ReleaseNetFx20\bin\Eagle.Eye.pdb" target="build\net20" />
+    <file src="ReleaseNetFx20\bin\EagleShell.exe" target="build\net20" />
+    <file src="ReleaseNetFx20\bin\EagleShell.pdb" target="build\net20" />
     <file src="ReleaseNetFx20\bin\x86\Spilornis.dll" target="build\net20\x86" />
     <file src="ReleaseNetFx20\bin\x86\Spilornis.pdb" target="build\net20\x86" />
     <file src="ReleaseNetFx20\bin\x64\Spilornis.dll" target="build\net20\x64" />
@@ -39,6 +41,8 @@
     <file src="ReleaseNetFx40\bin\Eagle.pdb" target="lib\net40" />
     <file src="ReleaseNetFx40\bin\Eagle.Eye.dll" target="build\net40" />
     <file src="ReleaseNetFx40\bin\Eagle.Eye.pdb" target="build\net40" />
+    <file src="ReleaseNetFx40\bin\EagleShell.exe" target="build\net40" />
+    <file src="ReleaseNetFx40\bin\EagleShell.pdb" target="build\net40" />
     <file src="ReleaseNetFx40\bin\x86\Spilornis.dll" target="build\net40\x86" />
     <file src="ReleaseNetFx40\bin\x86\Spilornis.pdb" target="build\net40\x86" />
     <file src="ReleaseNetFx40\bin\x64\Spilornis.dll" target="build\net40\x64" />
@@ -48,15 +52,15 @@
     <file src="ReleaseNetStandard20\bin\Eagle.pdb" target="lib\netstandard2.0" />
     <file src="ReleaseNetStandard20\bin\Eagle.Eye.dll" target="build\netstandard2.0" />
     <file src="ReleaseNetStandard20\bin\Eagle.Eye.pdb" target="build\netstandard2.0" />
-    <file src="ReleaseNetStandard20\bin\EagleShell.dll" target="content\netstandard2.0" />
-    <file src="ReleaseNetStandard20\bin\EagleShell.pdb" target="content\netstandard2.0" />
+    <file src="ReleaseNetStandard20\bin\EagleShell.dll" target="build\netstandard2.0" />
+    <file src="ReleaseNetStandard20\bin\EagleShell.pdb" target="build\netstandard2.0" />
     <file src="ReleaseNetStandard20\bin\EagleShell.runtimeconfig.json" target="content\netstandard2.0" />
     <file src="ReleaseNetStandard21\bin\Eagle.dll" target="lib\netstandard2.1" />
     <file src="ReleaseNetStandard21\bin\Eagle.pdb" target="lib\netstandard2.1" />
     <file src="ReleaseNetStandard21\bin\Eagle.Eye.dll" target="build\netstandard2.1" />
     <file src="ReleaseNetStandard21\bin\Eagle.Eye.pdb" target="build\netstandard2.1" />
-    <file src="ReleaseNetStandard21\bin\EagleShell.dll" target="content\netstandard2.1" />
-    <file src="ReleaseNetStandard21\bin\EagleShell.pdb" target="content\netstandard2.1" />
+    <file src="ReleaseNetStandard21\bin\EagleShell.dll" target="build\netstandard2.1" />
+    <file src="ReleaseNetStandard21\bin\EagleShell.pdb" target="build\netstandard2.1" />
     <file src="ReleaseNetStandard21\bin\EagleShell.runtimeconfig.json" target="content\netstandard2.1" />
     <file src="src\Build\**\*.cs" target="src\Build" />
     <file src="src\Library\**\*.cs" target="src\Library" exclude="src\Library\obj\**;src\Library\Tools\**" />

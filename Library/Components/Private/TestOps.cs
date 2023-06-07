@@ -196,11 +196,11 @@ namespace Eagle._Components.Private
             if (String.IsNullOrEmpty(value))
                 return value;
 
-            StringBuilder builder = StringOps.NewStringBuilder(value);
+            StringBuilder builder = StringBuilderFactory.Create(value);
 
             MakeWhiteSpaceVisible(builder);
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1167,7 +1167,7 @@ namespace Eagle._Components.Private
             ReturnCode code;
             Result result = null;
 
-            code = interpreter.EvaluateExpressionWithErrorInfo(
+            code = interpreter.InternalEvaluateExpressionWithErrorInfo(
                 constraintExpression, "{0}    (\"constraint\" expression)",
                 ref result);
 
@@ -1727,7 +1727,7 @@ namespace Eagle._Components.Private
         {
             if (interpreter != null)
             {
-                if (interpreter.DoesIExecuteExistViaResolvers(
+                if (interpreter.InternalDoesIExecuteExistViaResolvers(
                         putsNormalCommand) == ReturnCode.Ok)
                 {
                     return putsNormalCommand;
@@ -1735,7 +1735,7 @@ namespace Eagle._Components.Private
 
                 if (useFallback)
                 {
-                    if (interpreter.DoesIExecuteExistViaResolvers(
+                    if (interpreter.InternalDoesIExecuteExistViaResolvers(
                             putsFallbackCommand) == ReturnCode.Ok)
                     {
                         return putsFallbackCommand;
@@ -1880,7 +1880,7 @@ namespace Eagle._Components.Private
         {
             if (interpreter != null)
             {
-                if (interpreter.DoesIExecuteExistViaResolvers(
+                if (interpreter.InternalDoesIExecuteExistViaResolvers(
                         logNormalCommand) == ReturnCode.Ok)
                 {
                     return logNormalCommand;
@@ -1888,7 +1888,7 @@ namespace Eagle._Components.Private
 
                 if (useFallback)
                 {
-                    if (interpreter.DoesIExecuteExistViaResolvers(
+                    if (interpreter.InternalDoesIExecuteExistViaResolvers(
                             logFallbackCommand) == ReturnCode.Ok)
                     {
                         return logFallbackCommand;

@@ -163,6 +163,11 @@ namespace Eagle._Commands
                                             if (code == ReturnCode.Ok)
                                             {
                                                 //
+                                                // HACK: This name is needed for several error messages, see below.
+                                                //
+                                                string name = NextName(interpreter, @namespace);
+
+                                                //
                                                 // NOTE: We *MUST* have the formal arguments in an actual ArgumentList
                                                 //       container now.  The variadic and optional argument semantics
                                                 //       depend on it.
@@ -182,7 +187,6 @@ namespace Eagle._Commands
                                                      ((argumentCount - 2) <= totalArgs)) ||
                                                     (hasArgs && ((argumentCount - 2) >= (totalArgs - optionalArgs))))
                                                 {
-                                                    string name = NextName(interpreter, @namespace);
                                                     ICallFrame frame = null;
 
                                                     try
@@ -191,15 +195,17 @@ namespace Eagle._Commands
                                                             name, CallFrameFlags.Procedure | CallFrameFlags.Lambda,
                                                             new ClientData(hashValue), this, arguments);
 
-                                                        VariableDictionary variables = frame.Variables;
+                                                        StringDictionary alreadySet = new StringDictionary();
+                                                        ArgumentList frameProcedureArguments = new ArgumentList();
 
-                                                        frame.ProcedureArguments = new ArgumentList(arguments[0]);
+                                                        frameProcedureArguments.Add(arguments[0]);
+                                                        frame.ProcedureArguments = frameProcedureArguments;
 
                                                         for (int argumentIndex = 0; argumentIndex < formalArguments.Count; argumentIndex++)
                                                         {
                                                             string varName = formalArguments[argumentIndex].Name;
 
-                                                            if (!variables.ContainsKey(varName))
+                                                            if (!alreadySet.ContainsKey(varName))
                                                             {
                                                                 ArgumentFlags flags = ArgumentFlags.None;
                                                                 object varValue;
@@ -209,7 +215,7 @@ namespace Eagle._Commands
                                                                     //
                                                                     // NOTE: This argument is part of an argument list.
                                                                     //
-                                                                    flags |= ArgumentFlags.ArgumentList;
+                                                                    flags |= ArgumentFlags.List;
 
                                                                     //
                                                                     // NOTE: Build the list for the final formal argument value,
@@ -278,14 +284,16 @@ namespace Eagle._Commands
                                                                 //
                                                                 if (varValue is Argument)
                                                                 {
-                                                                    frame.ProcedureArguments.Add((Argument)varValue);
+                                                                    frameProcedureArguments.Add((Argument)varValue);
                                                                 }
                                                                 else
                                                                 {
-                                                                    frame.ProcedureArguments.Add(Argument.GetOrCreate(
+                                                                    frameProcedureArguments.Add(Argument.GetOrCreate(
                                                                         interpreter, flags, varName, varValue,
                                                                         interpreter.HasNoCacheArgument()));
                                                                 }
+
+                                                                alreadySet.Add(varName, null);
                                                             }
                                                         }
 
@@ -314,7 +322,8 @@ namespace Eagle._Commands
                                                                 {
                                                                     interpreter.ReturnCode = ReturnCode.Ok;
 
-                                                                    code = interpreter.EvaluateScript(lambdaExpr[1], arguments[1], ref result);
+                                                                    code = interpreter.EvaluateScript(
+                                                                        lambdaExpr[1], (IScriptLocation)arguments[1], ref result);
 
 #if DEBUGGER && DEBUGGER_EXECUTE
                                                                     if (DebuggerOps.CanHitBreakpoints(interpreter,

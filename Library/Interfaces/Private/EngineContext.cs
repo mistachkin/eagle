@@ -33,6 +33,7 @@ namespace Eagle._Interfaces.Private
         int Levels { get; set; }
         int MaximumLevels { get; set; }
 
+        int TrustedLevels { get; set; }
         int ScriptLevels { get; set; }
         int MaximumScriptLevels { get; set; }
 

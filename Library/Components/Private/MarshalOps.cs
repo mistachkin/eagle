@@ -2097,7 +2097,7 @@ namespace Eagle._Components.Private
                 objectFlags |= ObjectFlags.IgnoreAlias;
 
             return FixupReturnValue(
-                interpreter, null, objectFlags, null,
+                interpreter, null, objectFlags, null, null,
                 ObjectOps.GetDefaultObjectOptionType(), null,
                 value, false, false, false, ref result);
         }
@@ -3417,7 +3417,7 @@ namespace Eagle._Components.Private
             if (interpreter == null)
                 return false;
 
-            if ((variable == null) && interpreter.DoesVariableExist(
+            if ((variable == null) && interpreter.InternalDoesVariableExist(
                     variableFlags, name, ref variable) != ReturnCode.Ok)
             {
                 return false;
@@ -3715,9 +3715,9 @@ namespace Eagle._Components.Private
                 return true;
             else if (nullable && IsNullableType(type2, output, ref valueType) && (type1 == valueType))
                 return true;
-            else if (output && !type1.IsByRef && (type1.MakeByRefType() == type2))
+            else if (output && (type1 != null) && !type1.IsByRef && (type1.MakeByRefType() == type2))
                 return true;
-            else if (output && !type2.IsByRef && (type2.MakeByRefType() == type1))
+            else if (output && (type2 != null) && !type2.IsByRef && (type2.MakeByRefType() == type1))
                 return true;
             else if (special && IsSpecialValueType(type1, type2, nullable, output))
                 return true;
@@ -3733,13 +3733,13 @@ namespace Eagle._Components.Private
             bool output
             )
         {
-            if ((type1 == typeof(ValueType)) && type2.IsSubclassOf(typeof(ValueType)))
+            if ((type1 == typeof(ValueType)) && (type2 != null) && type2.IsSubclassOf(typeof(ValueType)))
                 return true;
-            else if ((type2 == typeof(ValueType)) && type1.IsSubclassOf(typeof(ValueType)))
+            else if ((type2 == typeof(ValueType)) && (type1 != null) && type1.IsSubclassOf(typeof(ValueType)))
                 return true;
-            else if (output && (type1 == ByRefValueType) && type2.IsSubclassOf(typeof(ValueType)))
+            else if (output && (type1 == ByRefValueType) && (type2 != null) && type2.IsSubclassOf(typeof(ValueType)))
                 return true;
-            else if (output && (type2 == ByRefValueType) && type1.IsSubclassOf(typeof(ValueType)))
+            else if (output && (type2 == ByRefValueType) && (type1 != null) && type1.IsSubclassOf(typeof(ValueType)))
                 return true;
             else
                 return false;
@@ -3801,8 +3801,8 @@ namespace Eagle._Components.Private
             {
                 return true;
             }
-            else if (output && !type1.IsByRef && IsAssignableFrom(
-                    type2, type1.MakeByRefType(), marshalFlags))
+            else if (output && (type1 != null) && !type1.IsByRef &&
+                IsAssignableFrom(type2, type1.MakeByRefType(), marshalFlags))
             {
                 return true;
             }
@@ -10093,21 +10093,21 @@ namespace Eagle._Components.Private
             ref Result result            /* out */
             )
         {
-            OptionDictionary options = null;
+            OptionDictionary aliasOptions = null;
             ObjectOptionType objectOptionType = ObjectOptionType.None;
 
             if (FlagOps.HasFlags(
                     delegateFlags, DelegateFlags.UseReturnOptions,
                     true))
             {
-                options = ObjectOps.GetInvokeOptions();
+                aliasOptions = ObjectOps.GetInvokeOptions();
                 objectOptionType = ObjectOptionType.Invoke;
             }
 
-            return MarshalOps.FixupReturnValue(
-                interpreter, null, ObjectFlags.None, options,
-                objectOptionType, null, value, create, alias,
-                aliasReference, ref result);
+            return FixupReturnValue(
+                interpreter, null, ObjectFlags.None, null,
+                aliasOptions, objectOptionType, null, value,
+                create, alias, aliasReference, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -10116,7 +10116,8 @@ namespace Eagle._Components.Private
             Interpreter interpreter,           /* in */
             Type type,                         /* in */
             ObjectFlags objectFlags,           /* in */
-            OptionDictionary options,          /* in */
+            OptionDictionary currentOptions,   /* in */
+            OptionDictionary aliasOptions,     /* in */
             ObjectOptionType objectOptionType, /* in */
             string objectName,                 /* in */
             object value,                      /* in */
@@ -10137,20 +10138,20 @@ namespace Eagle._Components.Private
                 cultureInfo = interpreter.InternalCultureInfo;
             }
 
-            OptionDictionary localOptions;
+            OptionDictionary localAliasOptions;
 
-            if (options != null)
-                localOptions = options;
+            if (aliasOptions != null)
+                localAliasOptions = aliasOptions;
             else if (alias)
-                localOptions = ObjectOps.GetInvokeOptions(objectOptionType);
+                localAliasOptions = ObjectOps.GetInvokeOptions(objectOptionType);
             else
-                localOptions = null;
+                localAliasOptions = null;
 
             return FixupReturnValue(
                 interpreter, binder, cultureInfo, type, objectFlags,
-                localOptions, objectOptionType, objectName, null,
-                value, create, true, alias, aliasReference, false,
-                ref result);
+                currentOptions, localAliasOptions, objectOptionType,
+                objectName, null, value, create, true, alias,
+                aliasReference, false, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -10161,7 +10162,8 @@ namespace Eagle._Components.Private
             CultureInfo cultureInfo,           /* in */
             Type type,                         /* in */
             ObjectFlags objectFlags,           /* in */
-            OptionDictionary options,          /* in */
+            OptionDictionary currentOptions,   /* in */
+            OptionDictionary aliasOptions,     /* in */
             ObjectOptionType objectOptionType, /* in */
             string objectName,                 /* in */
             string interpName,                 /* in */
@@ -10236,7 +10238,7 @@ namespace Eagle._Components.Private
                         else if (!create && IsSimpleTypeForToString(binder, valueType))
                         {
                             localCode = ConvertValueToString(scriptBinder, cultureInfo,
-                                valueType, options, value, create, ref localResult);
+                                valueType, currentOptions, value, create, ref localResult);
 
                             if (localCode == ReturnCode.Ok)
                                 result = localResult;
@@ -10370,7 +10372,7 @@ namespace Eagle._Components.Private
                                 else
                                 {
                                     localCode = ConvertValueToString(scriptBinder, cultureInfo,
-                                        valueType, options, value, create, ref localResult);
+                                        valueType, currentOptions, value, create, ref localResult);
 
                                     if (localCode == ReturnCode.Ok)
                                     {
@@ -10502,7 +10504,7 @@ namespace Eagle._Components.Private
                                                             localObjectName, aliasName))
                                                     {
                                                         code = interpreter.AddObjectAlias(
-                                                            localObjectName, aliasName, options,
+                                                            localObjectName, aliasName, aliasOptions,
                                                             objectOptionType, aliasReference,
                                                             ref newAlias, ref result);
 
@@ -10672,7 +10674,8 @@ namespace Eagle._Components.Private
             IBinder binder,                        /* in */
             CultureInfo cultureInfo,               /* in */
             ObjectFlags objectFlags,               /* in */
-            OptionDictionary options,              /* in */
+            OptionDictionary currentOptions,       /* in */
+            OptionDictionary aliasOptions,         /* in */
             ObjectOptionType objectOptionType,     /* in */
             string interpName,                     /* in */
             Array array,                           /* in */
@@ -10828,8 +10831,8 @@ namespace Eagle._Components.Private
 
                                     if (FixupByRefArray(
                                             interpreter, binder, cultureInfo, objectFlags,
-                                            options, savedObjectOptionType, interpName,
-                                            (Array)value, nestedName, marshalFlags,
+                                            currentOptions, aliasOptions, savedObjectOptionType,
+                                            interpName, (Array)value, nestedName, marshalFlags,
                                             byRefArgumentFlags, create, dispose, alias,
                                             aliasReference, toString, ref error) != ReturnCode.Ok)
                                     {
@@ -10851,9 +10854,9 @@ namespace Eagle._Components.Private
 
                                 if (FixupReturnValue(
                                         interpreter, binder, cultureInfo, null, objectFlags,
-                                        options, objectOptionType, null, interpName, value,
-                                        create, dispose, alias, aliasReference, toString,
-                                        ref result) != ReturnCode.Ok)
+                                        currentOptions, aliasOptions, objectOptionType, null,
+                                        interpName, value, create, dispose, alias,
+                                        aliasReference, toString, ref result) != ReturnCode.Ok)
                                 {
                                     return ReturnCode.Error;
                                 }
@@ -10936,7 +10939,8 @@ namespace Eagle._Components.Private
             CultureInfo cultureInfo,               /* in */
             ArgumentInfoList argumentInfoList,     /* in */
             ObjectFlags objectFlags,               /* in */
-            OptionDictionary options,              /* in */
+            OptionDictionary currentOptions,       /* in */
+            OptionDictionary aliasOptions,         /* in */
             ObjectOptionType objectOptionType,     /* in */
             string interpName,                     /* in */
             object[] args,                         /* in */
@@ -11089,7 +11093,7 @@ namespace Eagle._Components.Private
                                     {
                                         IVariable variable = null; /* TODO: Thread safety? */
 
-                                        if ((interpreter.DoesVariableExist(
+                                        if ((interpreter.InternalDoesVariableExist(
                                                 VariableFlags.NoElement | VariableFlags.Defined,
                                                 parameterName, ref variable) == ReturnCode.Ok))
                                         {
@@ -11151,7 +11155,7 @@ namespace Eagle._Components.Private
                                     {
                                         IVariable variable = null; /* TODO: Thread safety? */
 
-                                        if ((interpreter.DoesVariableExist(
+                                        if ((interpreter.InternalDoesVariableExist(
                                                 VariableFlags.NoElement | VariableFlags.Defined,
                                                 parameterName, ref variable) == ReturnCode.Ok))
                                         {
@@ -11186,9 +11190,10 @@ namespace Eagle._Components.Private
                                     ///////////////////////////////////////////////////////////////////
 
                                     if (FixupByRefArray(
-                                            interpreter, binder, cultureInfo, objectFlags, options,
-                                            savedObjectOptionType, interpName, array, parameterName,
-                                            marshalFlags, byRefArgumentFlags,
+                                            interpreter, binder, cultureInfo, objectFlags,
+                                            currentOptions, aliasOptions, savedObjectOptionType,
+                                            interpName, array, parameterName, marshalFlags,
+                                            byRefArgumentFlags,
                                             create || FlagOps.HasFlags(byRefArgumentFlags,
                                                 ByRefArgumentFlags.Create, true),
                                             dispose || FlagOps.HasFlags(byRefArgumentFlags,
@@ -11220,7 +11225,8 @@ namespace Eagle._Components.Private
 
                             if (FixupReturnValue(
                                     interpreter, binder, cultureInfo, null, objectFlags,
-                                    options, objectOptionType, null, interpName, arg,
+                                    currentOptions, aliasOptions, objectOptionType, null,
+                                    interpName, arg,
                                     create || FlagOps.HasFlags(byRefArgumentFlags,
                                         ByRefArgumentFlags.Create, true),
                                     dispose || FlagOps.HasFlags(byRefArgumentFlags,

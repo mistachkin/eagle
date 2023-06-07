@@ -35,15 +35,13 @@ namespace Eagle._SubCommands
         {
             kind = IdentifierKind.SubCommand;
 
-            //
-            // VIRTUAL: Id of the deepest derived class.
-            //
-            id = AttributeOps.GetObjectId(this);
-
-            //
-            // VIRTUAL: Group of the deepest derived class.
-            //
-            group = AttributeOps.GetObjectGroups(this);
+            if ((subCommandData == null) ||
+                !FlagOps.HasFlags(subCommandData.Flags,
+                    SubCommandFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             //
             // NOTE: Is the supplied command data valid?
@@ -388,7 +386,7 @@ namespace Eagle._SubCommands
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ICommandBaseData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -398,6 +396,17 @@ namespace Eagle._SubCommands
 
         ///////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ICommandBaseData Members
         private CommandFlags commandFlags;
         public virtual CommandFlags CommandFlags
         {

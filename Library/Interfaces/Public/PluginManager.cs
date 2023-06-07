@@ -150,12 +150,14 @@ namespace Eagle._Interfaces.Public
         ReturnCode AddPolicies(
             IPlugin plugin,
             IClientData clientData,
+            PolicyFlags flags,
             ref Result error
             );
 
         ReturnCode RemovePolicies(
             IPlugin plugin,
             IClientData clientData,
+            PolicyFlags flags,
             ref Result error
             );
 
@@ -167,12 +169,14 @@ namespace Eagle._Interfaces.Public
 
         ReturnCode RestoreCorePlugin(
             bool strict,
+            bool verbose,
             ref Result result
             );
 
 #if NOTIFY && NOTIFY_ARGUMENTS
         ReturnCode RestoreMonitorPlugin(
             bool strict,
+            bool verbose,
             ref Result result
             );
 #endif

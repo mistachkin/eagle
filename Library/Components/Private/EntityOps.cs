@@ -969,8 +969,11 @@ namespace Eagle._Components.Private
                     // BUGBUG: Would discard any non-string "internal rep"
                     //         the old variable value may have had.
                     //
-                    value = StringOps.NewStringBuilder(oldValue as string);
+                    value = StringBuilderFactory.CreateNoCache(oldValue as string); /* EXEMPT */
 
+                //
+                // TODO: Why doesn't this use GetStringFromObject?
+                //
                 return value.Append(newValue);
             }
             else if (FlagOps.HasFlags(flags, VariableFlags.AppendElement, true))

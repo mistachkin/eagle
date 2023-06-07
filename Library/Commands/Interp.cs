@@ -53,7 +53,7 @@ namespace Eagle._Commands
             "alias", "aliases", "bgerror", "callbacklimit", "cancel", "childlimit", "children",
             "create", "delete", "enabled", "eval", "eventlimit", "exists", "expose", "exposed",
             "expr", "finallytimeout", "hide", "hidden", "immutable", "invokehidden",
-            "isolated", "issafe", "issdk", "isstandard", "makesafe", "makestandard",
+            "isolated", "issafe", "issdk", "isstandard", "iterationlimit", "makesafe", "makestandard",
             "marktrusted", "namespacelimit", "nopolicy", "parent", "policy", "proclimit",
             "queue", "readonly", "readorgetscriptfile", "readylimit", "recursionlimit",
             "rename", "resetcancel", "resultlimit", "scopelimit", "service", "set",
@@ -239,6 +239,9 @@ namespace Eagle._Commands
                                                                         (addEntityClientData.HasMatchingCreateFlags(childInterpreter) &&
                                                                         (addEntityClientData.HasMatchingCreateAndHideFlags())))
                                                                     {
+                                                                        bool useBuiltIn = Interpreter.ShouldUseBuiltIns(
+                                                                            IdentifierKind.Command);
+
                                                                         if (repopulate)
                                                                         {
                                                                             //
@@ -246,15 +249,18 @@ namespace Eagle._Commands
                                                                             //       hard-coded to false here.  Rethink?
                                                                             //
                                                                             code = RuntimeOps.PopulatePluginEntities(
-                                                                                childInterpreter, plugin, null, ruleSet,
-                                                                                childInterpreter.PluginFlags, null,
-                                                                                Interpreter.ShouldUseBuiltIns(
-                                                                                    IdentifierKind.Command), false,
-                                                                                false, ref result);
+                                                                                childInterpreter, plugin, null, ruleSet, null,
+                                                                                Interpreter.IsVerbose(childInterpreter),
+                                                                                useBuiltIn, false, false, ref result);
                                                                         }
 
                                                                         if (code == ReturnCode.Ok)
                                                                         {
+                                                                            CommandFlags commandFlags = CommandFlags.None;
+
+                                                                            if (useBuiltIn)
+                                                                                commandFlags |= CommandFlags.NoAttributes;
+
                                                                             string pattern = arguments[argumentIndex + 1];
 
                                                                             if (String.IsNullOrEmpty(pattern))
@@ -264,7 +270,7 @@ namespace Eagle._Commands
 
                                                                             code = childInterpreter.AddCommands(
                                                                                 addEntityClientData, plugin,
-                                                                                clientData, CommandFlags.None,
+                                                                                clientData, commandFlags,
                                                                                 pattern, false, ref addCount,
                                                                                 ref result);
 
@@ -829,7 +835,7 @@ namespace Eagle._Commands
                                                         path = arguments[argumentIndex];
 
                                                     if ((path != null) &&
-                                                        (interpreter.DoesChildInterpreterExist(path, true, ref name) == ReturnCode.Ok))
+                                                        (interpreter.InternalDoesChildInterpreterExist(path, true, ref name) == ReturnCode.Ok))
                                                     {
                                                         result = String.Format(
                                                             "interpreter named \"{0}\" already exists, cannot create",
@@ -966,14 +972,27 @@ namespace Eagle._Commands
                                                         InterpreterFlags interpreterFlags;
                                                         PluginFlags pluginFlags;
 
+#if NATIVE && TCL
+                                                        FindFlags findFlags;
+                                                        LoadFlags loadFlags;
+#endif
+
                                                         ScriptOps.ExtractInterpreterCreationFlags(
                                                             interpreter, creationFlagTypes,
                                                             CreateFlags.NestedUse,
                                                             HostCreateFlags.NestedUse,
-                                                            null, null, null, null, out createFlags,
+                                                            null, null, null, null,
+#if NATIVE && TCL
+                                                            null, null,
+#endif
+                                                            out createFlags,
                                                             out hostCreateFlags, out initializeFlags,
                                                             out scriptFlags, out interpreterFlags,
-                                                            out pluginFlags);
+                                                            out pluginFlags
+#if NATIVE && TCL
+                                                            , out findFlags, out loadFlags
+#endif
+                                                            );
 
                                                         //
                                                         // NOTE: Enable full namespace support?
@@ -1129,7 +1148,11 @@ namespace Eagle._Commands
                                                         code = interpreter.CreateChildInterpreter(path,
                                                             clientData, ruleSet, createFlags, hostCreateFlags,
                                                             initializeFlags, scriptFlags, interpreterFlags,
-                                                            pluginFlags, isolated, security, alias, ref result);
+                                                            pluginFlags,
+#if NATIVE && TCL
+                                                            findFlags, loadFlags,
+#endif
+                                                            isolated, security, alias, ref result);
                                                     }
                                                 }
                                                 else
@@ -1666,7 +1689,7 @@ namespace Eagle._Commands
                                                         string executeName = arguments[argumentIndex];
                                                         IExecute execute = null;
 
-                                                        code = childInterpreter.GetIExecuteViaResolvers(
+                                                        code = childInterpreter.InternalGetIExecuteViaResolvers(
                                                             childInterpreter.GetResolveEngineFlagsNoLock(true) |
                                                             EngineFlags.UseHidden, executeName, null,
                                                             LookupFlags.Default, ref execute, ref result);
@@ -1910,6 +1933,49 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"interp isstandard ?path?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "iterationlimit":
+                                    {
+                                        if ((arguments.Count == 3) || (arguments.Count == 4))
+                                        {
+                                            string path = arguments[2];
+                                            Interpreter childInterpreter = null;
+
+                                            code = interpreter.GetNestedChildInterpreter(
+                                                path, LookupFlags.Interpreter, false,
+                                                ref childInterpreter, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                lock (childInterpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                                {
+                                                    int iterationLimit = 0;
+
+                                                    if (arguments.Count == 4)
+                                                    {
+                                                        code = Value.GetInteger2(
+                                                            (IGetValue)arguments[3], ValueFlags.AnyInteger,
+                                                            childInterpreter.InternalCultureInfo, ref iterationLimit,
+                                                            ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                            childInterpreter.InternalIterationLimit = iterationLimit;
+                                                    }
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        result = StringList.MakeList(
+                                                            "iteration", childInterpreter.InternalIterationLimit);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"interp iterationlimit path ?limit?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -2692,6 +2758,8 @@ namespace Eagle._Commands
                                             OptionDictionary options = new OptionDictionary(new IOption[] {
                                                 new Option(null, OptionFlags.None, Index.Invalid,
                                                     Index.Invalid, "-nodelete", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid,
+                                                    Index.Invalid, "-all", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid,
                                                     Index.Invalid, "-hidden", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid,
@@ -2736,6 +2804,11 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-nodelete"))
                                                             delete = false;
 
+                                                        bool all = false;
+
+                                                        if (options.IsPresent("-all"))
+                                                            all = true;
+
                                                         bool hidden = false;
 
                                                         if (options.IsPresent("-hidden"))
@@ -2774,7 +2847,7 @@ namespace Eagle._Commands
                                                         {
                                                             if (childInterpreter.RenameAnyIExecute(
                                                                     oldName, newName, varName, kind,
-                                                                    false, delete, hidden, hiddenOnly,
+                                                                    false, delete, all, hidden, hiddenOnly,
                                                                     ref localResult) == ReturnCode.Ok)
                                                             {
                                                                 result = String.Empty;

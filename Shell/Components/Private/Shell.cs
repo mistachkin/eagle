@@ -58,8 +58,8 @@ namespace Eagle._Shell
     internal static class DynamicCommandLine
     {
         #region Private Constants
-        private static readonly AssemblyName assemblyName =
-            new AssemblyName("Eagle, Version=1.0, Culture=neutral");
+        private static readonly string assemblyName =
+            "Eagle, Version=1.0, Culture=neutral";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -92,7 +92,9 @@ namespace Eagle._Shell
             //
             // NOTE: Attempt to load the main Eagle assembly by name.
             //
-            Assembly assembly = Assembly.Load(assemblyName); /* throw */
+            Assembly assembly = Assembly.Load(
+                String.Format("{0}, PublicKeyToken={1}", assemblyName,
+                ShellOps.GetPublicKeyTokenAsString())); /* throw */
 
             //
             // NOTE: Attempt to locate the Interpreter type by name.

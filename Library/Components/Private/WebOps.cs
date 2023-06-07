@@ -29,6 +29,31 @@ using SecurityProtocolType = System.Net.SecurityProtocolType;
 using _SecurityProtocolType = Eagle._Components.Public.SecurityProtocolType;
 #endif
 
+using DownloadDataPair = Eagle._Components.Public.AnyPair<
+    System.Net.WebClient, System.Uri>;
+
+using DownloadFileTriplet = Eagle._Components.Public.AnyTriplet<
+    System.Net.WebClient, System.Uri, string>;
+
+using UploadDataPair = Eagle._Components.Public.AnyPair<string, byte[]>;
+
+using UploadValuesPair = Eagle._Components.Public.AnyPair<
+    string, System.Collections.Specialized.NameValueCollection>;
+
+using UploadFilePair = Eagle._Components.Public.AnyPair<string, string>;
+
+using UploadDataTriplet = Eagle._Components.Public.AnyTriplet<
+    System.Net.WebClient, System.Uri, Eagle._Components.Public.AnyPair<
+        string, byte[]>>;
+
+using UploadValuesTriplet = Eagle._Components.Public.AnyTriplet<
+    System.Net.WebClient, System.Uri, Eagle._Components.Public.AnyPair<
+        string, System.Collections.Specialized.NameValueCollection>>;
+
+using UploadFileTriplet = Eagle._Components.Public.AnyTriplet<
+    System.Net.WebClient, System.Uri, Eagle._Components.Public.AnyPair<
+        string, string>>;
+
 namespace Eagle._Components.Private
 {
     [ObjectId("47133ca0-868a-4403-8788-530721d2f302")]
@@ -52,6 +77,13 @@ namespace Eagle._Components.Private
         // HACK: This is purposely not read-only.
         //
         private static int? DefaultTimeout = null; /* COMPAT: Eagle beta. */
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool DefaultViaClient = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -134,12 +166,12 @@ namespace Eagle._Components.Private
 
         #region Private Event Helper Methods
         private static StringList GetAsyncCompletedArguments(
-            Uri uri,
-            string method,
-            byte[] rawData,
-            NameValueCollection collection,
-            string fileName,
-            AsyncCompletedEventArgs eventArgs
+            Uri uri,                          /* in */
+            string method,                    /* in */
+            byte[] rawData,                   /* in */
+            NameValueCollection data,         /* in */
+            string fileName,                  /* in */
+            AsyncCompletedEventArgs eventArgs /* in */
             )
         {
             StringList result = new StringList();
@@ -162,11 +194,11 @@ namespace Eagle._Components.Private
                 result.Add(ArrayOps.ToHexadecimalString(rawData));
             }
 
-            if (collection != null)
+            if (data != null)
             {
-                result.Add("collection");
+                result.Add("data");
                 result.Add(ListOps.FromNameValueCollection(
-                    collection, new StringList()).ToString());
+                    data, new StringList()).ToString());
             }
 
             if (fileName != null)
@@ -202,8 +234,8 @@ namespace Eagle._Components.Private
         #region Private Download Event Handlers
         #region Download Data Event Handlers
         private static void DownloadDataAsyncCompleted(
-            object sender,
-            DownloadDataCompletedEventArgs e
+            object sender,                   /* in */
+            DownloadDataCompletedEventArgs e /* in */
             )
         {
             try
@@ -221,8 +253,8 @@ namespace Eagle._Components.Private
 
                 if (clientData != null)
                 {
-                    IAnyPair<WebClient, Uri> anyPair =
-                        clientData.Data as IAnyPair<WebClient, Uri>;
+                    DownloadDataPair anyPair =
+                        clientData.Data as DownloadDataPair;
 
                     if (anyPair != null)
                     {
@@ -256,8 +288,8 @@ namespace Eagle._Components.Private
 
         #region Download File Event Handlers
         private static void DownloadFileAsyncCompleted(
-            object sender,
-            AsyncCompletedEventArgs e
+            object sender,            /* in */
+            AsyncCompletedEventArgs e /* in */
             )
         {
             try
@@ -277,8 +309,8 @@ namespace Eagle._Components.Private
 
                 if (clientData != null)
                 {
-                    IAnyTriplet<WebClient, Uri, string> anyTriplet =
-                        clientData.Data as IAnyTriplet<WebClient, Uri, string>;
+                    DownloadFileTriplet anyTriplet =
+                        clientData.Data as DownloadFileTriplet;
 
                     if (anyTriplet != null)
                     {
@@ -321,8 +353,8 @@ namespace Eagle._Components.Private
         #region HTTPS Security Protocol Helper Methods
 #if TEST
         public static ReturnCode ProbeSecurityProtocol(
-            ref StringList list,
-            ref Result error
+            ref StringList list, /* out */
+            ref Result error     /* out */
             )
         {
             _SecurityProtocolType? protocol =
@@ -343,8 +375,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode GetSecurityProtocol(
-            ref StringList list,
-            ref Result error
+            ref StringList list, /* out */
+            ref Result error     /* out */
             )
         {
             SecurityProtocolType protocol;
@@ -385,8 +417,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SetSecurityProtocol(
-            bool obsolete,
-            ref Result error
+            bool obsolete,   /* in */
+            ref Result error /* out */
             )
         {
             ReturnCode code = ReturnCode.Error;
@@ -400,10 +432,10 @@ namespace Eagle._Components.Private
                 code = ReturnCode.Ok;
             }
 
-            TraceOps.DebugTrace(String.Format(
-                "SetSecurityProtocol: code = {0}, results  = {1}",
-                code, FormatOps.WrapOrNull(results)),
-                typeof(WebOps).Name, TracePriority.NetworkDebug);
+            TraceOps.DebugTrace(
+                "SetSecurityProtocol", null, typeof(WebOps).Name,
+                TracePriority.NetworkDebug, false, "code", code,
+                "results", results);
 
             if (code != ReturnCode.Ok)
                 error = results;
@@ -415,12 +447,63 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Web Download / Upload Helper Methods
+        private static WebTransferCallback GetTransferCallback(
+            Interpreter interpreter /* in */
+            )
+        {
+            return (interpreter != null) ?
+                interpreter.WebTransferCallback : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode InvokeTransferCallback(
+            WebTransferCallback callback, /* in */
+            Interpreter interpreter,      /* in */
+            WebFlags webFlags,            /* in */
+            IClientData clientData,       /* in */
+            ref Result error              /* out */
+            )
+        {
+            try
+            {
+                TraceOps.DebugTrace("InvokeTransferCallback", null,
+                    typeof(WebOps).Name, TracePriority.NetworkDebug2,
+                    true, "callback", callback, "interpreter",
+                    interpreter, "webFlags", webFlags, "clientData",
+                    clientData, "error", error);
+
+                if (callback == null)
+                {
+                    error = "invalid web transfer callback";
+                    return ReturnCode.Error;
+                }
+
+                return callback(
+                    interpreter, webFlags, clientData,
+                    ref error); /* throw */
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(WebOps).Name,
+                    TracePriority.NetworkError);
+
+                error = e;
+                return ReturnCode.Error;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public Web Download Methods
         #region WebClient Support Methods
         public static WebClient CreateClient(
-            string argument,
-            int? timeout,
-            ref Result error
+            string argument, /* in */
+            int? timeout,    /* in */
+            ref Result error /* out */
             )
         {
             if (InOfflineMode())
@@ -444,11 +527,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static WebClient CreateClient(
-            Interpreter interpreter,
-            string argument,
-            IClientData clientData,
-            int? timeout,
-            ref Result error
+            Interpreter interpreter, /* in */
+            string argument,         /* in */
+            IClientData clientData,  /* in */
+            int? timeout,            /* in */
+            ref Result error         /* out */
             )
         {
             if (interpreter != null)
@@ -499,13 +582,234 @@ namespace Eagle._Components.Private
 
         #region Download Data Methods
         public static ReturnCode DownloadData(
-            Interpreter interpreter,
-            IClientData clientData,
-            Uri uri,
-            int? timeout,
-            bool trusted,
-            ref byte[] bytes,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            Uri uri,                 /* in */
+            int? timeout,            /* in */
+            bool trusted,            /* in */
+            ref byte[] bytes,        /* out */
+            ref Result error         /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Uri = uri;
+                webClientData.Timeout = timeout;
+                webClientData.Trusted = trusted;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadData;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        bytes = webClientData.Bytes;
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return DownloadDataViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Uri,
+                    webClientData.Timeout, webClientData.Trusted,
+                    ref bytes, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode DownloadDataAsync(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Arguments = arguments;
+                webClientData.CallbackFlags = callbackFlags;
+                webClientData.Uri = uri;
+                webClientData.Timeout = timeout;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadDataAsynchronous;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return DownloadDataAsyncViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Arguments,
+                    webClientData.CallbackFlags, webClientData.Uri,
+                    webClientData.Timeout, ref error);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Download File Methods
+        public static ReturnCode DownloadFile(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            Uri uri,                 /* in */
+            string fileName,         /* in */
+            int? timeout,            /* in */
+            bool trusted,            /* in */
+            ref Result error         /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Uri = uri;
+                webClientData.FileName = fileName;
+                webClientData.Timeout = timeout;
+                webClientData.Trusted = trusted;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadFile;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return DownloadFileViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Uri,
+                    webClientData.FileName, webClientData.Timeout,
+                    webClientData.Trusted, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode DownloadFileAsync(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string fileName,             /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Arguments = arguments;
+                webClientData.CallbackFlags = callbackFlags;
+                webClientData.Uri = uri;
+                webClientData.FileName = fileName;
+                webClientData.Timeout = timeout;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadFileAsynchronous;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return DownloadFileAsyncViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Arguments,
+                    webClientData.CallbackFlags, webClientData.Uri,
+                    webClientData.FileName, webClientData.Timeout,
+                    ref error);
+            }
+        }
+        #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Web Download Methods
+        #region Download Data Via Client Methods
+        private static ReturnCode DownloadDataViaClient(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            Uri uri,                 /* in */
+            int? timeout,            /* in */
+            bool trusted,            /* in */
+            ref byte[] bytes,        /* out */
+            ref Result error         /* out */
             )
         {
             bool locked = false;
@@ -526,16 +830,11 @@ namespace Eagle._Components.Private
                     wasTrusted = UpdateOps.IsTrusted();
                 }
 
-                TraceOps.DebugTrace(String.Format(
-                    "DownloadData: interpreter = {0}, clientData = {1}, " +
-                    "uri = {2}, timeout = {3}, trusted = {4}, " +
-                    "wasTrusted = {5}",
-                    FormatOps.InterpreterNoThrow(interpreter),
-                    FormatOps.WrapOrNull(clientData),
-                    FormatOps.WrapOrNull(uri),
-                    FormatOps.WrapOrNull(timeout),
-                    trusted, FormatOps.WrapOrNull(wasTrusted)),
-                    typeof(WebOps).Name, TracePriority.NetworkDebug);
+                TraceOps.DebugTrace("DownloadDataViaClient", null,
+                    typeof(WebOps).Name, TracePriority.NetworkDebug,
+                    true, "interpreter", interpreter, "clientData",
+                    clientData, "uri", uri, "timeout", timeout,
+                    "trusted", trusted, "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
                         true, ref error) != ReturnCode.Ok))
@@ -548,8 +847,8 @@ namespace Eagle._Components.Private
                     Result localError = null;
 
                     using (WebClient webClient = CreateClient(
-                            interpreter, "DownloadData", clientData,
-                            timeout, ref localError))
+                            interpreter, "DownloadDataViaClient",
+                            clientData, timeout, ref localError))
                     {
                         if (webClient != null)
                         {
@@ -596,27 +895,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode DownloadDataAsync(
-            Interpreter interpreter,
-            IClientData clientData,
-            StringList arguments,
-            CallbackFlags callbackFlags,
-            Uri uri,
-            int? timeout,
-            ref Result error
+        private static ReturnCode DownloadDataAsyncViaClient(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
             )
         {
-            TraceOps.DebugTrace(String.Format(
-                "DownloadDataAsync: interpreter = {0}, clientData = {1}, " +
-                "arguments = {2}, callbackFlags = {3}, uri = {4}, " +
-                "timeout = {5}",
-                FormatOps.InterpreterNoThrow(interpreter),
-                FormatOps.WrapOrNull(clientData),
-                FormatOps.WrapOrNull(true, true, arguments),
-                FormatOps.WrapOrNull(callbackFlags),
-                FormatOps.WrapOrNull(uri),
-                FormatOps.WrapOrNull(timeout)), typeof(WebOps).Name,
-                TracePriority.NetworkDebug);
+            TraceOps.DebugTrace("DownloadDataAsyncViaClient", null,
+                typeof(WebOps).Name, TracePriority.NetworkDebug,
+                true, "interpreter", interpreter, "clientData",
+                clientData, "arguments", arguments, "callbackFlags",
+                callbackFlags, "uri", uri, "timeout", timeout);
 
             ReturnCode code = ReturnCode.Ok;
             WebClient webClient = null;
@@ -635,14 +928,13 @@ namespace Eagle._Components.Private
                         Result localError = null;
 
                         webClient = CreateClient(
-                            interpreter, "DownloadDataAsync", clientData,
-                            null, ref localError);
+                            interpreter, "DownloadDataAsyncViaClient",
+                            clientData, null, ref localError);
 
                         if (webClient != null)
                         {
                             callback.ClientData = new ClientData(
-                                new AnyPair<WebClient, Uri>(
-                                    webClient, uri));
+                                new DownloadDataPair(webClient, uri));
 
                             webClient.DownloadDataCompleted +=
                                 new DownloadDataCompletedEventHandler(
@@ -688,15 +980,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Download File Methods
-        public static ReturnCode DownloadFile(
-            Interpreter interpreter,
-            IClientData clientData,
-            Uri uri,
-            string fileName,
-            int? timeout,
-            bool trusted,
-            ref Result error
+        #region Download File Via Client Methods
+        private static ReturnCode DownloadFileViaClient(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            Uri uri,                 /* in */
+            string fileName,         /* in */
+            int? timeout,            /* in */
+            bool trusted,            /* in */
+            ref Result error         /* out */
             )
         {
             bool locked = false;
@@ -717,17 +1009,12 @@ namespace Eagle._Components.Private
                     wasTrusted = UpdateOps.IsTrusted();
                 }
 
-                TraceOps.DebugTrace(String.Format(
-                    "DownloadFile: interpreter = {0}, clientData = {1}, " +
-                    "uri = {2}, fileName = {3}, timeout = {4}, " +
-                    "trusted = {5}, wasTrusted = {6}",
-                    FormatOps.InterpreterNoThrow(interpreter),
-                    FormatOps.WrapOrNull(clientData),
-                    FormatOps.WrapOrNull(uri),
-                    FormatOps.WrapOrNull(fileName),
-                    FormatOps.WrapOrNull(timeout),
-                    trusted, FormatOps.WrapOrNull(wasTrusted)),
-                    typeof(WebOps).Name, TracePriority.NetworkDebug);
+                TraceOps.DebugTrace("DownloadFileViaClient", null,
+                    typeof(WebOps).Name, TracePriority.NetworkDebug,
+                    true, "interpreter", interpreter, "clientData",
+                    clientData, "uri", uri, "fileName", fileName,
+                    "timeout", timeout, "trusted", trusted,
+                    "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
                         true, ref error) != ReturnCode.Ok))
@@ -740,8 +1027,8 @@ namespace Eagle._Components.Private
                     Result localError = null;
 
                     using (WebClient webClient = CreateClient(
-                            interpreter, "DownloadFile", clientData,
-                            timeout, ref localError))
+                            interpreter, "DownloadFileViaClient",
+                            clientData, timeout, ref localError))
                     {
                         if (webClient != null)
                         {
@@ -790,29 +1077,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode DownloadFileAsync(
-            Interpreter interpreter,
-            IClientData clientData,
-            StringList arguments,
-            CallbackFlags callbackFlags,
-            Uri uri,
-            string fileName,
-            int? timeout,
-            ref Result error
+        private static ReturnCode DownloadFileAsyncViaClient(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string fileName,             /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
             )
         {
-            TraceOps.DebugTrace(String.Format(
-                "DownloadFileAsync: interpreter = {0}, clientData = {1}, " +
-                "arguments = {2}, callbackFlags = {3}, uri = {4}, " +
-                "fileName = {5}, timeout = {6}",
-                FormatOps.InterpreterNoThrow(interpreter),
-                FormatOps.WrapOrNull(clientData),
-                FormatOps.WrapOrNull(true, true, arguments),
-                FormatOps.WrapOrNull(callbackFlags),
-                FormatOps.WrapOrNull(uri),
-                FormatOps.WrapOrNull(fileName),
-                FormatOps.WrapOrNull(timeout)),
-                typeof(WebOps).Name, TracePriority.NetworkDebug);
+            TraceOps.DebugTrace("DownloadFileAsyncViaClient", null,
+                typeof(WebOps).Name, TracePriority.NetworkDebug,
+                true, "interpreter", interpreter, "clientData",
+                clientData, "arguments", arguments, "callbackFlags",
+                callbackFlags, "uri", uri, "fileName", fileName,
+                "timeout", timeout);
 
             ReturnCode code = ReturnCode.Ok;
             WebClient webClient = null;
@@ -831,13 +1112,13 @@ namespace Eagle._Components.Private
                         Result localError = null;
 
                         webClient = CreateClient(
-                            interpreter, "DownloadFileAsync", clientData,
-                            null, ref localError);
+                            interpreter, "DownloadFileAsyncViaClient",
+                            clientData, null, ref localError);
 
                         if (webClient != null)
                         {
                             callback.ClientData = new ClientData(
-                                new AnyTriplet<WebClient, Uri, string>(
+                                new DownloadFileTriplet(
                                     webClient, uri, fileName));
 
                             webClient.DownloadFileCompleted +=
@@ -889,8 +1170,8 @@ namespace Eagle._Components.Private
         #region Private Upload Event Handlers
         #region Upload Data Event Handlers
         private static void UploadDataAsyncCompleted(
-            object sender,
-            UploadDataCompletedEventArgs e
+            object sender,                 /* in */
+            UploadDataCompletedEventArgs e /* in */
             )
         {
             try
@@ -910,9 +1191,8 @@ namespace Eagle._Components.Private
 
                 if (clientData != null)
                 {
-                    IAnyTriplet<WebClient, Uri, IAnyPair<string, byte[]>>
-                        anyTriplet = clientData.Data as
-                    IAnyTriplet<WebClient, Uri, IAnyPair<string, byte[]>>;
+                    UploadDataTriplet anyTriplet =
+                        clientData.Data as UploadDataTriplet;
 
                     if (anyTriplet != null)
                     {
@@ -926,7 +1206,7 @@ namespace Eagle._Components.Private
 
                         uri = anyTriplet.Y;
 
-                        IAnyPair<string, byte[]> anyPair = anyTriplet.Z;
+                        UploadDataPair anyPair = anyTriplet.Z;
 
                         if (anyPair != null)
                         {
@@ -954,8 +1234,8 @@ namespace Eagle._Components.Private
 
         #region Upload Values Event Handlers
         private static void UploadValuesAsyncCompleted(
-            object sender,
-            UploadValuesCompletedEventArgs e
+            object sender,                   /* in */
+            UploadValuesCompletedEventArgs e /* in */
             )
         {
             try
@@ -970,14 +1250,13 @@ namespace Eagle._Components.Private
 
                 Uri uri = null;
                 string method = null;
-                NameValueCollection collection = null;
+                NameValueCollection data = null;
                 IClientData clientData = callback.ClientData;
 
                 if (clientData != null)
                 {
-                    IAnyTriplet<WebClient, Uri, IAnyPair<string, NameValueCollection>>
-                        anyTriplet = clientData.Data as
-                    IAnyTriplet<WebClient, Uri, IAnyPair<string, NameValueCollection>>;
+                    UploadValuesTriplet anyTriplet =
+                        clientData.Data as UploadValuesTriplet;
 
                     if (anyTriplet != null)
                     {
@@ -991,13 +1270,12 @@ namespace Eagle._Components.Private
 
                         uri = anyTriplet.Y;
 
-                        IAnyPair<string, NameValueCollection>
-                            anyPair = anyTriplet.Z;
+                        UploadValuesPair anyPair = anyTriplet.Z;
 
                         if (anyPair != null)
                         {
                             method = anyPair.X;
-                            collection = anyPair.Y;
+                            data = anyPair.Y;
                         }
                     }
 
@@ -1007,7 +1285,7 @@ namespace Eagle._Components.Private
                 /* NO RESULT */
                 callback.FireEventHandler(sender, e,
                     GetAsyncCompletedArguments(
-                        uri, method, null, collection, null, e));
+                        uri, method, null, data, null, e));
             }
             catch (Exception ex)
             {
@@ -1020,8 +1298,8 @@ namespace Eagle._Components.Private
 
         #region Upload File Event Handlers
         private static void UploadFileAsyncCompleted(
-            object sender,
-            UploadFileCompletedEventArgs e
+            object sender,                 /* in */
+            UploadFileCompletedEventArgs e /* in */
             )
         {
             try
@@ -1041,9 +1319,8 @@ namespace Eagle._Components.Private
 
                 if (clientData != null)
                 {
-                    IAnyTriplet<WebClient, Uri, IAnyPair<string, string>>
-                        anyTriplet = clientData.Data as
-                    IAnyTriplet<WebClient, Uri, IAnyPair<string, string>>;
+                    UploadFileTriplet anyTriplet =
+                        clientData.Data as UploadFileTriplet;
 
                     if (anyTriplet != null)
                     {
@@ -1057,7 +1334,7 @@ namespace Eagle._Components.Private
 
                         uri = anyTriplet.Y;
 
-                        IAnyPair<string, string> anyPair = anyTriplet.Z;
+                        UploadFilePair anyPair = anyTriplet.Z;
 
                         if (anyPair != null)
                         {
@@ -1093,15 +1370,369 @@ namespace Eagle._Components.Private
         #region Public Web Upload Methods
         #region Upload Data Methods
         public static ReturnCode UploadData(
-            Interpreter interpreter,
-            IClientData clientData,
-            Uri uri,
-            string method,
-            byte[] rawData,
-            int? timeout,
-            bool trusted,
-            ref byte[] bytes,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            Uri uri,                 /* in */
+            string method,           /* in */
+            byte[] rawData,          /* in */
+            int? timeout,            /* in */
+            bool trusted,            /* in */
+            ref byte[] bytes,        /* out */
+            ref Result error         /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.RawData = rawData;
+                webClientData.Timeout = timeout;
+                webClientData.Trusted = trusted;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadData;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        bytes = webClientData.Bytes;
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadDataViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Uri,
+                    webClientData.Method, webClientData.RawData,
+                    webClientData.Timeout, webClientData.Trusted,
+                    ref bytes, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode UploadDataAsync(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            byte[] rawData,              /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Arguments = arguments;
+                webClientData.CallbackFlags = callbackFlags;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.RawData = rawData;
+                webClientData.Timeout = timeout;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadDataAsynchronous;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadDataAsyncViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Arguments,
+                    webClientData.CallbackFlags, webClientData.Uri,
+                    webClientData.Method, webClientData.RawData,
+                    webClientData.Timeout, ref error);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Upload Values Methods
+        public static ReturnCode UploadValues(
+            Interpreter interpreter,  /* in */
+            IClientData clientData,   /* in */
+            Uri uri,                  /* in */
+            string method,            /* in */
+            NameValueCollection data, /* in */
+            int? timeout,             /* in */
+            bool trusted,             /* in */
+            ref byte[] bytes,         /* out */
+            ref Result error          /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.Data = data;
+                webClientData.Timeout = timeout;
+                webClientData.Trusted = trusted;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadValues;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        bytes = webClientData.Bytes;
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadValuesViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Uri,
+                    webClientData.Method, webClientData.Data,
+                    webClientData.Timeout, webClientData.Trusted,
+                    ref bytes, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode UploadValuesAsync(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            NameValueCollection data,    /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Arguments = arguments;
+                webClientData.CallbackFlags = callbackFlags;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.Data = data;
+                webClientData.Timeout = timeout;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadValuesAsynchronous;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadValuesAsyncViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Arguments,
+                    webClientData.CallbackFlags, webClientData.Uri,
+                    webClientData.Method, webClientData.Data,
+                    webClientData.Timeout, ref error);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Upload File Methods
+        public static ReturnCode UploadFile(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            Uri uri,                 /* in */
+            string method,           /* in */
+            string fileName,         /* in */
+            int? timeout,            /* in */
+            bool trusted,            /* in */
+            ref Result error         /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.FileName = fileName;
+                webClientData.Timeout = timeout;
+                webClientData.Trusted = trusted;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadFile;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadFileViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Uri,
+                    webClientData.Method, webClientData.FileName,
+                    webClientData.Timeout, webClientData.Trusted,
+                    ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode UploadFileAsync(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            string fileName,             /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Arguments = arguments;
+                webClientData.CallbackFlags = callbackFlags;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.FileName = fileName;
+                webClientData.Timeout = timeout;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadFileAsynchronous;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadFileAsyncViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Arguments,
+                    webClientData.CallbackFlags, webClientData.Uri,
+                    webClientData.Method, webClientData.FileName,
+                    webClientData.Timeout, ref error);
+            }
+        }
+        #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Web Upload Methods
+        #region Upload Data Via Client Methods
+        private static ReturnCode UploadDataViaClient(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            Uri uri,                 /* in */
+            string method,           /* in */
+            byte[] rawData,          /* in */
+            int? timeout,            /* in */
+            bool trusted,            /* in */
+            ref byte[] bytes,        /* out */
+            ref Result error         /* out */
             )
         {
             bool locked = false;
@@ -1122,19 +1753,13 @@ namespace Eagle._Components.Private
                     wasTrusted = UpdateOps.IsTrusted();
                 }
 
-                TraceOps.DebugTrace(String.Format(
-                    "UploadData: interpreter = {0}, clientData = {1}, " +
-                    "uri = {2}, method = {3}, rawData = {4}, " +
-                    "timeout = {5}, trusted = {6}, wasTrusted = {7}",
-                    FormatOps.InterpreterNoThrow(interpreter),
-                    FormatOps.WrapOrNull(clientData),
-                    FormatOps.WrapOrNull(uri),
-                    FormatOps.WrapOrNull(method),
-                    (rawData != null) ?
-                        rawData.Length : Length.Invalid,
-                    FormatOps.WrapOrNull(timeout),
-                    trusted, FormatOps.WrapOrNull(wasTrusted)),
-                    typeof(WebOps).Name, TracePriority.NetworkDebug);
+                TraceOps.DebugTrace("UploadDataViaClient", null,
+                    typeof(WebOps).Name, TracePriority.NetworkDebug,
+                    true, "interpreter", interpreter, "clientData",
+                    clientData, "uri", uri, "method", method,
+                    "rawData", (rawData != null) ? rawData.Length :
+                    Length.Invalid, "timeout", timeout, "trusted",
+                    trusted, "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
                         true, ref error) != ReturnCode.Ok))
@@ -1147,8 +1772,8 @@ namespace Eagle._Components.Private
                     Result localError = null;
 
                     using (WebClient webClient = CreateClient(
-                            interpreter, "UploadData", clientData,
-                            timeout, ref localError))
+                            interpreter, "UploadDataViaClient",
+                            clientData, timeout, ref localError))
                     {
                         if (webClient != null)
                         {
@@ -1197,32 +1822,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode UploadDataAsync(
-            Interpreter interpreter,
-            IClientData clientData,
-            StringList arguments,
-            CallbackFlags callbackFlags,
-            Uri uri,
-            string method,
-            byte[] rawData,
-            int? timeout,
-            ref Result error
+        private static ReturnCode UploadDataAsyncViaClient(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            byte[] rawData,              /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
             )
         {
-            TraceOps.DebugTrace(String.Format(
-                "UploadDataAsync: interpreter = {0}, clientData = {1}, " +
-                "arguments = {2}, callbackFlags = {3}, uri = {4}, " +
-                "method = {5}, rawData = {6}, timeout = {7}",
-                FormatOps.InterpreterNoThrow(interpreter),
-                FormatOps.WrapOrNull(clientData),
-                FormatOps.WrapOrNull(true, true, arguments),
-                FormatOps.WrapOrNull(callbackFlags),
-                FormatOps.WrapOrNull(uri),
-                FormatOps.WrapOrNull(method),
-                (rawData != null) ?
-                    rawData.Length : Length.Invalid,
-                FormatOps.WrapOrNull(timeout)),
-                typeof(WebOps).Name, TracePriority.NetworkDebug);
+            TraceOps.DebugTrace("UploadDataAsyncViaClient", null,
+                typeof(WebOps).Name, TracePriority.NetworkDebug,
+                true, "interpreter", interpreter, "clientData",
+                clientData, "arguments", arguments, "callbackFlags",
+                callbackFlags, "uri", uri, "method", method,
+                "rawData", (rawData != null) ? rawData.Length :
+                Length.Invalid, "timeout", timeout);
 
             ReturnCode code = ReturnCode.Ok;
             WebClient webClient = null;
@@ -1241,16 +1859,14 @@ namespace Eagle._Components.Private
                         Result localError = null;
 
                         webClient = CreateClient(
-                            interpreter, "UploadDataAsync", clientData,
-                            timeout, ref localError);
+                            interpreter, "UploadDataAsyncViaClient",
+                            clientData, timeout, ref localError);
 
                         if (webClient != null)
                         {
                             callback.ClientData = new ClientData(
-                                new AnyTriplet<WebClient, Uri,
-                                    IAnyPair<string, byte[]>>(
-                                        webClient, uri, new AnyPair<string,
-                                            byte[]>(method, rawData)));
+                                new UploadDataTriplet(webClient, uri,
+                                    new UploadDataPair(method, rawData)));
 
                             webClient.UploadDataCompleted +=
                                 new UploadDataCompletedEventHandler(
@@ -1297,17 +1913,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Upload Values Methods
-        public static ReturnCode UploadValues(
-            Interpreter interpreter,
-            IClientData clientData,
-            Uri uri,
-            string method,
-            NameValueCollection collection,
-            int? timeout,
-            bool trusted,
-            ref byte[] bytes,
-            ref Result error
+        #region Upload Values Via Client Methods
+        private static ReturnCode UploadValuesViaClient(
+            Interpreter interpreter,  /* in */
+            IClientData clientData,   /* in */
+            Uri uri,                  /* in */
+            string method,            /* in */
+            NameValueCollection data, /* in */
+            int? timeout,             /* in */
+            bool trusted,             /* in */
+            ref byte[] bytes,         /* out */
+            ref Result error          /* out */
             )
         {
             bool locked = false;
@@ -1328,19 +1944,12 @@ namespace Eagle._Components.Private
                     wasTrusted = UpdateOps.IsTrusted();
                 }
 
-                TraceOps.DebugTrace(String.Format(
-                    "UploadValues: interpreter = {0}, clientData = {1}, " +
-                    "uri = {2}, method = {3}, collection = {4}, " +
-                    "timeout = {5}, trusted = {6}, wasTrusted = {7}",
-                    FormatOps.InterpreterNoThrow(interpreter),
-                    FormatOps.WrapOrNull(clientData),
-                    FormatOps.WrapOrNull(uri),
-                    FormatOps.WrapOrNull(method),
-                    (collection != null) ?
-                        collection.Count : Count.Invalid,
-                    FormatOps.WrapOrNull(timeout),
-                    trusted, FormatOps.WrapOrNull(wasTrusted)),
-                    typeof(WebOps).Name, TracePriority.NetworkDebug);
+                TraceOps.DebugTrace("UploadValuesViaClient", null,
+                    typeof(WebOps).Name, TracePriority.NetworkDebug,
+                    true, "interpreter", interpreter, "clientData",
+                    clientData, "uri", uri, "method", method, "data",
+                    (data != null) ? data.Count : Count.Invalid,
+                    "timeout", timeout, "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
                         true, ref error) != ReturnCode.Ok))
@@ -1353,13 +1962,13 @@ namespace Eagle._Components.Private
                     Result localError = null;
 
                     using (WebClient webClient = CreateClient(
-                            interpreter, "UploadValues", clientData,
-                            timeout, ref localError))
+                            interpreter, "UploadValuesViaClient",
+                            clientData, timeout, ref localError))
                     {
                         if (webClient != null)
                         {
                             bytes = webClient.UploadValues(
-                                uri, method, collection);
+                                uri, method, data);
 
                             return ReturnCode.Ok;
                         }
@@ -1403,32 +2012,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode UploadValuesAsync(
-            Interpreter interpreter,
-            IClientData clientData,
-            StringList arguments,
-            CallbackFlags callbackFlags,
-            Uri uri,
-            string method,
-            NameValueCollection collection,
-            int? timeout,
-            ref Result error
+        private static ReturnCode UploadValuesAsyncViaClient(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            NameValueCollection data,    /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
             )
         {
-            TraceOps.DebugTrace(String.Format(
-                "UploadValuesAsync: interpreter = {0}, clientData = {1}, " +
-                "arguments = {2}, callbackFlags = {3}, uri = {4}, " +
-                "method = {5}, collection = {6}, timeout = {7}",
-                FormatOps.InterpreterNoThrow(interpreter),
-                FormatOps.WrapOrNull(clientData),
-                FormatOps.WrapOrNull(true, true, arguments),
-                FormatOps.WrapOrNull(callbackFlags),
-                FormatOps.WrapOrNull(uri),
-                FormatOps.WrapOrNull(method),
-                (collection != null) ?
-                    collection.Count : Count.Invalid,
-                FormatOps.WrapOrNull(timeout)),
-                typeof(WebOps).Name, TracePriority.NetworkDebug);
+            TraceOps.DebugTrace("UploadValuesAsyncViaClient", null,
+                typeof(WebOps).Name, TracePriority.NetworkDebug,
+                true, "interpreter", interpreter, "clientData",
+                clientData, "arguments", arguments, "callbackFlags",
+                callbackFlags, "uri", uri, "method", method, "data",
+                (data != null) ? data.Count : Count.Invalid,
+                "timeout", timeout);
 
             ReturnCode code = ReturnCode.Ok;
             WebClient webClient = null;
@@ -1447,17 +2049,14 @@ namespace Eagle._Components.Private
                         Result localError = null;
 
                         webClient = CreateClient(
-                            interpreter, "UploadValuesAsync", clientData,
-                            timeout, ref localError);
+                            interpreter, "UploadValuesAsyncViaClient",
+                            clientData, timeout, ref localError);
 
                         if (webClient != null)
                         {
                             callback.ClientData = new ClientData(
-                                new AnyTriplet<WebClient, Uri,
-                                    IAnyPair<string, NameValueCollection>>(
-                                        webClient, uri, new AnyPair<string,
-                                            NameValueCollection>(method,
-                                                collection)));
+                                new UploadValuesTriplet(webClient, uri,
+                                    new UploadValuesPair(method, data)));
 
                             webClient.UploadValuesCompleted +=
                                 new UploadValuesCompletedEventHandler(
@@ -1465,7 +2064,7 @@ namespace Eagle._Components.Private
 
                             /* NO RESULT */
                             webClient.UploadValuesAsync(
-                                uri, method, collection, callback);
+                                uri, method, data, callback);
                         }
                         else if (localError != null)
                         {
@@ -1504,16 +2103,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Upload File Methods
-        public static ReturnCode UploadFile(
-            Interpreter interpreter,
-            IClientData clientData,
-            Uri uri,
-            string method,
-            string fileName,
-            int? timeout,
-            bool trusted,
-            ref Result error
+        #region Upload File Via Client Methods
+        private static ReturnCode UploadFileViaClient(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            Uri uri,                 /* in */
+            string method,           /* in */
+            string fileName,         /* in */
+            int? timeout,            /* in */
+            bool trusted,            /* in */
+            ref Result error         /* out */
             )
         {
             bool locked = false;
@@ -1534,18 +2133,12 @@ namespace Eagle._Components.Private
                     wasTrusted = UpdateOps.IsTrusted();
                 }
 
-                TraceOps.DebugTrace(String.Format(
-                    "UploadFile: interpreter = {0}, clientData = {1}, " +
-                    "uri = {2}, method = {3}, fileName = {4}, " +
-                    "timeout = {5}, trusted = {6}, wasTrusted = {7}",
-                    FormatOps.InterpreterNoThrow(interpreter),
-                    FormatOps.WrapOrNull(clientData),
-                    FormatOps.WrapOrNull(uri),
-                    FormatOps.WrapOrNull(method),
-                    FormatOps.WrapOrNull(fileName),
-                    FormatOps.WrapOrNull(timeout),
-                    trusted, FormatOps.WrapOrNull(wasTrusted)),
-                    typeof(WebOps).Name, TracePriority.NetworkDebug);
+                TraceOps.DebugTrace("UploadFileViaClient", null,
+                    typeof(WebOps).Name, TracePriority.NetworkDebug,
+                    true, "interpreter", interpreter, "clientData",
+                    clientData, "uri", uri, "method", method,
+                    "fileName", fileName, "timeout", timeout,
+                    "trusted", trusted, "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
                         true, ref error) != ReturnCode.Ok))
@@ -1558,8 +2151,8 @@ namespace Eagle._Components.Private
                     Result localError = null;
 
                     using (WebClient webClient = CreateClient(
-                            interpreter, "UploadFile", clientData,
-                            timeout, ref localError))
+                            interpreter, "UploadFileViaClient",
+                            clientData, timeout, ref localError))
                     {
                         if (webClient != null)
                         {
@@ -1609,31 +2202,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode UploadFileAsync(
-            Interpreter interpreter,
-            IClientData clientData,
-            StringList arguments,
-            CallbackFlags callbackFlags,
-            Uri uri,
-            string method,
-            string fileName,
-            int? timeout,
-            ref Result error
+        private static ReturnCode UploadFileAsyncViaClient(
+            Interpreter interpreter,     /* in */
+            IClientData clientData,      /* in */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            string fileName,             /* in */
+            int? timeout,                /* in */
+            ref Result error             /* out */
             )
         {
-            TraceOps.DebugTrace(String.Format(
-                "UploadFileAsync: interpreter = {0}, clientData = {1}, " +
-                "arguments = {2}, callbackFlags = {3}, uri = {4}, " +
-                "method = {5}, fileName = {6}, timeout = {7}",
-                FormatOps.InterpreterNoThrow(interpreter),
-                FormatOps.WrapOrNull(clientData),
-                FormatOps.WrapOrNull(true, true, arguments),
-                FormatOps.WrapOrNull(callbackFlags),
-                FormatOps.WrapOrNull(uri),
-                FormatOps.WrapOrNull(method),
-                FormatOps.WrapOrNull(fileName),
-                FormatOps.WrapOrNull(timeout)),
-                typeof(WebOps).Name, TracePriority.NetworkDebug);
+            TraceOps.DebugTrace("UploadFileAsyncViaClient", null,
+                typeof(WebOps).Name, TracePriority.NetworkDebug,
+                true, "interpreter", interpreter, "clientData",
+                clientData, "arguments", arguments, "callbackFlags",
+                callbackFlags, "uri", uri, "method", method,
+                "fileName", fileName, "timeout", timeout);
 
             ReturnCode code = ReturnCode.Ok;
             WebClient webClient = null;
@@ -1652,16 +2238,14 @@ namespace Eagle._Components.Private
                         Result localError = null;
 
                         webClient = CreateClient(
-                            interpreter, "UploadFileAsync", clientData,
-                            timeout, ref localError);
+                            interpreter, "UploadFileAsyncViaClient",
+                            clientData, timeout, ref localError);
 
                         if (webClient != null)
                         {
                             callback.ClientData = new ClientData(
-                                new AnyTriplet<WebClient, Uri,
-                                    IAnyPair<string, string>>(
-                                        webClient, uri, new AnyPair<string,
-                                            string>(method, fileName)));
+                                new UploadFileTriplet(webClient, uri,
+                                    new UploadFilePair(method, fileName)));
 
                             webClient.UploadFileCompleted +=
                                 new UploadFileCompletedEventHandler(
@@ -1711,8 +2295,8 @@ namespace Eagle._Components.Private
 
         #region Private Metadata Support Methods
         private static bool IsGoodTimeout(
-            int timeout,
-            bool allowNone
+            int timeout,   /* in */
+            bool allowNone /* in */
             )
         {
             if (timeout == _Timeout.Infinite)

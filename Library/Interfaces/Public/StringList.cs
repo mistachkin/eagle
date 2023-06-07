@@ -59,6 +59,8 @@ namespace Eagle._Interfaces.Public
         int MaybeAddRange(IEnumerable<string> collection);
         int MaybeAddRange(IEnumerable<IPair<string>> collection);
 
+        bool MaybeAddRawString(string key, IStringList value, string separator);
+
         string ToString(bool empty);
         string ToString(string pattern, bool noCase);
         string ToString(string pattern, bool empty, bool noCase);
@@ -67,6 +69,7 @@ namespace Eagle._Interfaces.Public
 
         string ToRawString();
         string ToRawString(string separator);
+        string ToRawString(string separator1, string separator2);
 
         IStringList ToList();
         IStringList ToList(string pattern, bool noCase);

@@ -31,6 +31,7 @@ namespace Eagle._Components.Private
             string description,
             IClientData clientData,
             string typeName,
+            Type type,
             Lexeme lexeme,
             int operands,
             TypeList types,
@@ -40,9 +41,9 @@ namespace Eagle._Components.Private
             long token
             )
             : this(Guid.Empty, name, group, description,
-                   clientData, typeName, lexeme, operands,
-                   types, flags, comparisonType, plugin,
-                   token)
+                   clientData, typeName, type, lexeme,
+                   operands, types, flags, comparisonType,
+                   plugin, token)
         {
             this.id = AttributeOps.GetObjectId(this);
         }
@@ -58,6 +59,7 @@ namespace Eagle._Components.Private
             string description,
             IClientData clientData,
             string typeName,
+            Type type,
             Lexeme lexeme,
             int operands,
             TypeList types,
@@ -74,6 +76,7 @@ namespace Eagle._Components.Private
             this.description = description;
             this.clientData = clientData;
             this.typeName = typeName;
+            this.type = type;
             this.lexeme = lexeme;
             this.operands = operands;
             this.types = types;
@@ -159,7 +162,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IOperatorData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -169,6 +172,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IOperatorData Members
         private Lexeme lexeme;
         public virtual Lexeme Lexeme
         {

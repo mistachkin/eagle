@@ -218,6 +218,7 @@ https://eagle.to/</URL>
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="bad_subst.txt" url="../../Tests/data/bad_subst.txt" id="4a567d4a-3511-487d-8bf2-ffa828d6e36d" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="benchmark.txt" url="../../Tests/data/benchmark.txt" id="2e36205e-479a-432e-b6bd-f02cdfafa6ab" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="big_exec.txt" url="../../Tests/data/big_exec.txt" id="8d079f83-5dca-4295-9929-d9b763901126" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="big_exec_raw.txt" url="../../Tests/data/big_exec_raw.txt" id="ba999aef-a3cb-43a0-ab94-978569b476b5" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="callStack.eagle" url="../../Tests/data/callStack.eagle" id="80c10f79-a1a5-48b9-a691-fb944a6066be" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="client.tcl" url="../../Tests/data/client.tcl" id="9ea4f6c4-315f-4582-b9c9-523cdd0d90ee" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="evaluate.eagle" url="../../Tests/data/evaluate.eagle" id="316ce54d-20a8-4031-a621-e0f588c979fd" />
@@ -225,6 +226,7 @@ https://eagle.to/</URL>
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="file.dat" url="../../Tests/data/file.dat" id="304aa1a9-74d7-406c-b421-3605be93db80" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="FontViewer.xaml" url="../../Tests/data/FontViewer.xaml" id="0ebb895c-c3a9-48d5-b8cc-c90fb90744dd" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="garbage.txt" url="../../Tests/data/garbage.txt" id="ac6fc947-47b6-4a9a-8fd7-a03fde5b316c" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="hosts.txt" url="../../Tests/data/hosts.txt" id="37f670bb-493d-40ea-8dce-baca4e70d144" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="isolated.eagle" url="../../Tests/data/isolated.eagle" id="0db5843d-32df-423b-9a38-dceaf696f814" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="pngDump.txt" url="../../Tests/data/pngDump.txt" id="040a8851-a737-4e62-b090-7c1f8dfba8de" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="read.eagle" url="../../Tests/data/read.eagle" id="fec7836e-eb20-4337-8c10-94b6e7a1cd58" />

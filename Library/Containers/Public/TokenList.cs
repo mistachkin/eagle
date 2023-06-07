@@ -127,7 +127,7 @@ namespace Eagle._Containers.Public
             bool noCase
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             for (int index = 0; index < this.Count; index++)
             {
@@ -137,7 +137,7 @@ namespace Eagle._Containers.Public
                     result.Append(Characters.LineFeed);
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

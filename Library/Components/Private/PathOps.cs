@@ -1836,7 +1836,7 @@ namespace Eagle._Components.Private
                     // NOTE: Full cleaning required, remove all invalid path
                     //       characters.
                     //
-                    StringBuilder builder = StringOps.NewStringBuilder(result);
+                    StringBuilder builder = StringBuilderFactory.Create(result);
 
                     foreach (char character in Path.GetInvalidPathChars())
                     {
@@ -1846,7 +1846,7 @@ namespace Eagle._Components.Private
                             builder.Replace(character.ToString(), null);
                     }
 
-                    result = builder.ToString();
+                    result = StringBuilderCache.GetStringAndRelease(ref builder);
                 }
             }
 
@@ -3578,7 +3578,7 @@ namespace Eagle._Components.Private
             int stopIndex   /* in */
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             if (list != null)
             {
@@ -3669,7 +3669,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3891,6 +3891,27 @@ namespace Eagle._Components.Private
                 return false;
 
             return wellKnownList.ContainsKey(extension);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool MatchExtension(
+            string path,
+            string extension
+            )
+        {
+            string localExtension;
+
+            if (!HasExtension(path, out localExtension))
+                return false;
+
+            if (localExtension == null)
+                return false;
+
+            if (extension == null)
+                return false;
+
+            return IsEqualParts(extension, localExtension);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4293,8 +4314,17 @@ namespace Eagle._Components.Private
                 AddPathsToDictionary(GetHomeDirectories(
                     HomeFlags.AnyDataMask), ref dictionary);
 
-                AddPathToDictionary(GetDocumentDirectory(false),
-                    ref dictionary);
+                string documentDirectory = GetDocumentDirectory(false);
+
+                if (!String.IsNullOrEmpty(documentDirectory))
+                {
+                    AddPathToDictionary(Path.Combine(
+                        documentDirectory, GlobalState.GetPackageName()),
+                        ref dictionary);
+
+                    AddPathToDictionary(
+                        documentDirectory, ref dictionary);
+                }
 
                 AddPathToDictionary(GetUserCloudDirectory(),
                     ref dictionary);
@@ -4892,6 +4922,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string GetUserRuleSetDirectory()
+        {
+            return GlobalConfiguration.GetValue(
+                EnvVars.XdgRuleSetDir, ScalarConfigurationFlags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static string GetUserCloudDirectory()
         {
             string directory = GetUserProfileDirectory();
@@ -5426,7 +5464,7 @@ namespace Eagle._Components.Private
             if (values == null) // NOTE: Impossible?
                 return null;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             foreach (string value in values)
             {
@@ -5436,7 +5474,7 @@ namespace Eagle._Components.Private
                 builder.Append(value);
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5450,7 +5488,7 @@ namespace Eagle._Components.Private
             if (paths == null) // NOTE: Impossible?
                 return null;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             foreach (string path in paths)
             {
@@ -5485,7 +5523,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5531,7 +5569,7 @@ namespace Eagle._Components.Private
                 return;
 
             if (builder == null)
-                builder = StringOps.NewStringBuilder();
+                builder = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
 
             foreach (KeyValuePair<string, string> pair in dictionary)
             {
@@ -5561,7 +5599,7 @@ namespace Eagle._Components.Private
             if ((collection1 == null) && (collection2 == null))
                 return null;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
             NameValueCollection[] collections = { collection1, collection2 };
 
             foreach (NameValueCollection collection in collections)
@@ -5585,7 +5623,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 #endif
 
@@ -5838,7 +5876,7 @@ namespace Eagle._Components.Private
             //       the main components of the absolute base URI (e.g.
             //       scheme, user-info, server, port, etc), if any.
             //
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             if (!String.IsNullOrEmpty(localBaseComponents))
                 builder.Append(localBaseComponents);
@@ -5902,7 +5940,8 @@ namespace Eagle._Components.Private
             //       (potentially) be used for error reporting, should
             //       the actual URI creation fail.
             //
-            string builderUri = builder.ToString();
+            string builderUri = StringBuilderCache.GetStringAndRelease(
+                ref builder);
 
             //
             // NOTE: Attempt to create the final URI object now, using
@@ -6219,6 +6258,13 @@ namespace Eagle._Components.Private
                     error = "file name not absolute";
                     return null;
                 }
+
+                //
+                // HACK: Make sure the global paths are setup
+                //       in this AppDomain, which may not be
+                //       the primary one.
+                //
+                GlobalState.SetupPaths(true, true, false);
 
                 string[] paths = {
                     GlobalState.GetAssemblyPackageRootPath(),
@@ -7221,12 +7267,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static int CompareParts(
+        public static int CompareParts(
             string part1, /* in */
             string part2  /* in */
             )
         {
             return SharedStringOps.Compare(part1, part2, ComparisonType);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsEqualParts(
+            string path1, /* in */
+            string path2  /* in */
+            )
+        {
+            return SharedStringOps.Equals(path1, path2, ComparisonType);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -7900,7 +7956,7 @@ namespace Eagle._Components.Private
                     NativeDirectorySeparatorChar);
             }
 
-            StringBuilder builder = StringOps.NewStringBuilder(
+            StringBuilder builder = StringBuilderFactory.Create(
                 path.Length);
 
             foreach (char character in path)
@@ -7911,7 +7967,7 @@ namespace Eagle._Components.Private
                     builder.Append(character);
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

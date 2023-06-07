@@ -114,8 +114,33 @@ namespace Eagle._Components.Private
 
         #region Private Data
         #region System Defaults
+        #region Data and Database
+#if DATA
+        //
+        // HACK: These are the defaults for the [sql execute] sub-command.
+        //
+        private static CommandType DefaultCommandType = CommandType.Text;
+        private static CommandBehavior DefaultCommandBehavior = CommandBehavior.Default;
+        private static DbExecuteType DefaultExecuteType = DbExecuteType.Default;
+        private static DbResultFormat DefaultResultFormat = DbResultFormat.Default;
+        private static ValueFlags DefaultValueFlags = ValueFlags.AnyNonCharacter;
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region DateTime Format, Kind, and NTP Servers
         private static string DefaultDateTimeFormat = null;
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if DATA
+        //
+        // HACK: This is the default for [sql execute].
+        //
+        private static DateTimeBehavior DefaultDateTimeBehavior =
+            DateTimeBehavior.Default;
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -1234,7 +1259,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if SHELL
+        public static long GetTotalMemory(
+            bool collect
+            )
+        {
+            long beforeBytes = 0;
+            long afterBytes = 0;
+
+            GetTotalMemory(collect, ref beforeBytes, ref afterBytes);
+
+            return (beforeBytes - afterBytes);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void GetTotalMemory(
             bool collect,
             ref long beforeBytes,
@@ -1246,7 +1284,6 @@ namespace Eagle._Components.Private
             if (collect)
                 afterBytes = GC.GetTotalMemory(true);
         }
-#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -2078,7 +2115,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [sql execute] sub-command.
         //
-        public static OptionDictionary GetExecuteOptions()
+        public static OptionDictionary GetExecuteOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2089,7 +2126,7 @@ namespace Eagle._Components.Private
                 new Option(typeof(DateTimeBehavior),
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-datetimebehavior",
-                    new Variant(DateTimeBehavior.Default)),
+                    new Variant(DefaultDateTimeBehavior)),
                 new Option(typeof(DateTimeKind),
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-datetimekind",
@@ -2100,7 +2137,7 @@ namespace Eagle._Components.Private
                     new Variant(DefaultDateTimeStyles)),
                 new Option(typeof(ValueFlags), OptionFlags.MustHaveEnumValue,
                     Index.Invalid, Index.Invalid, "-valueflags",
-                    new Variant(ValueFlags.AnyNonCharacter)),
+                    new Variant(DefaultValueFlags)),
                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
                     Index.Invalid, "-valueformat", null),
                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
@@ -2112,6 +2149,8 @@ namespace Eagle._Components.Private
                     Index.Invalid, "-transaction", null),
                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
                     Index.Invalid, "-rowsvar", null),
+                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
+                    Index.Invalid, "-rowvar", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-time", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue,
@@ -2128,6 +2167,8 @@ namespace Eagle._Components.Private
                     Index.Invalid, Index.Invalid, "-pairs", null),
                 new Option(null, OptionFlags.MustHaveBooleanValue,
                     Index.Invalid, Index.Invalid, "-names", null),
+                new Option(null, OptionFlags.MustHaveBooleanValue,
+                    Index.Invalid, Index.Invalid, "-nofixup", null),
                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
                     Index.Invalid, "-timevar", null),
                 new Option(null, OptionFlags.MustHaveIntegerValue,
@@ -2135,50 +2176,34 @@ namespace Eagle._Components.Private
                 new Option(null, OptionFlags.MustHaveIntegerValue,
                     Index.Invalid, Index.Invalid, "-limit", null),
                 new Option(typeof(CommandType), OptionFlags.MustHaveEnumValue,
-                    Index.Invalid, Index.Invalid, "-commandtype", null),
+                    Index.Invalid, Index.Invalid, "-commandtype",
+                    new Variant(DefaultCommandType)),
                 new Option(typeof(DbResultFormat),
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
-                    Index.Invalid, "-format", null),
+                    Index.Invalid, "-format",
+                    new Variant(DefaultResultFormat)),
                 new Option(typeof(DbExecuteType),
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
-                    Index.Invalid, "-execute", null),
+                    Index.Invalid, "-execute",
+                    new Variant(DefaultExecuteType)),
                 new Option(typeof(CommandBehavior),
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-behavior",
-                    new Variant(CommandBehavior.Default)),
-                new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
-                    Index.Invalid, "-objectname", null),
-                new Option(null, OptionFlags.MustHaveTypeValue, Index.Invalid,
-                    Index.Invalid, "-objecttype", null),
-                new Option(typeof(ObjectFlags), OptionFlags.MustHaveEnumValue,
-                    Index.Invalid, Index.Invalid, "-objectflags",
-                    new Variant(DefaultObjectFlags)),
+                    new Variant(DefaultCommandBehavior)),
                 new Option(null, NoCreateOptionFlags, Index.Invalid,
-                    Index.Invalid, "-nocreate", null),
-                new Option(null, NoDisposeOptionFlags, Index.Invalid,
-                    Index.Invalid, "-nodispose", null),
-                new Option(null, AliasOptionFlags, Index.Invalid,
-                    Index.Invalid, "-alias", null),
-                new Option(null, OptionFlags.None, Index.Invalid,
-                    Index.Invalid, "-aliasraw", null),
-                new Option(null, OptionFlags.None, Index.Invalid,
-                    Index.Invalid, "-aliasall", null),
-                new Option(null, OptionFlags.None, Index.Invalid,
-                    Index.Invalid, "-aliasreference", null),
-#if NATIVE && TCL
-                new Option(null, OptionFlags.MustHaveTclInterpreterValue,
-                    Index.Invalid, Index.Invalid, "-tcl", null),
-#else
-                new Option(null, OptionFlags.MustHaveValue |
-                    OptionFlags.Unsupported, Index.Invalid,
-                    Index.Invalid, "-tcl", null),
-#endif
-                new Option(null, OptionFlags.None, Index.Invalid,
-                    Index.Invalid, "-noforcedelete", null),
-                new Option(null, OptionFlags.None, Index.Invalid,
-                    Index.Invalid, "-tostring", null),
-                Option.CreateEndOfOptions()
+                    Index.Invalid, "-nocreate", null)
             });
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is for the [sql execute] sub-command.
+        //
+        public static OptionDictionary GetExecuteOptions()
+        {
+            return new OptionDictionary(
+                GetExecuteOnlyOptions(), GetFixupReturnValueOptions());
         }
 #endif
 
@@ -2206,6 +2231,9 @@ namespace Eagle._Components.Private
                 new Option(null,
                     OptionFlags.MustHaveTypeValue | OptionFlags.Unsafe,
                     Index.Invalid, Index.Invalid, "-returntype", null),
+                new Option(null,
+                    OptionFlags.MustHaveTypeValue | OptionFlags.Unsafe,
+                    Index.Invalid, Index.Invalid, "-objecttype", null),
                 new Option(null, CreateOptionFlags, Index.Invalid,
                     Index.Invalid, "-create", null),
                 new Option(null,
@@ -2379,7 +2407,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
-        private static OptionDictionary GetInvokeSharedOptions()
+        private static OptionDictionary GetInvokeSharedOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2473,7 +2501,22 @@ namespace Eagle._Components.Private
                     OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
                     Index.Invalid, Index.Invalid, "-byrefobjectflags",
                     new Variant(DefaultByRefObjectFlags))
-            }, GetFixupReturnValueOptions());
+            });
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: These options are shared between the [object invoke] and
+        //       [object invokeraw] sub-commands.
+        //
+        // NOTE: This method must use the "Unsafe" option flag to prevent a
+        //       "safe" interpreter from potentially using an option.
+        //
+        private static OptionDictionary GetInvokeSharedOptions()
+        {
+            return new OptionDictionary(
+                GetInvokeSharedOnlyOptions(), GetFixupReturnValueOptions());
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2481,10 +2524,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object invoke] sub-command.
         //
-        // NOTE: This method must use the "Unsafe" option flag to prevent a
-        //       "safe" interpreter from potentially using an option.
+        // NOTE: This method must use the "Unsafe" option flag to prevent
+        //       a "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetInvokeOptions()
+        public static OptionDictionary GetInvokeOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2517,9 +2560,22 @@ namespace Eagle._Components.Private
                 new Option(null, OptionFlags.Unsafe, Index.Invalid,
                     Index.Invalid, "-identity", null),
                 new Option(null, OptionFlags.Unsafe, Index.Invalid,
-                    Index.Invalid, "-typeidentity", null),
-                Option.CreateEndOfOptions()
-            }, GetInvokeSharedOptions());
+                    Index.Invalid, "-typeidentity", null)
+            });
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is for the [object invoke] sub-command.
+        //
+        // NOTE: This method must use the "Unsafe" option flag to prevent
+        //       a "safe" interpreter from potentially using an option.
+        //
+        public static OptionDictionary GetInvokeOptions()
+        {
+            return new OptionDictionary(
+                GetInvokeOnlyOptions(), GetInvokeSharedOptions());
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2551,7 +2607,7 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
-        public static OptionDictionary GetInvokeRawOptions()
+        public static OptionDictionary GetInvokeRawOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2559,7 +2615,21 @@ namespace Eagle._Components.Private
                     Index.Invalid, "-invoke", null),
                 new Option(null, OptionFlags.Ignored, Index.Invalid,
                     Index.Invalid, "-invokeraw", null)
-            }, GetInvokeSharedOptions());
+            });
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is for the [object invokeraw] sub-command.
+        //
+        // NOTE: This method must use the "Unsafe" option flag to prevent a
+        //       "safe" interpreter from potentially using an option.
+        //
+        public static OptionDictionary GetInvokeRawOptions()
+        {
+            return new OptionDictionary(
+                GetInvokeRawOnlyOptions(), GetInvokeSharedOptions());
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2811,7 +2881,7 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [read] command.
         //
-        public static OptionDictionary GetReadOptions()
+        public static OptionDictionary GetReadOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -2822,7 +2892,18 @@ namespace Eagle._Components.Private
                 new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-nonewline", null),
                 Option.CreateEndOfOptions()
-            }, GetFixupReturnValueOptions());
+            });
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is for the [read] command.
+        //
+        public static OptionDictionary GetReadOptions()
+        {
+            return new OptionDictionary(
+                GetReadOnlyOptions(), GetFixupReturnValueOptions());
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3009,12 +3090,18 @@ namespace Eagle._Components.Private
                     return GetImportOptions();           //
                 case ObjectOptionType.Invoke:            // [object invoke]
                     return GetInvokeOptions();           //
+                case ObjectOptionType.InvokeOnly:        // [object invoke]
+                    return GetInvokeOnlyOptions();       //
                 case ObjectOptionType.InvokeRaw:         // [object invokeraw]
                     return GetInvokeRawOptions();        //
+                case ObjectOptionType.InvokeRawOnly:     // [object invokeraw]
+                    return GetInvokeRawOnlyOptions();    //
                 case ObjectOptionType.InvokeAll:         // [object invokeall]
                     return GetInvokeAllOptions();        //
                 case ObjectOptionType.InvokeShared:      // [object invoke] / [object invokeraw]
                     return GetInvokeSharedOptions();     //
+                case ObjectOptionType.InvokeSharedOnly:  // [object invoke] / [object invokeraw]
+                    return GetInvokeSharedOnlyOptions(); //
                 case ObjectOptionType.IsNull:            // [object isnull]
                     return GetIsNullOptions();           //
                 case ObjectOptionType.IsOfType:          // [object isoftype]
@@ -3025,6 +3112,8 @@ namespace Eagle._Components.Private
                     return GetMembersOptions();          //
                 case ObjectOptionType.Read:              // [read]
                     return GetReadOptions();             //
+                case ObjectOptionType.ReadOnly:          // [read]
+                    return GetReadOnlyOptions();         //
                 case ObjectOptionType.Search:            // [object search]
                     return GetSearchOptions();           //
 #if XML && SERIALIZATION                                 //
@@ -3322,6 +3411,323 @@ namespace Eagle._Components.Private
                     bindingFlags = (BindingFlags)value.Value;
             }
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if DATA
+        //
+        // NOTE: This is for the [sql execute] sub-command.
+        //
+        public static void ProcessExecuteOptions(
+            Interpreter interpreter,
+            OptionDictionary options,
+            CommandType? defaultCommandType,
+            CommandBehavior? defaultCommandBehavior,
+            DbExecuteType? defaultExecuteType,
+            DbResultFormat? defaultResultFormat,
+            ValueFlags? defaultValueFlags,
+            DateTimeBehavior? defaultDateTimeBehavior,
+            DateTimeKind? defaultDateTimeKind,
+            DateTimeStyles? defaultDateTimeStyles,
+            out CultureInfo cultureInfo,
+            out CommandType commandType,
+            out CommandBehavior commandBehavior,
+            out DbExecuteType executeType,
+            out DbResultFormat resultFormat,
+            out ValueFlags valueFlags,
+            out DateTimeBehavior dateTimeBehavior,
+            out DateTimeKind dateTimeKind,
+            out DateTimeStyles dateTimeStyles,
+            out string rowsVarName,
+            out string timeVarName,
+            out string valueFormat,
+            out string dateTimeFormat,
+            out string numberFormat,
+            out string nullValue,
+            out string dbNullValue,
+            out string errorValue,
+            out int? commandTimeout,
+            out int limit,
+            out bool nested,
+            out bool allowNull,
+            out bool pairs,
+            out bool names,
+            out bool time,
+            out bool verbatim,
+            out bool noFixup
+            )
+        {
+            Variant value = null;
+
+            ///////////////////////////////////////////////////////////////////
+
+            cultureInfo = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-culture", ref value))
+            {
+                cultureInfo = (CultureInfo)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            commandType = (defaultCommandType != null) ?
+                (CommandType)defaultCommandType : DefaultCommandType;
+
+            if ((options != null) &&
+                options.CheckPresent("-commandtype", ref value))
+            {
+                commandType = (CommandType)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            commandBehavior = (defaultCommandBehavior != null) ?
+                (CommandBehavior)defaultCommandBehavior : DefaultCommandBehavior;
+
+            if ((options != null) &&
+                options.CheckPresent("-behavior", ref value))
+            {
+                commandBehavior = (CommandBehavior)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            executeType = (defaultExecuteType != null) ?
+                (DbExecuteType)defaultExecuteType : DefaultExecuteType;
+
+            if ((options != null) &&
+                options.CheckPresent("-execute", ref value))
+            {
+                executeType = (DbExecuteType)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            resultFormat = (defaultResultFormat != null) ?
+                (DbResultFormat)defaultResultFormat : DefaultResultFormat;
+
+            if ((options != null) &&
+                options.CheckPresent("-format", ref value))
+            {
+                resultFormat = (DbResultFormat)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            valueFlags = (defaultValueFlags != null) ?
+                (ValueFlags)defaultValueFlags : DefaultValueFlags;
+
+            if ((options != null) &&
+                options.CheckPresent("-valueflags", ref value))
+            {
+                valueFlags = (ValueFlags)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            dateTimeBehavior = (defaultDateTimeBehavior != null) ?
+                (DateTimeBehavior)defaultDateTimeBehavior : DefaultDateTimeBehavior;
+
+            if ((options != null) &&
+                options.CheckPresent("-datetimebehavior", ref value))
+            {
+                dateTimeBehavior = (DateTimeBehavior)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            dateTimeKind = (defaultDateTimeKind != null) ?
+                (DateTimeKind)defaultDateTimeKind : DefaultDateTimeKind;
+
+            if ((options != null) &&
+                options.CheckPresent("-datetimekind", ref value))
+            {
+                dateTimeKind = (DateTimeKind)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            dateTimeStyles = (defaultDateTimeStyles != null) ?
+                (DateTimeStyles)defaultDateTimeStyles : DefaultDateTimeStyles;
+
+            if ((options != null) &&
+                options.CheckPresent("-datetimestyles", ref value))
+            {
+                dateTimeStyles = (DateTimeStyles)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            rowsVarName = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-rowsvar", ref value))
+            {
+                rowsVarName = value.ToString();
+            }
+
+            if ((options != null) &&
+                options.CheckPresent("-rowvar", ref value))
+            {
+                rowsVarName = value.ToString();
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            timeVarName = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-timevar", ref value))
+            {
+                timeVarName = value.ToString();
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            valueFormat = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-valueformat", ref value))
+            {
+                valueFormat = value.ToString();
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            dateTimeFormat = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-datetimeformat", ref value))
+            {
+                dateTimeFormat = value.ToString();
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            numberFormat = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-numberformat", ref value))
+            {
+                numberFormat = value.ToString();
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            nullValue = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-nullvalue", ref value))
+            {
+                nullValue = value.ToString();
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            dbNullValue = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-dbnullvalue", ref value))
+            {
+                dbNullValue = value.ToString();
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            errorValue = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-errorvalue", ref value))
+            {
+                errorValue = value.ToString();
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            commandTimeout = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-timeout", ref value))
+            {
+                commandTimeout = (int)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            limit = 0;
+
+            if ((options != null) &&
+                options.CheckPresent("-limit", ref value))
+            {
+                limit = (int)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            nested = false;
+
+            if ((options != null) &&
+                options.CheckPresent("-nested", ref value))
+            {
+                nested = (bool)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            allowNull = false;
+
+            if ((options != null) &&
+                options.CheckPresent("-allownull", ref value))
+            {
+                allowNull = (bool)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            pairs = true;
+
+            if ((options != null) &&
+                options.CheckPresent("-pairs", ref value))
+            {
+                pairs = (bool)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            names = true;
+
+            if ((options != null) &&
+                options.CheckPresent("-names", ref value))
+            {
+                names = (bool)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            time = false;
+
+            if ((options != null) && options.CheckPresent("-time"))
+                time = true;
+
+            ///////////////////////////////////////////////////////////////////
+
+            verbatim = false;
+
+            if ((options != null) && options.CheckPresent("-verbatim"))
+                verbatim = true;
+
+            ///////////////////////////////////////////////////////////////////
+
+            noFixup = false;
+
+            if ((options != null) &&
+                options.CheckPresent("-nofixup", ref value))
+            {
+                noFixup = (bool)value.Value;
+            }
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -5684,7 +6090,8 @@ namespace Eagle._Components.Private
                     code = MarshalOps.FixupByRefArguments(
                         interpreter, interpreter.InternalBinder,
                         interpreter.InternalCultureInfo, argumentInfoList,
-                        objectFlags | byRefObjectFlags, useCallOptions ?
+                        objectFlags | byRefObjectFlags, options,
+                        useCallOptions ?
                             GetInvokeOptions(objectOptionType) : null,
                         objectOptionType, interpName, args, marshalFlags,
                         byRefArgumentFlags, strictArgs, create, dispose,
@@ -5701,10 +6108,11 @@ namespace Eagle._Components.Private
                     code = MarshalOps.FixupReturnValue(
                         interpreter, interpreter.InternalBinder,
                         interpreter.InternalCultureInfo, returnType,
-                        objectFlags, options, objectOptionType,
-                        objectName, interpName, returnValue, create,
-                        dispose, alias, aliasReference, toString,
-                        ref result);
+                        objectFlags, options, useCallOptions ?
+                            GetInvokeOptions(objectOptionType) : null,
+                        objectOptionType, objectName, interpName,
+                        returnValue, create, dispose, alias,
+                        aliasReference, toString, ref result);
                 }
             }
             else
@@ -5732,10 +6140,11 @@ namespace Eagle._Components.Private
                 code = MarshalOps.FixupReturnValue(
                     interpreter, interpreter.InternalBinder,
                     interpreter.InternalCultureInfo, returnType,
-                    objectFlags, options, objectOptionType,
-                    objectName, interpName, methodInfoList,
-                    create, dispose, alias, aliasReference,
-                    toString, ref result);
+                    objectFlags, options, useCallOptions ?
+                    GetInvokeOptions(objectOptionType) : null,
+                    objectOptionType, objectName, interpName,
+                    methodInfoList, create, dispose, alias,
+                    aliasReference, toString, ref result);
             }
 
             return code;

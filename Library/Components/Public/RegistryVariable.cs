@@ -171,7 +171,7 @@ namespace Eagle._Components.Public
                     TraceOps.DebugTrace(String.Format(
                         "DoesExist: error = {0}", error),
                         typeof(RegistryVariable).Name,
-                        TracePriority.DataError);
+                        TracePriority.DataError2);
                 }
             }
         }

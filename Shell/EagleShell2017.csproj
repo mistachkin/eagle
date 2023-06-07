@@ -48,9 +48,17 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Configurations\no_EagleShell.exe.config" />
-    <None Include="Configurations\no_EagleShell.exe.mda.config" />
-    <None Include="Configurations\no_EagleShell.settings.json" />
+    <None Include="Configurations\cascadia\EagleShell.settings.json" />
+    <None Include="Configurations\dotNet\2.0\EagleShell.runtimeconfig.json" />
+    <None Include="Configurations\dotNet\2.1\EagleShell.runtimeconfig.json" />
+    <None Include="Configurations\dotNet\2.2\EagleShell.runtimeconfig.json" />
+    <None Include="Configurations\dotNet\3.0\EagleShell.runtimeconfig.json" />
+    <None Include="Configurations\dotNet\3.1\EagleShell.runtimeconfig.json" />
+    <None Include="Configurations\dotNet\5.0\EagleShell.runtimeconfig.json" />
+    <None Include="Configurations\dotNet\6.0\EagleShell.runtimeconfig.json" />
+    <None Include="Configurations\dotNet\7.0\EagleShell.runtimeconfig.json" />
+    <None Include="Configurations\netFx\EagleShell.exe.config" />
+    <None Include="Configurations\netFx\EagleShell.exe.mda.config" />
     <None Include="Resources\Eagle32.png" />
     <None Include="Resources\manifest.xml" />
   </ItemGroup>
@@ -167,8 +175,8 @@
   <PropertyGroup Condition="'$(EagleShell)' == 'false' And
                             '$(MissingShell)' != 'false'">
     <!--
-        NOTE: We cannot build this project without the shell support
-              enabled; therefore, skip building it altogether.
+        NOTE: We cannot build this project without the shell support enabled;
+              therefore, skip building it altogether.
     -->
     <BuildDependsOn>
       MissingShell

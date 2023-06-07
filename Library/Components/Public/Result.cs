@@ -225,6 +225,26 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         [DebuggerStepThrough()]
+        private ResultFlags MaskCopyFromFlags(
+            ResultFlags flags
+            )
+        {
+            ResultFlags mask;
+
+            if (FlagOps.HasFlags(flags, ResultFlags.Error, true))
+                mask = ResultFlags.InternalMask;
+            else
+                mask = ResultFlags.AllMask;
+
+            if (stackTrace != null)
+                mask &= ~ResultFlags.StackTrace;
+
+            return mask;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
         internal void ResetValue(
             Interpreter interpreter,
             bool zero
@@ -234,15 +254,8 @@ namespace Eagle._Components.Public
             if (zero && (value is string) && (interpreter != null) &&
                 interpreter.HasZeroString())
             {
-                ReturnCode zeroCode;
-                bool zeroNoComplain = false;
-                Result zeroError = null;
-
-                zeroCode = StringOps.ZeroString(
-                    (string)value, ref zeroNoComplain, ref zeroError);
-
-                if (!zeroNoComplain && (zeroCode != ReturnCode.Ok))
-                    DebugOps.Complain(interpreter, zeroCode, zeroError);
+                /* IGNORED */
+                StringOps.ZeroStringOrTrace((string)value);
             }
 #endif
 
@@ -253,15 +266,8 @@ namespace Eagle._Components.Public
             if (zero && (@string != null) && (interpreter != null) &&
                 interpreter.HasZeroString())
             {
-                ReturnCode zeroCode;
-                bool zeroNoComplain = false;
-                Result zeroError = null;
-
-                zeroCode = StringOps.ZeroString(
-                    @string, ref zeroNoComplain, ref zeroError);
-
-                if (!zeroNoComplain && (zeroCode != ReturnCode.Ok))
-                    DebugOps.Complain(interpreter, zeroCode, zeroError);
+                /* IGNORED */
+                StringOps.ZeroStringOrTrace(@string);
             }
 #endif
 
@@ -454,15 +460,12 @@ namespace Eagle._Components.Public
 
                     /* Immutable (?), Shallow Copy */
                     this.exception = result.exception;
+                }
 
-                    /* ValueType, Deep Copy */
-                    this.flags = (result.flags & ~ResultFlags.InternalMask);
-                }
-                else
-                {
-                    /* ValueType, Deep Copy */
-                    this.flags = (result.flags & ~ResultFlags.AllMask);
-                }
+                ///////////////////////////////////////////////////////////////
+
+                /* ValueType, Deep Copy */
+                this.flags = (result.flags & ~MaskCopyFromFlags(flags));
 
                 ///////////////////////////////////////////////////////////////
 

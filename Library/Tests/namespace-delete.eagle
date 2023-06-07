@@ -610,7 +610,7 @@ runTest {test namespace-99.999 {delete global w/o marking undefined} -setup {
 
   set result null
 
-  set code [$o RestoreCorePlugin false result]
+  set code [$o RestoreCorePlugin false false result]
 
   if {$code ne "Ok"} then {
     error [getStringFromObjectHandle $result]

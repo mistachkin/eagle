@@ -341,7 +341,7 @@ namespace Eagle._Components.Private
 
         #region Formatting Methods
         public static string Format(
-            ReturnCode code,
+            ReturnCode? code,
             Result result
             )
         {
@@ -351,7 +351,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string Format(
-            ReturnCode code,
+            ReturnCode? code,
+            Result result,
+            bool display
+            )
+        {
+            return Format(code, result, 0, false, display);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string Format(
+            ReturnCode? code,
             Result result,
             int errorLine
             )
@@ -362,21 +373,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string Format(
-            ReturnCode code,
+            ReturnCode? code,
             Result result,
             int errorLine,
             bool exceptions,
             bool display
             )
         {
-            return Format(null, code, result, errorLine, exceptions, display);
+            return Format(
+                null, code, result, errorLine, exceptions, display);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static string Format(
             string prefix,
-            ReturnCode code,
+            ReturnCode? code,
             Result result,
             int errorLine,
             bool exceptions,
@@ -387,7 +399,8 @@ namespace Eagle._Components.Private
             bool haveErrorLine = (errorLine != 0);
             string format;
 
-            if (IsSuccess(code, exceptions))
+            if ((code == null) ||
+                IsSuccess((ReturnCode)code, exceptions))
             {
                 if (haveResult)
                     format = resultOnlyFormat;
@@ -413,7 +426,8 @@ namespace Eagle._Components.Private
             }
 
             string formatted = String.Format(
-                format, prefix, code, result, errorLine);
+                format, prefix, FormatOps.MaybeNull(code),
+                result, errorLine);
 
             if (display)
             {

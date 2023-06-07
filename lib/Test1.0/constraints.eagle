@@ -46,16 +46,16 @@ namespace eval ::Eagle {
         CACHE_ARGUMENTLIST_TOSTRING CACHE_DICTIONARY CACHE_RESULT_TOSTRING \
         CACHE_STATISTICS CACHE_STRINGLIST_TOSTRING CALLBACK_QUEUE CAS_POLICY \
         CERTIFICATE_PLUGIN CERTIFICATE_POLICY CERTIFICATE_RENEWAL \
-        CODE_ANALYSIS COMPRESSION COM_TYPE_CACHE CONFIGURATION CONSOLE DAEMON \
+        CODE_ANALYSIS COM_TYPE_CACHE COMPRESSION CONFIGURATION CONSOLE DAEMON \
         DATA DEAD_CODE DEBUG DEBUGGER DEBUGGER_ARGUMENTS DEBUGGER_BREAKPOINTS \
         DEBUGGER_ENGINE DEBUGGER_EXECUTE DEBUGGER_EXPRESSION \
-        DEBUGGER_VARIABLE DEBUG_TRACE DEBUG_WRITE DEMO_EDITION DRAWING \
-        DYNAMIC EAGLE EMBEDDED_LIBRARY EMBED_CERTIFICATES EMIT \
-        ENTERPRISE_LOCKDOWN EXECUTE_CACHE EXPRESSION_FLAGS FAST_ERRORCODE \
-        FAST_ERRORINFO FOR_TEST_USE_ONLY \
+        DEBUGGER_VARIABLE DEBUG_TRACE DEBUG_WRITE DEMO_EDITION DEMO_KEY_PAIRS \
+        DRAWING DYNAMIC EAGLE EMBEDDED_LIBRARY EMBED_CERTIFICATES EMIT \
+        ENTERPRISE_LOCKDOWN EXECUTE_CACHE EXPRESSION_FLAGS EXTRA_DIAGNOSTICS \
+        FAST_ERRORCODE FAST_ERRORINFO FOR_TEST_USE_ONLY \
         FORCE_TRACE HAVE_SIZEOF HISTORY IA64 INTERACTIVE_COMMANDS \
         INTERNALS_VISIBLE_TO ISOLATED_INTERPRETERS ISOLATED_PLUGINS LIBRARY \
-        LICENSING LICENSING_NOP LICENSE_MANAGER LIMITED_EDITION LIST_CACHE \
+        LICENSE_MANAGER LICENSING LICENSING_NOP LIMITED_EDITION LIST_CACHE \
         MAYBE_TRACE MONO MONO_BUILD MONO_HACKS MONO_LEGACY NATIVE \
         NATIVE_PACKAGE NATIVE_THREAD_ID NATIVE_UTILITY NATIVE_UTILITY_BSTR \
         NETWORK NET_20 NET_20_FAST_ENUM NET_20_ONLY NET_20_SP1 NET_20_SP2 \
@@ -113,10 +113,21 @@ namespace eval ::Eagle {
       return [list [list 2 0] [list 3 5] [list 4 0] [list 4 0 1] \
           [list 4 0 2] [list 4 0 3] [list 4 5] [list 4 5 1] [list 4 5 2] \
           [list 4 6] [list 4 6 1] [list 4 6 2] [list 4 7] [list 4 7 1] \
-          [list 4 7 2] [list 4 8]]
+          [list 4 7 2] [list 4 8] [list 4 8 1]]
     } else {
       return [list]
     }
+  }
+
+  proc getKnownPublicKeyTokenPattern {} {
+    if {[info exists ::test_well_known(publicKeyTokenPattern)]} then {
+      return $::test_well_known(publicKeyTokenPattern)
+    }
+
+    set list [list null]
+    eval lappend list [getKnownPublicKeyTokens]
+
+    return [join $list |]
   }
 
   proc addKnownDotNetConstraints { generic } {
@@ -1447,6 +1458,46 @@ namespace eval ::Eagle {
         addConstraint tcl_library_embedded
 
         tputs $channel "yes (embedded)\n"
+
+        #
+        # NOTE: We are done here, return now.
+        #
+        return
+      }
+    }
+
+    tputs $channel no\n
+  }
+
+  proc checkForEnvironmentVariable {
+          channel name {notEmpty true} {constraint ""} } {
+    tputs $channel [appendArgs "---- checking for environment variable \"" \
+        $name "\"... "]
+
+    #
+    # NOTE: Next, always check if it actually exists (as of right now).
+    #
+    if {[info exists ::env($name)]} then {
+      #
+      # NOTE: Next, optionally check if it constains anything.
+      #
+      if {!$notEmpty || [string length [set ::env($name)]] > 0} then {
+        #
+        # NOTE: The variable exists and it either contains something
+        #       or we do not care about its contents.
+        #
+        if {[string length $constraint] > 0} then {
+          addConstraint [appendArgs environment_ $constraint]
+        } else {
+          addConstraint [appendArgs environment_ $name]
+        }
+
+        #
+        # NOTE: Show that we found the variable and whether it actually
+        #       contained anything.
+        #
+        tputs $channel [appendArgs "yes (" \
+            [expr {$notEmpty ? "exists, not empty" : "exists"}] ")\n"]
 
         #
         # NOTE: We are done here, return now.
@@ -3132,16 +3183,43 @@ namespace eval ::Eagle {
     }
   }
 
-  proc checkForMemoryIntensive { channel } {
+  proc checkForMemoryIntensive { channel {memoryThreshold 3000000000} } {
     tputs $channel "---- checking for memory intensive testing... "
 
     #
     # NOTE: Are we allowed to do memory intensive testing?
     #
     if {![info exists ::no(memoryIntensive)]} then {
-      addConstraint memoryIntensive
+      if {[isEagle] && $memoryThreshold > 0} then {
+        if {[catch {debug memory} memory] == 0} then {
+          set totalPhysical [getDictionaryValue $memory totalPhysical]
 
-      tputs $channel yes\n
+          if {[string length $totalPhysical] == 0} then {
+            addConstraint memoryIntensive
+
+            tputs $channel "yes (unknown)\n"
+          } else {
+            if {[string is wideinteger -strict $totalPhysical] && \
+                $totalPhysical >= $memoryThreshold} then {
+              addConstraint memoryIntensive
+
+              tputs $channel yes\n
+            } else {
+              tputs $channel no\n
+            }
+          }
+        } else {
+          tputs $channel error\n
+        }
+      } else {
+        #
+        # HACK: This is either native Tcl -OR- memory threshold
+        #       checks have been explicitly disabled.
+        #
+        addConstraint memoryIntensive
+
+        tputs $channel "yes (skipped)\n"
+      }
     } else {
       tputs $channel no\n
     }
@@ -3245,6 +3323,32 @@ namespace eval ::Eagle {
     }
   }
 
+  proc checkForInteractiveFocus { channel } {
+    tputs $channel "---- checking for interactive focus... "
+
+    if {[isEagle]} then {
+      if {[catch {
+        set error null
+
+        object invoke -flags +NonPublic \
+            Eagle._Components.Private.NativeConsole \
+            HasWindowFocus null error
+      } hasFocus] == 0} then {
+        if {$hasFocus} then {
+          addConstraint interactiveFocus
+
+          tputs $channel yes\n
+        } else {
+          tputs $channel no\n
+        }
+      } else {
+        tputs $channel error\n
+      }
+    } else {
+      tputs $channel unknown\n
+    }
+  }
+
   proc checkForInteractiveCommand { channel name } {
     tputs $channel [appendArgs "---- checking for interactive command \"" \
         $name "\"... "]
@@ -3288,6 +3392,26 @@ namespace eval ::Eagle {
       addConstraint userInteraction
 
       tputs $channel yes\n
+    } else {
+      tputs $channel no\n
+    }
+  }
+
+  proc checkForOfflineMode { channel } {
+    tputs $channel "---- checking for offline mode... "
+
+    if {[isEagle]} then {
+      if {[catch {uri offline} offline] == 0} then {
+        if {$offline} then {
+          addConstraint offlineMode
+
+          tputs $channel yes\n
+        } else {
+          tputs $channel no\n
+        }
+      } else {
+        tputs $channel error\n
+      }
     } else {
       tputs $channel no\n
     }
@@ -3353,7 +3477,8 @@ namespace eval ::Eagle {
     }
   }
 
-  proc maybeDownloadFromUri { channel uri timeout {pattern ""} } {
+  proc maybeDownloadFromUri {
+          channel uri timeout {pattern ""} {quiet false} } {
     if {[isEagle]} then {
       if {[catch {
         uri download -inline -timeout $timeout $uri
@@ -3361,6 +3486,12 @@ namespace eval ::Eagle {
         if {[string length $pattern] == 0 || \
             [regexp -- $pattern $response]} then {
           return true
+        }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "==== WARNING: download failed \"" $uri \
+              "\" error: " \n\t $response \n]
         }
       }
    } elseif {[info exists ::native_lib_path]} then {
@@ -3375,6 +3506,12 @@ namespace eval ::Eagle {
             [regexp -- $pattern $response]} then {
           return true
         }
+      } else {
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "==== WARNING: download failed \"" $uri \
+              "\" error: " \n\t $response \n]
+        }
       }
     }
 
@@ -3387,7 +3524,8 @@ namespace eval ::Eagle {
 
     set pattern {[^\w]The Eagle Project[^\w]}
 
-    if {[maybeDownloadFromUri $channel $uri $timeout $pattern]} then {
+    if {[maybeDownloadFromUri \
+        $channel $uri $timeout $pattern true]} then {
       set host [string map [list http:// "" https:// ""] $uri]
       regsub -all -- {:.*$|/.*$} $host "" host
 
@@ -3417,7 +3555,8 @@ namespace eval ::Eagle {
         append uri pkgr; # HACK: Cannot access root here.
       }
 
-      if {![maybeDownloadFromUri $channel $uri $timeout]} then {
+      if {![maybeDownloadFromUri \
+          $channel $uri $timeout "" true]} then {
         tputs $channel [appendArgs "no (" $uri ")\n"]
 
         return
@@ -4047,8 +4186,7 @@ namespace eval ::Eagle {
         #         tries to compile it even though it will only be evaluated
         #         in Eagle).
         #
-        set expr {$publicKeyToken ni \
-            "29c6297630be05eb 1e22ec67879739a2 358030063a832bc3"}
+        set expr {$publicKeyToken ni [getKnownPublicKeyTokens]}
 
         if {[expr $expr]} then {
           #
@@ -7052,9 +7190,10 @@ namespace eval ::Eagle {
         tryDetectFossilRoot execFossilCommand checkForTestSuiteFiles \
         checkForPlatform checkForWindowsVersion checkForGetInstalledUpdates \
         checkForOperatingSystemUpdate checkForScriptLibrary checkForVariable \
-        checkForTclOptions checkForWindowsCommandProcessor checkForPackage \
-        checkForFossil checkForVisualStudioViaVsWhere checkForEagle \
-        checkForSymbols checkForLogFile checkForGaruda checkForShell \
+        checkForEnvironmentVariable checkForTclOptions \
+        checkForWindowsCommandProcessor checkForPackage checkForFossil \
+        checkForVisualStudioViaVsWhere checkForEagle checkForSymbols \
+        checkForLogFile checkForGaruda checkForShell \
         checkForOfficialStableReleaseInProgress checkForDebug checkForTk \
         checkForVersion checkForCommand checkForSubCommand checkForIntIsWide \
         checkForEFormat checkForNamespaces checkForTestExec \
@@ -7068,8 +7207,9 @@ namespace eval ::Eagle {
         checkForPerformance checkForBigLists checkForProcessorIntensive \
         checkForFileSystemIntensive checkForTimeIntensive checkForFullTest \
         checkForMemoryIntensive checkForStackIntensive checkForStackSize \
-        checkForInteractive checkForInteractiveCommand \
-        checkForUserInteraction checkForNetwork maybeDownloadFromUri \
+        checkForInteractive checkForInteractiveFocus \
+        checkForInteractiveCommand checkForUserInteraction \
+        checkForOfflineMode checkForNetwork maybeDownloadFromUri \
         checkForInternet checkForTlsOk checkForCompileOption \
         checkForBuildType checkForKnownBuildTypes \
         checkForKnownCompileOptions] false false

@@ -37,7 +37,7 @@ namespace Eagle._Containers.Public
     {
         #region Public Constructors
         public EnumDictionary()
-            : base(new _Comparers.Custom(
+            : base(new _Comparers.StringCustom(
                 SharedStringOps.GetSystemComparisonType(true)))
         {
             // do nothing.
@@ -48,7 +48,7 @@ namespace Eagle._Containers.Public
         public EnumDictionary(
             int capacity
             )
-            : base(capacity, new _Comparers.Custom(
+            : base(capacity, new _Comparers.StringCustom(
                 SharedStringOps.GetSystemComparisonType(true)))
         {
             // do nothing.
@@ -59,7 +59,7 @@ namespace Eagle._Containers.Public
         public EnumDictionary(
             IDictionary<string, Enum> dictionary
             )
-            : base(dictionary, new _Comparers.Custom(
+            : base(dictionary, new _Comparers.StringCustom(
                 SharedStringOps.GetSystemComparisonType(true)))
         {
             // do nothing.
@@ -91,7 +91,7 @@ namespace Eagle._Containers.Public
         public EnumDictionary(
             IEnumerable collection
             )
-            : base(new _Comparers.Custom(
+            : base(new _Comparers.StringCustom(
                 SharedStringOps.GetSystemComparisonType(true)))
         {
             Add(collection);
@@ -102,7 +102,7 @@ namespace Eagle._Containers.Public
         public EnumDictionary(
             IEnumerable<Enum> collection
             )
-            : base(new _Comparers.Custom(
+            : base(new _Comparers.StringCustom(
                 SharedStringOps.GetSystemComparisonType(true)))
         {
             Add(collection);

@@ -283,7 +283,7 @@ EagleMemorySize(
     }
 #endif
 
-    return MemorySizeWrapper(pMemory);
+    return (SIZE_T)MemorySizeWrapper(pMemory);
 }
 
 /*

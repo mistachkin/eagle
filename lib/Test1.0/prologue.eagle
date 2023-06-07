@@ -286,24 +286,6 @@ if {![info exists no([file tail [info script]])]} then {
   }
 
   #
-  # NOTE: Set the web host to test against, if necessary.
-  #
-  if {![info exists test_host]} then {
-    set test_host eagle.to
-  }
-
-  #
-  # NOTE: Set the web hosts to test TLS (1.2, etc) against, if
-  #       necessary.
-  #
-  if {![info exists test_hosts]} then {
-    set test_hosts [list \
-        eagle.to update.eagle.to download.eagle.to script.eagle.to \
-        www.eagle-lang.org www1.eagle-lang.org www2.eagle-lang.org \
-        pkg.management urn.to mistachkin.com]
-  }
-
-  #
   # NOTE: Set the port to use for server sockets, if necessary.
   #
   if {![info exists test_port]} then {
@@ -326,7 +308,7 @@ if {![info exists no([file tail [info script]])]} then {
   # NOTE: Set the default number of iterations for stress tests.
   #
   if {![info exists test_stress_count]} then {
-    set test_stress_count 1000; # in iterations.
+    set test_stress_count 10000; # in iterations.
   }
 
   #
@@ -390,6 +372,35 @@ if {![info exists no([file tail [info script]])]} then {
   #
   if {[catch {package present Eagle.Test.Constraints}]} then {
     package require Eagle.Test.Constraints
+  }
+
+  #############################################################################
+
+  #
+  # NOTE: Set the web hosts to test TLS (1.2, etc) against, if
+  #       necessary.
+  #
+  if {![info exists test_hosts]} then {
+    set hostsFile [file join $test_data_path hosts.txt]
+
+    if {[file exists $hostsFile]} then {
+      set test_hosts [split [readFile $hostsFile] \n]
+    } else {
+      set test_hosts [list]
+    }
+
+    unset -nocomplain hostsFile
+  }
+
+  #
+  # NOTE: Set the web host to test against, if necessary.
+  #
+  if {![info exists test_host]} then {
+    if {[llength $test_hosts] > 0} then {
+      set test_host [lindex $test_hosts 0]
+    } else {
+      set test_host eagle.to; # COMPAT: Eagle beta.
+    }
   }
 
   #############################################################################
@@ -2237,6 +2248,18 @@ if {![info exists no([file tail [info script]])]} then {
           #
           checkForCompileOption $test_channel DEMO_EDITION
         }
+
+        #
+        # NOTE: Has runtime "demo key pairs" checking support been
+        #       disabled (at compile-time)?  This only applies to
+        #       third-party plugins and applications.
+        #
+        if {![info exists no(compileDemoKeyPairs)]} then {
+          #
+          # NOTE: This is not currently used by any tests.
+          #
+          checkForCompileOption $test_channel DEMO_KEY_PAIRS
+        }
       }
     }
 
@@ -2295,6 +2318,53 @@ if {![info exists no([file tail [info script]])]} then {
     # NOTE: Has custom test method support been disabled?
     #
     if {![info exists no(core)] && ![info exists no(test)]} then {
+      #
+      # NOTE: Has fail-safe abort testing support been disabled?
+      #
+      if {![info exists no(testFailSafeAbort)]} then {
+        #
+        # NOTE: For test "basic-1.108".
+        #
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestFailSafeAbortWithTrace*
+      }
+
+      #
+      # NOTE: Has ruleset command testing support been disabled?
+      #
+      if {![info exists no(testRuleSetCommands)]} then {
+        #
+        # NOTE: For test "interp-1.70000".
+        #
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestAddRuleSetCommands*
+      }
+
+      #
+      # NOTE: Has simluated keyboard testing support been disabled?
+      #
+      if {![info exists no(testSimulateKeyboardString)]} then {
+        #
+        # NOTE: For test "basic-1.109".
+        #
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestStartKeyboardStream*
+      }
+
+      #
+      # NOTE: Has TraceFilterCallback testing support been disabled?
+      #
+      if {![info exists no(testTraceFilterCallback)]} then {
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestSetTraceFilterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestTraceFilterGetOutput*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestTraceFilterResetOutput*
+      }
+
       #
       # NOTE: Has UnknownCallback testing support been disabled?
       #
@@ -2432,7 +2502,7 @@ if {![info exists no([file tail [info script]])]} then {
       }
 
       #
-      # NOTE: Has new interpreter callback testing support been disabled?
+      # NOTE: Has interpreter callback testing support been disabled?
       #
       if {![info exists no(testNewInterpreter)]} then {
         #
@@ -2446,7 +2516,7 @@ if {![info exists no([file tail [info script]])]} then {
       }
 
       #
-      # NOTE: Has use interpreter callback testing support been disabled?
+      # NOTE: Has interpreter callback testing support been disabled?
       #
       if {![info exists no(testUseInterpreter)]} then {
         checkForObjectMember $test_channel Eagle._Tests.Default \
@@ -2454,6 +2524,39 @@ if {![info exists no([file tail [info script]])]} then {
 
         checkForObjectMember $test_channel Eagle._Tests.Default \
             *TestUseInterpreterCallback*
+      }
+
+      #
+      # NOTE: Has interpreter callback testing support been disabled?
+      #
+      if {![info exists no(testPrepareInterpreter)]} then {
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestSetPrepareInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPrepareInterpreterCallback*
+      }
+
+      #
+      # NOTE: Has interpreter callback testing support been disabled?
+      #
+      if {![info exists no(testInitializeInterpreter)]} then {
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestSetInitializeInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestInitializeInterpreterCallback*
+      }
+
+      #
+      # NOTE: Has interpreter callback testing support been disabled?
+      #
+      if {![info exists no(testFreeInterpreter)]} then {
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestSetFreeInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestFreeInterpreterCallback*
       }
 
       #
@@ -2559,6 +2662,54 @@ if {![info exists no([file tail [info script]])]} then {
 
         checkForObjectMember $test_channel Eagle._Tests.Default \
             *TestPublicStaticNewInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPrivateInstanceUseInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPublicInstanceUseInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPrivateStaticUseInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPublicStaticUseInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPrivateInstancePrepareInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPublicInstancePrepareInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPrivateStaticPrepareInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPublicStaticPrepareInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPrivateInstanceInitializeInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPublicInstanceInitializeInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPrivateStaticInitializeInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPublicStaticInitializeInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPrivateInstanceFreeInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPublicInstanceFreeInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPrivateStaticFreeInterpreterCallback*
+
+        checkForObjectMember $test_channel Eagle._Tests.Default \
+            *TestPublicStaticFreeInterpreterCallback*
       }
 
       #
@@ -3676,10 +3827,22 @@ if {![info exists no([file tail [info script]])]} then {
     }
 
     #
+    # NOTE: This is not currently used by any tests.  However, it is
+    #       used later in this file.
+    #
+    if {![info exists no(hosts.txt)]} then {
+      checkForFile $test_channel [file join $test_data_path hosts.txt]
+    }
+
+    #
     # NOTE: For test "exec-2.1".
     #
     if {![info exists no(big_exec.txt)]} then {
       checkForFile $test_channel [file join $test_data_path big_exec.txt]
+    }
+
+    if {![info exists no(big_exec_raw.txt)]} then {
+      checkForFile $test_channel [file join $test_data_path big_exec_raw.txt]
     }
 
     #
@@ -4148,6 +4311,14 @@ if {![info exists no([file tail [info script]])]} then {
     checkForVariable $test_channel test_repository_url
   }
 
+  if {![info exists no(testXdgShellsDir)]} then {
+    checkForEnvironmentVariable $test_channel XDG_SHELLS_DIR
+  }
+
+  if {![info exists no(testXdgRuleSetDir)]} then {
+    checkForEnvironmentVariable $test_channel XDG_RULESET_DIR
+  }
+
   if {![info exists no(version)]} then {
     checkForVersion $test_channel
   }
@@ -4441,6 +4612,13 @@ if {![info exists no([file tail [info script]])]} then {
   }
 
   #
+  # NOTE: Has interactive focus testing been disabled?
+  #
+  if {![info exists no(interactiveFocus)]} then {
+    checkForInteractiveFocus $test_channel
+  }
+
+  #
   # NOTE: Has interactive command testing been disabled?
   #
   if {![info exists no(core)] && \
@@ -4470,6 +4648,13 @@ if {![info exists no([file tail [info script]])]} then {
 
   if {![info exists no(userInteraction)]} then {
     checkForUserInteraction $test_channel
+  }
+
+  #
+  # NOTE: Check for offline mode, which may forbid all network.
+  #
+  if {![info exists no(core)] && ![info exists no(offlineMode)]} then {
+    checkForOfflineMode $test_channel
   }
 
   #

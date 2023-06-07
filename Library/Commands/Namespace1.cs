@@ -583,7 +583,7 @@ namespace Eagle._Commands
                                         {
                                             string executeName = arguments[2];
 
-                                            code = interpreter.DoesIExecuteExistViaResolvers(
+                                            code = interpreter.InternalDoesIExecuteExistViaResolvers(
                                                 executeName, ref result);
 
                                             if (code == ReturnCode.Ok)
@@ -767,7 +767,7 @@ namespace Eagle._Commands
 
                                                         if (isCommand)
                                                         {
-                                                            code = interpreter.DoesIExecuteExistViaResolvers(
+                                                            code = interpreter.InternalDoesIExecuteExistViaResolvers(
                                                                 name, ref result);
 
                                                             if (code == ReturnCode.Ok)

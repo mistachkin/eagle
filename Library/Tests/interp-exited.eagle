@@ -308,9 +308,9 @@ runTest {test interp-1.6 {default [object] policy} -setup {
       #
       set execute null; set error null
       set code [object invoke -alias -flags +NonPublic Interpreter.GetActive \
-          GetIExecuteViaResolvers UseAllMask [object invoke -flags +NonPublic \
-          Eagle._Components.Private.HandleOps Wrap "" [set $varName]] null \
-          Default execute error]
+          InternalGetIExecuteViaResolvers UseAllMask [object invoke -flags \
+          +NonPublic Eagle._Components.Private.HandleOps Wrap "" [set \
+          $varName]] null Default execute error]
 
       if {$code ne "Ok"} then {
         error [getStringFromObjectHandle $error]
@@ -574,12 +574,10 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
   catch {file delete $fileName}
 
   unset -nocomplain error code obj args ruleSet is list fileName
-} -constraints \
-{eagle command.object compile.XML compile.SERIALIZATION file_settings.xml} \
--result {True True True True True True True True True True {{id 1 type Include\
-kind Command mode Glob regExOptions None patterns o* comparer {}} {id 2 type\
-Exclude kind Command mode Exact regExOptions None patterns open comparer {}}}\
-True True True True True True True True}}
+} -constraints {eagle command.object compile.XML compile.SERIALIZATION\
+file_settings.xml} -result {True True True True True True True True True True\
+{{id 1 type Include kind Command mode Glob patterns o*} {id 2 type Exclude kind\
+Command mode Exact patterns open}} True True True True True True True True}}
 
 ###############################################################################
 
@@ -702,12 +700,10 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
   catch {file delete $fileName}
 
   unset -nocomplain error code obj args ruleSet is list fileName
-} -constraints \
-{eagle command.object file_settings.ini} -result {True True True True True True\
-True True True True {{id 1 type Include kind Command mode Glob regExOptions\
-None patterns o* comparer {}} {id 2 type Exclude kind Command mode Exact\
-regExOptions None patterns open comparer {}}} True True True True True True\
-True True}}
+} -constraints {eagle command.object file_settings.ini} -result {True True True\
+True True True True True True True {{id 1 type Include kind Command mode Glob\
+patterns o*} {id 2 type Exclude kind Command mode Exact patterns open}} True\
+True True True True True True True}}
 
 ###############################################################################
 
@@ -2122,11 +2118,11 @@ runTest {test interp-1.60 {object sharing normal} -setup {
 
   unset -nocomplain o i
 } -constraints {eagle command.object file_Sample.exe strongName.official} \
--match regexp -result {^\{Sample removed\} \{\{\{Sample,\
-Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+-match regexp -result [string map [list %publicKeyTokens% \
+[getKnownPublicKeyTokenPattern]] {^\{Sample removed\} \{\{\{Sample,\
+Version=1\.0\.\d+\.\d+, Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\}\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
-\d+\}\}$}}
+\d+\}\}$}]}
 
 ###############################################################################
 
@@ -2145,14 +2141,15 @@ runTest {test interp-1.61 {object sharing "safe"} -setup {
 
   unset -nocomplain o i
 } -constraints {eagle command.object file_Sample.exe strongName.official} \
--match regexp -result {^\{1 \{permission denied: safe interpreter cannot use\
-object from \"\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+-match regexp -result [string map [list %publicKeyTokens% \
+[getKnownPublicKeyTokenPattern]] {^\{1 \{permission denied: safe interpreter\
+cannot use object from \"\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:%publicKeyTokens%)\}\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
 \d+\"\} removed\} \{\{\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+PublicKeyToken=(?:%publicKeyTokens%)\}\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
-\d+\}\}$}}
+\d+\}\}$}]}
 
 ###############################################################################
 
@@ -2171,11 +2168,11 @@ runTest {test interp-1.62 {object sharing isolated} -setup {
   unset -nocomplain o i
 } -constraints {eagle command.object compile.APPDOMAINS\
 compile.ISOLATED_INTERPRETERS file_Sample.exe strongName.official} -match \
-regexp -result {^\{Sample removed\} \{\{\{Sample, Version=1\.0\.\d+\.\d+,\
-Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+regexp -result [string map [list %publicKeyTokens% \
+[getKnownPublicKeyTokenPattern]] {^\{Sample removed\} \{\{\{Sample,\
+Version=1\.0\.\d+\.\d+, Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\}\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
-\d+\}\}$}}
+\d+\}\}$}]}
 
 ###############################################################################
 
@@ -2195,14 +2192,15 @@ runTest {test interp-1.63 {object sharing "safe" and isolated} -setup {
   unset -nocomplain o i
 } -constraints {eagle command.object compile.APPDOMAINS\
 compile.ISOLATED_INTERPRETERS file_Sample.exe strongName.official} -match \
-regexp -result {^\{1 \{permission denied: safe interpreter cannot use object\
-from \"\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+regexp -result [string map [list %publicKeyTokens% \
+[getKnownPublicKeyTokenPattern]] {^\{1 \{permission denied: safe interpreter\
+cannot use object from \"\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:%publicKeyTokens%)\}\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
 \d+\"\} removed\} \{\{\{Sample, Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+PublicKeyToken=(?:%publicKeyTokens%)\}\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
-\d+\}\}$}}
+\d+\}\}$}]}
 
 ###############################################################################
 
@@ -2732,6 +2730,7 @@ runTest {test interp-1.80 {info subcommands in "safe" interp} -setup {
       [info subcommands package] \
       [info subcommands set] \
       [info subcommands source] \
+      [info subcommands uri] \
       [interp eval $i {info subcommands after}] \
       [interp eval $i {info subcommands clock}] \
       [interp eval $i {info subcommands file}] \
@@ -2740,7 +2739,8 @@ runTest {test interp-1.80 {info subcommands in "safe" interp} -setup {
       [interp eval $i {info subcommands object}] \
       [interp eval $i {info subcommands package}] \
       [interp eval $i {info subcommands set}] \
-      [interp eval $i {info subcommands source}]
+      [interp eval $i {info subcommands source}] \
+      [interp eval $i {info subcommands uri}]
 } -cleanup {
   catch {interp delete $i}
 
@@ -2765,26 +2765,28 @@ sharedlibextension shelllibrary source subcommands syntax sysvars tclversion\
 tid transactions user varlinks vars whitespace windows windowtext} {addcommands\
 alias aliases bgerror callbacklimit cancel childlimit children create delete\
 enabled eval eventlimit exists expose exposed expr finallytimeout hide hidden\
-immutable invokehidden isolated issafe issdk isstandard makesafe makestandard\
-marktrusted namespacelimit nopolicy parent policy proclimit queue readonly\
-readorgetscriptfile readylimit recursionlimit rename resetcancel resultlimit\
-scopelimit service set shareinterp shareobject sleeptime source stub subcommand\
-subst target timeout unset varlimit watchdog} {addreference alias\
-aliasnamespaces assemblies callbackflags certificate cleanup create declare\
-dispose exists flags foreach fromvar get hash import interfaces invoke\
+immutable invokehidden isolated issafe issdk isstandard iterationlimit makesafe\
+makestandard marktrusted namespacelimit nopolicy parent policy proclimit queue\
+readonly readorgetscriptfile readylimit recursionlimit rename resetcancel\
+resultlimit scopelimit service set shareinterp shareobject sleeptime source\
+stub subcommand subst target timeout unset varlimit watchdog} {addreference\
+alias aliasnamespaces assemblies callbackflags certificate cleanup create\
+declare dispose exists flags foreach fromvar get hash import interfaces invoke\
 invokeall invokeraw isnull isoftype list lmap load members namespaces\
 referencecount removecallback removereference resolve search strongname type\
 types unalias unaliasnamespace undeclare unimport untype verifyall} {forget\
 ifneeded indexes info loaded names pending present provide relativefilename\
 require reset scan unknown vcompare versions vloaded vsatisfies vsort withdraw}\
-{} {} {active cancel clear counts dump enable flags idle info} {buildnumber\
-days duration filetime format isvalid scan seconds} {channels dirname join\
-split validname} {appdomain args body commands complete context default engine\
-ensembles exists functions globals level library locals nprocs objects operands\
-operators patchlevel procs script subcommands tclversion vars} {alias aliases\
-cancel children exists issafe issdk rename} {dispose exists invoke invokeall\
-invokeraw isnull isoftype} {forget ifneeded info loaded names pending present\
-provide require unknown vcompare versions vsatisfies vsort withdraw} {} {}}}
+{} {} {compare create download escape get host isvalid join offline parse ping\
+post scheme security softwareupdates time unescape upload} {active cancel clear\
+counts dump enable flags idle info} {buildnumber days duration filetime format\
+isvalid scan seconds} {channels dirname join split validname} {appdomain args\
+body commands complete context default engine ensembles exists functions\
+globals level library locals nprocs objects operands operators patchlevel procs\
+script subcommands tclversion vars} {alias aliases cancel children exists\
+issafe issdk rename} {dispose exists invoke invokeall invokeraw isnull\
+isoftype} {forget ifneeded info loaded names pending present provide require\
+unknown vcompare versions vsatisfies vsort withdraw} {} {} {get isvalid post}}}
 
 ###############################################################################
 
@@ -3411,7 +3413,93 @@ element in array} 1 {can't set "y(3)": array element limit exceeded} 0 999 0\
 
 ###############################################################################
 
-runTest {test interp-1.505 {namespace limit} -setup {
+runTest {test interp-1.505 {iteration limit} -setup {
+  set interp [interp create]
+} -body {
+  set script(1) {set x 0; do {incr x} while {$x < 5}}
+  set script(2) {for {set x 0} {$x < 5} {incr x} {nop}}
+  set script(3) {set x 0; foreach y [list 0 1 2 3 4 5] {incr x}}
+  set script(4) {set x 0; lmap y [list 0 1 2 3 4 5] {incr x}}
+
+  set script(5) {
+    set x 0; set z [object create -alias String 012345]
+    object foreach y [$z -create ToCharArray] {incr x}
+  }
+
+  set script(6) {set x 0; while {$x < 5} {incr x}}
+
+  list [interp iterationlimit $interp] \
+      [interp iterationlimit $interp -1] \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(4)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(5)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(6)} result] $result \
+      [interp set $interp x] \
+      [interp iterationlimit $interp 0] \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(4)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(5)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(6)} result] $result \
+      [interp set $interp x] \
+      [interp iterationlimit $interp 1] \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(4)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(5)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(6)} result] $result \
+      [interp set $interp x] \
+      [interp iterationlimit $interp 2] \
+      [catch {interp eval $interp $script(1)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(2)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(3)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(4)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(5)} result] $result \
+      [interp set $interp x] \
+      [catch {interp eval $interp $script(6)} result] $result \
+      [interp set $interp x] \
+      [interp iterationlimit $interp]
+} -cleanup {
+  catch {interp delete $interp}
+
+  unset -nocomplain result script interp
+} -constraints {eagle} -result {{iteration 0} {iteration -1} 1 {iteration limit\
+-1 exceeded} 1 1 {iteration limit -1 exceeded} 1 1 {iteration limit -1\
+exceeded} 1 1 {iteration limit -1 exceeded} 1 1 {iteration limit -1 exceeded} 1\
+1 {iteration limit -1 exceeded} 1 {iteration 0} 0 {} 5 0 {} 5 0 {} 6 0 {1 2 3 4\
+5 6} 6 0 {} 6 0 {} 5 {iteration 1} 1 {iteration limit 1 exceeded} 2 1\
+{iteration limit 1 exceeded} 2 1 {iteration limit 1 exceeded} 2 1 {iteration\
+limit 1 exceeded} 2 1 {iteration limit 1 exceeded} 2 1 {iteration limit 1\
+exceeded} 2 {iteration 2} 1 {iteration limit 2 exceeded} 3 1 {iteration limit 2\
+exceeded} 3 1 {iteration limit 2 exceeded} 3 1 {iteration limit 2 exceeded} 3 1\
+{iteration limit 2 exceeded} 3 1 {iteration limit 2 exceeded} 3 {iteration 2}}}
+
+###############################################################################
+
+runTest {test interp-1.506 {namespace limit} -setup {
   set interp [interp create -noinitialize -namespaces]
 } -body {
   interp eval $interp {set x 0}
@@ -3438,7 +3526,7 @@ limit exceeded} {namespace 2}}}
 
 ###############################################################################
 
-runTest {test interp-1.506 {scope limit} -setup {
+runTest {test interp-1.507 {scope limit} -setup {
   set interp [interp create -noinitialize]
 } -body {
   interp eval $interp {set x 0}
@@ -3667,6 +3755,7 @@ error\}\}$}}
 #
 runTest {test interp-1.801 {ScriptEventThread, et al} -setup {
   set interp [interp create -safe]
+  interp iterationlimit $interp 0
 } -body {
   set script(eventState) [object invoke -alias \
       Eagle._Tests.Default+ScriptEventState Create \
@@ -4313,9 +4402,9 @@ apply array base64 bgerror break (?:callback )?catch close concat continue do\
 downlevel encoding eof error eval exit expr fblocked fconfigure fcopy flush for\
 foreach format fpclassify gets global guid hash if incr invoke join lappend\
 lassign lget lindex linsert list llength lmap lrange lremove lrepeat lreplace\
-lreverse lsearch lset lsort namespace nop nproc parse proc puts read regexp\
-regsub rename return scope seek set split string subst switch tell test1 test2\
-throw time truncate try unset update uplevel upvar variable vwait while$}}
+lreverse lsearch lset lsort namespace napply nop nproc parse proc puts read\
+regexp regsub rename return scope seek set split string subst switch tell test1\
+test2 throw time truncate try unset update uplevel upvar variable vwait while$}}
 
 ###############################################################################
 
@@ -5162,6 +5251,69 @@ runTest {test interp-1.60003 {total interpreter count (AppDomain)} -body {
 
   unset -nocomplain count i
 } -constraints {eagle command.object} -result {True True}}
+
+###############################################################################
+
+runTest {test interp-1.70000 {IRuleSet handling} -setup {
+  set i [interp create]
+
+  interp set $i fileName \
+      [file join $env(XDG_RULESET_DIR) test1.ruleSet]
+} -body {
+  set clientData [object create \
+      -alias Eagle._Tests.Default+RuleSetClientData]
+
+  set tokens null; set error null
+
+  set code [object invoke -alias Eagle._Tests.Default \
+      TestAddRuleSetCommands $i $clientData tokens error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  lappend result [interp eval $i {
+    mergeRules [readFile $fileName]
+  }]
+
+  lappend result [interp eval $i {
+    set i [createWithRules -safe true]
+    introspect $i
+  }]
+
+  interp eval $i {
+    interp delete $i
+  }
+
+  set result
+} -cleanup {
+  catch {interp delete $i}
+
+  unset -nocomplain clientData tokens error code i result
+} -constraints {eagle command.object environment_XDG_RULESET_DIR\
+Eagle._Tests.Default.TestAddRuleSetCommands} -match regexp -result {^\{\{id 1\
+type Include kind Command mode \{Exact, Include\} patterns nop\} \{id 2 type\
+Include kind Command mode \{Exact, Include\} patterns namespace\} \{id 3 type\
+Include kind Command mode \{Exact, Include\} patterns apply\} \{id 4 type\
+Include kind Command mode \{Exact, Include\} patterns file\} \{id 5 type\
+Include kind Command mode \{Exact, Include\} patterns foreach\} \{id 6 type\
+Include kind Command mode \{Exact, Include\} patterns if\} \{id 7 type Include\
+kind Command mode \{Exact, Include\} patterns list\} \{id 8 type Include kind\
+Command mode \{Exact, Include\} patterns load\} \{id 9 type Include kind\
+Command mode \{Exact, Include\} patterns package\} \{id 10 type Include kind\
+Command mode \{Exact, Include\} patterns rename\} \{id 11 type Include kind\
+Command mode \{Exact, Include\} patterns string\}\} \{commands \{\{\{Core,\
+Safe, Standard, NoAttributes, SecuritySdk\} apply\} \{\{Core, Safe, Standard,\
+NoAttributes, SecuritySdk\} foreach\} \{\{Core, Safe, Standard, NoAttributes,\
+Initialize, SecuritySdk\} if\} \{\{Core, Safe, Standard, NoAttributes,\
+SecuritySdk\} list\} \{\{Core, NoAdd, Safe, Standard, Initialize\} namespace\}\
+\{\{Core, Safe, NonStandard, NoAttributes\} nop\} \{\{Core, Safe, Standard,\
+NoAttributes, SecuritySdk\} rename\} \{\{Core, Safe, Standard, NoAttributes,\
+Initialize, SecuritySdk\} string\}\} hiddenCommands \{\{\{Core, Hidden, Unsafe,\
+Standard, NoAttributes, SecuritySdk, LicenseSdk\} load\} \{\{Core, Hidden,\
+Unsafe, Standard, NoAttributes, Initialize, SecuritySdk, LicenseSdk\} package\}\
+\{\{Core, Hidden, (?:NativeCode, )?Unsafe, Standard, NoAttributes,\
+SecuritySdk\} file\}\}\}$}}
 
 ###############################################################################
 

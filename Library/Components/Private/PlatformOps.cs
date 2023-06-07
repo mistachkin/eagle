@@ -27,14 +27,10 @@ using System.Security;
 using System.Security.Permissions;
 #endif
 
-#if NATIVE && UNIX
 using System.Text;
-#endif
-
 using System.Text.RegularExpressions;
 
 #if !NET_STANDARD_20
-using System.Threading;
 using Microsoft.Win32;
 #endif
 
@@ -114,6 +110,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Windows Version Registry Constants
+#if !NET_STANDARD_20
         private const string OsVersionSubKeyName =
             "Software\\Microsoft\\Windows NT\\CurrentVersion";
 
@@ -124,6 +121,7 @@ namespace Eagle._Components.Private
         private const string BuildLabExValueName = "BuildLabEx";
         private const string InstallDateValueName = "InstallDate";
         private const string UpdateNamesValueName = "UpdateNames";
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -147,8 +145,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static readonly string LinuxOperatingSystemName = "Linux";
+        private static readonly string Win32SubsetOperatingSystemName = "Win32s";
+        private static readonly string Windows9xOperatingSystemName = "Windows 9x";
+        private static readonly string WindowsNtOperatingSystemName = "Windows NT";
+        private static readonly string WindowsCeOperatingSystemName = "Windows CE";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly string UnixOperatingSystemName = "Unix";
+        private static readonly string XboxOperatingSystemName = "Xbox";
         private static readonly string DarwinOperatingSystemName = "Darwin";
+        private static readonly string LinuxOperatingSystemName = "Linux";
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static readonly string UnknownName = "unknown";
 
         ///////////////////////////////////////////////////////////////////////
@@ -401,6 +411,13 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////
 
+                //
+                // NOTE: What operating system we are executing on?
+                //
+                operatingSystem = Environment.OSVersion;
+
+                ///////////////////////////////////////////////////////////////
+
                 if (processorNames == null)
                 {
                     processorNames = new StringList(new string[] {
@@ -435,8 +452,13 @@ namespace Eagle._Components.Private
                 if (operatingSystemNames == null)
                 {
                     operatingSystemNames = new StringList(new string[] {
-                        "Win32s", "Windows 9x", "Windows NT", "Windows CE",
-                        "Unix", "Xbox", DarwinOperatingSystemName
+                        Win32SubsetOperatingSystemName,
+                        Windows9xOperatingSystemName,
+                        WindowsNtOperatingSystemName,
+                        WindowsCeOperatingSystemName,
+                        UnixOperatingSystemName,
+                        XboxOperatingSystemName,
+                        DarwinOperatingSystemName
                     });
                 }
 
@@ -455,6 +477,7 @@ namespace Eagle._Components.Private
                     machineNames.Add("x86", "intel");
                     machineNames.Add("Win64", "amd64"); /* HACK */
                     machineNames.Add("x86_64", "amd64");
+                    machineNames.Add("x64", "amd64");
                     machineNames.Add("Itanium", "ia64");
 
                     if (processorNames != null)
@@ -504,7 +527,8 @@ namespace Eagle._Components.Private
                 ///////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
-                if (GetSystemInfo(ref systemInfo))
+                if (ShouldTreatAsWindows(operatingSystem, false) &&
+                    GetSystemInfo(ref systemInfo))
                 {
                     //
                     // NOTE: What is the processor architecture that we are
@@ -531,36 +555,8 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////
 
-                //
-                // NOTE: What are the primary and alternative names of the
-                //       processor that we are executing on?
-                //
-                processorName = GetProcessorName(processorArchitecture, false);
-
-#if NATIVE
-                alternateProcessorName = GetAlternateProcessorName(
-                    processorName, false, true);
-#endif
-
-                //
-                // NOTE: What are the primary and alternative names of the
-                //       "machine" that we are executing on?  This is based
-                //       on the processor name; however, it may or may not
-                //       be the same value as the processor name.
-                //
-                machineName = GetMachineName(processorName, false, true);
-
-#if NATIVE
-                alternateMachineName = GetMachineName(alternateProcessorName,
-                    false, true);
-#endif
-
-                ///////////////////////////////////////////////////////////////
-
-                //
-                // NOTE: What is the operating system that we are executing on?
-                //
-                operatingSystem = Environment.OSVersion;
+                /* NO RESULT */
+                InitializeProcessorAndMachineNames(processorArchitecture);
 
                 ///////////////////////////////////////////////////////////////
 
@@ -591,13 +587,14 @@ namespace Eagle._Components.Private
                 //
                 if (operatingSystemId != OperatingSystemId.Unknown)
                 {
-                    platformName = GetPlatformName(operatingSystemId, false);
+                    platformName = GetPlatformName(
+                        operatingSystemId, IfNotFoundType.None);
                 }
                 else
                 {
                     platformName = GetPlatformName(
                         (OperatingSystemId)GetOperatingSystemPlatformId(),
-                        false);
+                        IfNotFoundType.None);
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -608,12 +605,14 @@ namespace Eagle._Components.Private
                 //
                 if (productType != VER_PRODUCT_TYPE.VER_NT_NONE)
                 {
-                    productTypeName = GetProductTypeName(productType, false);
+                    productTypeName = GetProductTypeName(
+                        productType, IfNotFoundType.None);
                 }
                 else
                 {
                     productTypeName = GetProductTypeName(
-                        GetOperatingSystemProductType(), false);
+                        GetOperatingSystemProductType(),
+                        IfNotFoundType.None);
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -623,7 +622,7 @@ namespace Eagle._Components.Private
                 //       executing on?
                 //
                 operatingSystemName = GetOperatingSystemName(
-                    operatingSystemId, false);
+                    operatingSystemId, IfNotFoundType.None);
 
                 operatingSystemVersion = null;
 
@@ -651,19 +650,7 @@ namespace Eagle._Components.Private
                     //
                     processorName = utsName.machine;
 
-                    alternateProcessorName = GetAlternateProcessorName(
-                        processorName, false, true);
-
-                    //
-                    // NOTE: What are the primary and alternative names of the
-                    //       "machine" that we are executing on?  This is based
-                    //       on the processor name; however, it may or may not
-                    //       be the same value as the processor name.
-                    //
-                    machineName = GetMachineName(processorName, false, true);
-
-                    alternateMachineName = GetMachineName(alternateProcessorName,
-                        false, true);
+                    InitializeProcessorAndMachineNames(processorName);
 
                     //
                     // NOTE: What is the name of the platform that we are
@@ -694,15 +681,15 @@ namespace Eagle._Components.Private
                     //       the processor name and/or the alternate processor
                     //       name.
                     //
-                    if (processorArchitecture == ProcessorArchitecture.Unknown)
+                    if (!IsKnownProcessorArchitecture(processorArchitecture))
                     {
-                        processorArchitecture = GetProcessorArchitecture(
+                        processorArchitecture = ParseProcessorArchitecture(
                             processorName);
                     }
 
-                    if (processorArchitecture == ProcessorArchitecture.Unknown)
+                    if (!IsKnownProcessorArchitecture(processorArchitecture))
                     {
-                        processorArchitecture = GetProcessorArchitecture(
+                        processorArchitecture = ParseProcessorArchitecture(
                             alternateProcessorName);
                     }
 
@@ -710,19 +697,39 @@ namespace Eagle._Components.Private
                     // NOTE: Attempt to set the processor architecture based on
                     //       the machine name and/or the alternate machine name.
                     //
-                    if (processorArchitecture == ProcessorArchitecture.Unknown)
+                    if (!IsKnownProcessorArchitecture(processorArchitecture))
                     {
-                        processorArchitecture = GetProcessorArchitecture(
+                        processorArchitecture = ParseProcessorArchitecture(
                             machineName);
                     }
 
-                    if (processorArchitecture == ProcessorArchitecture.Unknown)
+                    if (!IsKnownProcessorArchitecture(processorArchitecture))
                     {
-                        processorArchitecture = GetProcessorArchitecture(
+                        processorArchitecture = ParseProcessorArchitecture(
                             alternateMachineName);
                     }
                 }
 #endif
+
+                ///////////////////////////////////////////////////////////////
+
+                //
+                // HACK: We really want to know the processor architecture
+                //       for the current process; therefore, if we did not
+                //       already figure it out, attempt to guess.
+                //
+                if (!IsKnownProcessorArchitecture(processorArchitecture))
+                {
+                    processorArchitecture = GuessProcessorArchitecture(
+                        operatingSystem, null);
+
+                    if (IsKnownProcessorArchitecture(processorArchitecture))
+                    {
+                        /* NO RESULT */
+                        InitializeProcessorAndMachineNames(
+                            processorArchitecture);
+                    }
+                }
 
                 ///////////////////////////////////////////////////////////////
 
@@ -740,6 +747,21 @@ namespace Eagle._Components.Private
             {
                 return processorArchitecture;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string QueryProcessorArchitecture()
+        {
+            //
+            // HACK: Technically, this may not be 100% accurate.
+            //
+            string processorArchitecture = QueryProcessorArchitecture(
+                false, GetMachineName());
+
+            CheckProcessorArchitecture(ref processorArchitecture);
+
+            return processorArchitecture;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -768,28 +790,6 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static ProcessorArchitecture GetProcessorArchitecture(
-            string name
-            )
-        {
-            if (String.IsNullOrEmpty(name))
-                return ProcessorArchitecture.Unknown;
-
-            object enumValue;
-            Result error = null;
-
-            enumValue = EnumOps.TryParse(
-                typeof(ProcessorArchitecture), name, true, true,
-                ref error);
-
-            if (enumValue is ProcessorArchitecture)
-                return (ProcessorArchitecture)enumValue;
-            else
-                return ProcessorArchitecture.Unknown;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
         public static string GetMachineName()
         {
             lock (syncRoot)
@@ -801,6 +801,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        //
+        // NOTE: For future test suite usage.  Do not remove.
+        //
         public static string GetAlternateMachineName()
         {
             lock (syncRoot)
@@ -859,78 +862,6 @@ namespace Eagle._Components.Private
             lock (syncRoot)
             {
                 return operatingSystem;
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static PlatformID GetOperatingSystemPlatformId()
-        {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                return (operatingSystem != null) ? operatingSystem.Platform :
-                    (PlatformID)(int)OperatingSystemId.Unknown;
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool ShouldTreatAsWindows(
-            OperatingSystem operatingSystem, /* in */
-            bool @default                    /* in */
-            )
-        {
-            if (operatingSystem == null)
-                return @default;
-
-            return ShouldTreatAsWindows(
-                (OperatingSystemId)operatingSystem.Platform, @default);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static bool ShouldTreatAsWindows(
-            OperatingSystemId platformId, /* in */
-            bool @default                 /* in */
-            )
-        {
-            switch (platformId)
-            {
-                case OperatingSystemId.Win32s:
-                case OperatingSystemId.Windows9x:
-                case OperatingSystemId.WindowsNT:
-                case OperatingSystemId.WindowsCE:
-                    return true;
-                case OperatingSystemId.Unix:
-                    return false;
-                case OperatingSystemId.Xbox:
-                    return true;
-                case OperatingSystemId.Darwin:
-                case OperatingSystemId.Mono_on_Unix:
-                    return false;
-                default:
-                    return @default;
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static VER_PRODUCT_TYPE GetOperatingSystemProductType()
-        {
-            //
-            // TODO: No pure managed way to obtain this information?
-            //
-            return VER_PRODUCT_TYPE.VER_NT_UNKNOWN;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static Version GetOperatingSystemVersion()
-        {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                return (operatingSystem != null) ?
-                    operatingSystem.Version : null;
             }
         }
 
@@ -1041,7 +972,7 @@ namespace Eagle._Components.Private
 
 #if !NET_STANDARD_20
         public static string GetOperatingSystemExtra(
-            Interpreter interpreter, /* in */
+            Interpreter interpreter, /* in: OPTIONAL */
             bool asynchronous        /* in: WARNING, Non-zero is expensive. */
             )
         {
@@ -1306,66 +1237,6 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void UnSignalSetupEventOrComplain(
-            Interpreter interpreter
-            )
-        {
-            if (interpreter == null)
-                return;
-
-            ReturnCode unsignalCode;
-            Result unsignalError = null;
-
-            try
-            {
-                unsignalCode = interpreter.UnSignalSetupEvent(
-                    ref unsignalError);
-            }
-            catch (Exception e)
-            {
-                unsignalError = e;
-                unsignalCode = ReturnCode.Error;
-            }
-
-            if (unsignalCode != ReturnCode.Ok)
-            {
-                DebugOps.Complain(
-                    interpreter, unsignalCode, unsignalError);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static void SignalSetupEventOrComplain(
-            Interpreter interpreter
-            )
-        {
-            if (interpreter == null)
-                return;
-
-            ReturnCode signalCode;
-            Result signalError = null;
-
-            try
-            {
-                signalCode = interpreter.SignalSetupEvent(
-                    ref signalError);
-            }
-            catch (Exception e)
-            {
-                signalError = e;
-                signalCode = ReturnCode.Error;
-            }
-
-            if (signalCode != ReturnCode.Ok)
-            {
-                DebugOps.Complain(
-                    interpreter, signalCode, signalError);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
         public static void PopulateOperatingSystemExtra(
             Interpreter interpreter,
             bool errorOnDisposed,
@@ -1478,6 +1349,408 @@ namespace Eagle._Components.Private
             //
             return Environment.UserDomainName +
                 PathOps.DirectorySeparatorChar + result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetOperatingSystemNameAndVersion()
+        {
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            StringOps.MaybeAppend(
+                builder, "{0}-bit", GetProcessBits(), true, false);
+
+            StringOps.MaybeAppend(
+                builder, "({0})", GetMachineName(), true, true);
+
+#if NATIVE
+            StringOps.MaybeAppend(
+                builder, null, GetAlternateProcessorName(), true, false);
+#endif
+
+            StringOps.MaybeAppend(
+                builder, null, GetOperatingSystemName(), true, false);
+
+            StringOps.MaybeAppend(
+                builder, null, GetProductTypeName(), true, true);
+
+            StringOps.MaybeAppend(
+                builder, null, GetOperatingSystemPatchLevel(), true, false);
+
+            StringOps.MaybeAppend(
+                builder, "release {0}", GetOperatingSystemReleaseId(),
+                true, false);
+
+            StringOps.MaybeAppend(
+                builder, "({0})", GetPlatformName(), true, true);
+
+            StringOps.MaybeAppend(
+                builder, "[{0}]", GetOperatingSystem(), true, false);
+
+#if !NET_STANDARD_20
+            StringOps.MaybeAppend(
+                builder, "[{0}]", GetOperatingSystemExtra(null, false),
+                true, false);
+#endif
+
+            return StringBuilderCache.GetStringAndRelease(ref builder);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Querying Methods
+        private static string QueryProcessorArchitecture(
+            bool force,     /* in */
+            string @default /* in: OPTIONAL */
+            )
+        {
+            if (force || IsWindowsOperatingSystem())
+            {
+                return CommonOps.Environment.GetVariable(
+                    EnvVars.ProcessorArchitecture);
+            }
+            else
+            {
+                return @default;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void CheckProcessorArchitecture(
+            ref string processorArchitecture /* in, out: OPTIONAL */
+            )
+        {
+            //
+            // HACK: Check for an "impossible" situation.  If the pointer size
+            //       is 32-bits, the processor architecture cannot be "AMD64".
+            //
+            //       In that case, we are (almost certainly) hitting a bug in
+            //       the operating system and/or Visual Studio that causes the
+            //       "PROCESSOR_ARCHITECTURE" environment variable to contain
+            //       the wrong value in some circumstances.  There are several
+            //       reports of this issue from users on StackOverflow.
+            //
+            if (Is32BitProcess() && SharedStringOps.SystemNoCaseEquals(
+                    processorArchitecture, "AMD64"))
+            {
+                //
+                // NOTE: When tracing is enabled, save the originally detected
+                //       processor architecture before changing it.
+                //
+                string savedProcessorArchitecture = processorArchitecture;
+
+                //
+                // NOTE: We know that operating systems that return "AMD64" as
+                //       the processor architecture are actually a superset of
+                //       the "x86" processor architecture; therefore, return
+                //       "x86" when the pointer size is 32-bits.
+                //
+                processorArchitecture = "x86";
+
+                //
+                // NOTE: Show that we hit a fairly unusual situation (i.e. the
+                //       "wrong" processor architecture was detected).
+                //
+                TraceOps.DebugTrace(String.Format(
+                    "Detected {0}-bit process pointer size with " +
+                    "processor architecture {1}, using processor " +
+                    "architecture {2} instead...", GetProcessBits(),
+                    FormatOps.WrapOrNull(savedProcessorArchitecture),
+                    FormatOps.WrapOrNull(processorArchitecture)),
+                    typeof(PlatformOps).Name, TracePriority.StartupDebug);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void InitializeProcessorAndMachineNames(
+            ProcessorArchitecture processorArchitecture /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                //
+                // NOTE: What are the primary and alternative names
+                //       of the processor that we are executing on?
+                //
+                processorName = GetProcessorName(
+                    processorArchitecture, IfNotFoundType.None);
+
+                InitializeProcessorAndMachineNames(processorName);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void InitializeProcessorAndMachineNames(
+            string processorName /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+#if NATIVE
+                alternateProcessorName = GetAlternateProcessorName(
+                    processorName, IfNotFoundType.Unknown);
+#endif
+
+                //
+                // NOTE: What are the primary and alternative names
+                //       of the "machine" that we are executing on?
+                //       This is being done based on the processor
+                //       name; however, it may or may not end up
+                //       with the same value as the processor name.
+                //
+                machineName = GetMachineName(
+                    processorName, IfNotFoundType.Unknown);
+
+#if NATIVE
+                alternateMachineName = GetMachineName(
+                    alternateProcessorName, IfNotFoundType.Unknown);
+#endif
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool TryParseProcessorArchitecture(
+            string name,                     /* in */
+            out ProcessorArchitecture? value /* out */
+            )
+        {
+            value = null;
+
+            if (!String.IsNullOrEmpty(name))
+            {
+                object enumValue = EnumOps.TryParse(
+                    typeof(ProcessorArchitecture), name, true, true);
+
+                if (enumValue is ProcessorArchitecture)
+                {
+                    value = (ProcessorArchitecture)enumValue;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ProcessorArchitecture ParseProcessorArchitecture(
+            string name /* in */
+            )
+        {
+            ProcessorArchitecture? value;
+
+            if (TryParseProcessorArchitecture(name, out value))
+                return (ProcessorArchitecture)value;
+
+            return ProcessorArchitecture.Unknown;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsKnownProcessorArchitecture(
+            ProcessorArchitecture processorArchitecture /* in */
+            )
+        {
+            return processorArchitecture != ProcessorArchitecture.Unknown;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ProcessorArchitecture GuessProcessorArchitecture()
+        {
+            return Is64BitProcess() ?
+                ProcessorArchitecture.AMD64 : ProcessorArchitecture.Intel;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ProcessorArchitecture GuessProcessorArchitecture(
+            OperatingSystem operatingSystem, /* in: OPTIONAL */
+            string platformOrProcessorName   /* in: OPTIONAL */
+            )
+        {
+            if (platformOrProcessorName == null)
+            {
+                platformOrProcessorName = QueryProcessorArchitecture(
+                    true, null);
+
+                CheckProcessorArchitecture(ref platformOrProcessorName);
+            }
+
+            string machineName = GetMachineName(
+                platformOrProcessorName, IfNotFoundType.Null);
+
+            foreach (string name in new string[] {
+                    platformOrProcessorName, machineName
+                })
+            {
+                if (name == null)
+                    continue;
+
+                ProcessorArchitecture? value;
+
+                if (TryParseProcessorArchitecture(name, out value))
+                    return (ProcessorArchitecture)value;
+            }
+
+            //
+            // HACK: For Windows, just try to guess based on the
+            //       the size of the IntPtr; for other platforms,
+            //       do nothing.
+            //
+            if (ShouldTreatAsWindows(operatingSystem, false))
+                return GuessProcessorArchitecture();
+
+            //
+            // BUGBUG: On any non-Windows platform (e.g. Linux,
+            //         macOS, etc), we really have no idea what
+            //         the processor is, i.e. at least from the
+            //         perspective of this method.  Please see
+            //         the platform-specific GetOsVersionInfo
+            //         method overloads for details.
+            //
+            return ProcessorArchitecture.Unknown;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool ShouldTreatAsWindows(
+            OperatingSystem operatingSystem, /* in */
+            bool @default                    /* in */
+            )
+        {
+            if (operatingSystem == null)
+                return @default;
+
+            return ShouldTreatAsWindows(
+                (OperatingSystemId)operatingSystem.Platform, @default);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool ShouldTreatAsWindows(
+            OperatingSystemId platformId, /* in */
+            bool @default                 /* in */
+            )
+        {
+            switch (platformId)
+            {
+                case OperatingSystemId.Win32s:
+                case OperatingSystemId.Windows9x:
+                case OperatingSystemId.WindowsNT:
+                case OperatingSystemId.WindowsCE:
+                    return true;
+                case OperatingSystemId.Unix:
+                    return false;
+                case OperatingSystemId.Xbox:
+                    return true;
+                case OperatingSystemId.Darwin:
+                case OperatingSystemId.Mono_on_Unix:
+                    return false;
+                default:
+                    return @default;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static PlatformID GetOperatingSystemPlatformId()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (operatingSystem == null)
+                    return (PlatformID)(int)OperatingSystemId.Unknown;
+
+                return operatingSystem.Platform;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static Version GetOperatingSystemVersion()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (operatingSystem == null)
+                    return null;
+
+                return operatingSystem.Version;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static VER_PRODUCT_TYPE GetOperatingSystemProductType()
+        {
+            //
+            // TODO: No pure managed way to obtain this information?
+            //
+            return VER_PRODUCT_TYPE.VER_NT_UNKNOWN;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void UnSignalSetupEventOrComplain(
+            Interpreter interpreter /* in */
+            )
+        {
+            if (interpreter == null)
+                return;
+
+            ReturnCode unsignalCode;
+            Result unsignalError = null;
+
+            try
+            {
+                unsignalCode = interpreter.UnSignalSetupEvent(
+                    ref unsignalError);
+            }
+            catch (Exception e)
+            {
+                unsignalError = e;
+                unsignalCode = ReturnCode.Error;
+            }
+
+            if (unsignalCode != ReturnCode.Ok)
+            {
+                DebugOps.Complain(
+                    interpreter, unsignalCode, unsignalError);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void SignalSetupEventOrComplain(
+            Interpreter interpreter /* in */
+            )
+        {
+            if (interpreter == null)
+                return;
+
+            ReturnCode signalCode;
+            Result signalError = null;
+
+            try
+            {
+                signalCode = interpreter.SignalSetupEvent(
+                    ref signalError);
+            }
+            catch (Exception e)
+            {
+                signalError = e;
+                signalCode = ReturnCode.Error;
+            }
+
+            if (signalCode != ReturnCode.Ok)
+            {
+                DebugOps.Complain(
+                    interpreter, signalCode, signalError);
+            }
         }
         #endregion
 
@@ -2156,8 +2429,7 @@ namespace Eagle._Components.Private
 #if NATIVE
         public static string GetAlternateProcessorName(
             string platformOrProcessorName,
-            bool nullIfNotFound,
-            bool unknownIfNotFound
+            IfNotFoundType notFoundType
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2173,10 +2445,10 @@ namespace Eagle._Components.Private
                 }
             }
 
-            if (nullIfNotFound)
+            if (notFoundType == IfNotFoundType.Null)
                 return null;
 
-            if (unknownIfNotFound)
+            if (notFoundType == IfNotFoundType.Unknown)
                 return UnknownName;
 
             return platformOrProcessorName;
@@ -2354,8 +2626,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static StringList GetInstalledUpdates(
-            Interpreter interpreter,
-            bool asynchronous
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool asynchronous        /* in */
             )
         {
             //
@@ -2375,8 +2647,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static StringList WindowsGetInstalledUpdates(
-            Interpreter interpreter,
-            bool asynchronous
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool asynchronous        /* in */
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2580,8 +2852,7 @@ namespace Eagle._Components.Private
         #region Private Name Lookup Methods
         private static string GetMachineName(
             string platformOrProcessorName,
-            bool nullIfNotFound,
-            bool unknownIfNotFound
+            IfNotFoundType notFoundType
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2597,10 +2868,10 @@ namespace Eagle._Components.Private
                 }
             }
 
-            if (nullIfNotFound)
+            if (notFoundType == IfNotFoundType.Null)
                 return null;
 
-            if (unknownIfNotFound)
+            if (notFoundType == IfNotFoundType.Unknown)
                 return UnknownName;
 
             return platformOrProcessorName;
@@ -2610,7 +2881,7 @@ namespace Eagle._Components.Private
 
         private static string GetProcessorName(
             ProcessorArchitecture processorArchitecture,
-            bool nullIfNotFound
+            IfNotFoundType notFoundType
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2625,14 +2896,17 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return nullIfNotFound ? null : UnknownName;
+            if (notFoundType == IfNotFoundType.Null)
+                return null;
+
+            return UnknownName;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static string GetOperatingSystemName(
             OperatingSystemId platformId,
-            bool nullIfNotFound
+            IfNotFoundType notFoundType
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2651,14 +2925,17 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return nullIfNotFound ? null : UnknownName;
+            if (notFoundType == IfNotFoundType.Null)
+                return null;
+
+            return UnknownName;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static string GetPlatformName(
             OperatingSystemId platformId,
-            bool nullIfNotFound
+            IfNotFoundType notFoundType
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2672,14 +2949,17 @@ namespace Eagle._Components.Private
                     return OperatingSystemId.Unix.ToString();
             }
 
-            return nullIfNotFound ? null : UnknownName;
+            if (notFoundType == IfNotFoundType.Null)
+                return null;
+
+            return UnknownName;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static string GetProductTypeName(
             VER_PRODUCT_TYPE productType,
-            bool nullIfNotFound
+            IfNotFoundType notFoundType
             )
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2691,7 +2971,10 @@ namespace Eagle._Components.Private
                     return productTypeNames[(int)productType];
             }
 
-            return nullIfNotFound ? null : UnknownName;
+            if (notFoundType == IfNotFoundType.Null)
+                return null;
+
+            return UnknownName;
         }
         #endregion
 

@@ -354,7 +354,7 @@ namespace Eagle._Tasks
 
             code = Utility.FixupReturnValue(
                 interpreter, null, DefaultObjectFlags, null,
-                DefaultObjectOptionType, DefaultObjectName,
+                null, DefaultObjectOptionType, DefaultObjectName,
                 this, true, false, ref result);
 
             if (code != ReturnCode.Ok)

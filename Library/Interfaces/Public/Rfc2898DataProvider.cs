@@ -32,6 +32,7 @@ namespace Eagle._Interfaces.Public
             ref string salt,              /* in, out */
             ref int iterationCount,       /* in, out */
             ref string hashAlgorithmName, /* in, out */
+            ref string signature,         /* in, out */
             ref Result error              /* out */
         );
     }

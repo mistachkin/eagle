@@ -18,9 +18,8 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Interfaces.Private
 {
     [ObjectId("f9854ec8-39f3-489a-a32e-7da95a51e264")]
-    internal interface IOperatorData : IIdentifier, IWrapperData, IHavePlugin
+    internal interface IOperatorData : IIdentifier, IWrapperData, IHavePlugin, ITypeAndName
     {
-        string TypeName { get; set; }
         Lexeme Lexeme { get; set; }
         int Operands { get; set; }
         TypeList Types { get; set; }

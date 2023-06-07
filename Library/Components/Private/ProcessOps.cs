@@ -1593,6 +1593,386 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Public ExecuteProcess Helper Methods
+        public static ReturnCode HandleCaptureOptions(
+            Interpreter interpreter,                    /* in: OPTIONAL */
+            OptionDictionary options,                   /* in: OPTIONAL */
+            ICallback startCallback,                    /* in: OPTIONAL */
+            ICallback stdOutCallback,                   /* in: OPTIONAL */
+            ICallback stdErrCallback,                   /* in: OPTIONAL */
+            string stdInVarName,                        /* in: OPTIONAL */
+            string stdInObjectVarName,                  /* in: OPTIONAL */
+            ObjectFlags objectFlags,                    /* in */
+            bool captureInput,                          /* in */
+            bool captureOutput,                         /* in */
+            ref Result input,                           /* out */
+            ref IObject inputObject,                    /* out */
+            ref DataReceivedEventHandler outputHandler, /* out */
+            ref DataReceivedEventHandler errorHandler,  /* out */
+            ref EventHandler startHandler,              /* out */
+            ref Result error                            /* out */
+            )
+        {
+            if (captureInput)
+            {
+                if (stdInVarName != null)
+                {
+                    if (interpreter == null)
+                    {
+                        error = "invalid interpreter";
+                        return ReturnCode.Error;
+                    }
+
+                    if (interpreter.GetVariableValue(
+                            VariableFlags.None, stdInVarName,
+                            ref input, ref error) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+                if (stdInObjectVarName != null)
+                {
+                    if (interpreter == null)
+                    {
+                        error = "invalid interpreter";
+                        return ReturnCode.Error;
+                    }
+
+                    Result result = null;
+
+                    if (MarshalOps.FixupReturnValue(
+                            interpreter, null, objectFlags, options,
+                            null, ObjectOptionType.Default, null,
+                            new object(), true, true, false,
+                            ref result) != ReturnCode.Ok)
+                    {
+                        error = result;
+                        return ReturnCode.Error;
+                    }
+
+                    string inputObjectName = result;
+
+                    if (interpreter.GetObject(
+                            inputObjectName, LookupFlags.Default,
+                            ref inputObject, ref error) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+
+                    if (interpreter.SetVariableValue(
+                            VariableFlags.None, stdInObjectVarName,
+                            inputObjectName, ref error) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+            }
+
+            if (captureOutput)
+            {
+                if (stdOutCallback != null)
+                {
+                    outputHandler = stdOutCallback.Delegate as DataReceivedEventHandler;
+
+                    if (outputHandler == null)
+                    {
+                        error = "option \"-stdoutcallback\" value has invalid callback";
+                        return ReturnCode.Error;
+                    }
+                }
+
+                if (stdErrCallback != null)
+                {
+                    errorHandler = stdErrCallback.Delegate as DataReceivedEventHandler;
+
+                    if (errorHandler == null)
+                    {
+                        error = "option \"-stderrcallback\" value has invalid callback";
+                        return ReturnCode.Error;
+                    }
+                }
+            }
+
+            if (startCallback != null)
+            {
+                startHandler = startCallback.Delegate as EventHandler;
+
+                if (startHandler == null)
+                {
+                    error = "option \"-startcallback\" value has invalid callback";
+                    return ReturnCode.Error;
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode PreProcessArguments(
+            Interpreter interpreter,  /* in */
+            StringList list,          /* in: OPTIONAL */
+            string execFileName,      /* in: OPTIONAL */
+            string directory,         /* in: OPTIONAL */
+            ref string execArguments, /* in, out */
+            ref bool done,            /* out */
+            ref Result error          /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (list == null)
+                return ReturnCode.Ok;
+
+            list.Add(execFileName);
+            list.Add(directory);
+            list.Add(execArguments);
+
+            ReturnCode code;
+            Result result = null;
+
+            code = interpreter.EvaluateScript(
+                list.ToString(), ref result);
+
+            if (code == ReturnCode.Error)
+            {
+                error = result;
+            }
+            else if (code == ReturnCode.Return)
+            {
+                execArguments = result;
+                code = ReturnCode.Ok;
+            }
+            else if (code == ReturnCode.Continue)
+            {
+                done = true;
+                code = ReturnCode.Ok;
+            }
+
+            return code;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void HandleCaptureResults(
+            Interpreter interpreter,   /* in: OPTIONAL */
+            string processIdVarName,   /* in: OPTIONAL */
+            string exitCodeVarName,    /* in: OPTIONAL */
+            string stdOutVarName,      /* in: OPTIONAL */
+            string stdErrVarName,      /* in: OPTIONAL */
+            long processId,            /* in */
+            ExitCode exitCode,         /* in */
+            ExitCode? successExitCode, /* in: OPTIONAL */
+            bool attempted,            /* in */
+            bool useShellExecute,      /* in */
+            bool background,           /* in */
+            bool captureExitCode,      /* in */
+            bool captureOutput,        /* in */
+            bool setAll,               /* in */
+            bool trimAll,              /* in */
+            bool carriageReturns,      /* in */
+            ref ReturnCode code,       /* in, out */
+            ref Result result,         /* in, out */
+            ref Result error,          /* in, out */
+            ref ResultList setErrors   /* in, out */
+            )
+        {
+            ReturnCode setCode; /* REUSED */
+            Result setError; /* REUSED */
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Even upon failure -OR- even if the actual
+            //       process execution was not even attempted,
+            //       always set the variable to contain process
+            //       identifier, if applicable.  Its value may
+            //       be zero to indicate that no process was
+            //       started.
+            //
+            if ((interpreter != null) && (processIdVarName != null))
+            {
+                setError = null;
+
+                setCode = interpreter.SetVariableValue(
+                    VariableFlags.NoReady, processIdVarName,
+                    processId.ToString(), null, ref setError);
+
+                if ((setCode != ReturnCode.Ok) &&
+                    (setError != null))
+                {
+                    if (setErrors == null)
+                        setErrors = new ResultList();
+
+                    setErrors.Add(setError);
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (attempted)
+            {
+                //
+                // NOTE: Remove carriage returns from output (leaving
+                //       only line feeds as line separators)?
+                //
+                if (!carriageReturns)
+                {
+                    if (!String.IsNullOrEmpty(result))
+                    {
+                        result = result.Replace(
+                            Characters.CarriageReturnString,
+                            String.Empty);
+                    }
+
+                    if (!String.IsNullOrEmpty(error))
+                    {
+                        error = error.Replace(
+                            Characters.CarriageReturnString,
+                            String.Empty);
+                    }
+                }
+
+                ///////////////////////////////////////////////////////////////
+
+                //
+                // NOTE: Remove all surrounding whitespace from the
+                //       output?
+                //
+                if (trimAll)
+                {
+                    if (!String.IsNullOrEmpty(result))
+                        result = result.Trim();
+
+                    if (!String.IsNullOrEmpty(error))
+                        error = error.Trim();
+                }
+
+                ///////////////////////////////////////////////////////////////
+
+                if ((interpreter != null) &&
+                    ((code == ReturnCode.Ok) || setAll))
+                {
+                    //
+                    // NOTE: Now, "result" contains any StdOut output
+                    //       and "error" contains any StdErr output.
+                    //
+                    if (!background &&
+                        captureExitCode && (exitCodeVarName != null))
+                    {
+                        setError = null;
+
+                        setCode = interpreter.SetVariableValue(
+                            VariableFlags.None, exitCodeVarName,
+                            exitCode.ToString(), null, ref setError);
+
+                        if ((setCode != ReturnCode.Ok) &&
+                            (setError != null))
+                        {
+                            if (setErrors == null)
+                                setErrors = new ResultList();
+
+                            setErrors.Add(setError);
+                        }
+                    }
+
+                    ///////////////////////////////////////////////////////////
+
+                    if (!useShellExecute && !background &&
+                        captureOutput && (stdOutVarName != null))
+                    {
+                        setError = null;
+
+                        setCode = interpreter.SetVariableValue(
+                            VariableFlags.None, stdOutVarName,
+                            result, null, ref setError);
+
+                        if ((setCode != ReturnCode.Ok) &&
+                            (setError != null))
+                        {
+                            if (setErrors == null)
+                                setErrors = new ResultList();
+
+                            setErrors.Add(setError);
+                        }
+                    }
+
+                    ///////////////////////////////////////////////////////////
+
+                    if (!useShellExecute && !background &&
+                        captureOutput && (stdErrVarName != null))
+                    {
+                        setError = null;
+
+                        setCode = interpreter.SetVariableValue(
+                            VariableFlags.None, stdErrVarName,
+                            error, null, ref setError);
+
+                        if ((setCode != ReturnCode.Ok) &&
+                            (setError != null))
+                        {
+                            if (setErrors == null)
+                                setErrors = new ResultList();
+
+                            setErrors.Add(setError);
+                        }
+                    }
+
+                    ///////////////////////////////////////////////////////////
+
+                    //
+                    // NOTE: If the caller specified a success exit code,
+                    //       make sure that is the same as the exit code
+                    //       we actually received from the process.
+                    //
+                    if (!background && captureExitCode &&
+                        (successExitCode != null) &&
+                        (exitCode != successExitCode))
+                    {
+                        setError = null;
+
+                        setCode = interpreter.SetVariableValue(
+                            Engine.ErrorCodeVariableFlags,
+                            TclVars.Core.ErrorCode, StringList.MakeList(
+                                TclVars.Core.ChildStatus, processId,
+                                exitCode),
+                            null, ref setError);
+
+                        if ((setCode != ReturnCode.Ok) &&
+                            (setError != null))
+                        {
+                            if (setErrors == null)
+                                setErrors = new ResultList();
+
+                            setErrors.Add(setError);
+                        }
+
+                        if (code == ReturnCode.Ok)
+                        {
+                            if (setCode == ReturnCode.Ok)
+                                Engine.SetErrorCodeSet(interpreter, true);
+
+                            error = "child process exited abnormally";
+                            code = ReturnCode.Error;
+                        }
+                    }
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (code != ReturnCode.Ok)
+                result = error;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private KillProcess Helper Methods
         private static ReturnCode KillProcess(
             Process process,        /* in */

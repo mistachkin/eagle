@@ -17,7 +17,7 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Components.Private
 {
     [ObjectId("4f9aa772-b73f-479f-92d9-0d4eb32a1910")]
-    internal sealed class ReadScriptClientData : ClientData
+    internal class ReadScriptClientData : ClientData, IHaveText
     {
         #region Private Constructors
         private ReadScriptClientData(
@@ -26,6 +26,23 @@ namespace Eagle._Components.Private
             : base(data)
         {
             // do nothing.
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        protected ReadScriptClientData(
+            object data,           /* in */
+            string scriptFileName, /* in */
+            string originalText,   /* in */
+            string text,           /* in */
+            ByteList bytes         /* in */
+            )
+            : this(data)
+        {
+            this.scriptFileName = scriptFileName;
+            this.originalText = originalText;
+            this.text = text;
+            this.bytes = bytes;
         }
         #endregion
 
@@ -40,12 +57,12 @@ namespace Eagle._Components.Private
         //       IClientData interface.
         //
         public ReadScriptClientData(
-            string fileName,
-            string originalText,
-            string text,
-            ByteList bytes
+            string scriptFileName, /* in */
+            string originalText,   /* in */
+            string text,           /* in */
+            ByteList bytes         /* in */
             )
-            : this(bytes, fileName, originalText, text, bytes)
+            : this(bytes, scriptFileName, originalText, text, bytes)
         {
             // do nothing.
         }
@@ -53,33 +70,40 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public ReadScriptClientData(
-            object data,
-            string fileName,
-            string originalText,
-            string text,
-            ByteList bytes
+            object data,                             /* in */
+            GetScriptClientData getScriptClientData, /* in */
+            string scriptFileName                    /* in */
             )
             : this(data)
         {
-            this.fileName = fileName;
-            this.originalText = originalText;
-            this.text = text;
-            this.bytes = bytes;
+            MaybeInitializeFrom(getScriptClientData, scriptFileName);
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Public Properties
-        private string fileName;
-        public string FileName
+        #region Private Methods
+        private void MaybeInitializeFrom(
+            GetScriptClientData getScriptClientData, /* in */
+            string scriptFileName                    /* in */
+            )
         {
-            get { return fileName; }
-            set { fileName = value; }
+            if (getScriptClientData != null)
+            {
+                this.scriptFileName = getScriptClientData.ScriptFileName;
+                this.originalText = getScriptClientData.OriginalText;
+                this.text = getScriptClientData.Text;
+                this.bytes = getScriptClientData.Bytes;
+            }
+
+            if (scriptFileName != null)
+                this.scriptFileName = scriptFileName;
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IHaveText Members
         private string originalText;
         public string OriginalText
         {
@@ -95,6 +119,17 @@ namespace Eagle._Components.Private
             get { return text; }
             set { text = value; }
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Properties
+        private string scriptFileName;
+        public string ScriptFileName
+        {
+            get { return scriptFileName; }
+            set { scriptFileName = value; }
+        }
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -109,7 +144,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
-        public IStringList ToList()
+        public virtual IStringList ToList()
         {
             IStringList list = new StringPairList();
             object data = this.Data;
@@ -117,8 +152,8 @@ namespace Eagle._Components.Private
             if (data != null)
                 list.Add("Data", data.ToString());
 
-            if (fileName != null)
-                list.Add("FileName", fileName);
+            if (scriptFileName != null)
+                list.Add("ScriptFileName", scriptFileName);
 
             if (originalText != null)
                 list.Add("OriginalText", originalText);

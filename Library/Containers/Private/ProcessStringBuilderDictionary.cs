@@ -75,8 +75,8 @@ namespace Eagle._Containers.Private
 
             /* NO RESULT */
             Add(process, (capacity != null) ?
-                StringOps.NewStringBuilder((int)capacity) :
-                StringOps.NewStringBuilder());
+                StringBuilderFactory.Create((int)capacity) :
+                StringBuilderFactory.Create());
 
             return true;
         }
@@ -122,11 +122,7 @@ namespace Eagle._Containers.Private
             if (!TryGetBuilder(process, true, out builder))
                 return false;
 
-            if (builder != null)
-            {
-                builder.Length = 0;
-                builder = null;
-            }
+            StringBuilderCache.Release(ref builder);
 
             return Remove(process);
         }

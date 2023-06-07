@@ -80,6 +80,16 @@ namespace Eagle._Interfaces.Public
             string name,
             ArgumentList arguments,
             LookupFlags lookupFlags,
+            ref IExecute execute,
+            ref Result error
+            );
+
+        ReturnCode GetIExecuteViaResolvers(
+            ICallFrame frame,
+            EngineFlags engineFlags,
+            string name,
+            ArgumentList arguments,
+            LookupFlags lookupFlags,
             ref bool ambiguous,
             ref long token,
             ref IExecute execute,
@@ -91,6 +101,17 @@ namespace Eagle._Interfaces.Public
             string varName,
             string varIndex,
             ref VariableFlags flags,
+            ref IVariable variable,
+            ref Result error
+            );
+
+        ReturnCode GetVariableViaResolversWithSplit(
+            ICallFrame frame,
+            string name,
+            string index,
+            ref string varName,
+            ref string varIndex,
+            ref VariableFlags variableFlags,
             ref IVariable variable,
             ref Result error
             );

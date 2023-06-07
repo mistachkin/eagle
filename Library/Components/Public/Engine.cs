@@ -791,11 +791,87 @@ namespace Eagle._Components.Public
 
         #region Thread Queue Methods
         internal static bool QueueWorkItem(
+            ThreadStart callBack
+            ) /* throw */
+        {
+            return ThreadOps.QueueUserWorkItem(callBack); /* throw */
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        internal static bool QueueWorkItem(
             WaitCallback callBack,
             object state
             ) /* throw */
         {
             return ThreadOps.QueueUserWorkItem(callBack, state); /* throw */
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool QueueWorkItem(
+            Interpreter interpreter,
+            ThreadStart start
+            ) /* throw */
+        {
+#if NOTIFY
+            EngineFlags engineFlags = EngineFlags.None;
+#endif
+            IThreadHost threadHost = null;
+
+            if (interpreter != null)
+            {
+#if NOTIFY
+                engineFlags = interpreter.EngineFlagsNoLock;
+#endif
+
+                threadHost = GetThreadHost(interpreter);
+            }
+
+            try
+            {
+                if ((threadHost != null) &&
+                    FlagOps.HasFlags(threadHost.GetHostFlags(), HostFlags.WorkItem, true))
+                {
+                    ReturnCode code;
+                    Result error = null;
+
+                    code = threadHost.QueueWorkItem(start, ref error);
+
+                    if (code == ReturnCode.Ok)
+                        return true;
+                    else
+                        DebugOps.Complain(interpreter, code, error);
+                }
+                else
+                {
+                    if (QueueWorkItem(start)) /* throw */
+                        return true;
+                    else
+                        DebugOps.Complain(interpreter,
+                            ReturnCode.Error, "could not queue work item");
+                }
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(Engine).Name,
+                    TracePriority.ThreadError);
+
+#if NOTIFY
+                if ((interpreter != null) &&
+                    !EngineFlagOps.HasNoNotify(engineFlags))
+                {
+                    /* IGNORED */
+                    interpreter.CheckNotification(
+                        NotifyType.Engine, NotifyFlags.Exception,
+                        new ObjectPair(start, null), interpreter,
+                        null, null, e);
+                }
+#endif
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -3670,7 +3746,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
-        internal static void AddErrorInformation(
+        public static void AddErrorInformation(
             Interpreter interpreter,
             Result result,
             string errorInfo
@@ -4557,10 +4633,10 @@ namespace Eagle._Components.Public
             )
         {
             StringBuilder builder = (streamLength != Length.Invalid) ?
-                StringOps.NewStringBuilder((int)streamLength) :
-                StringOps.NewStringBuilder();
+                StringBuilderFactory.Create((int)streamLength) :
+                StringBuilderFactory.Create();
 
-            StringBuilder originalBuilder = StringOps.NewStringBuilder(
+            StringBuilder originalBuilder = StringBuilderFactory.Create(
                 builder.Capacity);
 
             bool forceSoftEof = EngineFlagOps.HasForceSoftEof(engineFlags);
@@ -4577,8 +4653,46 @@ namespace Eagle._Components.Public
             // NOTE: Get both the whole buffers as strings (i.e. both
             //       the original and line-ending modified ones).
             //
-            originalText = originalBuilder.ToString();
-            text = builder.ToString();
+            originalText = StringBuilderCache.GetStringAndRelease(
+                ref originalBuilder);
+
+            text = StringBuilderCache.GetStringAndRelease(ref builder);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ReadScriptFromText(
+            Interpreter interpreter, /* in */
+            string fileName,         /* in */
+            EngineFlags engineFlags, /* in */
+            ref string text,         /* in, out */
+            ref Result error         /* out */
+            ) /* ENTRY-POINT, THREAD-SAFE */
+        {
+            try
+            {
+                using (StringReader stringReader = new StringReader(text)) /* throw */
+                {
+                    string localText = null;
+
+                    if (ReadScriptStream(
+                            interpreter, fileName, stringReader, 0, Count.Invalid,
+                            engineFlags, ref localText, ref error) == ReturnCode.Ok)
+                    {
+                        text = localText;
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
         }
         #endregion
 
@@ -4781,7 +4895,7 @@ namespace Eagle._Components.Public
             }
             else
             {
-                builder = StringOps.NewStringBuilder();
+                builder = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
             }
 
             builder.Append(text);
@@ -5046,8 +5160,8 @@ namespace Eagle._Components.Public
                 finally
                 {
 #if POLICY_TRACE
-                    TraceOps.MaybeEmitPolicyTrace(
-                        "ReadScriptXml", interpreter, "encoding", encoding,
+                    TraceOps.MaybeEmitPolicyTrace("ReadScriptXml", interpreter,
+                        !PolicyContext.GetForceTraceFull(), "encoding", encoding,
                         "xml", xml, "retryTypes", retryTypes, "validate",
                         validate, "relaxed", relaxed, "all", all, "script",
                         script, "clientData", clientData, "engineFlags",
@@ -5159,7 +5273,8 @@ namespace Eagle._Components.Public
                         retryTypes, XmlErrorTypes.FlattenText, true) &&
                     (builder != null))
                 {
-                    text = builder.ToString();
+                    text = StringBuilderCache.GetStringAndRelease(
+                        ref builder);
                 }
 
                 scripts = localScripts;
@@ -5278,6 +5393,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        private static ReturnCode ReadScriptStream(
+            Interpreter interpreter, /* in */
+            string name,             /* in */
+            TextReader textReader,   /* in */
+            int startIndex,          /* in */
+            int characters,          /* in */
+            EngineFlags engineFlags, /* in */
+            ref string text,         /* out */
+            ref Result error         /* out */
+            ) /* ENTRY-POINT, THREAD-SAFE */
+        {
+            IClientData clientData = null;
+
+            return ReadScriptStream(
+                interpreter, name, textReader, startIndex, characters,
+                engineFlags, ref clientData, ref text, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         internal static ReturnCode ReadScriptStream(
             Interpreter interpreter,     /* in */
             string name,                 /* in */
@@ -5285,6 +5420,7 @@ namespace Eagle._Components.Public
             int startIndex,              /* in */
             int characters,              /* in */
             ref EngineFlags engineFlags, /* in, out */
+            ref string originalText,     /* out */
             ref string text,             /* out */
             ref bool canRetry,           /* out */
             ref Result error             /* out */
@@ -5304,7 +5440,9 @@ namespace Eagle._Components.Public
                     ref readScriptClientData, ref canRetry,
                     ref error) == ReturnCode.Ok)
             {
+                originalText = readScriptClientData.OriginalText;
                 text = readScriptClientData.Text;
+
                 return ReturnCode.Ok;
             }
 
@@ -5727,12 +5865,12 @@ namespace Eagle._Components.Public
                             //
                             if (softEofIndex != Index.Invalid)
                             {
-                                builder = StringOps.NewStringBuilder(
+                                builder = StringBuilderFactory.Create(
                                     localText, 0, softEofIndex);
                             }
                             else
                             {
-                                builder = StringOps.NewStringBuilder(
+                                builder = StringBuilderFactory.Create(
                                     localText, localText.Length);
                             }
 
@@ -5750,7 +5888,9 @@ namespace Eagle._Components.Public
                             //       string (i.e. the one with
                             //       its line-endings modified).
                             //
-                            localText = builder.ToString();
+                            localText =
+                                StringBuilderCache.GetStringAndRelease(
+                                    ref builder);
                         }
 
                         ///////////////////////////////////////////////////////
@@ -6110,8 +6250,8 @@ namespace Eagle._Components.Public
             finally
             {
 #if POLICY_TRACE
-                TraceOps.MaybeEmitPolicyTrace(
-                    "ReadScriptStream", interpreter, "name", name,
+                TraceOps.MaybeEmitPolicyTrace("ReadScriptStream", interpreter,
+                    !PolicyContext.GetForceTraceFull(), "name", name,
                     "engineFlags", engineFlags, "substitutionFlags",
                     substitutionFlags, "eventFlags", eventFlags,
                     "expressionFlags", expressionFlags,
@@ -7031,8 +7171,8 @@ namespace Eagle._Components.Public
             finally
             {
 #if POLICY_TRACE
-                TraceOps.MaybeEmitPolicyTrace(
-                    "ReadScriptFile", interpreter, "encoding", encoding,
+                TraceOps.MaybeEmitPolicyTrace("ReadScriptFile", interpreter,
+                    !PolicyContext.GetForceTraceFull(), "encoding", encoding,
                     "fileName", fileName, "engineFlags", engineFlags,
                     "substitutionFlags", substitutionFlags, "eventFlags",
                     eventFlags, "expressionFlags", expressionFlags,
@@ -7209,11 +7349,26 @@ namespace Eagle._Components.Public
                     }
                     else
                     {
-                        readScriptClientData = new ReadScriptClientData(
-                            clientData, name, localResult, localResult,
-                            null);
+                        GetScriptClientData getScriptClientData =
+                            clientData as GetScriptClientData;
 
-                        return ReturnCode.Ok;
+                        if (getScriptClientData != null)
+                        {
+                            readScriptClientData = new ReadScriptClientData(
+                                null, getScriptClientData, name);
+
+                            return ReturnCode.Ok;
+                        }
+                        else
+                        {
+                            if (!silent)
+                            {
+                                if (errors == null)
+                                    errors = new ResultList();
+
+                                errors.Add("invalid get script client data");
+                            }
+                        }
                     }
                 }
                 else
@@ -7357,7 +7512,7 @@ namespace Eagle._Components.Public
                     ref expressionFlags, ref readScriptClientData,
                     ref canRetry, ref localError) == ReturnCode.Ok)
             {
-                fileName = readScriptClientData.FileName;
+                fileName = readScriptClientData.ScriptFileName;
                 originalText = readScriptClientData.OriginalText;
                 text = readScriptClientData.Text;
 
@@ -7383,7 +7538,7 @@ namespace Eagle._Components.Public
                         ref expressionFlags, ref readScriptClientData,
                         ref canRetry, ref errors) == ReturnCode.Ok)
                 {
-                    fileName = readScriptClientData.FileName;
+                    fileName = readScriptClientData.ScriptFileName;
                     originalText = readScriptClientData.OriginalText;
                     text = readScriptClientData.Text;
 
@@ -9461,10 +9616,10 @@ namespace Eagle._Components.Public
                                         }
 
 #if POLICY_TRACE
-                                        TraceOps.MaybeEmitPolicyTrace(
-                                            "Execute", interpreter, "name", name, "execute",
-                                            execute, "clientData", clientData, "arguments",
-                                            arguments, "engineFlags", engineFlags,
+                                        TraceOps.MaybeEmitPolicyTrace("Execute", interpreter,
+                                            !PolicyContext.GetForceTraceFull(), "name", name,
+                                            "execute", execute, "clientData", clientData,
+                                            "arguments", arguments, "engineFlags", engineFlags,
                                             "substitutionFlags", substitutionFlags, "eventFlags",
                                             eventFlags, "expressionFlags", expressionFlags,
                                             "ignoreHidden", ignoreHidden, "invokeHidden",
@@ -9569,10 +9724,10 @@ namespace Eagle._Components.Public
                                         }
 
 #if POLICY_TRACE
-                                        TraceOps.MaybeEmitPolicyTrace(
-                                            "Execute", interpreter, "name", name, "execute",
-                                            execute, "clientData", clientData, "arguments",
-                                            arguments, "engineFlags", engineFlags,
+                                        TraceOps.MaybeEmitPolicyTrace("Execute", interpreter,
+                                            !PolicyContext.GetForceTraceFull(), "name", name,
+                                            "execute", execute, "clientData", clientData,
+                                            "arguments", arguments, "engineFlags", engineFlags,
                                             "substitutionFlags", substitutionFlags, "eventFlags",
                                             eventFlags, "expressionFlags", expressionFlags,
                                             "ignoreHidden", ignoreHidden, "invokeHidden",
@@ -9677,10 +9832,10 @@ namespace Eagle._Components.Public
                                         }
 
 #if POLICY_TRACE
-                                        TraceOps.MaybeEmitPolicyTrace(
-                                            "Execute", interpreter, "name", name, "execute",
-                                            execute, "clientData", clientData, "arguments",
-                                            arguments, "engineFlags", engineFlags,
+                                        TraceOps.MaybeEmitPolicyTrace("Execute", interpreter,
+                                            !PolicyContext.GetForceTraceFull(), "name", name,
+                                            "execute", execute, "clientData", clientData,
+                                            "arguments", arguments, "engineFlags", engineFlags,
                                             "substitutionFlags", substitutionFlags, "eventFlags",
                                             eventFlags, "expressionFlags", expressionFlags,
                                             "ignoreHidden", ignoreHidden, "invokeHidden",
@@ -9823,15 +9978,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        #region ExternalExecuteWithFrame Methods
         //
-        // NOTE: This method is somewhat special.  It is the only public method that can
-        //       directly execute any executable entity in the core library without going
-        //       through the evaluation engine (e.g. EvaluateScript).  Great care must be
-        //       taken in this method to prevent exceptions from escaping.  Also, it must
-        //       make sure that the call stack is balanced upon exit and that the previous
-        //       engine flags are restored.
+        // WARNING: This method is now obsolete.  Use the new one below.
         //
-        public static ReturnCode ExternalExecuteWithFrame( /* EXTERNAL USE ONLY */
+        [Obsolete()]
+        public static ReturnCode ExternalExecuteWithFrame( // COMPAT: Eagle beta.
             string name,
             IExecute execute,
             Interpreter interpreter,
@@ -9844,10 +9996,71 @@ namespace Eagle._Components.Public
             ref Result result
             ) /* ENTRY-POINT, THREAD-SAFE, RE-ENTRANT */
         {
+            return ExternalExecuteWithFrame(name,
+                execute, interpreter, clientData, arguments, engineFlags,
+                substitutionFlags, eventFlags, expressionFlags, false,
+                ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: These methods are somewhat special.  It is the only public method that can
+        //       directly execute any executable entity in the core library without going
+        //       through the evaluation engine (e.g. EvaluateScript).  Great care must be
+        //       taken in this method to prevent exceptions from escaping.  Also, it must
+        //       make sure that the call stack is balanced upon exit and that the previous
+        //       engine flags are restored.
+        //
+        public static ReturnCode ExternalExecuteWithFrame( /* EXTERNAL USE ONLY */
+            string name,
+            IExecute execute,
+            Interpreter interpreter,
+            IClientData clientData,
+            ArgumentList arguments,
+            EngineFlags? engineFlags,
+            SubstitutionFlags? substitutionFlags,
+            EventFlags? eventFlags,
+            ExpressionFlags? expressionFlags,
+            bool useInterpreterFlags,
+            ref Result result
+            ) /* ENTRY-POINT, THREAD-SAFE, RE-ENTRANT */
+        {
             if (interpreter == null)
             {
                 result = "invalid interpreter";
                 return ReturnCode.Error;
+            }
+
+            EngineFlags localEngineFlags = EngineFlags.None;
+
+            if (engineFlags != null)
+                localEngineFlags = (EngineFlags)engineFlags;
+
+            SubstitutionFlags localSubstitutionFlags = SubstitutionFlags.Default;
+
+            if (substitutionFlags != null)
+                localSubstitutionFlags = (SubstitutionFlags)substitutionFlags;
+
+            EventFlags localEventFlags = EventFlags.Default;
+
+            if (eventFlags != null)
+                localEventFlags = (EventFlags)eventFlags;
+
+            ExpressionFlags localExpressionFlags = ExpressionFlags.Default;
+
+            if (expressionFlags != null)
+                localExpressionFlags = (ExpressionFlags)expressionFlags;
+
+            if (useInterpreterFlags)
+            {
+                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                {
+                    localEngineFlags |= interpreter.EngineFlagsNoLock;
+                    localSubstitutionFlags |= interpreter.SubstitutionFlagsNoLock;
+                    localEventFlags |= interpreter.EngineEventFlagsNoLock;
+                    localExpressionFlags |= interpreter.ExpressionFlagsNoLock;
+                }
             }
 
             //
@@ -9898,9 +10111,9 @@ namespace Eagle._Components.Public
                         name, execute, interpreter,
                         GetClientData(
                             interpreter, clientData, false),
-                        arguments, engineFlags,
-                        substitutionFlags, eventFlags,
-                        expressionFlags,
+                        arguments, localEngineFlags,
+                        localSubstitutionFlags, localEventFlags,
+                        localExpressionFlags,
 #if RESULT_LIMITS
                         executeResultLimit,
 #endif
@@ -9940,6 +10153,7 @@ namespace Eagle._Components.Public
             //
             return code;
         }
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -10085,7 +10299,7 @@ namespace Eagle._Components.Public
                 //
                 // NOTE: Resolve the command or procedure to execute.
                 //
-                code = interpreter.GetIExecuteViaResolvers(
+                code = interpreter.InternalGetIExecuteViaResolvers(
                     engineFlags | EngineFlags.ToExecute,
                     executeName, arguments, LookupFlags.EngineDefault,
                     ref ambiguous, ref execute, ref error);

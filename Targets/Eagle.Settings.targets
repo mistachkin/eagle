@@ -1657,6 +1657,45 @@
     -->
 
     <!--
+        NOTE: Should this build of Harpy enable special handling for "demo"
+              key pairs?  Without this, the "demo" key pairs may be useless
+              for signing license certificates for Harpy itself.  This will
+              also impact all license certificates returned from the public
+              Kapok server, e.g. by [requestLicenseCertificate] in the core
+              script library.  Currently, this feature has no effect unless
+              Harpy is (also) built with support for IPlugin and execution
+              policy enforcement; however, this may change in the future.
+    -->
+    <!--
+    <DemoKeyPairs Condition="'$(DemoKeyPairs)' == ''">false</DemoKeyPairs>
+    -->
+
+    <!--
+        NOTE: Is this build of Harpy designed for demonstration use only?
+              If so, plugin commands should also be disabled.
+    -->
+    <!--
+    <DemoEdition Condition="'$(DemoEdition)' == ''">false</DemoEdition>
+    -->
+
+    <!--
+        NOTE: Is this build of Harpy designed for execution policy use only?
+              If so, plugin commands should also be disabled.
+    -->
+    <!--
+    <LimitedEdition Condition="'$(LimitedEdition)' == ''">false</LimitedEdition>
+    -->
+
+    <!--
+        NOTE: Does this build of Harpy include the extra diagnostic / testing
+              features?  Generally, this should only be enabled for the full
+              featured SKUs because it may present copy protection issues.
+    -->
+    <!--
+    <ExtraDiagnostics Condition="'$(ExtraDiagnostics)' == ''">false</ExtraDiagnostics>
+    -->
+
+    <!--
         NOTE: Do we want to obfuscate the built assembly using Dotfuscator
               Community Edition (and/or similar tools)?  By default, this is
               enabled; however, it may not function on Windows Vista or later
@@ -1755,6 +1794,19 @@
     -->
     <!--
     <EagleSecurity Condition="'$(EagleSecurity)' == ''">true</EagleSecurity>
+    -->
+
+    <!--
+        NOTE: Force non-essential runtime diagnostic messages to be enabled in
+              release builds?  By default, this is enabled.  If disabled, this
+              will prevent many diagnostic trace messages from being emitted in
+              release builds.
+
+        HACK: This cannot be conditioned upon $(EagleForceTrace) being missing
+              or empty due to it being included in the core library settings.
+    -->
+    <!--
+    <EagleForceTrace>true</EagleForceTrace>
     -->
 
     <!--

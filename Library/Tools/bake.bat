@@ -312,7 +312,7 @@ SET GET_ASSEMBLY_CMD=EagleShell.exe -evaluate "puts stdout [lindex [info assembl
 IF NOT DEFINED ASSEMBLY (
   IF DEFINED __ECHO (
     %__ECHO% %GET_ASSEMBLY_CMD%
-    SET ASSEMBLY=Eagle, Version=1.0.X.X, Culture=neutral, PublicKeyToken=29c6297630be05eb
+    SET ASSEMBLY=Eagle, Version=1.0.X.X, Culture=neutral, PublicKeyToken=YYYYYYYYYYYYYYYY
   ) ELSE (
     FOR /F "delims=" %%T IN ('%GET_ASSEMBLY_CMD%') DO (SET ASSEMBLY=%%T)
   )

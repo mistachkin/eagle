@@ -499,7 +499,10 @@ namespace Eagle._Components.Private
 
         done:
 
-            TracePriority priority = (code == ReturnCode.Ok) ?
+            bool success = (code == ReturnCode.Ok) &&
+                (returnValue == UnsafeNativeMethods.ERROR_SUCCESS);
+
+            TracePriority priority = success ?
                 TracePriority.SecurityDebug2 : TracePriority.SecurityError;
 
             TraceOps.DebugTrace(String.Format(
@@ -508,7 +511,7 @@ namespace Eagle._Components.Private
                 "providerFlags = {4}, uiContext = {5}, " +
                 "userInterface = {6}, returnValue = {7}, " +
                 "error = {8}", FormatOps.WrapOrNull(fileName),
-                (code == ReturnCode.Ok) ? "success" : "failure",
+                success ? "success" : "failure",
                 uiChoice, revocationChecks, providerFlags,
                 uiContext, userInterface, returnValue,
                 FormatOps.WrapOrNull(error)),

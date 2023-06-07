@@ -761,7 +761,7 @@ powerShell dotNet20 file_EagleCmdlets.dll administrator} -match regexp \
 StateCallback Eagle\._Cmdlets\.Script\+WriteCallback ParameterCallback\
 Eagle\._Cmdlets\.Script\+WriteCallback Listener\
 System\.Diagnostics\.DefaultTraceListener PreInitialize \{\} CreateFlags\
-\{Verbose, EmbeddedUse\} EngineFlags None SubstitutionFlags Default EventFlags\
+(?:EmbeddedUse|Default) EngineFlags None SubstitutionFlags Default EventFlags\
 Service ExpressionFlags Default Console False Unsafe True Standard False Force\
 False Exceptions False Policies False Deny False MetaCommand True Text \{cmdlet\
 status\} Interpreter \d+ Tokens \d+ CommandRuntime\

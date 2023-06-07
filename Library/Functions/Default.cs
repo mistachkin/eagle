@@ -33,8 +33,14 @@ namespace Eagle._Functions
             )
         {
             kind = IdentifierKind.Function;
-            id = AttributeOps.GetObjectId(this);
-            group = AttributeOps.GetObjectGroups(this);
+
+            if ((functionData == null) ||
+                !FlagOps.HasFlags(functionData.Flags,
+                    FunctionFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             if (functionData != null)
             {
@@ -174,7 +180,7 @@ namespace Eagle._Functions
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IFunctionData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -184,6 +190,17 @@ namespace Eagle._Functions
 
         ///////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IFunctionData Members
         private int arguments;
         public virtual int Arguments
         {

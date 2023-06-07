@@ -73,9 +73,11 @@ namespace Eagle._Components.Private
                     if (MarshalOps.FixupReturnValue(
                             interpreter, interpreter.InternalBinder,
                             interpreter.InternalCultureInfo, null,
-                            ObjectFlags.None, null, ObjectOptionType.None, null,
-                            null, name, true, ObjectOps.GetDefaultDispose(),
-                            false, false, false, ref result) == ReturnCode.Ok)
+                            ObjectFlags.None, null, null,
+                            ObjectOptionType.None, null, null, name,
+                            true, ObjectOps.GetDefaultDispose(),
+                            false, false, false,
+                            ref result) == ReturnCode.Ok)
                     {
                         return result;
                     }

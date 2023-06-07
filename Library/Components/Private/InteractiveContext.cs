@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -45,6 +46,8 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             interactive = false;
+            interactiveInputEnabled = MaybeEnableType.False;
+            interactiveInputBuffer = null;
             interactiveInput = null;
             previousInteractiveInput = null;
             interactiveMode = null;
@@ -137,6 +140,24 @@ namespace Eagle._Components.Private
         {
             get { CheckDisposed(); return interactive; }
             set { CheckDisposed(); interactive = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private MaybeEnableType interactiveInputEnabled;
+        public MaybeEnableType InteractiveInputEnabled
+        {
+            get { CheckDisposed(); return interactiveInputEnabled; }
+            set { CheckDisposed(); interactiveInputEnabled = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private StringBuilder interactiveInputBuffer;
+        public StringBuilder InteractiveInputBuffer
+        {
+            get { CheckDisposed(); return interactiveInputBuffer; }
+            set { CheckDisposed(); interactiveInputBuffer = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -340,6 +361,8 @@ namespace Eagle._Components.Private
                     ///////////////////////////////////////////////////////////
 
                     interactive = false;
+                    interactiveInputEnabled = MaybeEnableType.False;
+                    interactiveInputBuffer = null;
                     interactiveInput = null;
                     previousInteractiveInput = null;
                     interactiveMode = null;

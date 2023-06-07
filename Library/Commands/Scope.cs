@@ -383,7 +383,7 @@ namespace Eagle._Commands
                                                         bool created = false;
                                                         ICallFrame frame = null;
 
-                                                        if (interpreter.GetScope(
+                                                        if (interpreter.InternalGetScope(
                                                                 name, LookupFlags.NoVerbose, ref frame) != ReturnCode.Ok)
                                                         {
                                                             //
@@ -820,7 +820,7 @@ namespace Eagle._Commands
                                                 {
                                                     ICallFrame frame = null;
 
-                                                    code = interpreter.GetScope(
+                                                    code = interpreter.InternalGetScope(
                                                         name, LookupFlags.NoVerbose, ref frame);
 
                                                     if (code == ReturnCode.Ok)

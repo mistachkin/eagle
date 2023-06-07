@@ -28,7 +28,7 @@ namespace Sample
     [ObjectId("509108fc-537f-4a95-a126-c1105dcd6d70")]
     internal sealed class Class14
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
-        : ScriptMarshalByRefObject, INewWebClientCallback
+        : ScriptMarshalByRefObject, INewWebClientCallback, IWebTransferCallback
 #endif
     {
         #region WebClient Sample Class
@@ -127,6 +127,35 @@ namespace Sample
                 return NewClass14WebClient(ref error);
 #endif
             }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IWebTransferCallback Members
+        public ReturnCode WebTransfer(
+            Interpreter interpreter,
+            WebFlags flags,
+            IClientData clientData,
+            ref Result error
+            )
+        {
+            bool isolated = Utility.IsCrossAppDomain(interpreter, plugin);
+
+            Utility.DebugTrace(String.Format(
+                "WebTransfer: interpreter = {0}, flags = {1}, " +
+                "clientData = {2}, isolated = {3}, error = {4}",
+                Utility.FormatWrapOrNull(interpreter), flags,
+                Utility.FormatWrapOrNull(clientData), isolated,
+                Utility.FormatWrapOrNull(error)),
+                typeof(Class14).Name, TracePriority.Medium);
+
+            WebClientData webClientData = clientData as WebClientData;
+
+            if (webClientData != null)
+                webClientData.ViaClient = true;
+
+            return ReturnCode.Ok;
         }
         #endregion
 

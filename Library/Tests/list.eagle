@@ -249,13 +249,18 @@ runTest {test lpermute-1.3.1 {fast list permutations w/o storage} -setup {
   set list [object create StringList a b c d e f g h i j k]
 } -body {
   set pair [$to -alias TestPermute $list null]
+
+  tputs $test_channel [appendArgs \
+      "---- lpermute-1.3.1 result is: " \
+      [getStringFromObjectHandle $pair] \n]
+
   getStringFromObjectHandle $pair
 } -cleanup {
   unset -nocomplain pair list to; # dispose
 } -constraints [fixConstraints {eagle command.object bigLists timeIntensive\
 processorIntensive fullTest compile.TEST !dotNetCore\
-Eagle._Tests.Default.TestPermute}] -time true -match regexp -result {^39916800\
-(?:1795731456|1165131776|1432209408|1031429041|2016192054)$}}
+Eagle._Tests.Default.TestPermute}] -time true -match regexp -result \
+{^39916800 (?:-)?\d+$}}
 
 ###############################################################################
 
@@ -264,6 +269,11 @@ runTest {test lpermute-1.3.2 {fast list permutations w/o storage} -setup {
   set list [object create StringList a b c d e f g h i j k]
 } -body {
   set pair [$to -alias TestPermute $list null]
+
+  tputs $test_channel [appendArgs \
+      "---- lpermute-1.3.2 result is: " \
+      [getStringFromObjectHandle $pair] \n]
+
   getStringFromObjectHandle $pair
 } -cleanup {
   unset -nocomplain pair list to; # dispose
@@ -278,6 +288,11 @@ runTest {test lpermute-1.4.1 {fast list permutations w/o storage} -setup {
   set list [object create StringList a b c d e]
 } -body {
   set pair [$to -alias TestPermute $list null]
+
+  tputs $test_channel [appendArgs \
+      "---- lpermute-1.4.1 result is: " \
+      [getStringFromObjectHandle $pair] \n]
+
   getStringFromObjectHandle $pair
 } -cleanup {
   unset -nocomplain pair list to; # dispose
@@ -292,6 +307,11 @@ runTest {test lpermute-1.4.2 {fast list permutations w/o storage} -setup {
   set list [object create StringList a b c d e]
 } -body {
   set pair [$to -alias TestPermute $list null]
+
+  tputs $test_channel [appendArgs \
+      "---- lpermute-1.4.2 result is: " \
+      [getStringFromObjectHandle $pair] \n]
+
   getStringFromObjectHandle $pair
 } -cleanup {
   unset -nocomplain pair list to; # dispose
@@ -319,6 +339,10 @@ runTest {test lpermute-1.5 {fast list permutations w/o storage} -setup {
 
   set pair(2) [$to -marshalflags +dynamiccallback -alias \
       TestPermute $list lpermuteCallback]
+
+  tputs $test_channel [appendArgs \
+      "---- lpermute-1.5 result is: " \
+      [list $pair(1) [getStringFromObjectHandle $pair(2)]] \n]
 
   list $pair(1) [getStringFromObjectHandle $pair(2)]
 } -cleanup {

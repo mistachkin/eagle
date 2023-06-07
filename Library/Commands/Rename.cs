@@ -171,9 +171,9 @@ namespace Eagle._Commands
             }
             else
             {
-                if (interpreter.RenameAnyIExecute(
-                        oldName, newName, varName, kind,
-                        false, delete, hidden, hiddenOnly,
+                if (interpreter.RenameAnyIExecute(oldName,
+                        newName, varName, kind, false,
+                        delete, false, hidden, hiddenOnly,
                         ref localResult) == ReturnCode.Ok)
                 {
                     result = String.Empty;

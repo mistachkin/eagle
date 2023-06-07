@@ -645,8 +645,8 @@ runTest {test basic-1.31 {delegate execution} -setup {
 
       set execute null; set error null
       set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
-          Interpreter.GetActive GetIExecuteViaResolvers UseAllMask clock null \
-          Default execute error]
+          Interpreter.GetActive InternalGetIExecuteViaResolvers UseAllMask \
+          clock null Default execute error]
 
       if {$code ne "Ok"} then {
         error [getStringFromObjectHandle $error]
@@ -808,8 +808,8 @@ runTest {test basic-1.32 {static delegate command execution} -setup {
 
       set execute null; set error null
       set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
-          Interpreter.GetActive GetIExecuteViaResolvers UseAllMask clock null \
-          Default execute error]
+          Interpreter.GetActive InternalGetIExecuteViaResolvers UseAllMask \
+          clock null Default execute error]
 
       if {$code ne "Ok"} then {
         error [getStringFromObjectHandle $error]
@@ -981,8 +981,8 @@ runTest {test basic-1.33 {dynamic delegate command execution} -setup {
 
       set execute null; set error null
       set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
-          Interpreter.GetActive GetIExecuteViaResolvers UseAllMask clock null \
-          Default execute error]
+          Interpreter.GetActive InternalGetIExecuteViaResolvers UseAllMask \
+          clock null Default execute error]
 
       if {$code ne "Ok"} then {
         error [getStringFromObjectHandle $error]
@@ -1086,8 +1086,8 @@ if {[isEagle]} then {debug vout stdout false}
 runTest {test basic-1.34 {external command execution} -body {
   set execute null; set error null
   set code [object invoke -alias -flags +NonPublic -objectflags NoDispose \
-      Interpreter.GetActive GetIExecuteViaResolvers UseAllMask eval null \
-      Default execute error]
+      Interpreter.GetActive InternalGetIExecuteViaResolvers UseAllMask eval \
+      null Default execute error]
 
   if {$code ne "Ok"} then {
     error [getStringFromObjectHandle $error]
@@ -1489,7 +1489,10 @@ runTest {test basic-1.45 {verify certificate} -body {
 
 runTest {test basic-1.46 {read entire script stream} -body {
   set result null
-  object invoke Eagle._Tests.Default TestScriptStream "" null null -1 result
+
+  object invoke Eagle._Tests.Default TestScriptStream \
+      "" null null -1 false result
+
   string map [list \n <lf>] [getStringFromObjectHandle $result]
 } -cleanup {
   unset -nocomplain result
@@ -1502,8 +1505,8 @@ runTest {test basic-1.47 {read partial script stream} -body {
   for {set length 0} {$length <= 14} {incr length} {
     set result($length) null
 
-    object invoke Eagle._Tests.Default TestScriptStream "" null null $length \
-        result($length)
+    object invoke Eagle._Tests.Default TestScriptStream \
+        "" null null $length false result($length)
   }
 
   foreach name [lsort -integer [array names result]] {
@@ -2487,11 +2490,11 @@ unset -nocomplain callStackFileName
 ###############################################################################
 
 if {[isEagle]} then {
-  proc setupLogging { name path expandBuffer zeroBuffer } {
+  proc setupLogging { name path flags } {
     if {![info exists ::logListener]} then {
       set ::logListener [object create -alias \
           Eagle._Tests.Default+Listener $name $path null 0 \
-          $expandBuffer $zeroBuffer]
+          $flags]
     }
 
     object invoke System.Diagnostics.Trace.Listeners Add \
@@ -2542,7 +2545,7 @@ runTest {test basic-1.74 {test trace listener} -setup {
   set tracePath [appendArgs [file rootname $test_log] .trace.log]
 
   if {[info exists tracePath]} then {
-    setupLogging basic-1.74 $tracePath true true
+    setupLogging basic-1.74 $tracePath {=Default +ExpandBuffer ZeroBuffer}
   }
 } -body {
   object invoke System.Diagnostics.Trace WriteLine "first test."
@@ -2611,7 +2614,7 @@ runTest {test basic-1.75 {command tracing} -setup {
   set tracePath [appendArgs [file rootname $test_log] .monitor.log]
 
   if {[info exists tracePath]} then {
-    setupLogging basic-1.75 $tracePath false false
+    setupLogging basic-1.75 $tracePath {=Default -ExpandBuffer ZeroBuffer}
   }
 
   set interp [interp create -monitor]
@@ -2671,11 +2674,10 @@ runTest {test basic-1.75 {command tracing} -setup {
 } -constraints {eagle command.object compile.NOTIFY compile.NOTIFY_ARGUMENTS\
 strongName.official compile.TEST monoMatchFramework monoCrash40\
 member_Eagle._Tests.Default.Listener} -noTrack true -match regexp -result \
-[normalizeTraceLineEndings [string map [list %testAsm% \
-[getTestAssemblyName]] {^debug pluginexecute \{Eagle\._Plugins\.Monitor,\
-%testAsm%, Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
-\{disabled false\} ==> False
+[normalizeTraceLineEndings [string map [list %testAsm% [getTestAssemblyName] \
+%publicKeyTokens% [getKnownPublicKeyTokenPattern]] {^debug pluginexecute\
+\{Eagle\._Plugins\.Monitor, %testAsm%, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:%publicKeyTokens%)\} \{disabled false\} ==> False
 set x 1 ==> 1
 set y 1 ==> 1
 z ==> 1
@@ -3170,7 +3172,172 @@ runTest {test basic-10.2007 {[getKnownEagleVersions] procedure} -setup {
 1.0.6120.16902} {39 1.0.6234.51946} {40 1.0.6483.12345} {41 1.0.6543.58654} {42\
 1.0.6781.49000} {43 1.0.6781.49042} {44 1.0.6848.11041} {45 1.0.7213.50727} {46\
 1.0.7790.43198} {47 1.0.7897.33333} {48 1.0.7900.33333} {49 1.0.7945.33333} {50\
-1.0.8192.54321} {51 1.0.8251.52012} {52 1.0.8369.11942}}}
+1.0.8192.54321} {51 1.0.8251.52012} {52 1.0.8369.11942} {53 1.0.8503.24499}}}
+
+###############################################################################
+
+runTest {test basic-1.108 {fail-safe process abort} -setup {
+  catch {
+    object invoke -flags +NonPublic Eagle._Tests.Default FailSafeCount 0
+  }
+} -body {
+  object invoke Eagle._Tests.Default TestFailSafeAbortWithTrace \
+      Error "test basic-1.108" true true
+
+  object invoke -flags +NonPublic Eagle._Tests.Default FailSafeCount
+} -cleanup {
+  catch {
+    object invoke -flags +NonPublic Eagle._Tests.Default FailSafeCount 0
+  }
+} -constraints {eagle command.object compile.TEST\
+Eagle._Tests.Default.TestFailSafeAbortWithTrace} -result {1}}
+
+###############################################################################
+
+runTest {test basic-1.109 {SimulateKeyboardString method} -setup {
+  set milliseconds 10000
+  set fileName [file join [getTemporaryPath] basic-1.109-input.txt]
+
+  writeFile $fileName {
+    set forever 1
+    #done
+  }
+
+  proc resetInteractiveLoopDone {} {
+    set done false
+
+    return [object invoke -flags +NonPublic \
+        Interpreter ResetInteractiveLoopDone "" done]
+  }
+
+  proc setInteractiveLoopDone {} {
+    set done false
+
+    return [object invoke -flags +NonPublic \
+        Interpreter SetInteractiveLoopDone "" done]
+  }
+
+  proc raiseConsoleSignalNoCancel { milliseconds } {
+    set error null
+
+    set result [object invoke -flags +NonPublic \
+        Eagle._Components.Private.NativeOps \
+        RaiseConsoleSignalNoCancel \
+        [expr {int($milliseconds / 2)}] error]
+
+    if {$result != 0} then {
+      error [getStringFromObjectHandle $error]
+    }
+  }
+
+  proc simulateReturnKey {} {
+    set error null
+
+    set code [object invoke -flags +NonPublic \
+        Eagle._Components.Private.WindowOps \
+        SimulateReturnKey error]
+
+    if {$code ne "Ok"} then {
+      error [getStringFromObjectHandle $error]
+    }
+  }
+
+  proc emergencyBreakOut { state } {
+    catch {set debugger $::debugger}; # cleanup race
+    catch {set milliseconds $::milliseconds}; # cleanup race
+    after $milliseconds; # wait for test timeout
+
+    if {[info exists debugger] &&
+        [isNonNullObjectHandle $debugger] && \
+        [$debugger Loops] > 0} then {
+      tputs $::test_channel \
+          "---- simulated key timeout, canceling...\n"
+
+      setInteractiveLoopDone
+      raiseConsoleSignalNoCancel $milliseconds
+      simulateReturnKey
+    }
+  }
+} -body {
+  set debugger [object invoke \
+      -alias -flags +NonPublic Interpreter.GetActive Debugger]
+
+  set event [object create \
+      System.Threading.EventWaitHandle false ManualReset]
+
+  set stream [object create System.IO.StreamReader $fileName]
+  set error null
+
+  set code [object invoke \
+      Eagle._Tests.Default TestStartKeyboardStream \
+      null $stream $event null {:Default ConsoleOnly} error]
+
+  if {$code ne "Ok"} then {
+    error [getStringFromObjectHandle $error]
+  }
+
+  #
+  # HACK: This is used as the "fail-safe" to prevent test suite runs
+  #       from waiting forever if the console window just so happens
+  #       to lose the interactive focus.
+  #
+  object invoke System.Threading.ThreadPool \
+      QueueUserWorkItem emergencyBreakOut
+
+  after 0 [list debug break]
+  vwait -timeout $milliseconds forever
+  info exists forever
+} -cleanup {
+  cleanupAfterEvents
+
+  catch {
+    resetInteractiveLoopDone
+  }
+
+  catch {
+    object invoke -flags +NonPublic Interpreter \
+        ResetCancelViaConsoleEvent; # cleanup only
+  }
+
+  after $test_timeout; # wait for stream to close...
+  catch {file delete $fileName}
+
+  rename emergencyBreakOut ""
+  rename simulateReturnKey ""
+  rename raiseConsoleSignalNoCancel ""
+  rename setInteractiveLoopDone ""
+  rename resetInteractiveLoopDone ""
+
+  catch {object removecallback emergencyBreakOut}
+  catch {object dispose $debugger}; # cleanup race
+
+  unset -nocomplain event forever fileName stream code error
+  unset -nocomplain debugger milliseconds
+} -constraints {eagle native windows command.object compile.NATIVE\
+compile.WINDOWS compile.TEST Eagle._Tests.Default.TestStartKeyboardStream\
+interactive hostIsOpen userInteraction interactiveFocus} \
+-constraintExpression {[haveConstraint hostType.Eagle__Hosts_Console] || \
+[haveConstraint hostType.Demo_Hosts_Demo]} -result {1}}
+
+###############################################################################
+
+runTest {test basic-1.110 {script evaluation in remote sandbox} -setup {
+  unset -nocomplain result
+} -body {
+  set result [evaluateInRemoteSandbox [string map \
+      [list %test_run_id% [getTestRunId]] {
+    # test basic-1.110 (%test_run_id%)
+    set eagle_platform(interpreterTimeStamp)
+  }]]
+
+  list [getDictionaryValue $result returnCode] \
+      [getDictionaryValue $result result]
+} -cleanup {
+  setupPackageToolsetVars false true; # cleanup
+
+  unset -nocomplain result
+} -constraints {eagle tlsOk} -match regexp -result \
+{^Ok \{\d{4}\.\d{2}\.\d{2}T\d{2}:\d{2}:\d{2}\.\d{1,3} \+\d{4}\}$}}
 
 ###############################################################################
 

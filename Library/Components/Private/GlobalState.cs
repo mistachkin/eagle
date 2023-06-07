@@ -143,6 +143,12 @@ namespace Eagle._Components.Private
         //       designed to be used by third-party test suites.
         //
         private static readonly string TestPackageName = "Test";
+
+        //
+        // NOTE: This package may contain a set of built-in packages included
+        //       with the Eagle [core] library, e.g. Harpy, et al.
+        //
+        private static readonly string KitPackageName = "Kit";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -385,6 +391,13 @@ namespace Eagle._Components.Private
         #region Private Read-Write Data
         #region Diagnostic Data
         //
+        // HACK: Which thread currently holds the static lock?
+        //
+        private static long lockThreadId = 0;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // HACK: This is purposely not read-only.
         //
         private static bool defaultNoComplain = !Build.Debug;
@@ -410,7 +423,7 @@ namespace Eagle._Components.Private
         //         numbers does not need to be "secure"; however, what would
         //         be the harm (i.e. other than a minor performance impact)?
         //
-        private static Random random = new Random();
+        private static Random random = new Random(); /* EXEMPT */
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -438,6 +451,16 @@ namespace Eagle._Components.Private
         private static long nextScriptThreadId = Math.Abs((random != null) ?
             random.Next() : 0);
 #endif
+
+#if !SHARED_ID_POOL
+        private static long nextEntryId = Math.Abs((random != null) ?
+            random.Next() : 0);
+#endif
+
+#if !SHARED_ID_POOL
+        private static long nextRuleSetId = Math.Abs((random != null) ?
+            random.Next() : 0);
+#endif
 #endif
         #endregion
 
@@ -461,6 +484,14 @@ namespace Eagle._Components.Private
 
 #if !SHARED_ID_POOL
         private static long nextScriptThreadId = 0;
+#endif
+
+#if !SHARED_ID_POOL
+        private static long nextEntryId = 0;
+#endif
+
+#if !SHARED_ID_POOL
+        private static long nextRuleSetId = 0;
 #endif
 #endif
         #endregion
@@ -631,6 +662,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Threading Cooperative Locking Diagnostic Methods
+        private static long MaybeWhoHasLock()
+        {
+            return Interlocked.CompareExchange(ref lockThreadId, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeSomebodyHasLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(
+                    ref lockThreadId, GetCurrentThreadId(), 0);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeNobodyHasLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(
+                    ref lockThreadId, 0, GetCurrentThreadId());
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Threading Cooperative Locking Methods
         #region Dead Code
 #if DEAD_CODE
@@ -642,6 +710,7 @@ namespace Eagle._Components.Private
                 return;
 
             locked = Monitor.TryEnter(syncRoot);
+            MaybeSomebodyHasLock(locked);
         }
 #endif
         #endregion
@@ -657,6 +726,7 @@ namespace Eagle._Components.Private
                 return;
 
             locked = Monitor.TryEnter(syncRoot, timeout);
+            MaybeSomebodyHasLock(locked);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -670,6 +740,7 @@ namespace Eagle._Components.Private
 
             if (locked)
             {
+                MaybeNobodyHasLock(locked);
                 Monitor.Exit(syncRoot);
                 locked = false;
             }
@@ -1070,6 +1141,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static long NextEntryId() /* THREAD-SAFE */
+        {
+            return NextEntryId(defaultNoComplain);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long NextEntryId(
+            bool noComplain
+            ) /* THREAD-SAFE */
+        {
+            long result;
+
+#if SHARED_ID_POOL
+            result = NextId(noComplain);
+#else
+            result = Interlocked.Increment(ref nextEntryId);
+#endif
+
+#if USE_APPDOMAIN_FOR_ID
+            result = MaybeCombineWithAppDomainId(result, noComplain);
+#endif
+
+            if (!noComplain && (result < 0))
+            {
+                DebugOps.Complain(ReturnCode.Error,
+                    "next entry identifier is negative");
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static long NextEventId(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -1089,6 +1194,40 @@ namespace Eagle._Components.Private
             //       domain (or the process?); therefore, this must be global.
             //
             return NextId(noComplain);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static long NextRuleSetId() /* THREAD-SAFE */
+        {
+            return NextRuleSetId(defaultNoComplain);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long NextRuleSetId(
+            bool noComplain
+            ) /* THREAD-SAFE */
+        {
+            long result;
+
+#if SHARED_ID_POOL
+            result = NextId(noComplain);
+#else
+            result = Interlocked.Increment(ref nextRuleSetId);
+#endif
+
+#if USE_APPDOMAIN_FOR_ID
+            result = MaybeCombineWithAppDomainId(result, noComplain);
+#endif
+
+            if (!noComplain && (result < 0))
+            {
+                DebugOps.Complain(ReturnCode.Error,
+                    "next ruleset identifier is negative");
+            }
+
+            return result;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1171,7 +1310,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetRandomBytes",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -1587,7 +1727,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "IsFirstInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -1677,7 +1818,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetFirstInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -1777,6 +1919,7 @@ namespace Eagle._Components.Private
         //
         public static int AddInterpreter(
             Interpreter interpreter, /* in */
+            ref bool notLocked,      /* out */
             ref Result error         /* out */
             ) /* THREAD-SAFE */
         {
@@ -1808,7 +1951,12 @@ namespace Eagle._Components.Private
                         count++;
                     }
 
-                    if (count == 0)
+                    if (count > 0)
+                    {
+                        /* NO RESULT */
+                        interpreter.AddedToState();
+                    }
+                    else
                     {
                         error = String.Format(
                             "interpreter {0} was not added",
@@ -1821,12 +1969,14 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
+                    notLocked = true;
                     error = "unable to acquire static lock";
 
                     TraceOps.LockTrace(
                         "AddInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -1847,17 +1997,21 @@ namespace Eagle._Components.Private
             ) /* THREAD-SAFE */
         {
             int count;
+            bool notLocked = false;
             Result error = null;
 
-            count = RemoveInterpreter(interpreter, ref error);
+            count = RemoveInterpreter(
+                interpreter, ref notLocked, ref error);
 
             if (count <= 0)
             {
                 TraceOps.DebugTrace(String.Format(
-                    "RemoveInterpreter: interpreter = {0}, error = {1}",
+                    "RemoveInterpreter: interpreter = {0}, " +
+                    "notLocked = {1}, error = {2}",
                     FormatOps.InterpreterNoThrow(interpreter),
-                    FormatOps.WrapOrNull(error)),
-                    typeof(GlobalState).Name, TracePriority.CleanupError2);
+                    notLocked, FormatOps.WrapOrNull(error)),
+                    typeof(GlobalState).Name,
+                    TracePriority.CleanupError2);
             }
 
             return count;
@@ -1870,6 +2024,7 @@ namespace Eagle._Components.Private
         //
         private static int RemoveInterpreter(
             Interpreter interpreter, /* in */
+            ref bool notLocked,      /* out */
             ref Result error         /* out */
             ) /* THREAD-SAFE */
         {
@@ -1902,7 +2057,12 @@ namespace Eagle._Components.Private
                         count++;
                     }
 
-                    if (count == 0)
+                    if (count > 0)
+                    {
+                        /* NO RESULT */
+                        interpreter.NotAddedToState();
+                    }
+                    else
                     {
                         error = String.Format(
                             "interpreter {0} was not removed",
@@ -1915,12 +2075,14 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
+                    notLocked = true;
                     error = "unable to acquire static lock";
 
                     TraceOps.LockTrace(
                         "RemoveInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -1993,7 +2155,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2092,7 +2255,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2126,7 +2290,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "InterpretersToString",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2170,7 +2335,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "CountInterpreters",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2204,7 +2370,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetInterpreters",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2262,7 +2429,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetInterpreterPairs",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2298,7 +2466,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "CloneInterpreterPairs",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2361,7 +2530,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "FilterInterpreters",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2843,7 +3013,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetTokenInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2931,7 +3102,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetAnyTokenInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -2949,6 +3121,7 @@ namespace Eagle._Components.Private
         //
         public static bool AddTokenInterpreter(
             Interpreter interpreter,
+            ref bool notLocked,
             ref Result error
             )
         {
@@ -2990,6 +3163,9 @@ namespace Eagle._Components.Private
                             tokenInterpreters.Add(
                                 localToken, interpreter);
 
+                            /* NO RESULT */
+                            interpreter.AddedToState();
+
                             return true;
                         }
                         else
@@ -3004,12 +3180,14 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
+                    notLocked = true;
                     error = "unable to acquire static lock";
 
                     TraceOps.LockTrace(
                         "AddTokenInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -3026,16 +3204,22 @@ namespace Eagle._Components.Private
             Interpreter interpreter
             )
         {
+            bool notLocked = false;
             Result error = null;
 
-            if (RemoveTokenInterpreter(interpreter, ref error))
+            if (RemoveTokenInterpreter(
+                    interpreter, ref notLocked, ref error))
+            {
                 return true;
+            }
 
             TraceOps.DebugTrace(String.Format(
-                "RemoveTokenInterpreter: interpreter = {0}, error = {1}",
+                "RemoveTokenInterpreter: interpreter = {0}, " +
+                "notLocked = {1}, error = {2}",
                 FormatOps.InterpreterNoThrow(interpreter),
-                FormatOps.WrapOrNull(error)),
-                typeof(GlobalState).Name, TracePriority.CleanupError2);
+                notLocked, FormatOps.WrapOrNull(error)),
+                typeof(GlobalState).Name,
+                TracePriority.CleanupError2);
 
             return false;
         }
@@ -3047,6 +3231,7 @@ namespace Eagle._Components.Private
         //
         private static bool RemoveTokenInterpreter(
             Interpreter interpreter,
+            ref bool notLocked,
             ref Result error
             )
         {
@@ -3080,9 +3265,16 @@ namespace Eagle._Components.Private
                     if (tokenInterpreters != null)
                     {
                         if (tokenInterpreters.Remove(localToken))
+                        {
+                            /* NO RESULT */
+                            interpreter.NotAddedToState();
+
                             return true;
+                        }
                         else
+                        {
                             error = "missing interpreter token";
+                        }
                     }
                     else
                     {
@@ -3091,12 +3283,14 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
+                    notLocked = true;
                     error = "unable to acquire static lock";
 
                     TraceOps.LockTrace(
                         "RemoveTokenInterpreter",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -3135,7 +3329,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "AddThread",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -3168,7 +3363,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "RemoveThread",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -3575,7 +3771,8 @@ namespace Eagle._Components.Private
                         TraceOps.LockTrace(
                             "AssemblyPluginFlagsCallback",
                             typeof(GlobalState).Name, true,
-                            TracePriority.LockError);
+                            TracePriority.LockError,
+                            MaybeWhoHasLock());
                     }
                 }
                 finally
@@ -3638,7 +3835,8 @@ namespace Eagle._Components.Private
                         TraceOps.LockTrace(
                             "PopulateAssemblyPluginFlags",
                             typeof(GlobalState).Name, true,
-                            TracePriority.LockWarning2);
+                            TracePriority.LockWarning2,
+                            MaybeWhoHasLock());
                     }
                 }
                 finally
@@ -3861,7 +4059,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetStubExecuteMethodInfo",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4441,6 +4640,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static Version GetTwoPartAssemblyVersion() /* THREAD-SAFE */
+        {
+            return GetTwoPartVersion(thisAssemblyVersion);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string GetAssemblyVersionString() /* THREAD-SAFE */
         {
             return (thisAssemblyVersion != null) ?
@@ -4552,7 +4758,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetAssemblyPluginFlags",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4586,7 +4793,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetAssemblyPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4616,7 +4824,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "HaveAssemblyPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4683,7 +4892,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "InitializeAssemblyPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4720,7 +4930,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetEntryAssemblyPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4787,7 +4998,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "InitializeEntryAssemblyPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4872,7 +5084,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "InitializeBinaryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4908,7 +5121,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "TryGetBinaryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4938,7 +5152,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetBinaryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -4975,7 +5190,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "MaybeSetBinaryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -5038,6 +5254,8 @@ namespace Eagle._Components.Private
                     return LibraryPackageName;
                 case PackageType.Test:
                     return TestPackageName;
+                case PackageType.Kit:
+                    return KitPackageName;
                 case PackageType.Default:
                     return DefaultPackageName;
                 default:
@@ -5120,7 +5338,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetTclPackageNamePath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -5150,7 +5369,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetTclPackageNameRootPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -5333,7 +5553,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetBasePath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -5378,7 +5599,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "SetBasePath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -5463,7 +5685,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetExternalsPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -5508,7 +5731,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "SetExternalsPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -5968,7 +6192,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetLibraryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -6013,7 +6238,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "SetLibraryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -6082,7 +6308,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetUnixLibraryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -6127,7 +6354,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "RefreshLibraryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -6276,7 +6504,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static bool SetupPaths(
+        public static bool SetupPaths(
             bool initialize,
             bool refresh,
             bool force
@@ -6321,7 +6549,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "SetupPaths",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -6527,7 +6756,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetAssemblyPackageRootPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -6557,7 +6787,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetPackagePeerBinaryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -6685,7 +6916,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetInterpreterAutoPathList",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -6755,7 +6987,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetSharedAutoPathList",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -6812,7 +7045,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "ResetSharedAutoPathList",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -7654,7 +7888,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "PopulatePaths",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -7846,7 +8081,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "RefreshAutoPathList",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -7982,7 +8218,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetAutoPathList",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -8033,7 +8270,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "GetPaths",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -8121,9 +8359,10 @@ namespace Eagle._Components.Private
                 else
                 {
                     TraceOps.LockTrace(
-                        "GetTrustedHashes",
+                        "CopyTrustedHashes",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally
@@ -8187,7 +8426,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "AddTrustedHashes",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
 
                     return ReturnCode.Error;
                 }
@@ -8562,7 +8802,8 @@ namespace Eagle._Components.Private
                     TraceOps.LockTrace(
                         "DetectLibraryPath",
                         typeof(GlobalState).Name, true,
-                        TracePriority.LockError);
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
                 }
             }
             finally

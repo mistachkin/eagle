@@ -17,6 +17,7 @@ namespace Eagle._Interfaces.Public
     [ObjectId("4a22a525-8403-48e1-b0b1-6ac3b022c8e4")]
     public interface IRuleSetData
     {
-        IComparer<string> Comparer { get; set; }
+        long? Id { get; }
+        IComparer<string> Comparer { get; }
     }
 }

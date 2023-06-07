@@ -28,7 +28,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private const char AddCharacter = Characters.PlusSign;
+        public const char AddCharacter = Characters.PlusSign;
         private const char RemoveCharacter = Characters.MinusSign;
         private const char SetCharacter = Characters.EqualSign;
 
@@ -418,8 +418,8 @@ namespace Eagle._Components.Private
                 return null;
             }
 
-            StringBuilder name = StringOps.NewStringBuilder();
-            StringBuilder value = StringOps.NewStringBuilder();
+            StringBuilder name = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+            StringBuilder value = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
 
             IDictionary<long, IDictionary<char, long>> perKeyFlags =
                 new Dictionary<long, IDictionary<char, long>>();
@@ -744,7 +744,7 @@ namespace Eagle._Components.Private
         {
             if (flags != null)
             {
-                StringBuilder result = StringOps.NewStringBuilder();
+                StringBuilder result = StringBuilderFactory.Create();
                 LongList keys = new LongList(flags.Keys);
 
                 if (sort)
@@ -772,7 +772,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                return result.ToString();
+                return StringBuilderCache.GetStringAndRelease(ref result);
             }
 
             error = "invalid flags";

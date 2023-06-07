@@ -23,6 +23,8 @@ using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
+using _Count = Eagle._Constants.Count;
 
 using IntArgumentPair = Eagle._Interfaces.Public.IAnyPair<
     int, Eagle._Components.Public.Argument>;
@@ -64,8 +66,8 @@ namespace Eagle._Containers.Public
         #region Protected Constructors
 #if SERIALIZATION
         private ArgumentDictionary(
-            SerializationInfo info,
-            StreamingContext context
+            SerializationInfo info,  /* in */
+            StreamingContext context /* in */
             )
             : base(info, context)
         {
@@ -81,14 +83,82 @@ namespace Eagle._Containers.Public
         {
             return maximumId;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal string GetVariadicName()
+        {
+            return TclVars.Core.Arguments;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void GetCounts(
+            bool withNames,       /* in */
+            out int minimumCount, /* out */
+            out int maximumCount  /* out */
+            )
+        {
+            minimumCount = 0;
+            maximumCount = 0;
+
+            string variadicName = GetVariadicName();
+
+            foreach (StringIntArgumentPair pair in this)
+            {
+                IntArgumentPair anyPair = pair.Value;
+
+                if (anyPair == null)
+                    continue;
+
+                Argument element = anyPair.Y;
+
+                if (element == null)
+                    continue;
+
+                if ((variadicName != null) &&
+                    SharedStringOps.SystemEquals(
+                        pair.Key, variadicName) &&
+                    (anyPair.X == (maximumId - 1)))
+                {
+                    maximumCount = _Count.Invalid;
+                }
+                else
+                {
+                    if (!element.HasFlags(
+                            ArgumentFlags.HasDefault, true))
+                    {
+                        minimumCount++;
+                    }
+
+                    if (maximumCount != _Count.Invalid)
+                        maximumCount++;
+                }
+            }
+
+            if ((minimumCount == 0) &&
+                (maximumCount == _Count.Invalid))
+            {
+                minimumCount = _Count.Invalid;
+            }
+
+            if (withNames)
+            {
+                if (minimumCount != _Count.Invalid)
+                    minimumCount *= 2;
+
+                if (maximumCount != _Count.Invalid)
+                    maximumCount *= 2;
+            }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
         public void Add(
-            string key,
-            Argument value
+            string key,    /* in */
+            Argument value /* in */
             )
         {
             base.Add(key, new AnyPair<int, Argument>(maximumId, value));
@@ -97,19 +167,77 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public bool IsVariadicName(
+            string key /* in: OPTIONAL */
+            )
+        {
+            if (key == null)
+                return false;
+
+            string variadicName = GetVariadicName();
+
+            if (variadicName == null)
+                return false;
+
+            return SharedStringOps.SystemEquals(key, variadicName);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public bool IsVariadic(
-            bool setFlags /* NOT USED */
+            string key,   /* in: OPTIONAL */
+            bool setFlags /* in: NOT USED */
             )
         {
             if (maximumId <= 0)
                 return false;
 
+            string variadicName = GetVariadicName();
+
+            if ((key != null) &&
+                (variadicName != null) &&
+                !SharedStringOps.SystemEquals(key, variadicName))
+            {
+                return false;
+            }
+
             IntArgumentPair anyPair;
 
-            if (!this.TryGetValue(TclVars.Core.Arguments, out anyPair))
+            if ((variadicName == null) ||
+                !this.TryGetValue(variadicName, out anyPair))
+            {
                 return false;
+            }
 
             return anyPair.X == (maximumId - 1);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsGoodCount(
+            int haveCount, /* in */
+            bool withNames /* in */
+            )
+        {
+            int minimumCount;
+            int maximumCount;
+
+            GetCounts(withNames,
+                out minimumCount, out maximumCount);
+
+            if ((minimumCount != _Count.Invalid) &&
+                (haveCount < minimumCount))
+            {
+                return false;
+            }
+
+            if ((maximumCount != _Count.Invalid) &&
+                (haveCount > maximumCount))
+            {
+                return false;
+            }
+
+            return true;
         }
         #endregion
 
@@ -117,7 +245,7 @@ namespace Eagle._Containers.Public
 
         #region ICollection<StringIntArgumentPair> Overrides
         void ICollection<StringIntArgumentPair>.Add(
-            StringIntArgumentPair item
+            StringIntArgumentPair item /* in */
             )
         {
             throw new NotSupportedException();
@@ -136,8 +264,8 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         void IDictionary<string, IntArgumentPair>.Add(
-            string key,
-            IntArgumentPair value
+            string key,           /* in */
+            IntArgumentPair value /* in */
             )
         {
             throw new NotSupportedException();
@@ -156,8 +284,8 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         public new void Add(
-            string key,
-            IntArgumentPair value
+            string key,           /* in */
+            IntArgumentPair value /* in */
             )
         {
             throw new NotSupportedException();
@@ -172,8 +300,8 @@ namespace Eagle._Containers.Public
             SecurityAction.LinkDemand,
             Flags = SecurityPermissionFlag.SerializationFormatter)]
         public override void GetObjectData(
-            SerializationInfo info,
-            StreamingContext context
+            SerializationInfo info,  /* in */
+            StreamingContext context /* in */
             )
         {
             info.AddValue("maximumId", maximumId);
@@ -187,11 +315,11 @@ namespace Eagle._Containers.Public
 
         #region ToString Methods
         public string ToRawString(
-            ToStringFlags toStringFlags,
-            string separator
+            ToStringFlags toStringFlags, /* in */
+            string separator             /* in */
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (StringIntArgumentPair pair in this)
             {
@@ -211,14 +339,14 @@ namespace Eagle._Containers.Public
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public string ToString(
-            string pattern,
-            bool noCase
+            string pattern, /* in */
+            bool noCase     /* in */
             )
         {
             StringList list = new StringList(this.Keys);

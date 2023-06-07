@@ -31,8 +31,14 @@ namespace Eagle._Resolvers
             )
         {
             kind = IdentifierKind.Resolve;
-            id = AttributeOps.GetObjectId(this);
-            group = AttributeOps.GetObjectGroups(this);
+
+            if ((resolveData == null) ||
+                !FlagOps.HasFlags(resolveData.Flags,
+                    ResolveFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             if (resolveData != null)
             {
@@ -253,6 +259,17 @@ namespace Eagle._Resolvers
         {
             get { return token; }
             set { token = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IResolveData Members
+        private ResolveFlags flags;
+        public virtual ResolveFlags Flags
+        {
+            get { return flags; }
+            set { flags = value; }
         }
         #endregion
 

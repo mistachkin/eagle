@@ -100,7 +100,7 @@ namespace Eagle._Hosts
             Assembly assembly
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             string release = FormatOps.ReleaseAttribute(
                 SharedAttributeOps.GetAssemblyRelease(assembly));
@@ -142,7 +142,7 @@ namespace Eagle._Hosts
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
         #endregion
 

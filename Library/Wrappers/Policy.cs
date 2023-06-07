@@ -135,7 +135,7 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IPolicyData Members
+        #region ITypeAndName Members
         public string TypeName
         {
             get { return (policy != null) ? policy.TypeName : null; }
@@ -144,6 +144,16 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        public Type Type
+        {
+            get { return (policy != null) ? policy.Type : null; }
+            set { if (policy != null) { policy.Type = value; } }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IPolicyData Members
         public string MethodName
         {
             get { return (policy != null) ? policy.MethodName : null; }

@@ -1549,7 +1549,7 @@ namespace Eagle._Components.Private
                     //
                     object arg = null;
 
-                    if (interpreter.DoesObjectExist(variableValue,
+                    if (interpreter.InternalDoesObjectExist(variableValue,
                             true, false, ref arg) != ReturnCode.Ok)
                     {
                         arg = variableValue.Value;
@@ -2161,7 +2161,7 @@ namespace Eagle._Components.Private
                     code = MarshalOps.FixupReturnValue(
                         interpreter, interpreter.InternalBinder,
                         interpreter.InternalCultureInfo, null, objectFlags,
-                        ObjectOps.GetInvokeOptions(objectOptionType),
+                        null, ObjectOps.GetInvokeOptions(objectOptionType),
                         objectOptionType, null, null, ar, create,
                         dispose, alias, aliasReference, toString,
                         ref result);
@@ -2315,7 +2315,7 @@ namespace Eagle._Components.Private
                     code = MarshalOps.FixupReturnValue(
                         interpreter, interpreter.InternalBinder,
                         interpreter.InternalCultureInfo, null, objectFlags,
-                        ObjectOps.GetInvokeOptions(objectOptionType),
+                        null, ObjectOps.GetInvokeOptions(objectOptionType),
                         objectOptionType, null, null, sender, create,
                         dispose, alias, aliasReference, toString,
                         ref result);
@@ -2337,7 +2337,7 @@ namespace Eagle._Components.Private
                     code = MarshalOps.FixupReturnValue(
                         interpreter, interpreter.InternalBinder,
                         interpreter.InternalCultureInfo, null, objectFlags,
-                        ObjectOps.GetInvokeOptions(objectOptionType),
+                        null, ObjectOps.GetInvokeOptions(objectOptionType),
                         objectOptionType, null, null, e, create,
                         dispose, alias, aliasReference, toString,
                         ref result);
@@ -2645,7 +2645,7 @@ namespace Eagle._Components.Private
                     code = MarshalOps.FixupReturnValue(
                         interpreter, interpreter.InternalBinder,
                         interpreter.InternalCultureInfo, null, objectFlags,
-                        ObjectOps.GetInvokeOptions(objectOptionType),
+                        null, ObjectOps.GetInvokeOptions(objectOptionType),
                         objectOptionType, null, null, obj, create,
                         dispose, alias, aliasReference, toString,
                         ref result);
@@ -2930,7 +2930,7 @@ namespace Eagle._Components.Private
                         code = MarshalOps.FixupReturnValue(
                             interpreter, interpreter.InternalBinder,
                             interpreter.InternalCultureInfo, null, objectFlags,
-                            options, objectOptionType, null, null, arg,
+                            null, options, objectOptionType, null, null, arg,
                             create, dispose, alias, aliasReference,
                             toString, ref result);
 
@@ -3029,7 +3029,7 @@ namespace Eagle._Components.Private
                         {
                             object value = null;
 
-                            if (interpreter.DoesObjectExist(
+                            if (interpreter.InternalDoesObjectExist(
                                     result, addReference, removeReference,
                                     ref value) == ReturnCode.Ok)
                             {

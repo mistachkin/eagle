@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -30,6 +31,7 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
+using NamespacePair = System.Collections.Generic.KeyValuePair<string, string>;
 
 namespace Eagle._Components.Private
 {
@@ -44,6 +46,16 @@ namespace Eagle._Components.Private
         //       enough for our purposes.
         //
         private static readonly string DocumentStart = "<?xml ";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This should be the XPath query that will return all nodes
+        //       within the XML document.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static string AllXPath = "/descendant-or-self::node()";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -74,7 +86,7 @@ namespace Eagle._Components.Private
 
         #region Generic Xml Handling Methods
         public static bool CouldBeDocument(
-            string path
+            string path /* in: OPTIONAL */
             )
         {
             if (String.IsNullOrEmpty(path))
@@ -97,7 +109,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool LooksLikeDocument(
-            string text
+            string text /* in: OPTIONAL */
             )
         {
             if (text == null)
@@ -115,7 +127,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool FileLooksLikeDocument(
-            string fileName
+            string fileName /* in: OPTIONAL */
             )
         {
             try
@@ -185,10 +197,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool ShouldRetryError(
-            Result error,
-            XmlErrorTypes errorType,
-            XmlErrorTypes retryTypes,
-            bool @default
+            Result error,             /* in: OPTIONAL */
+            XmlErrorTypes errorType,  /* in */
+            XmlErrorTypes retryTypes, /* in */
+            bool @default             /* in */
             )
         {
             if ((errorType != XmlErrorTypes.None) &&
@@ -266,12 +278,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode GetEncoding(
-            string fileName,
-            Assembly assembly,
-            string resourceName,
-            bool validate,
-            bool strict,
-            ref Encoding encoding
+            string fileName,      /* in */
+            Assembly assembly,    /* in: OPTIONAL */
+            string resourceName,  /* in: OPTIONAL */
+            bool validate,        /* in */
+            bool strict,          /* in */
+            ref Encoding encoding /* out */
             )
         {
             Result error = null;
@@ -284,13 +296,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode GetEncoding(
-            string fileName,
-            Assembly assembly,
-            string resourceName,
-            bool validate,
-            bool strict,
-            ref Encoding encoding,
-            ref Result error
+            string fileName,       /* in */
+            Assembly assembly,     /* in: OPTIONAL */
+            string resourceName,   /* in: OPTIONAL */
+            bool validate,         /* in */
+            bool strict,           /* in */
+            ref Encoding encoding, /* out */
+            ref Result error       /* out */
             )
         {
             XmlDocument document = null;
@@ -319,10 +331,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode GetEncoding(
-            XmlDocument document,
-            bool strict,
-            ref Encoding encoding,
-            ref Result error
+            XmlDocument document,  /* in */
+            bool strict,           /* in */
+            ref Encoding encoding, /* out */
+            ref Result error       /* out */
             )
         {
             if (document == null)
@@ -389,8 +401,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadString(
-            string xml,
-            ref XmlDocument document
+            string xml,              /* in */
+            ref XmlDocument document /* out */
             )
         {
             Result error = null;
@@ -401,9 +413,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadString(
-            string xml,
-            ref XmlDocument document,
-            ref Result error
+            string xml,               /* in */
+            ref XmlDocument document, /* out */
+            ref Result error          /* out */
             )
         {
             if (xml == null)
@@ -430,9 +442,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadFile(
-            string fileName,
-            ref XmlDocument document,
-            ref Result error
+            string fileName,          /* in */
+            ref XmlDocument document, /* out */
+            ref Result error          /* out */
             )
         {
             if (String.IsNullOrEmpty(fileName))
@@ -470,9 +482,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SaveFile(
-            string fileName,
-            XmlDocument document,
-            ref Result error
+            string fileName,      /* in */
+            XmlDocument document, /* in */
+            ref Result error      /* out */
             )
         {
             if (String.IsNullOrEmpty(fileName))
@@ -508,29 +520,105 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode GetNamespaceManager(
-            string namespaceName,
-            Uri namespaceUri,
-            XmlNameTable nameTable,
-            ref XmlNamespaceManager namespaceManager,
-            ref Result error
+        public static ReturnCode GetNamespaceArrays(
+            StringDictionary dictionary, /* in */
+            CultureInfo cultureInfo,     /* in: OPTIONAL */
+            out string[] namespaceNames, /* out */
+            out Uri[] namespaceUris,     /* out */
+            ref Result error             /* out */
             )
         {
+            namespaceNames = null;
+            namespaceUris = null;
+
+            if (dictionary == null)
+            {
+                error = "invalid namespace dictionary";
+                return ReturnCode.Error;
+            }
+
+            int count = dictionary.Count;
+
+            namespaceNames = new string[count];
+            namespaceUris = new Uri[count];
+
+            int index = 0;
+
+            foreach (NamespacePair pair in dictionary)
+            {
+                Uri uri = null;
+                string uriString = pair.Value;
+
+                if ((uriString != null) && (Value.GetUri(
+                        uriString, UriKind.Absolute, cultureInfo,
+                        ref uri, ref error) != ReturnCode.Ok))
+                {
+                    return ReturnCode.Error;
+                }
+
+                namespaceNames[index] = pair.Key;
+                namespaceUris[index] = uri;
+
+                index++;
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetNamespaceManager(
+            string namespaceName,                     /* in */
+            Uri namespaceUri,                         /* in */
+            XmlNameTable nameTable,                   /* in */
+            ref XmlNamespaceManager namespaceManager, /* out */
+            ref Result error                          /* out */
+            )
+        {
+            string[] namespaceNames = { namespaceName };
+            Uri[] namespaceUris = { namespaceUri };
+
+            return GetNamespaceManager(
+                namespaceNames, namespaceUris, nameTable,
+                ref namespaceManager, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetNamespaceManager(
+            string[] namespaceNames,                  /* in */
+            Uri[] namespaceUris,                      /* in */
+            XmlNameTable nameTable,                   /* in */
+            ref XmlNamespaceManager namespaceManager, /* out */
+            ref Result error                          /* out */
+            )
+        {
+            if (namespaceNames == null)
+            {
+                error = "invalid xml namespace names";
+                return ReturnCode.Error;
+            }
+
+            if (namespaceUris == null)
+            {
+                error = "invalid xml namespace uris";
+                return ReturnCode.Error;
+            }
+
             if (nameTable == null)
             {
                 error = "invalid xml name table";
                 return ReturnCode.Error;
             }
 
-            if (namespaceName == null)
-            {
-                error = "invalid xml namespace name";
-                return ReturnCode.Error;
-            }
+            int length = namespaceNames.Length;
 
-            if (namespaceUri == null)
+            if (length != namespaceUris.Length)
             {
-                error = "invalid xml namespace uri";
+                error = String.Format(
+                    "namespace mismatch, have {0} names and {1} uris",
+                    length, namespaceUris.Length);
+
                 return ReturnCode.Error;
             }
 
@@ -538,26 +626,50 @@ namespace Eagle._Components.Private
             {
                 namespaceManager = new XmlNamespaceManager(nameTable);
 
-                namespaceManager.AddNamespace(
-                    namespaceName, namespaceUri.ToString());
+                for (int index = 0; index < length; index++)
+                {
+                    string namespaceName = namespaceNames[index];
+
+                    if (namespaceName == null)
+                    {
+                        error = String.Format(
+                            "invalid namespace name at index {0}",
+                            index);
+
+                        return ReturnCode.Error;
+                    }
+
+                    Uri namespaceUri = namespaceUris[index];
+
+                    if (namespaceUri == null)
+                    {
+                        error = String.Format(
+                            "invalid namespace uri at index {0}",
+                            index);
+
+                        return ReturnCode.Error;
+                    }
+
+                    namespaceManager.AddNamespace(
+                        namespaceName, namespaceUri.ToString());
+                }
 
                 return ReturnCode.Ok;
             }
             catch (Exception e)
             {
                 error = e;
+                return ReturnCode.Error;
             }
-
-            return ReturnCode.Error;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode GetSchemaStream(
-            string schemaXml,
-            bool relaxed,
-            ref Stream stream,
-            ref Result error
+            string schemaXml,  /* in */
+            bool relaxed,      /* in */
+            ref Stream stream, /* out */
+            ref Result error   /* out */
             )
         {
             try
@@ -596,10 +708,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode Validate(
-            string schemaXml,
-            XmlDocument document,
-            bool relaxed,
-            ref Result error
+            string schemaXml,     /* in */
+            XmlDocument document, /* in */
+            bool relaxed,         /* in */
+            ref Result error      /* out */
             )
         {
             if (schemaXml == null)
@@ -651,10 +763,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode Validate(
-            Assembly assembly,
-            string resourceName,
-            XmlDocument document,
-            ref Result error
+            Assembly assembly,    /* in */
+            string resourceName,  /* in */
+            XmlDocument document, /* in */
+            ref Result error      /* out */
             )
         {
             return Validate(
@@ -665,11 +777,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode Validate(
-            Assembly assembly,
-            string resourceName,
-            XmlDocument document,
-            bool relaxed,
-            ref Result error
+            Assembly assembly,    /* in */
+            string resourceName,  /* in */
+            XmlDocument document, /* in */
+            bool relaxed,         /* in */
+            ref Result error      /* out */
             )
         {
             if (document == null)
@@ -716,9 +828,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode Validate(
-            XmlSchema schema,
-            XmlDocument document,
-            ref Result error
+            XmlSchema schema,     /* in */
+            XmlDocument document, /* in */
+            ref Result error      /* out */
             )
         {
             if (schema == null)
@@ -751,12 +863,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode GetNodeList(
-            XmlDocument document,
-            string namespaceName,
-            Uri namespaceUri,
-            StringList xpaths,
-            ref XmlNodeList nodeList,
-            ref Result error
+            XmlDocument document,     /* in */
+            string namespaceName,     /* in: OPTIONAL */
+            Uri namespaceUri,         /* in: OPTIONAL */
+            StringList xpaths,        /* in: OPTIONAL */
+            ref XmlNodeList nodeList, /* out */
+            ref Result error          /* out */
             )
         {
             if (document == null)
@@ -765,49 +877,118 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            if (xpaths == null)
-            {
-                error = "invalid xpath list";
-                return ReturnCode.Error;
-            }
+            XmlNamespaceManager namespaceManager = null;
 
-            try
+            if ((namespaceName != null) || (namespaceUri != null))
             {
-                XmlNamespaceManager namespaceManager = null;
-
                 if (GetNamespaceManager(
-                        namespaceName, namespaceUri,
-                        document.NameTable,
-                        ref namespaceManager,
-                        ref error) != ReturnCode.Ok)
+                        namespaceName, namespaceUri, document.NameTable,
+                        ref namespaceManager, ref error) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
+            }
 
-                foreach (string xpath in xpaths)
+            return GetNodeList(
+                document, namespaceManager, xpaths, ref nodeList, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetNodeList(
+            XmlDocument document,     /* in */
+            string[] namespaceNames,  /* in: OPTIONAL */
+            Uri[] namespaceUris,      /* in: OPTIONAL */
+            StringList xpaths,        /* in: OPTIONAL */
+            ref XmlNodeList nodeList, /* out */
+            ref Result error          /* out */
+            )
+        {
+            if (document == null)
+            {
+                error = "invalid xml document";
+                return ReturnCode.Error;
+            }
+
+            XmlNamespaceManager namespaceManager = null;
+
+            if ((namespaceNames != null) || (namespaceUris != null))
+            {
+                if (GetNamespaceManager(
+                        namespaceNames, namespaceUris, document.NameTable,
+                        ref namespaceManager, ref error) != ReturnCode.Ok)
                 {
-                    if (xpath == null)
-                        continue;
+                    return ReturnCode.Error;
+                }
+            }
 
-                    nodeList = document.SelectNodes(
-                        xpath, namespaceManager);
+            return GetNodeList(
+                document, namespaceManager, xpaths, ref nodeList, ref error);
+        }
 
-                    if ((nodeList == null) ||
-                        (nodeList.Count == 0))
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetNodeList(
+            XmlDocument document,                 /* in */
+            XmlNamespaceManager namespaceManager, /* in: OPTIONAL */
+            StringList xpaths,                    /* in: OPTIONAL */
+            ref XmlNodeList nodeList,             /* out */
+            ref Result error                      /* out */
+            )
+        {
+            if (document == null)
+            {
+                error = "invalid xml document";
+                return ReturnCode.Error;
+            }
+
+            if (xpaths != null)
+            {
+                try
+                {
+                    foreach (string xpath in xpaths)
                     {
-                        continue;
+                        if (xpath == null)
+                            continue;
+
+                        if (namespaceManager != null)
+                        {
+                            nodeList = document.SelectNodes(
+                                xpath, namespaceManager);
+                        }
+                        else
+                        {
+                            nodeList = document.SelectNodes(
+                                xpath);
+                        }
+
+                        if ((nodeList == null) ||
+                            (nodeList.Count == 0))
+                        {
+                            continue;
+                        }
+
+                        return ReturnCode.Ok;
                     }
 
+                    error = "xml nodes not found";
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+            }
+            else
+            {
+                try
+                {
+                    nodeList = document.SelectNodes(AllXPath);
                     return ReturnCode.Ok;
                 }
-
-                error = String.Format(
-                    "{0} xml nodes not found",
-                    namespaceName).TrimStart();
-            }
-            catch (Exception e)
-            {
-                error = e;
+                catch (Exception e)
+                {
+                    error = e;
+                }
             }
 
             return ReturnCode.Error;
@@ -818,15 +999,15 @@ namespace Eagle._Components.Private
 
         #region Semi-Generic Xml Handling Methods
         private static void EnableRelaxedSchema(
-            ref string schemaXml
+            ref string schemaXml /* in, out */
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder(
+            StringBuilder builder = StringBuilderFactory.Create(
                 schemaXml);
 
             builder.Replace(RelaxedToken, RelaxedElement);
 
-            schemaXml = builder.ToString();
+            schemaXml = StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -835,10 +1016,10 @@ namespace Eagle._Components.Private
         // WARNING: For use by the test "xml-1.3", please do not remove.
         //
         private static ReturnCode GetSchemaStream(
-            Assembly assembly,
-            string resourceName,
-            ref Stream stream,
-            ref Result error
+            Assembly assembly,   /* in: OPTIONAL */
+            string resourceName, /* in: OPTIONAL */
+            ref Stream stream,   /* out */
+            ref Result error     /* out */
             )
         {
             return GetSchemaStream(
@@ -849,11 +1030,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode GetSchemaStream(
-            Assembly assembly,
-            string resourceName,
-            bool relaxed,
-            ref Stream stream,
-            ref Result error
+            Assembly assembly,   /* in: OPTIONAL */
+            string resourceName, /* in: OPTIONAL */
+            bool relaxed,        /* in */
+            ref Stream stream,   /* out */
+            ref Result error     /* out */
             )
         {
             try
@@ -897,9 +1078,9 @@ namespace Eagle._Components.Private
 
         #region Assembly Specific Xml Handling Methods
         public static ReturnCode GetAssemblyNamespaceManager(
-            XmlNameTable nameTable,
-            ref XmlNamespaceManager namespaceManager,
-            ref Result error
+            XmlNameTable nameTable,                   /* in */
+            ref XmlNamespaceManager namespaceManager, /* out */
+            ref Result error                          /* out */
             )
         {
             return GetNamespaceManager(
@@ -911,9 +1092,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode GetScriptBlockNodeList(
-            XmlDocument document,
-            ref XmlNodeList nodeList,
-            ref Result error
+            XmlDocument document,     /* in */
+            ref XmlNodeList nodeList, /* out */
+            ref Result error          /* out */
             )
         {
             return GetNodeList(
@@ -928,11 +1109,11 @@ namespace Eagle._Components.Private
         #region Serialization Methods
 #if SERIALIZATION
         public static ReturnCode Serialize(
-            object @object,
-            Type type,
-            XmlSerializerNamespaces serializerNamespaces,
-            ref byte[] bytes,
-            ref Result error
+            object @object,                               /* in */
+            Type type,                                    /* in */
+            XmlSerializerNamespaces serializerNamespaces, /* in */
+            ref byte[] bytes,                             /* out */
+            ref Result error                              /* out */
             )
         {
             if (@object == null)
@@ -982,11 +1163,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode Serialize(
-            object @object,
-            Type type,
-            XmlWriter writer,
-            XmlSerializerNamespaces serializerNamespaces,
-            ref Result error
+            object @object,                               /* in */
+            Type type,                                    /* in */
+            XmlWriter writer,                             /* in */
+            XmlSerializerNamespaces serializerNamespaces, /* in */
+            ref Result error                              /* out */
             )
         {
             if (@object == null)
@@ -1031,10 +1212,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode Deserialize(
-            Type type,
-            byte[] bytes,
-            ref object @object,
-            ref Result error
+            Type type,          /* in */
+            byte[] bytes,       /* in */
+            ref object @object, /* out */
+            ref Result error    /* out */
             )
         {
             if (type == null)
@@ -1080,10 +1261,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode Deserialize(
-            Type type,
-            XmlReader reader,
-            ref object @object,
-            ref Result error
+            Type type,          /* in */
+            XmlReader reader,   /* in */
+            ref object @object, /* out */
+            ref Result error    /* out */
             )
         {
             if (type == null)

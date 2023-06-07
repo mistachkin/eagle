@@ -25,6 +25,7 @@
 *\*.msi
 *\*.ncb
 *\*.ncover
+*\*.nlp
 *\*.obj
 *\*.opensdf
 *\*.opt

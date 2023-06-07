@@ -1105,6 +1105,28 @@ namespace Eagle._Components.Private
 
                         return extraCacheFlags;
                     }
+                case CacheFlags.StringBuilder:
+                    {
+                        CacheFlags extraCacheFlags = CacheFlags.None;
+
+                        if (FlagOps.HasFlags(
+                                allCacheFlags, CacheFlags.ResetStringBuilder,
+                                true))
+                        {
+                            extraCacheFlags |= CacheFlags.Reset;
+                            extraCacheFlags |= CacheFlags.SetProperties;
+                            extraCacheFlags |= CacheFlags.MaybeKeepCounts;
+                        }
+
+                        if (!enable && FlagOps.HasFlags(
+                                allCacheFlags, CacheFlags.ClearStringBuilder,
+                                true))
+                        {
+                            extraCacheFlags |= CacheFlags.Clear;
+                        }
+
+                        return extraCacheFlags;
+                    }
                 default:
                     {
                         return CacheFlags.None;
@@ -3215,6 +3237,7 @@ namespace Eagle._Components.Private
                 return;
 
             bool empty = HostOps.HasEmptyContent(detailFlags);
+            bool verbose = HostOps.HasVerboseContent(detailFlags);
             StringPairList localList = new StringPairList();
 
             ///////////////////////////////////////////////////////////////////
@@ -3316,58 +3339,61 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////
 
-                if (empty || (memoryLoadBounds[0] != NoMemoryLoad))
+                if (verbose)
                 {
-                    localList.Add("MemoryLoadBounds[0]",
-                        memoryLoadBounds[0].ToString());
-                }
+                    if (empty || (memoryLoadBounds[0] != NoMemoryLoad))
+                    {
+                        localList.Add("MemoryLoadBounds[0]",
+                            memoryLoadBounds[0].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || (memoryLoadBounds[1] != NoMemoryLoad))
-                {
-                    localList.Add("MemoryLoadBounds[1]",
-                        memoryLoadBounds[1].ToString());
-                }
+                    if (empty || (memoryLoadBounds[1] != NoMemoryLoad))
+                    {
+                        localList.Add("MemoryLoadBounds[1]",
+                            memoryLoadBounds[1].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || (memoryLoadBounds[2] != NoMemoryLoad))
-                {
-                    localList.Add("MemoryLoadBounds[2]",
-                        memoryLoadBounds[2].ToString());
-                }
+                    if (empty || (memoryLoadBounds[2] != NoMemoryLoad))
+                    {
+                        localList.Add("MemoryLoadBounds[2]",
+                            memoryLoadBounds[2].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || (memoryLoadBounds[3] != NoMemoryLoad))
-                {
-                    localList.Add("MemoryLoadBounds[3]",
-                        memoryLoadBounds[3].ToString());
-                }
+                    if (empty || (memoryLoadBounds[3] != NoMemoryLoad))
+                    {
+                        localList.Add("MemoryLoadBounds[3]",
+                            memoryLoadBounds[3].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || (memoryLoadBounds[4] != NoMemoryLoad))
-                {
-                    localList.Add("MemoryLoadBounds[4]",
-                        memoryLoadBounds[4].ToString());
-                }
+                    if (empty || (memoryLoadBounds[4] != NoMemoryLoad))
+                    {
+                        localList.Add("MemoryLoadBounds[4]",
+                            memoryLoadBounds[4].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || (memoryCounts[0] != 0))
-                {
-                    localList.Add("MemoryCounts[0]",
-                        memoryCounts[0].ToString());
-                }
+                    if (empty || (memoryCounts[0] != 0))
+                    {
+                        localList.Add("MemoryCounts[0]",
+                            memoryCounts[0].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || (memoryCounts[1] != 0))
-                {
-                    localList.Add("MemoryCounts[1]",
-                        memoryCounts[1].ToString());
+                    if (empty || (memoryCounts[1] != 0))
+                    {
+                        localList.Add("MemoryCounts[1]",
+                            memoryCounts[1].ToString());
+                    }
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -3392,82 +3418,85 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////
 
-                if (empty || lowMemoryWarning[0])
+                if (verbose)
                 {
-                    localList.Add("LowMemoryWarning[0]",
-                        lowMemoryWarning[0].ToString());
-                }
+                    if (empty || lowMemoryWarning[0])
+                    {
+                        localList.Add("LowMemoryWarning[0]",
+                            lowMemoryWarning[0].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || lowMemoryWarning[1])
-                {
-                    localList.Add("LowMemoryWarning[1]",
-                        lowMemoryWarning[1].ToString());
-                }
+                    if (empty || lowMemoryWarning[1])
+                    {
+                        localList.Add("LowMemoryWarning[1]",
+                            lowMemoryWarning[1].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || lowMemoryWarning[2])
-                {
-                    localList.Add("LowMemoryWarning[2]",
-                        lowMemoryWarning[2].ToString());
-                }
+                    if (empty || lowMemoryWarning[2])
+                    {
+                        localList.Add("LowMemoryWarning[2]",
+                            lowMemoryWarning[2].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || lowMemoryWarning[3])
-                {
-                    localList.Add("LowMemoryWarning[3]",
-                        lowMemoryWarning[3].ToString());
-                }
+                    if (empty || lowMemoryWarning[3])
+                    {
+                        localList.Add("LowMemoryWarning[3]",
+                            lowMemoryWarning[3].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || lowMemoryWarning[4])
-                {
-                    localList.Add("LowMemoryWarning[4]",
-                        lowMemoryWarning[4].ToString());
-                }
+                    if (empty || lowMemoryWarning[4])
+                    {
+                        localList.Add("LowMemoryWarning[4]",
+                            lowMemoryWarning[4].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || okMemoryWarning[0])
-                {
-                    localList.Add("OkMemoryWarning[0]",
-                        okMemoryWarning[0].ToString());
-                }
+                    if (empty || okMemoryWarning[0])
+                    {
+                        localList.Add("OkMemoryWarning[0]",
+                            okMemoryWarning[0].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || okMemoryWarning[1])
-                {
-                    localList.Add("OkMemoryWarning[1]",
-                        okMemoryWarning[1].ToString());
-                }
+                    if (empty || okMemoryWarning[1])
+                    {
+                        localList.Add("OkMemoryWarning[1]",
+                            okMemoryWarning[1].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || okMemoryWarning[2])
-                {
-                    localList.Add("OkMemoryWarning[2]",
-                        okMemoryWarning[2].ToString());
-                }
+                    if (empty || okMemoryWarning[2])
+                    {
+                        localList.Add("OkMemoryWarning[2]",
+                            okMemoryWarning[2].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || okMemoryWarning[3])
-                {
-                    localList.Add("OkMemoryWarning[3]",
-                        okMemoryWarning[3].ToString());
-                }
+                    if (empty || okMemoryWarning[3])
+                    {
+                        localList.Add("OkMemoryWarning[3]",
+                            okMemoryWarning[3].ToString());
+                    }
 
-                ///////////////////////////////////////////////////////////////
+                    ///////////////////////////////////////////////////////////
 
-                if (empty || okMemoryWarning[4])
-                {
-                    localList.Add("OkMemoryWarning[4]",
-                        okMemoryWarning[4].ToString());
+                    if (empty || okMemoryWarning[4])
+                    {
+                        localList.Add("OkMemoryWarning[4]",
+                            okMemoryWarning[4].ToString());
+                    }
                 }
 #endif
 

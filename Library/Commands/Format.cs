@@ -54,7 +54,7 @@ namespace Eagle._Commands
                             interpreter.InternalCultureInfo, ref builder, ref result);
 
                         if (code == ReturnCode.Ok)
-                            result = builder;
+                            result = StringBuilderCache.GetStringAndRelease(ref builder);
                     }
                     else
                     {

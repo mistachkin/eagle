@@ -341,7 +341,7 @@ namespace Eagle._Components.Private
             //       used by the native utility library project itself.
             //
             string processorName = PlatformOps.GetAlternateProcessorName(
-                RuntimeOps.GetProcessorArchitecture(), true, false);
+                PlatformOps.QueryProcessorArchitecture(), IfNotFoundType.Null);
 
         retry:
 

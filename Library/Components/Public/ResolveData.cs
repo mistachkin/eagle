@@ -28,6 +28,7 @@ namespace Eagle._Components.Public
             string description,
             IClientData clientData,
             Interpreter interpreter,
+            ResolveFlags flags,
             long token
             )
         {
@@ -38,6 +39,7 @@ namespace Eagle._Components.Public
             this.description = description;
             this.clientData = clientData;
             this.interpreter = interpreter;
+            this.flags = flags;
             this.token = token;
         }
 
@@ -125,6 +127,17 @@ namespace Eagle._Components.Public
         {
             get { return token; }
             set { token = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IResolveData Members
+        private ResolveFlags flags;
+        public virtual ResolveFlags Flags
+        {
+            get { return flags; }
+            set { flags = value; }
         }
         #endregion
 

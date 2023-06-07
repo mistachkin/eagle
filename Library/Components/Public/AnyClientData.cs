@@ -348,14 +348,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ISynchronize Members
+        #region ISynchronizeBase Members
         public object SyncRoot
         {
             get { CheckDisposed(); return syncRoot; }
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region ISynchronize Members
         public virtual void TryLock(
             ref bool locked /* out */
             )
@@ -2204,6 +2206,67 @@ namespace Eagle._Components.Public
                 assemblyName.Name, assemblyName.Version,
                 assemblyName.GetPublicKeyToken(), false,
                 ref error);
+
+            value = localValue;
+            return (localValue != null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public virtual bool TryGetRuleSet(
+            Interpreter interpreter,
+            string name,
+            bool toString,
+            out IRuleSet value,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            object @object;
+
+            if (!TryGetAny(name, out @object, ref error))
+            {
+                value = null;
+                return false;
+            }
+
+            if (@object is IRuleSet)
+            {
+                value = (IRuleSet)@object;
+                return true;
+            }
+
+            if (!toString)
+            {
+                value = null;
+
+                error = String.Format(
+                    "value {0} is not {1}", FormatOps.WrapOrNull(name),
+                    typeof(IRuleSet));
+
+                return false;
+            }
+
+            if (interpreter == null)
+            {
+                value = null;
+                error = "invalid interpreter";
+
+                return false;
+            }
+
+            CultureInfo localCultureInfo;
+
+            lock (syncRoot)
+            {
+                localCultureInfo = cultureInfo;
+            }
+
+            string stringValue = GetStringFromObject(@object);
+
+            IRuleSet localValue = RuleSet.Create(
+                stringValue, localCultureInfo, ref error);
 
             value = localValue;
             return (localValue != null);

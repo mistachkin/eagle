@@ -30,8 +30,8 @@ namespace Eagle._Commands
             : base(commandData)
         {
             //
-            // NOTE: This is not a strictly vanilla "command", it is a wrapped
-            //       delegate.
+            // NOTE: This is not a strictly vanilla "command", it is a
+            //       wrapped delegate.
             //
             this.Kind |= IdentifierKind.Delegate;
 
@@ -41,8 +41,13 @@ namespace Eagle._Commands
             //       library; however, this class does not inherit from
             //       _Commands.Core.
             //
-            this.Flags |= AttributeOps.GetCommandFlags(GetType().BaseType) |
-                AttributeOps.GetCommandFlags(this);
+            if ((commandData == null) || !FlagOps.HasFlags(
+                    commandData.Flags, CommandFlags.NoAttributes, true))
+            {
+                this.Flags |=
+                    AttributeOps.GetCommandFlags(GetType().BaseType) |
+                    AttributeOps.GetCommandFlags(this);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////

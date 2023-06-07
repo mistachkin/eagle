@@ -25,5 +25,6 @@
     -->
     <file src="bin\Eagle.dll" target="lib\net40" />
     <file src="bin\Eagle.Eye.dll" target="build\net40" />
+    <file src="bin\EagleShell.exe" target="build\net40" />
   </files>
 </package>

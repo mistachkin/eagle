@@ -16,14 +16,8 @@ using Eagle._Containers.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("e499605b-9aab-4da2-b122-2de5be55726f")]
-    public interface IFunctionData : IIdentifier, IHavePlugin, IWrapperData
+    public interface IFunctionData : IIdentifier, IHavePlugin, IWrapperData, ITypeAndName
     {
-        //
-        // NOTE: The fully qualified type name for this function (not
-        //       including the assembly name).
-        //
-        string TypeName { get; set; }
-
         //
         // NOTE: The number of arguments for this function, may be zero.
         //

@@ -774,6 +774,7 @@ namespace Eagle._Components.Private
                         FormatOps.TypeNameOrFullName(@object),
                         FormatOps.WrapOrNull(hashAlgorithmName));
 
+                    /* IGNORED */
                     ObjectOps.TryDisposeOrTrace<object>(
                         ref @object);
 
@@ -1191,12 +1192,37 @@ namespace Eagle._Components.Private
             string text
             )
         {
+            byte[] hashValue;
             Result error = null;
 
+            hashValue = HashString(
+                hashAlgorithmName, encoding, text, ref error);
+
+            if (hashValue == null)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "HashString: error = {0}",
+                    FormatOps.WrapOrNull(error)),
+                    typeof(HashOps).Name,
+                    TracePriority.InternalError);
+            }
+
+            return hashValue;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static byte[] HashString(
+            string hashAlgorithmName,
+            Encoding encoding,
+            string text,
+            ref Result error
+            )
+        {
             if (encoding == null)
             {
                 error = "invalid encoding";
-                goto error;
+                return null;
             }
 
             if (hashAlgorithmName == null)
@@ -1206,7 +1232,7 @@ namespace Eagle._Components.Private
                     hashAlgorithmName, ref error))
             {
                 if (hashAlgorithm == null)
-                    goto error;
+                    return null;
 
                 try
                 {
@@ -1218,7 +1244,7 @@ namespace Eagle._Components.Private
                     if (bytes == null)
                     {
                         error = "invalid bytes";
-                        goto error;
+                        return null;
                     }
 
                     return hashAlgorithm.ComputeHash(
@@ -1227,18 +1253,21 @@ namespace Eagle._Components.Private
                 catch (Exception e)
                 {
                     error = e;
+                    return null;
                 }
             }
+        }
 
-        error:
+        ///////////////////////////////////////////////////////////////////////
 
-            TraceOps.DebugTrace(String.Format(
-                "HashString: error = {0}",
-                FormatOps.WrapOrNull(error)),
-                typeof(HashOps).Name,
-                TracePriority.InternalError);
+        public static byte[] HashBytes(
+            string hashAlgorithmName,
+            byte[] bytes
+            )
+        {
+            Result error = null;
 
-            return null;
+            return HashBytes(hashAlgorithmName, bytes, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

@@ -256,7 +256,7 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ICommandBaseData Members
+        #region ITypeAndName Members
         public string TypeName
         {
             get { return (command != null) ? command.TypeName : null; }
@@ -265,6 +265,16 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        public Type Type
+        {
+            get { return (command != null) ? command.Type : null; }
+            set { if (command != null) { command.Type = value; } }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ICommandBaseData Members
         public CommandFlags CommandFlags
         {
             get { return (command != null) ? command.CommandFlags : CommandFlags.None; }

@@ -60,7 +60,7 @@ namespace Eagle._Commands
             }
 
             string channelId = arguments[1];
-            IChannel channel = interpreter.GetChannel(channelId, ref result);
+            IChannel channel = interpreter.InternalGetChannel(channelId, ref result);
 
             if (channel == null)
                 return ReturnCode.Error;

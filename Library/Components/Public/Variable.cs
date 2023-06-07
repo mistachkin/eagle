@@ -306,15 +306,8 @@ namespace Eagle._Components.Public
             {
                 if (value is string)
                 {
-                    ReturnCode zeroCode;
-                    bool zeroNoComplain = false;
-                    Result zeroError = null;
-
-                    zeroCode = StringOps.ZeroString(
-                        (string)value, ref zeroNoComplain, ref zeroError);
-
-                    if (!zeroNoComplain && (zeroCode != ReturnCode.Ok))
-                        DebugOps.Complain(interpreter, zeroCode, zeroError);
+                    /* IGNORED */
+                    StringOps.ZeroStringOrTrace((string)value);
                 }
                 else if (value is Argument)
                 {

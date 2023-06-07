@@ -332,7 +332,7 @@ runTest {test object-200.1 {FixupReturnValue alias cleanup w/o Tcl} -body {
   set result null
 
   set code [object invoke \
-      Utility FixupReturnValue "" null null null None null \
+      Utility FixupReturnValue "" null null null None null null \
       Default null foo test true true true false false result]
 
   list $code [getStringFromObjectHandle $result] [object dispose $result] \

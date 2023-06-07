@@ -52,15 +52,13 @@ namespace Eagle._Plugins
         {
             kind = IdentifierKind.Plugin;
 
-            //
-            // VIRTUAL: Id of the deepest derived class.
-            //
-            id = AttributeOps.GetObjectId(this);
-
-            //
-            // VIRTUAL: Group of the deepest derived class.
-            //
-            group = AttributeOps.GetObjectGroups(this);
+            if ((pluginData == null) ||
+                !FlagOps.HasFlags(pluginData.Flags,
+                    PluginFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             //
             // NOTE: Is the supplied plugin data valid?
@@ -441,14 +439,24 @@ namespace Eagle._Plugins
                             flags, PluginFlags.NoCommands, true))
                     {
                         //
+                        // NOTE: If this is a core library plugin -AND-
+                        //       we are using the built-in command data,
+                        //       make sure to skip querying the command
+                        //       flags from the managed types.
+                        //
+                        CommandFlags commandFlags = CommandFlags.None;
+
+                        if (PluginClientData.ShouldUseBuiltIns(clientData))
+                            commandFlags |= CommandFlags.NoAttributes;
+
+                        //
                         // NOTE: Call the interpreter helper method that
                         //       takes care of loading all valid commands
                         //       (i.e. classes that implement ICommand,
                         //       directly or indirectly) in this plugin.
                         //
                         code = interpreter.AddCommands(
-                            this, clientData, CommandFlags.None,
-                            ref result);
+                            this, clientData, commandFlags, ref result);
 
                         if (code == ReturnCode.Ok)
                         {
@@ -461,6 +469,21 @@ namespace Eagle._Plugins
                             flags, PluginFlags.NoPolicies, true))
                     {
                         //
+                        // NOTE: If this is a core library plugin -AND-
+                        //       we are using the built-in command data,
+                        //       make sure to skip querying the command
+                        //       flags from the managed types.
+                        //
+                        PolicyFlags policyFlags = PolicyFlags.None;
+
+                        //
+                        // TODO: There is no built-in data for policies
+                        //       yet.  When that changes, enable this.
+                        //
+                        // if (PluginClientData.ShouldUseBuiltIns(clientData))
+                        //     policyFlags |= PolicyFlags.NoAttributes;
+
+                        //
                         // NOTE: Call the interpreter helper method that
                         //       takes care of loading all valid policies
                         //       (i.e. methods that are flagged as a "policy"
@@ -468,7 +491,7 @@ namespace Eagle._Plugins
                         //       in this plugin.
                         //
                         code = interpreter.AddPolicies(
-                            this, clientData, ref result);
+                            this, clientData, policyFlags, ref result);
                     }
 
                     Version version = null;
@@ -629,7 +652,8 @@ namespace Eagle._Plugins
                         //       plugin.
                         //
                         code = interpreter.RemovePolicies(
-                            this, clientData, ref result);
+                            this, clientData, PolicyFlags.None,
+                            ref result);
                     }
 
                     if ((code == ReturnCode.Ok) && !FlagOps.HasFlags(
@@ -727,6 +751,36 @@ namespace Eagle._Plugins
             }
 
             return code;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ITypeAndName Members
+        /// <summary>
+        ///   The full name for the type that implements this plugin instance.
+        ///   This will normally be set based on the plugin data provided to
+        ///   the constructor of this class; however, it can be manually reset
+        ///   at any time.
+        /// </summary>
+        private string typeName;
+        public virtual string TypeName
+        {
+            get { return typeName; }
+            set { typeName = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        ///   The optional type instance that corresponds to the type name as
+        ///   specified by the associated type name string.
+        /// </summary>
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
         }
         #endregion
 
@@ -877,21 +931,6 @@ namespace Eagle._Plugins
         {
             get { return fileName; }
             set { fileName = value; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        /// <summary>
-        ///   The full name for the type that implements this plugin instance.
-        ///   This will normally be set based on the plugin data provided to
-        ///   the constructor of this class; however, it can be manually reset
-        ///   at any time.
-        /// </summary>
-        private string typeName;
-        public virtual string TypeName
-        {
-            get { return typeName; }
-            set { typeName = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////

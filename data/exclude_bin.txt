@@ -10,6 +10,7 @@
 *\*.lib
 *\*.log
 *\*.map
+*\*.nlp
 *\*.runtimeconfig.dev.json
 *\Badge1.0\*
 *\bin\pkgIndex.*

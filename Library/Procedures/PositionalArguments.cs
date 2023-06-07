@@ -81,15 +81,17 @@ namespace Eagle._Procedures
                                             procedureName, CallFrameFlags.Procedure,
                                             null, this, arguments);
 
-                                        VariableDictionary variables = frame.Variables;
+                                        StringDictionary alreadySet = new StringDictionary();
+                                        ArgumentList frameProcedureArguments = new ArgumentList();
 
-                                        frame.ProcedureArguments = new ArgumentList(arguments[0]);
+                                        frameProcedureArguments.Add(arguments[0]);
+                                        frame.ProcedureArguments = frameProcedureArguments;
 
                                         for (int argumentIndex = 0; argumentIndex < procedureArguments.Count; argumentIndex++)
                                         {
                                             string varName = procedureArguments[argumentIndex].Name;
 
-                                            if (!variables.ContainsKey(varName))
+                                            if (!alreadySet.ContainsKey(varName))
                                             {
                                                 ArgumentFlags flags = ArgumentFlags.None;
                                                 object varValue;
@@ -99,7 +101,7 @@ namespace Eagle._Procedures
                                                     //
                                                     // NOTE: This argument is part of an argument list.
                                                     //
-                                                    flags |= ArgumentFlags.ArgumentList;
+                                                    flags |= ArgumentFlags.List;
 
                                                     //
                                                     // NOTE: Build the list for the final formal argument value,
@@ -168,14 +170,16 @@ namespace Eagle._Procedures
                                                 //
                                                 if (varValue is Argument)
                                                 {
-                                                    frame.ProcedureArguments.Add((Argument)varValue);
+                                                    frameProcedureArguments.Add((Argument)varValue);
                                                 }
                                                 else
                                                 {
-                                                    frame.ProcedureArguments.Add(Argument.GetOrCreate(
+                                                    frameProcedureArguments.Add(Argument.GetOrCreate(
                                                         interpreter, flags, varName, varValue,
                                                         interpreter.HasNoCacheArgument()));
                                                 }
+
+                                                alreadySet.Add(varName, null);
                                             }
                                         }
 

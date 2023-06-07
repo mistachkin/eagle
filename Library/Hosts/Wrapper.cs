@@ -943,6 +943,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////
 
+        public virtual ReturnCode ResetHistory(
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            return baseHost.ResetHistory(ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public virtual ReturnCode GetMode(
             ChannelType channelType,
             ref uint mode,
@@ -1421,6 +1432,18 @@ namespace Eagle._Hosts
             return baseHost.CreateThread(
                 start, maxStackSize, userInterface, isBackground,
                 useActiveStack, ref thread, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public virtual ReturnCode QueueWorkItem(
+            ThreadStart callback,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            return baseHost.QueueWorkItem(callback, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

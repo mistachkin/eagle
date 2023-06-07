@@ -52,6 +52,28 @@ namespace Eagle._Components.Public.Delegates
     ///////////////////////////////////////////////////////////////////////////
 
     //
+    // NOTE: Used by the NativeOps class for its (optional) keyboard event
+    //       handling.
+    //
+    [ObjectId("a798bf76-f1ab-46c4-a7a6-8e0cea69e3ab")]
+    public delegate bool CheckStringCallback(
+        IClientData clientData,
+        string value,
+        int? index,
+        ref Result error
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    [ObjectId("8064c19a-300e-4383-92a3-98154391ae86")]
+    public delegate bool CheckCancelCallback(
+        IClientData clientData,
+        ref Result error
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    //
     // NOTE: Used by the CommandCallback class (i.e. instead of always using
     //       ThreadStart).
     //
@@ -127,6 +149,7 @@ namespace Eagle._Components.Public.Delegates
     [ObjectId("fe3c35d6-98ed-442a-bca1-a3427f891c91")]
     public delegate ReturnCode RuleIterationCallback(
         Interpreter interpreter,
+        IClientData clientData,
         IRule rule,
         ref bool stopOnError,
         ref ResultList errors
@@ -137,6 +160,7 @@ namespace Eagle._Components.Public.Delegates
     [ObjectId("d2049902-11ff-4bf7-8137-6e035084b260")]
     public delegate ReturnCode RuleMatchCallback(
         Interpreter interpreter,
+        IClientData clientData,
         IdentifierKind? kind,
         MatchMode mode,
         string text,
@@ -440,6 +464,16 @@ namespace Eagle._Components.Public.Delegates
     public delegate WebClient NewWebClientCallback(
         Interpreter interpreter, // TODO: Change to use the IInterpreter type.
         string argument,
+        IClientData clientData,
+        ref Result error
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    [ObjectId("b925a02b-d50b-4831-ae46-4161a2e4b5eb")]
+    public delegate ReturnCode WebTransferCallback(
+        Interpreter interpreter, // TODO: Change to use the IInterpreter type.
+        WebFlags flags,
         IClientData clientData,
         ref Result error
     );

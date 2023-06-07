@@ -25,6 +25,7 @@ using System.Security.Permissions;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
+using Eagle._Components.Public.Delegates;
 using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
@@ -190,6 +191,11 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            internal const uint HISTORY_NONE = 0;
+            internal const uint HISTORY_NO_DUP_FLAG = 1;
+
+            ///////////////////////////////////////////////////////////////////
+
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("cfd3c6be-0c16-4599-8ae8-e2e513daa5f4")]
             internal struct COORD
@@ -207,6 +213,18 @@ namespace Eagle._Components.Private
                 public /* DWORD */ uint nLength;
                 public /* LPVOID */ IntPtr lpSecurityDescriptor;
                 public /* BOOL */ bool bInheritHandle;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            [StructLayout(LayoutKind.Sequential)]
+            [ObjectId("134a8f50-32fe-4789-bc18-8c37c27ab391")]
+            internal struct CONSOLE_HISTORY_INFO
+            {
+                public /* UINT */ uint cbSize;
+                public /* UINT */ uint HistoryBufferSize;
+                public /* UINT */ uint NumberOfHistoryBuffers;
+                public /* DWORD */ uint dwFlags;
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -345,7 +363,7 @@ namespace Eagle._Components.Private
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool GetConsoleScreenBufferInfo(
                 IntPtr handle,
-                ref CONSOLE_SCREEN_BUFFER_INFO lpConsoleScreenBufferInfo
+                ref CONSOLE_SCREEN_BUFFER_INFO consoleScreenBufferInfo
             );
 #endif
             #endregion
@@ -400,6 +418,46 @@ namespace Eagle._Components.Private
                 SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool FreeConsole();
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32,
+                CallingConvention = CallingConvention.Winapi,
+                SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool GetConsoleHistoryInfo(
+                ref CONSOLE_HISTORY_INFO consoleHistoryInfo /* out */
+            );
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32,
+                CallingConvention = CallingConvention.Winapi,
+                SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool SetConsoleHistoryInfo(
+                ref CONSOLE_HISTORY_INFO consoleHistoryInfo /* in */
+            );
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.User32,
+                CallingConvention = CallingConvention.Winapi)]
+            internal static extern IntPtr GetForegroundWindow();
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.User32,
+                CallingConvention = CallingConvention.Winapi)]
+            internal static extern IntPtr GetFocus();
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.User32,
+                CallingConvention = CallingConvention.Winapi)]
+            internal static extern IntPtr SetFocus(
+                IntPtr hWnd /* in */
+            );
         }
         #endregion
 
@@ -1509,6 +1567,185 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Keyboard Support Methods
+        /* Eagle._Components.Public.Delegates.CheckCancelCallback */
+        private static bool HasWindowFocus(
+            IClientData clientData, /* in: NOT USED */
+            ref Result error        /* out */
+            )
+        {
+            IntPtr hWnd = IntPtr.Zero; /* NOT USED */
+
+            return HasWindowFocus(ref hWnd, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool HasWindowFocus(
+            ref IntPtr hWnd, /* out */
+            ref Result error /* out */
+            )
+        {
+            Result localError = null;
+
+            hWnd = GetWindow(ref localError);
+
+            if (hWnd == IntPtr.Zero)
+            {
+                if (localError != null)
+                    error = localError;
+                else
+                    error = "invalid window";
+
+                return false;
+            }
+
+            return HasWindowFocus(hWnd, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool HasWindowFocus(
+            IntPtr hWnd,     /* in */
+            ref Result error /* out */
+            )
+        {
+            if (hWnd != IntPtr.Zero)
+            {
+                try
+                {
+                    //
+                    // TODO: Should this really require checking both of
+                    //       these?
+                    //
+                    if ((UnsafeNativeMethods.GetFocus() == hWnd) ||
+                        (UnsafeNativeMethods.GetForegroundWindow() == hWnd))
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        error = "window does not have focus";
+                    }
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+            }
+            else
+            {
+                error = "invalid window";
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode CheckWindowFocus(
+            bool setFocus,   /* in */
+            ref Result error /* out */
+            )
+        {
+            IntPtr hWnd;
+            Result localError = null;
+
+            hWnd = GetWindow(ref localError);
+
+            if (hWnd == IntPtr.Zero)
+            {
+                if (localError != null)
+                    error = localError;
+                else
+                    error = "invalid window";
+
+                return ReturnCode.Error;
+            }
+
+            return CheckWindowFocus(hWnd, setFocus, ref error);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Keyboard Support Methods
+        public static ReturnCode SimulateKeyboardString(
+            CheckStringCallback stringCallback, /* in: OPTIONAL */
+            IClientData clientData,             /* in: OPTIONAL */
+            string value,                       /* in */
+            int milliseconds,                   /* in */
+            SimulatedKeyFlags flags,            /* in */
+            ref Result error                    /* out */
+            )
+        {
+            if (CheckWindowFocus(FlagOps.HasFlags(
+                    flags, SimulatedKeyFlags.SetFocus, true),
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            CheckCancelCallback cancelCallback =
+                new CheckCancelCallback(HasWindowFocus);
+
+            return NativeOps.SimulateKeyboardString(
+                cancelCallback, stringCallback, clientData,
+                value, milliseconds, flags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CheckWindowFocus(
+            IntPtr hWnd,     /* in */
+            bool setFocus,   /* in */
+            ref Result error /* out */
+            )
+        {
+            if (hWnd == IntPtr.Zero)
+            {
+                error = "invalid window";
+                return ReturnCode.Error;
+            }
+
+            if (HasWindowFocus(hWnd, ref error))
+                return ReturnCode.Ok;
+
+            if (!setFocus)
+            {
+                error = "window does not have focus";
+                return ReturnCode.Error;
+            }
+
+            try
+            {
+                if (UnsafeNativeMethods.SetFocus(hWnd) == IntPtr.Zero)
+                {
+                    int lastError = Marshal.GetLastWin32Error();
+
+                    if (lastError != 0)
+                    {
+                        error = NativeOps.GetErrorMessage(lastError);
+                        return ReturnCode.Error;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+
+            if (HasWindowFocus(hWnd, ref error))
+                return ReturnCode.Ok;
+
+            error = "failed set focus to window";
+            return ReturnCode.Error;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public Output Support Methods
         public static ReturnCode GetLargestWindowSize(
             ref int width,   /* out */
@@ -1565,13 +1802,13 @@ namespace Eagle._Components.Private
             ref IntPtr handle /* out */
             )
         {
-            handle = GetConsoleWindow();
+            handle = GetWindow();
             return (handle != IntPtr.Zero);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static IntPtr GetConsoleWindow()
+        private static IntPtr GetWindow()
         {
             try
             {
@@ -1930,13 +2167,13 @@ namespace Eagle._Components.Private
         #region Public Open/Close State Support Methods
         public static bool IsOpen()
         {
-            return GetConsoleWindow() != IntPtr.Zero;
+            return GetWindow() != IntPtr.Zero;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static IntPtr GetConsoleWindow(
-            ref Result error
+        public static IntPtr GetWindow(
+            ref Result error /* out */
             )
         {
             try
@@ -2332,6 +2569,118 @@ namespace Eagle._Components.Private
 
                     error = NativeOps.GetErrorMessage();
                 }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return ReturnCode.Error;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Console History Support Methods
+        public static ReturnCode ClearHistory(
+            ref Result error /* out */
+            )
+        {
+            try
+            {
+                UnsafeNativeMethods.CONSOLE_HISTORY_INFO historyInfo =
+                    new UnsafeNativeMethods.CONSOLE_HISTORY_INFO();
+
+                historyInfo.cbSize = (uint)Marshal.SizeOf(
+                    typeof(UnsafeNativeMethods.CONSOLE_HISTORY_INFO));
+
+                if (!UnsafeNativeMethods.GetConsoleHistoryInfo(
+                        ref historyInfo))
+                {
+                    error = NativeOps.GetErrorMessage();
+                    return ReturnCode.Error;
+                }
+
+                uint savedBufferSize = historyInfo.HistoryBufferSize;
+
+                try
+                {
+                    historyInfo.HistoryBufferSize = 0;
+
+                    if (UnsafeNativeMethods.SetConsoleHistoryInfo(
+                            ref historyInfo))
+                    {
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        error = NativeOps.GetErrorMessage();
+                        return ReturnCode.Error;
+                    }
+                }
+                finally
+                {
+                    historyInfo.HistoryBufferSize = savedBufferSize;
+
+                    if (!UnsafeNativeMethods.SetConsoleHistoryInfo(
+                            ref historyInfo))
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "ClearHistory: " +
+                            "could not restore history size: {0}",
+                            NativeOps.GetErrorMessage()),
+                            typeof(NativeConsole).Name,
+                            TracePriority.NativeError);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // TODO: Figure out if this method should change the struct field
+        //       NumberOfHistoryBuffers as well.  What exactly does it do?
+        //
+        public static ReturnCode SetupHistory(
+            uint minimumBufferSize, /* in */
+            ref Result error        /* out */
+            )
+        {
+            try
+            {
+                UnsafeNativeMethods.CONSOLE_HISTORY_INFO historyInfo =
+                    new UnsafeNativeMethods.CONSOLE_HISTORY_INFO();
+
+                historyInfo.cbSize = (uint)Marshal.SizeOf(
+                    typeof(UnsafeNativeMethods.CONSOLE_HISTORY_INFO));
+
+                if (!UnsafeNativeMethods.GetConsoleHistoryInfo(
+                        ref historyInfo))
+                {
+                    error = NativeOps.GetErrorMessage();
+                    return ReturnCode.Error;
+                }
+
+                if (historyInfo.HistoryBufferSize < minimumBufferSize)
+                {
+                    historyInfo.HistoryBufferSize = minimumBufferSize;
+
+                    if (!UnsafeNativeMethods.SetConsoleHistoryInfo(
+                            ref historyInfo))
+                    {
+                        error = NativeOps.GetErrorMessage();
+                        return ReturnCode.Error;
+                    }
+                }
+
+                return ReturnCode.Ok;
             }
             catch (Exception e)
             {

@@ -637,7 +637,7 @@ namespace Eagle._Commands
 
                                                             if (locked)
                                                             {
-                                                                StringBuilder builder = StringOps.NewStringBuilder();
+                                                                StringBuilder builder = StringBuilderFactory.Create();
                                                                 bool? enabled = null;
 
                                                                 if (FlagOps.HasFlags(
@@ -667,6 +667,22 @@ namespace Eagle._Commands
 
                                                                 bool verbose = FlagOps.HasFlags(
                                                                     emergencyLevel, DebugEmergencyLevel.Verbose,
+                                                                    true);
+
+                                                                bool resetCancel = FlagOps.HasFlags(
+                                                                    emergencyLevel, DebugEmergencyLevel.ResetCancel,
+                                                                    true);
+
+                                                                bool resetHalt = FlagOps.HasFlags(
+                                                                    emergencyLevel, DebugEmergencyLevel.ResetHalt,
+                                                                    true);
+
+                                                                bool forceResetCancel = FlagOps.HasFlags(
+                                                                    emergencyLevel, DebugEmergencyLevel.ForceResetCancel,
+                                                                    true);
+
+                                                                bool forceResetHalt = FlagOps.HasFlags(
+                                                                    emergencyLevel, DebugEmergencyLevel.ForceResetHalt,
                                                                     true);
 
 #if DEBUGGER
@@ -745,6 +761,56 @@ namespace Eagle._Commands
 
                                                                 if (code == ReturnCode.Ok)
                                                                 {
+                                                                    if (resetCancel)
+                                                                    {
+                                                                        bool wasResetCancel = false;
+                                                                        Result resetCancelError = null;
+
+                                                                        if (Engine.ResetCancel(localInterpreter,
+                                                                                CancelFlags.DebugEmergency |
+                                                                                (forceResetCancel ?
+                                                                                    CancelFlags.IgnorePending :
+                                                                                    CancelFlags.None),
+                                                                                ref wasResetCancel,
+                                                                                ref resetCancelError) == ReturnCode.Ok)
+                                                                        {
+                                                                            builder.AppendLine(String.Format(
+                                                                                "script cancellation {0}reset",
+                                                                                wasResetCancel ? String.Empty : "not "));
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            builder.AppendLine(String.Format(
+                                                                                "script cancellation failed reset: {0}",
+                                                                                resetCancelError));
+                                                                        }
+                                                                    }
+
+                                                                    if (resetHalt)
+                                                                    {
+                                                                        bool wasResetHalt = false;
+                                                                        Result resetHaltError = null;
+
+                                                                        if (Engine.ResetHalt(localInterpreter,
+                                                                                CancelFlags.DebugEmergency |
+                                                                                (forceResetHalt ?
+                                                                                    CancelFlags.IgnorePending :
+                                                                                    CancelFlags.None),
+                                                                                ref wasResetHalt,
+                                                                                ref resetHaltError) == ReturnCode.Ok)
+                                                                        {
+                                                                            builder.AppendLine(String.Format(
+                                                                                "interpreter halt state {0}reset",
+                                                                                wasResetHalt ? String.Empty : "not "));
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            builder.AppendLine(String.Format(
+                                                                                "interpreter halt state failed reset: {0}",
+                                                                                resetHaltError));
+                                                                        }
+                                                                    }
+
 #if DEBUGGER
                                                                     if (debugger != null)
                                                                     {
@@ -989,6 +1055,9 @@ namespace Eagle._Commands
                                                                             "enabled" : "disabled", Environment.NewLine));
                                                                     }
 
+                                                                    string builderString = StringBuilderCache.GetStringAndRelease(
+                                                                        ref builder);
+
                                                                     if (@break)
                                                                     {
                                                                         if (builder.Length > 0)
@@ -999,7 +1068,7 @@ namespace Eagle._Commands
                                                                             {
                                                                                 /* IGNORED */
                                                                                 debugHost.WriteResult(
-                                                                                    ReturnCode.Ok, builder.ToString(),
+                                                                                    ReturnCode.Ok, builderString,
                                                                                     false);
                                                                             }
                                                                         }
@@ -1036,7 +1105,7 @@ namespace Eagle._Commands
                                                                         goto redo;
                                                                     }
 
-                                                                    result = builder;
+                                                                    result = builderString;
                                                                 }
                                                             }
                                                             else
@@ -1254,7 +1323,7 @@ namespace Eagle._Commands
                                                             code = MarshalOps.FixupReturnValue(
                                                                 interpreter, interpreter.InternalBinder,
                                                                 interpreter.InternalCultureInfo, returnType, objectFlags,
-                                                                ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                options, ObjectOps.GetInvokeOptions(objectOptionType),
                                                                 objectOptionType, objectName, interpName, exception,
                                                                 create, dispose, alias, aliasReference, toString,
                                                                 ref result);
@@ -1296,7 +1365,7 @@ namespace Eagle._Commands
                                             string executeName = newArguments[2];
                                             IExecute execute = null;
 
-                                            code = interpreter.GetIExecuteViaResolvers(
+                                            code = interpreter.InternalGetIExecuteViaResolvers(
                                                 interpreter.GetResolveEngineFlagsNoLock(true),
                                                 executeName, null, LookupFlags.Default,
                                                 ref execute, ref result);
@@ -2880,18 +2949,25 @@ namespace Eagle._Commands
                                     }
                                 case "restore":
                                     {
-                                        if ((newArguments.Count == 2) || (newArguments.Count == 3))
+                                        if ((newArguments.Count >= 2) && (newArguments.Count <= 4))
                                         {
                                             bool strict = false;
 
-                                            if (newArguments.Count == 3)
+                                            if ((code == ReturnCode.Ok) && (newArguments.Count >= 3))
                                                 code = Value.GetBoolean2(
                                                     newArguments[2], ValueFlags.AnyBoolean,
                                                     interpreter.InternalCultureInfo, ref strict, ref result);
 
+                                            bool verbose = false;
+
+                                            if ((code == ReturnCode.Ok) && (newArguments.Count >= 4))
+                                                code = Value.GetBoolean2(
+                                                    newArguments[3], ValueFlags.AnyBoolean,
+                                                    interpreter.InternalCultureInfo, ref verbose, ref result);
+
                                             if (code == ReturnCode.Ok)
                                             {
-                                                code = interpreter.RestoreCorePlugin(strict, ref result);
+                                                code = interpreter.RestoreCorePlugin(strict, verbose, ref result);
 
                                                 if (code == ReturnCode.Ok)
                                                     result = String.Empty;
@@ -2899,7 +2975,7 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"debug restore ?strict?\"";
+                                            result = "wrong # args: should be \"debug restore ?strict? ?verbose?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -4591,6 +4667,10 @@ namespace Eagle._Commands
                                                     Index.Invalid, Index.Invalid, "-logname", null),
                                                 new Option(null, OptionFlags.MustHaveValue,
                                                     Index.Invalid, Index.Invalid, "-logfilename", null),
+                                                new Option(typeof(LogFlags),
+                                                    OptionFlags.MustHaveEnumValue, Index.Invalid,
+                                                    Index.Invalid, "-logflags",
+                                                    new Variant(LogFlags.Default)),
 #else
                                                 new Option(null,
                                                     OptionFlags.MustHaveValue | OptionFlags.Unsupported,
@@ -4598,6 +4678,10 @@ namespace Eagle._Commands
                                                 new Option(null,
                                                     OptionFlags.MustHaveValue | OptionFlags.Unsupported,
                                                     Index.Invalid, Index.Invalid, "-logfilename", null),
+                                                new Option(typeof(LogFlags),
+                                                    OptionFlags.MustHaveEnumValue | OptionFlags.Unsupported,
+                                                    Index.Invalid, Index.Invalid, "-logflags",
+                                                    new Variant(LogFlags.Default)),
 #endif
                                                 Option.CreateEndOfOptions()
                                             });
@@ -4728,6 +4812,11 @@ namespace Eagle._Commands
 
                                                     if (options.IsPresent("-logfilename", ref value))
                                                         logFileName = value.ToString();
+
+                                                    LogFlags? logFlags = null;
+
+                                                    if (options.IsPresent("-logflags", ref value))
+                                                        logFlags = (LogFlags)value.Value;
 
                                                     if (resetSystem)
                                                     {
@@ -4884,10 +4973,11 @@ namespace Eagle._Commands
                                                                         listener = null; /* NOT USED */
 
                                                                         code = DebugOps.SetupTraceLogFile(
-                                                                            ShellOps.GetTraceListenerName(null,
+                                                                            ShellOps.GetTraceListenerName(logName,
                                                                                 GlobalState.GetCurrentSystemThreadId()),
-                                                                            logFileName, null, !debug, debug, useConsole,
-                                                                            false, false, ref listener, ref result);
+                                                                            logFileName, null, logFlags, !debug, debug,
+                                                                            useConsole, false, false, ref listener,
+                                                                            ref result);
                                                                     }
                                                                     else
                                                                     {

@@ -59,6 +59,11 @@ namespace Eagle._Components.Public
         private InterpreterFlags interpreterFlags;
         private PluginFlags pluginFlags;
 
+#if NATIVE && TCL
+        private FindFlags findFlags;
+        private LoadFlags loadFlags;
+#endif
+
 #if SERIALIZATION
         [NonSerialized()]
 #endif
@@ -104,6 +109,12 @@ namespace Eagle._Components.Public
             scriptFlags = ScriptFlags.None;
             interpreterFlags = InterpreterFlags.None;
             pluginFlags = PluginFlags.None;
+
+#if NATIVE && TCL
+            findFlags = FindFlags.None;
+            loadFlags = LoadFlags.None;
+#endif
+
             appDomain = null;
             host = null;
             profile = null;
@@ -132,6 +143,11 @@ namespace Eagle._Components.Public
             scriptFlags = Defaults.ScriptFlags;
             interpreterFlags = Defaults.InterpreterFlags;
             pluginFlags = Defaults.PluginFlags;
+
+#if NATIVE && TCL
+            findFlags = Defaults.FindFlags;
+            loadFlags = Defaults.LoadFlags;
+#endif
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -149,6 +165,11 @@ namespace Eagle._Components.Public
             scriptFlags = interpreter.ScriptFlags;
             interpreterFlags = interpreter.InterpreterFlags;
             pluginFlags = interpreter.PluginFlags;
+
+#if NATIVE && TCL
+            findFlags = interpreter.TclFindFlags;
+            loadFlags = interpreter.TclLoadFlags;
+#endif
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -179,6 +200,55 @@ namespace Eagle._Components.Public
         internal void MakeStandard() /* DO NOT USE: PrivateShellMainCore ONLY. */
         {
             createFlags |= CreateFlags.StandardAndHideNonStandard;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void EnableNamespaces() /* DO NOT USE: TESTS ONLY. */
+        {
+            createFlags |= CreateFlags.UseNamespaces;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void DisableNamespaces() /* DO NOT USE: TESTS ONLY. */
+        {
+            createFlags &= ~CreateFlags.UseNamespaces;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void DisableInitialization() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags &= ~InitializeFlags.Initialization;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void DisableSetAutoPath() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags &= ~InitializeFlags.SetAutoPath;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void RemoveUnsafeOptions() /* DO NOT USE: TESTS ONLY. */
+        {
+            interpreterFlags &= ~InterpreterFlags.UnsafeMask;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void EnableSecurity() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags |= InitializeFlags.Security;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void DisableSecurity() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags &= ~InitializeFlags.Security;
         }
         #endregion
 
@@ -464,6 +534,24 @@ namespace Eagle._Components.Public
                 targetInterpreterSettings.PluginFlags = pluginFlags;
                 result.Add("pluginFlags");
             }
+
+#if NATIVE && TCL
+            FindFlags findFlags = sourceInterpreterSettings.FindFlags;
+
+            if (forceMissing || (findFlags != FindFlags.None))
+            {
+                targetInterpreterSettings.FindFlags = findFlags;
+                result.Add("findFlags");
+            }
+
+            LoadFlags loadFlags = sourceInterpreterSettings.LoadFlags;
+
+            if (forceMissing || (loadFlags != LoadFlags.None))
+            {
+                targetInterpreterSettings.LoadFlags = loadFlags;
+                result.Add("loadFlags");
+            }
+#endif
 
             AppDomain appDomain = sourceInterpreterSettings.AppDomain;
 
@@ -782,6 +870,40 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
             }
 
+#if NATIVE && TCL
+            node = documentElement.SelectSingleNode("FindFlags");
+
+            if ((node != null) && !String.IsNullOrEmpty(node.InnerText))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    null, typeof(FindFlags),
+                    interpreterSettings.FindFlags.ToString(),
+                    node.InnerText, cultureInfo, true, true, true,
+                    ref error);
+
+                if (enumValue is FindFlags)
+                    interpreterSettings.FindFlags = (FindFlags)enumValue;
+                else
+                    return ReturnCode.Error;
+            }
+
+            node = documentElement.SelectSingleNode("LoadFlags");
+
+            if ((node != null) && !String.IsNullOrEmpty(node.InnerText))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    null, typeof(LoadFlags),
+                    interpreterSettings.LoadFlags.ToString(),
+                    node.InnerText, cultureInfo, true, true, true,
+                    ref error);
+
+                if (enumValue is LoadFlags)
+                    interpreterSettings.LoadFlags = (LoadFlags)enumValue;
+                else
+                    return ReturnCode.Error;
+            }
+#endif
+
             node = documentElement.SelectSingleNode("AutoPathList");
 
             if ((node != null) && !String.IsNullOrEmpty(node.InnerText))
@@ -873,6 +995,16 @@ namespace Eagle._Components.Public
             node = document.CreateElement("PluginFlags");
             node.InnerText = interpreterSettings.PluginFlags.ToString();
             documentElement.AppendChild(node);
+
+#if NATIVE && TCL
+            node = document.CreateElement("FindFlags");
+            node.InnerText = interpreterSettings.FindFlags.ToString();
+            documentElement.AppendChild(node);
+
+            node = document.CreateElement("LoadFlags");
+            node.InnerText = interpreterSettings.LoadFlags.ToString();
+            documentElement.AppendChild(node);
+#endif
 
             if (interpreterSettings.AutoPathList != null)
             {
@@ -1575,6 +1707,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if NATIVE && TCL
+#if XML && SERIALIZATION
+        [XmlIgnore()]
+#endif
+        public FindFlags FindFlags
+        {
+            get { return findFlags; }
+            set { findFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if XML && SERIALIZATION
+        [XmlIgnore()]
+#endif
+        public LoadFlags LoadFlags
+        {
+            get { return loadFlags; }
+            set { loadFlags = value; }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1710,6 +1866,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Public Methods
+        public ReturnCode MaybeSetRuleSet(
+            IRuleSet ruleSet,
+            ref Result error
+            )
+        {
+            if (ruleSet == null)
+            {
+                error = "invalid ruleset";
+                return ReturnCode.Error;
+            }
+
+            if (this.ruleSet != null)
+            {
+                error = String.Format(
+                    "settings ruleset {0} already specified, " +
+                    "cannot use specified immediate ruleset {1}",
+                    FormatOps.WrapOrNull(this.ruleSet.GetName()),
+                    FormatOps.WrapOrNull(ruleSet.GetName()));
+
+                return ReturnCode.Error;
+            }
+
+            this.ruleSet = ruleSet;
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region System.Object Overrides
         public override string ToString()
         {
@@ -1741,6 +1927,14 @@ namespace Eagle._Components.Public
 
             list.Add("pluginFlags");
             list.Add(pluginFlags.ToString());
+
+#if NATIVE && TCL
+            list.Add("findFlags");
+            list.Add(findFlags.ToString());
+
+            list.Add("loadFlags");
+            list.Add(loadFlags.ToString());
+#endif
 
             list.Add("appDomain");
             list.Add((appDomain != null) ? appDomain.ToString() : null);

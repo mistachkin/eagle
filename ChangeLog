@@ -1,6 +1,165 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
+BUGFIX: fix and/or address Coverity issues from #300175 to #316072.
+
+BUGFIX: prevent the built-in Diagnostic host from emitting one character at a
+        time when writing to its (standard channel) streams.
+
+BUGFIX: empty strings should always return nothing from the [split] command.
+
+BUGFIX: hashing script file contents that are not present on the file system
+        should refer to the originally read text, not line-ending translated
+        script text.
+
+BUGFIX: when calling FixupReturnValue, always pass a brand new dictionary of
+        options for use by create aliases.
+
+BUGFIX: the [incr] command should not allow argument values with non-integer
+        internal representations.
+
+BUGFIX: fixes to the special "args" argument handling for the [nproc] command.
+
+BUGFIX: fix to sub-directory deletion handling in the Utility.CleanupDirectory
+        method.
+
+BUGFIX: add null checks to several type comparision methods of the MarshalOps
+        class.
+
+BUGFIX: honor policy trace output truncation when using MaybeEmitPolicyTrace.
+
+BUGFIX: the GetPackageRelativeFileName method needs to make sure global package
+        paths are initialized prior to using them.
+
+BUGFIX: decouple plugin strong name verification from its evidence extraction.
+
+BUGFIX: by default, do not keep the test trace listener log file stream open.
+
+BUGFIX: fix pending script checks in the MaybeCancelBusyOrNot method, which
+        prevented ResetCancel methods from working properly in some cases.
+
+REFACTOR: improve semantics / naming conventions used by the runtime detection
+          subsystem.
+
+REFACTOR: robustify static initialization for created AppDomains.
+
+REFACTOR: make the Interpreter.Create method retry attempts to fetch (and add)
+          instances within the global state.  also, further robustify against
+          locking errors within the global state, e.g. track whether or not an
+          interpreter was actually added to the global state, etc.
+
+REFACTOR: internal cleanup of methods supporting the IEntityManager interface,
+          including PrivateHas*, PrivateDoes*Exist, and PrivateRemove* methods.
+
+REFACTOR: improve tracing of lock acquisition errors.
+
+REFACTOR: make it possible to disable interactive input, which causes input to
+          be buffered for later use.
+
+REFACTOR: enhance responsiveness of the status form closing / disposal logic.
+
+REFACTOR: add preliminary support for "kit" packages within the core library.
+
+REFACTOR: add Engine.QueueWorkItem method overload that supports a ThreadStart
+          parameter type.
+
+REFACTOR: add Engine.ExternalExecuteWithFrame method overload that makes all of
+          its flags arguments optional, pulling their values from the specified
+          interpreter when necessary.
+
+REFACTOR: improve performance of creating interpreters when using the built-in
+          lists of commands, functions, etc.
+
+REFACTOR: add experimental cache for StringBuilder instances used within the
+          core library.
+
+REFACTOR: allow opaque object handles for the connection and/or transaction to
+          be used by the [sql execute] sub-command.
+
+REFACTOR: *BREAKING CHANGE* for consistency, rename AsynchronousBridge class to
+          AsynchronousCallbackBridge.
+
+REFACTOR: *BREAKING CHANGE* remove the Verbose plugin flag.
+
+REFACTOR: *BREAKING CHANGE* improve formatting of CommandLogEntry lines.
+
+REFACTOR: *BREAKING CHANGE* modify RestoreCorePlugin and RestoreMonitorPlugin
+          methods to require an additional boolean parameter.
+
+REFACTOR: *BREAKING CHANGE* the [list] command is no longer included in the
+          subset required by the license SDK.
+
+FEATURE: add ProvideEntropy property to the IInterpreter interface.  when set,
+         it will be used to supply entropy to the interpreter instead of its
+         associated RandomNumberGenerator instance.
+
+FEATURE: add -setall option to the [exec] command.  when used, it forces all
+         captured values to be set into their associated variables even if an
+         error occurs.
+
+FEATURE: add the ForceTrustedHashes environment variable to work around issues
+         with native X509 certificate trust checking.
+
+FEATURE: add the PrepareInterpreterCallback and InitializeInterpreterCallback
+         static callback properties to the Interpreter class.
+
+FEATURE: add WebTransferCallback property that allows the web download / upload
+         functionality for an interpreter to be customized.
+
+FEATURE: add -logflags option to the [debug trace] sub-command.
+
+FEATURE: add the [xml foreach] sub-command to iterate over a set of (matching?)
+         XML nodes.
+
+FEATURE: add -anythread and -needclientdata options to the [load] command.
+
+FEATURE: add RemoveCommands method and MaybeRename* methods to IEntityManager
+         interface.
+
+FEATURE: add MergeTrusted* methods to the ITrustManager interface.
+
+FEATURE: add CreateStateFlags property to the IInterpreter interface.
+
+FEATURE: add GetVariableViaResolversWithSplit method to the IResolveManager
+         interface.
+
+FEATURE: support extracting the unique identifier for a script from its text.
+
+FEATURE: add two RemoveCommands method overloads to IEntityManager interface.
+
+FEATURE: add ClearInterpreterForSettings, GetManagedExecutableName, HashBytes,
+         ComparePathParts, GetPackageScanCommand, VersionCompare, IsUnderPath,
+         GetPeFileDateTime, ConsoleKeyboardString, AppDomainIsStoppingSoon,
+         DoesTokenInterpreterExist, SetOfflineMode, ExtractZipFileToDirectory,
+         InOfflineMode, ClearInterpreterForSettings, IsInteractive, GetVersion,
+         GetOperatingSystemNameAndVersion, and GetRuntimeNameAndVersion methods
+         to the Utility class.
+
+FEATURE: add [uri get] and [uri post] sub-commands, which work almost the same
+         as the [uri download] and [uri upload] sub-commands, except that their
+         use also implies the -inline option, which can now be disabled via the
+         new -noinline option.
+
+FEATURE: add [interp iterationlimit] sub-command in order to limit the number
+         of iterations allowed for loops.
+
+FEATURE: add -all option to the [interp rename] sub-command.
+
+FEATURE: add [napply] command that works like [apply], but requires the use of
+         named arguments.
+
+FEATURE: *BREAKING CHANGE* allow the [uri get], [uri post], and [uri isvalid]
+         sub-commands from within "safe" interpreters as long as URI argument
+         is considered trusted.
+
+FEATURE: *BREAKING CHANGE* add ResetHistory method to the IHost interface and
+         the -history option to the [host reset] sub-command.
+
+FEATURE: *BREAKING CHANGE* add the FindFlags and LoadFlags properties to the
+         InterpreterSettings class.
+
+************************* Beta 1.0.8369.11942 RELEASE *************************
+
 BUGFIX: fix and/or address Coverity issues from #283423 to #299487.
 
 BUGFIX: correct argument synchronization in core shell support, including in

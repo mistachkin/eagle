@@ -23,19 +23,25 @@ namespace Eagle._Commands
     {
         #region Public Constructors
         //
-        // NOTE: In the future, behavior specific to commands in the core will 
-        //       be implemented here rather than in _Commands.Default (which
-        //       is available to external commands to derive from).  For now,
-        //       the primary job of this class is to set the cached command 
-        //       flags correctly for all commands in the core command set.
+        // NOTE: In the future, behavior specific to commands in the core
+        //       will be implemented here rather than in _Commands.Default
+        //       (which is available to external commands to derive from).
+        //       For now, the primary job of this class is to set the
+        //       cached command flags correctly for all commands in the
+        //       core command set.
         //
         public Core(
             ICommandData commandData
             )
             : base(commandData)
         {
-            this.Flags |= AttributeOps.GetCommandFlags(GetType().BaseType) |
-                AttributeOps.GetCommandFlags(this);
+            if ((commandData == null) || !FlagOps.HasFlags(
+                    commandData.Flags, CommandFlags.NoAttributes, true))
+            {
+                this.Flags |=
+                    AttributeOps.GetCommandFlags(GetType().BaseType) |
+                    AttributeOps.GetCommandFlags(this);
+            }
         }
         #endregion
     }

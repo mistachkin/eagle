@@ -311,15 +311,8 @@ namespace Eagle._Components.Public
             if (zero && (value is string) && (interpreter != null) &&
                 interpreter.HasZeroString())
             {
-                ReturnCode zeroCode;
-                bool zeroNoComplain = false;
-                Result zeroError = null;
-
-                zeroCode = StringOps.ZeroString(
-                    (string)value, ref zeroNoComplain, ref zeroError);
-
-                if (!zeroNoComplain && (zeroCode != ReturnCode.Ok))
-                    DebugOps.Complain(interpreter, zeroCode, zeroError);
+                /* IGNORED */
+                StringOps.ZeroStringOrTrace((string)value);
             }
 #endif
 
@@ -330,15 +323,8 @@ namespace Eagle._Components.Public
             if (zero && (@string != null) && (interpreter != null) &&
                 interpreter.HasZeroString())
             {
-                ReturnCode zeroCode;
-                bool zeroNoComplain = false;
-                Result zeroError = null;
-
-                zeroCode = StringOps.ZeroString(
-                    @string, ref zeroNoComplain, ref zeroError);
-
-                if (!zeroNoComplain && (zeroCode != ReturnCode.Ok))
-                    DebugOps.Complain(interpreter, zeroCode, zeroError);
+                /* IGNORED */
+                StringOps.ZeroStringOrTrace(@string);
             }
 #endif
 
@@ -1825,10 +1811,10 @@ namespace Eagle._Components.Public
             if (FlagOps.HasFlags(flags, ToStringFlags.Decorated, true))
             {
                 if (FlagOps.HasFlags(
-                        argumentFlags, ArgumentFlags.ArgumentList, true))
+                        argumentFlags, ArgumentFlags.List, true))
                 {
                     if (FlagOps.HasFlags(
-                            argumentFlags, ArgumentFlags.NamedArgument,
+                            argumentFlags, ArgumentFlags.WithName,
                             true))
                     {
                         return "?argName argValue ...?";
@@ -1842,7 +1828,7 @@ namespace Eagle._Components.Public
                         argumentFlags, ArgumentFlags.HasDefault, true))
                 {
                     if (FlagOps.HasFlags(
-                            argumentFlags, ArgumentFlags.NamedArgument,
+                            argumentFlags, ArgumentFlags.WithName,
                             true))
                     {
                         return (name != null) ?
@@ -1859,7 +1845,7 @@ namespace Eagle._Components.Public
             ///////////////////////////////////////////////////////////////////
 
             if (FlagOps.HasFlags(
-                    argumentFlags, ArgumentFlags.NamedArgument, true))
+                    argumentFlags, ArgumentFlags.WithName, true))
             {
                 return String.Format(
                     "{0} value", (name != null) ? name : @default);

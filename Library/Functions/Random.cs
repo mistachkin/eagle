@@ -78,22 +78,37 @@ namespace Eagle._Functions
 
             try
             {
-                RandomNumberGenerator rng;
+                IProvideEntropy provideEntropy;
+                RandomNumberGenerator randomNumberGenerator;
 
-                lock (interpreter.InternalSyncRoot)
+                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                 {
-                    rng = interpreter.RandomNumberGenerator;
+                    provideEntropy = interpreter.InternalProvideEntropy;
+                    randomNumberGenerator = interpreter.RandomNumberGenerator;
                 }
 
-                if (rng == null)
+                byte[] bytes;
+
+                if (provideEntropy != null)
+                {
+                    bytes = new byte[sizeof(long)];
+
+                    /* NO RESULT */
+                    provideEntropy.GetBytes(ref bytes);
+                }
+                else if (randomNumberGenerator != null)
+                {
+                    bytes = new byte[sizeof(long)];
+
+                    /* NO RESULT */
+                    randomNumberGenerator.GetBytes(bytes);
+                }
+                else
                 {
                     error = "random number generator not available";
                     return ReturnCode.Error;
                 }
 
-                byte[] bytes = new byte[sizeof(long)];
-
-                rng.GetBytes(bytes);
                 value = BitConverter.ToInt64(bytes, 0);
 
                 return ReturnCode.Ok;

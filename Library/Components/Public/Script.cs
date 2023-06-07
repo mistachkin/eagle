@@ -85,6 +85,7 @@ namespace Eagle._Components.Public
             ScriptSecurityFlags securityFlags
             )
         {
+            this.id = Guid.Empty;
             this.securityFlags = securityFlags;
         }
 
@@ -316,8 +317,13 @@ namespace Eagle._Components.Public
             IClientData clientData
             )
         {
+            Guid id = Guid.Empty;
+
+            /* IGNORED */
+            ScriptOps.ExtractId(text, ref id);
+
             return PrivateCreate(
-                Guid.Empty, name, group, description, type, text,
+                id, name, group, description, type, text,
                 fileName, startLine, endLine, viaSource,
 #if XML
                 XmlBlockType.None, timeStamp, null, null,

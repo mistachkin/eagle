@@ -30,6 +30,7 @@ namespace Eagle._Components.Public
             string description,
             IClientData clientData,
             string typeName,
+            Type type,
             string methodName,
             BindingFlags bindingFlags,
             MethodFlags methodFlags,
@@ -45,6 +46,7 @@ namespace Eagle._Components.Public
             this.description = description;
             this.clientData = clientData;
             this.typeName = typeName;
+            this.type = type;
             this.methodName = methodName;
             this.bindingFlags = bindingFlags;
             this.methodFlags = methodFlags;
@@ -129,7 +131,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        #region IPolicyData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -139,6 +141,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IPolicyData Members
         private string methodName;
         public virtual string MethodName
         {

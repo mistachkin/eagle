@@ -1008,6 +1008,7 @@ namespace Eagle._Components.Public
                     FormatOps.TypeName(networkClient),
                     FormatOps.TypeName(typeof(WebClient)));
 
+                /* IGNORED */
                 ObjectOps.TryDisposeOrTrace<object>(
                     ref networkClient);
 
@@ -1185,9 +1186,9 @@ namespace Eagle._Components.Public
                     builder.Insert(0, Characters.QuestionMark);
 
                     localUri = PathOps.TryCombineUris(
-                        baseUri, builder.ToString(), encoding,
-                        UriComponents.AbsoluteUri, UriFormat.Unescaped,
-                        UriFlags.None, ref error);
+                        baseUri, StringBuilderCache.GetStringAndRelease(
+                        ref builder), encoding, UriComponents.AbsoluteUri,
+                        UriFormat.Unescaped, UriFlags.None, ref error);
 
                     if (localUri == null)
                         return false;
@@ -1462,12 +1463,14 @@ namespace Eagle._Components.Public
                 return null;
             }
 
-            if (SharedStringOps.SystemEquals(list[0], ErrorValue))
+            if ((ErrorValue != null) &&
+                SharedStringOps.SystemEquals(list[0], ErrorValue))
             {
                 error = list[1];
                 return null;
             }
-            else if (!SharedStringOps.SystemEquals(list[0], OkValue))
+            else if ((OkValue != null) &&
+                !SharedStringOps.SystemEquals(list[0], OkValue))
             {
                 error = String.Format(
                     "overall result must be {0}",
@@ -1748,6 +1751,7 @@ namespace Eagle._Components.Public
                     // dispose managed resources here...
                     ////////////////////////////////////
 
+                    /* IGNORED */
                     ObjectOps.TryDisposeOrTrace<WebClient>(
                         ref cachedWebClient);
 

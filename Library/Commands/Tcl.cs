@@ -382,7 +382,7 @@ namespace Eagle._Commands
                                                                         string executeName = arguments[argumentIndex];
                                                                         IExecute execute = null;
 
-                                                                        code = interpreter.GetIExecuteViaResolvers(
+                                                                        code = interpreter.InternalGetIExecuteViaResolvers(
                                                                             interpreter.GetResolveEngineFlagsNoLock(true),
                                                                             executeName, null, LookupFlags.Default,
                                                                             ref execute, ref result);

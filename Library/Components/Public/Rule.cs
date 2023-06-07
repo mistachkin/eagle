@@ -19,23 +19,60 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+using _StringPair = System.Collections.Generic.KeyValuePair<string, string>;
+
 namespace Eagle._Components.Public
 {
 #if SERIALIZATION
     [Serializable()]
 #endif
     [ObjectId("bfeaaf10-14e2-4ed7-ac48-7c111ecda11d")]
-    public sealed class Rule : IRule
+    public sealed class Rule : IRule, IHaveClientData
     {
         #region Private Constants
+        //
+        // HACK: These are purposely not read-only.
+        //
+        internal static bool DefaultAllowMissing = true;
+        internal static bool DefaultAllowExtra = false;
+
+        ///////////////////////////////////////////////////////////////////////
+
         internal static readonly IRule Empty = new Rule(
             null, RuleType.None, IdentifierKind.None, MatchMode.None,
-            RegexOptions.None, null, null);
+            RegexOptions.None, null, null, false);
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static StringDictionary allFieldNames = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        internal Rule(
+            IRule rule,
+            bool deepCopy
+            )
+        {
+            if (rule != null)
+            {
+                this.id = rule.Id;
+                this.type = rule.Type;
+                this.kind = rule.Kind;
+                this.mode = rule.Mode;
+                this.regExOptions = rule.RegExOptions;
+                this.patterns = GetPatterns(rule.Patterns, deepCopy);
+                this.patterns = rule.Patterns;
+                this.comparer = rule.Comparer;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         internal Rule(
             long? id,
             RuleType type,
@@ -43,7 +80,8 @@ namespace Eagle._Components.Public
             MatchMode mode,
             RegexOptions regExOptions,
             IEnumerable<string> patterns,
-            IComparer<string> comparer
+            IComparer<string> comparer,
+            bool deepCopy
             )
         {
             this.id = id;
@@ -51,8 +89,83 @@ namespace Eagle._Components.Public
             this.kind = kind;
             this.mode = mode;
             this.regExOptions = regExOptions;
+            this.patterns = GetPatterns(patterns, deepCopy);
             this.patterns = patterns;
             this.comparer = comparer;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Static Methods
+        //
+        // WARNING: For use by constructors only.
+        //
+        private static IEnumerable<string> GetPatterns(
+            IEnumerable<string> patterns, /* in: OPTIONAL */
+            bool deepCopy                 /* in */
+            )
+        {
+            if (deepCopy)
+            {
+                return (patterns != null) ?
+                    new StringList(patterns) : null;
+            }
+            else
+            {
+                return patterns;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: For use by static factory methods only.
+        //
+        private static void SetDefaultValues(
+            out long? id,                  /* out */
+            out RuleType type,             /* out */
+            out IdentifierKind kind,       /* out */
+            out MatchMode mode,            /* out */
+            out RegexOptions regExOptions, /* out */
+            out StringList patterns,       /* out */
+            out IComparer<string> comparer /* out */
+            )
+        {
+            id = null;
+            type = RuleType.None;
+            kind = IdentifierKind.None;
+            mode = MatchMode.None;
+            regExOptions = RegexOptions.None;
+            patterns = null;
+            comparer = null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: For use by static factory methods only.
+        //
+        private static void InitializeAllFieldNames(
+            bool force, /* in */
+            bool clear  /* in */
+            )
+        {
+            if (force || (allFieldNames == null))
+            {
+                if (allFieldNames == null)
+                    allFieldNames = new StringDictionary();
+                else if (clear)
+                    allFieldNames.Clear();
+
+                allFieldNames["id"] = typeof(Int64).Name;
+                allFieldNames["type"] = typeof(RuleType).Name;
+                allFieldNames["kind"] = typeof(IdentifierKind).Name;
+                allFieldNames["mode"] = typeof(MatchMode).Name;
+                allFieldNames["regExOptions"] = typeof(RegexOptions).Name;
+                allFieldNames["patterns"] = typeof(StringList).Name;
+                allFieldNames["comparer"] = typeof(IComparer<string>).Name;
+            }
         }
         #endregion
 
@@ -62,7 +175,21 @@ namespace Eagle._Components.Public
         internal static IRule Create(
             string text,             /* in */
             CultureInfo cultureInfo, /* in */
+            ref Result error         /* out */
+            )
+        {
+            return Create(
+                text, cultureInfo, DefaultAllowMissing,
+                DefaultAllowExtra, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal static IRule Create(
+            string text,             /* in */
+            CultureInfo cultureInfo, /* in */
             bool allowMissing,       /* in */
+            bool allowExtra,         /* in */
             ref Result error         /* out */
             )
         {
@@ -72,16 +199,24 @@ namespace Eagle._Components.Public
             if (dictionary == null)
                 return null;
 
+            ///////////////////////////////////////////////////////////////////
+
+            long? id;
+            RuleType type;
+            IdentifierKind kind;
+            MatchMode mode;
+            RegexOptions regExOptions;
+            StringList patterns;
+            IComparer<string> comparer;
+
+            SetDefaultValues(
+                out id, out type, out kind, out mode, out regExOptions,
+                out patterns, out comparer);
+
+            ///////////////////////////////////////////////////////////////////
+
             string value; /* REUSED */
             object enumValue; /* REUSED */
-
-            long? id = null;
-            RuleType type = RuleType.None;
-            IdentifierKind kind = IdentifierKind.None;
-            MatchMode mode = MatchMode.None;
-            RegexOptions regExOptions = RegexOptions.None;
-            StringList patterns = null;
-            IComparer<string> comparer = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -216,8 +351,47 @@ namespace Eagle._Components.Public
 
             ///////////////////////////////////////////////////////////////////
 
+            if (!allowExtra)
+            {
+                InitializeAllFieldNames(false, false);
+
+                if (allFieldNames != null)
+                {
+                    foreach (_StringPair pair in dictionary)
+                    {
+                        string name = pair.Key;
+
+                        if (name == null) /* IMPOSSIBLE */
+                            continue;
+
+                        if (!allFieldNames.ContainsKey(name))
+                        {
+                            error = String.Format(
+                                "unsupported dictionary value {0}",
+                                FormatOps.WrapOrNull(name));
+
+                            return null;
+                        }
+                    }
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
             return new Rule(
-                id, type, kind, mode, regExOptions, patterns, comparer);
+                id, type, kind, mode, regExOptions, patterns, comparer,
+                false);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public IClientData ClientData
+        {
+            get { return clientData; }
+            set { clientData = value; }
         }
         #endregion
 
@@ -291,17 +465,34 @@ namespace Eagle._Components.Public
             //       all other rule data is immutable.
             //
             return new Rule(
-                id, type, kind, mode, regExOptions, (patterns != null) ?
-                    new StringList(patterns) : null, comparer);
+                id, type, kind, mode, regExOptions, patterns, comparer,
+                true);
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region IRule Members
-        public void SetId(long? id)
+        public void SetId(
+            long? id /* in */
+            )
         {
             this.id = id;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool MatchAction(
+            MatchMode mode /* in */
+            )
+        {
+            MatchMode localMode = mode & MatchMode.ActionFlagsMask;
+
+            if (localMode == MatchMode.None)
+                return true;
+
+            return FlagOps.HasFlags(
+                this.mode & MatchMode.ActionFlagsMask, localMode, true);
         }
         #endregion
 
@@ -310,10 +501,51 @@ namespace Eagle._Components.Public
         #region System.Object Overrides
         public override string ToString()
         {
-            return StringList.MakeList(
-                "id", id, "type", type, "kind", kind, "mode", mode,
-                "regExOptions", regExOptions, "patterns", patterns,
-                "comparer", comparer);
+            StringList list = new StringList();
+
+            if (id != null)
+            {
+                list.Add("id");
+                list.Add(((long)id).ToString());
+            }
+
+            if (type != RuleType.None)
+            {
+                list.Add("type");
+                list.Add(type.ToString());
+            }
+
+            if (kind != IdentifierKind.None)
+            {
+                list.Add("kind");
+                list.Add(kind.ToString());
+            }
+
+            if (mode != MatchMode.None)
+            {
+                list.Add("mode");
+                list.Add(mode.ToString());
+            }
+
+            if (regExOptions != RegexOptions.None)
+            {
+                list.Add("regExOptions");
+                list.Add(regExOptions.ToString());
+            }
+
+            if (patterns != null)
+            {
+                list.Add("patterns");
+                list.Add(patterns.ToString());
+            }
+
+            if (comparer != null)
+            {
+                list.Add("comparer");
+                list.Add(comparer.ToString());
+            }
+
+            return list.ToString();
         }
         #endregion
     }

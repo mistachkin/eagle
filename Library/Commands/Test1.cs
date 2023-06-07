@@ -154,7 +154,7 @@ namespace Eagle._Commands
                                         //
                                         // NOTE: Create a place to put all the output of the this command.
                                         //
-                                        StringBuilder testData = StringOps.NewStringBuilder();
+                                        StringBuilder testData = StringBuilderFactory.Create();
 
                                         //
                                         // NOTE: Are we going to skip this test?
@@ -595,9 +595,14 @@ namespace Eagle._Commands
                                             //       entire test.
                                             //
                                             if (testData != null)
-                                                result = testData;
+                                            {
+                                                result = StringBuilderCache.GetStringAndRelease(
+                                                    ref testData);
+                                            }
                                             else
+                                            {
                                                 result = String.Empty;
+                                            }
                                         }
                                     }
                                     catch (Exception e)

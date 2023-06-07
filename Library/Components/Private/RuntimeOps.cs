@@ -781,11 +781,13 @@ namespace Eagle._Components.Private
             RefreshNativeStackPointers(
                 initialize, ref innerStackPtr, ref outerStackPtr);
 
+#if false
             TraceOps.DebugTrace(String.Format(
                 "RefreshNativeStackPointers: initialize = {0}, " +
                 "innerStackPtr = {1}, outerStackPtr = {2}", initialize,
                 innerStackPtr, outerStackPtr), typeof(RuntimeOps).Name,
-                TracePriority.ThreadDebug2);
+                TracePriority.ThreadDebug5);
+#endif
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -981,13 +983,15 @@ namespace Eagle._Components.Private
                     stackSize.margin = new UIntPtr(maximum.ToUInt64() / 2);
             }
 
+#if false
             //
             // NOTE: Emit a diagnostic message with updated native stack
             //       information.
             //
             TraceOps.DebugTrace(String.Format(
                 "CreateOrUpdateStackSize: updated {0}", stackSize),
-                typeof(RuntimeOps).Name, TracePriority.ThreadDebug2);
+                typeof(RuntimeOps).Name, TracePriority.ThreadDebug5);
+#endif
 
             //
             // NOTE: Return the created (or updated) stack size object
@@ -1707,7 +1711,8 @@ namespace Eagle._Components.Private
 
         public static bool ShouldCheckStrongNameVerified()
         {
-            return !CommonOps.Environment.DoesVariableExist(EnvVars.NoVerified);
+            return !CommonOps.Environment.DoesVariableExist(
+                EnvVars.NoVerified);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1819,10 +1824,6 @@ namespace Eagle._Components.Private
             bool force
             )
         {
-            Version runtimeVersion = CommonOps.Runtime.GetRuntimeVersion();
-
-            ///////////////////////////////////////////////////////////////////
-
             #region .NET Core Support
 #if NET_STANDARD_20
             if (CommonOps.Runtime.IsDotNetCore())
@@ -1838,9 +1839,9 @@ namespace Eagle._Components.Private
                 {
                     TraceOps.DebugTrace(String.Format(
                         "IsStrongNameVerified: file {0} " +
-                        "SUCCESS using CoreCLR {1}.",
+                        "SUCCESS using {1} (1).",
                         FormatOps.WrapOrNull(fileName),
-                        FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                        CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
                         TracePriority.SecurityDebug2);
 
@@ -1850,9 +1851,9 @@ namespace Eagle._Components.Private
                 {
                     TraceOps.DebugTrace(String.Format(
                         "IsStrongNameVerified: file {0} " +
-                        "FAILURE using CoreCLR {1}.",
+                        "FAILURE using {1} (1).",
                         FormatOps.WrapOrNull(fileName),
-                        FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                        CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
                         TracePriority.SecurityError);
 
@@ -1879,9 +1880,9 @@ namespace Eagle._Components.Private
                 {
                     TraceOps.DebugTrace(String.Format(
                         "IsStrongNameVerified: file {0} " +
-                        "SUCCESS using Mono {1}.",
+                        "SUCCESS using {1} (2).",
                         FormatOps.WrapOrNull(fileName),
-                        FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                        CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
                         TracePriority.SecurityDebug2);
 
@@ -1891,9 +1892,9 @@ namespace Eagle._Components.Private
                 {
                     TraceOps.DebugTrace(String.Format(
                         "IsStrongNameVerified: file {0} " +
-                        "FAILURE using Mono {1}.",
+                        "FAILURE using {1} (2).",
                         FormatOps.WrapOrNull(fileName),
-                        FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                        CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
                         TracePriority.SecurityError);
 
@@ -1914,10 +1915,10 @@ namespace Eagle._Components.Private
             {
                 TraceOps.DebugTrace(String.Format(
                     "IsStrongNameVerified: file {0} " +
-                    "SUCCESS using CLRv{1} ({2}).",
-                    FormatOps.WrapOrNull(fileName), clrVersion,
-                    FormatOps.VMajorMinorOrNull(runtimeVersion)),
-                    typeof(RuntimeOps).Name,
+                    "SUCCESS using {1} (CLRv{2}) (3).",
+                    FormatOps.WrapOrNull(fileName),
+                    CommonOps.Runtime.GetRuntimeNameAndVMajorMinor(false),
+                    clrVersion), typeof(RuntimeOps).Name,
                     TracePriority.SecurityDebug2);
 
                 return true;
@@ -1926,10 +1927,10 @@ namespace Eagle._Components.Private
             {
                 TraceOps.DebugTrace(String.Format(
                     "IsStrongNameVerified: file {0} " +
-                    "FAILURE using CLRv{1} ({2}).",
-                    FormatOps.WrapOrNull(fileName), clrVersion,
-                    FormatOps.VMajorMinorOrNull(runtimeVersion)),
-                    typeof(RuntimeOps).Name,
+                    "FAILURE using {1} (CLRv{2}) (3).",
+                    FormatOps.WrapOrNull(fileName),
+                    CommonOps.Runtime.GetRuntimeNameAndVMajorMinor(false),
+                    clrVersion), typeof(RuntimeOps).Name,
                     TracePriority.SecurityError);
 
                 return false;
@@ -1969,14 +1970,24 @@ namespace Eagle._Components.Private
             }
 #endif
 
-            return !CommonOps.Environment.DoesVariableExist(EnvVars.NoUpdates);
+            return !CommonOps.Environment.DoesVariableExist(
+                EnvVars.NoUpdates);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool ShouldForceTrustedHashes()
+        {
+            return CommonOps.Environment.DoesVariableExist(
+                EnvVars.ForceTrustedHashes);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static bool ShouldCheckFileTrusted()
         {
-            return !CommonOps.Environment.DoesVariableExist(EnvVars.NoTrusted);
+            return !CommonOps.Environment.DoesVariableExist(
+                EnvVars.NoTrusted);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2136,10 +2147,6 @@ namespace Eagle._Components.Private
             bool install
             )
         {
-            Version runtimeVersion = CommonOps.Runtime.GetRuntimeVersion();
-
-            ///////////////////////////////////////////////////////////////////
-
             #region .NET Core Support
 #if !NATIVE
             bool treatAsDotNetCore = false;
@@ -2148,14 +2155,18 @@ namespace Eagle._Components.Private
 #endif
 
             if (
+                ShouldForceTrustedHashes() ||
 #if !NATIVE
                 treatAsDotNetCore ||
 #endif
                 CommonOps.Runtime.IsDotNetCore())
             {
 #if NATIVE
-                if (PlatformOps.IsWindowsOperatingSystem())
+                if (!ShouldForceTrustedHashes() &&
+                    PlatformOps.IsWindowsOperatingSystem())
+                {
                     goto native;
+                }
 #endif
 
                 if (WinTrustDotNet.IsFileTrusted(
@@ -2164,9 +2175,9 @@ namespace Eagle._Components.Private
                         revocation, install))
                 {
                     TraceOps.DebugTrace(String.Format(
-                        "IsFileTrusted: file {0} SUCCESS using CoreCLR {1}.",
+                        "IsFileTrusted: file {0} SUCCESS using {1} (1).",
                         FormatOps.WrapOrNull(fileName),
-                        FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                        CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
                         TracePriority.SecurityDebug2);
 
@@ -2175,9 +2186,9 @@ namespace Eagle._Components.Private
                 else
                 {
                     TraceOps.DebugTrace(String.Format(
-                        "IsFileTrusted: file {0} FAILURE using CoreCLR {1}.",
+                        "IsFileTrusted: file {0} FAILURE using {1} (1).",
                         FormatOps.WrapOrNull(fileName),
-                        FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                        CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
                         TracePriority.SecurityError);
 
@@ -2202,9 +2213,9 @@ namespace Eagle._Components.Private
                         revocation, install))
                 {
                     TraceOps.DebugTrace(String.Format(
-                        "IsFileTrusted: file {0} SUCCESS using Mono {1}.",
+                        "IsFileTrusted: file {0} SUCCESS using {1} (2).",
                         FormatOps.WrapOrNull(fileName),
-                        FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                        CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
                         TracePriority.SecurityDebug2);
 
@@ -2213,9 +2224,9 @@ namespace Eagle._Components.Private
                 else
                 {
                     TraceOps.DebugTrace(String.Format(
-                        "IsFileTrusted: file {0} FAILURE using Mono {1}.",
+                        "IsFileTrusted: file {0} FAILURE using {1} (2).",
                         FormatOps.WrapOrNull(fileName),
-                        FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                        CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
                         TracePriority.SecurityError);
 
@@ -2236,9 +2247,9 @@ namespace Eagle._Components.Private
                     revocation, install))
             {
                 TraceOps.DebugTrace(String.Format(
-                    "IsFileTrusted: file {0} SUCCESS using CLR {1}.",
+                    "IsFileTrusted: file {0} SUCCESS using {1} (3).",
                     FormatOps.WrapOrNull(fileName),
-                    FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                    CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                     typeof(RuntimeOps).Name,
                     TracePriority.SecurityDebug2);
 
@@ -2247,9 +2258,9 @@ namespace Eagle._Components.Private
             else
             {
                 TraceOps.DebugTrace(String.Format(
-                    "IsFileTrusted: file {0} FAILURE using CLR {1}.",
+                    "IsFileTrusted: file {0} FAILURE using {1} (3).",
                     FormatOps.WrapOrNull(fileName),
-                    FormatOps.VMajorMinorOrNull(runtimeVersion)),
+                    CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                     typeof(RuntimeOps).Name,
                     TracePriority.SecurityError);
 
@@ -2306,7 +2317,7 @@ namespace Eagle._Components.Private
                     if ((certificate2 != null) && IsFileTrusted(
                             interpreter, null, fileName, IntPtr.Zero))
                     {
-                        StringBuilder result = StringOps.NewStringBuilder();
+                        StringBuilder result = StringBuilderFactory.Create();
 
                         if (!String.IsNullOrEmpty(prefix))
                             result.Append(prefix);
@@ -2327,7 +2338,9 @@ namespace Eagle._Components.Private
                         }
 
                         result.Append(simpleName);
-                        return result.ToString();
+
+                        return StringBuilderCache.GetStringAndRelease(
+                            ref result);
                     }
                 }
             }
@@ -2446,7 +2459,7 @@ namespace Eagle._Components.Private
             PluginFlags flags
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (FlagOps.HasFlags(flags, PluginFlags.System, true))
                 result.Append(Characters.S);
@@ -2499,7 +2512,7 @@ namespace Eagle._Components.Private
                 result.Append(Characters.Space);
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2650,12 +2663,12 @@ namespace Eagle._Components.Private
             if (args == null)
                 return null;
 
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             foreach (string arg in args)
                 AppendCommandLineArgument(builder, arg, quoteAll);
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
         #endregion
 
@@ -3101,12 +3114,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetAnyString(
-            Interpreter interpreter,
-            IPlugin plugin,
-            ResourceManager resourceManager,
-            string name,
-            CultureInfo cultureInfo,
-            ref Result error
+            Interpreter interpreter,         /* in: NOT USED */
+            IPlugin plugin,                  /* in */
+            ResourceManager resourceManager, /* in */
+            string name,                     /* in */
+            CultureInfo cultureInfo,         /* in: OPTIONAL */
+            ref Result error                 /* out */
             )
         {
             string value; /* REUSED */
@@ -3473,8 +3486,10 @@ namespace Eagle._Components.Private
             localResult = null;
 
             if (fileSystemHost.GetData(
-                    resourceName, DataFlags.Plugin, ref scriptFlags,
-                    ref localClientData, ref localResult) != ReturnCode.Ok)
+                    resourceName, HostOps.CombineDataFlags(
+                        interpreter, DataFlags.Plugin),
+                    ref scriptFlags, ref localClientData,
+                    ref localResult) != ReturnCode.Ok)
             {
                 result = localResult;
                 return ReturnCode.Error;
@@ -3498,7 +3513,8 @@ namespace Eagle._Components.Private
 
             /* IGNORED */
             fileSystemHost.GetData(
-                String.Format(SymbolsFormat, resourceName), DataFlags.Plugin,
+                String.Format(SymbolsFormat, resourceName),
+                HostOps.CombineDataFlags(interpreter, DataFlags.Plugin),
                 ref scriptFlags, ref localClientData, ref localResult);
 
             byte[] symbolBytes = (localResult != null) ?
@@ -4148,64 +4164,96 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void AddCoreVersionInformation(
-            Interpreter interpreter, /* in */
+            Interpreter interpreter, /* in: OPTIONAL */
             Assembly assembly,       /* in */
             string fileName,         /* in */
             bool safe,               /* in */
+            bool allowNull,          /* in */
             ref StringList list      /* in, out */
             )
         {
             if (list == null)
                 list = new StringList();
 
-            list.Add(GlobalState.GetPackageName());
-            list.Add(GlobalState.GetAssemblyVersionString());
-            list.Add(GetFileTrusted(interpreter, fileName));
-            list.Add(GetGenuine());
+            list.MaybeAdd(
+                GlobalState.GetPackageName(), allowNull);
+
+            list.MaybeAdd(
+                GlobalState.GetAssemblyVersionString(), allowNull);
+
+            list.MaybeAdd(
+                GetFileTrusted(interpreter, fileName), allowNull);
+
+            list.MaybeAdd(GetGenuine(), allowNull);
 
             if (safe)
             {
-                list.Add((string)null);
-                list.Add((string)null);
-                list.Add((string)null);
-                list.Add((string)null);
-                list.Add((string)null);
+                if (allowNull)
+                {
+                    list.Add((string)null);
+                    list.Add((string)null);
+                    list.Add((string)null);
+                    list.Add((string)null);
+                    list.Add((string)null);
+                }
             }
             else
             {
-                list.Add(Vars.Version.OfficialValue);
-                list.Add(Vars.Version.StableValue);
-                list.Add(SharedAttributeOps.GetAssemblyTag(assembly));
-                list.Add(SharedAttributeOps.GetAssemblyRelease(assembly));
-                list.Add(GetAssemblyTextOrSuffix(assembly));
+                list.MaybeAdd(Vars.Version.OfficialValue, allowNull);
+                list.MaybeAdd(Vars.Version.StableValue, allowNull);
+
+                list.MaybeAdd(
+                    SharedAttributeOps.GetAssemblyTag(assembly),
+                    allowNull);
+
+                list.MaybeAdd(
+                    SharedAttributeOps.GetAssemblyRelease(assembly),
+                    allowNull);
+
+                list.MaybeAdd(
+                    GetAssemblyTextOrSuffix(assembly), allowNull);
             }
 
-            list.Add(AttributeOps.GetAssemblyConfiguration(assembly));
-            list.Add(GetTclVersionString());
+            list.MaybeAdd(
+                AttributeOps.GetAssemblyConfiguration(assembly),
+                allowNull);
+
+            list.MaybeAdd(GetTclVersionString(), allowNull);
 
             if (safe)
             {
-                list.Add((string)null);
-                list.Add((string)null);
-                list.Add((string)null);
-                list.Add((string)null);
-                list.Add((string)null);
-                list.Add((string)null);
+                if (allowNull)
+                {
+                    list.Add((string)null);
+                    list.Add((string)null);
+                    list.Add((string)null);
+                    list.Add((string)null);
+                    list.Add((string)null);
+                    list.Add((string)null);
+                }
             }
             else
             {
-                list.Add(FormatOps.Iso8601DateTime(
-                    SharedAttributeOps.GetAssemblyDateTime(assembly), true));
+                list.MaybeAdd(FormatOps.Iso8601DateTime(
+                    SharedAttributeOps.GetAssemblyDateTime(assembly),
+                    true), allowNull);
 
-                list.Add(
-                    SharedAttributeOps.GetAssemblySourceId(assembly));
+                list.MaybeAdd(
+                    SharedAttributeOps.GetAssemblySourceId(assembly),
+                    allowNull);
 
-                list.Add(
-                    SharedAttributeOps.GetAssemblySourceTimeStamp(assembly));
+                list.MaybeAdd(
+                    SharedAttributeOps.GetAssemblySourceTimeStamp(
+                    assembly), allowNull);
 
-                list.Add(CommonOps.Runtime.GetRuntimeNameAndVersion());
-                list.Add(PlatformOps.GetOperatingSystemName());
-                list.Add(PlatformOps.GetMachineName());
+                list.MaybeAdd(
+                    CommonOps.Runtime.GetRuntimeNameAndVersion(),
+                    allowNull);
+
+                list.MaybeAdd(
+                    PlatformOps.GetOperatingSystemName(), allowNull);
+
+                list.MaybeAdd(PlatformOps.GetMachineName(), allowNull);
             }
         }
 
@@ -4324,8 +4372,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string GetVersion(
+            VersionFlags versionFlags /* in */
+            )
+        {
+            Result result = null;
+
+            if (GetVersion(
+                    null, versionFlags, ref result) == ReturnCode.Ok)
+            {
+                return result;
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode GetVersion(
-            Interpreter interpreter,   /* in */
+            Interpreter interpreter,   /* in: OPTIONAL */
             VersionFlags versionFlags, /* in */
             ref Result result          /* out */
             )
@@ -4339,6 +4404,8 @@ namespace Eagle._Components.Private
                     GlobalState.GetAssemblyLocation(),
                     (interpreter != null) ?
                         interpreter.InternalIsSafe() : false,
+                    FlagOps.HasFlags(
+                        versionFlags, VersionFlags.AllowNull, true),
                     ref list);
             }
 
@@ -4347,69 +4414,6 @@ namespace Eagle._Components.Private
 
             result = list;
             return ReturnCode.Ok;
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Processor Information Methods
-        public static string GetProcessorArchitecture()
-        {
-            string processorArchitecture;
-
-            if (PlatformOps.IsWindowsOperatingSystem())
-            {
-                processorArchitecture = CommonOps.Environment.GetVariable(
-                    EnvVars.ProcessorArchitecture);
-            }
-            else
-            {
-                //
-                // HACK: Technically, this may not be 100% accurate.
-                //
-                processorArchitecture = PlatformOps.GetMachineName();
-            }
-
-            //
-            // HACK: Check for an "impossible" situation.  If the pointer size
-            //       is 32-bits, the processor architecture cannot be "AMD64".
-            //       In that case, we are almost certainly hitting a bug in the
-            //       operating system and/or Visual Studio that causes the
-            //       PROCESSOR_ARCHITECTURE environment variable to contain the
-            //       wrong value in some circumstances.  There are several
-            //       reports of this issue from users on StackOverflow.
-            //
-            if ((IntPtr.Size == sizeof(int)) &&
-                SharedStringOps.SystemNoCaseEquals(processorArchitecture, "AMD64"))
-            {
-                //
-                // NOTE: When tracing is enabled, save the originally detected
-                //       processor architecture before changing it.
-                //
-                string savedProcessorArchitecture = processorArchitecture;
-
-                //
-                // NOTE: We know that operating systems that return "AMD64" as
-                //       the processor architecture are actually a superset of
-                //       the "x86" processor architecture; therefore, return
-                //       "x86" when the pointer size is 32-bits.
-                //
-                processorArchitecture = "x86";
-
-                //
-                // NOTE: Show that we hit a fairly unusual situation (i.e. the
-                //       "wrong" processor architecture was detected).
-                //
-                TraceOps.DebugTrace(String.Format(
-                    "Detected {0}-bit process pointer size with processor " +
-                    "architecture {1}, using processor architecture " +
-                    "{2} instead...", PlatformOps.GetProcessBits(),
-                    FormatOps.WrapOrNull(savedProcessorArchitecture),
-                    FormatOps.WrapOrNull(processorArchitecture)),
-                    typeof(RuntimeOps).Name, TracePriority.StartupDebug);
-            }
-
-            return processorArchitecture;
         }
         #endregion
 
@@ -4552,13 +4556,14 @@ namespace Eagle._Components.Private
             if (AreNamespacesEnabled(createFlags))
             {
                 return new _Resolvers.Namespace(new ResolveData(
-                    null, null, null, ClientData.Empty, interpreter, 0),
-                    frame, @namespace);
+                    null, null, null, ClientData.Empty, interpreter,
+                    ResolveFlags.None, 0), frame, @namespace);
             }
             else
             {
                 return new _Resolvers.Core(new ResolveData(
-                    null, null, null, ClientData.Empty, interpreter, 0));
+                    null, null, null, ClientData.Empty, interpreter,
+                    ResolveFlags.None, 0));
             }
         }
         #endregion
@@ -5204,31 +5209,33 @@ namespace Eagle._Components.Private
                     (strongName != null))
                 {
                     result |= PluginFlags.StrongName;
-
-                    //
-                    // NOTE: Skip checking the StrongName signature?
-                    //
-                    if (!FlagOps.HasFlags(
-                            pluginFlags, PluginFlags.SkipVerified, true))
-                    {
-                        //
-                        // NOTE: See if the StrongName signature has really
-                        //       been verified by the CLR itself [via the CLR
-                        //       native API StrongNameSignatureVerificationEx].
-                        //
-                        if ((assemblyBytes != null) &&
-                            IsStrongNameVerified(assemblyBytes, true))
-                        {
-                            result |= PluginFlags.Verified;
-                        }
-                    }
-                    else
-                    {
-                        result |= PluginFlags.SkipVerified;
-                    }
                 }
             }
 #endif
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Skip checking the StrongName signature?
+            //
+            if (!FlagOps.HasFlags(
+                    pluginFlags, PluginFlags.SkipVerified, true))
+            {
+                //
+                // NOTE: See if the StrongName signature has really
+                //       been verified by the CLR itself [via the CLR
+                //       native API StrongNameSignatureVerificationEx].
+                //
+                if ((assemblyBytes != null) &&
+                    IsStrongNameVerified(assemblyBytes, true))
+                {
+                    result |= PluginFlags.Verified;
+                }
+            }
+            else
+            {
+                result |= PluginFlags.SkipVerified;
+            }
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5319,29 +5326,31 @@ namespace Eagle._Components.Private
                 (strongName != null))
             {
                 result |= PluginFlags.StrongName;
-
-                //
-                // NOTE: Skip checking the StrongName signature?
-                //
-                if (!FlagOps.HasFlags(
-                        pluginFlags, PluginFlags.SkipVerified, true))
-                {
-                    //
-                    // NOTE: See if the StrongName signature has really
-                    //       been verified by the CLR itself [via the CLR
-                    //       native API StrongNameSignatureVerificationEx].
-                    //
-                    if (IsStrongNameVerified(assembly.Location, true))
-                    {
-                        result |= PluginFlags.Verified;
-                    }
-                }
-                else
-                {
-                    result |= PluginFlags.SkipVerified;
-                }
             }
 #endif
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: Skip checking the StrongName signature?
+            //
+            if (!FlagOps.HasFlags(
+                    pluginFlags, PluginFlags.SkipVerified, true))
+            {
+                //
+                // NOTE: See if the StrongName signature has really
+                //       been verified by the CLR itself [via the CLR
+                //       native API StrongNameSignatureVerificationEx].
+                //
+                if (IsStrongNameVerified(assembly.Location, true))
+                {
+                    result |= PluginFlags.Verified;
+                }
+            }
+            else
+            {
+                result |= PluginFlags.SkipVerified;
+            }
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5409,6 +5418,14 @@ namespace Eagle._Components.Private
                         trustedHashes1 =
                             interpreter.InternalTrustedHashes;
                     }
+                    else
+                    {
+                        TraceOps.LockTrace(
+                            "CombineOrCopyTrustedHashes",
+                            typeof(RuntimeOps).Name, false,
+                            TracePriority.LockWarning2,
+                            interpreter.MaybeWhoHasLock());
+                    }
                 }
                 finally
                 {
@@ -5438,7 +5455,6 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-#if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         public static bool IsManagedAssembly(
             string fileName /* in */
             )
@@ -5466,11 +5482,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         private static IPluginData PreviewPluginData(
             Interpreter interpreter, /* in */
             string fileName,         /* in */
             string typeName,         /* in */
             PluginFlags pluginFlags, /* in */
+            bool verbose,            /* in */
             ref Result error         /* out */
             )
         {
@@ -5518,7 +5536,7 @@ namespace Eagle._Components.Private
 
                 object helper = Interpreter.GetReflectionHelper(
                     CombineOrCopyTrustedHashes(interpreter, false),
-                    fileName, null, pluginFlags, pluginLoaderFlags,
+                    fileName, null, pluginLoaderFlags, verbose,
                     ref @delegate, ref error);
 
                 if (helper == null)
@@ -5548,6 +5566,7 @@ namespace Eagle._Components.Private
             byte[] assemblyBytes,    /* in */
             string typeName,         /* in */
             PluginFlags pluginFlags, /* in */
+            bool verbose,            /* in */
             ref Result error         /* out */
             )
         {
@@ -5590,7 +5609,7 @@ namespace Eagle._Components.Private
 
                 object helper = Interpreter.GetReflectionHelper(
                     CombineOrCopyTrustedHashes(interpreter, false),
-                    assemblyBytes, null, pluginFlags, pluginLoaderFlags,
+                    assemblyBytes, null, pluginLoaderFlags, verbose,
                     ref @delegate, ref error);
 
                 if (helper == null)
@@ -5619,6 +5638,7 @@ namespace Eagle._Components.Private
             Interpreter interpreter,     /* in */
             string fileName,             /* in */
             string typeName,             /* in */
+            bool verbose,                /* in */
             ref PluginFlags pluginFlags, /* in, out */
             ref IPluginData pluginData,  /* out */
             ref Uri updateUri,           /* out */
@@ -5627,7 +5647,7 @@ namespace Eagle._Components.Private
         {
             pluginData = PreviewPluginData(
                 interpreter, fileName, typeName, pluginFlags,
-                ref error);
+                verbose, ref error);
 
             if (pluginData == null)
                 return ReturnCode.Error;
@@ -5644,6 +5664,7 @@ namespace Eagle._Components.Private
             Interpreter interpreter,     /* in */
             byte[] assemblyBytes,        /* in */
             string typeName,             /* in */
+            bool verbose,                /* in */
             ref PluginFlags pluginFlags, /* in, out */
             ref IPluginData pluginData,  /* out */
             ref Uri updateUri,           /* out */
@@ -5652,7 +5673,7 @@ namespace Eagle._Components.Private
         {
             pluginData = PreviewPluginData(
                 interpreter, assemblyBytes, typeName, pluginFlags,
-                ref error);
+                verbose, ref error);
 
             if (pluginData == null)
                 return ReturnCode.Error;
@@ -5670,6 +5691,7 @@ namespace Eagle._Components.Private
             string fileName,                        /* in */
             StringList patterns,                    /* in */
             PluginFlags pluginFlags,                /* in */
+            bool verbose,                           /* in */
             ref PluginResourceDictionary resources, /* out */
             ref Result error                        /* out */
             )
@@ -5718,7 +5740,7 @@ namespace Eagle._Components.Private
 
                 object helper = Interpreter.GetReflectionHelper(
                     CombineOrCopyTrustedHashes(interpreter, false),
-                    fileName, patterns, pluginFlags, pluginLoaderFlags,
+                    fileName, patterns, pluginLoaderFlags, verbose,
                     ref @delegate, ref error);
 
                 if (helper == null)
@@ -5749,6 +5771,7 @@ namespace Eagle._Components.Private
             byte[] assemblyBytes,                   /* in */
             StringList patterns,                    /* in */
             PluginFlags pluginFlags,                /* in */
+            bool verbose,                           /* in */
             ref PluginResourceDictionary resources, /* out */
             ref Result error                        /* out */
             )
@@ -5792,7 +5815,7 @@ namespace Eagle._Components.Private
 
                 object helper = Interpreter.GetReflectionHelper(
                     CombineOrCopyTrustedHashes(interpreter, false),
-                    assemblyBytes, patterns, pluginFlags, pluginLoaderFlags,
+                    assemblyBytes, patterns, pluginLoaderFlags, verbose,
                     ref @delegate, ref error);
 
                 if (helper == null)
@@ -6718,7 +6741,7 @@ namespace Eagle._Components.Private
                 return null;
 
             string methodName = methodInfo.Name;
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             builder.Append(methodName);
 
@@ -6731,7 +6754,7 @@ namespace Eagle._Components.Private
                     parameterInfo.Length);
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -7109,10 +7132,44 @@ namespace Eagle._Components.Private
                 if (name == null)
                     name = ScriptOps.TypeNameToEntityName(type);
 
-                if ((ruleSet != null) && !ruleSet.ApplyRules(
-                        interpreter, IdentifierKind.Command, name))
+                if (ruleSet != null)
                 {
-                    continue;
+                    if (!ruleSet.ApplyRules(
+                            interpreter, IdentifierKind.Command,
+                            MatchMode.IncludeRuleSetMask, name))
+                    {
+                        continue;
+                    }
+
+                    if (ruleSet.ApplyRules(
+                            interpreter, IdentifierKind.Command,
+                            MatchMode.ExcludeRuleSetMask, name))
+                    {
+                        continue;
+                    }
+
+                    if (FlagOps.HasFlags(
+                            localCommandFlags, CommandFlags.Safe,
+                            true))
+                    {
+                        if (ruleSet.ApplyRules(
+                                interpreter, IdentifierKind.Command,
+                                MatchMode.HideRuleSetMask, name))
+                        {
+                            localCommandFlags &= ~CommandFlags.Safe;
+                            localCommandFlags |= CommandFlags.Unsafe;
+                        }
+                    }
+                    else
+                    {
+                        if (ruleSet.ApplyRules(
+                                interpreter, IdentifierKind.Command,
+                                MatchMode.ShowRuleSetMask, name))
+                        {
+                            localCommandFlags &= ~CommandFlags.Unsafe;
+                            localCommandFlags |= CommandFlags.Safe;
+                        }
+                    }
                 }
 
                 Guid? id = ids[index];
@@ -7130,7 +7187,7 @@ namespace Eagle._Components.Private
 
                 commands.Add(new CommandData((Guid)id,
                     name, group, null, null, type.FullName,
-                    localCommandFlags, plugin, 0));
+                    type, localCommandFlags, plugin, 0));
             }
 
             return ReturnCode.Ok;
@@ -7140,7 +7197,7 @@ namespace Eagle._Components.Private
 
         private static ReturnCode PopulatePluginTypes(
             IPlugin plugin,
-            PluginFlags pluginFlags,
+            bool verbose,
             ref TypeList types,
             ref Result error
             )
@@ -7158,9 +7215,6 @@ namespace Eagle._Components.Private
                 error = "plugin has invalid assembly";
                 return ReturnCode.Error;
             }
-
-            bool verbose = FlagOps.HasFlags(
-                pluginFlags, PluginFlags.Verbose, true);
 
             ResultList errors = null;
 
@@ -7181,8 +7235,8 @@ namespace Eagle._Components.Private
             IRuleSet ruleSet,
             IPlugin plugin,
             TypeList types,
-            PluginFlags pluginFlags,
             CommandFlags? commandFlags,
+            bool verbose,
             ref Result error
             )
         {
@@ -7200,9 +7254,6 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            bool verbose = FlagOps.HasFlags(
-                pluginFlags, PluginFlags.Verbose, true);
-
             TypeList localTypes = null;
 
             if (types != null)
@@ -7210,7 +7261,7 @@ namespace Eagle._Components.Private
                 localTypes = types;
             }
             else if (PopulatePluginTypes(
-                    plugin, pluginFlags, ref localTypes,
+                    plugin, verbose, ref localTypes,
                     ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
@@ -7259,10 +7310,44 @@ namespace Eagle._Components.Private
                 if (name == null)
                     name = ScriptOps.TypeNameToEntityName(type);
 
-                if ((ruleSet != null) && !ruleSet.ApplyRules(
-                        interpreter, IdentifierKind.Command, name))
+                if (ruleSet != null)
                 {
-                    continue;
+                    if (!ruleSet.ApplyRules(
+                            interpreter, IdentifierKind.Command,
+                            MatchMode.IncludeRuleSetMask, name))
+                    {
+                        continue;
+                    }
+
+                    if (ruleSet.ApplyRules(
+                            interpreter, IdentifierKind.Command,
+                            MatchMode.ExcludeRuleSetMask, name))
+                    {
+                        continue;
+                    }
+
+                    if (FlagOps.HasFlags(
+                            localCommandFlags, CommandFlags.Safe,
+                            true))
+                    {
+                        if (ruleSet.ApplyRules(
+                                interpreter, IdentifierKind.Command,
+                                MatchMode.HideRuleSetMask, name))
+                        {
+                            localCommandFlags &= ~CommandFlags.Safe;
+                            localCommandFlags |= CommandFlags.Unsafe;
+                        }
+                    }
+                    else
+                    {
+                        if (ruleSet.ApplyRules(
+                                interpreter, IdentifierKind.Command,
+                                MatchMode.ShowRuleSetMask, name))
+                        {
+                            localCommandFlags &= ~CommandFlags.Unsafe;
+                            localCommandFlags |= CommandFlags.Safe;
+                        }
+                    }
                 }
 
                 commands.Add(new CommandData(
@@ -7341,16 +7426,31 @@ namespace Eagle._Components.Private
                 string name = FormatOps.MethodFullName(
                     type, methodInfo.Name);
 
-                if ((ruleSet != null) && !ruleSet.ApplyRules(
-                        interpreter, IdentifierKind.Policy, name))
+                if (ruleSet != null)
                 {
-                    continue;
+                    if (!ruleSet.ApplyRules(
+                            interpreter, IdentifierKind.Policy,
+                            MatchMode.IncludeRuleSetMask, name))
+                    {
+                        continue;
+                    }
+
+                    if (ruleSet.ApplyRules(
+                            interpreter, IdentifierKind.Policy,
+                            MatchMode.ExcludeRuleSetMask, name))
+                    {
+                        continue;
+                    }
                 }
 
+                //
+                // HACK: Cannot use "type" here because it will
+                //       break plugin isolation.
+                //
                 policies.Add(new PolicyData(
                     name, null, null, null, type.FullName,
-                    methodInfo.Name, bindingFlags, pair.Value,
-                    PolicyFlags.None, plugin, 0));
+                    null, methodInfo.Name, bindingFlags,
+                    pair.Value, PolicyFlags.None, plugin, 0));
             }
 
             return ReturnCode.Ok;
@@ -7363,11 +7463,11 @@ namespace Eagle._Components.Private
             IPlugin plugin,
             TypeList types,
             IRuleSet ruleSet,
-            PluginFlags pluginFlags,
             CommandFlags? commandFlags,
             bool useBuiltIn,
             bool noCommands,
             bool noPolicies,
+            bool verbose,
             ref Result error
             )
         {
@@ -7390,8 +7490,8 @@ namespace Eagle._Components.Private
             else
             {
                 code = PopulatePluginTypes(
-                    plugin, pluginFlags,
-                    ref localTypes, ref error);
+                    plugin, verbose, ref localTypes,
+                    ref error);
 
                 if (code != ReturnCode.Ok)
                     return code;
@@ -7412,8 +7512,8 @@ namespace Eagle._Components.Private
                 {
                     code = PopulatePluginCommands(
                         interpreter, ruleSet, plugin,
-                        localTypes, pluginFlags,
-                        commandFlags, ref error);
+                        localTypes, commandFlags,
+                        verbose, ref error);
 
                     if (code != ReturnCode.Ok)
                         return code;
@@ -7461,8 +7561,7 @@ namespace Eagle._Components.Private
         public static ReturnCode GetBuiltInOperators(
             IPlugin plugin,
             StringComparison comparisonType,
-            PluginFlags pluginFlags,
-            bool createStandard,
+            bool standardOnly,
             ref List<IOperatorData> operators,
             ref Result error
             )
@@ -7515,7 +7614,7 @@ namespace Eagle._Components.Private
                     continue;
                 }
 
-                if (createStandard && !FlagOps.HasFlags(
+                if (standardOnly && !FlagOps.HasFlags(
                         localOperatorFlags, OperatorFlags.Standard,
                         true))
                 {
@@ -7546,7 +7645,7 @@ namespace Eagle._Components.Private
                     group = AttributeOps.GetObjectGroups(type);
 
                 operators.Add(new OperatorData((Guid)id,
-                    name, group, null, null, typeName,
+                    name, group, null, null, typeName, type,
                     lexemes[index], (int)operands[index],
                     operandTypes, localOperatorFlags,
                     comparisonType, plugin, 0));
@@ -7561,15 +7660,12 @@ namespace Eagle._Components.Private
             IPlugin plugin,
             TypeList types,
             StringComparison comparisonType,
-            PluginFlags pluginFlags,
-            bool createStandard,
+            bool standardOnly,
+            bool verbose,
             ref List<IOperatorData> operators,
             ref Result error
             )
         {
-            bool verbose = FlagOps.HasFlags(
-                pluginFlags, PluginFlags.Verbose, true);
-
             TypeList localTypes = null;
 
             if (types != null)
@@ -7577,7 +7673,7 @@ namespace Eagle._Components.Private
                 localTypes = types;
             }
             else if (PopulatePluginTypes(
-                    plugin, pluginFlags, ref localTypes,
+                    plugin, verbose, ref localTypes,
                     ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
@@ -7624,7 +7720,7 @@ namespace Eagle._Components.Private
                     continue;
                 }
 
-                if (createStandard && !FlagOps.HasFlags(
+                if (standardOnly && !FlagOps.HasFlags(
                         operatorFlags, OperatorFlags.Standard, true))
                 {
                     continue;
@@ -7644,9 +7740,9 @@ namespace Eagle._Components.Private
                     name = ScriptOps.TypeNameToEntityName(type);
 
                 operators.Add(new OperatorData(
-                    name, null, null, null, typeName, lexeme, operands,
-                    operandTypes, operatorFlags, comparisonType, plugin,
-                    0));
+                    name, null, null, null, typeName, type,
+                    lexeme, operands, operandTypes, operatorFlags,
+                    comparisonType, plugin, 0));
             }
 
             return ReturnCode.Ok;
@@ -7674,7 +7770,10 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            Type type = Type.GetType(typeName, false, true);
+            Type type = operatorData.Type;
+
+            if (type == null)
+                type = Type.GetType(typeName, false, true);
 
             if (type == null)
             {
@@ -7706,8 +7805,7 @@ namespace Eagle._Components.Private
         #region Expression Function Support Methods
         public static ReturnCode GetBuiltInFunctions(
             IPlugin plugin,
-            PluginFlags pluginFlags,
-            bool createStandard,
+            bool standardOnly,
             ref List<IFunctionData> functions,
             ref Result error
             )
@@ -7759,7 +7857,7 @@ namespace Eagle._Components.Private
                     continue;
                 }
 
-                if (createStandard && !FlagOps.HasFlags(
+                if (standardOnly && !FlagOps.HasFlags(
                         localFunctionFlags, FunctionFlags.Standard,
                         true))
                 {
@@ -7790,7 +7888,7 @@ namespace Eagle._Components.Private
                     group = AttributeOps.GetObjectGroups(type);
 
                 functions.Add(new FunctionData((Guid)id,
-                    name, group, null, null, typeName,
+                    name, group, null, null, typeName, type,
                     (int)arguments[index], argumentTypes,
                     localFunctionFlags, plugin, 0));
             }
@@ -7803,15 +7901,12 @@ namespace Eagle._Components.Private
         public static ReturnCode GetPluginFunctions(
             IPlugin plugin,
             TypeList types,
-            PluginFlags pluginFlags,
-            bool createStandard,
+            bool standardOnly,
+            bool verbose,
             ref List<IFunctionData> functions,
             ref Result error
             )
         {
-            bool verbose = FlagOps.HasFlags(
-                pluginFlags, PluginFlags.Verbose, true);
-
             TypeList localTypes = null;
 
             if (types != null)
@@ -7819,7 +7914,7 @@ namespace Eagle._Components.Private
                 localTypes = types;
             }
             else if (PopulatePluginTypes(
-                    plugin, pluginFlags, ref localTypes,
+                    plugin, verbose, ref localTypes,
                     ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
@@ -7866,7 +7961,7 @@ namespace Eagle._Components.Private
                     continue;
                 }
 
-                if (createStandard && !FlagOps.HasFlags(
+                if (standardOnly && !FlagOps.HasFlags(
                         functionFlags, FunctionFlags.Standard, true))
                 {
                     continue;
@@ -7886,8 +7981,9 @@ namespace Eagle._Components.Private
                     name = ScriptOps.TypeNameToEntityName(type);
 
                 functions.Add(new FunctionData(
-                    name, null, null, null, typeName, arguments,
-                    argumentTypes, functionFlags, plugin, 0));
+                    name, null, null, null, typeName, type,
+                    arguments, argumentTypes, functionFlags,
+                    plugin, 0));
             }
 
             return ReturnCode.Ok;
@@ -7915,7 +8011,10 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            Type type = Type.GetType(typeName, false, true);
+            Type type = functionData.Type;
+
+            if (type == null)
+                type = Type.GetType(typeName, false, true);
 
             if (type == null)
             {
@@ -8130,15 +8229,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Random Number Support Methods
-        private static void InitializeRandomness() /* throw */
+        private static RandomNumberGenerator InitializeRandomness(
+            bool force
+            )
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                if (randomNumberGenerator != null)
-                    return;
+                if (force || (randomNumberGenerator == null))
+                    randomNumberGenerator = RNGCryptoServiceProvider.Create();
 
-                randomNumberGenerator = RNGCryptoServiceProvider.Create();
+                return randomNumberGenerator;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static RandomNumberGenerator GetRandomness()
+        {
+            return InitializeRandomness(false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -8172,12 +8280,12 @@ namespace Eagle._Components.Private
             )
         {
             /* NO RESULT */
-            InitializeRandomness(); /* throw */
+            InitializeRandomness(false); /* throw */
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 /* NO RESULT */
-                GetRandomBytes(
+                GetRandomBytes(null,
                     randomNumberGenerator, null, ref bytes); /* throw */
             }
         }
@@ -8185,6 +8293,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void GetRandomBytes( /* throw */
+            IProvideEntropy provideEntropy,              /* in: may be NULL. */
             RandomNumberGenerator randomNumberGenerator, /* in: may be NULL. */
             Random random,                               /* in: may be NULL. */
             ref byte[] bytes                             /* in, out */
@@ -8192,7 +8301,14 @@ namespace Eagle._Components.Private
         {
             bool gotBytes = false;
 
-            if (randomNumberGenerator != null)
+            if (provideEntropy != null)
+            {
+                /* NO RESULT */
+                provideEntropy.GetBytes(ref bytes);
+
+                gotBytes = true;
+            }
+            else if (randomNumberGenerator != null)
             {
                 /* NO RESULT */
                 randomNumberGenerator.GetBytes(bytes);
@@ -8256,17 +8372,19 @@ namespace Eagle._Components.Private
         public static ulong GetRandomNumber() /* throw */
         {
             /* NO RESULT */
-            InitializeRandomness(); /* throw */
+            InitializeRandomness(false); /* throw */
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                return GetRandomNumber(randomNumberGenerator, null); /* throw */
+                return GetRandomNumber(
+                    null, randomNumberGenerator, null); /* throw */
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ulong GetRandomNumber( /* throw */
+            IProvideEntropy provideEntropy,              /* in: may be NULL. */
             RandomNumberGenerator randomNumberGenerator, /* in: may be NULL. */
             Random random                                /* in: may be NULL. */
             )
@@ -8275,7 +8393,8 @@ namespace Eagle._Components.Private
 
             /* NO RESULT */
             GetRandomBytes(
-                randomNumberGenerator, random, ref bytes); /* throw */
+                provideEntropy, randomNumberGenerator, random,
+                ref bytes); /* throw */
 
             return BitConverter.ToUInt64(bytes, 0);
         }

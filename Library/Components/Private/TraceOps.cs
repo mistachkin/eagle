@@ -54,7 +54,7 @@ namespace Eagle._Components.Private
 
         //
         // NOTE: This regular expression can be used to determines if a string
-        //       is considered to be a valid method name.  By default, thi
+        //       is considered to be a valid method name.  By default, this
         //       value will not be used.  To be used, it would need to be set
         //       as the value of the "MethodNameRegEx" field (below).
         //
@@ -621,6 +621,18 @@ namespace Eagle._Components.Private
         //       dropped for any reason (ever).
         //
         private static long traceDropped = 0;
+
+        //
+        // NOTE: This is the total number of trace messages that have been
+        //       seen due to lock warnings.
+        //
+        private static long traceLockWarnings = 0;
+
+        //
+        // NOTE: This is the total number of trace messages that have been
+        //       seen due to lock errors.
+        //
+        private static long traceLockErrors = 0;
         #endregion
         #endregion
 
@@ -1060,6 +1072,18 @@ namespace Eagle._Components.Private
                 {
                     localList.Add("TraceDropped",
                         traceDropped.ToString());
+                }
+
+                if (empty || (traceLockWarnings != 0))
+                {
+                    localList.Add("TraceLockWarnings",
+                        traceLockWarnings.ToString());
+                }
+
+                if (empty || (traceLockErrors != 0))
+                {
+                    localList.Add("TraceLockErrors",
+                        traceLockErrors.ToString());
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -1767,6 +1791,7 @@ namespace Eagle._Components.Private
             out string logName,
             out string logFileName,
             out Encoding logEncoding,
+            out LogFlags? logFlags,
             out IEnumerable<string> enabledCategories,
             out IEnumerable<string> disabledCategories,
             out IEnumerable<string> penaltyCategories,
@@ -1793,6 +1818,7 @@ namespace Eagle._Components.Private
             logName = traceClientData.LogName;
             logFileName = traceClientData.LogFileName;
             logEncoding = traceClientData.LogEncoding;
+            logFlags = traceClientData.LogFlags;
             enabledCategories = traceClientData.EnabledCategories;
             disabledCategories = traceClientData.DisabledCategories;
             penaltyCategories = traceClientData.PenaltyCategories;
@@ -1834,6 +1860,7 @@ namespace Eagle._Components.Private
             string logName;
             string logFileName;
             Encoding logEncoding;
+            LogFlags? logFlags;
             IEnumerable<string> enabledCategories;
             IEnumerable<string> disabledCategories;
             IEnumerable<string> penaltyCategories;
@@ -1856,7 +1883,7 @@ namespace Eagle._Components.Private
             UnpackClientData(
                 traceClientData, out clientData, out interpreter,
                 out listeners, out logName, out logFileName,
-                out logEncoding, out enabledCategories,
+                out logEncoding, out logFlags, out enabledCategories,
                 out disabledCategories, out penaltyCategories,
                 out bonusCategories, out stateType, out priorities,
                 out formatString, out formatIndex, out forceEnabled,
@@ -2082,8 +2109,8 @@ namespace Eagle._Components.Private
                 localResult = null;
 
                 code = DebugOps.SetupTraceLogFile(
-                    logName, logFileName, logEncoding, trace, debug,
-                    useConsole, verbose, false, ref localResult);
+                    logName, logFileName, logEncoding, logFlags, trace,
+                    debug, useConsole, verbose, false, ref localResult);
 #else
                 localResult = "not implemented";
                 code = ReturnCode.Error;
@@ -2138,7 +2165,10 @@ namespace Eagle._Components.Private
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 if (initializationMessages == null)
-                    initializationMessages = StringOps.NewStringBuilder();
+                {
+                    initializationMessages =
+                        StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+                }
 
                 if (message != null)
                     initializationMessages.AppendLine(message);
@@ -5027,6 +5057,28 @@ namespace Eagle._Components.Private
 
         #region Trace Message Methods
         #region Private
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void TraceWasForLock(
+            TracePriority priority /* in */
+            )
+        {
+            if (FlagOps.HasFlags(priority, TracePriority.Warning, true))
+            {
+                /* IGNORED */
+                Interlocked.Increment(
+                    ref traceLockWarnings); /* BREAKPOINT HERE */
+            }
+
+            if (FlagOps.HasFlags(priority, TracePriority.Error, true))
+            {
+                /* IGNORED */
+                Interlocked.Increment(
+                    ref traceLockErrors); /* BREAKPOINT HERE */
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Debug Write Core
         [MethodImpl(MethodImplOptions.NoInlining)]
         // [Conditional("DEBUG_TRACE")] // HACK: Always included.
@@ -5445,15 +5497,19 @@ namespace Eagle._Components.Private
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void LockTrace(
-            string method,         /* in */
-            string category,       /* in */
-            bool @static,          /* in */
-            TracePriority priority /* in */
+            string method,          /* in */
+            string category,        /* in */
+            bool @static,           /* in */
+            TracePriority priority, /* in */
+            long? threadId          /* in */
             )
         {
+            TraceWasForLock(priority);
+
             DebugTraceAlways(String.Format(
-                "{0}: unable to acquire {1}lock", method, @static ?
-                "static " : String.Empty), category, priority);
+                "{0}: unable to acquire {1}lock: held by thread {2}",
+                method, @static ? "static " : String.Empty,
+                FormatOps.MaybeNull(threadId)), category, priority);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5461,16 +5517,20 @@ namespace Eagle._Components.Private
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void LockTrace(
-            string method,         /* in */
-            string category,       /* in */
-            string suffix,         /* in */
-            bool @static,          /* in */
-            TracePriority priority /* in */
+            string method,          /* in */
+            string category,        /* in */
+            string suffix,          /* in */
+            bool @static,           /* in */
+            TracePriority priority, /* in */
+            long? threadId          /* in */
             )
         {
+            TraceWasForLock(priority);
+
             DebugTraceAlways(String.Format(
-                "{0}: unable to acquire {1}lock{2}", method, @static ?
-                "static " : String.Empty, suffix), category, priority);
+                "{0}: unable to acquire {1}lock{2}: held by thread {3}",
+                method, @static ? "static " : String.Empty, suffix,
+                FormatOps.MaybeNull(threadId)), category, priority);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6006,8 +6066,10 @@ namespace Eagle._Components.Private
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         private static void AppendTraceParameters(
-            StringBuilder builder, /* in, out */
-            object[] parameters    /* in */
+            TracePriority priority, /* in */
+            StringBuilder builder,  /* in, out */
+            object[] parameters,    /* in */
+            bool ellipsis           /* in */
             )
         {
             if ((builder == null) || (parameters == null))
@@ -6040,46 +6102,98 @@ namespace Eagle._Components.Private
                 }
             }
 
-            for (int index = 0; index < length; index += 2)
+            if (!ellipsis && FlagOps.HasFlags(
+                    priority, TracePriority.UseEllipsis, true))
             {
-                if (index > 0)
-                {
-                    builder.Append(Characters.Comma);
-                    builder.Append(Characters.Space);
-                }
+                ellipsis = true;
+            }
 
-                object parameterName = parameters[index]; /* string? */
-                string formattedName;
-
-                if (parameterName is string)
+            if (FlagOps.HasFlags(
+                    priority, TracePriority.SimpleFormatting, true))
+            {
+                for (int index = 0; index < length; index += 2)
                 {
-                    formattedName = FormatOps.DisplayValue(
-                        (string)parameterName);
-                }
-                else
-                {
-                    formattedName = FormatOps.DisplayObject;
-                }
+                    object parameterValue = parameters[index + 1];
+                    string formattedValue;
 
-                object parameterValue = parameters[index + 1];
-                string formattedValue;
+                    if (parameterValue is byte[])
+                    {
+                        //
+                        // HACK: Needed by the CheckPolicies method.
+                        //
+                        formattedValue = ArrayOps.ToHexadecimalString(
+                            (byte[])parameterValue);
+                    }
+                    else if (parameterValue != null)
+                    {
+                        formattedValue = parameterValue.ToString();
+                    }
+                    else
+                    {
+                        continue;
+                    }
 
-                if (parameterValue is byte[])
-                {
-                    //
-                    // HACK: Needed by the CheckPolicies method.
-                    //
-                    formattedValue = ArrayOps.ToHexadecimalString(
-                        (byte[])parameterValue);
-                }
-                else
-                {
-                    formattedValue = FormatOps.WrapOrNull(
-                        true, false, parameterValue);
-                }
+                    builder.AppendLine();
+                    builder.Append(Characters.HorizontalTab);
 
-                builder.AppendFormat(
-                    "{0} = {1}", formattedName, formattedValue);
+                    if (ellipsis)
+                        formattedValue = FormatOps.Ellipsis(formattedValue);
+
+                    builder.Append(formattedValue);
+                }
+            }
+            else
+            {
+                for (int index = 0; index < length; index += 2)
+                {
+                    if (index > 0)
+                    {
+                        builder.Append(Characters.Comma);
+                        builder.Append(Characters.Space);
+                    }
+
+                    object parameterName = parameters[index]; /* string? */
+                    string formattedName;
+
+                    if (parameterName is string)
+                    {
+                        formattedName = FormatOps.DisplayValue(
+                            (string)parameterName);
+                    }
+                    else
+                    {
+                        formattedName = FormatOps.DisplayObject;
+                    }
+
+                    if (ellipsis)
+                        formattedName = FormatOps.Ellipsis(formattedName);
+
+                    object parameterValue = parameters[index + 1];
+                    string formattedValue;
+
+                    if (parameterValue is byte[])
+                    {
+                        //
+                        // HACK: Needed by the CheckPolicies method.
+                        //
+                        formattedValue = ArrayOps.ToHexadecimalString(
+                            (byte[])parameterValue);
+
+                        if (ellipsis)
+                        {
+                            formattedValue = FormatOps.Ellipsis(
+                                formattedValue);
+                        }
+                    }
+                    else
+                    {
+                        formattedValue = FormatOps.WrapOrNull(
+                            true, ellipsis, parameterValue);
+                    }
+
+                    builder.AppendFormat(
+                        "{0} = {1}", formattedName, formattedValue);
+                }
             }
         }
 
@@ -6090,12 +6204,15 @@ namespace Eagle._Components.Private
         public static void DebugTrace(
             string methodName,         /* in */
             string message,            /* in */
+            string category,           /* in */
             TracePriority priority,    /* in */
+            bool ellipsis,             /* in */
             params object[] parameters /* in */
             )
         {
             DebugTraceAlways(
-                methodName, message, priority, 1, parameters);
+                methodName, message, category, priority, 1, ellipsis,
+                parameters);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6104,14 +6221,17 @@ namespace Eagle._Components.Private
         private static void DebugTraceAlways(
             string methodName,         /* in */
             string message,            /* in */
+            string category,           /* in */
             TracePriority priority,    /* in */
             int skipFrames,            /* in */
+            bool ellipsis,             /* in */
             params object[] parameters /* in */
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
-            AppendTraceParameters(builder, parameters);
+            AppendTraceParameters(
+                priority, builder, parameters, ellipsis);
 
             if (builder.Length > 0)
             {
@@ -6122,11 +6242,27 @@ namespace Eagle._Components.Private
                 else
                     localMethodName = "DebugTrace";
 
-                DebugTraceAlways(null, String.Format(
-                    "{0}: {1}, {2}", localMethodName,
-                    message, builder), typeof(TraceOps).Name,
-                    priority, skipFrames + 1);
+                string localMessage;
+
+                if (!String.IsNullOrEmpty(message))
+                    localMessage = message;
+                else
+                    localMessage = FormatOps.DisplayNoMessage;
+
+                string localCategory;
+
+                if (!String.IsNullOrEmpty(category))
+                    localCategory = category;
+                else
+                    localCategory = FormatOps.DisplayNoCategory;
+
+                DebugTraceAlways(
+                    null, String.Format("{0}: {1}, {2}",
+                    localMethodName, localMessage, builder),
+                    localCategory, priority, skipFrames + 1);
             }
+
+            StringBuilderCache.Release(ref builder);
         }
         #endregion
 
@@ -6156,13 +6292,14 @@ namespace Eagle._Components.Private
         public static void MaybeEmitPolicyTrace(
             string methodName,         /* in */
             Interpreter interpreter,   /* in */
+            bool ellipsis,             /* in */
             params object[] parameters /* in */
             )
         {
             bool didEmit = false;
 
             MaybeEmitPolicyTrace(
-                methodName, interpreter, ref didEmit, parameters);
+                methodName, interpreter, ellipsis, ref didEmit, parameters);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6175,6 +6312,7 @@ namespace Eagle._Components.Private
         public static void MaybeEmitPolicyTrace(
             string methodName,         /* in */
             Interpreter interpreter,   /* in */
+            bool ellipsis,             /* in */
             ref bool didEmit,          /* out */
             params object[] parameters /* in */
             )
@@ -6183,9 +6321,10 @@ namespace Eagle._Components.Private
 
             if (ShouldEmitPolicyTrace(interpreter))
             {
-                StringBuilder builder = StringOps.NewStringBuilder();
+                StringBuilder builder = StringBuilderFactory.Create();
 
-                AppendTraceParameters(builder, parameters);
+                AppendTraceParameters(
+                    TracePriority.None, builder, parameters, ellipsis);
 
                 if (builder.Length > 0)
                 {
@@ -6211,6 +6350,8 @@ namespace Eagle._Components.Private
                     //
                     didEmit = true;
                 }
+
+                StringBuilderCache.Release(ref builder);
             }
         }
 #endif

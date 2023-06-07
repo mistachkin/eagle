@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Diagnostics;
 
 #if SERIALIZATION
 using System.Runtime.Serialization;
@@ -151,6 +152,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Methods
+        [Conditional("DEBUG")]
+        private void Breakpoint()
+        {
+            //
+            // TODO: Set debugger breakpoints here.
+            //
+            return;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Protected Constructors
 #if SERIALIZATION
         protected InterpreterDisposedException(
@@ -169,13 +183,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Protected Methods
-        protected void MaybeSetIdAndIncrementCount()
+        protected bool MaybeSetIdAndIncrementCount()
         {
             if (Interlocked.CompareExchange(
                     ref id, GlobalState.NextId(), 0) == 0)
             {
                 Interlocked.Increment(ref count);
+                Breakpoint();
+                return true;
             }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////

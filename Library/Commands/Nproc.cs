@@ -108,7 +108,7 @@ namespace Eagle._Commands
                             {
                                 formalArguments = new ArgumentList(
                                     list2, ArgumentFlags.NameOnly |
-                                    ArgumentFlags.NamedArgument);
+                                    ArgumentFlags.WithName);
 
                                 namedArguments = new ArgumentDictionary();
 

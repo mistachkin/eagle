@@ -42,6 +42,8 @@ namespace Eagle._Interfaces.Public
 
         bool ResetHostFlags();
 
+        ReturnCode ResetHistory(ref Result error);
+
         ReturnCode GetMode(ChannelType channelType, ref uint mode,
             ref Result error);
         ReturnCode SetMode(ChannelType channelType, uint mode,

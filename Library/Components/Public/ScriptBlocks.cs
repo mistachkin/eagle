@@ -586,7 +586,7 @@ namespace Eagle._Components.Public
             int capacity /* in */
             )
         {
-            return StringOps.NewStringBuilder(capacity);
+            return StringBuilderFactory.CreateNoCache(capacity); /* EXEMPT */
         }
 
         ///////////////////////////////////////////////////////////////////////

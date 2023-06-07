@@ -174,7 +174,7 @@ namespace Eagle._Components.Private
             if (!IsCapacityOk(capacity, MaximumCapacity, ref error))
                 throw new ScriptEngineException(error);
 
-            StringBuilder builder = StringOps.NewStringBuilder((int)capacity);
+            StringBuilder builder = StringBuilderFactory.Create((int)capacity);
 
             foreach (Result result in results)
             {
@@ -182,7 +182,7 @@ namespace Eagle._Components.Private
                 builder.Append(result);
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
         #endregion
 

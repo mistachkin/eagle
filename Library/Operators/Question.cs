@@ -98,7 +98,7 @@ namespace Eagle._Operators
             string errorInfo = "{0}    (\"if\" expression)";
             Result localResult = null; /* REUSED */
 
-            if (interpreter.EvaluateExpressionWithErrorInfo(
+            if (interpreter.InternalEvaluateExpressionWithErrorInfo(
                     arguments[1], errorInfo,
                     ref localResult) != ReturnCode.Ok)
             {
@@ -121,7 +121,7 @@ namespace Eagle._Operators
                 errorInfo = "{0}    (\"then\" expression)";
                 localResult = null;
 
-                if (interpreter.EvaluateExpressionWithErrorInfo(
+                if (interpreter.InternalEvaluateExpressionWithErrorInfo(
                         arguments[2], errorInfo,
                         ref localResult) == ReturnCode.Ok)
                 {
@@ -139,7 +139,7 @@ namespace Eagle._Operators
                 errorInfo = "{0}    (\"else\" expression)";
                 localResult = null;
 
-                if (interpreter.EvaluateExpressionWithErrorInfo(
+                if (interpreter.InternalEvaluateExpressionWithErrorInfo(
                         arguments[3], errorInfo,
                         ref localResult) == ReturnCode.Ok)
                 {

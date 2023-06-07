@@ -1,5 +1,5 @@
 /*
- * Glob.cs --
+ * StringSubString.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -18,9 +18,10 @@ using Eagle._Containers.Private;
 
 namespace Eagle._Comparers
 {
-    [ObjectId("e8192ac3-602c-46f8-abab-d19237ba64ca")]
-    internal sealed class StringGlobComparer : IComparer<string>, IEqualityComparer<string>
+    [ObjectId("070a1fc5-93bb-4cab-8dd4-b124dd707a73")]
+    internal sealed class StringSubStringComparer : IComparer<string>, IEqualityComparer<string>
     {
+        #region Private Data
         private int levels;
         private Interpreter interpreter;
         private bool ascending;
@@ -30,10 +31,12 @@ namespace Eagle._Comparers
         private bool unique;
         private CultureInfo cultureInfo;
         private IntDictionary duplicates;
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public StringGlobComparer(
+        #region Public Constructors
+        public StringSubStringComparer(
             Interpreter interpreter,
             bool ascending,
             string indexText,
@@ -45,7 +48,7 @@ namespace Eagle._Comparers
             )
         {
             if (duplicates == null)
-                duplicates = new IntDictionary(new Custom(this, this));
+                duplicates = new IntDictionary(new StringCustom(this, this));
 
             this.levels = 0;
             this.interpreter = interpreter;
@@ -57,12 +60,13 @@ namespace Eagle._Comparers
             this.cultureInfo = cultureInfo;
             this.duplicates = duplicates;
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IComparer<string> Members
         //
-        //  NOTE: This comparer tests for matching only.  If the text does not match the glob 
+        //  NOTE: This comparer tests for matching only.  If the text does not match the sub-string
         //        pattern, a non-zero value will be returned; however, callers should NOT rely 
         //        on the exact non-match value because it is meaningless.
         //
@@ -79,7 +83,7 @@ namespace Eagle._Comparers
             Result error = null;
 
             if (StringOps.Match(
-                    interpreter, MatchMode.Glob, left, right,
+                    interpreter, MatchMode.SubString, left, right,
                     noCase, ref match, ref error) == ReturnCode.Ok)
             {
                 int result = ConversionOps.ToInt(!match);
@@ -105,7 +109,7 @@ namespace Eagle._Comparers
             string right
             )
         {
-            return ListOps.ComparerEquals(this, left, right);
+            return ListOps.ComparerEquals<string>(this, left, right);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -114,7 +118,7 @@ namespace Eagle._Comparers
             string value
             )
         {
-            return ListOps.ComparerGetHashCode(this, value, noCase);
+            return ListOps.ComparerGetHashCode<string>(this, value, noCase);
         }
         #endregion
     }

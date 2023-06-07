@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Diagnostics;
 
 #if SERIALIZATION
 using System.Runtime.Serialization;
@@ -30,7 +31,7 @@ namespace Eagle._Components.Public
         public ScriptEngineException()
             : base()
         {
-            // do nothing.
+            Breakpoint();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -40,7 +41,7 @@ namespace Eagle._Components.Public
             )
             : base(message)
         {
-            // do nothing.
+            Breakpoint();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -51,7 +52,7 @@ namespace Eagle._Components.Public
             )
             : base(message, innerException)
         {
-            // do nothing.
+            Breakpoint();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -62,7 +63,7 @@ namespace Eagle._Components.Public
             )
             : base(code, result)
         {
-            // do nothing.
+            Breakpoint();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -74,7 +75,20 @@ namespace Eagle._Components.Public
             )
             : base(code, result, innerException)
         {
-            // do nothing.
+            Breakpoint();
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Methods
+        [Conditional("DEBUG")]
+        private void Breakpoint()
+        {
+            //
+            // TODO: Set debugger breakpoints here.
+            //
+            return;
         }
         #endregion
 

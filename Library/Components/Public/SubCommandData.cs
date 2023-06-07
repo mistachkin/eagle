@@ -28,6 +28,7 @@ namespace Eagle._Components.Public
             string description,
             IClientData clientData,
             string typeName,
+            Type type,
             int nameIndex,
             CommandFlags commandFlags,
             SubCommandFlags subCommandFlags,
@@ -42,6 +43,7 @@ namespace Eagle._Components.Public
             this.description = description;
             this.clientData = clientData;
             this.typeName = typeName;
+            this.type = type;
             this.nameIndex = nameIndex;
             this.commandFlags = commandFlags;
             this.subCommandFlags = subCommandFlags;
@@ -113,7 +115,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ICommandBaseData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -123,6 +125,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ICommandBaseData Members
         private CommandFlags commandFlags;
         public virtual CommandFlags CommandFlags
         {

@@ -137,6 +137,24 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region ITypeAndName Members
+        public string TypeName
+        {
+            get { return (plugin != null) ? plugin.TypeName : null; }
+            set { if (plugin != null) { plugin.TypeName = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public Type Type
+        {
+            get { return (plugin != null) ? plugin.Type : null; }
+            set { if (plugin != null) { plugin.Type = value; } }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IPluginData Members
         public PluginFlags Flags
         {
@@ -206,14 +224,6 @@ namespace Eagle._Wrappers
         {
             get { return (plugin != null) ? plugin.FileName : null; }
             set { if (plugin != null) { plugin.FileName = value; } }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public string TypeName
-        {
-            get { return (plugin != null) ? plugin.TypeName : null; }
-            set { if (plugin != null) { plugin.TypeName = value; } }
         }
 
         ///////////////////////////////////////////////////////////////////////

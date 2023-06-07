@@ -81,7 +81,7 @@ namespace Eagle._Functions
 
                 lock (interpreter.InternalSyncRoot)
                 {
-                    random = interpreter.Random;
+                    random = interpreter.Random; /* EXEMPT */
                 }
 
                 if (random == null)

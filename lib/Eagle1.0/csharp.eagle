@@ -288,7 +288,8 @@ namespace eval ::Eagle {
   #       Non-zero is returned to indicate success.  This procedure should not
   #       raise script errors.
   #
-  proc doesCompileCSharpWork { {name ""} {errorsVarName ""} } {
+  proc doesCompileCSharpWork {
+          {name ""} {errorsVarName ""} {memory true} args } {
     if {[string length $errorsVarName] > 0} then {
       upvar 1 $errorsVarName errors
     }
@@ -309,48 +310,119 @@ namespace eval ::Eagle {
       return false
     }
 
+    set local_args $args
+
+    if {!$memory} then {
+      lappend local_args GenerateExecutable true
+      # lappend local_args MainClass [lindex $program 0]
+    }
+
     unset -nocomplain results local_errors
 
-    if {[catch {
-      compileCSharp [lindex $program 1] true false true results local_errors
-    } code]} then {
-      set errors [list [appendArgs \
-          "caught error while compiling \"" $name "\" test program: " \
-          $code]]
+    try {
+      if {[catch {
+        eval compileCSharp [list [lindex $program 1]] \
+            $memory false true results local_errors $local_args
+      } result]} then {
+        set errors [list [appendArgs \
+            "caught error while compiling \"" $name \
+            "\" test program: " $code]]
 
-      return false
+        return false
+      }
+
+      if {$memory} then {
+        set code $result
+      } else {
+        set code [lindex $result 0]
+        set outputFileName [lindex $result 1]
+      }
+
+      if {$code ne "Ok"} then {
+        set errors [list [appendArgs \
+            "errors from compilation of \"" $name "\" test program: " \
+            [expr {[info exists local_errors] ? $local_errors : $code}]]]
+
+        return false
+      }
+
+      if {$memory} then {
+        if {[llength [info commands object]] == 0} then {
+          set errors [list [appendArgs "cannot invoke \"" $name \
+              "\" test program, missing \"object\" command"]]
+
+          return false
+        }
+
+        if {[catch {
+          object invoke [lindex $program 0] Main null
+        } haveExitCode]} then {
+          set errors [list [appendArgs "caught error while invoking \"" \
+              $name "\" test program: " $haveExitCode]]
+
+          return false
+        }
+
+        set wantExitCode 0
+      } else {
+        if {[isDotNetCore]} then {
+          #
+          # NOTE: What is the fully qualified file name of the .NET Core
+          #       runtime configuration file for this (managed) process?
+          #
+          set sourceRuntimeConfigFileName [appendArgs [file rootname \
+              [getShellExecutableName]] .runtimeconfig.json]
+        }
+
+        if {[catch {
+          #
+          # HACK: Apparently, running even a trivial compiled executable
+          #       using the .NET Core runtime requires the presence of a
+          #       runtime configuration file and there is no (easy?) way
+          #       to directly instruct the C# compiler to generate one;
+          #       therefore, copy the one being used for this process,
+          #       which is presumably running on the .NET Core runtime.
+          #
+          if {[info exists sourceRuntimeConfigFileName] && \
+              [file exists $sourceRuntimeConfigFileName]} then {
+            set targetRuntimeConfigFileName [appendArgs [file rootname \
+                $outputFileName] .runtimeconfig.json]
+
+            if {![file exists $targetRuntimeConfigFileName]} then {
+              file copy $sourceRuntimeConfigFileName \
+                  $targetRuntimeConfigFileName
+            }
+          }
+
+          set command [list exec -exitcode haveExitCode --]
+          eval lappend command [getRuntimeCommandLine $outputFileName]
+          eval $command
+        } error]} then {
+          set errors [list [appendArgs \
+              "caught error while executing \"" $name "\" test program: " \
+              $error]]
+
+          return false
+        }
+
+        set wantExitCode Success
+      }
+    } finally {
+      if {[info exists targetRuntimeConfigFileName] && \
+          [file exists $targetRuntimeConfigFileName]} then {
+        catch {file delete $targetRuntimeConfigFileName}
+      }
+
+      if {[info exists outputFileName] && \
+          [file exists $outputFileName]} then {
+        catch {file delete $outputFileName}
+      }
     }
 
-    if {$code ne "Ok"} then {
+    if {$haveExitCode ne $wantExitCode} then {
       set errors [list [appendArgs \
-          "errors from compilation of \"" $name "\" test program: " \
-          [expr {[info exists local_errors] ? $local_errors : $code}]]]
-
-      return false
-    }
-
-    if {[llength [info commands object]] == 0} then {
-      set errors [list [appendArgs \
-          "cannot execute \"" $name \
-          "\" test program, missing \"object\" command"]]
-
-      return false
-    }
-
-    if {[catch {
-      object invoke [lindex $program 0] Main null
-    } exitCode]} then {
-      set errors [list [appendArgs \
-          "caught error while executing \"" $name "\" test program: " \
-          $exitCode]]
-
-      return false
-    }
-
-    if {$exitCode ne "0"} then {
-      set errors [list [appendArgs \
-          "bad exit code from \"" $name "\" test program: " \
-          $exitCode]]
+          "bad exit code from \"" $name \
+          "\" test program: " $haveExitCode]]
 
       return false
     }
@@ -421,6 +493,20 @@ namespace eval ::Eagle {
       }
       TreatWarningsAsErrors {
         set name -warnaserror
+      }
+      GenerateExecutable {
+        set name -target
+
+        if {[string is true -strict $value]} then {
+          set value exe
+        } else {
+          set value library
+        }
+      }
+      MainClass -
+      MainEntryPoint -
+      StartupObject {
+        set name -main
       }
       OutputAssembly {
         if {[string length $outputAssemblyVarName] > 0} then {
@@ -692,13 +778,30 @@ namespace eval ::Eagle {
         System.CodeDom.Compiler.CompilerParameters]
 
     #
+    # HACK: Pre-check the list of extra parameters now.  If it will change
+    #       the assembly to an executable, use that file extension instead.
+    #
+    set outputExtension [object invoke \
+        Eagle._Constants.FileExtension Library]
+
+    foreach {name value} $args {
+      if {[string equal $name GenerateExecutable] && \
+          [string is true -strict $value]} then {
+        set outputExtension [object invoke \
+            Eagle._Constants.FileExtension Executable]
+
+        break
+      }
+    }
+
+    #
     # NOTE: Do we not want to persist the generated assembly to disk?
     #       Either way, we must make sure the temporary file names used
     #       are determinstic (i.e. from our perspective, so that we can
     #       delete them later).
     #
     $parameters OutputAssembly [set outputFileName [appendArgs [set \
-        tempName(1) [file tempname]] .dll]]
+        tempName(1) [file tempname]] $outputExtension]]
 
     if {$memory} then {
       $parameters GenerateInMemory true
@@ -937,7 +1040,15 @@ namespace eval ::Eagle {
     #       code to compile and one to hold the generated assembly.
     #
     set sourceFileName [appendArgs [set tempName(1) [file tempname]] .cs]
-    set outputFileName [appendArgs [set tempName(2) [file tempname]] .dll]
+
+    #
+    # HACK: Pre-check the list of extra parameters now.  If it will change
+    #       the assembly to an executable, use that file extension instead.
+    #
+    set outputExtension .dll; # HACK: Always DLL on .NET Core.
+
+    set outputFileName [appendArgs \
+        [set tempName(2) [file tempname]] $outputExtension]
 
     #
     # NOTE: Use a try/finally block to cleanup temporary files.
@@ -966,7 +1077,9 @@ namespace eval ::Eagle {
       # NOTE: Always build as a library so that we do not require a static
       #       Main method.
       #
-      lappend command -target:library
+      if {[lsearch -glob -- $command -target:*] == -1} then {
+        lappend command -target:library
+      }
 
       #
       # NOTE: If symbols are enabled, add the necessary command line

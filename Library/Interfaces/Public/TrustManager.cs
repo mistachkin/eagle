@@ -9,6 +9,7 @@
  * RCS: @(#) $Id: $
  */
 
+using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
@@ -26,5 +27,12 @@ namespace Eagle._Interfaces.Public
         UriDictionary<object> TrustedUris { get; } /* WARNING: Trusted by the default [source] policy. */
         ObjectDictionary TrustedTypes { get; } /* WARNING: Trusted by the default [object] policy. */
         StringList TrustedHashes { get; } /* WARNING: Trusted by the default [load] policy. */
+
+        ///////////////////////////////////////////////////////////////////////
+
+        IEnumerable<string> MergeTrustedPaths(StringList trustedPaths);
+        IEnumerable<string> MergeTrustedUris(UriDictionary<object> trustedUris);
+        IEnumerable<string> MergeTrustedTypes(ObjectDictionary trustedTypes);
+        IEnumerable<string> MergeTrustedHashes(StringList trustedHashes);
     }
 }

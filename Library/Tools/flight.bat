@@ -69,10 +69,15 @@ REM ****************************************************************************
 REM ****************** Set Miscellaneous Environment, Phase 1 ******************
 REM ****************************************************************************
 
+IF NOT DEFINED SIGN_PAUSE_MILLISECONDS (
+  SET SIGN_PAUSE_MILLISECONDS=15000
+)
+
 IF NOT DEFINED NUGET_PAUSE_MILLISECONDS (
   SET NUGET_PAUSE_MILLISECONDS=15000
 )
 
+%_VECHO% SignPauseMilliseconds = '%SIGN_PAUSE_MILLISECONDS%'
 %_VECHO% NuGetPauseMilliseconds = '%NUGET_PAUSE_MILLISECONDS%'
 
 IF NOT DEFINED PLATFORMS (
@@ -10009,6 +10014,20 @@ IF NOT DEFINED NONUGET (
       GOTO errors
     )
 
+    %__ECHO% XCOPY "%UNIXSRCBINDIR%\EagleShell.exe" "%UNIX_NUGETBASEPATH%\bin\" %FFLAGS% %DFLAGS%
+
+    IF ERRORLEVEL 1 (
+      ECHO Failed to copy "%UNIXSRCBINDIR%\EagleShell.exe" to "%UNIX_NUGETBASEPATH%\bin\".
+      GOTO errors
+    )
+
+    %__ECHO% XCOPY "%UNIXSRCBINDIR%\EagleShell.pdb" "%UNIX_NUGETBASEPATH%\bin\" %FFLAGS% %DFLAGS%
+
+    IF ERRORLEVEL 1 (
+      ECHO Failed to copy "%UNIXSRCBINDIR%\EagleShell.pdb" to "%UNIX_NUGETBASEPATH%\bin\".
+      GOTO errors
+    )
+
     IF DEFINED STABLE (
       CALL :fn_createNuGetPackage "%ROOT%\NuGet\Eagle.Mono.nuspec" "%UNIX_NUGETOUTPUTDIR%\NuGet" "%UNIX_NUGETBASEPATH%"
       IF ERRORLEVEL 1 GOTO errors
@@ -10020,6 +10039,7 @@ IF NOT DEFINED NONUGET (
   REM       the final package contents to disk; therefore, wait a bit
   REM       here for things to settle down.
   REM
+  %_CECHO% "%TOOLS%\JustWait.exe" "%NUGET_PAUSE_MILLISECONDS%"
   %__ECHO% "%TOOLS%\JustWait.exe" "%NUGET_PAUSE_MILLISECONDS%"
 
   IF ERRORLEVEL 1 (
@@ -10058,18 +10078,6 @@ IF NOT DEFINED NONUGET (
           CALL :fn_verifyNuGetPackage
           IF ERRORLEVEL 1 GOTO errors
         )
-
-        REM
-        REM HACK: Apparently, NuGet may take a bit when actually writing out
-        REM       the final package contents to disk; therefore, wait a bit
-        REM       here for things to settle down.
-        REM
-        %__ECHO% "%TOOLS%\JustWait.exe" "%NUGET_PAUSE_MILLISECONDS%"
-
-        IF ERRORLEVEL 1 (
-          ECHO Failed to wait "%NUGET_PAUSE_MILLISECONDS%" milliseconds.
-          GOTO errors
-        )
       )
     )
   )
@@ -10088,8 +10096,8 @@ IF DEFINED NOVERIFYHASH (
 )
 
 IF NOT DEFINED NOVERIFY (
-  %_CECHO% EagleShell.exe -file "%TOOLS%\chkRefs.eagle" "%ROOT%\bin"
-  %__ECHO% EagleShell.exe -file "%TOOLS%\chkRefs.eagle" "%ROOT%\bin"
+  %_CECHO% EagleShell.exe -preInitialize "set ::eagle_platform(patchLevel) %PATCHLEVEL%" -file "%TOOLS%\chkRefs.eagle" "%ROOT%\bin"
+  %__ECHO% EagleShell.exe -preInitialize "set ::eagle_platform(patchLevel) %PATCHLEVEL%" -file "%TOOLS%\chkRefs.eagle" "%ROOT%\bin"
 
   IF ERRORLEVEL 1 (
     ECHO Verifying assembly references in "%ROOT%\bin" failed.
@@ -10590,6 +10598,13 @@ REM ****************************************************************************
   %__ECHO% "%NUGET_EXE%" sign "%NUGET_PACKAGE_TARGET_FILE%" -CertificateSubjectName "%SUBJECT_NAME%" -Timestamper "%TIMESTAMP_URL%"
   IF ERRORLEVEL 1 (
     ECHO Signing of NuGet package file "%NUGET_PACKAGE_TARGET_FILE%" failed.
+    CALL :fn_SetErrorLevel
+    GOTO :EOF
+  )
+  %_CECHO% "%TOOLS%\JustWait.exe" "%SIGN_PAUSE_MILLISECONDS%"
+  %__ECHO% "%TOOLS%\JustWait.exe" "%SIGN_PAUSE_MILLISECONDS%"
+  IF ERRORLEVEL 1 (
+    ECHO Failed to wait "%SIGN_PAUSE_MILLISECONDS%" milliseconds.
     CALL :fn_SetErrorLevel
     GOTO :EOF
   )

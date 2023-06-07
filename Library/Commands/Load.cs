@@ -21,7 +21,7 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
-using _Public = Eagle._Components.Public;
+using _ClientData = Eagle._Components.Public.ClientData;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -63,6 +63,8 @@ namespace Eagle._Commands
                         OptionDictionary options = new OptionDictionary(
                             new IOption[] {
                             new Option(null, OptionFlags.MustHaveRuleSetValue | OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-ruleset", null),
+                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-needclientdata", null),
+                            new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-anythread", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nocommands", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nofunctions", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-nopolicies", null),
@@ -153,13 +155,19 @@ namespace Eagle._Commands
 
                                     if (code == ReturnCode.Ok)
                                     {
+                                        if (options.IsPresent("-needclientdata"))
+                                        {
+                                            localClientData = _ClientData.MaybeCreate(
+                                                localClientData);
+                                        }
+
                                         if (options.IsPresent("-data", ref value))
                                         {
                                             IObject @object = (IObject)value.Value;
 
                                             if (@object != null)
                                             {
-                                                localClientData = _Public.ClientData.WrapOrReplace(
+                                                localClientData = _ClientData.WrapOrReplace(
                                                     localClientData, @object.Value);
                                             }
                                             else
@@ -251,6 +259,9 @@ namespace Eagle._Commands
                                                 pluginFlags &= ~PluginFlags.UpdateCheck;
 #endif
 #endif
+
+                                            if (options.IsPresent("-anythread"))
+                                                pluginFlags |= PluginFlags.LoadOnAnyThread;
 
                                             if (options.IsPresent("-nocommands"))
                                                 pluginFlags |= PluginFlags.NoCommands;

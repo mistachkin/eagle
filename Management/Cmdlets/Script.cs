@@ -534,7 +534,8 @@ namespace Eagle._Cmdlets
             {
                 CheckDisposed();
 
-                return !Utility.HasFlags(createFlags, CreateFlags.Safe, true);
+                return !Utility.HasFlags(
+                    createFlags, CreateFlags.Safe, true);
             }
             set
             {
@@ -1088,8 +1089,8 @@ namespace Eagle._Cmdlets
             )
         {
             return WriteFlags(
-                flagsCallback, createFlags, hostCreateFlags, initializeFlags,
-                scriptFlags, interpreterFlags);
+                flagsCallback, createFlags, hostCreateFlags,
+                initializeFlags, scriptFlags, interpreterFlags);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1106,8 +1107,9 @@ namespace Eagle._Cmdlets
             Result error = null;
 
             return WriteFlags(
-                callback, createFlags, hostCreateFlags, initializeFlags,
-                scriptFlags, interpreterFlags, ref error);
+                callback, createFlags, hostCreateFlags,
+                initializeFlags, scriptFlags, interpreterFlags,
+                ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1544,8 +1546,8 @@ namespace Eagle._Cmdlets
                 //       with the "-debug" option).
                 //
                 WriteFlags(
-                    createFlags, hostCreateFlags, initializeFlags, scriptFlags,
-                    interpreterFlags);
+                    createFlags, hostCreateFlags, initializeFlags,
+                    scriptFlags, interpreterFlags);
 
                 //
                 // NOTE: Check if "safe" mode has been enabled for the
@@ -1619,8 +1621,9 @@ namespace Eagle._Cmdlets
                     {
                         code = Utility.FixupReturnValue(
                             interpreter, null, CmdletObjectFlags,
-                            null, CmdletObjectOptionType, CmdletObjectName,
-                            this, true, false, ref result);
+                            null, null, CmdletObjectOptionType,
+                            CmdletObjectName, this, true, false,
+                            ref result);
                     }
 
                     if (code == ReturnCode.Ok)

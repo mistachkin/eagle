@@ -68,6 +68,13 @@ namespace Eagle._Components.Public
             if (readOnly)
                 throw new ScriptException("data is read-only");
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        protected bool IsEmpty()
+        {
+            return Object.ReferenceEquals(this, Empty);
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -152,6 +159,29 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        public static bool IsReadOnly(
+            IClientData clientData /* in */
+            )
+        {
+            //
+            // HACK: We only know about the base ClientData class as far as
+            //       detecting the read-only property goes (since it is not
+            //       part of the formal IClientData interface).
+            //
+            ICoreClientData coreClientData = clientData as ICoreClientData;
+
+            if (coreClientData == null)
+                return false; /* NOTE: It cannot be read-only if null. */
+
+            //
+            // NOTE: Return the value of the read-only property for the
+            //       IClientData instance.
+            //
+            return coreClientData.ReadOnly;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool TryGet(
             object @object,
             bool validate,
@@ -511,6 +541,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static IClientData MaybeCreate(
+            IClientData clientData /* in */
+            )
+        {
+            return IsNullOrEmpty(clientData) ?
+                new ClientData(null) : clientData;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static IClientData WrapOrReplace(
             IClientData clientData, /* in */
             object data             /* in */
@@ -583,29 +623,6 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
-        private static bool IsReadOnly(
-            IClientData clientData /* in */
-            )
-        {
-            //
-            // HACK: We only know about the base ClientData class as far as
-            //       detecting the read-only property goes (since it is not
-            //       part of the formal IClientData interface).
-            //
-            ICoreClientData coreClientData = clientData as ICoreClientData;
-
-            if (coreClientData == null)
-                return false; /* NOTE: It cannot be read-only if null. */
-
-            //
-            // NOTE: Return the value of the read-only property for the
-            //       IClientData instance.
-            //
-            return coreClientData.ReadOnly;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
         private static bool HasData(
             IClientData clientData /* in */
             )
@@ -623,14 +640,11 @@ namespace Eagle._Components.Public
             )
         {
             //
-            // NOTE: If the IClientData instance is null or equals our reserved
+            // NOTE: If IClientData instance is null -OR- equals our reserved
             //       "empty" instance, then it contains no actual data.
             //
-            if ((clientData == null) ||
-                Object.ReferenceEquals(clientData, Empty))
-            {
+            if (IsNullOrEmpty(clientData))
                 return false;
-            }
 
             //
             // NOTE: If this a "plain old" IClientData instance of the default
@@ -648,6 +662,35 @@ namespace Eagle._Components.Public
             //
             data = localData;
             return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool IsNullOrEmpty(
+            IClientData clientData
+            )
+        {
+            if (clientData == null)
+                return true;
+
+            if (Object.ReferenceEquals(clientData, Empty))
+                return true;
+
+#if REMOTING
+            if (AppDomainOps.IsTransparentProxy(clientData))
+            {
+                ClientData remoteClientData =
+                    clientData as ClientData;
+
+                if ((remoteClientData != null) &&
+                    remoteClientData.IsEmpty())
+                {
+                    return true;
+                }
+            }
+#endif
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////

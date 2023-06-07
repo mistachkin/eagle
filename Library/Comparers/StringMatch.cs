@@ -1,5 +1,5 @@
 /*
- * Match.cs --
+ * StringMatch.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -25,7 +25,7 @@ namespace Eagle._Comparers
     [Serializable()]
 #endif
     [ObjectId("0475f1ab-7e33-4467-b890-25e1c37338ab")]
-    internal sealed class Match : IComparer<string>, IEqualityComparer<string>
+    internal sealed class StringMatch : IComparer<string>, IEqualityComparer<string>
     {
         #region Private Data
         private MatchMode mode;
@@ -36,7 +36,7 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
-        public Match(
+        public StringMatch(
             )
         {
             mode = StringOps.DefaultMatchMode;
@@ -48,7 +48,7 @@ namespace Eagle._Comparers
 
         #region Dead Code
 #if DEAD_CODE
-        public Match(
+        public StringMatch(
             MatchMode mode,
             bool noCase
             )
@@ -61,7 +61,7 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public Match(
+        public StringMatch(
             MatchMode mode,
             bool noCase,
             RegexOptions regExOptions
@@ -112,7 +112,7 @@ namespace Eagle._Comparers
             string right
             )
         {
-            return ListOps.ComparerEquals(this, left, right);
+            return ListOps.ComparerEquals<string>(this, left, right);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -121,7 +121,7 @@ namespace Eagle._Comparers
             string value
             )
         {
-            return ListOps.ComparerGetHashCode(this, value, noCase);
+            return ListOps.ComparerGetHashCode<string>(this, value, noCase);
         }
         #endregion
     }

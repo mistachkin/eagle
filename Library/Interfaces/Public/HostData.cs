@@ -16,9 +16,8 @@ using Eagle._Components.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("35cfe935-a23e-48ce-a395-2dab9c268c2f")]
-    public interface IHostData : IIdentifier, IHaveInterpreter
+    public interface IHostData : IIdentifier, IHaveInterpreter, ITypeAndName
     {
-        string TypeName { get; set; }
         ResourceManager ResourceManager { get; set; }
         string Profile { get; set; }
         HostCreateFlags HostCreateFlags { get; set; }

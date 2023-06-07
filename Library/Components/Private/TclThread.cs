@@ -186,15 +186,17 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        #region ISynchronize Members
+        #region ISynchronizeBase Members
         private object syncRoot;
         public object SyncRoot
         {
             get { CheckDisposed(); return syncRoot; }
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region ISynchronize Members
         public void TryLock(
             ref bool locked
             )

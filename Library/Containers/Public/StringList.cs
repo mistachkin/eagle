@@ -38,7 +38,8 @@ namespace Eagle._Containers.Public
 #endif
     [ObjectId("17df73b1-f419-498d-aeca-4be513e25310")]
     public sealed class StringList : List<string>, IList<string>,
-            ICollection<string>, IStringList, IGetValue
+            ICollection<string>, IStringList, IGetValue,
+            IHaveDictionary<string>
 #if LIST_CACHE
             , IReadOnly
 #endif
@@ -64,6 +65,8 @@ namespace Eagle._Containers.Public
 
         public static readonly string EmptyElement =
             Characters.OpenBrace.ToString() + Characters.CloseBrace.ToString();
+
+        public static readonly string NotFound = String.Copy(String.Empty);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -297,6 +300,72 @@ namespace Eagle._Containers.Public
         }
 #endif
         #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IHaveDictionary<String> Members
+        public string GetNamedValue(
+            string name
+            )
+        {
+            int count = base.Count;
+
+            for (int index = 0; index < count; index += 2)
+            {
+                if ((name == null) || SharedStringOps.Equals(
+                        base[index], name, StringComparison.Ordinal))
+                {
+                    index++;
+
+                    if (index < count)
+                        return base[index];
+                }
+            }
+
+            return NotFound;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void SetNamedValue(
+            string name,
+            string value
+            )
+        {
+#if CACHE_STRINGLIST_TOSTRING
+            InvalidateCachedString(false);
+#endif
+
+            int count = base.Count;
+
+            for (int index = 0; index < count; index += 2)
+            {
+                if ((name == null) || SharedStringOps.Equals(
+                        base[index], name, StringComparison.Ordinal))
+                {
+                    index++;
+
+                    if (index < count)
+                        base[index] = value;
+                    else
+                        base.Add(value);
+
+                    return;
+                }
+            }
+
+            if ((count % 2) == 0)
+            {
+                base.Add(name);
+                base.Add(value);
+            }
+            else
+            {
+                base.Insert(0, value);
+                base.Insert(0, name);
+            }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -641,6 +710,34 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public void AddObject(
+            object item
+            )
+        {
+#if CACHE_STRINGLIST_TOSTRING
+            InvalidateCachedString(false);
+#endif
+
+            base.Add(StringOps.GetStringFromObject(item));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void AddObjects(
+            object key,
+            object value
+            )
+        {
+#if CACHE_STRINGLIST_TOSTRING
+            InvalidateCachedString(false);
+#endif
+
+            base.Add(StringOps.GetStringFromObject(key));
+            base.Add(StringOps.GetStringFromObject(value));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This method adds a null item if the final item currently in
         //       the list is not null -OR- the list is empty.  It returns true
@@ -737,6 +834,21 @@ namespace Eagle._Containers.Public
             }
 
             return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool MaybeAddRawString(
+            string key,
+            IStringList value,
+            string separator
+            )
+        {
+            if (value == null)
+                return false;
+
+            Add(key, value.ToRawString(separator, separator));
+            return true;
         }
         #endregion
 
@@ -851,12 +963,12 @@ namespace Eagle._Containers.Public
 
         public string ToRawString()
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (string element in this)
                 result.Append(element);
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -865,7 +977,7 @@ namespace Eagle._Containers.Public
             string separator
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (string element in this)
             {
@@ -875,7 +987,28 @@ namespace Eagle._Containers.Public
                 result.Append(element);
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public string ToRawString(
+            string separator1,
+            string separator2
+            )
+        {
+            StringBuilder result = StringBuilderFactory.Create();
+
+            foreach (string element in this)
+            {
+                if (result.Length > 0)
+                    result.Append(separator1);
+
+                result.Append(separator2);
+                result.Append(element);
+            }
+
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
         #endregion
 
@@ -1094,6 +1227,23 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal Methods
+        internal void MaybeAdd(
+            string item,
+            bool allowNull
+            )
+        {
+            if (!allowNull && (item == null))
+                return;
+
+#if CACHE_STRINGLIST_TOSTRING
+            InvalidateCachedString(false);
+#endif
+
+            base.Add(item);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         internal void MakeUnique()
         {
             IEnumerable<string> collection = CopyUnique();

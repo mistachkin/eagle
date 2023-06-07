@@ -21,8 +21,16 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
+using RulePair = System.Collections.Generic.KeyValuePair<
+    long, Eagle._Interfaces.Public.IRule>;
+
 using RuleDictionary = System.Collections.Generic.Dictionary<
     long, Eagle._Interfaces.Public.IRule>;
+
+#if TEST
+using TestClass = Eagle._Tests.Default;
+using RuleSetClientData = Eagle._Tests.Default.RuleSetClientData;
+#endif
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -34,25 +42,15 @@ namespace Eagle._Components.Public
     [Serializable()]
 #endif
     [ObjectId("2d251f5e-a5b7-40f2-a991-d06f9bcb78cb")]
-    public sealed class RuleSet : IRuleSet, IDisposable
+    public sealed class RuleSet : IRuleSet, IHaveClientData, IDisposable
     {
-        #region Private Constants
-        //
-        // HACK: This is purposely not read-only.
-        //
-        private static bool DefaultAllowMissing = false;
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region Private Data
         private readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
-        private long nextId;
+        private long nextRuleId;
         private RuleDictionary rules;
-        private IComparer<string> comparer;
         private bool readOnly;
         #endregion
 
@@ -60,13 +58,25 @@ namespace Eagle._Components.Public
 
         #region Static "Factory" Methods
         public static IRuleSet Create(
+            ref Result error /* out */
+            )
+        {
+            return Create(
+                null, null, Rule.DefaultAllowMissing,
+                Rule.DefaultAllowExtra, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IRuleSet Create(
             string text,             /* in */
             CultureInfo cultureInfo, /* in */
             ref Result error         /* out */
             )
         {
             return Create(
-                text, cultureInfo, DefaultAllowMissing, ref error);
+                text, cultureInfo, Rule.DefaultAllowMissing,
+                Rule.DefaultAllowExtra, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -75,6 +85,7 @@ namespace Eagle._Components.Public
             string text,             /* in */
             CultureInfo cultureInfo, /* in */
             bool allowMissing,       /* in */
+            bool allowExtra,         /* in */
             ref Result error         /* out */
             )
         {
@@ -103,7 +114,7 @@ namespace Eagle._Components.Public
 
                         IRule rule = Rule.Create(
                             element, cultureInfo, allowMissing,
-                            ref error);
+                            allowExtra, ref error);
 
                         if (rule == null)
                             return null;
@@ -122,6 +133,7 @@ namespace Eagle._Components.Public
             {
                 if (!success && (ruleSet != null))
                 {
+                    /* IGNORED */
                     ObjectOps.TryDisposeOrTrace<RuleSet>(
                         ref ruleSet);
 
@@ -129,6 +141,66 @@ namespace Eagle._Components.Public
                 }
             }
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if TEST
+        public static IRuleSet CreateFromFile(
+            string fileName,         /* in: OPTIONAL */
+            string text,             /* in: OPTIONAL */
+            RuleSetType ruleSetType, /* in */
+            ref Result error         /* out */
+            )
+        {
+            IRuleSet ruleSet = null;
+
+            RuleSetType baseRuleSetType =
+                ruleSetType & RuleSetType.BaseMask;
+
+            if (baseRuleSetType == RuleSetType.CommandFile)
+            {
+                if (text != null)
+                {
+                    error = String.Format(
+                        "cannot use text for ruleset type {0}",
+                        FormatOps.WrapOrNull(ruleSetType));
+
+                    return null;
+                }
+
+                if (TestClass.TestLoadRuleSet(fileName,
+                        ref ruleSet, ref error) == ReturnCode.Ok)
+                {
+                    return ruleSet;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            else if (baseRuleSetType == RuleSetType.DefinitionFile)
+            {
+                RuleSetClientData clientData = new RuleSetClientData();
+
+                if (TestClass.TestDefineRuleSet(
+                        fileName, text, clientData, ref ruleSet,
+                        ref error) == ReturnCode.Ok)
+                {
+                    return ruleSet;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            error = String.Format(
+                "unsupported ruleset type {0}",
+                FormatOps.WrapOrNull(ruleSetType));
+
+            return null;
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -165,6 +237,7 @@ namespace Eagle._Components.Public
 
         private static string FormatTrace(
             Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
             IdentifierKind? kind,    /* in */
             MatchMode mode,          /* in */
             string text,             /* in */
@@ -179,18 +252,125 @@ namespace Eagle._Components.Public
             )
         {
             return String.Format(
-                "interpreter = {0}, kind = {1}, mode = {2}, " +
-                "text = {3}, match = {4}, nopCount = {5}, " +
-                "matchCount = {6}, errorCount = {7}, " +
-                "includeCount = {8}, excludeCount = {9}, " +
-                "stopRule = {10}, errors = {11}",
+                "interpreter = {0}, clientData = {1}, " +
+                "kind = {2}, mode = {3}, text = {4}, " +
+                "match = {5}, nopCount = {6}, " +
+                "matchCount = {7}, errorCount = {8}, " +
+                "includeCount = {9}, excludeCount = {10}, " +
+                "stopRule = {11}, errors = {12}",
                 FormatOps.InterpreterNoThrow(interpreter),
+                FormatOps.WrapOrNull(clientData),
                 FormatOps.WrapOrNull(kind), mode,
                 FormatOps.WrapOrNull(text),
                 FormatOps.WrapOrNull(match), nopCount,
                 matchCount, errorCount, includeCount,
                 excludeCount, FormatOps.WrapOrNull(stopRule),
                 FormatOps.WrapOrNull(errors));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ResetIds(
+            IEnumerable<IRule> rules /* in */
+            )
+        {
+            if (rules != null)
+            {
+                foreach (IRule rule in rules)
+                {
+                    if (rule == null)
+                        continue;
+
+                    rule.SetId(null);
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static IEnumerable<IRule> GetRules(
+            IRuleSet ruleSet,     /* in */
+            bool stopOnError,     /* in */
+            bool moveRules,       /* in */
+            ref ResultList errors /* in, out */
+            )
+        {
+            if (ruleSet == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid ruleset");
+                return null;
+            }
+
+            RuleSet localRuleSet = ruleSet as RuleSet;
+
+            if (localRuleSet == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("wrong ruleset sub-type");
+                return null;
+            }
+
+            RuleDictionary rules = moveRules ?
+                localRuleSet.TakeRules() :
+                localRuleSet.CloneRules(true);
+
+            if (rules == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("ruleset missing rules");
+                return null;
+            }
+
+            List<IRule> result = new List<IRule>();
+            LongList ids = new LongList(rules.Keys);
+
+            ids.Sort(); /* O(N) */
+
+            foreach (long id in ids)
+            {
+                IRule rule;
+
+                if (!rules.TryGetValue(id, out rule))
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(String.Format(
+                        "rule #{0} missing", id));
+
+                    if (stopOnError)
+                        return null;
+                    else
+                        continue;
+                }
+
+                if (rule == null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(String.Format(
+                        "rule #{0} invalid", id));
+
+                    if (stopOnError)
+                        return null;
+                    else
+                        continue;
+                }
+
+                result.Add(rule);
+            }
+
+            ResetIds(result);
+
+            return result;
         }
         #endregion
 
@@ -231,6 +411,9 @@ namespace Eagle._Components.Public
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
+                if (force || (id == null))
+                    id = GlobalState.NextRuleSetId();
+
                 if (force || (rules == null))
                 {
                     if (rules != null)
@@ -247,7 +430,7 @@ namespace Eagle._Components.Public
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                Interlocked.Exchange(ref nextId, 0);
+                Interlocked.Exchange(ref nextRuleId, 0);
 
                 if (rules != null)
                 {
@@ -255,6 +438,9 @@ namespace Eagle._Components.Public
                     rules = null;
                 }
 
+                clientData = null;
+
+                id = null;
                 comparer = null;
                 readOnly = false;
             }
@@ -294,26 +480,82 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        private long NextId()
+        private long? MaximumRuleId()
         {
-            return Interlocked.Increment(ref nextId);
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                long? maximumId = null;
+
+                if (rules != null)
+                {
+                    LongList ids = new LongList(rules.Keys);
+
+                    ids.Sort(); /* O(N) */
+
+                    foreach (long id in ids)
+                    {
+                        IRule rule;
+
+                        if (!rules.TryGetValue(id, out rule))
+                            continue;
+
+                        if (rule == null)
+                            continue;
+
+                        long? ruleId = rule.Id;
+
+                        if (maximumId == null)
+                        {
+                            if (ruleId != null)
+                                maximumId = ruleId;
+
+                            continue;
+                        }
+
+                        if ((ruleId != null) &&
+                            ((long)ruleId > (long)maximumId))
+                        {
+                            maximumId = ruleId;
+                        }
+                    }
+                }
+
+                return maximumId;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private long GetId(
+        private long NextRuleId()
+        {
+            long nextId = Interlocked.Increment(ref nextRuleId);
+            long? maximumId = MaximumRuleId();
+
+            if ((maximumId == null) || (nextId > (long)maximumId))
+                return nextId;
+
+            /* IGNORED */
+            Interlocked.CompareExchange(
+                ref nextRuleId, (long)maximumId, nextId);
+
+            return Interlocked.Increment(ref nextRuleId);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private long GetRuleId(
             long? id /* in: OPTIONAL */
             )
         {
             if (id != null)
                 return (long)id;
 
-            return NextId();
+            return NextRuleId();
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private long GetId(
+        private long GetRuleId(
             IRule rule /* in: OPTIONAL */
             )
         {
@@ -324,13 +566,13 @@ namespace Eagle._Components.Public
                 if (id != null)
                     return (long)id;
 
-                id = NextId();
+                id = NextRuleId();
                 rule.SetId(id);
 
                 return (long)id;
             }
 
-            return NextId();
+            return NextRuleId();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -339,15 +581,18 @@ namespace Eagle._Components.Public
             IRule rule /* in: OPTIONAL */
             )
         {
-            IComparer<string> comparer = null;
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                IComparer<string> comparer = null;
 
-            if (rule != null)
-                comparer = rule.Comparer;
+                if (rule != null)
+                    comparer = rule.Comparer;
 
-            if (comparer == null)
-                comparer = this.Comparer;
+                if (comparer == null)
+                    comparer = this.Comparer;
 
-            return comparer;
+                return comparer;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -365,6 +610,145 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private RuleDictionary TakeRules()
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                RuleDictionary rules = this.rules;
+
+                this.rules = null;
+
+                return rules;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private RuleDictionary CloneRules(
+            bool deepCopy /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                RuleDictionary result;
+
+                if (deepCopy)
+                {
+                    result = new RuleDictionary();
+
+                    foreach (RulePair pair in rules)
+                    {
+                        IRule rule = pair.Value;
+
+                        if (rule != null)
+                            rule = rule.Clone() as IRule;
+
+                        result.Add(pair.Key, rule);
+                    }
+                }
+                else
+                {
+                    result = (rules != null) ?
+                        new RuleDictionary(rules) : null;
+                }
+
+                return result;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private IEnumerable<IRule> FindExact(
+            RuleType? type,               /* in: OPTIONAL */
+            IdentifierKind? kind,         /* in: OPTIONAL */
+            MatchMode? mode,              /* in: OPTIONAL */
+            RegexOptions? regExOptions,   /* in: OPTIONAL */
+            IEnumerable<string> patterns, /* in: OPTIONAL */
+            IComparer<string> comparer,   /* in: OPTIONAL */
+            ref Result error              /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (rules == null)
+                {
+                    error = "rules unavailable";
+                    return null;
+                }
+
+                IList<IRule> matches = null;
+                LongList ids = new LongList(rules.Keys);
+
+                ids.Sort(); /* O(N) */
+
+                foreach (long id in ids)
+                {
+                    IRule rule;
+
+                    if (!rules.TryGetValue(id, out rule))
+                        continue;
+
+                    if (rule == null)
+                        continue;
+
+                    if ((type != null) &&
+                        (rule.Type != (RuleType)type))
+                    {
+                        continue;
+                    }
+
+                    if ((kind != null) &&
+                        (rule.Kind != (IdentifierKind)kind))
+                    {
+                        continue;
+                    }
+
+                    if ((mode != null) &&
+                        (rule.Mode != (MatchMode)mode))
+                    {
+                        continue;
+                    }
+
+                    if ((regExOptions != null) &&
+                        (rule.RegExOptions != (RegexOptions)regExOptions))
+                    {
+                        continue;
+                    }
+
+                    if ((patterns != null) &&
+                        !ListOps.IEnumerableEquals<string>(
+                            rule.Patterns, patterns, null))
+                    {
+                        continue;
+                    }
+
+                    if ((comparer != null) &&
+                        !MarshalOps.IsSameObjectType(
+                            rule.Comparer, comparer))
+                    {
+                        continue;
+                    }
+
+                    if (matches == null)
+                        matches = new List<IRule>();
+
+                    matches.Add(rule);
+                }
+
+                if (matches != null)
+                {
+                    return matches;
+                }
+                else
+                {
+                    error = "no matching rules found";
+                    return null;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private IRule Add(
             long? id,                     /* in */
             RuleType type,                /* in */
@@ -377,8 +761,8 @@ namespace Eagle._Components.Public
             )
         {
             return Add(new Rule(
-                GetId(id), type, kind, mode, regExOptions, patterns,
-                comparer), ref error);
+                GetRuleId(id), type, kind, mode, regExOptions, patterns,
+                comparer, false), ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -406,7 +790,7 @@ namespace Eagle._Components.Public
                 // HACK: Always overwrite instead of
                 //       purely adding, just in case.
                 //
-                rules[GetId(rule)] = rule;
+                rules[GetRuleId(rule)] = rule;
                 return rule;
             }
         }
@@ -432,7 +816,7 @@ namespace Eagle._Components.Public
                     return false;
                 }
 
-                if (!rules.Remove(GetId(rule)))
+                if (!rules.Remove(GetRuleId(rule)))
                 {
                     error = "could not remove rule";
                     return false;
@@ -447,6 +831,7 @@ namespace Eagle._Components.Public
         private ReturnCode Iterate(
             RuleIterationCallback callback, /* in */
             Interpreter interpreter,        /* in */
+            IClientData clientData,         /* in: OPTIONAL */
             IdentifierKind? kind,           /* in */
             MatchMode mode,                 /* in */
             ref int matchCount,             /* in, out */
@@ -550,8 +935,8 @@ namespace Eagle._Components.Public
                     if (callback == null)
                         continue;
 
-                    if (callback(
-                            interpreter, rule, ref stopOnError,
+                    if (callback(interpreter,
+                            clientData, rule, ref stopOnError,
                             ref errors) != ReturnCode.Ok)
                     {
                         errorCount++;
@@ -577,6 +962,7 @@ namespace Eagle._Components.Public
         private ReturnCode Match(
             RuleMatchCallback callback, /* in */
             Interpreter interpreter,    /* in */
+            IClientData clientData,     /* in: OPTIONAL */
             IdentifierKind? kind,       /* in */
             MatchMode mode,             /* in */
             string text,                /* in */
@@ -685,6 +1071,16 @@ namespace Eagle._Components.Public
                         continue;
                     }
 
+                    //
+                    // HACK: This can be used by the caller to
+                    //       limit candidate rules to a subset
+                    //       of those within this set, e.g. to
+                    //       include in the interpreter and/or
+                    //       flag as "hidden", etc.
+                    //
+                    if (!rule.MatchAction(mode))
+                        continue;
+
                     ReturnCode ruleCode;
                     bool? ruleMatch = null;
                     Result ruleError = null;
@@ -692,8 +1088,9 @@ namespace Eagle._Components.Public
                     if (callback != null)
                     {
                         ruleCode = callback(
-                            interpreter, kind, mode, text, rule,
-                            ref ruleMatch, ref errors);
+                            interpreter, clientData, kind,
+                            mode, text, rule, ref ruleMatch,
+                            ref errors);
                     }
                     else
                     {
@@ -794,17 +1191,52 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public IClientData ClientData
+        {
+            get { CheckDisposed(); lock (syncRoot) { return clientData; } }
+            set { CheckDisposed(); lock (syncRoot) { clientData = value; } }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IRuleSetData Members
+        private long? id;
+        public long? Id
+        {
+            get { CheckDisposed(); lock (syncRoot) { return id; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private IComparer<string> comparer;
         public IComparer<string> Comparer
         {
-            get { CheckDisposed(); return comparer; }
-            set { CheckDisposed(); comparer = value; }
+            get { CheckDisposed(); lock (syncRoot) { return comparer; } }
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region IRuleSet Members
+        public string GetName()
+        {
+            CheckDisposed();
+
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (id == null)
+                    return null;
+
+                return String.Format("{0}{1}{2}",
+                    typeof(RuleSet).Name, Characters.NumberSign, id);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public bool IsEmpty()
         {
             CheckDisposed();
@@ -820,6 +1252,15 @@ namespace Eagle._Components.Public
 
             /* IGNORED */
             SetReadOnly(true);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public int CountRules()
+        {
+            CheckDisposed();
+
+            return GetCount();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -874,6 +1315,61 @@ namespace Eagle._Components.Public
 
                 return result;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public IEnumerable<IRule> FindRules(
+            IRule rule,      /* in */
+            bool allowNone,  /* in */
+            ref Result error /* out */
+            )
+        {
+            CheckDisposed();
+
+            if (rule == null)
+            {
+                error = "invalid rule";
+                return null;
+            }
+
+            //
+            // HACK: When the "allowNone" parameter is false, any
+            //       enumeration values that are none will not be
+            //       used for matching purposes.  Instead, a null
+            //       value will be passed into one of the private
+            //       Find*() methods.
+            //
+            RuleType? type = null;
+            IdentifierKind? kind = null;
+            MatchMode? mode = null;
+            RegexOptions? regExOptions = null;
+
+            if (allowNone)
+            {
+                type = rule.Type;
+                kind = rule.Kind;
+                mode = rule.Mode;
+                regExOptions = rule.RegExOptions;
+            }
+            else
+            {
+                if (rule.Type != RuleType.None)
+                    type = rule.Type;
+
+                if (rule.Kind != IdentifierKind.None)
+                    kind = rule.Kind;
+
+                if (rule.Mode != MatchMode.None)
+                    mode = rule.Mode;
+
+                if (rule.RegExOptions != RegexOptions.None)
+                    regExOptions = rule.RegExOptions;
+            }
+
+            return FindExact(
+                type, kind, mode, regExOptions, rule.Patterns,
+                rule.Comparer, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -980,8 +1476,37 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public bool AddRules(
+            IRuleSet ruleSet, /* in */
+            bool stopOnError, /* in */
+            bool moveRules,   /* in */
+            ref int count,    /* in, out */
+            ref Result error  /* out */
+            )
+        {
+            CheckDisposed();
+            CheckReadOnly();
+
+            IEnumerable<IRule> rules;
+            ResultList errors = null;
+
+            rules = GetRules(
+                ruleSet, stopOnError, moveRules, ref errors);
+
+            if (rules == null)
+            {
+                error = errors;
+                return false;
+            }
+
+            return AddRules(rules, stopOnError, ref count, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool AddRules(
             IEnumerable<IRule> rules, /* in */
             bool stopOnError,         /* in */
+            ref int count,            /* in, out */
             ref Result error          /* out */
             )
         {
@@ -1010,6 +1535,8 @@ namespace Eagle._Components.Public
                         if (stopOnError)
                             break;
                     }
+
+                    count++;
                 }
 
                 return result;
@@ -1019,11 +1546,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public ReturnCode ForEachRule(
-            RuleIterationCallback callback,
-            Interpreter interpreter,
-            IdentifierKind? kind,
-            MatchMode mode,
-            ref Result error
+            RuleIterationCallback callback, /* in */
+            Interpreter interpreter,        /* in */
+            IClientData clientData,         /* in: OPTIONAL */
+            IdentifierKind? kind,           /* in: OPTIONAL */
+            MatchMode mode,                 /* in */
+            ref Result error                /* out */
             )
         {
             CheckDisposed();
@@ -1033,7 +1561,7 @@ namespace Eagle._Components.Public
             IRule stopRule = null;
             ResultList errors = null;
 
-            if (Iterate(callback, interpreter,
+            if (Iterate(callback, interpreter, clientData,
                     kind, mode, ref matchCount, ref errorCount,
                     ref stopRule, ref errors) == ReturnCode.Ok)
             {
@@ -1046,8 +1574,8 @@ namespace Eagle._Components.Public
             {
                 TraceOps.DebugTrace(String.Format(
                     "ForEachRule: failed, {0}", FormatTrace(
-                    interpreter, kind, mode, null, null,
-                    Count.Invalid, matchCount, errorCount,
+                    interpreter, clientData, kind, mode, null,
+                    null, Count.Invalid, matchCount, errorCount,
                     Count.Invalid, Count.Invalid, stopRule,
                     errors)), typeof(RuleSet).Name,
                     TracePriority.RuleError);
@@ -1064,14 +1592,14 @@ namespace Eagle._Components.Public
         public bool ApplyRules(
             Interpreter interpreter, /* in */
             IdentifierKind? kind,    /* in */
+            MatchMode mode,          /* in */
             string text              /* in */
             )
         {
             CheckDisposed();
 
             return ApplyRules(
-                interpreter, kind, MatchMode.RuleSetMask,
-                text, false, false);
+                interpreter, kind, mode, text, false, false);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1091,8 +1619,9 @@ namespace Eagle._Components.Public
             Result error = null;
 
             if ((ApplyRules(
-                    null, interpreter, kind, mode, text, @default,
-                    ref match, ref error) == ReturnCode.Ok) &&
+                    null, interpreter, null, kind,
+                    mode, text, @default, ref match,
+                    ref error) == ReturnCode.Ok) &&
                 (match != null))
             {
                 return (bool)match;
@@ -1106,11 +1635,12 @@ namespace Eagle._Components.Public
         public ReturnCode ApplyRules(
             RuleMatchCallback callback, /* in */
             Interpreter interpreter,    /* in */
+            IClientData clientData,     /* in: OPTIONAL */
             IdentifierKind? kind,       /* in */
             MatchMode mode,             /* in */
             string text,                /* in */
             bool @default,              /* in */
-            ref bool? match,            /* in */
+            ref bool? match,            /* in, out */
             ref Result error            /* out */
             )
         {
@@ -1124,10 +1654,11 @@ namespace Eagle._Components.Public
             ResultList errors = null;
 
             if (Match(
-                    callback, interpreter, kind, mode, text,
-                    ref match, ref nopCount, ref errorCount,
-                    ref includeCount, ref excludeCount,
-                    ref stopRule, ref errors) == ReturnCode.Ok)
+                    callback, interpreter, clientData, kind,
+                    mode, text, ref match, ref nopCount,
+                    ref errorCount, ref includeCount,
+                    ref excludeCount, ref stopRule,
+                    ref errors) == ReturnCode.Ok)
             {
                 if (match != null)
                 {
@@ -1140,8 +1671,8 @@ namespace Eagle._Components.Public
                 {
                     TraceOps.DebugTrace(String.Format(
                         "ApplyRules: no result, {0}", FormatTrace(
-                        interpreter, kind, mode, text, match,
-                        nopCount, Count.Invalid, errorCount,
+                        interpreter, clientData, kind, mode, text,
+                        match, nopCount, Count.Invalid, errorCount,
                         includeCount, excludeCount, stopRule,
                         errors)), typeof(RuleSet).Name,
                         TracePriority.RuleDebug);
@@ -1151,8 +1682,8 @@ namespace Eagle._Components.Public
             {
                 TraceOps.DebugTrace(String.Format(
                     "ApplyRules: failed, {0}", FormatTrace(
-                    interpreter, kind, mode, text, match,
-                    nopCount, Count.Invalid, errorCount,
+                    interpreter, clientData, kind, mode, text,
+                    match, nopCount, Count.Invalid, errorCount,
                     includeCount, excludeCount, stopRule,
                     errors)), typeof(RuleSet).Name,
                     TracePriority.RuleError);

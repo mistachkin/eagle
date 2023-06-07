@@ -134,7 +134,7 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ITraceData Members
+        #region ITypeAndName Members
         public string TypeName
         {
             get { return (trace != null) ? trace.TypeName : null; }
@@ -143,6 +143,16 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        public Type Type
+        {
+            get { return (trace != null) ? trace.Type : null; }
+            set { if (trace != null) { trace.Type = value; } }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ITraceData Members
         public string MethodName
         {
             get { return (trace != null) ? trace.MethodName : null; }

@@ -387,12 +387,12 @@ namespace Eagle._Containers.Public
 
         public string ToRawString()
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (Result element in this)
                 result.Append(element);
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -402,7 +402,7 @@ namespace Eagle._Containers.Public
             string separator
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (Result element in this)
             {
@@ -415,7 +415,7 @@ namespace Eagle._Containers.Public
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
         #endregion
 

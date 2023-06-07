@@ -48,8 +48,14 @@ namespace Eagle._Objects
             )
         {
             kind = IdentifierKind.Object;
-            id = AttributeOps.GetObjectId(this);
-            group = AttributeOps.GetObjectGroups(this);
+
+            if ((objectData == null) ||
+                !FlagOps.HasFlags(objectData.ObjectFlags,
+                    ObjectFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
             if (objectData != null)
             {

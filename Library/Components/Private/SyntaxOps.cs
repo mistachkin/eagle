@@ -211,7 +211,8 @@ namespace Eagle._Components.Private
                     error = null;
 
                     code = LoadData(
-                        text, CoreUnique, ref cache, ref error);
+                        text, CoreUnique, false, ref cache,
+                        ref error);
 
                     if (code != ReturnCode.Ok)
                     {
@@ -259,7 +260,8 @@ namespace Eagle._Components.Private
                             error = null;
 
                             code = LoadData(
-                                text, FileUnique, ref cache, ref error);
+                                text, FileUnique, false, ref cache,
+                                ref error);
 
                             if (code != ReturnCode.Ok)
                             {
@@ -332,7 +334,8 @@ namespace Eagle._Components.Private
                             error = null;
 
                             code = LoadData(
-                                text, PluginUnique, ref cache, ref error);
+                                text, PluginUnique, false, ref cache,
+                                ref error);
 
                             if (code != ReturnCode.Ok)
                             {
@@ -421,126 +424,6 @@ namespace Eagle._Components.Private
             fieldChar = fieldChars[0];
 
             return true;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static ReturnCode LoadData(
-            string text,         /* in */
-            bool unique,         /* in */
-            ref SyntaxData data, /* in, out */
-            ref Result error     /* out */
-            )
-        {
-            if (String.IsNullOrEmpty(text))
-            {
-                error = "invalid text";
-                return ReturnCode.Error;
-            }
-
-            char[] lineChars = null;
-            char[] fieldChars = null;
-
-            if (!GetLoadChars(
-                    ref lineChars, ref fieldChars,
-                    ref error))
-            {
-                return ReturnCode.Error;
-            }
-
-            string[] lines = text.Split(lineChars,
-                StringSplitOptions.RemoveEmptyEntries);
-
-            if (lines == null)
-            {
-                error = "could not split text";
-                return ReturnCode.Error;
-            }
-
-            int length = lines.Length;
-
-            if (length == 0)
-            {
-                error = "there are no lines";
-                return ReturnCode.Error;
-            }
-
-            SyntaxData localData = null;
-
-            for (int index = 0; index < length; index++)
-            {
-                string line = lines[index];
-
-                if (String.IsNullOrEmpty(line))
-                    continue;
-
-                string[] fields = line.Split(fieldChars,
-                    StringSplitOptions.RemoveEmptyEntries);
-
-                if (fields == null)
-                {
-                    error = "could not split line";
-                    return ReturnCode.Error;
-                }
-
-                if (fields.Length != 2) /* name <tab> value */
-                {
-                    error = "wrong number of fields";
-                    return ReturnCode.Error;
-                }
-
-                string name = fields[0];
-
-                if (String.IsNullOrEmpty(name))
-                {
-                    error = "invalid name field";
-                    return ReturnCode.Error;
-                }
-
-                string value = fields[1];
-
-                if (String.IsNullOrEmpty(value))
-                {
-                    error = "invalid value field";
-                    return ReturnCode.Error;
-                }
-
-                if (localData == null)
-                    localData = new SyntaxData();
-
-                StringList values;
-
-                if (localData.TryGetValue(name, out values))
-                {
-                    if (values != null)
-                    {
-                        values.Add(value);
-                    }
-                    else
-                    {
-                        values = new StringList(value);
-                        localData[name] = values;
-                    }
-                }
-                else
-                {
-                    values = new StringList(value);
-                    localData.Add(name, values);
-                }
-
-                if (unique && (values != null))
-                    values.MakeUnique();
-            }
-
-            if (MergeData(
-                    data, localData, unique, ref localData,
-                    ref error) != ReturnCode.Ok)
-            {
-                return ReturnCode.Error;
-            }
-
-            data = localData;
-            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1024,6 +907,165 @@ namespace Eagle._Components.Private
 
                 return true;
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This method was originally private.  It is now public so it
+        //       can be used to support loading lists of well-known mappings
+        //       of assembly file names to plugin type names.
+        //
+        public static ReturnCode LoadData(
+            string text,         /* in */
+            bool unique,         /* in */
+            bool listValues,     /* in */
+            ref SyntaxData data, /* in, out */
+            ref Result error     /* out */
+            )
+        {
+            if (String.IsNullOrEmpty(text))
+            {
+                error = "invalid text";
+                return ReturnCode.Error;
+            }
+
+            char[] lineChars = null;
+            char[] fieldChars = null;
+
+            if (!GetLoadChars(
+                    ref lineChars, ref fieldChars,
+                    ref error))
+            {
+                return ReturnCode.Error;
+            }
+
+            string[] lines = text.Split(lineChars,
+                StringSplitOptions.RemoveEmptyEntries);
+
+            if (lines == null)
+            {
+                error = "could not split text";
+                return ReturnCode.Error;
+            }
+
+            int length = lines.Length;
+
+            if (length == 0)
+            {
+                error = "there are no lines";
+                return ReturnCode.Error;
+            }
+
+            SyntaxData localData = null;
+
+            for (int index = 0; index < length; index++)
+            {
+                string line = lines[index];
+
+                if (String.IsNullOrEmpty(line))
+                    continue;
+
+                string[] fields = line.Split(fieldChars,
+                    StringSplitOptions.RemoveEmptyEntries);
+
+                if (fields == null)
+                {
+                    error = "could not split line";
+                    return ReturnCode.Error;
+                }
+
+                if (fields.Length != 2) /* name <tab> value */
+                {
+                    error = "wrong number of fields";
+                    return ReturnCode.Error;
+                }
+
+                string name = fields[0];
+
+                if (String.IsNullOrEmpty(name))
+                {
+                    error = "invalid name field";
+                    return ReturnCode.Error;
+                }
+
+                string value = fields[1];
+
+                if (String.IsNullOrEmpty(value))
+                {
+                    error = "invalid value field";
+                    return ReturnCode.Error;
+                }
+
+                if (localData == null)
+                    localData = new SyntaxData();
+
+                StringList newValues;
+
+                if (listValues)
+                {
+                    newValues = null;
+
+                    if (ParserOps<string>.SplitList(
+                            null, value, 0, Length.Invalid, false,
+                            ref newValues, ref error) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+
+                    StringList oldValues;
+
+                    if (localData.TryGetValue(name, out oldValues))
+                    {
+                        if (oldValues != null)
+                        {
+                            oldValues.AddRange(newValues);
+                            newValues = oldValues;
+                        }
+                        else
+                        {
+                            localData[name] = newValues;
+                        }
+                    }
+                    else
+                    {
+                        localData.Add(name, newValues);
+                    }
+                }
+                else
+                {
+                    if (localData.TryGetValue(name, out newValues))
+                    {
+                        if (newValues != null)
+                        {
+                            newValues.Add(value);
+                        }
+                        else
+                        {
+                            newValues = new StringList(value);
+                            localData[name] = newValues;
+                        }
+                    }
+                    else
+                    {
+                        newValues = new StringList(value);
+                        localData.Add(name, newValues);
+                    }
+                }
+
+                if (unique && (newValues != null))
+                    newValues.MakeUnique();
+            }
+
+            if (MergeData(
+                    data, localData, unique, ref localData,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            data = localData;
+            return ReturnCode.Ok;
         }
         #endregion
     }

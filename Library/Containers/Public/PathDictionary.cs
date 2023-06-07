@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 #if SERIALIZATION
 using System.Runtime.Serialization;
@@ -22,6 +23,7 @@ using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Private;
+using Eagle._Interfaces.Public;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -122,7 +124,7 @@ namespace Eagle._Containers.Public
         private PathDictionary(
             PathTranslationType translationType /* in */
             )
-            : base(new _Comparers.Custom(PathOps.ComparisonType))
+            : base(new _Comparers.StringCustom(PathOps.ComparisonType))
         {
             this.translationType = translationType;
             InitializeTheOrdering();
@@ -134,7 +136,7 @@ namespace Eagle._Containers.Public
             PathDictionary<T> dictionary,       /* in */
             PathTranslationType translationType /* in */
             )
-            : base(dictionary, new _Comparers.Custom(PathOps.ComparisonType))
+            : base(dictionary, new _Comparers.StringCustom(PathOps.ComparisonType))
         {
             this.translationType = translationType;
             InitializeTheOrdering();
@@ -152,6 +154,64 @@ namespace Eagle._Containers.Public
         {
             this.translationType = translationType;
             InitializeTheOrdering();
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Static "Factory" Methods
+        internal static PathDictionary<T> ForAllDirectories(
+            string path,
+            bool recursive
+            )
+        {
+            return ForDirectories(
+                path, Characters.Asterisk.ToString(),
+                FileOps.GetSearchOption(recursive));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static PathDictionary<T> ForDirectories(
+            string path,
+            string searchPattern,
+            SearchOption searchOption
+            )
+        {
+            string[] directories = Directory.GetDirectories(
+                path, searchPattern, searchOption);
+
+            if (directories == null)
+                return null;
+
+            Array.Sort(directories);
+
+            return CreateFrom(directories);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static PathDictionary<T> CreateFrom(
+            IEnumerable<string> paths
+            )
+        {
+            if (paths == null)
+                return null;
+
+            PathDictionary<T> result = new PathDictionary<T>();
+
+            foreach (string path in paths)
+            {
+                if (path == null)
+                    continue;
+
+                if (result.ContainsKey(path)) /* EXEMPT */
+                    continue;
+
+                result.Add(path, default(T));
+            }
+
+            return result;
         }
         #endregion
 

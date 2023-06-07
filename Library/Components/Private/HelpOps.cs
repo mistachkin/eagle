@@ -236,7 +236,7 @@ namespace Eagle._Components.Private
                     return ReturnCode.Error;
                 }
 
-                StringBuilder builder = StringOps.NewStringBuilder();
+                StringBuilder builder = StringBuilderFactory.Create();
 
                 foreach (XmlNode node in nodeList)
                 {
@@ -260,7 +260,7 @@ namespace Eagle._Components.Private
                     return ReturnCode.Error;
                 }
 
-                text = builder.ToString();
+                text = StringBuilderCache.GetStringAndRelease(ref builder);
                 return ReturnCode.Ok;
             }
             catch (Exception e)
@@ -486,7 +486,7 @@ namespace Eagle._Components.Private
 
             localExecute = null;
 
-            if (interpreter.GetIExecuteViaResolvers(
+            if (interpreter.InternalGetIExecuteViaResolvers(
                     engineFlags, topic1, null, LookupFlags.HelpNoVerbose,
                     ref localExecute) == ReturnCode.Ok)
             {
@@ -498,7 +498,7 @@ namespace Eagle._Components.Private
 
             localExecute = null;
 
-            if (interpreter.GetIExecuteViaResolvers(
+            if (interpreter.InternalGetIExecuteViaResolvers(
                     engineFlags, topic2, null, LookupFlags.HelpNoVerbose,
                     ref localExecute) == ReturnCode.Ok)
             {
@@ -520,7 +520,7 @@ namespace Eagle._Components.Private
             bool summary             /* in */
             )
         {
-            StringBuilder builder = StringOps.NewStringBuilder();
+            StringBuilder builder = StringBuilderFactory.Create();
 
             if (execute != null)
             {
@@ -581,7 +581,7 @@ namespace Eagle._Components.Private
                     FormatOps.WrapOrNull(name));
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2631,12 +2631,12 @@ namespace Eagle._Components.Private
                     "Resets the global and local results."));
 
             result.Add("restc",
-                new StringPair("?strict?",
+                new StringPair("?strict? ?verbose?",
                     "Restores the core plugin for the interactive interpreter."));
 
 #if NOTIFY && NOTIFY_ARGUMENTS
             result.Add("restm",
-                new StringPair("?strict?",
+                new StringPair("?strict? ?verbose?",
                     "Restores the monitor plugin for the interactive interpreter."));
 #endif
 
@@ -2937,8 +2937,8 @@ namespace Eagle._Components.Private
                 assembly);
 
             string certificateSubject = RuntimeOps.GetCertificateSubject(
-                interpreter, fileName, certificateSubjectPrefix, true,
-                true, true);
+                interpreter, fileName, certificateSubjectPrefix,
+                RuntimeOps.ShouldCheckCoreFileTrusted(), true, true);
 
             return String.Format(
                 compactMode ? bannerCompactFormat : bannerFormat,
@@ -4059,6 +4059,12 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, EnvVars.Console));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything],\n" +
+                                "{0}interpreter creation will be allowed if a token has been specified and\n" +
+                                "{0}it has not been persistently disabled via the stub assembly.",
+                                Characters.HorizontalTab, EnvVars.CreateFailSafe));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set, its value will be\n" +
                                 "{0}used to alter or set the creation flags for the interpreter.  If the\n" +
                                 "{0}value cannot be converted to creation flags, it will be ignored.",
@@ -4156,6 +4162,12 @@ namespace Eagle._Components.Private
                                 "{0}plugins that belong to the security package (e.g. Harpy and Badge)\n" +
                                 "{0}from being loaded.",
                                 Characters.HorizontalTab, EnvVars.ForceSecurity));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything],\n" +
+                                "{0}the lists of trusted hashes will be used when making trust decisions on\n" +
+                                "{0}platforms where they would normally be ignored.",
+                                Characters.HorizontalTab, EnvVars.ForceTrustedHashes));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set, its value will be\n" +
@@ -4659,6 +4671,13 @@ namespace Eagle._Components.Private
                                 "{0}directory searched when attempting to find user-specific and/or\n" +
                                 "{0}application-specific files.",
                                 Characters.HorizontalTab, EnvVars.VendorPath));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], selected\n" +
+                                "{0}diagnostic messages will be enabled during the interpreter creation\n" +
+                                "{0}process.",
+                                Characters.HorizontalTab, EnvVars.Verbose));
+                            displayHost.WriteLine();
                         }
 
                         result = String.Empty;

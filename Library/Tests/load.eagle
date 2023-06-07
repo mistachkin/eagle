@@ -266,10 +266,11 @@ runTest {test load-1.6 {load plugin via bytes (non-isolated)} -setup [subst {
   unset -nocomplain code result token plugin fileName haveCasPolicy
 } -constraints {eagle command.object monoCrash28 compile.TEST file_Plugin.dll\
 Eagle._Tests.Default.TestLoadPluginViaBytes strongName.official} \
--isolationLevel Maximum -match regexp -result {^Ok \{\{Sample\.Class3, Plugin,\
-Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
-1\.0\.\d+\.\d+\} Sample#Class3#\d+ \d+$}}
+-isolationLevel Maximum -match regexp -result [string map [list \
+%publicKeyTokens% [getKnownPublicKeyTokenPattern]] {^Ok \{\{Sample\.Class3,\
+Plugin, Version=1\.0\.\d+\.\d+, Culture=neutral,\
+PublicKeyToken=(?:%publicKeyTokens%)\} 1\.0\.\d+\.\d+\} Sample#Class3#\d+\
+\d+$}]}
 
 ###############################################################################
 
@@ -315,10 +316,11 @@ runTest {test load-1.7 {load plugin via bytes (isolated)} -setup [subst {
       savedPluginFlags
 } -constraints {eagle command.object compile.ISOLATED_PLUGINS compile.TEST\
 file_Plugin.dll Eagle._Tests.Default.TestLoadPluginViaBytes\
-strongName.official} -isolationLevel Maximum -match regexp -result {^Ok\
+strongName.official} -isolationLevel Maximum -match regexp -result [string \
+map [list %publicKeyTokens% [getKnownPublicKeyTokenPattern]] {^Ok\
 \{\{Sample\.Class3, Plugin, Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
-1\.0\.\d+\.\d+\} Sample#Class3#\d+ \d+$}}
+PublicKeyToken=(?:%publicKeyTokens%)\} 1\.0\.\d+\.\d+\} Sample#Class3#\d+\
+\d+$}]}
 
 ###############################################################################
 
@@ -479,10 +481,10 @@ runTest {test load-2.1 {load plugin approved by policy} -setup [subst {
 } -constraints {eagle command.object compile.TEST file_Plugin.dll\
 Eagle._Tests.Default.TestSetQuiet Eagle._Tests.Default.TestAddLoadPluginPolicy\
 Eagle._Tests.Default.TestLoadPluginPolicy strongName.official} \
--isolationLevel Maximum -match regexp -result \
-{^\{Sample\.Class3, Plugin, Version=1\.0\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
-1\.0\.\d+\.\d+$}}
+-isolationLevel Maximum -match regexp -result [string map [list \
+%publicKeyTokens% [getKnownPublicKeyTokenPattern]] {^\{Sample\.Class3, Plugin,\
+Version=1\.0\.\d+\.\d+, Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\}\
+1\.0\.\d+\.\d+$}]}
 
 ###############################################################################
 

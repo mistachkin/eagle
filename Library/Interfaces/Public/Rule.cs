@@ -11,6 +11,7 @@
 
 using System;
 using Eagle._Attributes;
+using Eagle._Components.Public;
 
 namespace Eagle._Interfaces.Public
 {
@@ -18,5 +19,6 @@ namespace Eagle._Interfaces.Public
     public interface IRule : IRuleData, ICloneable
     {
         void SetId(long? id);
+        bool MatchAction(MatchMode mode);
     }
 }

@@ -96,6 +96,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private LogFlags? logFlags;
+        public LogFlags? LogFlags
+        {
+            get { CheckDisposed(); lock (syncRoot) { return logFlags; } }
+            set { CheckDisposed(); lock (syncRoot) { logFlags = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private IEnumerable<string> enabledCategories;
         public IEnumerable<string> EnabledCategories
         {
@@ -336,6 +345,7 @@ namespace Eagle._Components.Public
                             logName = null;
                             logFileName = null;
                             logEncoding = null;
+                            logFlags = null;
                             enabledCategories = null;
                             disabledCategories = null;
                             penaltyCategories = null;
@@ -376,15 +386,6 @@ namespace Eagle._Components.Public
 
                 disposed = true;
             }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Destructor
-        ~TraceClientData()
-        {
-            Dispose(false);
         }
         #endregion
     }

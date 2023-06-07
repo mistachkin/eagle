@@ -94,6 +94,19 @@ namespace Eagle._Interfaces.Public
             ref int errorLine
             );
 
+        ReturnCode EvaluateScript(
+            string fileName,
+            string text,
+            ref Result result
+            );
+
+        ReturnCode EvaluateScript(
+            string fileName,
+            string text,
+            ref Result result,
+            ref int errorLine
+            );
+
         ReturnCode EvaluateGlobalScript(
             string text,
             ref Result result
@@ -190,6 +203,19 @@ namespace Eagle._Interfaces.Public
         ReturnCode EvaluateStream(
             string name,
             TextReader textReader,
+            ref Result result
+            );
+
+        ReturnCode EvaluateStream(
+            string name,
+            TextReader textReader,
+            ref Result result,
+            ref int errorLine
+            );
+
+        ReturnCode EvaluateStream(
+            string name,
+            TextReader textReader,
             int startIndex,
             int characters,
             ref Result result,
@@ -275,6 +301,21 @@ namespace Eagle._Interfaces.Public
         ReturnCode EvaluateTrustedStream(
             string name,
             TextReader textReader,
+            TrustFlags trustFlags,
+            ref Result result
+            );
+
+        ReturnCode EvaluateTrustedStream(
+            string name,
+            TextReader textReader,
+            TrustFlags trustFlags,
+            ref Result result,
+            ref int errorLine
+            );
+
+        ReturnCode EvaluateTrustedStream(
+            string name,
+            TextReader textReader,
             int startIndex,
             int characters,
             TrustFlags trustFlags,
@@ -297,6 +338,12 @@ namespace Eagle._Interfaces.Public
 
         ReturnCode EvaluateExpression(
             string text,
+            ref Result result
+            );
+
+        ReturnCode EvaluateExpressionWithErrorInfo(
+            string text,
+            string errorInfo,
             ref Result result
             );
 

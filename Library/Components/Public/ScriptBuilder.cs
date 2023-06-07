@@ -279,7 +279,7 @@ namespace Eagle._Components.Public
             if (items == null)
                 return null;
 
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (KeyValuePair<long, object> pair in items)
             {
@@ -310,7 +310,7 @@ namespace Eagle._Components.Public
                 // NOTE: Always attempt to normalize the block line-endings to
                 //       line-feed only, as required by the script engine.
                 //
-                StringBuilder block = StringOps.NewStringBuilder(
+                StringBuilder block = StringBuilderFactory.Create(
                     (value is IScript) ? ((IScript)value).Text :
                     value.ToString());
 
@@ -319,6 +319,10 @@ namespace Eagle._Components.Public
                 ///////////////////////////////////////////////////////////////
 
                 result.Append(block);
+
+                ///////////////////////////////////////////////////////////////
+
+                StringBuilderCache.Release(ref block);
             }
 
             if (nested && (result.Length > 0))
@@ -327,7 +331,7 @@ namespace Eagle._Components.Public
                 result.Append(Characters.CloseBracket);
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////

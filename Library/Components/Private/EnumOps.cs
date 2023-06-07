@@ -11,6 +11,11 @@
 
 using System;
 using System.Collections.Generic;
+
+#if DATA
+using System.Data;
+#endif
+
 using System.Globalization;
 using System.Reflection;
 using System.Text;
@@ -35,6 +40,38 @@ namespace Eagle._Components.Private
     internal static class EnumOps
     {
         #region Private Constants
+#if DATA
+        //
+        // NOTE: This integer value is used with CommandBehavior values.
+        //       When set, extra SQLiteDataReader.Read calls are not
+        //       performed within the ExecuteScalar methods for write
+        //       transactions.  This value should be used with extreme
+        //       care because it can cause unusual behavior.  It is
+        //       intended for use only by legacy applications that rely
+        //       on the old, incorrect behavior.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static CommandBehavior SkipExtraReads =
+            (CommandBehavior)0x10000000;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This integer value is used with CommandBehavior values.
+        //       When set, extra SQLiteDataReader.Read calls are performed
+        //       within the ExecuteScalar() methods for all transactions.
+        //       This value should be used with extreme care because it
+        //       can cause unusual behavior.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        public const CommandBehavior ForceExtraReads =
+            (CommandBehavior)0x20000000;
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // HACK: This is purposely not read-only to allow for ad-hoc
         //       "customization" (i.e. via a script using something
@@ -568,7 +605,7 @@ namespace Eagle._Components.Private
 
                 if (result.IndexOfAny(characters) != Index.Invalid)
                 {
-                    StringBuilder builder = StringOps.NewStringBuilder(
+                    StringBuilder builder = StringBuilderFactory.Create(
                         result);
 
                     int length = characters.Length;
@@ -579,7 +616,8 @@ namespace Eagle._Components.Private
                             characters[index], Characters.Space);
                     }
 
-                    result = builder.ToString();
+                    result = StringBuilderCache.GetStringAndRelease(
+                        ref builder);
                 }
             }
 
@@ -2712,6 +2750,46 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private TryParseFlags Methods
+        private static bool CheckForSpecialFlags(
+            Type enumType,           /* in */
+            string item,             /* in */
+            out object itemEnumValue /* out */
+            )
+        {
+#if DATA
+            //
+            // HACK: *SPECIAL* Starting with the 1.0.118.0 release of
+            //       System.Data.SQLite, these "extra" values will be
+            //       recognized by the SQLiteCommand class.
+            //
+            if (enumType != typeof(CommandBehavior))
+            {
+                itemEnumValue = null;
+                return false;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (SharedStringOps.SystemEquals(item, "SkipExtraReads"))
+            {
+                itemEnumValue = SkipExtraReads;
+                return true;
+            }
+            else if (SharedStringOps.SystemEquals(item, "ForceExtraReads"))
+            {
+                itemEnumValue = ForceExtraReads;
+                return true;
+            }
+#endif
+
+            ///////////////////////////////////////////////////////////////////
+
+            itemEnumValue = null;
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static object TryParseFlags(
             Interpreter interpreter, /* in: OPTIONAL */
             Type enumType,           /* in */
@@ -2919,11 +2997,17 @@ namespace Eagle._Components.Private
                             continue;
                     }
 
-                    localError = null;
+                    object itemEnumValue;
 
-                    object itemEnumValue = TryParse(
-                        enumType, item, enumNames, enumValues,
-                        allowInteger, noCase, ref localError);
+                    if (!CheckForSpecialFlags(
+                            enumType, item, out itemEnumValue))
+                    {
+                        localError = null;
+
+                        itemEnumValue = TryParse(
+                            enumType, item, enumNames, enumValues,
+                            allowInteger, noCase, ref localError);
+                    }
 
                     if (itemEnumValue == null)
                     {

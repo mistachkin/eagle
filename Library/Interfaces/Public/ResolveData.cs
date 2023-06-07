@@ -10,12 +10,16 @@
  */
 
 using Eagle._Attributes;
+using Eagle._Components.Public;
 
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("79e8f73c-d287-4715-824b-d5cc3cdc240f")]
     public interface IResolveData : IIdentifier, IHaveInterpreter, IWrapperData
     {
-        // nothing.
+        //
+        // NOTE: The flags for this resolver.
+        //
+        ResolveFlags Flags { get; set; }
     }
 }

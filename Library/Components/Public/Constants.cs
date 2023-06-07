@@ -450,13 +450,25 @@ namespace Eagle._Constants
         public static readonly string TestPackageIndex =
             FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
                 PackageType.Test, false, false);
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static readonly string KitPackageIndex =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
+                PackageType.Kit, false, false);
     }
 
     ///////////////////////////////////////////////////////////////////////////
 
     [ObjectId("1f6dc165-629e-4cbe-aec2-b26239f244e4")]
-    internal static class FileNameOnly
+    public static class FileNameOnly
     {
+        public static readonly string PackageIndex =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
+                PackageType.None, true, false);
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static readonly string Initialization =
             FormatOps.ScriptTypeToFileName(ScriptTypes.Initialization,
                 PackageType.Library, true, false);
@@ -489,10 +501,6 @@ namespace Eagle._Constants
             FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
                 PackageType.Library, true, false);
 
-        public static readonly string PackageIndex =
-            FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
-                PackageType.None, true, false);
-
         ///////////////////////////////////////////////////////////////////////
 
         public static readonly string All =
@@ -514,6 +522,17 @@ namespace Eagle._Constants
         public static readonly string TestPackageIndex =
             FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
                 PackageType.Test, true, false);
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static readonly string KitPackageIndex =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
+                PackageType.Kit, true, false);
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal static readonly string WellKnownAssemblyFilePluginNames =
+            "WellKnownAssemblyFilePluginNames.tsv";
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -602,7 +621,8 @@ namespace Eagle._Constants
             ".bak",          /* 26: Backup */
             ".settings",     /* 27: Settings */
             ".noPkgIndex",   /* 28: NoPkgIndex */
-            ".*"             /* 29: Any */
+            ".ruleSet",      /* 29: RuleSet */
+            ".*"             /* 30: Any */
         };
 
         ///////////////////////////////////////////////////////////////////////
@@ -646,7 +666,8 @@ namespace Eagle._Constants
         public static readonly string Backup = WellKnown[26];
         public static readonly string Settings = WellKnown[27];
         public static readonly string NoPkgIndex = WellKnown[28];
-        public static readonly string Any = WellKnown[29];
+        public static readonly string RuleSet = WellKnown[29];
+        public static readonly string Any = WellKnown[30];
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -966,6 +987,21 @@ namespace Eagle._Constants
             "Native stack checking will be disabled.";
 #endif
 
+        public static readonly string CreateFailSafe =
+            "Token interpreter creation cannot be temporarily disabled.";
+
+        public static readonly string ForceTrustedHashes =
+            "Trusted hashes will not be ignored.";
+
+        public static readonly string NoTrustedHashes =
+            "Trusted hashes disabled.";
+
+        public static readonly string StrictBasePath =
+            "Strict base path checking will be used.";
+
+        public static readonly string UseNamedEvents =
+            "Internal wrapper class will be used for named events.";
+
         public static readonly string NoPopulateOsExtra =
             "Extra operating system information will not be populated.";
 
@@ -977,6 +1013,9 @@ namespace Eagle._Constants
 
         public static readonly string NoVerbose =
             "Selected diagnostic messages are disabled.";
+
+        public static readonly string Verbose =
+            "Selected diagnostic messages are enabled.";
 
         public static readonly string UtilityPath =
             "Utility path overridden via configuration: {0}.";
@@ -1316,6 +1355,18 @@ namespace Eagle._Constants
         public static readonly bool Debug = true;
 #else
         public static readonly bool Debug = false;
+#endif
+
+#if CONSOLE
+        public static readonly bool Console = true;
+#else
+        public static readonly bool Console = false;
+#endif
+
+#if VERBOSE
+        public static readonly bool Verbose = true;
+#else
+        public static readonly bool Verbose = false;
 #endif
     }
 }

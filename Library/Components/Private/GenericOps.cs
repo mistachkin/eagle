@@ -577,7 +577,7 @@ namespace Eagle._Components.Private
             string valueSuffix
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
             StringList localList = ToStringList(list, true, true);
 
             if (localList != null)
@@ -631,7 +631,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -837,7 +837,7 @@ namespace Eagle._Components.Private
             bool noCase
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (list != null)
             {
@@ -902,7 +902,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -915,7 +915,7 @@ namespace Eagle._Components.Private
             RegexOptions regExOptions
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (list != null)
             {
@@ -986,7 +986,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
     }
     #endregion
@@ -1609,7 +1609,7 @@ namespace Eagle._Components.Private
             RegexOptions regExOptions
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (dictionary != null)
             {
@@ -1718,7 +1718,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1733,7 +1733,7 @@ namespace Eagle._Components.Private
             bool noCase
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             if (dictionary != null)
             {
@@ -1836,7 +1836,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
     }
     #endregion

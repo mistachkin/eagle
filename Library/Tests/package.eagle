@@ -142,7 +142,7 @@ runTest {test garuda-1.1 {Eagle Package for Tcl (Garuda) via Tcl} -setup {
   unset -nocomplain exitCode script sentryIndex test_sentry
 
   rename findStringInFile ""
-} -constraints [fixConstraints {eagle dotNet windows logFile tclShell\
+} -constraints [fixConstraints {eagle dotNet native windows logFile tclShell\
 compile.WINDOWS compile.NATIVE compile.TCL compile.NATIVE_PACKAGE testExec\
 file_Garuda.dll file_pkgAll.tcl}] -result {Success}}
 
@@ -391,10 +391,10 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
   unset -nocomplain sentryIndex test_sentry
 
   rename findStringInFile ""
-} -constraints [fixConstraints {eagle dotNet windows logFile garudaLibrary\
-tclLibrary command.tcl compile.WINDOWS compile.NATIVE compile.TCL\
-compile.NATIVE_PACKAGE Eagle._Tests.Default.TestSetQuiet testExec\
-file_Garuda.dll}] -result {Success}}
+} -constraints [fixConstraints {eagle dotNet native windows logFile\
+garudaLibrary tclLibrary command.tcl compile.WINDOWS compile.NATIVE\
+compile.TCL compile.NATIVE_PACKAGE Eagle._Tests.Default.TestSetQuiet\
+testExec file_Garuda.dll}] -result {Success}}
 
 ###############################################################################
 

@@ -19,7 +19,7 @@ using Eagle._Containers.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("822714c8-a9c5-4118-888e-c561c96cbb3e")]
-    public interface IPluginData : IIdentifier, IWrapperData
+    public interface IPluginData : IIdentifier, IWrapperData, ITypeAndName
     {
         //
         // NOTE: The flags for this plugin.
@@ -66,11 +66,6 @@ namespace Eagle._Interfaces.Public
         //       this plugin, if any.
         //
         string FileName { get; set; }
-
-        //
-        // NOTE: The full name of the type that implements this plugin.
-        //
-        string TypeName { get; set; }
 
         //
         // NOTE: The initial list of command data for this plugin, if any.

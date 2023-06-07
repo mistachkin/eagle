@@ -178,8 +178,8 @@ namespace Eagle._Plugins
                 ICommand command = CreateCommand(clientData);
 
                 if (!interpreter.IsStandard() && interpreter.ApplyRuleSet(
-                        IdentifierKind.Command, ScriptOps.MakeCommandName(
-                        command.Name)))
+                        IdentifierKind.Command, MatchMode.IncludeRuleSetMask,
+                        ScriptOps.MakeCommandName(command.Name)))
                 {
                     if (interpreter.AddCommand(
                             command, null, ref result) != ReturnCode.Ok)

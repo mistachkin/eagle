@@ -156,6 +156,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public void MaybeAddRange(
+            IEnumerable<byte> collection
+            )
+        {
+            if (collection == null)
+                return;
+
+            base.AddRange(collection);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public bool AddFromString(
             string value,
             ref Result error
@@ -168,6 +180,40 @@ namespace Eagle._Containers.Public
 
             this.AddRange(list);
             return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ByteList Xor(
+            IList<byte> list
+            )
+        {
+            if (list == null)
+                return null;
+
+            int count1 = this.Count;
+
+            if (count1 == 0)
+                return null;
+
+            int count2 = list.Count;
+
+            if (count2 == 0)
+                return null;
+
+            if (count2 > count1)
+                return null;
+
+            ByteList result = new ByteList(count1);
+
+            for (int index = 0; index < count1; index++)
+            {
+                result.Add((byte)(
+                    this[index] ^ list[index % count2]
+                ));
+            }
+
+            return result;
         }
         #endregion
 

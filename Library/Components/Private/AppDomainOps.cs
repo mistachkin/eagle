@@ -660,6 +660,14 @@ namespace Eagle._Components.Private
                     if (!interpreter.Disposed)
                         return interpreter.GetAppDomain();
                 }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "GetFrom",
+                        typeof(AppDomainOps).Name, false,
+                        TracePriority.LockError,
+                        interpreter.MaybeWhoHasLock());
+                }
             }
             catch
             {
@@ -672,6 +680,18 @@ namespace Eagle._Components.Private
             }
 
             return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static AppDomain GetFrom(
+            IPluginData pluginData
+            )
+        {
+            if (pluginData == null)
+                return null;
+
+            return pluginData.AppDomain;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -799,27 +819,61 @@ namespace Eagle._Components.Private
             IPluginData pluginData
             )
         {
+            return IsCross(pluginData, (bool?)null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsCross(
+            IPluginData pluginData,
+            bool? resultOnNull
+            )
+        {
 #if ISOLATED_PLUGINS
             if (IsIsolated(pluginData))
                 return true;
 #endif
 
-            return IsCrossNoIsolated(pluginData);
+            return IsCrossNoIsolated(pluginData, resultOnNull);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsCrossNoIsolated(
+            IPluginData pluginData
+            )
+        {
+            return IsCrossNoIsolated(pluginData, null);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // BUGBUG: Should this just use the IsTransparentProxy method instead?
+        // BUGBUG: Should this method just use the IsTransparentProxy
+        //         method instead?
         //
         public static bool IsCrossNoIsolated(
-            IPluginData pluginData
+            IPluginData pluginData,
+            bool? resultOnNull
             )
         {
-            AppDomain pluginAppDomain = (pluginData != null) ?
-                pluginData.AppDomain : null;
-
             AppDomain currentAppDomain = GetCurrent();
+
+            //
+            // BUGBUG: If the plugin data is null here, this method
+            //         should probably not return true; however, as
+            //         currently written, it will return true.
+            //
+            AppDomain pluginAppDomain = GetFrom(pluginData);
+
+            if (resultOnNull != null)
+            {
+                if ((currentAppDomain == null) ||
+                    (pluginAppDomain == null))
+                {
+                    return (bool)resultOnNull;
+                }
+            }
 
             if (!IsSame(pluginAppDomain, currentAppDomain))
                 return true;
@@ -837,22 +891,45 @@ namespace Eagle._Components.Private
             IPluginData pluginData
             )
         {
+            return IsCross(interpreter, pluginData, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsCross(
+            Interpreter interpreter,
+            IPluginData pluginData,
+            bool? resultOnNull
+            )
+        {
 #if ISOLATED_PLUGINS
             if (IsIsolated(pluginData))
                 return true;
 #endif
 
-            return IsCrossNoIsolated(interpreter, pluginData);
+            return IsCrossNoIsolated(interpreter, pluginData, resultOnNull);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsCrossNoIsolated(
+            Interpreter interpreter,
+            IPluginData pluginData
+            )
+        {
+            return IsCrossNoIsolated(interpreter, pluginData, null);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // BUGBUG: Should this just use the IsTransparentProxy method instead?
+        // BUGBUG: Should this method just use the IsTransparentProxy
+        //         method instead?
         //
         public static bool IsCrossNoIsolated(
             Interpreter interpreter,
-            IPluginData pluginData
+            IPluginData pluginData,
+            bool? resultOnNull
             )
         {
             AppDomain interpreterAppDomain;
@@ -869,7 +946,7 @@ namespace Eagle._Components.Private
                 //       loaded into the parent interpreter application
                 //       domain.
                 //
-                if (!interpreter.IsOrphanInterpreter() &&
+                if (!interpreter.InternalIsOrphanInterpreter() &&
                     !IsCurrentDefault())
                 {
                     return true;
@@ -882,8 +959,22 @@ namespace Eagle._Components.Private
                 interpreterAppDomain = null;
             }
 
-            AppDomain pluginAppDomain = (pluginData != null) ?
-                pluginData.AppDomain : null;
+            //
+            // BUGBUG: If the plugin data is null here, this method
+            //         should probably not return true; however, as
+            //         currently written, it will return true, -IF-
+            //         the interpreter is not null.
+            //
+            AppDomain pluginAppDomain = GetFrom(pluginData);
+
+            if (resultOnNull != null)
+            {
+                if ((interpreterAppDomain == null) ||
+                    (pluginAppDomain == null))
+                {
+                    return (bool)resultOnNull;
+                }
+            }
 
             if (!IsSame(interpreterAppDomain, pluginAppDomain))
                 return true;
@@ -1420,8 +1511,8 @@ namespace Eagle._Components.Private
                 if (flags == OptionFlags.None)
                 {
                     error = String.Format(
-                        "unsupported type code for enumerated type \"{0}\"",
-                        type);
+                        "unsupported type code for enumerated type {0}",
+                        FormatOps.WrapOrNull(type));
 
                     return ReturnCode.Error;
                 }
@@ -1831,7 +1922,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode TransferStaticInformation(
+        private static ReturnCode TransferStaticInformation(
             AppDomain appDomain,
             Type type,
             StringList includeNames,
@@ -1900,6 +1991,13 @@ namespace Eagle._Components.Private
             public void RefreshEntryAssembly()
             {
                 GlobalState.RefreshEntryAssembly(entryAssembly);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            public void MaybeStaticInitialize()
+            {
+                Interpreter.MaybeStaticInitialize();
             }
             #endregion
         }
@@ -2354,6 +2452,9 @@ namespace Eagle._Components.Private
                                     PostCreateHelper.Create(entryAssembly);
 
                                 DoCallBack(localAppDomain,
+                                    postCreateHelper.MaybeStaticInitialize);
+
+                                DoCallBack(localAppDomain,
                                     postCreateHelper.RefreshEntryAssembly);
                             }
                             catch
@@ -2389,6 +2490,55 @@ namespace Eagle._Components.Private
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode Create(
+            Interpreter interpreter,
+            string friendlyName,
+            string baseDirectory,
+            string packagePath,
+#if CAS_POLICY
+            Evidence evidence,
+#endif
+            IClientData clientData, /* NOT USED */
+            bool useBasePath,
+            bool verifyCoreAssembly,
+            bool useEntryAssembly,
+            bool optionalEntryAssembly,
+            bool copyConfiguration,
+            ref AppDomain appDomain,
+            ref Result error
+            )
+        {
+            if (Create(interpreter,
+                    friendlyName, baseDirectory, packagePath,
+#if CAS_POLICY
+                    evidence,
+#endif
+                    clientData, useBasePath, verifyCoreAssembly,
+                    useEntryAssembly, optionalEntryAssembly,
+                    ref appDomain, ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            Result localError = null;
+
+            if (copyConfiguration && TransferStaticInformation(
+                    appDomain, typeof(TraceOps), null, null,
+                    false, ref localError) != ReturnCode.Ok)
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "Create: failed to copy static " +
+                    "TraceOps configuration: {0}",
+                    FormatOps.WrapOrNull(localError)),
+                    typeof(AppDomainOps).Name,
+                    TracePriority.MarshalError);
+            }
+
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////

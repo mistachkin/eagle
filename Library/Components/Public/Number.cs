@@ -1107,10 +1107,24 @@ namespace Eagle._Components.Public
 
         public virtual bool IsIntegral()
         {
-            return (IsBoolean() || IsSignedByte() || IsByte() || IsNarrowInteger() ||
-                    IsUnsignedNarrowInteger() || IsCharacter() || IsInteger() ||
-                    IsUnsignedInteger() || IsWideInteger() || IsUnsignedWideInteger() ||
-                    IsReturnCode() || IsMatchMode() || IsMidpointRounding());
+            return IsBoolean() || IsSignedByte() || IsByte() ||
+                IsNarrowInteger() || IsUnsignedNarrowInteger() ||
+                IsCharacter() || IsInteger() || IsUnsignedInteger() ||
+                IsWideInteger() || IsUnsignedWideInteger();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public virtual bool IsEnum()
+        {
+            return IsReturnCode() || IsMatchMode() || IsMidpointRounding();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public virtual bool IsIntegralOrEnum()
+        {
+            return IsIntegral() || IsEnum();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1124,7 +1138,7 @@ namespace Eagle._Components.Public
 
         public virtual bool IsFloatingPoint()
         {
-            return (IsSingle() || IsDouble());
+            return IsSingle() || IsDouble();
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

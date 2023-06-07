@@ -687,6 +687,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public override ReturnCode ResetHistory(
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            error = "not implemented";
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public override ReturnCode GetMode(
             ChannelType channelType,
             ref uint mode,

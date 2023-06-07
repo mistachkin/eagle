@@ -175,6 +175,7 @@
     <Compile Include="Commands\Lsort.cs" />
     <Compile Include="Commands\Namespace1.cs" />
     <Compile Include="Commands\Namespace2.cs" />
+    <Compile Include="Commands\Napply.cs" />
     <Compile Include="Commands\Nop.cs" />
     <Compile Include="Commands\Nproc.cs" />
     <Compile Include="Commands\Object.cs" />
@@ -217,21 +218,21 @@
     <Compile Include="Commands\Version.cs" />
     <Compile Include="Commands\Vwait.cs" />
     <Compile Include="Commands\While.cs" />
-    <Compile Include="Comparers\Ascii.cs" />
-    <Compile Include="Comparers\Command.cs" />
-    <Compile Include="Comparers\Custom.cs" />
-    <Compile Include="Comparers\Dictionary.cs" />
-    <Compile Include="Comparers\FileName.cs" />
-    <Compile Include="Comparers\Glob.cs" />
-    <Compile Include="Comparers\Integer.cs" />
     <Compile Include="Comparers\Interpreter.cs" />
-    <Compile Include="Comparers\Match.cs" />
     <Compile Include="Comparers\Pair.cs" />
-    <Compile Include="Comparers\Random.cs" />
-    <Compile Include="Comparers\Real.cs" />
-    <Compile Include="Comparers\Regexp.cs" />
+    <Compile Include="Comparers\StringAscii.cs" />
+    <Compile Include="Comparers\StringCommand.cs" />
+    <Compile Include="Comparers\StringCustom.cs" />
+    <Compile Include="Comparers\StringDictionary.cs" />
+    <Compile Include="Comparers\StringFileName.cs" />
+    <Compile Include="Comparers\StringGlob.cs" />
+    <Compile Include="Comparers\StringInteger.cs" />
+    <Compile Include="Comparers\StringMatch.cs" />
     <Compile Include="Comparers\StringObject.cs" />
-    <Compile Include="Comparers\SubString.cs" />
+    <Compile Include="Comparers\StringRandom.cs" />
+    <Compile Include="Comparers\StringReal.cs" />
+    <Compile Include="Comparers\StringRegexp.cs" />
+    <Compile Include="Comparers\StringSubString.cs" />
     <Compile Include="Components\Private\AddEntityClientData.cs" />
     <Compile Include="Components\Private\AppDomainOps.cs" />
     <Compile Include="Components\Private\ArgumentInfo.cs" />
@@ -256,6 +257,7 @@
     <Compile Include="Components\Private\ConfigurationOps.cs" />
     <Compile Include="Components\Private\ContextOps.cs" />
     <Compile Include="Components\Private\ConversionOps.cs" />
+    <Compile Include="Components\Private\DataRecord.cs" />
     <Compile Include="Components\Private\DateTimeIntPair.cs" />
     <Compile Include="Components\Private\DebugOps.cs" />
     <Compile Include="Components\Private\DebuggerOps.cs" />
@@ -276,6 +278,7 @@
     <Compile Include="Components\Private\FlagOps.cs" />
     <Compile Include="Components\Private\FormatOps.cs" />
     <Compile Include="Components\Private\GenericOps.cs" />
+    <Compile Include="Components\Private\GetScriptClientData.cs" />
     <Compile Include="Components\Private\GlobalConfiguration.cs" />
     <Compile Include="Components\Private\GlobalState.cs" />
     <Compile Include="Components\Private\HandleOps.cs" />
@@ -304,6 +307,7 @@
     <Compile Include="Components\Private\PerformanceClientData.cs" />
     <Compile Include="Components\Private\PerformanceOps.cs" />
     <Compile Include="Components\Private\PlatformOps.cs" />
+    <Compile Include="Components\Private\PluginClientData.cs" />
     <Compile Include="Components\Private\PolicyOps.cs" />
     <Compile Include="Components\Private\ProcessOps.cs" />
     <Compile Include="Components\Private\ProfileOps.cs" />
@@ -323,6 +327,8 @@
     <Compile Include="Components\Private\ServiceEventClientData.cs" />
     <Compile Include="Components\Private\SettingsOps.cs" />
     <Compile Include="Components\Private\SetupOps.cs" />
+    <Compile Include="Components\Private\StringBuilderCache.cs" />
+    <Compile Include="Components\Private\StringBuilderFactory.cs" />
     <Compile Include="Components\Private\StringBuilderWrapper.cs" />
     <Compile Include="Components\Private\StringOps.cs" />
     <Compile Include="Components\Private\SyntaxOps.cs" />
@@ -500,6 +506,7 @@
     <Compile Include="Containers\Public\PolicyList.cs" />
     <Compile Include="Containers\Public\ResultList.cs" />
     <Compile Include="Containers\Public\ReturnCodeList.cs" />
+    <Compile Include="Containers\Public\RuleSetDictionary.cs" />
     <Compile Include="Containers\Public\StackList.cs" />
     <Compile Include="Containers\Public\StringDictionary.cs" />
     <Compile Include="Containers\Public\StringList.cs" />
@@ -620,6 +627,7 @@
     <Compile Include="Interfaces\Public\CommandBaseData.cs" />
     <Compile Include="Interfaces\Public\CommandData.cs" />
     <Compile Include="Interfaces\Public\CoreClientData.cs" />
+    <Compile Include="Interfaces\Public\CryptographyData.cs" />
     <Compile Include="Interfaces\Public\DebugHost.cs" />
     <Compile Include="Interfaces\Public\DebugManager.cs" />
     <Compile Include="Interfaces\Public\DelegateData.cs" />
@@ -635,6 +643,7 @@
     <Compile Include="Interfaces\Public\Error.cs" />
     <Compile Include="Interfaces\Public\ErrorManager.cs" />
     <Compile Include="Interfaces\Public\Event.cs" />
+    <Compile Include="Interfaces\Public\EventCallback.cs" />
     <Compile Include="Interfaces\Public\EventManager.cs" />
     <Compile Include="Interfaces\Public\Execute.cs" />
     <Compile Include="Interfaces\Public\ExecuteArgument.cs" />
@@ -654,11 +663,14 @@
     <Compile Include="Interfaces\Public\HaveClientData.cs" />
     <Compile Include="Interfaces\Public\HaveCommand.cs" />
     <Compile Include="Interfaces\Public\HaveCultureInfo.cs" />
+    <Compile Include="Interfaces\Public\HaveDictionary.cs" />
+    <Compile Include="Interfaces\Public\HaveEncoding.cs" />
     <Compile Include="Interfaces\Public\HaveInterpreter.cs" />
     <Compile Include="Interfaces\Public\HaveObjectFlags.cs" />
     <Compile Include="Interfaces\Public\HaveOwner.cs" />
     <Compile Include="Interfaces\Public\HavePlugin.cs" />
     <Compile Include="Interfaces\Public\HaveStringDictionary.cs" />
+    <Compile Include="Interfaces\Public\HaveText.cs" />
     <Compile Include="Interfaces\Public\Host.cs" />
     <Compile Include="Interfaces\Public\HostData.cs" />
     <Compile Include="Interfaces\Public\Identifier.cs" />
@@ -699,6 +711,7 @@
     <Compile Include="Interfaces\Public\ProcedureData.cs" />
     <Compile Include="Interfaces\Public\ProcessHost.cs" />
     <Compile Include="Interfaces\Public\PropertyManager.cs" />
+    <Compile Include="Interfaces\Public\ProvideEntropy.cs" />
     <Compile Include="Interfaces\Public\ReadHost.cs" />
     <Compile Include="Interfaces\Public\Resolve.cs" />
     <Compile Include="Interfaces\Public\ResolveData.cs" />
@@ -722,6 +735,7 @@
     <Compile Include="Interfaces\Public\ScriptManager.cs" />
     <Compile Include="Interfaces\Public\ScriptPolicy.cs" />
     <Compile Include="Interfaces\Public\ScriptThread.cs" />
+    <Compile Include="Interfaces\Public\SecretData.cs" />
     <Compile Include="Interfaces\Public\SecurityManager.cs" />
     <Compile Include="Interfaces\Public\SetClientData.cs" />
     <Compile Include="Interfaces\Public\SetInterpreter.cs" />
@@ -736,6 +750,7 @@
     <Compile Include="Interfaces\Public\SubCommand.cs" />
     <Compile Include="Interfaces\Public\SubCommandData.cs" />
     <Compile Include="Interfaces\Public\Synchronize.cs" />
+    <Compile Include="Interfaces\Public\SynchronizeBase.cs" />
     <Compile Include="Interfaces\Public\Syntax.cs" />
     <Compile Include="Interfaces\Public\ThreadHost.cs" />
     <Compile Include="Interfaces\Public\ThreadLock.cs" />
@@ -746,6 +761,8 @@
     <Compile Include="Interfaces\Public\TraceManager.cs" />
     <Compile Include="Interfaces\Public\Triplet.cs" />
     <Compile Include="Interfaces\Public\TrustManager.cs" />
+    <Compile Include="Interfaces\Public\TypeAndFullName.cs" />
+    <Compile Include="Interfaces\Public\TypeAndName.cs" />
     <Compile Include="Interfaces\Public\TypedInstance.cs" />
     <Compile Include="Interfaces\Public\TypedMember.cs" />
     <Compile Include="Interfaces\Public\UsageData.cs" />
@@ -886,10 +903,13 @@
   </ItemGroup>
   <ItemGroup Condition="'$(EagleIsolatedInterpreters)' != 'false' Or
                         '$(EagleIsolatedPlugins)' != 'false'">
-    <Compile Include="Components\Public\AsynchronousBridge.cs" />
+    <Compile Include="Components\Public\AsynchronousCallbackBridge.cs" />
+    <Compile Include="Components\Public\EventCallbackBridge.cs" />
+    <Compile Include="Components\Public\ExecuteCallbackBridge.cs" />
     <Compile Include="Components\Public\NewHostCallbackBridge.cs" />
     <Compile Include="Components\Public\NewProcedureCallbackBridge.cs" />
     <Compile Include="Components\Public\PackageCallbackBridge.cs" />
+    <Compile Include="Components\Public\ProvideEntropyBridge.cs" />
     <Compile Include="Components\Public\ScriptMarshalByRefObject.cs" />
     <Compile Include="Components\Public\StringTransformCallbackBridge.cs" />
     <Compile Include="Components\Public\UnknownCallbackBridge.cs" />
@@ -1323,6 +1343,9 @@
   <PropertyGroup Condition="'$(DemoEdition)' != '' And '$(DemoEdition)' != 'false'">
     <DefineConstants>$(DefineConstants);DEMO_EDITION</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(DemoKeyPairs)' != '' And '$(DemoKeyPairs)' != 'false'">
+    <DefineConstants>$(DefineConstants);DEMO_KEY_PAIRS</DefineConstants>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(LimitedEdition)' != '' And '$(LimitedEdition)' != 'false'">
     <DefineConstants>$(DefineConstants);LIMITED_EDITION</DefineConstants>
   </PropertyGroup>
@@ -1331,6 +1354,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(EagleEnterpriseLockdown)' != '' And '$(EagleEnterpriseLockdown)' != 'false'">
     <DefineConstants>$(DefineConstants);ENTERPRISE_LOCKDOWN</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExtraDiagnostics)' != '' And '$(ExtraDiagnostics)' != 'false'">
+    <DefineConstants>$(DefineConstants);EXTRA_DIAGNOSTICS</DefineConstants>
   </PropertyGroup>
   <!-- END Eagle Enterprise Edition SECTION -->
   <ItemGroup Condition="'$(EagleConsole)' != 'false'">
@@ -1344,6 +1370,7 @@
     <Compile Include="Components\Private\SocketOps.cs" />
     <Compile Include="Components\Private\UpdateOps.cs" />
     <Compile Include="Components\Private\WebOps.cs" />
+    <Compile Include="Components\Public\WebClientData.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleNetwork)' != 'false' And
                         '$(EagleNative)' != 'false'">
@@ -1352,6 +1379,12 @@
   <ItemGroup Condition="'$(EagleNetwork)' != 'false' And
                         '$(EagleWeb)' != 'false'">
     <Compile Include="Components\Public\NetworkVariable.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleNetwork)' != 'false' And
+                        ('$(EagleIsolatedInterpreters)' != 'false' Or
+                         '$(EagleIsolatedPlugins)' != 'false')">
+    <Compile Include="Components\Public\WebTransferCallbackBridge.cs" />
+    <Compile Include="Interfaces\Public\WebTransferCallback.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleNetwork)' != 'false' And
                         '$(EagleWeb)' != 'false' And
@@ -1421,6 +1454,11 @@
     <Compile Include="Wrappers\Module.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleNative)' != 'false' And
+                        ('$(EagleTcl)' != 'false' Or
+                         '$(EagleWindows)' != 'false')">
+    <Compile Include="Containers\Private\IntPtrDictionary.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(EagleNative)' != 'false' And
                         '$(EagleTcl)' != 'false'">
     <Compile Include="Commands\Tcl.cs" />
     <Compile Include="Components\Private\TclApi.cs" />
@@ -1430,7 +1468,6 @@
     <Compile Include="Components\Private\TclEnumerations.cs" />
     <Compile Include="Components\Private\TclModule.cs" />
     <Compile Include="Components\Private\TclWrapper.cs" />
-    <Compile Include="Containers\Private\IntPtrDictionary.cs" />
     <Compile Include="Containers\Private\IntPtrList.cs" />
     <Compile Include="Containers\Private\TclBridgeDictionary.cs" />
     <Compile Include="Containers\Private\TclBuildDictionary.cs" />
@@ -1508,7 +1545,7 @@
       <LogicalName>_Messages.Messages.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Condition="'$(EmbedCertificates)' != '' And '$(EmbedCertificates)' != 'false'"
-                      Include="Resources\Certificates\**\*.xml">
+                      Include="Resources\Certificates\**\*.exml">
       <!--
           BUGBUG: This does not appear to actually work.
       <LogicalName>%(FileName)%(Extension)</LogicalName>
@@ -1519,6 +1556,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\syntax.tsv">
       <LogicalName>syntax.tsv</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\WellKnownAssemblyFilePluginNames.tsv">
+      <LogicalName>WellKnownAssemblyFilePluginNames.tsv</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\messages.resources">
       <LogicalName>Eagle.resources</LogicalName>
@@ -1986,6 +2026,7 @@
     <None Include="Tests\data\bad_subst.txt" />
     <None Include="Tests\data\benchmark.txt" />
     <None Include="Tests\data\big_exec.txt" />
+    <None Include="Tests\data\big_exec_raw.txt" />
     <None Include="Tests\data\callStack.eagle" />
     <None Include="Tests\data\client.tcl" />
     <None Include="Tests\data\evaluate.eagle" />
@@ -1993,6 +2034,7 @@
     <None Include="Tests\data\file.dat" />
     <None Include="Tests\data\FontViewer.xaml" />
     <None Include="Tests\data\garbage.txt" />
+    <None Include="Tests\data\hosts.txt" />
     <None Include="Tests\data\isolated.eagle" />
     <None Include="Tests\data\pngDump.txt" />
     <None Include="Tests\data\read.eagle" />

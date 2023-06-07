@@ -186,4 +186,75 @@ regexp -result \
 
 ###############################################################################
 
+runTest {test xml-2.1 {xml foreach on all nodes} -setup {
+  unset -nocomplain xml node result
+} -body {
+  set result [list]
+
+  xml foreach -file -alias node \
+      [file join $test_data_path settings.xml] {
+    lappend result [$node Name]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain xml node result
+} -constraints {eagle command.object command.xml compile.XML\
+file_settings.xml} -result {{#document} #comment InterpreterSettings Culture\
+#text Profile #text Text #text LibraryPath #text RuleSet #text Args #text\
+CreateFlags #text HostCreateFlags #text InitializeFlags #text ScriptFlags #text\
+InterpreterFlags #text PluginFlags #text AutoPathList #text}}
+
+###############################################################################
+
+runTest {test xml-2.2 {xml foreach on some nodes w/o namespaces} -setup {
+  unset -nocomplain xml node result
+} -body {
+  set result [list]
+
+  xml foreach -file -alias -xpaths \
+      [list //*] node [file join $test_data_path settings.xml] {
+    lappend result [$node Name]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain xml node result
+} -constraints {eagle command.object command.xml compile.XML\
+file_settings.xml} -result {InterpreterSettings Culture Profile Text\
+LibraryPath RuleSet Args CreateFlags HostCreateFlags InitializeFlags\
+ScriptFlags InterpreterFlags PluginFlags AutoPathList}}
+
+###############################################################################
+
+runTest {test xml-2.3 {xml foreach on some nodes with namespaces} -setup {
+  unset -nocomplain xml node result
+} -body {
+  set result [list]
+
+  xml foreach -alias -namespaces \
+      [list eagle https://eagle.to/2009/schema] -xpaths \
+      [list //eagle:blocks/eagle:block] node [string trim {
+        <?xml version="1.0" encoding="utf-8" ?>
+        <blocks xmlns="https://eagle.to/2009/schema">
+          <block id="00000000-0000-0000-0000-000000000001"
+               type="automatic">one</block>
+          <block id="00000000-0000-0000-0000-000000000002"
+               type="automatic">two</block>
+        </blocks>
+  }] {
+    lappend result [$node -type System.Xml.XmlElement GetAttribute id]
+    lappend result [$node -type System.Xml.XmlElement GetAttribute type]
+    lappend result [$node InnerText]
+  }
+
+  set result
+} -cleanup {
+  unset -nocomplain xml node result
+} -constraints {eagle command.object command.xml compile.XML} -result \
+{00000000-0000-0000-0000-000000000001 automatic one\
+00000000-0000-0000-0000-000000000002 automatic two}}
+
+###############################################################################
+
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

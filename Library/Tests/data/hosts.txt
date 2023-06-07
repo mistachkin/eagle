@@ -1,0 +1,10 @@
+eagle.to
+update.eagle.to
+download.eagle.to
+script.eagle.to
+www.eagle-lang.org
+www1.eagle-lang.org
+www2.eagle-lang.org
+pkg.management
+urn.to
+mistachkin.com

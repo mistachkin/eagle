@@ -1,5 +1,5 @@
 /*
- * Custom.cs --
+ * StringCustom.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -20,7 +20,8 @@ namespace Eagle._Comparers
     [Serializable()]
 #endif
     [ObjectId("938e1374-e595-4e83-adda-132a3a363424")]
-    internal sealed class Custom : IComparer<string>, IEqualityComparer<string>
+    internal sealed class StringCustom :
+        IComparer<string>, IEqualityComparer<string>
     {
         #region Private Data
         private StringComparison comparisonType;
@@ -28,19 +29,19 @@ namespace Eagle._Comparers
         private IEqualityComparer<string> equalityComparer;
         #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
-        public Custom(
+        public StringCustom(
             StringComparison comparisonType
             )
         {
             this.comparisonType = comparisonType;
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Custom(
+        public StringCustom(
             IComparer<string> comparer,
             IEqualityComparer<string> equalityComparer
             )
@@ -49,11 +50,11 @@ namespace Eagle._Comparers
             this.equalityComparer = equalityComparer;
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region Dead Code
 #if DEAD_CODE
-        private Custom(
+        private StringCustom(
             IComparer<string> comparer
             )
             : this(comparer, null)
@@ -61,9 +62,9 @@ namespace Eagle._Comparers
             // do nothing.
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        private Custom(
+        private StringCustom(
             IEqualityComparer<string> equalityComparer
             )
             : this(null, equalityComparer)
@@ -74,7 +75,7 @@ namespace Eagle._Comparers
         #endregion
         #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IComparer<string> Members
         public int Compare(
@@ -84,12 +85,13 @@ namespace Eagle._Comparers
         {
             if (comparer != null)
                 return comparer.Compare(left, right);
-            else
-                return StringOps.GetStringComparer(comparisonType).Compare(left, right);
+
+            return StringOps.GetStringComparer(
+                comparisonType).Compare(left, right);
         }
         #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IEqualityComparer<string> Members
         public bool Equals(
@@ -99,11 +101,12 @@ namespace Eagle._Comparers
         {
             if (equalityComparer != null)
                 return equalityComparer.Equals(left, right);
-            else
-                return StringOps.GetStringComparer(comparisonType).Equals(left, right);
+
+            return StringOps.GetStringComparer(
+                comparisonType).Equals(left, right);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         public int GetHashCode(
             string value
@@ -111,8 +114,9 @@ namespace Eagle._Comparers
         {
             if (equalityComparer != null)
                 return equalityComparer.GetHashCode(value);
-            else
-                return StringOps.GetStringComparer(comparisonType).GetHashCode(value);
+
+            return StringOps.GetStringComparer(
+                comparisonType).GetHashCode(value);
         }
         #endregion
     }

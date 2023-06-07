@@ -25,19 +25,25 @@ namespace Eagle._Operators
     {
         #region Public Constructors
         //
-        // NOTE: In the future, behavior specific to operators in the core will
-        //       be implemented here rather than in _Operators.Default (which
-        //       is available to external operators to derive from).  For now,
-        //       the primary job of this class is to set the cached operator
-        //       flags correctly for all operators in the core function set.
+        // NOTE: In the future, behavior specific to operators in the core
+        //       will be implemented here rather than in _Operators.Default
+        //       (which is available to external operators to derive from).
+        //       For now, the primary job of this class is to set the
+        //       cached operator flags correctly for all operators in the
+        //       core operator set.
         //
         public Core(
             IOperatorData operatorData
             )
             : base(operatorData)
         {
-            this.Flags |= AttributeOps.GetOperatorFlags(GetType().BaseType) |
-                AttributeOps.GetOperatorFlags(this);
+            if ((operatorData == null) || !FlagOps.HasFlags(
+                    operatorData.Flags, OperatorFlags.NoAttributes, true))
+            {
+                this.Flags |=
+                    AttributeOps.GetOperatorFlags(GetType().BaseType) |
+                    AttributeOps.GetOperatorFlags(this);
+            }
         }
         #endregion
 

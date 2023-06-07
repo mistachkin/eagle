@@ -180,6 +180,14 @@ namespace Eagle._Components.Private
             //
             public static readonly string StableValue =
                 RuntimeOps.IsStable() ? "stable" : "unstable";
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: This is the system default version when another value
+            //       is not available.
+            //
+            public static readonly string DefaultValue = "1.0";
         }
         #endregion
 
@@ -413,17 +421,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region For [sql execute] Sub-Command Use Only
+        #region For [sql execute] / [sql foreach] Sub-Command Use Only
         [ObjectId("5bcb3c76-9061-40fc-b728-9cd2b1c052a2")]
         internal static class ResultSet
         {
-            public static readonly string Names = "names";
-            public static readonly string Count = "count";
-            public static readonly string Rows = "rows";
+            public static readonly string Names = "names"; // shared
+            public static readonly string Count = "count"; // shared
 
-            public static readonly string Prepare = "prepare";
-            public static readonly string Execute = "execute";
-            public static readonly string Time = "time";
+            public static readonly string Rows = "rows"; // [sql execute]
+
+            public static readonly string Row = "row"; // [sql foreach]
+            public static readonly string Value = "value"; // [sql foreach]
+
+            public static readonly string Prepare = "prepare"; // shared
+            public static readonly string Execute = "execute"; // shared
+            public static readonly string Time = "time"; // shared
         }
         #endregion
     }

@@ -33,6 +33,8 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 using CleanupPathPair = System.Collections.Generic.KeyValuePair<
     string, Eagle._Components.Private.CleanupPathClientData>;
 
+using FilePair = System.Collections.Generic.KeyValuePair<string, object>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -79,8 +81,7 @@ namespace Eagle._Components.Private
 
         #region Private [glob] Support Collection Classes
         [ObjectId("64966544-0142-4f06-a335-63baa4c14293")]
-        private sealed class FileSystemInfoDictionary
-            : Dictionary<string, FileSystemInfo>
+        private sealed class FileSystemInfoDictionary : PathDictionary<object>
         {
             // nothing.
         }
@@ -1655,7 +1656,7 @@ namespace Eagle._Components.Private
             if (index == Index.Invalid)
                 return value;
 
-            StringBuilder builder = StringOps.NewStringBuilder(
+            StringBuilder builder = StringBuilderFactory.Create(
                 value.Length * 2);
 
             int lastIndex = index;
@@ -1675,7 +1676,7 @@ namespace Eagle._Components.Private
                 index = value.IndexOfAny(GlobWildcardChars, index + 1);
             }
 
-            return builder.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2246,8 +2247,7 @@ namespace Eagle._Components.Private
                                 new DirectoryInfo(PathOps.ParentDirectory));
                         }
 
-                        foreach (KeyValuePair<string, FileSystemInfo> pair in
-                                childFileSystemInfos)
+                        foreach (FilePair pair in childFileSystemInfos)
                         {
                             string childDirectory = pair.Key;
 
@@ -2361,10 +2361,9 @@ namespace Eagle._Components.Private
 
             if (fileSystemInfos != null)
             {
-                foreach (KeyValuePair<string, FileSystemInfo> pair in
-                        fileSystemInfos)
+                foreach (FilePair pair in fileSystemInfos)
                 {
-                    FileSystemInfo fileSystemInfo = pair.Value;
+                    FileSystemInfo fileSystemInfo = pair.Value as FileSystemInfo;
 
                     if (fileSystemInfo == null)
                         continue;
@@ -2862,6 +2861,9 @@ namespace Eagle._Components.Private
                 string[] subDirectories = Directory.GetDirectories(
                     directory, Characters.Asterisk.ToString(),
                     searchOption);
+
+                Array.Sort(subDirectories); /* O(N) */
+                Array.Reverse(subDirectories); /* O(N) */
 
                 foreach (string subDirectory in subDirectories)
                 {

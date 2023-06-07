@@ -79,6 +79,11 @@ namespace Eagle._Interfaces.Private
             ref Result error
             ); /* add a command to the interactive queue. */
 
+        ReturnCode EnqueueBuffer(
+            string text,
+            ref Result error
+            ); /* add command(s) to the interactive queue. */
+
         //
         // TODO: Change these to use the IInterpreter type.
         //

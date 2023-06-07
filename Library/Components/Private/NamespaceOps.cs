@@ -1136,7 +1136,7 @@ namespace Eagle._Components.Private
         {
             if (qualifiers != null)
             {
-                StringBuilder newQualifiers = StringOps.NewStringBuilder();
+                StringBuilder newQualifiers = StringBuilderFactory.Create();
 
                 foreach (string name in SplitName(qualifiers))
                 {
@@ -1149,12 +1149,13 @@ namespace Eagle._Components.Private
                     newQualifiers.Append(name);
                 }
 
-                qualifiers = newQualifiers.ToString();
+                qualifiers = StringBuilderCache.GetStringAndRelease(
+                    ref newQualifiers);
             }
 
             if (tail != null)
             {
-                StringBuilder newTail = StringOps.NewStringBuilder();
+                StringBuilder newTail = StringBuilderFactory.Create();
 
                 foreach (string name in SplitName(tail))
                 {
@@ -1167,7 +1168,8 @@ namespace Eagle._Components.Private
                     newTail.Append(name);
                 }
 
-                tail = newTail.ToString();
+                tail = StringBuilderCache.GetStringAndRelease(
+                    ref newTail);
             }
         }
 
@@ -2233,7 +2235,7 @@ namespace Eagle._Components.Private
                     execute = null;
                     localError = null;
 
-                    if (interpreter.GetIExecuteViaResolvers(
+                    if (interpreter.InternalGetIExecuteViaResolvers(
                             interpreter.GetResolveEngineFlagsNoLock(true) |
                             EngineFlags.UseHidden, localName,
                             null, LookupFlags.Default, ref execute,
@@ -2260,7 +2262,7 @@ namespace Eagle._Components.Private
                 execute = null;
                 localError = null;
 
-                if (interpreter.GetIExecuteViaResolvers(
+                if (interpreter.InternalGetIExecuteViaResolvers(
                         interpreter.GetResolveEngineFlagsNoLock(true),
                         localName, null, LookupFlags.Default,
                         ref execute, ref localError) == ReturnCode.Ok)
@@ -3792,7 +3794,7 @@ namespace Eagle._Components.Private
 
             error = null;
 
-            if (interpreter.GetIExecuteViaResolvers(
+            if (interpreter.InternalGetIExecuteViaResolvers(
                     interpreter.GetResolveEngineFlagsNoLock(true),
                     name, null, LookupFlags.Default,
                     ref execute, ref error) == ReturnCode.Ok)
@@ -4015,7 +4017,7 @@ namespace Eagle._Components.Private
                 {
                     IExecute execute = null;
 
-                    if (interpreter.GetIExecuteViaResolvers(
+                    if (interpreter.InternalGetIExecuteViaResolvers(
                             interpreter.GetResolveEngineFlagsNoLock(true),
                             TrimLeading(name), null, LookupFlags.Default,
                             ref execute, ref localError) == ReturnCode.Ok)
@@ -4172,7 +4174,7 @@ namespace Eagle._Components.Private
 
             if (FlagOps.HasFlags(flags, NamespaceFlags.Command, true))
             {
-                if (interpreter.DoesIExecuteExistViaResolvers(
+                if (interpreter.InternalDoesIExecuteExistViaResolvers(
                         qualifiedName) == ReturnCode.Ok)
                 {
                     result = qualifiedAbsoluteName;
@@ -4180,7 +4182,7 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
-                    if (interpreter.DoesIExecuteExistViaResolvers(
+                    if (interpreter.InternalDoesIExecuteExistViaResolvers(
                             name) == ReturnCode.Ok)
                     {
                         result = absoluteName;

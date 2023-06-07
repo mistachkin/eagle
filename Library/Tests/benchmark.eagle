@@ -341,22 +341,30 @@ proc checkMemoryLoad {} {
 
 ###############################################################################
 
-proc haveCaches { toString } {
+proc haveCaches { type } {
   if {[isEagle]} then {
-    if {$toString} then {
-      if {[haveConstraint compile.CACHE_STATISTICS] && \
-          ([haveConstraint compile.CACHE_ARGUMENTLIST_TOSTRING] || \
-           [haveConstraint compile.CACHE_STRINGLIST_TOSTRING])} then {
-        return true
+    switch -exact -- $type {
+      instance {
+        if {[haveConstraint compile.ARGUMENT_CACHE] || \
+            [haveConstraint compile.LIST_CACHE] || \
+            [haveConstraint compile.PARSE_CACHE] || \
+            [haveConstraint compile.EXECUTE_CACHE] || \
+            [haveConstraint compile.TYPE_CACHE] || \
+            [haveConstraint compile.COM_TYPE_CACHE]} then {
+          return true
+        }
       }
-    } else {
-      if {[haveConstraint compile.ARGUMENT_CACHE] || \
-          [haveConstraint compile.LIST_CACHE] || \
-          [haveConstraint compile.PARSE_CACHE] || \
-          [haveConstraint compile.EXECUTE_CACHE] || \
-          [haveConstraint compile.TYPE_CACHE] || \
-          [haveConstraint compile.COM_TYPE_CACHE]} then {
-        return true
+      toString {
+        if {[haveConstraint compile.CACHE_STATISTICS] && \
+            ([haveConstraint compile.CACHE_ARGUMENTLIST_TOSTRING] || \
+             [haveConstraint compile.CACHE_STRINGLIST_TOSTRING])} then {
+          return true
+        }
+      }
+      stringBuilder {
+        if {[haveConstraint compile.CACHE_STATISTICS]} then {
+          return true
+        }
       }
     }
   }
@@ -367,11 +375,12 @@ proc haveCaches { toString } {
 ###############################################################################
 
 proc resetCaches { {enable true} } {
-  if {[isEagle] && [haveCaches false] && \
+  if {[isEagle] && [haveCaches instance] && \
       [llength [info commands object]] > 0 && \
       ![info exists ::no(resetCaches)]} then {
     set cacheFlags [list \
-        ObjectMask Reset Clear MaybeSetProperties]
+        TypicalMask Reset Clear ZeroCounts \
+        MaybeSetProperties]
 
     if {$enable} then {
       lappend cacheFlags Lock
@@ -391,7 +400,7 @@ proc resetCaches { {enable true} } {
 
     set result [object invoke \
         Interpreter.GetActive EnableCaches \
-        ObjectMask true]
+        TypicalMask true]
 
     if {$result ne "None"} then {
       lappend results $result
@@ -405,14 +414,20 @@ proc resetCaches { {enable true} } {
 ###############################################################################
 
 proc reportCaches {} {
-  if {[isEagle] && [haveCaches false] && \
+  if {[isEagle] && [haveCaches instance] && \
       [llength [info commands object]] > 0 && \
       ![info exists ::no(reportCaches)]} then {
     set list null
-    set cacheFlags EmptyContent
+    set detailFlags [list EmptyContent]
+
+    if {[object invoke Interpreter.GetActive \
+        AreCachesEnabled StringBuilder]} then {
+      lappend detailFlags StringBuilderCacheInfo \
+          StringBuilderFactoryInfo
+    }
 
     if {[hasRuntimeOption verboseReportCaches]} then {
-      lappend cacheFlags CacheConfigurationMemoryLoad \
+      lappend detailFlags CacheConfigurationMemoryLoad \
           CacheConfiguration
     }
 
@@ -420,12 +435,18 @@ proc reportCaches {} {
 
     object invoke -create -alias -flags +NonPublic \
         Interpreter.GetActive GetHostOtherCacheInfo \
-        list $cacheFlags
+        list $detailFlags false
 
-    if {[haveCaches true]} then {
+    if {[haveCaches toString]} then {
       object invoke -create -alias -flags +NonPublic \
           Interpreter.GetActive GetHostStringCacheInfo \
-          list $cacheFlags
+          list $detailFlags
+    }
+
+    if {[haveCaches stringBuilder]} then {
+      object invoke -create -alias -flags +NonPublic \
+          Interpreter.GetActive GetHostStringBuilderCacheInfo \
+          list $detailFlags
     }
 
     set pairs [list]
@@ -1819,8 +1840,43 @@ if {[time_length $comparisons] > 0} then {
 ###############################################################################
 
 if {!$legacy} then {
+  set benchmark_output [formatList [buildOutputList] <none> 5]
+
   tputs $test_channel [appendArgs \
-      "---- benchmark table: " [formatList [buildOutputList] <none> 5] \n]
+      "---- benchmark table: " $benchmark_output \n]
+
+  if {[hasRuntimeOption benchmarkOutputToFile]} then {
+    unset -nocomplain set_benchmark_output_directory
+
+    if {![info exists benchmark_output_directory]} then {
+      set benchmark_output_directory [getTemporaryPath]
+      set set_benchmark_output_directory 1
+    }
+
+    unset -nocomplain set_benchmark_output_file
+
+    if {![info exists benchmark_output_file]} then {
+      set benchmark_output_file [file join \
+          $benchmark_output_directory [appendArgs \
+          benchmark- [pid] - [clock seconds] .txt]]
+
+      set set_benchmark_output_file 1
+    }
+
+    appendFile $benchmark_output_file $benchmark_output
+
+    if {[info exists set_benchmark_output_file]} then {
+      unset -nocomplain benchmark_output_file
+      unset -nocomplain set_benchmark_output_file
+    }
+
+    if {[info exists set_benchmark_output_directory]} then {
+      unset -nocomplain benchmark_output_directory
+      unset -nocomplain set_benchmark_output_directory
+    }
+  }
+
+  unset -nocomplain benchmark_output
 }
 
 ###############################################################################

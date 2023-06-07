@@ -1706,15 +1706,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ISynchronize Members
+        #region ISynchronizeBase Members
         /* DANGEROUS: EXTERNAL USE ONLY. */
         public object SyncRoot
         {
             get { CheckDisposed(); return syncRoot; }
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region ISynchronize Members
         /* EXTERNAL USE ONLY. */
         public void TryLock(
             ref bool locked

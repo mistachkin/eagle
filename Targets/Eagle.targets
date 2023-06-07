@@ -2764,6 +2764,43 @@
   ******************************************************************************
   -->
 
+  <!--
+      NOTE: *WARNING* Be sure to update the "Inputs" attribute for the targets
+            EagleKitResGen* in this file and the list of files in the file
+            "Kit\Resources\kit.resx" if any files are added to the core script
+            packages.
+  -->
+  <Target Name="EagleKitResourceFiles">
+    <CreateItem Include="..\lib\Kit1.0\pkgIndex.eagle;
+                         ..\lib\Kit1.0\pkgIndex.eagle.harpy">
+      <Output ItemName="KitResourceFilesItem" TaskParameter="Include" />
+    </CreateItem>
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleKitResGenUnsetReadOnly"
+          Condition="('$(EagleKitResGen)' != 'false' Or
+                      '$(EagleKitResGenExternals)' != 'false' Or
+                      '$(EagleKitResGenForNetStandard2X)' != 'false') And
+                     '$(EagleUnsetReadOnly)' != 'false' And
+                     '$(OperatingSystem)' == 'Windows' And
+                     '$(EagleEmbeddedLibrary)' != 'false' And
+                     '$(SystemRoot)' != '' And
+                     !HasTrailingSlash('$(SystemRoot)') And
+                     Exists('$(SystemRoot)\System32\attrib.exe')"
+          Inputs="Resources\kit.resx;@(KitResourceFilesItem)"
+          Outputs="Resources\kit.resources">
+    <Exec Condition="Exists('Resources\kit.resources')"
+          Command="&quot;$(SystemRoot)\System32\attrib.exe&quot; -r Resources\kit.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
   <Target Name="EagleMsgGen"
           Condition="'$(EagleMsgGen)' != 'false' And
                      '$(OperatingSystem)' == 'Windows' And
@@ -2919,6 +2956,55 @@
           Outputs="Resources\packages.resources">
     <GenerateResource Sources="Resources\packages.resx"
                       OutputResources="Resources\packages.resources"
+                      SdkToolsPath="$(EagleDir)\Externals\NETFX\Tools\v4.0" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleKitResGen"
+          Condition="'$(EagleKitResGen)' != 'false' And
+                     '$(EagleEmbeddedLibrary)' != 'false'"
+          Inputs="Resources\kit.resx;@(KitResourceFilesItem)"
+          Outputs="Resources\kit.resources">
+    <GenerateResource Sources="Resources\kit.resx"
+                      OutputResources="Resources\kit.resources" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="EagleKitResGenExternals"
+          Condition="'$(EagleKitResGen)' == 'false' And
+                     '$(EagleKitResGenExternals)' != 'false' And
+                     '$(EagleEmbeddedLibrary)' != 'false' And
+                     ((('$(MSBuildToolsVersion)' == '4.0' Or
+                        '$(MSBuildToolsVersion)' == '12.0' Or
+                        '$(MSBuildToolsVersion)' == '14.0' Or
+                        '$(MSBuildToolsVersion)' == '15.0' Or
+                        '$(MSBuildToolsVersion)' == 'Current') And
+                       '$(TargetFrameworkVersion)' == '') Or
+                      '$(TargetFrameworkVersion)' == 'v4.0' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.5.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.6.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.1' Or
+                      '$(TargetFrameworkVersion)' == 'v4.7.2' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8' Or
+                      '$(TargetFrameworkVersion)' == 'v4.8.1') And
+                     '$(EagleDir)' != '' And
+                     !HasTrailingSlash('$(EagleDir)') And
+                     Exists('$(EagleDir)\Externals\NETFX\Tools\v4.0\ResGen.exe')"
+          Inputs="Resources\kit.resx;@(KitResourceFilesItem)"
+          Outputs="Resources\kit.resources">
+    <GenerateResource Sources="Resources\kit.resx"
+                      OutputResources="Resources\kit.resources"
                       SdkToolsPath="$(EagleDir)\Externals\NETFX\Tools\v4.0" />
   </Target>
 

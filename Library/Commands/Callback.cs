@@ -163,7 +163,7 @@ namespace Eagle._Commands
 
                                                         code = MarshalOps.FixupReturnValue(
                                                             interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                            returnType, objectFlags, ObjectOps.GetInvokeOptions(
+                                                            returnType, objectFlags, options, ObjectOps.GetInvokeOptions(
                                                             objectOptionType), objectOptionType, objectName, interpName,
                                                             callback, create, dispose, alias, aliasReference, toString,
                                                             ref result);

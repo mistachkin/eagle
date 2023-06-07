@@ -1,5 +1,5 @@
 /*
- * Real.cs --
+ * StringAscii.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -9,17 +9,19 @@
  * RCS: @(#) $Id: $
  */
 
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Containers.Private;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Comparers
 {
-    [ObjectId("974d030b-d68c-4f14-9d92-b7539ebc42af")]
-    internal sealed class StringRealComparer : IComparer<string>, IEqualityComparer<string>
+    [ObjectId("24dcf855-93d7-49b8-9e5c-c1d68bf502a8")]
+    internal sealed class StringAsciiComparer : IComparer<string>, IEqualityComparer<string>
     {
         #region Private Data
         private int levels;
@@ -27,6 +29,7 @@ namespace Eagle._Comparers
         private bool ascending;
         private string indexText;
         private bool leftOnly;
+        private bool noCase;
         private bool unique;
         private CultureInfo cultureInfo;
         private IntDictionary duplicates;
@@ -35,24 +38,26 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
-        public StringRealComparer(
+        public StringAsciiComparer(
             Interpreter interpreter,
             bool ascending,
             string indexText,
             bool leftOnly,
+            bool noCase,
             bool unique,
             CultureInfo cultureInfo,
             ref IntDictionary duplicates
             )
         {
             if (duplicates == null)
-                duplicates = new IntDictionary(new Custom(this, this));
+                duplicates = new IntDictionary(new StringCustom(this, this));
 
             this.levels = 0;
             this.interpreter = interpreter;
             this.ascending = ascending;
             this.indexText = indexText;
             this.leftOnly = leftOnly;
+            this.noCase = noCase;
             this.unique = unique;
             this.cultureInfo = cultureInfo;
             this.duplicates = duplicates;
@@ -67,40 +72,17 @@ namespace Eagle._Comparers
             string right
             )
         {
-            Result error = null;
-
             ListOps.GetElementsToCompare(
                 interpreter, ascending, indexText, leftOnly, false,
                 cultureInfo, ref left, ref right); /* throw */
 
-            Number leftNumber = null;
+            int result = SharedStringOps.Compare(left, right,
+                SharedStringOps.GetSystemComparisonType(noCase));
 
-            if ((Value.GetNumber(left, ValueFlags.AnyNumberAnyRadix, cultureInfo,
-                    ref leftNumber, ref error) == ReturnCode.Ok) &&
-                leftNumber.ConvertTo(typeof(double)))
-            {
-                double leftDouble = (double)leftNumber.Value;
-                Number rightNumber = null;
+            ListOps.UpdateDuplicateCount(this, duplicates, left, right,
+                unique, result, ref levels); /* throw */
 
-                if ((Value.GetNumber(right, ValueFlags.AnyNumberAnyRadix, cultureInfo,
-                        ref rightNumber, ref error) == ReturnCode.Ok) &&
-                    rightNumber.ConvertTo(typeof(double)))
-                {
-                    double rightDouble = (double)rightNumber.Value;
-
-                    int result = LogicOps.Compare(leftDouble, rightDouble);
-
-                    ListOps.UpdateDuplicateCount(this, duplicates, leftDouble.ToString(),
-                        rightDouble.ToString(), unique, result, ref levels); /* throw */
-
-                    return result;
-                }
-            }
-
-            if (error != null)
-                throw new ScriptException(error);
-            else
-                throw new ScriptException();
+            return result;
         }
         #endregion
 
@@ -112,7 +94,7 @@ namespace Eagle._Comparers
             string right
             )
         {
-            return ListOps.ComparerEquals(this, left, right);
+            return ListOps.ComparerEquals<string>(this, left, right);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -121,7 +103,7 @@ namespace Eagle._Comparers
             string value
             )
         {
-            return ListOps.ComparerGetHashCode(this, value, false);
+            return ListOps.ComparerGetHashCode<string>(this, value, noCase);
         }
         #endregion
     }

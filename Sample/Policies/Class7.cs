@@ -34,7 +34,7 @@ namespace Sample
         /// The random number generator used by the example command execution
         /// policy for making "random" policy decisions.
         /// </summary>
-        private static Random random;
+        private static Random random; /* EXEMPT */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -109,7 +109,7 @@ namespace Sample
                     //       decisions.
                     //
                     if (random == null)
-                        random = new Random();
+                        random = new Random(); /* EXEMPT */
 
                     //
                     // NOTE: Get a random integer; even numbers result in a

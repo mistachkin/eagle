@@ -16,14 +16,8 @@ using Eagle._Components.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("b35ce743-e9b6-4fe3-85b9-91a67657ad62")]
-    public interface ITraceData : IIdentifier, IHavePlugin, IWrapperData
+    public interface ITraceData : IIdentifier, IHavePlugin, IWrapperData, ITypeAndName
     {
-        //
-        // NOTE: The fully qualified type name for this trace (not including
-        //       the assembly name).
-        //
-        string TypeName { get; set; }
-
         //
         // NOTE: The name of the trace method.
         //

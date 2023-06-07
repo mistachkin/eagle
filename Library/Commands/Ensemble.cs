@@ -37,8 +37,8 @@ namespace Eagle._Commands
             : base(commandData)
         {
             //
-            // NOTE: This is not a strictly vanilla "command", it is a wrapped
-            //       ensemble.
+            // NOTE: This is not a strictly vanilla "command", it is a
+            //       wrapped ensemble.
             //
             this.Kind |= IdentifierKind.Ensemble;
 
@@ -48,8 +48,13 @@ namespace Eagle._Commands
             //       library; however, this class does not inherit from
             //       _Commands.Core.
             //
-            this.Flags |= AttributeOps.GetCommandFlags(GetType().BaseType) |
-                AttributeOps.GetCommandFlags(this);
+            if ((commandData == null) || !FlagOps.HasFlags(
+                    commandData.Flags, CommandFlags.NoAttributes, true))
+            {
+                this.Flags |=
+                    AttributeOps.GetCommandFlags(GetType().BaseType) |
+                    AttributeOps.GetCommandFlags(this);
+            }
 
             //
             // NOTE: Save the command data for later use by the Initialize
@@ -111,12 +116,18 @@ namespace Eagle._Commands
                     if (commandData != null)
                     {
                         subCommandData = new SubCommandData(
-                            commandData.Name, commandData.Group,
+                            commandData.Name,
+                            commandData.Group,
                             commandData.Description,
-                            commandData.ClientData, commandData.TypeName,
+                            commandData.ClientData,
+                            commandData.TypeName,
+                            commandData.Type,
                             ScriptOps.GetSubCommandNameIndex(),
-                            commandData.Flags, SubCommandFlags.None, this,
-                            commandData.Token);
+                            commandData.Flags,
+                            SubCommandFlags.None,
+                            this,
+                            commandData.Token
+                        );
                     }
 
                     execute = new SubCommand(subCommandData, this.Plugin);
@@ -291,9 +302,14 @@ namespace Eagle._Commands
                 //       core library; however, this class does not inherit
                 //       from _Commands.Core.
                 //
-                this.CommandFlags |=
-                    AttributeOps.GetCommandFlags(GetType().BaseType) |
-                    AttributeOps.GetCommandFlags(this);
+                if ((subCommandData == null) || !FlagOps.HasFlags(
+                        subCommandData.CommandFlags, CommandFlags.NoAttributes,
+                        true))
+                {
+                    this.CommandFlags |=
+                        AttributeOps.GetCommandFlags(GetType().BaseType) |
+                        AttributeOps.GetCommandFlags(this);
+                }
 
                 //
                 // NOTE: Setup the list of sub-commands that we _directly_

@@ -34,19 +34,14 @@ namespace Eagle._Policies
         {
             kind = IdentifierKind.Policy;
 
-            //
-            // VIRTUAL: Id of the deepest derived class.
-            //
-            id = AttributeOps.GetObjectId(this);
+            if ((policyData == null) ||
+                !FlagOps.HasFlags(policyData.PolicyFlags,
+                    PolicyFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
 
-            //
-            // VIRTUAL: Group of the deepest derived class.
-            //
-            group = AttributeOps.GetObjectGroups(this);
-
-            //
-            // NOTE: Is the supplied policy data valid?
-            //
             if (policyData != null)
             {
                 EntityOps.MaybeSetGroup(
@@ -154,7 +149,7 @@ namespace Eagle._Policies
 
         ////////////////////////////////////////////////////////////////////////
 
-        #region IPolicyData Members
+        #region ITypeAndName Members
         private string typeName;
         public virtual string TypeName
         {
@@ -164,6 +159,17 @@ namespace Eagle._Policies
 
         ////////////////////////////////////////////////////////////////////////
 
+        private Type type;
+        public virtual Type Type
+        {
+            get { return type; }
+            set { type = value; }
+        }
+        #endregion
+
+        ////////////////////////////////////////////////////////////////////////
+
+        #region IPolicyData Members
         private string methodName;
         public virtual string MethodName
         {

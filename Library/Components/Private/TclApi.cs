@@ -1530,7 +1530,7 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        #region ISynchronize Members
+        #region ISynchronizeBase Members
         private object syncRoot;
         public object SyncRoot
         {
@@ -1541,9 +1541,11 @@ namespace Eagle._Components.Private.Tcl
                 return syncRoot;
             }
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region ISynchronize Members
         public void TryLock(
             ref bool locked
             )

@@ -45,13 +45,14 @@ runTest {test object-6.1 {loading based on assembly name/file name} -body {
   unset -nocomplain o2 o1 fileName
 } -constraints {eagle command.object referenceCounts Microsoft.Build.Engine\
 file_Sample.exe monoCrash22 monoBug28 monoMatchFramework strongName.official} \
--match regexp -result {^\{\{Microsoft\.Build\.Engine,\
+-match regexp -result [string map [list %publicKeyTokens% \
+[getKnownPublicKeyTokenPattern]] {^\{\{Microsoft\.Build\.Engine,\
 Version=\d+\.\d+\.\d+\.\d+, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a\}\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
 \d+\} \{\{Sample, Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
-PublicKeyToken=(?:null|29c6297630be05eb|1e22ec67879739a2|358030063a832bc3)\}\
+PublicKeyToken=(?:%publicKeyTokens%)\}\
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
-\d+\} 42 3 \{\} 2 \{\} 1$}}
+\d+\} 42 3 \{\} 2 \{\} 1$}]}
 
 ###############################################################################
 

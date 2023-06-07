@@ -113,7 +113,7 @@ namespace Eagle._Commands
                                     eventFlags = (EventFlags)value.Value;
 
                                 string inputChannelId = arguments[1];
-                                IChannel inputChannel = interpreter.GetChannel(inputChannelId, ref result);
+                                IChannel inputChannel = interpreter.InternalGetChannel(inputChannelId, ref result);
 
                                 if (inputChannel != null)
                                 {
@@ -124,7 +124,7 @@ namespace Eagle._Commands
                                         if (inputChannel.NullEncoding || (inputEncoding != null))
                                         {
                                             string outputChannelId = arguments[2];
-                                            IChannel outputChannel = interpreter.GetChannel(outputChannelId, ref result);
+                                            IChannel outputChannel = interpreter.InternalGetChannel(outputChannelId, ref result);
 
                                             if (outputChannel != null)
                                             {

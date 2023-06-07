@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Globalization;
 
 #if SERIALIZATION
 using System.Text;
@@ -19,11 +20,7 @@ using System.Xml;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
-
-#if SERIALIZATION
 using Eagle._Constants;
-#endif
-
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 
@@ -53,7 +50,7 @@ namespace Eagle._Commands
         //       for all Xml related commands.
         //
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] { 
-            "deserialize", "serialize", "validate"
+            "deserialize", "foreach", "serialize", "validate"
         });
 
         public override EnsembleDictionary SubCommands
@@ -140,13 +137,14 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
+                                                        CultureInfo cultureInfo = interpreter.InternalCultureInfo;
                                                         Type objectType = null;
                                                         ResultList errors = null;
 
                                                         code = Value.GetAnyType(interpreter,
                                                             arguments[argumentIndex], null, interpreter.GetAppDomain(),
                                                             Value.GetTypeValueFlags(strictType, verbose, noCase),
-                                                            interpreter.InternalCultureInfo, ref objectType, ref errors);
+                                                            cultureInfo, ref objectType, ref errors);
 
                                                         if (code == ReturnCode.Ok)
                                                         {
@@ -171,11 +169,12 @@ namespace Eagle._Commands
                                                                         ObjectOps.GetOptionType(aliasRaw, aliasAll);
 
                                                                     code = MarshalOps.FixupReturnValue(
-                                                                        interpreter, interpreter.InternalBinder, interpreter.InternalCultureInfo,
-                                                                        returnType, objectFlags, ObjectOps.GetInvokeOptions(
-                                                                        objectOptionType), objectOptionType, objectName, interpName,
-                                                                        @object, create, dispose, alias, aliasReference, toString,
-                                                                        ref result);
+                                                                        interpreter, interpreter.InternalBinder,
+                                                                        cultureInfo, returnType, objectFlags, options,
+                                                                        ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                        objectOptionType, objectName, interpName,
+                                                                        @object, create, dispose, alias,
+                                                                        aliasReference, toString, ref result);
                                                                 }
                                                             }
                                                         }
@@ -220,6 +219,226 @@ namespace Eagle._Commands
                                         }
                                         break;
                                     }
+                                case "foreach":
+                                    {
+                                        if (arguments.Count >= 5)
+                                        {
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-file", null),
+                                                new Option(null, OptionFlags.MustHaveDictionaryValue, Index.Invalid, Index.Invalid, "-namespaces", null),
+                                                new Option(null, OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-xpaths", null)
+                                            }, ObjectOps.GetFixupReturnValueOptions());
+
+                                            int argumentIndex = Index.Invalid;
+
+                                            code = interpreter.GetOptions(
+                                                options, arguments, 0, 2, Index.Invalid, false,
+                                                ref argumentIndex, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                if ((argumentIndex != Index.Invalid) &&
+                                                    ((argumentIndex + 3) == arguments.Count))
+                                                {
+                                                    Type returnType;
+                                                    ObjectFlags objectFlags;
+                                                    string objectName;
+                                                    string interpName;
+                                                    bool create;
+                                                    bool dispose;
+                                                    bool alias;
+                                                    bool aliasRaw;
+                                                    bool aliasAll;
+                                                    bool aliasReference;
+                                                    bool toString;
+
+                                                    ObjectOps.ProcessFixupReturnValueOptions(
+                                                        options, null, out returnType, out objectFlags,
+                                                        out objectName, out interpName, out create,
+                                                        out dispose, out alias, out aliasRaw, out aliasAll,
+                                                        out aliasReference, out toString);
+
+                                                    Variant value = null;
+                                                    StringDictionary namespaces = null;
+
+                                                    if (options.IsPresent("-namespaces", ref value))
+                                                        namespaces = (StringDictionary)value.Value;
+
+                                                    StringList xpaths = null;
+
+                                                    if (options.IsPresent("-xpaths", ref value))
+                                                        xpaths = (StringList)value.Value;
+
+                                                    bool file = false;
+
+                                                    if (options.IsPresent("-file"))
+                                                        file = true;
+
+                                                    CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+                                                    string[] namespaceNames = null;
+                                                    Uri[] namespaceUris = null;
+
+                                                    if ((namespaces == null) || XmlOps.GetNamespaceArrays(
+                                                            namespaces, cultureInfo, out namespaceNames,
+                                                            out namespaceUris, ref result) == ReturnCode.Ok)
+                                                    {
+                                                        string xml = arguments[argumentIndex + 1];
+
+                                                        XmlDocument document = null;
+
+                                                        code = file ?
+                                                            XmlOps.LoadFile(xml, ref document, ref result) :
+                                                            XmlOps.LoadString(xml, ref document, ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            XmlNodeList nodeList = null;
+
+                                                            if (XmlOps.GetNodeList(
+                                                                    document, namespaceNames, namespaceUris, xpaths,
+                                                                    ref nodeList, ref result) == ReturnCode.Ok)
+                                                            {
+                                                                int iterationLimit = interpreter.InternalIterationLimit;
+                                                                int iterationCount = 0;
+
+                                                                ObjectOptionType objectOptionType = ObjectOptionType.ForEach |
+                                                                    ObjectOps.GetOptionType(aliasRaw, aliasAll);
+
+                                                                string varName = arguments[argumentIndex];
+                                                                string body = arguments[argumentIndex + 2];
+                                                                IScriptLocation location = arguments[argumentIndex + 2];
+
+                                                                foreach (XmlNode node in nodeList)
+                                                                {
+                                                                    Result localResult = null; /* REUSED */
+
+                                                                    code = MarshalOps.FixupReturnValue(
+                                                                        interpreter, interpreter.InternalBinder,
+                                                                        cultureInfo, returnType, objectFlags, options,
+                                                                        ObjectOps.GetInvokeOptions(objectOptionType),
+                                                                        objectOptionType, objectName, interpName,
+                                                                        node, create, dispose, alias,
+                                                                        aliasReference, toString, ref localResult);
+
+                                                                    if (code != ReturnCode.Ok)
+                                                                    {
+                                                                        Engine.AddErrorInformation(interpreter, localResult,
+                                                                            String.Format("{0}    (adding xml {1} object handle \"{2}\")",
+                                                                                Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
+
+                                                                        result = localResult;
+                                                                        break;
+                                                                    }
+
+                                                                    string newObjectName = localResult;
+
+                                                                    localResult = null;
+
+                                                                    code = interpreter.SetVariableValue(
+                                                                        varName, newObjectName, ref localResult);
+
+                                                                    if (code != ReturnCode.Ok)
+                                                                    {
+                                                                        ReturnCode removeCode;
+                                                                        bool removeDispose = dispose;
+                                                                        Result removeResult = null;
+
+                                                                        removeCode = interpreter.MaybeRemoveObject(
+                                                                            newObjectName, null, true, true, ref removeDispose,
+                                                                            ref removeResult);
+
+                                                                        if (removeCode != ReturnCode.Ok)
+                                                                            DebugOps.Complain(interpreter, removeCode, removeResult);
+
+                                                                        Engine.AddErrorInformation(interpreter, localResult,
+                                                                            String.Format("{0}    (setting xml {1} loop variable \"{2}\")",
+                                                                                Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
+
+                                                                        result = localResult;
+                                                                        break;
+                                                                    }
+
+                                                                    localResult = null;
+
+                                                                    code = interpreter.EvaluateScript(body, location, ref localResult);
+
+                                                                    if (code != ReturnCode.Ok)
+                                                                    {
+                                                                        if (code == ReturnCode.Continue)
+                                                                        {
+                                                                            code = ReturnCode.Ok;
+                                                                        }
+                                                                        else if (code == ReturnCode.Break)
+                                                                        {
+                                                                            code = ReturnCode.Ok;
+                                                                            break;
+                                                                        }
+                                                                        else if (code == ReturnCode.Error)
+                                                                        {
+                                                                            Engine.AddErrorInformation(interpreter, localResult,
+                                                                                String.Format("{0}    (\"xml {1}\" body line {2})",
+                                                                                    Environment.NewLine, subCommand, Interpreter.GetErrorLine(interpreter)));
+
+                                                                            result = localResult;
+                                                                            break;
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            break;
+                                                                        }
+                                                                    }
+
+                                                                    if ((iterationLimit != Limits.Unlimited) &&
+                                                                        (++iterationCount > iterationLimit))
+                                                                    {
+                                                                        result = String.Format(
+                                                                            "iteration limit {0} exceeded",
+                                                                            iterationLimit);
+
+                                                                        code = ReturnCode.Error;
+                                                                        break;
+                                                                    }
+                                                                }
+
+                                                                if (code == ReturnCode.Ok)
+                                                                    Engine.ResetResult(interpreter, ref result);
+                                                            }
+                                                            else
+                                                            {
+                                                                code = ReturnCode.Error;
+                                                            }
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(arguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, arguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"xml foreach ?options? varName xml body\"";
+                                                    }
+
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"xml foreach ?options? varName xml body\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "serialize":
                                     {
                                         if (arguments.Count >= 4)
@@ -258,13 +477,14 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
+                                                        CultureInfo cultureInfo = interpreter.InternalCultureInfo;
                                                         Type objectType = null;
                                                         ResultList errors = null;
 
                                                         code = Value.GetAnyType(interpreter,
                                                             arguments[argumentIndex], null, interpreter.GetAppDomain(),
                                                             Value.GetTypeValueFlags(strictType, verbose, noCase),
-                                                            interpreter.InternalCultureInfo, ref objectType, ref errors);
+                                                            cultureInfo, ref objectType, ref errors);
 
                                                         if (code == ReturnCode.Ok)
                                                         {

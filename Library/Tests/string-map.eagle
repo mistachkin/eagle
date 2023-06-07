@@ -2500,4 +2500,10 @@ characters (2002)} 1 {cannot exceed length of 2000 characters (3000)}}}
 
 ###############################################################################
 
+runTest {test split-100.1 {[split] with empty string} -body {
+  list [split ""] [split "" ""] [split "" ", "]
+} -result {{} {} {}}}
+
+###############################################################################
+
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

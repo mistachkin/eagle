@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Diagnostics;
 
 #if SERIALIZATION
 using System.Runtime.Serialization;
@@ -113,6 +114,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Methods
+        [Conditional("DEBUG")]
+        private void Breakpoint()
+        {
+            //
+            // TODO: Set debugger breakpoints here.
+            //
+            return;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Internal Constructors
         internal ScriptException(
             ArgumentList arguments,
@@ -186,6 +200,7 @@ namespace Eagle._Components.Public
                     ref id, GlobalState.NextId(), 0) == 0)
             {
                 Interlocked.Increment(ref count);
+                Breakpoint();
                 return true;
             }
 

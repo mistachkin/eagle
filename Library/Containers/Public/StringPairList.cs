@@ -19,6 +19,7 @@ using Eagle._Components.Public;
 using Eagle._Components.Public.Delegates;
 using Eagle._Constants;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -31,7 +32,7 @@ namespace Eagle._Containers.Public
 #endif
     [ObjectId("fa3c3c95-bcc7-4c71-ab7f-94e534f9aad2")]
     public sealed class StringPairList : List<IPair<string>>,
-            IStringList, IGetValue
+            IStringList, IGetValue, IHaveDictionary<string>
     {
         #region Private Constants
         private static readonly string DefaultSeparator =
@@ -42,6 +43,8 @@ namespace Eagle._Containers.Public
 
         #region Public Constants
         public static readonly bool DefaultEmpty = true;
+
+        public static readonly string NotFound = String.Copy(String.Empty);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -127,6 +130,54 @@ namespace Eagle._Containers.Public
             )
         {
             Add(dictionary);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IHaveDictionary<String> Members
+        public string GetNamedValue(
+            string name
+            )
+        {
+            int count = base.Count;
+
+            for (int index = 0; index < count; index++)
+            {
+                IPair<string> pair = base[index];
+
+                if ((name == null) || SharedStringOps.Equals(
+                        pair.X, name, StringComparison.Ordinal))
+                {
+                    return pair.Y;
+                }
+            }
+
+            return NotFound;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void SetNamedValue(
+            string name,
+            string value
+            )
+        {
+            int count = base.Count;
+
+            for (int index = 0; index < count; index++)
+            {
+                IPair<string> pair = base[index];
+
+                if ((name == null) || SharedStringOps.Equals(
+                        pair.X, name, StringComparison.Ordinal))
+                {
+                    base[index] = new Pair<string>(name, value);
+                    return;
+                }
+            }
+
+            base.Add(new Pair<string>(name, value));
         }
         #endregion
 
@@ -224,9 +275,9 @@ namespace Eagle._Containers.Public
             )
         {
             if (item != null)
-                this.Insert(index, new StringPair(item));
+                base.Insert(index, new StringPair(item));
             else
-                this.Insert(index, (IPair<string>)null);
+                base.Insert(index, (IPair<string>)null);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -236,9 +287,9 @@ namespace Eagle._Containers.Public
             )
         {
             if (item != null)
-                this.Add(new StringPair(item));
+                base.Add(new StringPair(item));
             else
-                this.Add((IPair<string>)null);
+                base.Add((IPair<string>)null);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -248,7 +299,7 @@ namespace Eagle._Containers.Public
             string value
             )
         {
-            this.Add(new StringPair(key, value));
+            base.Add(new StringPair(key, value));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -272,7 +323,7 @@ namespace Eagle._Containers.Public
             if (ellipsis)
                 localValue = FormatOps.Ellipsis(localValue);
 
-            this.Add(new StringPair(key, localValue));
+            base.Add(new StringPair(key, localValue));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -426,6 +477,35 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public void AddObject(
+            object item
+            )
+        {
+            if (item != null)
+            {
+                base.Add(new StringPair(
+                    StringOps.GetStringFromObject(item)));
+            }
+            else
+            {
+                base.Add((IPair<string>)null);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void AddObjects(
+            object key,
+            object value
+            )
+        {
+            base.Add(new StringPair(
+                StringOps.GetStringFromObject(key),
+                StringOps.GetStringFromObject(value)));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This method adds a null item if the final item currently in
         //       the list is not null -OR- the list is empty.  It returns true
@@ -504,6 +584,21 @@ namespace Eagle._Containers.Public
             }
 
             return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool MaybeAddRawString(
+            string key,
+            IStringList value,
+            string separator
+            )
+        {
+            if (value == null)
+                return false;
+
+            Add(key, value.ToRawString(separator, separator));
+            return true;
         }
         #endregion
 
@@ -597,7 +692,7 @@ namespace Eagle._Containers.Public
 
         public string ToRawString()
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (IPair<string> element in this)
             {
@@ -613,7 +708,7 @@ namespace Eagle._Containers.Public
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -622,7 +717,7 @@ namespace Eagle._Containers.Public
             string separator
             )
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (IPair<string> element in this)
             {
@@ -641,7 +736,38 @@ namespace Eagle._Containers.Public
                 }
             }
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public string ToRawString(
+            string separator1,
+            string separator2
+            )
+        {
+            StringBuilder result = StringBuilderFactory.Create();
+
+            foreach (IPair<string> element in this)
+            {
+                if (result.Length > 0)
+                    result.Append(separator1);
+
+                if (element != null)
+                {
+                    result.Append(element.X);
+                    result.Append(separator2);
+                    result.Append(element.Y);
+                }
+                else
+                {
+                    result.Append((string)null);
+                    result.Append(separator2);
+                    result.Append((string)null);
+                }
+            }
+
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
         #endregion
 

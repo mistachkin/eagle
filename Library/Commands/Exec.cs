@@ -19,6 +19,7 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -55,10 +56,17 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 2)
                     {
+                        ObjectFlags objectFlags =
+                            ObjectOps.GetDefaultObjectFlags() | ObjectFlags.NoDispose;
+
                         OptionDictionary options = new OptionDictionary(
                             new IOption[] {
                             new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-debug", null),              // simple switch
+                            new Option(null, OptionFlags.None, Index.Invalid,
+                                Index.Invalid, "-nonormalize", null),        // simple switch
+                            new Option(null, OptionFlags.None, Index.Invalid,
+                                Index.Invalid, "-noellipsis", null),         // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-commandline", null),        // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
@@ -87,6 +95,8 @@ namespace Eagle._Commands
                                 Index.Invalid, "-shell", null),              // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-nocarriagereturns", null),  // simple switch
+                            new Option(null, OptionFlags.None, Index.Invalid,
+                                Index.Invalid, "-setall", null),             // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
                                 Index.Invalid, "-trimall", null),            // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
@@ -129,6 +139,9 @@ namespace Eagle._Commands
                                 Index.Invalid, "-stderrcallback", null), // callback for StdErr output
                             new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid,
                                 Index.Invalid, "-timeout", null), // exit wait milliseconds
+                            new Option(typeof(ObjectFlags), OptionFlags.MustHaveEnumValue,
+                                Index.Invalid, Index.Invalid, "-objectflags",
+                                new Variant(objectFlags)), // for FixupReturnValue, etc.
                             new Option(typeof(EventFlags), OptionFlags.MustHaveEnumValue,
                                 Index.Invalid, Index.Invalid, "-eventflags",
                                 new Variant(interpreter.EngineEventFlags)), // for [after], etc.
@@ -171,6 +184,21 @@ namespace Eagle._Commands
 
                                 if (options.IsPresent("-debug"))
                                     debug = true;
+
+                                bool normalize = true;
+
+                                if (options.IsPresent("-nonormalize"))
+                                    normalize = false;
+
+                                bool ellipsis = true;
+
+                                if (options.IsPresent("-noellipsis"))
+                                    ellipsis = false;
+
+                                TracePriority priority = TracePriority.CommandDebug;
+
+                                if (debug)
+                                    TraceOps.ExternalAdjustTracePriority(ref priority, 1);
 
                                 bool commandLine = false;
 
@@ -237,6 +265,11 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-nocarriagereturns"))
                                     carriageReturns = false;
 
+                                bool setAll = false;
+
+                                if (options.IsPresent("-setall"))
+                                    setAll = true;
+
                                 bool trimAll = false;
 
                                 if (options.IsPresent("-trimall"))
@@ -248,6 +281,10 @@ namespace Eagle._Commands
                                     useShellExecute = true;
 
                                 Variant value = null;
+
+                                if (options.IsPresent("-objectflags", ref value))
+                                    objectFlags = (ObjectFlags)value.Value;
+
                                 ExitCode? successExitCode = null;
 
                                 if (options.IsPresent("-success", ref value))
@@ -298,10 +335,10 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-stderr", ref value))
                                     stdErrVarName = value.ToString();
 
-                                string stdInOutputVarName = null;
+                                string stdInObjectVarName = null;
 
                                 if (options.IsPresent("-stdinobject", ref value))
-                                    stdInOutputVarName = value.ToString();
+                                    stdInObjectVarName = value.ToString();
 
                                 ICallback startCallback = null;
 
@@ -341,8 +378,9 @@ namespace Eagle._Commands
                                 int argumentStopIndex = arguments.Count - 1;
                                 bool background = false;
 
-                                if (arguments[arguments.Count - 1] ==
-                                        Characters.Ampersand.ToString())
+                                if (SharedStringOps.SystemEquals(
+                                        arguments[arguments.Count - 1],
+                                        Characters.Ampersand.ToString()))
                                 {
                                     argumentStopIndex--;
                                     background = true;
@@ -374,91 +412,16 @@ namespace Eagle._Commands
 
                                 Result input = null;
                                 IObject inputObject = null;
-
-                                if ((code == ReturnCode.Ok) && captureInput)
-                                {
-                                    if (stdInVarName != null)
-                                    {
-                                        code = interpreter.GetVariableValue(
-                                            VariableFlags.None, stdInVarName,
-                                            ref input, ref result);
-                                    }
-                                    else if (stdInOutputVarName != null)
-                                    {
-                                        Result localResult = null;
-
-                                        code = MarshalOps.FixupReturnValue(
-                                            interpreter, null, ObjectOps.GetDefaultObjectFlags() |
-                                            ObjectFlags.NoDispose, null, ObjectOptionType.Default,
-                                            null, new object(), true, true, false, ref localResult);
-
-                                        if (code == ReturnCode.Ok)
-                                        {
-                                            string inputObjectName = localResult;
-
-                                            code = interpreter.GetObject(
-                                                inputObjectName, LookupFlags.Default,
-                                                ref inputObject, ref result);
-
-                                            if (code == ReturnCode.Ok)
-                                            {
-                                                code = interpreter.SetVariableValue(
-                                                    VariableFlags.None, stdInOutputVarName,
-                                                    inputObjectName, ref result);
-                                            }
-                                        }
-                                    }
-                                }
-
+                                DataReceivedEventHandler outputHandler = null;
+                                DataReceivedEventHandler errorHandler = null;
                                 EventHandler startHandler = null;
 
-                                if (code == ReturnCode.Ok)
-                                {
-                                    if (startCallback != null)
-                                    {
-                                        startHandler = startCallback.Delegate as EventHandler;
-
-                                        if (startHandler == null)
-                                        {
-                                            result = "option \"-startcallback\" value has invalid callback";
-                                            code = ReturnCode.Error;
-                                        }
-                                    }
-                                }
-
-                                DataReceivedEventHandler outputHandler = null;
-
-                                if ((code == ReturnCode.Ok) && captureOutput)
-                                {
-                                    if (stdOutCallback != null)
-                                    {
-                                        outputHandler = stdOutCallback.Delegate
-                                            as DataReceivedEventHandler;
-
-                                        if (outputHandler == null)
-                                        {
-                                            result = "option \"-stdoutcallback\" value has invalid callback";
-                                            code = ReturnCode.Error;
-                                        }
-                                    }
-                                }
-
-                                DataReceivedEventHandler errorHandler = null;
-
-                                if ((code == ReturnCode.Ok) && captureOutput)
-                                {
-                                    if (stdErrCallback != null)
-                                    {
-                                        errorHandler = stdErrCallback.Delegate
-                                            as DataReceivedEventHandler;
-
-                                        if (errorHandler == null)
-                                        {
-                                            result = "option \"-stderrcallback\" value has invalid callback";
-                                            code = ReturnCode.Error;
-                                        }
-                                    }
-                                }
+                                code = ProcessOps.HandleCaptureOptions(
+                                    interpreter, options, startCallback, stdOutCallback,
+                                    stdErrCallback, stdInVarName, stdInObjectVarName,
+                                    objectFlags, captureInput, captureOutput, ref input,
+                                    ref inputObject, ref outputHandler, ref errorHandler,
+                                    ref startHandler, ref result);
 
                                 if (debug)
                                 {
@@ -474,7 +437,7 @@ namespace Eagle._Commands
                                         "killOnError = {26}, keepNewLine = {27}, carriageReturns = {28}, " +
                                         "trimAll = {29}, background = {30}, noEvents = {31}, successExitCode = {32}, " +
                                         "processIdVarName = {33}, exitCodeVarName = {34}, stdInVarName = {35}, " +
-                                        "stdInOutputVarName = {36}, stdOutVarName = {37}, stdErrVarName = {38}, " +
+                                        "stdInObjectVarName = {36}, stdOutVarName = {37}, stdErrVarName = {38}, " +
                                         "startCallback = {39}, stdOutCallback = {40}, stdErrCallback = {41}, " +
                                         "startHandler = {42}, outputHandler = {43}, errorHandler = {44}",
                                         FormatOps.InterpreterNoThrow(interpreter), FormatOps.WrapOrNull(domainName),
@@ -489,43 +452,33 @@ namespace Eagle._Commands
                                         carriageReturns, trimAll, background, noEvents,
                                         FormatOps.WrapOrNull(successExitCode), FormatOps.WrapOrNull(processIdVarName),
                                         FormatOps.WrapOrNull(exitCodeVarName), FormatOps.WrapOrNull(stdInVarName),
-                                        FormatOps.WrapOrNull(stdInOutputVarName), FormatOps.WrapOrNull(stdOutVarName),
+                                        FormatOps.WrapOrNull(stdInObjectVarName), FormatOps.WrapOrNull(stdOutVarName),
                                         FormatOps.WrapOrNull(stdErrVarName), FormatOps.WrapOrNull(startCallback),
                                         FormatOps.WrapOrNull(stdOutCallback), FormatOps.WrapOrNull(stdErrCallback),
                                         FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputHandler),
-                                        FormatOps.WrapOrNull(errorHandler)),
-                                        typeof(Exec).Name, TracePriority.CommandDebug);
+                                        FormatOps.WrapOrNull(errorHandler)), typeof(Exec).Name, priority);
                                 }
 
                                 long processId = 0;
+                                bool attempted = false;
                                 ExitCode exitCode = ResultOps.SuccessExitCode();
                                 Result error = null;
 
                                 if (code == ReturnCode.Ok)
                                 {
-                                    if (list != null)
-                                    {
-                                        list.Add(execFileName);
-                                        list.Add(directory);
-                                        list.Add(execArguments);
+                                    bool done = false;
 
-                                        code = interpreter.EvaluateScript(
-                                            list.ToString(), ref result);
+                                    code = ProcessOps.PreProcessArguments(
+                                        interpreter, list, execFileName, directory,
+                                        ref execArguments, ref done, ref result);
 
-                                        if (code == ReturnCode.Return)
-                                        {
-                                            execArguments = result;
-                                            code = ReturnCode.Ok;
-                                        }
-                                        else if (code == ReturnCode.Continue)
-                                        {
-                                            code = ReturnCode.Ok;
-                                            goto done;
-                                        }
-                                    }
+                                    if (done)
+                                        goto done;
 
                                     if (code == ReturnCode.Ok)
                                     {
+                                        result = null; /* FAIL-SAFE */
+
                                         code = ProcessOps.ExecuteProcess(
                                             noInterpreter ? null : interpreter, domainName, userName,
                                             password, execFileName, execArguments, directory, input,
@@ -535,6 +488,8 @@ namespace Eagle._Commands
                                             overrideCapture, userInterface, noSleep, killOnError,
                                             keepNewLine, background, !noEvents && !background,
                                             ref processId, ref exitCode, ref result, ref error);
+
+                                        attempted = true; /* probably? */
                                     }
                                 }
 
@@ -554,7 +509,7 @@ namespace Eagle._Commands
                                         "killOnError = {26}, keepNewLine = {27}, carriageReturns = {28}, " +
                                         "trimAll = {29}, background = {30}, noEvents = {31}, successExitCode = {32}, " +
                                         "processIdVarName = {33}, exitCodeVarName = {34}, stdInVarName = {35}, " +
-                                        "stdInOutputVarName = {36}, stdOutVarName = {37}, stdErrVarName = {38}, " +
+                                        "stdInObjectVarName = {36}, stdOutVarName = {37}, stdErrVarName = {38}, " +
                                         "startCallback = {39}, stdOutCallback = {40}, stdErrCallback = {41}, " +
                                         "startHandler = {42}, outputHandler = {43}, errorHandler = {44}, " +
                                         "processId = {45}, exitCode = {46}, result = {47}, error = {48}",
@@ -570,122 +525,40 @@ namespace Eagle._Commands
                                         carriageReturns, trimAll, background, noEvents,
                                         FormatOps.WrapOrNull(successExitCode), FormatOps.WrapOrNull(processIdVarName),
                                         FormatOps.WrapOrNull(exitCodeVarName), FormatOps.WrapOrNull(stdInVarName),
-                                        FormatOps.WrapOrNull(stdInOutputVarName), FormatOps.WrapOrNull(stdOutVarName),
+                                        FormatOps.WrapOrNull(stdInObjectVarName), FormatOps.WrapOrNull(stdOutVarName),
                                         FormatOps.WrapOrNull(stdErrVarName), FormatOps.WrapOrNull(startCallback),
                                         FormatOps.WrapOrNull(stdOutCallback), FormatOps.WrapOrNull(stdErrCallback),
                                         FormatOps.WrapOrNull(startHandler), FormatOps.WrapOrNull(outputHandler),
                                         FormatOps.WrapOrNull(errorHandler), processId, exitCode,
-                                        FormatOps.WrapOrNull(true, true, result),
-                                        FormatOps.WrapOrNull(true, true, error)),
-                                        typeof(Exec).Name, TracePriority.Command);
+                                        FormatOps.WrapOrNull(normalize, ellipsis, result),
+                                        FormatOps.WrapOrNull(normalize, ellipsis, error)),
+                                        typeof(Exec).Name, priority);
                                 }
 
-                                //
-                                // NOTE: Even upon failure, always set the variable to contain
-                                //       process Id, if applicable.
-                                //
-                                if (processIdVarName != null)
-                                {
-                                    /* IGNORED */
-                                    interpreter.SetVariableValue( /* EXEMPT */
-                                        VariableFlags.NoReady, processIdVarName,
-                                        processId.ToString(), null);
-                                }
+                                ResultList setErrors = null;
 
-                                if (code == ReturnCode.Ok)
-                                {
-                                    //
-                                    // NOTE: Remove all carriage returns from output (leaving
-                                    //       only line feeds as line separators)?
-                                    //
-                                    if (!carriageReturns)
-                                    {
-                                        if (!String.IsNullOrEmpty(result))
-                                        {
-                                            result = result.Replace(
-                                                Characters.CarriageReturnString,
-                                                String.Empty);
-                                        }
+                                /* NO RESULT */
+                                ProcessOps.HandleCaptureResults(
+                                    interpreter, processIdVarName, exitCodeVarName,
+                                    stdOutVarName, stdErrVarName, processId, exitCode,
+                                    successExitCode, attempted, useShellExecute,
+                                    background, captureExitCode, captureOutput, setAll,
+                                    trimAll, carriageReturns, ref code, ref result,
+                                    ref error, ref setErrors);
 
-                                        if (!String.IsNullOrEmpty(error))
-                                        {
-                                            error = error.Replace(
-                                                Characters.CarriageReturnString,
-                                                String.Empty);
-                                        }
-                                    }
-
-                                    //
-                                    // NOTE: Remove all surrounding whitespace from the output?
-                                    //
-                                    if (trimAll)
-                                    {
-                                        if (!String.IsNullOrEmpty(result))
-                                            result = result.Trim();
-
-                                        if (!String.IsNullOrEmpty(error))
-                                            error = error.Trim();
-                                    }
-
-                                    //
-                                    // NOTE: Now, "result" contains any StdOut output and "error"
-                                    //        contains any StdErr output.
-                                    //
-                                    if ((code == ReturnCode.Ok) && !background &&
-                                        captureExitCode && (exitCodeVarName != null))
-                                    {
-                                        code = interpreter.SetVariableValue(VariableFlags.None,
-                                            exitCodeVarName, exitCode.ToString(), null, ref error);
-                                    }
-
-                                    if ((code == ReturnCode.Ok) && !useShellExecute &&
-                                        !background && captureOutput && (stdOutVarName != null))
-                                    {
-                                        code = interpreter.SetVariableValue(VariableFlags.None,
-                                            stdOutVarName, result, null, ref error);
-                                    }
-
-                                    if ((code == ReturnCode.Ok) && !useShellExecute &&
-                                        !background && captureOutput && (stdErrVarName != null))
-                                    {
-                                        code = interpreter.SetVariableValue(VariableFlags.None,
-                                            stdErrVarName, error, null, ref error);
-                                    }
-
-                                    //
-                                    // NOTE: If they specified a "success" exit code, make sure
-                                    //       that is the same as the exit code we actually got
-                                    //       from the process.
-                                    //
-                                    if ((code == ReturnCode.Ok) && !background && captureExitCode &&
-                                        (successExitCode != null) && (exitCode != successExitCode))
-                                    {
-                                        /* IGNORED */
-                                        interpreter.SetVariableValue( /* EXEMPT */
-                                            Engine.ErrorCodeVariableFlags,
-                                            TclVars.Core.ErrorCode,
-                                            StringList.MakeList(
-                                                "CHILDSTATUS", processId, exitCode),
-                                            null);
-
-                                        Engine.SetErrorCodeSet(interpreter, true);
-
-                                        error = "child process exited abnormally";
-                                        code = ReturnCode.Error;
-                                    }
-
-                                    if (code != ReturnCode.Ok)
-                                        //
-                                        // NOTE: Transfer error to command result.
-                                        //
-                                        result = error;
-                                }
-                                else
+                                if (setErrors != null)
                                 {
                                     //
-                                    // NOTE: Transfer error to command result.
+                                    // HACK: There should not be any errors during [set];
+                                    //       complain louder.
                                     //
-                                    result = error;
+                                    TraceOps.ExternalAdjustTracePriority(ref priority, 1);
+
+                                    TraceOps.DebugTrace(String.Format(
+                                        "Execute: interpreter = {0}, setErrors = {1}",
+                                        FormatOps.InterpreterNoThrow(interpreter),
+                                        FormatOps.WrapOrNull(setErrors)),
+                                        typeof(Exec).Name, priority);
                                 }
                             }
                             else

@@ -93,12 +93,12 @@ namespace Eagle._Containers.Private
 #if DEAD_CODE
         public string ToRawString()
         {
-            StringBuilder result = StringOps.NewStringBuilder();
+            StringBuilder result = StringBuilderFactory.Create();
 
             foreach (char element in this)
                     result.Append(element);
 
-            return result.ToString();
+            return StringBuilderCache.GetStringAndRelease(ref result);
         }
 #endif
         #endregion

@@ -302,10 +302,11 @@ runTest {test host-2.1 {CancelKeyPress handler unhooking} -setup {
   unset -nocomplain three savedConsoleSetting forever
 
   rename cancelAndWait ""
-} -constraints {eagle dotNetCoreOrShell windows hostIsOpen compile.CONSOLE\
-compile.NATIVE compile.WINDOWS} -constraintExpression {[haveConstraint \
-hostType.Eagle__Hosts_Console] || [haveConstraint hostType.Demo_Hosts_Demo]} \
--noCancel true -globalCancel true -returnCodes 1 -result {user canceled}}
+} -constraints {eagle dotNetCoreOrShell native windows hostIsOpen\
+compile.CONSOLE compile.NATIVE compile.WINDOWS} -constraintExpression \
+{[haveConstraint hostType.Eagle__Hosts_Console] || [haveConstraint \
+hostType.Demo_Hosts_Demo]} -noCancel true -globalCancel true -returnCodes 1 \
+-result {user canceled}}
 
 ###############################################################################
 

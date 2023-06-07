@@ -1305,6 +1305,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public ReturnCode EnqueueBuffer(
+            string text,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            QueueList<string, string> queue = GetQueue();
+
+            if (queue == null)
+            {
+                error = "debugger command queue not available";
+                return ReturnCode.Error;
+            }
+
+            string[] lines = text.Split(Characters.NewLine);
+
+            if (lines == null)
+            {
+                error = "could not split text into lines";
+                return ReturnCode.Error;
+            }
+
+            foreach (string line in lines)
+                queue.Add(GetQueueKey(), line);
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public ReturnCode Watchpoint(
             Interpreter interpreter,
             IInteractiveLoopData loopData,

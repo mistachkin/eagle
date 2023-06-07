@@ -1,5 +1,5 @@
 /*
- * Dictionary.cs --
+ * StringDictionary.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -47,7 +47,7 @@ namespace Eagle._Comparers
             )
         {
             if (duplicates == null)
-                duplicates = new IntDictionary(new Custom(this, this));
+                duplicates = new IntDictionary(new StringCustom(this, this));
 
             this.levels = 0;
             this.interpreter = interpreter;
@@ -267,7 +267,7 @@ namespace Eagle._Comparers
             string right
             )
         {
-            return ListOps.ComparerEquals(this, left, right);
+            return ListOps.ComparerEquals<string>(this, left, right);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -276,7 +276,7 @@ namespace Eagle._Comparers
             string value
             )
         {
-            return ListOps.ComparerGetHashCode(this, value, false);
+            return ListOps.ComparerGetHashCode<string>(this, value, false);
         }
         #endregion
     }

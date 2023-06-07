@@ -121,7 +121,10 @@ namespace Eagle._Components.Private
 
         done:
 
-            TracePriority priority = (code == ReturnCode.Ok) ?
+            bool success = (code == ReturnCode.Ok) &&
+                (returnValue == ERROR_SUCCESS);
+
+            TracePriority priority = success ?
                 TracePriority.SecurityDebug2 : TracePriority.SecurityError;
 
             TraceOps.DebugTrace(String.Format(
@@ -129,7 +132,7 @@ namespace Eagle._Components.Private
                 "userInterface = {2}, revocation = {3}, " +
                 "install = {4}, returnValue = {5}, error = {6}",
                 FormatOps.WrapOrNull(fileName),
-                (code == ReturnCode.Ok) ? "success" : "failure",
+                success ? "success" : "failure",
                 userInterface, revocation, install,
                 returnValue, FormatOps.WrapOrNull(error)),
                 typeof(WinTrustMono).Name,

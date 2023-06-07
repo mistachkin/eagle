@@ -1,4 +1,4 @@
-/L20"Eagle" Line Comment = # String Chars = " Escape Char = \ DisableMLS File Extensions = EAGLE
+/L20"Eagle" Line Comment = # String Chars = " Escape Char = \ DisableMLS File Extensions = EAGLE RULESET
 /Delimiters = ~!@%^&*()+=|\/{}[]:;"'	<> ,?#
 /Function String = "^{proc^}^{nproc^} ^([a-zA-Z_0-9]++ {[ a-zA-Z_0-9{}]++^)"
 /Indent Strings = "{"
@@ -37,7 +37,7 @@ hash host
 invoke
 kill
 lget library lremove
-nop nproc
+napply nop nproc
 object
 parse
 scope setf sql

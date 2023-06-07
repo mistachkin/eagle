@@ -105,7 +105,7 @@ debug purge	debug purge
 debug readonly	debug readonly kind enabled ?pattern?
 debug ready	debug ready ?isolated?
 debug refreshautopath	debug refreshautopath ?verbose?
-debug restore	debug restore ?strict?
+debug restore	debug restore ?strict? ?verbose?
 debug resume	debug resume
 debug run	debug run arg ?arg ...?
 debug runtimeoption	debug runtimeoption has name
@@ -366,6 +366,7 @@ interp isolated	interp isolated ?path?
 interp issafe	interp issafe ?path?
 interp issdk	interp issdk ?path? ?sdkType?
 interp isstandard	interp isstandard ?path?
+interp iterationlimit	interp iterationlimit path ?limit?
 interp makesafe	interp makesafe ?path? ?safe? ?all?
 interp makestandard	interp makestandard ?path? ?standard? ?all?
 interp marktrusted	interp marktrusted path
@@ -455,6 +456,7 @@ namespace rename	namespace rename oldName newName
 namespace tail	namespace tail string
 namespace unknown	namespace unknown ?script?
 namespace which	namespace which ?-command? ?-variable? name
+napply	napply lambdaExpr ?arg1 arg2 ...?
 nop	nop
 nproc	nproc name args body
 object addreference	object addreference object
@@ -562,6 +564,7 @@ split	split string ?splitChars? ?options?
 sql close	sql close connection
 sql connection	sql connection connection
 sql execute	sql execute ?options? connection string ?{paramName ?paramType? ?paramValue? ?paramSize? ?paramValueFlags?} ...?
+sql foreach	sql foreach ?options? connection string ?{paramName ?paramType? ?paramValue? ?paramSize? ?paramValueFlags?} ...? body
 sql open	sql open ?options? connectionString
 sql transaction	#begin commit rollback
 sql transaction begin	sql transaction ?options? begin object
@@ -713,12 +716,14 @@ uri compare	uri compare ?options? uri1 uri2
 uri create	uri create scheme host ?options?
 uri download	uri download ?options? uri ?argument?
 uri escape	uri escape type string
+uri get	uri get ?options? uri ?argument?
 uri host	uri host uri
 uri isvalid	uri isvalid uri ?kind?
 uri join	uri join name ?name ...?
 uri offline	uri offline ?enabled?
 uri parse	uri parse uri
 uri ping	uri ping hostOrUri timeout
+uri post	uri post ?options? uri ?argument?
 uri scheme	uri scheme name
 uri security	uri security
 uri softwareupdates	uri softwareupdates ?trusted? ?exclusive?
@@ -730,5 +735,6 @@ version	version ?flags?
 vwait	vwait ?options? varName
 while	while test script
 xml deserialize	xml deserialize ?options? type xml
+xml foreach	xml foreach ?options? varName xml body
 xml serialize	xml serialize ?options? type object
 xml validate	xml validate schemaXml documentXml

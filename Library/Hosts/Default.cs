@@ -136,6 +136,7 @@ namespace Eagle._Hosts
             FileNameOnly.All, FileNameOnly.Constraints,
             FileNameOnly.Epilogue, FileNameOnly.Prologue,
             /* FileNameOnly.TestPackageIndex, */ /* DUPLICATE */
+            /* FileNameOnly.KitPackageIndex, */ /* DUPLICATE */
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -145,7 +146,8 @@ namespace Eagle._Hosts
             FileName.Test, FileName.LibraryPackageIndex,
             FileName.All, FileName.Constraints,
             FileName.Epilogue, FileName.Prologue,
-            FileName.TestPackageIndex
+            FileName.TestPackageIndex,
+            FileName.KitPackageIndex
         }, true, false);
         #endregion
         #endregion
@@ -176,10 +178,6 @@ namespace Eagle._Hosts
         #region Private Constructors
         private Default()
         {
-            kind = IdentifierKind.Host;
-            id = AttributeOps.GetObjectId(this);
-            group = AttributeOps.GetObjectGroups(this);
-
             //
             // NOTE: Set the default display constraints for each section of
             //       the header.
@@ -238,6 +236,16 @@ namespace Eagle._Hosts
             )
             : this()
         {
+            kind = IdentifierKind.Host;
+
+            if ((hostData == null) ||
+                !FlagOps.HasFlags(hostData.HostCreateFlags,
+                    HostCreateFlags.NoAttributes, true))
+            {
+                id = AttributeOps.GetObjectId(this);
+                group = AttributeOps.GetObjectGroups(this);
+            }
+
             if (hostData != null)
             {
                 EntityOps.MaybeSetGroup(
@@ -4685,6 +4693,12 @@ namespace Eagle._Hosts
             if (FlagOps.HasFlags(detailFlags, DetailFlags.CertificateCacheInfo, true))
                 CertificateOps.AddInfo(list, detailFlags);
 
+            if (FlagOps.HasFlags(detailFlags, DetailFlags.StringBuilderCacheInfo, true))
+                StringBuilderCache.AddInfo(list, detailFlags);
+
+            if (FlagOps.HasFlags(detailFlags, DetailFlags.StringBuilderFactoryInfo, true))
+                StringBuilderFactory.AddInfo(list, detailFlags);
+
             return true;
         }
         #endregion
@@ -6926,6 +6940,13 @@ namespace Eagle._Hosts
             bool isBackground,
             bool useActiveStack,
             ref Thread thread,
+            ref Result error
+            ); /* PRIMITIVE */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public abstract ReturnCode QueueWorkItem(
+            ThreadStart callback,
             ref Result error
             ); /* PRIMITIVE */
 
@@ -10993,6 +11014,12 @@ namespace Eagle._Hosts
 
             return PrivateResetHostFlags();
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public abstract ReturnCode ResetHistory(
+            ref Result error
+            ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -31,7 +31,7 @@ namespace Eagle._Components.Public
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        IDisposable
+        ITypeAndName, IDisposable
     {
         #region Private Constants
         #region IDbDataParameter Names
@@ -200,6 +200,7 @@ namespace Eagle._Components.Public
             DbConnectionType dbConnectionType,
             string assemblyFileName,
             string typeName,
+            Type type,
             string connectionString,
             string tableName,
             string nameColumnName,
@@ -212,6 +213,7 @@ namespace Eagle._Components.Public
             this.dbConnectionType = dbConnectionType;
             this.assemblyFileName = assemblyFileName;
             this.typeName = typeName;
+            this.type = type;
             this.connectionString = connectionString;
             this.tableName = tableName;
             this.nameColumnName = nameColumnName;
@@ -229,6 +231,7 @@ namespace Eagle._Components.Public
             DbConnectionType dbConnectionType,
             string assemblyFileName,
             string typeName,
+            Type type,
             string connectionString,
             string tableName,
             string nameColumnName,
@@ -239,14 +242,34 @@ namespace Eagle._Components.Public
         {
             return new DatabaseVariable(
                 dbVariableFlags, dbConnectionType, assemblyFileName,
-                typeName, connectionString, tableName, nameColumnName,
-                valueColumnName, permissions, useRowId);
+                typeName, type, connectionString, tableName,
+                nameColumnName, valueColumnName, permissions, useRowId);
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Members
+        #region ITypeAndName Members
+        private string typeName;
+        public string TypeName
+        {
+            get { CheckDisposed(); return typeName; }
+            set { throw new NotSupportedException(); }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private Type type;
+        public Type Type
+        {
+            get { CheckDisposed(); return type; }
+            set { throw new NotSupportedException(); }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public Properties
         private DbVariableFlags dbVariableFlags;
         public DbVariableFlags DbVariableFlags
@@ -268,14 +291,6 @@ namespace Eagle._Components.Public
         public string AssemblyFileName
         {
             get { CheckDisposed(); return assemblyFileName; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private string typeName;
-        public string TypeName
-        {
-            get { CheckDisposed(); return typeName; }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -551,9 +566,9 @@ namespace Eagle._Components.Public
             IDbConnection connection = null;
 
             if (DataOps.CreateDbConnection(
-                    interpreter, dbConnectionType,
-                    connectionString, assemblyFileName, typeName,
-                    typeName, ObjectOps.GetDefaultObjectValueFlags(),
+                    interpreter, dbConnectionType, connectionString,
+                    assemblyFileName, typeName, typeName, type,
+                    ObjectOps.GetDefaultObjectValueFlags(),
                     ref connection, ref error) == ReturnCode.Ok)
             {
                 return connection;
@@ -781,7 +796,7 @@ namespace Eagle._Components.Public
                     TraceOps.DebugTrace(String.Format(
                         "DoesExistViaSelect: error = {0}", error),
                         typeof(DatabaseVariable).Name,
-                        TracePriority.DataError);
+                        TracePriority.DataError2);
                 }
             }
         }
