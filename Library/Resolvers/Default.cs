@@ -42,6 +42,10 @@ namespace Eagle._Resolvers
 
             if (resolveData != null)
             {
+                id = resolveData.Id;
+
+                EntityOps.MaybeSetupId(this);
+
                 EntityOps.MaybeSetGroup(
                     this, resolveData.Group);
 
@@ -211,6 +215,17 @@ namespace Eagle._Resolvers
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public virtual IClientData ClientData
+        {
+            get { return clientData; }
+            set { clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public virtual string Group
@@ -226,17 +241,6 @@ namespace Eagle._Resolvers
         {
             get { return description; }
             set { description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public virtual IClientData ClientData
-        {
-            get { return clientData; }
-            set { clientData = value; }
         }
         #endregion
 

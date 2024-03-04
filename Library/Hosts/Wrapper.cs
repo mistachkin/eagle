@@ -1293,6 +1293,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        public virtual IClientData ClientData
+        {
+            get { CheckDisposed(); return baseHost.ClientData; }
+            set { CheckDisposed(); baseHost.ClientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         public virtual string Group
         {
@@ -1306,16 +1316,6 @@ namespace Eagle._Hosts
         {
             get { CheckDisposed(); return baseHost.Description; }
             set { CheckDisposed(); baseHost.Description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        public virtual IClientData ClientData
-        {
-            get { CheckDisposed(); return baseHost.ClientData; }
-            set { CheckDisposed(); baseHost.ClientData = value; }
         }
         #endregion
 
@@ -1438,12 +1438,13 @@ namespace Eagle._Hosts
 
         public virtual ReturnCode QueueWorkItem(
             ThreadStart callback,
+            QueueFlags flags,
             ref Result error
             )
         {
             CheckDisposed();
 
-            return baseHost.QueueWorkItem(callback, ref error);
+            return baseHost.QueueWorkItem(callback, flags, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1451,12 +1452,13 @@ namespace Eagle._Hosts
         public virtual ReturnCode QueueWorkItem(
             WaitCallback callback,
             object state,
+            QueueFlags flags,
             ref Result error
             )
         {
             CheckDisposed();
 
-            return baseHost.QueueWorkItem(callback, state, ref error);
+            return baseHost.QueueWorkItem(callback, state, flags, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

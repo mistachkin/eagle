@@ -1665,7 +1665,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ISimpleSynchronize Members
+        #region ISynchronizeSimple Members
         /* DANGEROUS: EXTERNAL USE ONLY. */
         public bool TryLock() /* NOT USED BY CORE */
         {

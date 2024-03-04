@@ -37,11 +37,13 @@ namespace Eagle._Commands
     internal sealed class Host : Core
     {
         #region Private Data
+#if NATIVE && WINDOWS
         private readonly EnsembleDictionary screenSubCommands =
         new EnsembleDictionary(new string[] {
             "active", "create", "delete", "exists", "list", "peek", "pop",
             "push"
         });
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -62,7 +64,7 @@ namespace Eagle._Commands
         private readonly EnsembleDictionary subCommands =
         new EnsembleDictionary(new string[] {
             "beep", "boxstyle", "cancel", "clear", "close",
-            "color", "echo", "errchan", "exit", "flags",
+            "color", "echo", "errchan", "exit", "flags", "font",
             "inchan", "isopen", "mode", "namedcolor", "open",
             "outchan", "outputstyle", "pause", "position", "query",
             "readchar", "readkey", "readline", "redirected", "reset",
@@ -133,13 +135,13 @@ namespace Eagle._Commands
 
                                                     if (host != null)
                                                     {
-                                                        Variant value = null;
-                                                        int frequency = _Hosts.Default.BeepFrequency;
+                                                        IVariant value = null;
+                                                        int frequency = Beep.Frequency;
 
                                                         if (options.IsPresent("-frequency", ref value))
                                                             frequency = (int)value.Value;
 
-                                                        int duration = _Hosts.Default.BeepDuration;
+                                                        int duration = Beep.Duration;
 
                                                         if (options.IsPresent("-duration", ref value))
                                                             duration = (int)value.Value;
@@ -385,7 +387,7 @@ namespace Eagle._Commands
                                                             ConsoleColor oldForegroundColor = foregroundColor;
                                                             ConsoleColor oldBackgroundColor = backgroundColor;
 
-                                                            Variant value = null;
+                                                            IVariant value = null;
                                                             bool foreground = false;
 
                                                             if (options.IsPresent("-fg", ref value) ||
@@ -596,6 +598,99 @@ namespace Eagle._Commands
                                         }
                                         break;
                                     }
+                                case "font":
+                                    {
+                                        if (arguments.Count >= 2)
+                                        {
+#if CONSOLE && NATIVE && WINDOWS
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(null, OptionFlags.MustHaveValue,
+                                                    Index.Invalid, Index.Invalid, "-facename", null),
+                                                new Option(null, OptionFlags.MustHaveNarrowIntegerValue,
+                                                    Index.Invalid, Index.Invalid, "-fontsize", null),
+                                                new Option(null, OptionFlags.MustHaveBooleanValue,
+                                                    Index.Invalid, Index.Invalid, "-save", null),
+                                                new Option(null, OptionFlags.MustHaveBooleanValue,
+                                                    Index.Invalid, Index.Invalid, "-restore", null),
+                                                Option.CreateEndOfOptions()
+                                            });
+
+                                            int argumentIndex = Index.Invalid;
+
+                                            if (arguments.Count > 2)
+                                            {
+                                                code = interpreter.GetOptions(
+                                                    options, arguments, 0, 2, Index.Invalid,
+                                                    true, ref argumentIndex, ref result);
+                                            }
+                                            else
+                                            {
+                                                code = ReturnCode.Ok;
+                                            }
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                if (argumentIndex == Index.Invalid)
+                                                {
+                                                    IVariant value = null;
+                                                    string faceName = null;
+
+                                                    if (options.IsPresent("-facename", ref value))
+                                                        faceName = value.ToString();
+
+                                                    short? fontSize = null;
+
+                                                    if (options.IsPresent("-fontsize", ref value))
+                                                        fontSize = (short)value.Value;
+
+                                                    bool save = true; // TODO: Good default?
+
+                                                    if (options.IsPresent("-save", ref value))
+                                                        save = (bool)value.Value;
+
+                                                    bool restore = false;
+
+                                                    if (options.IsPresent("-restore", ref value))
+                                                        restore = (bool)value.Value;
+
+                                                    if (restore)
+                                                    {
+                                                        code = NativeConsole.CleanupFont(false, ref result);
+                                                    }
+                                                    else if ((faceName != null) || (fontSize != null))
+                                                    {
+                                                        code = NativeConsole.SetFont(
+                                                            faceName, fontSize, !save, ref result);
+                                                    }
+                                                    else
+                                                    {
+                                                        StringList list = null;
+
+                                                        code = NativeConsole.GetFont(ref list, ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                            result = list;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    result = "wrong # args: should be \"host font ?options?\"";
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+#else
+                                            result = "not implemented";
+                                            code = ReturnCode.Error;
+#endif
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"host font ?options?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "inchan":
                                     {
                                         if ((arguments.Count == 2) || (arguments.Count == 3))
@@ -762,7 +857,7 @@ namespace Eagle._Commands
 
                                                     if (colorHost != null)
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         string theme = null;
 
                                                         if (options.IsPresent("-theme", ref value))
@@ -1029,7 +1124,7 @@ namespace Eagle._Commands
                                                         {
                                                             bool setLeft = false;
                                                             bool setTop = false;
-                                                            Variant value = null;
+                                                            IVariant value = null;
 
                                                             if (options.IsPresent("-x", ref value))
                                                             {
@@ -1424,7 +1519,7 @@ namespace Eagle._Commands
 
                                                     if (host != null)
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         HostSizeType hostSizeType = HostSizeType.Default;
 
                                                         if (options.IsPresent("-sizetype", ref value))
@@ -1989,7 +2084,7 @@ namespace Eagle._Commands
 
                                                     if (sizeHost != null)
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         HostSizeType hostSizeType = HostSizeType.Default;
 
                                                         if (options.IsPresent("-sizetype", ref value))
@@ -2271,7 +2366,7 @@ namespace Eagle._Commands
 
                                                         if (noPosition || displayHost.GetPosition(ref left, ref top))
                                                         {
-                                                            Variant value = null;
+                                                            IVariant value = null;
                                                             string theme = null;
 
                                                             if (options.IsPresent("-theme", ref value))

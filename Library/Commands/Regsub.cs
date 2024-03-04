@@ -99,7 +99,7 @@ namespace Eagle._Commands
                                 if ((argumentIndex + 3) < arguments.Count)
                                     varName = arguments[argumentIndex + 3];
 
-                                Variant value = null;
+                                IVariant value = null;
 
                                 RegexOptions regExOptions =
                                     StringOps.DefaultRegExSyntaxOptions;

@@ -9,12 +9,14 @@
  * RCS: @(#) $Id: $
  */
 
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Containers.Private;
+using Eagle._Interfaces.Public;
 
 namespace Eagle._Comparers
 {
@@ -73,18 +75,18 @@ namespace Eagle._Comparers
                 interpreter, ascending, indexText, leftOnly, false,
                 cultureInfo, ref left, ref right); /* throw */
 
-            Number leftNumber = null;
+            INumber leftNumber = null;
 
             if ((Value.GetNumber(left, ValueFlags.AnyNumberAnyRadix, cultureInfo,
                     ref leftNumber, ref error) == ReturnCode.Ok) &&
-                leftNumber.ConvertTo(typeof(double)))
+                leftNumber.ConvertTo(TypeCode.Double))
             {
                 double leftDouble = (double)leftNumber.Value;
-                Number rightNumber = null;
+                INumber rightNumber = null;
 
                 if ((Value.GetNumber(right, ValueFlags.AnyNumberAnyRadix, cultureInfo,
                         ref rightNumber, ref error) == ReturnCode.Ok) &&
-                    rightNumber.ConvertTo(typeof(double)))
+                    rightNumber.ConvertTo(TypeCode.Double))
                 {
                     double rightDouble = (double)rightNumber.Value;
 

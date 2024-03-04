@@ -65,4 +65,3 @@ namespace Eagle._Components.Private
         }
     }
 }
-

@@ -685,7 +685,7 @@ namespace Eagle._Commands
                                             {
                                                 if ((argumentIndex == Index.Invalid) || ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Interpreter localInterpreter = interpreter;
 
                                                     if (options.IsPresent("-interpreter", ref value))
@@ -2083,7 +2083,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex == Index.Invalid) ||
                                                     ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Interpreter localInterpreter = interpreter;
 
                                                     if (options.IsPresent("-interpreter", ref value))
@@ -2382,7 +2382,8 @@ namespace Eagle._Commands
 #if SHELL && INTERACTIVE_COMMANDS && XML
                                                                 , "help", HelpOps.GetHelp(identifier)
 #endif
-                                                                , "plugin", (plugin != null) ? plugin.ToString() : null
+                                                                , "plugin", (plugin != null) ? plugin.ToString() : null,
+                                                                "flags", EntityOps.GetFlagsNoThrow(identifier)
                                                             );
                                                         }
                                                         else
@@ -2972,7 +2973,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex == Index.Invalid) ||
                                                     ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Interpreter localInterpreter = interpreter;
 
                                                     if (options.IsPresent("-interpreter", ref value))
@@ -3821,7 +3822,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 2) >= arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     bool? hidden = null;
 
                                                     if (options.IsPresent("-hidden", ref value))
@@ -4121,7 +4122,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex == Index.Invalid) ||
                                                     ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Interpreter localInterpreter = interpreter;
 
                                                     if (options.IsPresent("-interpreter", ref value))

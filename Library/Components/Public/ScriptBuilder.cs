@@ -115,6 +115,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public IClientData ClientData
+        {
+            get { return clientData; }
+            set { clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public string Group
@@ -130,17 +141,6 @@ namespace Eagle._Components.Public
         {
             get { return description; }
             set { description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public IClientData ClientData
-        {
-            get { return clientData; }
-            set { clientData = value; }
         }
         #endregion
 

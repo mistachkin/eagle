@@ -184,7 +184,7 @@ REM ****************************************************************************
 
 SET LIBFILES=auxiliary.eagle compat.eagle csharp.eagle
 SET LIBFILES=%LIBFILES% database.eagle exec.eagle file1.eagle
-SET LIBFILES=%LIBFILES% file2.eagle file3.eagle info.eagle
+SET LIBFILES=%LIBFILES% file2.eagle file2u.eagle file3.eagle info.eagle
 SET LIBFILES=%LIBFILES% init.eagle list.eagle object.eagle
 SET LIBFILES=%LIBFILES% pkgt.eagle platform.eagle process.eagle
 SET LIBFILES=%LIBFILES% runopt.eagle safe.eagle shell.eagle

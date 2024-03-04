@@ -25,19 +25,77 @@ namespace eval ::Eagle {
   #       is currently set.
   #
   proc hasRuntimeOption { name {default false} } {
-    if {[llength [info commands debug]] > 0} then {
-      if {[llength [info subcommands debug runtimeoption]] > 0} then {
-        if {[catch {debug runtimeoption has $name} result] == 0} then {
+    if {[isEagle]} then {
+      if {[llength [info commands debug]] > 0} then {
+        if {[llength [info subcommands debug runtimeoption]] > 0} then {
+          if {[catch {debug runtimeoption has $name} result] == 0} then {
+            return $result
+          }
+        }
+      }
+
+      if {[llength [info commands object]] > 0} then {
+        if {[catch {
+          object invoke Interpreter.GetActive HasRuntimeOption $name
+        } result] == 0} then {
           return $result
+        }
+      }
+    } else {
+      if {![info exists ::no(tclHasRuntimeOption)] && \
+          [info exists ::env(tclHasRuntimeOption)]} then {
+        if {[info exists ::eagle_platform(runtimeOptions)] && [set \
+            index [lsearch -exact $::eagle_platform(runtimeOptions) \
+            $name]] != -1} then {
+          return true
+        }
+      } else {
+        if {[info exists ::no(silentTclHasRuntimeOption)] || \
+            [info exists ::env(errorOnTclHasRuntimeOption)]} then {
+          error [appendArgs \
+              "procedure \[" [lindex [info level [info level]] 0] \
+              "\] is not enabled for native Tcl"]
         }
       }
     }
 
-    if {[llength [info commands object]] > 0} then {
-      if {[catch {
-        object invoke Interpreter.GetActive HasRuntimeOption $name
-      } result] == 0} then {
-        return $result
+    return $default
+  }
+
+  #
+  # NOTE: This procedure returns the list of runtime options that are
+  #       currently set.
+  #
+  proc listRuntimeOptions { {default ""} } {
+    if {[isEagle]} then {
+      if {[llength [info commands debug]] > 0} then {
+        if {[llength [info subcommands debug runtimeoption]] > 0} then {
+          if {[catch {debug runtimeoption get} result] == 0} then {
+            return $result
+          }
+        }
+      }
+
+      if {[llength [info commands object]] > 0} then {
+        if {[catch {
+          object invoke Interpreter.GetActive RuntimeOptions.ToString
+        } result] == 0} then {
+          return $result
+        }
+      }
+    } else {
+      if {![info exists ::no(tclListRuntimeOptions)] && \
+          [info exists ::env(tclListRuntimeOptions)]} then {
+        if {[info exists ::eagle_platform(runtimeOptions)]} then {
+          return $::eagle_platform(runtimeOptions)
+        }
+      } else {
+        if {[info exists ::no(silentTclListRuntimeOptions)] || \
+            [info exists ::env(errorOnTclListRuntimeOptions)]} then {
+          error [appendArgs \
+              "procedure \[" [lindex [info level [info level]] 0] \
+              "\] is not enabled for native Tcl"]
+        }
       }
     }
 
@@ -49,19 +107,38 @@ namespace eval ::Eagle {
   #       returns non-zero if it was actually added.
   #
   proc addRuntimeOption { name } {
-    if {[llength [info commands debug]] > 0} then {
-      if {[llength [info subcommands debug runtimeoption]] > 0} then {
-        if {[catch {debug runtimeoption add $name} result] == 0} then {
+    if {[isEagle]} then {
+      if {[llength [info commands debug]] > 0} then {
+        if {[llength [info subcommands debug runtimeoption]] > 0} then {
+          if {[catch {debug runtimeoption add $name} result] == 0} then {
+            return $result
+          }
+        }
+      }
+
+      if {[llength [info commands object]] > 0} then {
+        if {[catch {
+          object invoke Interpreter.GetActive AddRuntimeOption $name
+        } result] == 0} then {
           return $result
         }
       }
-    }
-
-    if {[llength [info commands object]] > 0} then {
-      if {[catch {
-        object invoke Interpreter.GetActive AddRuntimeOption $name
-      } result] == 0} then {
-        return $result
+    } else {
+      if {![info exists ::no(tclAddRuntimeOption)] && \
+          [info exists ::env(tclAddRuntimeOption)]} then {
+        if {![info exists ::eagle_platform(runtimeOptions)] || [set \
+            index [lsearch -exact $::eagle_platform(runtimeOptions) \
+            $name]] == -1} then {
+          lappend ::eagle_platform(runtimeOptions) $name
+          return true
+        }
+      } else {
+        if {[info exists ::no(silentTclAddRuntimeOption)] || \
+            [info exists ::env(errorOnTclAddRuntimeOption)]} then {
+          error [appendArgs \
+              "procedure \[" [lindex [info level [info level]] 0] \
+              "\] is not enabled for native Tcl"]
+        }
       }
     }
 
@@ -73,23 +150,56 @@ namespace eval ::Eagle {
   #       and returns non-zero if it was actually removed.
   #
   proc removeRuntimeOption { name } {
-    if {[llength [info commands debug]] > 0} then {
-      if {[llength [info subcommands debug runtimeoption]] > 0} then {
-        if {[catch {debug runtimeoption remove $name} result] == 0} then {
+    if {[isEagle]} then {
+      if {[llength [info commands debug]] > 0} then {
+        if {[llength [info subcommands debug runtimeoption]] > 0} then {
+          if {[catch {debug runtimeoption remove $name} result] == 0} then {
+            return $result
+          }
+        }
+      }
+
+      if {[llength [info commands object]] > 0} then {
+        if {[catch {
+          object invoke Interpreter.GetActive RemoveRuntimeOption $name
+        } result] == 0} then {
           return $result
+        }
+      }
+    } else {
+      if {![info exists ::no(tclRemoveRuntimeOption)] && \
+          [info exists ::env(tclRemoveRuntimeOption)]} then {
+        if {[info exists ::eagle_platform(runtimeOptions)] && [set \
+            index [lsearch -exact $::eagle_platform(runtimeOptions) \
+            $name]] != -1} then {
+          set ::eagle_platform(runtimeOptions) [lreplace \
+              $::eagle_platform(runtimeOptions) $index $index]
+
+          return true
+        }
+      } else {
+        if {[info exists ::no(silentTclRemoveRuntimeOption)] || \
+            [info exists ::env(errorOnTclRemoveRuntimeOption)]} then {
+          error [appendArgs \
+              "procedure \[" [lindex [info level [info level]] 0] \
+              "\] is not enabled for native Tcl"]
         }
       }
     }
 
-    if {[llength [info commands object]] > 0} then {
-      if {[catch {
-        object invoke Interpreter.GetActive RemoveRuntimeOption $name
-      } result] == 0} then {
-        return $result
-      }
+    return false
+  }
+
+  proc toggleRuntimeOption { name {value ""} } {
+    if {[string length $value] == 0} then {
+      set value [expr {![hasRuntimeOption $name]}]
     }
 
-    return false
+    if {$value} then {
+      return [addRuntimeOption $name]
+    } else {
+      return [removeRuntimeOption $name]
+    }
   }
 
   #

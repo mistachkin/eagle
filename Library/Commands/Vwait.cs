@@ -110,7 +110,7 @@ namespace Eagle._Commands
                             if ((argumentIndex != Index.Invalid) &&
                                 ((argumentIndex + 1) == arguments.Count))
                             {
-                                Variant value = null;
+                                IVariant value = null;
                                 int valueIndex = Index.Invalid;
                                 EventWaitHandle @event = null;
 

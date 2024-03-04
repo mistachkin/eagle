@@ -157,9 +157,11 @@ runTest {test object-15.4 {Interpreter/IInterpreter interface} -setup {
                        Eagle._Interfaces.Public.IScriptManager \
                        Eagle._Interfaces.Public.ISecurityManager \
                        Eagle._Interfaces.Public.IShellManager \
+                       Eagle._Interfaces.Public.ISnippetManager \
                        Eagle._Interfaces.Public.IStatusManager \
                        Eagle._Interfaces.Public.ISynchronize \
                        Eagle._Interfaces.Public.ISynchronizeBase \
+                       Eagle._Interfaces.Public.ISynchronizeStatic \
                        Eagle._Interfaces.Public.ITclEntityManager \
                        Eagle._Interfaces.Public.ITclManager \
                        Eagle._Interfaces.Public.ITraceManager \

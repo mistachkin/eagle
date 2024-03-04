@@ -73,6 +73,7 @@ namespace Eagle._Components.Private
         internal static readonly string TextEncodingName = "textDefault";
         internal static readonly string ScriptEncodingName = "scriptDefault";
         internal static readonly string XmlEncodingName = "xmlDefault";
+        internal static readonly string SnippetEncodingName = "snippetEncoding";
 
         private static readonly Encoding SystemEncoding = new UnicodeEncoding(false, false);
 
@@ -100,6 +101,7 @@ namespace Eagle._Components.Private
 
         private static readonly Encoding TclEncoding = ChannelEncoding;
         private static readonly Encoding ScriptEncoding = TclEncoding;
+        private static readonly Encoding SnippetEncoding = ScriptEncoding;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -209,6 +211,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Radix Regular Expressions
+        internal static readonly Regex sha1HashValueRegEx = RegExOps.Create(
+            "^0x[0-9a-f]{40}$", RegexOptions.None);
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal static readonly Regex sha512HashValueRegEx = RegExOps.Create(
+            "^0x[0-9a-f]{128}$", RegexOptions.None);
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static readonly Regex base16RegEx = RegExOps.Create(
             "^(?:0x)?(?:[0-9A-F][0-9A-F])*$", RegexOptions.IgnoreCase);
 
@@ -1161,6 +1173,8 @@ namespace Eagle._Components.Private
                     return TextEncoding;
                 case EncodingType.FileSystem:
                     return TextEncoding;
+                case EncodingType.Snippet:
+                    return SnippetEncoding;
             }
 
             return null;
@@ -1888,6 +1902,40 @@ namespace Eagle._Components.Private
             return IsMultiLine(
                 builder.ToString(), indentSpaces, ref newLine,
                 ref indent);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsSha1HashValue(
+            string text
+            )
+        {
+            if (!String.IsNullOrEmpty(text) && (sha1HashValueRegEx != null))
+            {
+                Match match = sha1HashValueRegEx.Match(text);
+
+                if ((match != null) && match.Success)
+                    return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsSha512HashValue(
+            string text
+            )
+        {
+            if (!String.IsNullOrEmpty(text) && (sha512HashValueRegEx != null))
+            {
+                Match match = sha512HashValueRegEx.Match(text);
+
+                if ((match != null) && match.Success)
+                    return true;
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4804,7 +4852,7 @@ namespace Eagle._Components.Private
 
                 int intValue = 0;
                 long longValue = 0;
-                double doubleValue = 0;
+                double doubleValue = 0.0;
 
                 switch (character)
                 {

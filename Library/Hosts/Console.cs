@@ -2581,10 +2581,7 @@ namespace Eagle._Hosts
             bool newLine  /* in */
             )
         {
-            if (newLine)
-                System.Console.WriteLine(value); /* throw */
-            else
-                System.Console.Write(value); /* throw */
+            PrivateWrite(value, newLine); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2596,10 +2593,7 @@ namespace Eagle._Hosts
         {
             char character = Convert.ToChar(value); /* throw */
 
-            if (newLine)
-                System.Console.WriteLine(character); /* throw */
-            else
-                System.Console.Write(character); /* throw */
+            PrivateWrite(character, newLine); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2629,31 +2623,28 @@ namespace Eagle._Hosts
             if (FlagOps.HasFlags(
                     modifiers, ConsoleModifiers.Control, true))
             {
-                System.Console.Write(String.Format(
+                PrivateWrite(String.Format(
                     ModifierEchoFormat, ConsoleModifiers.Control,
-                    ModifierEchoSeparator));
+                    ModifierEchoSeparator), false); /* throw */
             }
 
             if (FlagOps.HasFlags(
                     modifiers, ConsoleModifiers.Shift, true))
             {
-                System.Console.Write(String.Format(
+                PrivateWrite(String.Format(
                     ModifierEchoFormat, ConsoleModifiers.Shift,
-                    ModifierEchoSeparator));
+                    ModifierEchoSeparator), false); /* throw */
             }
 
             if (FlagOps.HasFlags(
                     modifiers, ConsoleModifiers.Alt, true))
             {
-                System.Console.Write(String.Format(
+                PrivateWrite(String.Format(
                     ModifierEchoFormat, ConsoleModifiers.Alt,
-                    ModifierEchoSeparator));
+                    ModifierEchoSeparator), false); /* throw */
             }
 
-            if (newLine)
-                System.Console.WriteLine(character); /* throw */
-            else
-                System.Console.Write(character); /* throw */
+            PrivateWrite(character, newLine); /* throw */
         }
         #endregion
         #endregion
@@ -3207,6 +3198,109 @@ namespace Eagle._Hosts
         }
 #endif
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Native Console Write Handling
+#if NATIVE && WINDOWS
+        private bool CanWriteNative()
+        {
+            if (!NativeConsole.IsSupported() ||
+                !DoesNativeWindows() ||
+                IsChannelRedirected(ChannelType.Output))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal void SetWriteNative(
+            bool writeNative
+            )
+        {
+            if (writeNative)
+                hostFlags |= HostFlags.NativeWindows;
+            else
+                hostFlags &= ~HostFlags.NativeWindows;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool WriteNative<T>(
+            T value,
+            bool newLine
+            )
+        {
+            if (!CanWriteNative())
+                return false;
+
+            ConsoleOps.WriteNative<T>(value, newLine); /* throw */
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool WriteLineNative()
+        {
+            if (!CanWriteNative())
+                return false;
+
+            ConsoleOps.WriteNativeLine(); /* throw */
+            return true;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void PrivateWrite(
+            char value,
+            bool newLine
+            )
+        {
+#if NATIVE && WINDOWS
+            if (WriteNative<char>(value, newLine)) /* throw */
+                return;
+#endif
+
+            if (newLine)
+                System.Console.WriteLine(value); /* throw */
+            else
+                System.Console.Write(value); /* throw */
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void PrivateWrite(
+            string value,
+            bool newLine
+            )
+        {
+#if NATIVE && WINDOWS
+            if (WriteNative<string>(value, newLine)) /* throw */
+                return;
+#endif
+
+            if (newLine)
+                System.Console.WriteLine(value); /* throw */
+            else
+                System.Console.Write(value); /* throw */
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void PrivateWriteLine()
+        {
+#if NATIVE && WINDOWS
+            if (WriteLineNative()) /* throw */
+                return;
+#endif
+
+            System.Console.WriteLine(); /* throw */
+        }
+        #endregion
         #endregion
         #endregion
 
@@ -3570,7 +3664,8 @@ namespace Eagle._Hosts
             try
             {
                 SystemConsoleOutputMustBeOpen(this); /* throw */
-                System.Console.WriteLine();
+
+                PrivateWriteLine(); /* throw */
 
                 return true;
             }
@@ -5039,10 +5134,7 @@ namespace Eagle._Hosts
             {
                 SystemConsoleOutputMustBeOpen(this); /* throw */
 
-                if (newLine)
-                    System.Console.WriteLine(value);
-                else
-                    System.Console.Write(value);
+                PrivateWrite(value, newLine);
 
                 return true;
             }
@@ -5090,10 +5182,7 @@ namespace Eagle._Hosts
             {
                 SystemConsoleOutputMustBeOpen(this); /* throw */
 
-                if (newLine)
-                    System.Console.WriteLine(value);
-                else
-                    System.Console.Write(value);
+                PrivateWrite(value, newLine);
 
                 return true;
             }

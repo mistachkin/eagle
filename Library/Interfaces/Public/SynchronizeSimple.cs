@@ -1,5 +1,5 @@
 /*
- * SimpleSynchronize.cs --
+ * SynchronizeSimple.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -18,7 +18,7 @@ namespace Eagle._Interfaces.Public
     //          any methods from it, for new code.
     //
     [ObjectId("66e23dba-6d3a-4e6a-b215-300f1d2d1c82")]
-    public interface ISimpleSynchronize
+    public interface ISynchronizeSimple
     {
         bool TryLock();
         void Lock();

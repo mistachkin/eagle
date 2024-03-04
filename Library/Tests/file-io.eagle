@@ -806,8 +806,34 @@ runTest {test fileIO-5.8 {file normalize with extra backslashes} -body {
 
 ###############################################################################
 
-if {[isEagle] && [haveConstraint tclShell] && \
-    [canExecTclShell] && ![info exists no(evalWithTclShell)]} then {
+proc canUseTclShell {} {
+  #
+  # NOTE: Do not allow use of an external native Tcl shell (tclsh) if any
+  #       of the following are true:
+  #
+  #       1. The test constraint "tclShell" is not present.  This may be
+  #          due to restrictions that are checked and processed via the
+  #          test suite prologue.
+  #
+  #       2. All use of external Tcl shells by the test suite has been
+  #          forbidden by the user or something acting on their behalf.
+  #
+  #       3. Use of the core script library procedure [evalWithTclShell]
+  #          has been forbidden by the user or something acting on their
+  #          behalf.
+  #
+  if {[haveConstraint tclShell] && \
+      [canExecTclShell] && \
+      ![info exists no(evalWithTclShell)]} then {
+    return true
+  } else {
+    return false
+  }
+}
+
+###############################################################################
+
+if {[isEagle] && [canUseTclShell]} then {
   proc checkEqual { list tclList } {
     set result [string equal $list $tclList]
 
@@ -950,7 +976,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" only"] -body {
         checkEqual [lsort [glob -noerror $pattern]] [lsort \
             [evalWithTclShell [list glob -nocomplain $pattern] \
-            false "" [getTclShellVerbosity]]]
+            [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -969,7 +995,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" with -directory"] -body {
         checkEqual [lsort [glob -noerror -directory . $pattern]] [lsort \
             [evalWithTclShell [list glob -nocomplain -directory . $pattern] \
-            false "" [getTclShellVerbosity]]]
+            [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -988,7 +1014,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" with -path"] -body {
         checkEqual [lsort [glob -noerror -path . $pattern]] [lsort \
             [evalWithTclShell [list glob -nocomplain -path . $pattern] \
-            false "" [getTclShellVerbosity]]]
+            [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -1007,7 +1033,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" with -directory and -tails"] -body {
         checkEqual [lsort [glob -noerror -directory . -tails $pattern]] \
             [lsort [evalWithTclShell [list glob -nocomplain -directory . \
-            -tails $pattern] false "" [getTclShellVerbosity]]]
+            -tails $pattern] [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -1026,7 +1052,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" with -path and -tails"] -body {
         checkEqual [lsort [glob -noerror -path . -tails $pattern]] \
             [lsort [evalWithTclShell [list glob -nocomplain -path . \
-            -tails $pattern] false "" [getTclShellVerbosity]]]
+            -tails $pattern] [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -1056,7 +1082,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" with -join (all)"] -body {
         checkEqual [lsort [glob -noerror -join $pattern *]] [lsort \
             [evalWithTclShell [list glob -nocomplain -join $pattern *] \
-            false "" [getTclShellVerbosity]]]
+            [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -1086,7 +1112,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" with -join (some)"] -body {
         checkEqual [lsort [glob -noerror -join $pattern E*]] [lsort \
             [evalWithTclShell [list glob -nocomplain -join $pattern E*] \
-            false "" [getTclShellVerbosity]]]
+            [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -1116,7 +1142,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" with -join (none)"] -body {
         checkEqual [lsort [glob -noerror -join $pattern ZZ]] [lsort \
             [evalWithTclShell [list glob -nocomplain -join $pattern ZZ] \
-            false "" [getTclShellVerbosity]]]
+            [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -1135,7 +1161,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" with -types {f}"] -body {
         checkEqual [lsort [glob -noerror -types {f} $pattern]] [lsort \
             [evalWithTclShell [list glob -nocomplain -types {f} $pattern] \
-            false "" [getTclShellVerbosity]]]
+            [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -1154,7 +1180,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
           "pattern \"" $pattern "\" with -types {d}"] -body {
         checkEqual [lsort [glob -noerror -types {d} $pattern]] [lsort \
             [evalWithTclShell [list glob -nocomplain -types {d} $pattern] \
-            false "" [getTclShellVerbosity]]]
+            [getTclShellRaw] "" [getTclShellVerbosity]]]
       } -cleanup {
         catch {info previouspid true}
       } -constraints [eval lappendArgs \
@@ -1178,7 +1204,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
   runTest {test glob-100.1 {pattern for root (Windows)} -body {
     checkEqual [lsort [glob -noerror C:/*]] [lsort \
         [evalWithTclShell [list glob -nocomplain C:/*] \
-        false "" [getTclShellVerbosity]]]
+        [getTclShellRaw] "" [getTclShellVerbosity]]]
   } -cleanup {
     catch {info previouspid true}
   } -constraints {eagle windows tclShell monoBug48} -result {True}}
@@ -1188,7 +1214,7 @@ if {[isEagle] && [haveConstraint tclShell] && \
   runTest {test glob-100.2 {pattern for root (non-Windows)} -body {
     checkEqual [lsort [glob -noerror /*]] [lsort \
         [evalWithTclShell [list glob -nocomplain /*] \
-        false "" [getTclShellVerbosity]]]
+        [getTclShellRaw] "" [getTclShellVerbosity]]]
   } -cleanup {
     catch {info previouspid true}
   } -constraints {eagle tclShell monoBug46} -result {True}}
@@ -1678,7 +1704,9 @@ proc getDevice { path } {
   }
 
   if {[isEagle]} then {
-    return [expr {[string index $drive 0] - [string ordinal a 0]}]
+    return [expr {
+      [string ordinal [string index $drive 0] 0] - [string ordinal a 0]
+    }]
   } else {
     return [expr {[scan [string index $drive 0] %c] - [scan a %c]}]
   }
@@ -1832,31 +1860,64 @@ proc volumeSerialNumberToDecimal { vsn } {
 unset -nocomplain fileData fileName
 
 set fileName(1) [info script]
-set fileData(1,dev) [getDevice $fileName(1)]
-set fileData(1,rdev) [getVolumeSerialNumber $fileName(1) true]
-set fileData(1,mode) 33206; # BUGBUG: Non-portable?
-set fileData(1,size) [file size $fileName(1)]
-set fileData(1,atime) [file atime $fileName(1)]
-set fileData(1,ctime) [expr {[isEagle] ? [file ctime $fileName(1)] : 0}]
-set fileData(1,mtime) [file mtime $fileName(1)]
+
+if {[string length $fileName(1)] > 0 && [file exists $fileName(1)]} then {
+  set fileData(1,dev) [getDevice $fileName(1)]
+  set fileData(1,rdev) [getVolumeSerialNumber $fileName(1) true]
+  set fileData(1,mode) 33206; # BUGBUG: Non-portable?
+  set fileData(1,size) [file size $fileName(1)]
+  set fileData(1,atime) [file atime $fileName(1)]
+  set fileData(1,ctime) [expr {[isEagle] ? [file ctime $fileName(1)] : 0}]
+  set fileData(1,mtime) [file mtime $fileName(1)]
+} else {
+  set fileData(1,dev) -1
+  set fileData(1,rdev) -1
+  set fileData(1,mode) 0
+  set fileData(1,size) 0
+  set fileData(1,atime) 0
+  set fileData(1,ctime) 0
+  set fileData(1,mtime) 0
+}
 
 set fileName(2) [file dirname [info script]]
-set fileData(2,dev) [getDevice $fileName(2)]
-set fileData(2,rdev) [getVolumeSerialNumber $fileName(2) true]
-set fileData(2,mode) 16895; # BUGBUG: Non-portable?
-set fileData(2,size) [expr {[isWindows] ? [file size $fileName(2)] : 0}]
-set fileData(2,atime) [file atime $fileName(2)]
-set fileData(2,ctime) [expr {[isEagle] ? [file ctime $fileName(2)] : 0}]
-set fileData(2,mtime) [file mtime $fileName(2)]
+
+if {[string length $fileName(2)] > 0 && [file exists $fileName(2)]} then {
+  set fileData(2,dev) [getDevice $fileName(2)]
+  set fileData(2,rdev) [getVolumeSerialNumber $fileName(2) true]
+  set fileData(2,mode) 16895; # BUGBUG: Non-portable?
+  set fileData(2,size) [expr {[isWindows] ? [file size $fileName(2)] : 0}]
+  set fileData(2,atime) [file atime $fileName(2)]
+  set fileData(2,ctime) [expr {[isEagle] ? [file ctime $fileName(2)] : 0}]
+  set fileData(2,mtime) [file mtime $fileName(2)]
+} else {
+  set fileData(2,dev) -1
+  set fileData(2,rdev) -1
+  set fileData(2,mode) 0
+  set fileData(2,size) 0
+  set fileData(2,atime) 0
+  set fileData(2,ctime) 0
+  set fileData(2,mtime) 0
+}
 
 set fileName(3) [getShellExecutableName]; # NOTE: Might be DLL on .NET Core.
-set fileData(3,dev) [getDevice $fileName(3)]
-set fileData(3,rdev) [getVolumeSerialNumber $fileName(3) true]
-set fileData(3,mode) [expr {[isDotNetCore] ? 33206 : 33279}]; # BUGBUG: Non-portable?
-set fileData(3,size) [file size $fileName(3)]
-set fileData(3,atime) [file atime $fileName(3)]
-set fileData(3,ctime) [expr {[isEagle] ? [file ctime $fileName(3)] : 0}]
-set fileData(3,mtime) [file mtime $fileName(3)]
+
+if {[string length $fileName(3)] > 0 && [file exists $fileName(3)]} then {
+  set fileData(3,dev) [getDevice $fileName(3)]
+  set fileData(3,rdev) [getVolumeSerialNumber $fileName(3) true]
+  set fileData(3,mode) [expr {[isDotNetCore] ? 33206 : 33279}]; # BUGBUG: Non-portable?
+  set fileData(3,size) [file size $fileName(3)]
+  set fileData(3,atime) [file atime $fileName(3)]
+  set fileData(3,ctime) [expr {[isEagle] ? [file ctime $fileName(3)] : 0}]
+  set fileData(3,mtime) [file mtime $fileName(3)]
+} else {
+  set fileData(3,dev) -1
+  set fileData(3,rdev) -1
+  set fileData(3,mode) 0
+  set fileData(3,size) 0
+  set fileData(3,atime) 0
+  set fileData(3,ctime) 0
+  set fileData(3,mtime) 0
+}
 
 ###############################################################################
 
@@ -2120,7 +2181,7 @@ runTest {test fileDrive-1.1 {file drive error handling} -body {
 ###############################################################################
 
 if {![info exists useTcl]} then {
-  set useTcl [haveConstraint tclShell]
+  set useTcl [canUseTclShell]
   set setUseTcl true
 }
 
@@ -2304,7 +2365,7 @@ runTest {test channelBuffer-1.1 {non-blocking cr/lf with buffer} -setup {
       writeList $fileName($id) $input
 
       set tclResult [evalWithTclShell \
-          [getTclScript $fileName($id)] false "" \
+          [getTclScript $fileName($id)] [getTclShellRaw] "" \
           [getTclShellVerbosity]]
 
       file delete $fileName($id)
@@ -2416,6 +2477,795 @@ if {[info exists setUseStrict]} then {
 if {[info exists setUseTcl]} then {
   unset -nocomplain useTcl setUseTcl
 }
+
+###############################################################################
+
+set file3_1_1_cmd_paths [list]
+set file3_1_1_glob_paths [list]
+set file3_1_1_mixed_paths [list]
+
+###############################################################################
+
+if {1} then {
+  proc truthOrViaGlob { value } {
+    if {[string length $value] == 0} then {return <automatic>}
+    return [expr {$value ? "glob" : "shell"}]
+  }
+
+  proc maybeNot { value } {
+    #
+    # NOTE: Return empty string for empty string -OR- the negated
+    #       (boolean?) value for a non-empty string.
+    #
+    return [expr {[string length $value] > 0 ? !$value : $value}]
+  }
+
+  proc willUseComSpecDir { operation pattern viaGlob } {
+    switch -exact -- $operation {
+      findDirectories {; # HACK: From "file3" library.
+        if {![info exists ::no(findForEagle)] && \
+            ![info exists ::no(findDirectoriesForEagle)] && \
+            [isEagle]} then {
+          if {![canUseComSpecDir $pattern] || \
+              [hasRuntimeOption findViaGlob]} then {
+            return false
+          } else {
+            return [maybeNot $viaGlob]
+          }
+        } else {
+          if {[canUseComSpecDir $pattern] && \
+              [hasRuntimeOption findViaComSpecDir]} then {
+            return true
+          } else {
+            return [maybeNot $viaGlob]
+          }
+        }
+      }
+      findDirectoriesRecursive {; # HACK: From "file3" library.
+        if {![canUseComSpecDir $pattern] || \
+            [hasRuntimeOption findViaGlob]} then {
+          return false
+        } else {
+          return [maybeNot $viaGlob]
+        }
+      }
+      "" -
+      findFiles {; # HACK: From "file3" library.
+        if {![info exists ::no(findForEagle)] && \
+            ![info exists ::no(findFilesForEagle)] && \
+            [isEagle]} then {
+          if {![canUseComSpecDir $pattern] || \
+              [hasRuntimeOption findViaGlob]} then {
+            return false
+          } else {
+            return [maybeNot $viaGlob]
+          }
+        } else {
+          if {[canUseComSpecDir $pattern] && \
+              [hasRuntimeOption findViaComSpecDir]} then {
+            return true
+          } else {
+            return [maybeNot $viaGlob]
+          }
+        }
+      }
+      findFilesRecursive {; # HACK: From "file3" library.
+        if {![canUseComSpecDir $pattern] || \
+            [hasRuntimeOption findViaGlob]} then {
+          return false
+        } else {
+          return [maybeNot $viaGlob]
+        }
+      }
+      default {
+        error [appendArgs \
+            "unsupported operation: " $operation]
+      }
+    }
+  }
+
+  proc getExpectedFileName { viaGlob } {
+    if {[string length $viaGlob] == 0} then {
+      set fileNameOnly file3_1_1_expected_mixed.txt
+    } elseif {$viaGlob} then {
+      set fileNameOnly file3_1_1_expected_glob.txt
+    } else {
+      set fileNameOnly file3_1_1_expected_cmd.txt
+    }
+
+    return [file join $::test_data_path $fileNameOnly]
+  }
+
+  proc setupExpectedPaths {} {
+    foreach varPair [list \
+        [list ::file3_1_1_cmd_paths false] \
+        [list ::file3_1_1_glob_paths true] \
+        [list ::file3_1_1_mixed_paths ""]] {
+      set varName [lindex $varPair 0]
+      set varViaGlob [lindex $varPair 1]
+
+      if {[info exists $varName]} then {
+        set paths [set $varName]
+
+        if {[llength $paths] == 0} then {
+          set fileName [getExpectedFileName $varViaGlob]
+
+          if {[file exists $fileName]} then {
+            set paths [split [readFile $fileName] \n]
+
+            if {[llength $paths] > 0} then {
+              set $varName $paths
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+###############################################################################
+
+if {1} then {
+  #############################################################################
+  #
+  # NOTE: Do we need to create an [apply] shim procedure, e.g. for native
+  #       before 8.5?
+  #
+  if {[llength [info commands ::apply]] == 0} then {
+    #
+    # HACK: These procedures were shamelessly stolen from the "pkgr.eagle"
+    #       script that belongs to the Package Client Toolset.  When that
+    #       code changes, these should be too.
+    #
+    proc ::apply { lambdaExpr args } {
+      set length [llength $lambdaExpr]
+
+      if {$length < 2 || $length > 3} {
+        error [appendArgs \
+            "can't interpret \"" $lambdaExpr "\" as a lambda expression"]
+      }
+
+      foreach {procArgs procBody procNamespace} $lambdaExpr {break}
+
+      set procNameSuffix [::getUniqueSuffix 2]
+      set procName [appendArgs :: $procNamespace ::lambda_ $procNameSuffix]
+      set procPreBody {rename [lindex [info level 0] 0] "";}
+
+      proc $procName $procArgs [appendArgs $procPreBody $procBody]
+
+      return [uplevel 1 [list $procName] $args]
+    }
+
+    #
+    # HACK: These procedures were shamelessly stolen from the "pkgr.eagle"
+    #       script that belongs to the Package Client Toolset.  When that
+    #       code changes, these should be too.
+    #
+    proc ::getUniqueSuffix { {paranoia 1} } {
+      set result [string trim [pid] -]
+
+      if {$paranoia > 0} then {
+        append result _ [string trim [clock seconds] -]
+      }
+
+      if {$paranoia > 1} then {
+        append result _ [string trim \
+            [clock clicks -milliseconds] -]; # TODO: Bad?
+      }
+
+      return $result
+    }
+
+    set ::shim_apply true
+  } else {
+    set ::shim_apply false
+  }
+
+  #############################################################################
+  #
+  # NOTE: Do we need to create a shim for the [try] command (i.e.
+  #       as a procedure), e.g. for native Tcl before version 8.6?
+  #
+  if {[llength [info commands ::try]] == 0} then {
+    proc ::try { tryScript finally finallyScript } {
+      set code [catch {uplevel 1 $tryScript} result]
+      catch {uplevel 1 $finallyScript}; # ignored
+
+      if {$code == 0 || $code == 2} then {
+        return $result
+      } else {
+        error $result
+      }
+    }
+
+    set ::shim_try true
+  } else {
+    set ::shim_try false
+  }
+}
+
+###############################################################################
+
+enableRuntimeOptionsForTcl true
+
+try {
+  set shouldUseViaGlob [maybeNot [willUseComSpecDir "" "" ""]]
+
+  tputs $test_channel [appendArgs \
+      "---- test \"file3-1.1\" should use \[glob\] exclusively: " \
+      [truthOrViaGlob $shouldUseViaGlob] \n]
+} finally {
+  enableRuntimeOptionsForTcl false
+}
+
+setupExpectedPaths
+
+###############################################################################
+
+runTest {test file3-1.1 {finding files and directories recursively} -setup {
+  proc testTclLog { string } {
+    lappend ::log [appendArgs $string \n]
+    return [savedTclLog $string]
+  }
+
+  proc maybeEmitLogSeparatorLine {} {
+    if {[hasRuntimeOption globVerboseMode] || \
+        [hasRuntimeOption traceFindOperation] || \
+        [hasRuntimeOption tracePerformGlob] || \
+        [hasRuntimeOption traceFindViaComSpecDir] || \
+        [hasRuntimeOption traceCopyFilesRecursive]} then {
+      set count 72
+
+      if {[isEagle] && \
+          [llength [info commands host]] > 0} then {
+        set newCount [lindex [host size] 0]
+        set newCount [expr {$newCount - 2}]
+
+        if {$newCount > 0} then {
+          set count $newCount
+        }
+      }
+
+      tclLog [string repeat = $count]
+    }
+
+    return ""
+  }
+
+  proc mapFromPath { path testPath } {
+    set basePath [file dirname $testPath]
+
+    return [string map \
+        [list $testPath <t> $basePath <b>] $path]
+  }
+
+  proc mapToPath { path testPath } {
+    set basePath [file dirname $testPath]
+
+    return [string map \
+        [list <t> $testPath <b> $basePath] $path]
+  }
+
+  proc evalWithPwd { directory varName script } {
+    set savedPwd [pwd]
+
+    try {
+      upvar 1 $varName length
+      set length [string length $directory]
+      if {$length > 0} then {cd $directory}
+      return [uplevel 1 $script]
+    } finally {
+      cd $savedPwd; unset savedPwd
+    }
+  }
+
+  proc findOperation { operation directory pattern viaGlob } {
+    #
+    # NOTE: Use the [evalWithPwd] procedure here to use save/restore
+    #       semantics for the current directory within the remainder
+    #       of this procedure body.
+    #
+    evalWithPwd $directory length {
+      set savedViaGlob [hasRuntimeOption findViaGlob]
+
+      try {
+        toggleRuntimeOption findViaGlob $viaGlob
+
+        #
+        # HACK: Always enable/disable this; otherwise, non-recursive
+        #       find operations will NEVER use Windows command shell
+        #       when running in native Tcl, i.e. it will make use of
+        #       the [glob] command recursively instead.
+        #
+        set savedViaComSpecDir [hasRuntimeOption findViaComSpecDir]
+
+        try {
+          set notViaGlob [expr {!$viaGlob}]
+          toggleRuntimeOption findViaComSpecDir $notViaGlob
+
+          set paths [$operation $pattern]
+
+          if {[hasRuntimeOption traceFindOperation]} then {
+            #
+            # HACK: Live query these flag values instead of using the
+            #       global variable values here, thus allowing us to
+            #       double-check these values match up with what they
+            #       "should be" in the log file.
+            #
+            set shouldUseViaGlob(1) [maybeNot \
+                [willUseComSpecDir $operation $pattern ""]]
+
+            set fileName(1) [getExpectedFileName $shouldUseViaGlob(1)]
+
+            set shouldUseViaGlob(2) [maybeNot \
+                [willUseComSpecDir $operation $pattern $viaGlob]]
+
+            set fileName(2) [getExpectedFileName $shouldUseViaGlob(2)]
+
+            lappend ::log [list \
+                operation $operation directory $directory \
+                pattern $pattern viaGlob $viaGlob \
+                shouldUseViaGlob(1) $shouldUseViaGlob(1) \
+                shouldUseViaGlob(2) $shouldUseViaGlob(2) \
+                options [lsort [listRuntimeOptions]] \
+                fileName(1) $fileName(1) fileName(2) \
+                $fileName(2) ==> paths $paths]
+          }
+
+          return $paths
+        } finally {
+          toggleRuntimeOption findViaComSpecDir $savedViaComSpecDir
+        }
+      } finally {
+        toggleRuntimeOption findViaGlob $savedViaGlob
+      }
+    }
+  }
+
+  proc getProjectFiles { path } {
+    set pattern {Include="(Tests\\[^"]+)"}
+
+    if {[isEagle]} then {
+      return [regexp \
+          -all -inline -skip 1 -- $pattern \
+          [readFile [file join $path Eagle.csproj]]]
+    } else {
+      set result [list]
+
+      set relative [regexp \
+          -all -inline -- $pattern \
+          [readFile [file join $path Eagle.csproj]]]
+
+      foreach {dummy value} $relative {
+        lappend result $value
+      }
+
+      return $result
+    }
+  }
+
+  proc checkForTestDiagnosticEnvVar { name default } {
+    set varName [appendArgs file3-1-1- $name]
+
+    if {[info exists ::env($varName)]} then {
+      set value $::env($varName)
+
+      if {[string is integer -strict $default]} then {
+        if {[string is integer -strict $value]} then {
+          return $value
+        }
+      } elseif {[string is boolean -strict $default]} then {
+        if {[string is boolean -strict $value]} then {
+          return $value
+        }
+      } else {
+        return $value
+      }
+    }
+
+    return $default
+  }
+
+  proc enableTestDiagnostics { enable trace glob strict } {
+    if {0} then {
+      if {$enable} then {
+        # set ::no(canUseComSpecDir) 1
+        # set ::no(findDirectoriesForEagle) 1
+        # set ::no(findFilesForEagle) 1
+      } else {
+        unset -nocomplain ::no(findFilesForEagle)
+        unset -nocomplain ::no(findDirectoriesForEagle)
+        unset -nocomplain ::no(canUseComSpecDir)
+      }
+    }
+
+    if {[isEagle]} then {
+      #
+      # HACK: Disable "special handling" for Eagle use of
+      #       the [glob] command by the [findDirectories]
+      #       and [findFiles] core script library helper
+      #       procedures.
+      #
+      if {$enable} then {
+        set ::no(findForEagle) 1
+      } else {
+        unset -nocomplain ::no(findForEagle)
+      }
+    } else {
+      enableRuntimeOptionsForTcl $enable
+    }
+
+    # toggleRuntimeOption getDirResultJoinPath $enable
+    # toggleRuntimeOption getDirResultErrorPath $enable
+
+    #
+    # HACK: These options can be used to capture expected
+    #       results from native Tcl for use by the Eagle
+    #       test case.
+    #
+    # toggleRuntimeOption globFakeExpected $enable
+    # toggleRuntimeOption globLogExpected $enable
+
+    if {$trace > 0} then {
+      toggleRuntimeOption traceFindOperation $enable
+
+      if {$trace > 1} then {
+        toggleRuntimeOption tracePerformGlob $enable
+        toggleRuntimeOption traceFindViaComSpecDir $enable
+        toggleRuntimeOption traceCopyFilesRecursive $enable
+      }
+    }
+
+    if {$glob} then {
+      toggleRuntimeOption globDiagnosticMode $enable
+      toggleRuntimeOption globVerboseMode $enable
+    }
+
+    if {$strict} then {
+      toggleRuntimeOption globStopOnFailure $enable
+    }
+
+    return ""
+  }
+
+  proc getExpectedPaths { viaGlob index } {
+    set result ""
+
+    if {[string length $viaGlob] == 0} then {
+      if {[info exists ::file3_1_1_mixed_paths]} then {
+        set result [lindex $::file3_1_1_mixed_paths $index]
+      }
+    } elseif {$viaGlob} then {
+      if {[info exists ::file3_1_1_glob_paths]} then {
+        set result [lindex $::file3_1_1_glob_paths $index]
+      }
+    } else {
+      if {[info exists ::file3_1_1_cmd_paths]} then {
+        set result [lindex $::file3_1_1_cmd_paths $index]
+      }
+    }
+
+    return $result
+  }
+
+  proc performFindOperation { varName operation path pattern viaGlob } {
+    upvar 1 $varName paths
+
+    set script(base) ""
+
+    append script(base) \n [string map [list \
+        %operation% $operation %pattern% $pattern \
+        %viaGlob% $viaGlob] {
+      package require Eagle.Test
+
+      set operation {%operation%}
+      set directory {%directory%}
+      set pattern {%pattern%}
+      set viaGlob {%viaGlob%}
+
+      set actual [findOperation \
+          $operation $directory $pattern $viaGlob]
+    }]
+
+    set index $::index; # HACK: Grab global.
+    set diagnostic false
+
+    set shouldUseViaGlob [maybeNot \
+        [willUseComSpecDir $operation $pattern $viaGlob]]
+
+    if {$::useTcl} then {
+      set script(tcl) ""
+
+      append script(tcl) \n [string map [list \
+          %index% $index %test_run_id% [getTestRunId]] {
+        # Eagle test "file3-1.1" at index %index%.
+        # Test run is "%test_run_id%".
+      }]
+
+      if {![canUseComSpecDir ""]} then {
+        append script(tcl) \n [list set ::no(canUseComSpecDir) 1]
+      }
+
+      foreach procName [list \
+          findOperation evalWithPwd getExpectedFileName \
+          maybeNot willUseComSpecDir] {
+        append script(tcl) \n [list proc $procName \
+            [info args $procName] [info body $procName]] \n
+      }
+
+      append script(tcl) \n [list lappend auto_path \
+          [fileNormalizeWithTclShell [info library]]]
+
+      append script(tcl) \n {package require Eagle.Library}
+      append script(tcl) \n {package require Eagle.Test}
+      append script(tcl) \n {enableRuntimeOptionsForTcl true}
+
+      if {0} then {; # NOTE: Superfluous, do not use.
+        foreach optionName [lsort [listRuntimeOptions]] {
+          append script(tcl) \n [list addRuntimeOption $optionName]
+        }
+      }
+
+      append script(tcl) \n [string map [list %directory% \
+          $::test_tcl_path] $script(base)] \n {set actual}
+
+      set expected [lsort [map [evalWithTclShell \
+          $script(tcl) [getTclShellRaw] "" \
+          [getTclShellVerbosity]] {
+        apply [list [list path1 path2 item] {
+          return [mapToPath [mapFromPath $item $path1] $path2]
+        }] $::test_tcl_path $path
+      }]]
+
+      set diagnostic true
+    } else {
+      set expected [lsort [map \
+          [getExpectedPaths $shouldUseViaGlob $index] {
+        apply [list [list path item] \
+            {return [mapToPath $item $path]}] $path
+      }]]; # HACK: Grab global.
+    }
+
+    uplevel 1 [string map [list %directory% $path] $script(base)]
+
+    set final(actual) [lsort [map $::actual {
+      apply [list [list path item] \
+          {return [mapFromPath $item $path]}] $path
+    }]]; # HACK: Grab global.
+
+    if {[hasRuntimeOption globFakeExpected]} then {
+      set expected $::actual; # HACK: Original, not mapped.
+
+      if {[hasRuntimeOption globLogExpected]} then {
+        lappend ::expected [lsort [map $expected {
+          apply [list [list path item] \
+              {return [mapFromPath $item $path]}] $path
+        }]]; # HACK: Append global.
+      }
+    }
+
+    set final(expected) [lsort [map [filter $expected {
+      apply [list [list path pattern item] {
+        #
+        # TODO: Why was this not always true?
+        #
+        return true
+      }] $path $pattern
+    }] {
+      apply [list [list path item] \
+          {return [mapFromPath $item $path]}] $path
+    }]]
+
+    if {[hasRuntimeOption globVerboseMode]} then {
+      set viaMode(1) [expr {
+        ![isEagle] || $diagnostic ? "Tcl" : "Eagle"
+      }]
+
+      append viaMode(1) " " [truthOrViaGlob $viaGlob]
+      set viaMode(2) [truthOrViaGlob $shouldUseViaGlob]
+
+      tclLog [appendArgs \
+          "---- index " $index " via " $viaMode(1) \
+          " (" $viaMode(2) ") have paths: " \
+          [list $final(actual)] " (" \
+          [string length $final(actual)] )]
+
+      tclLog [appendArgs \
+          "---- index " $index " via " $viaMode(1) \
+          " (" $viaMode(2) ") want paths: " \
+          [list $final(expected)] " (" \
+          [string length $final(expected)] )]
+    }
+
+    set haveResult [expr {$final(actual) eq $final(expected)}]
+
+    if {[hasRuntimeOption globVerboseMode]} then {
+      tclLog [appendArgs \
+          "---- index " $index " via " $viaMode(1) \
+          " (" $viaMode(2) ") have result: " \
+          $haveResult]
+    }
+
+    if {!$haveResult} then {
+      set level [info level]
+
+      set error [appendArgs \
+          "command (" $level ") \{" [info level $level] \
+          "\}, have " [list $final(actual)] \
+          ", want " [list $final(expected)] \
+          ", args: " [list $operation $::test_path \
+          $pattern $viaGlob]]
+
+      if {[hasRuntimeOption globStopOnFailure]} then {
+        error [appendArgs \
+            "---- index " $index " mismatch: " $error]
+      } else {
+        tclLog [appendArgs \
+            "---- index " $index " mismatch: " $error]
+
+        if {$viaGlob || [isWindows]} then {
+          incr ::count
+        }
+      }
+    }
+
+    maybeEmitLogSeparatorLine
+    return $haveResult
+  }
+} -body {
+  if {[isEagle] && [canUseTclShell] && \
+      [hasRuntimeOption globDiagnosticMode]} then {
+    set useTcl true
+  } else {
+    set useTcl false
+  }
+
+  tputs $test_channel [appendArgs \
+      "---- test \"file3-1.1\" compares results against native Tcl: " \
+      [expr {$useTcl ? "yes" : "no"}] \n]
+
+  if {$useTcl} then {
+    set test_tcl_path [fileNormalizeWithTclShell $test_path]
+  }
+
+  set project_path [file join $base_path Library]
+  set glob_path [file join $project_path Tests]
+  set paths(relative) [lsort [getProjectFiles $project_path]]
+
+  foreach path $paths(relative) {
+    lappend paths(absolute) [file join \
+        $project_path [string map [list \\ /] $path]]
+  }
+
+  set patterns [list \
+    "" . .. data basic.eagle * \
+    *.cs *.eagle *.no *.tcl *.test \
+    [file join data basic.eagle] \
+    [file join data security.eagle] \
+    [file join data *.cs] \
+    [file join data *.eagle] \
+    [file join data *.no] \
+    [file join data *.tcl] \
+    [file join data *.test] \
+    [file join $glob_path data *.cs] \
+    [file join $glob_path data *.eagle] \
+    [file join $glob_path data *.no] \
+    [file join $glob_path data *.tcl] \
+    [file join $glob_path data *.test] \
+    $glob_path \
+    [file join data basic.eagle] \
+    [file join data security.eagle] \
+    [file join $glob_path *]]
+
+  set count 0; set index 0
+
+  try {
+    rename tclLog savedTclLog
+    rename testTclLog tclLog
+
+    if {1} then {
+      enableTestDiagnostics true \
+          [checkForTestDiagnosticEnvVar trace 0] \
+          [checkForTestDiagnosticEnvVar glob false] \
+          [checkForTestDiagnosticEnvVar strict false]
+    }
+
+    try {
+      foreach pattern $patterns {
+        foreach operation [list \
+            findDirectories findDirectoriesRecursive \
+            findFiles findFilesRecursive] {
+          foreach viaGlob [list false true] {
+            performFindOperation \
+                paths $operation $test_path $pattern \
+                $viaGlob
+
+            incr index
+          }
+        }
+      }
+    } finally {
+      if {1} then {
+        enableTestDiagnostics false \
+            [checkForTestDiagnosticEnvVar trace 0] \
+            [checkForTestDiagnosticEnvVar glob false] \
+            [checkForTestDiagnosticEnvVar strict false]
+      }
+    }
+  } finally {
+    rename tclLog testTclLog
+    rename savedTclLog tclLog
+  }
+
+  if {[info exists expected]} then {
+    writeFile [getExpectedFileName $shouldUseViaGlob] \
+        [join $expected \n]
+  }
+
+  if {[info exists log]} then {
+    writeFile [file join \
+        [file dirname $test_log] [appendArgs file3-1.1- \
+        [expr {[isEagle] ? "eagle" : "tcl"}] - [pid] .log]] \
+        [join $log \n]
+  }
+
+  set count
+} -cleanup {
+  catch {info previouspid true}
+
+  unset -nocomplain viaGlob directory operation actual useTcl index
+  unset -nocomplain pattern patterns glob_path project_path count
+  unset -nocomplain paths path test_tcl_path log expected
+
+  rename performFindOperation ""
+  rename getExpectedPaths ""
+  rename enableTestDiagnostics ""
+  rename checkForTestDiagnosticEnvVar ""
+  rename getProjectFiles ""
+
+  rename findOperation ""
+  rename evalWithPwd ""
+  rename mapToPath ""
+  rename mapFromPath ""
+  rename maybeEmitLogSeparatorLine ""
+  rename testTclLog ""
+} -constraints {file_Eagle.csproj file_file3_1_1_expected_cmd.txt\
+file_file3_1_1_expected_glob.txt file_file3_1_1_expected_mixed.txt\
+fileSystemIntensive maybeTimeIntensive} -result {0}}
+
+###############################################################################
+
+unset -nocomplain shouldUseViaGlob
+
+###############################################################################
+
+if {[info exists ::shim_try] && $::shim_try} then {
+  rename ::try ""
+}
+
+if {[info exists ::shim_apply] && $::shim_apply} then {
+  rename ::getUniqueSuffix ""
+  rename ::apply ""
+}
+
+unset -nocomplain shim_try shim_apply
+
+###############################################################################
+
+rename setupExpectedPaths ""
+rename getExpectedFileName ""
+rename willUseComSpecDir ""
+rename maybeNot ""
+rename truthOrViaGlob ""
+
+###############################################################################
+
+unset -nocomplain file3_1_1_mixed_paths file3_1_1_glob_paths \
+    file3_1_1_cmd_paths
+
+###############################################################################
+
+rename canUseTclShell ""
 
 ###############################################################################
 

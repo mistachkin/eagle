@@ -1268,11 +1268,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool BeginHighContrastColors(
-            IColorHost colorHost,
+            IInteractiveHost interactiveHost,
             ref ConsoleColor savedForegroundColor,
             ref ConsoleColor savedBackgroundColor
             )
         {
+            if (interactiveHost == null)
+                return false;
+
+            IColorHost colorHost = interactiveHost as IColorHost;
+
             if (colorHost == null)
                 return false;
 
@@ -1298,11 +1303,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool EndHighContrastColors(
-            IColorHost colorHost,
+            IInteractiveHost interactiveHost,
             ref ConsoleColor savedForegroundColor,
             ref ConsoleColor savedBackgroundColor
             )
         {
+            if (interactiveHost == null)
+                return false;
+
+            IColorHost colorHost = interactiveHost as IColorHost;
+
             if (colorHost == null)
                 return false;
 
@@ -1320,20 +1330,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void WriteCore(
+        private static void WriteHost(
             IInteractiveHost interactiveHost,
             string value
             )
         {
-            if (interactiveHost != null)
+            if (interactiveHost == null)
+                return;
+
+            ISynchronizeStatic synchronize =
+                interactiveHost as ISynchronizeStatic;
+
+            bool locked = false;
+
+            if (synchronize != null)
+                synchronize.StaticTryLock(ref locked);
+
+            try
             {
-                IColorHost colorHost = interactiveHost as IColorHost;
 
                 ConsoleColor savedForegroundColor = _ConsoleColor.None;
                 ConsoleColor savedBackgroundColor = _ConsoleColor.None;
 
                 BeginHighContrastColors(
-                    colorHost, ref savedForegroundColor,
+                    interactiveHost, ref savedForegroundColor,
                     ref savedBackgroundColor);
 
                 try
@@ -1353,23 +1373,46 @@ namespace Eagle._Components.Private
                 finally
                 {
                     EndHighContrastColors(
-                        colorHost, ref savedForegroundColor,
+                        interactiveHost, ref savedForegroundColor,
                         ref savedBackgroundColor);
                 }
             }
+            finally
+            {
+                if (synchronize != null)
+                    synchronize.StaticExitLock(ref locked);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void WriteCore(
+            IInteractiveHost interactiveHost,
+            string value
+            )
+        {
+            /* NO RESULT */
+            WriteHost(interactiveHost, value);
 
 #if CONSOLE
-            try
+            //
+            // BUGFIX: *HACK* Avoid duplicate console output.
+            //
+            if (!(interactiveHost is _Hosts.Console))
             {
-                /* NO RESULT */
-                ConsoleOps.WriteCore(value); /* throw */
+                try
+                {
+                    /* NO RESULT */
+                    ConsoleOps.WriteCore(value); /* throw */
 
-                return;
+                    return;
+                }
+                catch
+                {
+                    // do nothing.
+                }
             }
-            catch
-            {
-                // do nothing.
-            }
+
 #endif
 
             /* NO RESULT */
@@ -2254,7 +2297,7 @@ namespace Eagle._Components.Private
                 //         information.
                 //
                 Interpreter.CheckExit(interpreter, loopData);
-            });
+            }, false);
         }
 #endif
 

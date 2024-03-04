@@ -96,6 +96,13 @@ if {![info exists no([file tail [info script]])]} then {
   }
 
   #
+  # NOTE: If the optional extra paths have not been set, do that now.
+  #
+  if {![info exists test_extra_paths]} then {
+    set test_extra_paths [list]
+  }
+
+  #
   # NOTE: Set the location of the home directory for the current
   #       user.
   #
@@ -763,6 +770,14 @@ if {![info exists no([file tail [info script]])]} then {
   #
   if {![info exists no(tclsh)]} then {
     #
+    # NOTE: By default, disable raw output when using the native Tcl
+    #       shell within the test suite.
+    #
+    if {![info exists test_tclsh_raw]} then {
+      set test_tclsh_raw false
+    }
+
+    #
     # NOTE: By default, disable verbose output when using the native
     #       Tcl shell within the test suite.
     #
@@ -1144,6 +1159,11 @@ if {![info exists no([file tail [info script]])]} then {
           [string length $test_flags(-bad)] > 0 ? \
               $test_flags(-bad) : "<none>"}] \n]
 
+  tputs $test_channel [appendArgs "---- extra paths: " \
+      [expr {[info exists test_extra_paths] && \
+          [llength $test_extra_paths] > 0 ? \
+              $test_extra_paths : "<none>"}] \n]
+
   tputs $test_channel [appendArgs "---- logging path: " \
       [expr {[info exists test_log_path] && \
           [string length $test_log_path] > 0 ? \
@@ -1290,6 +1310,11 @@ if {![info exists no([file tail [info script]])]} then {
           [appendArgs \" $test_tclsh \"] : "<none>"}] \n]
 
   tputs $test_channel [appendArgs \
+      "---- raw mode for native Tcl shell: " [expr {[info exists \
+          test_tclsh_raw] && [string length $test_tclsh_raw] > 0 ? \
+          $test_tclsh_raw : "<none>"}] \n]
+
+  tputs $test_channel [appendArgs \
       "---- verbosity level for native Tcl shell: " [expr {[info exists \
           test_tclsh_verbose] && [string length $test_tclsh_verbose] > 0 ? \
           $test_tclsh_verbose : "<none>"}] \n]
@@ -1299,9 +1324,16 @@ if {![info exists no([file tail [info script]])]} then {
         [formatList [lsort [array names no]] <none>] \n]
   }
 
-  if {[isEagle] && ![info exists no(showRuntimeOptions)]} then {
-    tputs $test_channel [appendArgs "---- runtime options: " \
-        [formatList [lsort [info engine RuntimeOptions]] <none>] \n]
+  if {![info exists no(showRuntimeOptions)]} then {
+    if {[isEagle]} then {
+      tputs $test_channel [appendArgs "---- runtime options: " \
+          [formatList [lsort [info engine RuntimeOptions]] <none>] \n]
+    } else {
+      tputs $test_channel [appendArgs "---- runtime options: " \
+          [formatList [lsort [expr {[info exists \
+          eagle_platform(runtimeOptions)] ? \
+          $eagle_platform(runtimeOptions) : [list]}]] <none>] \n]
+    }
   }
 
   #
@@ -3812,6 +3844,29 @@ if {![info exists no([file tail [info script]])]} then {
     }
 
     #
+    # NOTE: For test "file3-1.1".
+    #
+    if {![info exists no(Eagle.csproj)]} then {
+      checkForFile $test_channel \
+          [file join $base_path Library Eagle.csproj]
+    }
+
+    if {![info exists no(file3_1_1_expected_cmd.txt)]} then {
+      checkForFile $test_channel \
+          [file join $test_data_path file3_1_1_expected_cmd.txt]
+    }
+
+    if {![info exists no(file3_1_1_expected_glob.txt)]} then {
+      checkForFile $test_channel \
+          [file join $test_data_path file3_1_1_expected_glob.txt]
+    }
+
+    if {![info exists no(file3_1_1_expected_mixed.txt)]} then {
+      checkForFile $test_channel \
+          [file join $test_data_path file3_1_1_expected_mixed.txt]
+    }
+
+    #
     # NOTE: For test "garuda-1.1".
     #
     if {![info exists no(pkgAll.tcl)]} then {
@@ -4863,6 +4918,7 @@ if {![info exists no([file tail [info script]])]} then {
     checkForOperatingSystemUpdate $test_channel "Windows 10, October 2022 Update"
     checkForOperatingSystemUpdate $test_channel "Windows 11, RTM"
     checkForOperatingSystemUpdate $test_channel "Windows 11, September 2022 Update"
+    checkForOperatingSystemUpdate $test_channel "Windows 11, September 2023 Update"
   }
 
   #############################################################################

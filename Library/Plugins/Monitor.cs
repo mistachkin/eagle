@@ -86,7 +86,14 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         private TracePriority normalPriority;
+
+#if MONO_BUILD
+#pragma warning disable 414
+#endif
         private TracePriority directPriority;
+#if MONO_BUILD
+#pragma warning restore 414
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 

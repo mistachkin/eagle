@@ -134,6 +134,8 @@ namespace Eagle._Commands
                             new Option(null, OptionFlags.NoCase | OptionFlags.MustHaveIntegerValue | OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
                                 "-repeatCount", null),
                             new Option(null, OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue | OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
+                                "-noCleanup", null),
+                            new Option(null, OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue | OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
                                 "-noCancel", null),
                             new Option(null, OptionFlags.NoCase | OptionFlags.MustHaveBooleanValue | OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
                                 "-globalCancel", null),
@@ -243,7 +245,7 @@ namespace Eagle._Commands
                                 {
                                     string description = arguments[2];
 
-                                    Variant value = null;
+                                    IVariant value = null;
                                     IRuleSet ruleSet = null;
 
                                     if (options.IsPresent("-ruleSet", true, ref value))
@@ -363,7 +365,7 @@ namespace Eagle._Commands
 
 #if TEST
                                     bool captureTrace = ScriptOps.HasFlags(interpreter,
-                                        InterpreterFlags.CaptureTestTraces, true);
+                                        InterpreterTestFlags.CaptureTraces, true);
 
                                     if (options.IsPresent("-captureTrace", ref value))
                                         captureTrace = (bool)value.Value;
@@ -373,6 +375,12 @@ namespace Eagle._Commands
 
                                     if (options.IsPresent("-time", ref value))
                                         time = (bool)value.Value;
+
+                                    bool noCleanup = ScriptOps.HasFlags(interpreter,
+                                        InterpreterTestFlags.NoCleanup, true);
+
+                                    if (options.IsPresent("-noCleanup", true, ref value))
+                                        noCleanup = (bool)value.Value;
 
                                     bool noCancel = false;
 
@@ -425,7 +433,7 @@ namespace Eagle._Commands
                                         noTrack = (bool)value.Value;
 
                                     bool noChangeReturnCode = ScriptOps.HasFlags(interpreter,
-                                        InterpreterFlags.NoChangeTestReturnCode, true);
+                                        InterpreterTestFlags.NoChangeReturnCode, true);
 
                                     if (options.IsPresent("-noChangeReturnCode", true, ref value))
                                         noChangeReturnCode = (bool)value.Value;
@@ -704,11 +712,8 @@ namespace Eagle._Commands
                                                                         HostCreateFlags testHostCreateFlags = HostCreateFlags.TestUse |
                                                                             interpreter.FilterHostCreateFlags(true);
 
-                                                                        //
-                                                                        // HACK: For now, just clone the initialize flags of
-                                                                        //       the "parent" interpreter.
-                                                                        //
-                                                                        InitializeFlags testInitializeFlags = interpreter.InitializeFlags;
+                                                                        InitializeFlags testInitializeFlags =
+                                                                            interpreter.FilterInitializeFlags(true);
 
                                                                         //
                                                                         // HACK: For now, just clone the script flags of the
@@ -721,6 +726,7 @@ namespace Eagle._Commands
                                                                         //       interpreter.
                                                                         //
                                                                         InterpreterFlags testInterpreterFlags = interpreter.InterpreterFlags;
+                                                                        InterpreterTestFlags testInterpreterTestFlags = interpreter.InterpreterTestFlags;
                                                                         PluginFlags testPluginFlags = interpreter.PluginFlags;
 
 #if NATIVE && TCL
@@ -731,7 +737,8 @@ namespace Eagle._Commands
                                                                         testInterpreter = Interpreter.Create(ruleSet,
                                                                             argv, testCreateFlags, testHostCreateFlags,
                                                                             testInitializeFlags, testScriptFlags,
-                                                                            testInterpreterFlags, testPluginFlags,
+                                                                            testInterpreterFlags, testInterpreterTestFlags,
+                                                                            testPluginFlags,
 #if NATIVE && TCL
                                                                             testFindFlags, testLoadFlags,
 #endif
@@ -764,11 +771,8 @@ namespace Eagle._Commands
                                                                             HostCreateFlags testHostCreateFlags = HostCreateFlags.TestUse |
                                                                                 interpreter.FilterHostCreateFlags(true);
 
-                                                                            //
-                                                                            // HACK: For now, just clone the initialize flags of
-                                                                            //       the "parent" interpreter.
-                                                                            //
-                                                                            InitializeFlags testInitializeFlags = interpreter.InitializeFlags;
+                                                                            InitializeFlags testInitializeFlags =
+                                                                                interpreter.FilterInitializeFlags(true);
 
                                                                             //
                                                                             // HACK: For now, just clone the script flags of the
@@ -781,6 +785,7 @@ namespace Eagle._Commands
                                                                             //       interpreter.
                                                                             //
                                                                             InterpreterFlags testInterpreterFlags = interpreter.InterpreterFlags;
+                                                                            InterpreterTestFlags testInterpreterTestFlags = interpreter.InterpreterTestFlags;
                                                                             PluginFlags testPluginFlags = interpreter.PluginFlags;
 
 #if NATIVE && TCL
@@ -792,7 +797,7 @@ namespace Eagle._Commands
                                                                                 testAppDomain, ruleSet, argv, testCreateFlags,
                                                                                 testHostCreateFlags, testInitializeFlags,
                                                                                 testScriptFlags, testInterpreterFlags,
-                                                                                testPluginFlags,
+                                                                                testInterpreterTestFlags, testPluginFlags,
 #if NATIVE && TCL
                                                                                 testFindFlags, testLoadFlags,
 #endif
@@ -828,11 +833,8 @@ namespace Eagle._Commands
                                                                             HostCreateFlags testHostCreateFlags = HostCreateFlags.TestUse |
                                                                                 interpreter.FilterHostCreateFlags(true);
 
-                                                                            //
-                                                                            // HACK: For now, just clone the initialize flags of
-                                                                            //       the "parent" interpreter.
-                                                                            //
-                                                                            InitializeFlags testInitializeFlags = interpreter.InitializeFlags;
+                                                                            InitializeFlags testInitializeFlags =
+                                                                                interpreter.FilterInitializeFlags(true);
 
                                                                             //
                                                                             // HACK: For now, just clone the script flags of the
@@ -845,6 +847,7 @@ namespace Eagle._Commands
                                                                             //       interpreter.
                                                                             //
                                                                             InterpreterFlags testInterpreterFlags = interpreter.InterpreterFlags;
+                                                                            InterpreterTestFlags testInterpreterTestFlags = interpreter.InterpreterTestFlags;
                                                                             PluginFlags testPluginFlags = interpreter.PluginFlags;
 
 #if NATIVE && TCL
@@ -855,7 +858,8 @@ namespace Eagle._Commands
                                                                             testInterpreter = Interpreter.Create(ruleSet,
                                                                                 argv, testCreateFlags, testHostCreateFlags,
                                                                                 testInitializeFlags, testScriptFlags,
-                                                                                testInterpreterFlags, testPluginFlags,
+                                                                                testInterpreterFlags, testInterpreterTestFlags,
+                                                                                testPluginFlags,
 #if NATIVE && TCL
                                                                                 testFindFlags, testLoadFlags,
 #endif
@@ -1363,7 +1367,7 @@ namespace Eagle._Commands
                                                                 // NOTE: Emit tracking information for test scripts?
                                                                 //
                                                                 bool track = ScriptOps.HasFlags(
-                                                                    testInterpreter, InterpreterFlags.TrackTestScripts,
+                                                                    testInterpreter, InterpreterTestFlags.TrackScripts,
                                                                     true);
 
                                                                 //
@@ -1641,7 +1645,7 @@ namespace Eagle._Commands
                                                                                     }
 
                                                                                     if ((bodyResult == null) && ScriptOps.HasFlags(
-                                                                                            interpreter, InterpreterFlags.TestNullIsEmpty,
+                                                                                            interpreter, InterpreterTestFlags.NullIsEmpty,
                                                                                             true))
                                                                                     {
                                                                                         bodyResult = String.Empty;
@@ -1762,13 +1766,14 @@ namespace Eagle._Commands
                                                                                     if (!noTrack && track)
                                                                                     {
                                                                                         TestOps.Track(testInterpreter, String.Format(
-                                                                                            "ENTER TEST {0} CLEANUP{1}", FormatOps.WrapOrNull(
-                                                                                            name), Environment.NewLine), TestOutputType.Enter);
+                                                                                            "ENTER TEST {0} CLEANUP{1}{2}", FormatOps.WrapOrNull(
+                                                                                            name), noCleanup ? " SKIPPED" : String.Empty,
+                                                                                            Environment.NewLine), TestOutputType.Enter);
                                                                                     }
 
                                                                                     try
                                                                                     {
-                                                                                        if (whatIf)
+                                                                                        if (whatIf || noCleanup)
                                                                                         {
                                                                                             cleanupCode = ReturnCode.Ok;
                                                                                         }
@@ -1783,8 +1788,9 @@ namespace Eagle._Commands
                                                                                         if (!noTrack && track)
                                                                                         {
                                                                                             TestOps.Track(testInterpreter, String.Format(
-                                                                                                "LEAVE TEST {0} CLEANUP{1}", FormatOps.WrapOrNull(
-                                                                                                name), Environment.NewLine), TestOutputType.Leave);
+                                                                                                "LEAVE TEST {0} CLEANUP{1}{2}", FormatOps.WrapOrNull(
+                                                                                                name), noCleanup ? " SKIPPED" : String.Empty,
+                                                                                                Environment.NewLine), TestOutputType.Leave);
                                                                                         }
                                                                                     }
 

@@ -131,7 +131,7 @@ namespace Eagle._Commands
                                             {
                                                 if ((argumentIndex != Index.Invalid) && ((argumentIndex + 2) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     UriKind uriKind = UriKind.Absolute; // FIXME: Good default?
 
                                                     if (options.IsPresent("-kind", ref value))
@@ -232,7 +232,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     string userName = null;
 
                                                     if (options.IsPresent("-username", ref value))
@@ -349,7 +349,7 @@ namespace Eagle._Commands
                                                     ((argumentIndex + 1) <= arguments.Count) &&
                                                     ((argumentIndex + 2) >= arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     IClientData localClientData = clientData;
 
                                                     if (options.IsPresent("-webclientdata", ref value))
@@ -1168,7 +1168,7 @@ namespace Eagle._Commands
                                                     ((argumentIndex + 1) <= arguments.Count) &&
                                                     ((argumentIndex + 2) >= arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     IClientData localClientData = clientData;
 
                                                     if (options.IsPresent("-webclientdata", ref value))

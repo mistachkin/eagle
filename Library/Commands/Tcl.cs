@@ -796,7 +796,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-time"))
                                                         time = true;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     bool exceptions = interpreter.TclExceptions;
 
                                                     if (options.IsPresent("-exceptions", ref value))
@@ -930,7 +930,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-time"))
                                                         time = true;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     bool exceptions = interpreter.TclExceptions;
 
                                                     if (options.IsPresent("-exceptions", ref value))
@@ -1022,7 +1022,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex == Index.Invalid) ||
                                                     ((argumentIndex + 2) >= arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     FindFlags flags = interpreter.TclFindFlags;
 
                                                     if (options.IsPresent("-flags", ref value))
@@ -1321,7 +1321,7 @@ namespace Eagle._Commands
                                                     if ((argumentIndex == Index.Invalid) ||
                                                         ((argumentIndex + 1) == arguments.Count))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         FindFlags findFlags = interpreter.TclFindFlags;
 
                                                         if (options.IsPresent("-findflags", ref value))
@@ -1586,7 +1586,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 1) < arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     EventType eventType = EventType.Evaluate;
 
                                                     if (options.IsPresent("-eventtype", ref value))
@@ -1732,7 +1732,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-time"))
                                                         time = true;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     bool exceptions = interpreter.TclExceptions;
 
                                                     if (options.IsPresent("-exceptions", ref value))
@@ -1960,7 +1960,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex == Index.Invalid) ||
                                                     ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     FindFlags flags = interpreter.TclFindFlags;
 
                                                     if (options.IsPresent("-flags", ref value))
@@ -2226,7 +2226,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-time"))
                                                         time = true;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     bool exceptions = interpreter.TclExceptions;
 
                                                     if (options.IsPresent("-exceptions", ref value))
@@ -2303,7 +2303,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-time"))
                                                         time = true;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     bool exceptions = interpreter.TclExceptions;
 
                                                     if (options.IsPresent("-exceptions", ref value))
@@ -2469,7 +2469,7 @@ namespace Eagle._Commands
                                         {
                                             if (argumentIndex == Index.Invalid)
                                             {
-                                                Variant value = null;
+                                                IVariant value = null;
                                                 int timeout = _Timeout.Infinite;
 
                                                 if (options.IsPresent("-timeout", ref value))
@@ -2547,7 +2547,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     FindFlags flags = interpreter.TclFindFlags;
 
                                                     if (options.IsPresent("-flags", ref value))

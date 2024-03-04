@@ -140,7 +140,7 @@ namespace Sample
             // NOTE: Declare a "Variant" object to hold the numerical value of
             //       the argument.
             //
-            Variant variant1 = null;
+            IVariant variant1 = null;
 
             //
             // NOTE: Attempt to convert the argument to a numerical value.
@@ -161,9 +161,8 @@ namespace Sample
             //
             try
             {
-                if (variant1.IsDouble() || variant1.IsDecimal() ||
-                    variant1.IsWideInteger() || variant1.IsInteger() ||
-                    variant1.IsBoolean())
+                if (variant1.IsFloatingPoint() ||
+                    variant1.IsFixedPoint() || variant1.IsIntegral())
                 {
                     double doubleValue = variant1.IsDouble() ?
                         (double)variant1.Value :
@@ -174,7 +173,7 @@ namespace Sample
                 else
                 {
                     error = String.Format(
-                        "unsupported variant type for function \"{0}\"",
+                        "unsupported IVariant type for function \"{0}\"",
                         base.Name);
 
                     code = ReturnCode.Error;

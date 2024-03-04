@@ -23,187 +23,172 @@ namespace Eagle._Functions
     [Arguments(Arity.Unary)]
     [TypeListFlags(TypeListFlags.AllTypes)]
     [ObjectGroup("conversion")]
-    internal sealed class Typeof : Core
+    internal sealed class Typeof : Arguments
     {
+        #region Public Constructors
         public Typeof(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
             : base(functionData)
         {
             // do nothing.
         }
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
-            ReturnCode code = ReturnCode.Ok;
-
-            if (interpreter != null)
+            if (base.Execute(
+                    interpreter, clientData, arguments, ref value,
+                    ref error) != ReturnCode.Ok)
             {
-                if (arguments != null)
+                return ReturnCode.Error;
+            }
+
+            Argument argument = arguments[1];
+
+            if (argument != null)
+            {
+                object argumentValue = argument.Value;
+
+                if (argumentValue is bool)
                 {
-                    if (arguments.Count == (this.Arguments + 1))
-                    {
-                        if (arguments[1] != null)
-                        {
-                            object argumentValue = arguments[1].Value;
-
-                            if (argumentValue is bool)
-                            {
-                                value = "bool";
-                            }
-                            else if (argumentValue is sbyte)
-                            {
-                                value = "sbyte";
-                            }
-                            else if (argumentValue is byte)
-                            {
-                                value = "byte";
-                            }
-                            else if (argumentValue is short)
-                            {
-                                value = "short";
-                            }
-                            else if (argumentValue is ushort)
-                            {
-                                value = "ushort";
-                            }
-                            else if (argumentValue is char)
-                            {
-                                value = "char";
-                            }
-                            else if (argumentValue is int)
-                            {
-                                value = "int";
-                            }
-                            else if (argumentValue is uint)
-                            {
-                                value = "uint";
-                            }
-                            else if (argumentValue is long)
-                            {
-                                value = "wide";
-                            }
-                            else if (argumentValue is ulong)
-                            {
-                                value = "ulong";
-                            }
-                            else if (argumentValue is ReturnCode)
-                            {
-                                value = "returnCode";
-                            }
-                            else if (argumentValue is decimal)
-                            {
-                                value = "decimal";
-                            }
-                            else if (argumentValue is double)
-                            {
-                                value = "double";
-                            }
-                            else if (argumentValue is float)
-                            {
-                                value = "float";
-                            }
-                            else if (argumentValue is DateTime)
-                            {
-                                value = "dateTime";
-                            }
-                            else if (argumentValue is TimeSpan)
-                            {
-                                value = "timeSpan";
-                            }
-                            else if (argumentValue is Guid)
-                            {
-                                value = "guid";
-                            }
-                            else if (argumentValue is Version)
-                            {
-                                value = "version";
-                            }
-                            else if (argumentValue is Uri)
-                            {
-                                value = "uri";
-                            }
-                            else if (argumentValue is string)
-                            {
-                                value = "string";
-                            }
-                            else if (argumentValue is StringList)
-                            {
-                                value = "list";
-                            }
-                            else if (argumentValue is StringDictionary)
-                            {
-                                value = "dictionary";
-                            }
-                            else if (argumentValue is Argument)
-                            {
-                                value = "argument";
-                            }
-                            else if (argumentValue is Number)
-                            {
-                                value = "number";
-                            }
-                            else if (argumentValue is Variant)
-                            {
-                                value = "variant";
-                            }
-                            else if (argumentValue is Result)
-                            {
-                                value = "result";
-                            }
-                            else if (argumentValue != null)
-                            {
-                                value = FormatOps.TypeName(
-                                    argumentValue, String.Empty,
-                                    String.Empty, false);
-                            }
-                            else
-                            {
-                                value = String.Empty;
-                            }
-                        }
-                        else
-                        {
-                            error = "invalid argument";
-                            code = ReturnCode.Error;
-                        }
-                    }
-                    else
-                    {
-                        if (arguments.Count > (this.Arguments + 1))
-                            error = String.Format(
-                                "too many arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-                        else
-                            error = String.Format(
-                                "too few arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-
-                        code = ReturnCode.Error;
-                    }
+                    value = "bool";
+                }
+                else if (argumentValue is sbyte)
+                {
+                    value = "sbyte";
+                }
+                else if (argumentValue is byte)
+                {
+                    value = "byte";
+                }
+                else if (argumentValue is short)
+                {
+                    value = "short";
+                }
+                else if (argumentValue is ushort)
+                {
+                    value = "ushort";
+                }
+                else if (argumentValue is char)
+                {
+                    value = "char";
+                }
+                else if (argumentValue is int)
+                {
+                    value = "int";
+                }
+                else if (argumentValue is uint)
+                {
+                    value = "uint";
+                }
+                else if (argumentValue is long)
+                {
+                    value = "wide";
+                }
+                else if (argumentValue is ulong)
+                {
+                    value = "ulong";
+                }
+                else if (argumentValue is ReturnCode)
+                {
+                    value = "returnCode";
+                }
+                else if (argumentValue is decimal)
+                {
+                    value = "decimal";
+                }
+                else if (argumentValue is double)
+                {
+                    value = "double";
+                }
+                else if (argumentValue is float)
+                {
+                    value = "float";
+                }
+                else if (argumentValue is DateTime)
+                {
+                    value = "dateTime";
+                }
+                else if (argumentValue is TimeSpan)
+                {
+                    value = "timeSpan";
+                }
+                else if (argumentValue is Guid)
+                {
+                    value = "guid";
+                }
+                else if (argumentValue is Version)
+                {
+                    value = "version";
+                }
+                else if (argumentValue is Uri)
+                {
+                    value = "uri";
+                }
+                else if (argumentValue is string)
+                {
+                    value = "string";
+                }
+                else if (argumentValue is StringList)
+                {
+                    value = "list";
+                }
+                else if (argumentValue is StringDictionary)
+                {
+                    value = "dictionary";
+                }
+                else if (argumentValue is Argument)
+                {
+                    value = "argument";
+                }
+                else if (argumentValue is IVariant)
+                {
+                    value = "variant";
+                }
+                else if (argumentValue is INumber)
+                {
+                    value = "number";
+                }
+                else if (argumentValue is Result)
+                {
+                    value = "result";
+                }
+                else if (argumentValue is IValue)
+                {
+                    value = "value";
+                }
+                else if (argumentValue is IGetValue)
+                {
+                    value = "getValue";
+                }
+                else if (argumentValue != null)
+                {
+                    value = FormatOps.TypeName(
+                        argumentValue, String.Empty,
+                        String.Empty, false);
                 }
                 else
                 {
-                    error = "invalid argument list";
-                    code = ReturnCode.Error;
+                    value = String.Empty;
                 }
             }
             else
             {
-                error = "invalid interpreter";
-                code = ReturnCode.Error;
+                error = "invalid argument";
+                return ReturnCode.Error;
             }
 
-            return code;
+            return ReturnCode.Ok;
         }
         #endregion
     }

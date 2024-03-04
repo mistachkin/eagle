@@ -23,6 +23,8 @@ namespace Eagle._Interfaces.Private
     {
         int GetInterpreterContextCount();
 
+        ///////////////////////////////////////////////////////////////////////
+
         bool ReleaseEngineContext(bool global);
         bool ReleaseEngineContext(bool global, ref Result error);
 
@@ -33,6 +35,8 @@ namespace Eagle._Interfaces.Private
 
         int PurgeEngineContexts(
             Interpreter interpreter, bool nonPrimary, bool global);
+
+        ///////////////////////////////////////////////////////////////////////
 
         bool ReleaseInteractiveContext(bool global);
         bool ReleaseInteractiveContext(bool global, ref Result error);
@@ -45,6 +49,8 @@ namespace Eagle._Interfaces.Private
         int PurgeInteractiveContexts(
             Interpreter interpreter, bool nonPrimary, bool global);
 
+        ///////////////////////////////////////////////////////////////////////
+
         bool ReleaseTestContext(bool global);
         bool ReleaseTestContext(bool global, ref Result error);
 
@@ -56,6 +62,8 @@ namespace Eagle._Interfaces.Private
         int PurgeTestContexts(
             Interpreter interpreter, bool nonPrimary, bool global);
 
+        ///////////////////////////////////////////////////////////////////////
+
         bool ReleaseVariableContext(bool global);
         bool ReleaseVariableContext(bool global, ref Result error);
 
@@ -66,6 +74,8 @@ namespace Eagle._Interfaces.Private
 
         int PurgeVariableContexts(
             Interpreter interpreter, bool nonPrimary, bool global);
+
+        ///////////////////////////////////////////////////////////////////////
 
         void Free(bool global);
     }

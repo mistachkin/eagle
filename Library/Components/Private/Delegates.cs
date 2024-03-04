@@ -133,6 +133,19 @@ namespace Eagle._Components.Private.Delegates
     ///////////////////////////////////////////////////////////////////////////
 
     #region Script Evaluation Related Delegates
+    [ObjectId("39b0cf79-f06e-48a3-8a33-545c2179d5b3")]
+    internal delegate ReturnCode ScriptLibraryCallback(
+        Interpreter interpreter,
+        IFileSystemHost fileSystemHost,
+        string name,
+        bool direct,
+        ref ScriptFlags scriptFlags,
+        ref IClientData clientData,
+        ref Result result
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
     //
     // NOTE: Somehow, script evaluation in the interpreter was interrupted
     //       (e.g. canceled, unwound, halted, deleted, etc).  This callback

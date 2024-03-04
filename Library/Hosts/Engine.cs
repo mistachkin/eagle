@@ -165,6 +165,7 @@ namespace Eagle._Hosts
 
         public override ReturnCode QueueWorkItem(
             ThreadStart callback,
+            QueueFlags flags,
             ref Result error
             )
         {
@@ -172,7 +173,7 @@ namespace Eagle._Hosts
 
             try
             {
-                if (_Engine.QueueWorkItem(callback))
+                if (_Engine.QueueWorkItem(callback, flags))
                     return ReturnCode.Ok;
                 else
                     error = "could not queue work item";
@@ -190,6 +191,7 @@ namespace Eagle._Hosts
         public override ReturnCode QueueWorkItem(
             WaitCallback callback,
             object state,
+            QueueFlags flags,
             ref Result error
             )
         {
@@ -197,7 +199,7 @@ namespace Eagle._Hosts
 
             try
             {
-                if (_Engine.QueueWorkItem(callback, state))
+                if (_Engine.QueueWorkItem(callback, state, flags))
                     return ReturnCode.Ok;
                 else
                     error = "could not queue work item";

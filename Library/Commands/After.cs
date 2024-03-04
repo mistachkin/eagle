@@ -312,7 +312,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex != Index.Invalid)
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     long? threadId = null;
 
                                                     if (options.IsPresent("-thread", ref value))
@@ -498,7 +498,7 @@ namespace Eagle._Commands
                                                 {
                                                     if (argumentIndex != Index.Invalid)
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         long? threadId = null;
 
                                                         if (options.IsPresent("-thread", ref value))

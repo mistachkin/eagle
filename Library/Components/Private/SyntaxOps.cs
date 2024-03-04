@@ -481,10 +481,10 @@ namespace Eagle._Components.Private
 
 #if SHELL && INTERACTIVE_COMMANDS
         private static string CheckForSubCommandsOnly(
-            Interpreter interpreter,
-            string name,
-            string value,
-            bool noName
+            Interpreter interpreter, /* in */
+            string name,             /* in */
+            string value,            /* in */
+            bool noName              /* in */
             )
         {
             if ((value == null) || (SubCommandsOnlyPrefix == null))
@@ -732,7 +732,7 @@ namespace Eagle._Components.Private
 
             int separatorLength = separator.Length;
 
-            int maximumLength = ListOps.GetMaximumLength(
+            int maximumLength = ListOps.GetMaximumLength<string>(
                 values);
 
             int spaceLength = maximumLength - separatorLength;
@@ -964,7 +964,10 @@ namespace Eagle._Components.Private
                 string line = lines[index];
 
                 if (String.IsNullOrEmpty(line))
-                    continue;
+                    continue; /* NOTE: Blank line. */
+
+                if (line[0] == Characters.SemiColon)
+                    continue; /* NOTE: Comment line. */
 
                 string[] fields = line.Split(fieldChars,
                     StringSplitOptions.RemoveEmptyEntries);

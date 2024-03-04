@@ -26,6 +26,9 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Interfaces.Public;
 
+using VariablePair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Interfaces.Public.IVariable>;
+
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
 #endif
@@ -126,7 +129,7 @@ namespace Eagle._Containers.Public
                 bool allowSpecial = FlagOps.HasFlags(
                     flags, CloneFlags.AllowSpecial, true);
 
-                foreach (KeyValuePair<string, IVariable> pair in dictionary)
+                foreach (VariablePair pair in dictionary)
                 {
                     IVariable variable = pair.Value;
 
@@ -241,7 +244,7 @@ namespace Eagle._Containers.Public
         {
             StringList result = new StringList();
 
-            foreach (KeyValuePair<string, IVariable> pair in this)
+            foreach (VariablePair pair in this)
             {
                 IVariable variable = pair.Value;
 
@@ -280,7 +283,7 @@ namespace Eagle._Containers.Public
         {
             int result = 0;
 
-            foreach (KeyValuePair<string, IVariable> pair in this)
+            foreach (VariablePair pair in this)
             {
                 IVariable variable = pair.Value;
 
@@ -318,7 +321,7 @@ namespace Eagle._Containers.Public
         {
             int result = 0;
 
-            foreach (KeyValuePair<string, IVariable> pair in this)
+            foreach (VariablePair pair in this)
             {
                 IVariable variable = pair.Value;
 
@@ -343,7 +346,7 @@ namespace Eagle._Containers.Public
         {
             StringList result = new StringList();
 
-            foreach (KeyValuePair<string, IVariable> pair in this)
+            foreach (VariablePair pair in this)
             {
                 IVariable variable = pair.Value;
 
@@ -376,7 +379,7 @@ namespace Eagle._Containers.Public
         {
             int result = 0;
 
-            foreach (KeyValuePair<string, IVariable> pair in this)
+            foreach (VariablePair pair in this)
             {
                 IVariable variable = pair.Value;
 
@@ -424,7 +427,7 @@ namespace Eagle._Containers.Public
 
             StringList result = new StringList();
 
-            foreach (KeyValuePair<string, IVariable> pair in this)
+            foreach (VariablePair pair in this)
             {
                 IVariable variable = pair.Value;
 
@@ -467,7 +470,7 @@ namespace Eagle._Containers.Public
         {
             StringList result = new StringList();
 
-            foreach (KeyValuePair<string, IVariable> pair in this)
+            foreach (VariablePair pair in this)
             {
                 IVariable variable = pair.Value;
 
@@ -516,7 +519,7 @@ namespace Eagle._Containers.Public
 
             StringList varNames = null;
 
-            foreach (KeyValuePair<string, IVariable> pair in oldDictionary)
+            foreach (VariablePair pair in oldDictionary)
             {
                 string varName = pair.Key;
 
@@ -560,7 +563,7 @@ namespace Eagle._Containers.Public
 
             Clear();
 
-            foreach (KeyValuePair<string, IVariable> pair in dictionary)
+            foreach (VariablePair pair in dictionary)
                 Add(pair.Key, pair.Value);
         }
 
@@ -598,7 +601,7 @@ namespace Eagle._Containers.Public
             int localAdded = 0;
             int localChanged = 0;
 
-            foreach (KeyValuePair<string, IVariable> pair in dictionary)
+            foreach (VariablePair pair in dictionary)
             {
                 string varName = pair.Key;
 

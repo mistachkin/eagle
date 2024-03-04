@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Constants;
@@ -48,6 +49,15 @@ namespace Eagle._Components.Private
         //
         private static double DoubleEpsilon = 0.00001;
         private static decimal DecimalEpsilon = 0.00001m;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static int readyPowCount = 10000;
+        private static int readyPowYield = (int)YieldType.Default;
+        private static int maximumExponent = 0xFFFFFFF; /* COMPAT: Tcl */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -132,6 +142,13 @@ namespace Eagle._Components.Private
                 return null;
 
             return PowersOfTwo[X];
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool NotZero(double X)
+        {
+            return ((X < 0.0) || (X > 0.0));
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -414,6 +431,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        //
+        // HACK: Check if the current script has been canceled;
+        //       this method is only for use by the Pow method
+        //       overloads, below.
+        //
+        private static bool IsNotReady(
+            ref Result error /* out */
+            )
+        {
+            Interpreter interpreter = Interpreter.GetActive();
+
+            if (interpreter == null)
+                return false;
+
+            Result result = null;
+
+            if (Interpreter.Ready(
+                    interpreter, ref result) == ReturnCode.Ok)
+            {
+                return false;
+            }
+
+            error = result;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static int Pow(int X, int Y)
         {
             int result;
@@ -472,17 +517,55 @@ namespace Eagle._Components.Private
             else
             {
                 //
+                // BUGFIX: Do not allow an exponent that is greater than we
+                //         can (reasonably) calculate using a 32-bit signed
+                //         integer.
+                //
+                if ((maximumExponent > 0) && (Y > maximumExponent))
+                    throw new ScriptException("integer exponent too large");
+
+                //
                 // 1. Zero raised to any positive non-zero power is itself.
                 // 2. One raised to any positive non-zero power is itself.
                 //
                 result = X;
 
                 //
-                // 1. General case of using repeated integer multiplication.  This may
-                //    raise an overflow exception.
+                // 1. General case of using repeated integer multiplication.
+                //    This may raise an overflow exception.
                 //
+                int readyCount = Interlocked.CompareExchange(
+                    ref readyPowCount, 0, 0);
+
+                int readyYield = Interlocked.CompareExchange(
+                    ref readyPowYield, 0, 0);
+
+                int count = 0;
+
                 while ((result != 0) && (result != 1) && (--Y > 0))
+                {
+                    //
+                    // BUGFIX: Do not simply spin in this loop, which could
+                    //         take a while; instead, make sure the active
+                    //         interpreter, if any, is still "ready", e.g.
+                    //         the script being evaluated has not yet been
+                    //         canceled.
+                    //
+                    if (readyCount >= 0)
+                    {
+                        if ((readyCount == 0) || ((count++ % readyCount) == 0))
+                        {
+                            Result error = null;
+
+                            if (IsNotReady(ref error))
+                                throw new ScriptException(error);
+
+                            HostOps.MaybeThreadYieldAndOrSleep(readyYield);
+                        }
+                    }
+
                     result *= X;
+                }
             }
 
             return result;
@@ -548,17 +631,55 @@ namespace Eagle._Components.Private
             else
             {
                 //
+                // BUGFIX: Do not allow an exponent that is greater than we
+                //         can (reasonably) calculate using a 64-bit signed
+                //         integer.
+                //
+                if ((maximumExponent > 0) && (Y > maximumExponent))
+                    throw new ScriptException("integer exponent too large");
+
+                //
                 // 1. Zero raised to any positive non-zero power is itself.
                 // 2. One raised to any positive non-zero power is itself.
                 //
                 result = X;
 
                 //
-                // 1. General case of using repeated integer multiplication.  This may
-                //    raise an overflow exception.
+                // 1. General case of using repeated integer multiplication.
+                //    This may raise an overflow exception.
                 //
+                int readyCount = Interlocked.CompareExchange(
+                    ref readyPowCount, 0, 0);
+
+                int readyYield = Interlocked.CompareExchange(
+                    ref readyPowYield, 0, 0);
+
+                int count = 0;
+
                 while ((result != 0) && (result != 1) && (--Y > 0))
+                {
+                    //
+                    // BUGFIX: Do not simply spin in this loop, which could
+                    //         take a while; instead, make sure the active
+                    //         interpreter, if any, is still "ready", e.g.
+                    //         the script being evaluated has not yet been
+                    //         canceled.
+                    //
+                    if (readyCount >= 0)
+                    {
+                        if ((readyCount == 0) || ((count++ % readyCount) == 0))
+                        {
+                            Result error = null;
+
+                            if (IsNotReady(ref error))
+                                throw new ScriptException(error);
+
+                            HostOps.MaybeThreadYieldAndOrSleep(readyYield);
+                        }
+                    }
+
                     result *= X;
+                }
             }
 
             return result;

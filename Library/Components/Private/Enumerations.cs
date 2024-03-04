@@ -14,6 +14,127 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Private
 {
+#if !NET_STANDARD_20 && !MONO
+    [Flags()]
+    [ObjectId("be6327bf-27b6-4d04-b794-4526d0b712c1")]
+    internal enum SddlFlags
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        IncludeExplicit = 0x10000,
+        IncludeInherited = 0x20000,
+        SkipBadRights = 0x40000,
+
+        Remove = 0x10000000,
+        ToList = 0x20000000,
+
+        RemoveAll = IncludeExplicit | IncludeInherited | Remove,
+
+        Default = None
+    }
+#endif
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("e5654615-73b1-4a95-8c5a-26daf8f64098")]
+    internal enum YieldType
+    {
+        None = 0x0,    /* Do nothing. */
+        Invalid = 0x1, /* Invalid, do not use. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Both = 0x2,    /* Use Thread.Yield() and Thread.Sleep(N) */
+        Pure = 0x4,    /* Use Thread.Yield() */
+        Sleep = 0x8,   /* Use Thread.Sleep(N) */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Mask = Invalid | Both | Pure | Sleep, /* All non-zero values. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Maximum = Both | 0x40, /* 64 milliseconds */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Default = Pure
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("1a846c0c-3b67-4a2b-b218-1292b9afadfe")]
+    internal enum TraceIndicatorFlags : ulong
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        //
+        // HACK: These values were stolen from the TraceListenerType
+        //       enumeration and must be manually kept synchronized.
+        //
+        HaveDefault = 0x1000,
+        HaveConsole = 0x2000,
+        HaveNative = 0x4000,
+        HaveRawLogFile = 0x8000,
+        HaveTestLogFile = 0x10000,
+        HaveBuffered = 0x20000,
+
+        //
+        // NOTE: When set, this means the calling (external?) method
+        //       is external to the Eagle core library.
+        //
+        External = 0x100000,
+
+        //
+        // NOTE: When set, this means the calling (external?) method
+        //       is contained within an Eagle binary plugin.
+        //
+        FromPlugin = 0x200000,
+
+        //
+        // NOTE: When set, this means the calling (external?) method
+        //       is contained within an external SDK integration.
+        //
+        FromSdk = 0x400000,
+
+        //
+        // NOTE: When set, this means the calling (external?) method
+        //       is a wrapper around Utility.DebugTrace, et al.
+        //
+        ViaWrapper = 0x800000,
+
+        //
+        // NOTE: When set, this means the current thread (the one
+        //       performing the tracing) is a background thread.
+        //
+        Background = 0x1000000,
+
+        //
+        // NOTE: When set, this means the current thread (the one
+        //       performing the tracing) is a thread-pool thread.
+        //
+        ThreadPool = 0x2000000,
+
+        //
+        // NOTE: When set, this means the current thread (the one
+        //       performing the tracing) matches the primary thread
+        //       for the interpreter.
+        //
+        PrimaryThread = 0x4000000,
+
+        //
+        // NOTE: When set, this means that there is no interpreter
+        //       context available within the tracing subsystem.
+        //
+        NoInterpreter = 0x8000000
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     [ObjectId("fe64b30e-2c31-4a1c-925b-8556a3fd2229")]
     internal enum IfNotFoundType
     {
@@ -360,6 +481,7 @@ namespace Eagle._Components.Private
         PreQueue = 0x2000,
         Queue = 0x4000,
         PostQueue = 0x8000,
+        Count = 0x10000,
 
         ForDefault = 0x10000,
 
@@ -504,6 +626,10 @@ namespace Eagle._Components.Private
         TransferHelper = 41,            /* TransferHelper */
         InterpreterSettings = 42,       /* SettingsOps */
         TypeDefaultLookup = 43,         /* MarshalOps (System.Type) */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        DynamicMethodHandle = 44,       /* HookOps */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1167,6 +1293,9 @@ namespace Eagle._Components.Private
         None = 0x0,                      /* No flags. */
         Invalid = 0x1,                   /* Invalid, do not use. */
         Reserved1 = 0x2,                 /* Reserved, do not use. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         PendingCleanup = 0x4,            /* Interpreter is pending cleanup when
                                           * the current evaluation stack is
                                           * unwound (delete all commands,
@@ -1177,6 +1306,9 @@ namespace Eagle._Components.Private
                                           * external component and must not be
                                           * disposed.  This flag is used by the
                                           * [interp shareinterp] sub-command. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         PendingPolicies = 0x10,          /* Skip all command and file policy
                                           * checks?  This is used internally to
                                           * prevent unwanted mutual recursion. */
@@ -1189,9 +1321,15 @@ namespace Eagle._Components.Private
                                           * triggering a nested package index
                                           * search.  This is used internally to
                                           * prevent unwanted mutual recursion. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         SecurityWasEnabled = 0x80,       /* The ScriptOps.EnableOrDisableSecurity
                                           * method successfully enabled security.
                                           */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
 #if DEBUG
         StrictCallStack = 0x100,         /* Throw an exception if the call stack
                                           * appears to be in an invalid state? */
@@ -1204,10 +1342,12 @@ namespace Eagle._Components.Private
                                           * when they are not available (i.e.
                                           * null). */
 #if DEBUGGER && DEBUGGER_BREAKPOINTS
-        ArgumentLocation = 0x800,        /* Keep track of Argument locations. */
-        ArgumentLocationLock = 0x1000,   /* Do not modify the ArgumentLocation
-                                          * flag automatically (e.g. via the
-                                          * [source] command, etc). */
+        ArgumentLocation = 0x800,        /* PER-THREAD: Keep track of Argument
+                                          *             locations. */
+        ArgumentLocationLock = 0x1000,   /* PER-THREAD: Do not modify the
+                                          *             ArgumentLocation flag
+                                          *             automatically (e.g. via the
+                                          *             [source] command, etc). */
 #endif
 #if SCRIPT_ARGUMENTS
         ScriptArguments = 0x2000,        /* Keep track of script argument lists for
@@ -1249,8 +1389,6 @@ namespace Eagle._Components.Private
                                           * interpreter and should be disposed. */
         NoDispose = 0x800000,            /* Prevent the interpreter from actually being
                                           * disposed. */
-        PackageScanWhatIf = 0x1000000,   /* Do not actually add any packages based on
-                                          * the [package ifneeded] sub-command. */
 
 #if SHELL
         InitializeShell = 0x2000000,     /* Perform shell script library initialization
@@ -1264,7 +1402,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForDefaultUse = 0x8000000,
+        TraceStateQuery = 0x8000000,     /* SPECIAL: Emit trace messages when the state
+                                          * flags are being queried. */
+        TraceStateChange = 0x10000000,   /* SPECIAL: Emit trace messages when the state
+                                          * flags are being changed. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForDefaultUse = 0x10000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1299,6 +1444,6 @@ namespace Eagle._Components.Private
         Default = (MaybeStrictCallStack | ReUseProfiler |
                    TraceTextWriterOwned | DebugTextWriterOwned |
                    MaybeNoIsolatedNotify | MaybeInitializeShell |
-                   ForDefaultUse) & ~Reserved1
+                   TraceStateChange | ForDefaultUse) & ~Reserved1
     }
 }

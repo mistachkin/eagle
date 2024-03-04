@@ -10,20 +10,13 @@
  */
 
 using System;
-using System.Collections.Generic;
 using Eagle._Attributes;
 
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("ce2d0e84-99ba-4437-bb87-1529cdffc6c4")]
-    public interface ICoreClientData
+    public interface ICoreClientData : IClientData, IBaseClientData
     {
-        IClientData Parent { get; }
-        IEnumerable<IClientData> Children { get; }
-
-        object DataNoThrow { get; set; }
-        bool ReadOnly { get; }
-
         Type MaybeGetDataType();
         string GetDataTypeName();
     }

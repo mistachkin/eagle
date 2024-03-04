@@ -50,6 +50,7 @@ namespace Eagle._Components.Public
         public static readonly string Isolated = "Isolated";
 #endif
 
+        public static readonly string ForceModernAlgorithms = "ForceModernAlgorithms";
         public static readonly string Security = "Security";
         public static readonly string ResultStack = "ResultStack";
         public static readonly string SetupTrace = "SetupTrace";
@@ -76,6 +77,11 @@ namespace Eagle._Components.Public
 
         public static readonly string NoExit = "NoExit";
         public static readonly string NoInitialize = "NoInitialize";
+
+#if THREADING
+        public static readonly string NoWorkers = "NoWorkers";
+#endif
+
         public static readonly string NoLoop = "NoLoop";
         public static readonly string NoThrowOnDisposed = "NoThrowOnDisposed";
         public static readonly string UseAttach = "UseAttach";
@@ -159,6 +165,7 @@ namespace Eagle._Components.Public
         public static readonly string TracePriority = "TracePriority";
         public static readonly string TracePriorityLimits = "TracePriorityLimits";
         public static readonly string TracePriorities = "TracePriorities";
+        public static readonly string GlobalPriorities = "GlobalPriorities";
 
         public static readonly string TreatAsFramework20 = "TreatAsFramework20";
         public static readonly string TreatAsFramework40 = "TreatAsFramework40";
@@ -290,9 +297,11 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Native Tcl Integration Environment Variables
+        public static readonly string EagleTclDir = "Eagle_Tcl_Dir";
         public static readonly string EagleTclDll = "Eagle_Tcl_Dll";
         public static readonly string EagleTkDll = "Eagle_Tk_Dll";
 
+        public static readonly string TclDir = "Tcl_Dir";
         public static readonly string TclDll = "Tcl_Dll";
         public static readonly string TkDll = "Tk_Dll";
 

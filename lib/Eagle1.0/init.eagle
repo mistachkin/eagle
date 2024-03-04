@@ -91,6 +91,27 @@ namespace eval ::Eagle {
     #
     foreach fileNameOnly $fileNamesOnly {
       #
+      # NOTE: Build (final) candidate script file name to [source].  If
+      #       that file name has (then) been explicitly forbidden, skip
+      #       it.
+      #
+      set fileName [file join $directory $fileNameOnly]
+
+      if {[info exists ::no($fileName)]} then {
+        continue
+      }
+
+      #
+      # NOTE: If the "strictLoadScript" option is disabled, skip any of
+      #       the script files that do not appear to exist; otherwise,
+      #       just let the [source] command deal with missing scripts.
+      #
+      if {[info exists ::no(strictLoadScript)] && \
+          ![file exists $fileName]} then {
+        continue
+      }
+
+      #
       # NOTE: Start with the base [source] command, maybe with some
       #       options.
       #
@@ -100,7 +121,7 @@ namespace eval ::Eagle {
       # NOTE: Add the qualified file name, which may or may not be fully
       #       qualified.
       #
-      lappend fileCommand [file join $directory $fileNameOnly]
+      lappend fileCommand $fileName
 
       #
       # NOTE: Evaluate the resulting command in the callers context.
@@ -145,8 +166,9 @@ namespace eval ::Eagle {
     if {![info exists ::no(maybeLoadScripts,shared)]} then {
       maybeLoadScripts [file dirname [info script]] [list \
           auxiliary.eagle database.eagle exec.eagle file1.eagle \
-          file2.eagle file3.eagle info.eagle list.eagle \
-          pkgt.eagle platform.eagle testlog.eagle unzip.eagle]
+          file2.eagle file2u.eagle file3.eagle info.eagle list.eagle \
+          pkgt.eagle platform.eagle runopt.eagle testlog.eagle \
+          unzip.eagle]
     }
 
     #
@@ -158,7 +180,7 @@ namespace eval ::Eagle {
           ![info exists ::no(maybeLoadScripts,eagle)]} then {
         maybeLoadScripts [file dirname [info script]] [list \
             compat.eagle csharp.eagle object.eagle process.eagle \
-            runopt.eagle unkobj.eagle update.eagle]
+            unkobj.eagle update.eagle]
       }
     } else {
       if {![info exists ::no(maybeLoadScripts,engine)] && \
@@ -376,19 +398,35 @@ namespace eval ::Eagle {
           getPluginName getPluginPath getPackageInstallPath appendArgs \
           lappendArgs getDictionaryValue getColumnValue getRowColumnValue \
           vwaitLocked tqputs tqlog makeBinaryChannel makeAsciiChannel \
-          makeUnicodeChannel makeLogChannel readFile readSharedFile writeFile \
+          makeUnicodeBinaryChannel makeUnicodeChannel makeUtf8Channel \
+          makeLogChannel readFile readSharedFile writeFile \
           appendFile appendLogFile appendSharedFile appendSharedLogFile \
-          readAsciiFile writeAsciiFile readUnicodeFile \
-          writeUnicodeFile addToPath removeFromPath \
-          getShellExecutableName getRuntimeCommandLine execShell \
-          maybeGetExitCode lshuffle ldifference filter map reduce \
-          getLengthModifier debug tclLogForCommand \
-          populateTypesForComSpecDir populateTypesForGlob getDirResultPath \
-          fileNormalizeForGlob performGlob maybeAppendPathResult findViaGlob \
-          findViaComSpecDir findDirectories findDirectoriesRecursive \
-          findFiles findFilesRecursive copyFilesRecursive \
-          exportAndImportPackageCommands setupUnzipVars \
-          unzipMustBeInstalled extractZipArchive] false false
+          readAsciiFile writeAsciiFile readUnicodeBinaryFile readUnicodeFile \
+          readUtf8File writeUnicodeBinaryFile writeUnicodeFile writeUtf8File \
+          addToPath removeFromPath getShellExecutableName \
+          getRuntimeCommandLine execShell maybeGetExitCode lshuffle \
+          ldifference filter map reduce getLengthModifier debug \
+          tclLogForCommand populateTypesForComSpecDir populateTypesForGlob \
+          filterForGlob canUseComSpecDir pwdForDirResultPath getDirResultPath \
+          fileNormalizeForGlob performGlob maybeAppendPathResult \
+          findViaGlob findViaComSpecDir fileDirNameForFind fileTailForFind \
+          findDirectories findDirectoriesRecursive findFiles \
+          findFilesRecursive copyFilesRecursive \
+          exportAndImportPackageCommands setupUnzipVars unzipMustBeInstalled \
+          extractZipArchive hasRuntimeOption listRuntimeOptions \
+          addRuntimeOption removeRuntimeOption toggleRuntimeOption] false false
+    }
+
+    ###########################################################################
+
+    #
+    # HACK: Native Tcl does not have this global array; however, now it is
+    #       needed because of the added support for native Tcl to use the
+    #       runtime options semantics from Eagle, where this variable is a
+    #       hard requirement.
+    #
+    if {![info exists ::eagle_platform(runtimeOptions)]} then {
+      set ::eagle_platform(runtimeOptions) [list]
     }
 
     ###########################################################################

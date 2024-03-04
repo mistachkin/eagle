@@ -4047,16 +4047,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        internal static string Quote(
+        public static string Quote(
             string text,
             ListElementFlags flags
             )
         {
+            StringBuilder result;
             int length = (text != null) ? text.Length : 0;
-            StringBuilder result = StringBuilderFactory.Create(2 * length + 2);
 
-            ScanElement(/* null, */ text, 0, length, ref flags);
-            ConvertElement(/* null, */ text, 0, length, flags, ref result);
+            if (FlagOps.HasFlags(flags, ListElementFlags.UseBackslashes, true))
+            {
+                result = StringBuilderFactory.Create(4 * length + 2);
+
+                BackslashElement(text, 0, length, flags, ref result);
+            }
+            else
+            {
+                result = StringBuilderFactory.Create(2 * length + 2);
+
+                ScanElement(/* null, */ text, 0, length, ref flags);
+                ConvertElement(/* null, */ text, 0, length, flags, ref result);
+            }
 
             return StringBuilderCache.GetStringAndRelease(ref result);
         }
@@ -4072,7 +4083,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        private static bool NeedsQuoting(
+        public static bool NeedsQuoting(
             string text,
             ListElementFlags flags
             )
@@ -4081,7 +4092,7 @@ namespace Eagle._Components.Public
 
             ScanElement(/* null, */ text, 0, length, ref flags);
 
-            return ((flags & ListElementFlags.UseBraces) == ListElementFlags.UseBraces);
+            return FlagOps.HasFlags(flags, ListElementFlags.UseBraces, true);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -4128,8 +4139,7 @@ namespace Eagle._Components.Public
                             nestingLevel--;
 
                             if (nestingLevel < 0)
-                                flags |= ListElementFlags.DontUseBraces |
-                                    ListElementFlags.BracesUnmatched;
+                                flags |= ListElementFlags.NoBracesMask;
 
                             break;
                         }
@@ -4138,8 +4148,7 @@ namespace Eagle._Components.Public
                             if (((index + 1) == lastIndex) ||
                                 IsLineTerminator(text[index + 1]))
                             {
-                                flags |= ListElementFlags.DontUseBraces |
-                                    ListElementFlags.BracesUnmatched;
+                                flags |= ListElementFlags.NoBracesMask;
                             }
                             else
                             {
@@ -4212,15 +4221,15 @@ namespace Eagle._Components.Public
             int index = startIndex;
 
             if ((text[index] == Characters.NumberSign) &&
-                ((flags & ListElementFlags.DontQuoteHash) != ListElementFlags.DontQuoteHash))
+                !FlagOps.HasFlags(flags, ListElementFlags.DontQuoteHash, true))
             {
                 flags |= ListElementFlags.UseBraces;
             }
 
             int lastIndex = startIndex + length;
 
-            if (((flags & ListElementFlags.UseBraces) == ListElementFlags.UseBraces) &&
-                ((flags & ListElementFlags.DontUseBraces) != ListElementFlags.DontUseBraces))
+            if (FlagOps.HasFlags(flags, ListElementFlags.UseBraces, true) &&
+                !FlagOps.HasFlags(flags, ListElementFlags.DontUseBraces, true))
             {
                 //
                 // BUGFIX: *PERF* Append the whole sub-string in one shot.
@@ -4239,7 +4248,7 @@ namespace Eagle._Components.Public
                     flags |= ListElementFlags.BracesUnmatched;
                 }
                 else if ((text[index] == Characters.NumberSign) &&
-                         ((flags & ListElementFlags.DontQuoteHash) != ListElementFlags.DontQuoteHash))
+                         !FlagOps.HasFlags(flags, ListElementFlags.DontQuoteHash, true))
                 {
                     element.Append(Characters.Backslash_NumberSign);
 
@@ -4253,8 +4262,8 @@ namespace Eagle._Components.Public
                 //       may result in slightly faster code when checking for
                 //       this condition inside the loop.
                 //
-                bool bracesUnmatched =
-                    (flags & ListElementFlags.BracesUnmatched) == ListElementFlags.BracesUnmatched;
+                bool bracesUnmatched = FlagOps.HasFlags(
+                    flags, ListElementFlags.BracesUnmatched, true);
 
                 for (; index != lastIndex; index++)
                 {
@@ -4310,6 +4319,138 @@ namespace Eagle._Components.Public
 
                     element.Append(character);
                 }
+            }
+
+            return element.Length - elementStartLength;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        internal static int BackslashElement(
+            /* Interpreter interpreter, */ /* NOT USED */
+            string text,
+            int startIndex,
+            int length,
+            ListElementFlags flags,
+            ref StringBuilder element
+            ) /* ENTRY-POINT, THREAD-SAFE */
+        {
+            if ((text != null) && (length < 0))
+                length = text.Length;
+
+            if (element == null)
+                element = StringBuilderFactory.CreateNoCache(); /* EXEMPT */
+
+            int elementStartLength = element.Length;
+
+            if ((text == null) || (length == 0))
+            {
+                element.Append(Characters.OpenBrace_CloseBrace);
+                return 2;
+            }
+
+            bool backslashTab = FlagOps.HasFlags(
+                flags, ListElementFlags.BackslashTab, true);
+
+            bool backslashLine = FlagOps.HasFlags(
+                flags, ListElementFlags.BackslashLine, true);
+
+            bool backslashForm = FlagOps.HasFlags(
+                flags, ListElementFlags.BackslashForm, true);
+
+            bool backslashSpace = FlagOps.HasFlags(
+                flags, ListElementFlags.BackslashSpace, true);
+
+            int lastIndex = startIndex + length;
+
+            for (int index = startIndex; index != lastIndex; index++)
+            {
+                char character = text[index];
+
+                switch (character)
+                {
+                    //
+                    // TODO: Maybe make some (more) of these escapes
+                    //       optional?
+                    //
+                    case Characters.OpenBracket:
+                    case Characters.CloseBracket:
+                    case Characters.DollarSign:
+                    case Characters.SemiColon:
+                    case Characters.Backslash:
+                    case Characters.QuotationMark:
+                    case Characters.OpenBrace:
+                    case Characters.CloseBrace:
+                        {
+                            element.Append(Characters.Backslash);
+                            element.AppendFormat("x{0:X2}", (int)character);
+
+                            continue;
+                        }
+                    case Characters.Space:
+                        {
+                            if (backslashSpace)
+                            {
+                                element.Append(Characters.Backslash);
+                                element.AppendFormat("x{0:X2}", (int)character);
+                                continue;
+                            }
+
+                            break;
+                        }
+                    case Characters.HorizontalTab:
+                        {
+                            if (backslashTab)
+                            {
+                                element.Append(Characters.Backslash_t);
+                                continue;
+                            }
+
+                            break;
+                        }
+                    case Characters.LineFeed:
+                        {
+                            if (backslashLine)
+                            {
+                                element.Append(Characters.Backslash_n);
+                                continue;
+                            }
+
+                            break;
+                        }
+                    case Characters.VerticalTab:
+                        {
+                            if (backslashTab)
+                            {
+                                element.Append(Characters.Backslash_v);
+                                continue;
+                            }
+
+                            break;
+                        }
+                    case Characters.FormFeed:
+                        {
+                            if (backslashForm)
+                            {
+                                element.Append(Characters.Backslash_f);
+                                continue;
+                            }
+
+                            break;
+                        }
+                    case Characters.CarriageReturn:
+                        {
+                            if (backslashLine)
+                            {
+                                element.Append(Characters.Backslash_r);
+                                continue;
+                            }
+
+                            break;
+                        }
+                }
+
+                element.Append(character);
             }
 
             return element.Length - elementStartLength;

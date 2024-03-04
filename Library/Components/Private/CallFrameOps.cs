@@ -639,6 +639,14 @@ namespace Eagle._Components.Private
                 }
 
                 //
+                // BUGFIX: Since VariableDictionary creation can result
+                //         in a call to the MaybeCopyFrom method, which
+                //         can then fire variable traces (with arbitrary
+                //         side-effects), a copy must be made here.
+                //
+                sourceVariables = new VariableDictionary(sourceVariables);
+
+                //
                 // NOTE: Create a new collection of variables from the
                 //       current variable call frame.
                 //

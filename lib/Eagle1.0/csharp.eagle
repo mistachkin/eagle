@@ -175,7 +175,8 @@ namespace eval ::Eagle {
           set targetVersion [file tail $path]
         }
 
-        if {[string match 7.* $targetVersion] || \
+        if {[string match 8.* $targetVersion] || \
+            [string match 7.* $targetVersion] || \
             [string match 6.* $targetVersion] || \
             [string match 5.* $targetVersion] || \
             [string match 3.* $targetVersion]} then {

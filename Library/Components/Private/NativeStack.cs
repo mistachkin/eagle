@@ -396,33 +396,33 @@ namespace Eagle._Components.Private
         //       indicates that the calculation has been double-checked on an actual
         //       running system via WinDbg.
         //
-        private const uint CONTEXT_FLAGS_OFFSET_i386 = 0;   /* VERIFIED */
-        private const uint CONTEXT_SIZE_i386 = 716;         /* VERIFIED */
-        private const uint CONTEXT_ESP_OFFSET_i386 = 196;   /* VERIFIED */
+        private const uint CONTEXT_FLAGS_OFFSET_i386 = 0;      /* VERIFIED */
+        private const uint CONTEXT_SIZE_i386 = 716;            /* VERIFIED */
+        private const uint CONTEXT_ESP_OFFSET_i386 = 196;      /* VERIFIED */
 
         /////////////////////////////////////////////////////////////////////////////////
 
-        private const uint CONTEXT_FLAGS_OFFSET_IA64 = 0;   /* VERIFIED */
-        private const uint CONTEXT_SIZE_IA64 = 2672;        /* ???????? */
-        private const uint CONTEXT_ESP_OFFSET_IA64 = 2248;  /* ???????? */
+        private const uint CONTEXT_FLAGS_OFFSET_IA64 = 0;      /* VERIFIED */
+        private const uint CONTEXT_SIZE_IA64 = 2672;           /* ???????? */
+        private const uint CONTEXT_ESP_OFFSET_IA64 = 2248;     /* ???????? */
 
         /////////////////////////////////////////////////////////////////////////////////
 
-        private const uint CONTEXT_FLAGS_OFFSET_AMD64 = 48; /* VERIFIED */
-        private const uint CONTEXT_SIZE_AMD64 = 1232;       /* VERIFIED */
-        private const uint CONTEXT_ESP_OFFSET_AMD64 = 152;  /* VERIFIED */
+        private const uint CONTEXT_FLAGS_OFFSET_AMD64 = 48;    /* VERIFIED */
+        private const uint CONTEXT_SIZE_AMD64 = 1232;          /* VERIFIED */
+        private const uint CONTEXT_ESP_OFFSET_AMD64 = 152;     /* VERIFIED */
 
         /////////////////////////////////////////////////////////////////////////////////
 
-        private const uint CONTEXT_FLAGS_OFFSET_ARM = 0;    /* VERIFIED */
-        private const uint CONTEXT_SIZE_ARM = 228;          /* ???????? */
-        private const uint CONTEXT_ESP_OFFSET_ARM = 56;     /* ???????? */
+        private const uint CONTEXT_FLAGS_OFFSET_ARM = 0;       /* VERIFIED */
+        private const uint CONTEXT_SIZE_ARM = 228;             /* ???????? */
+        private const uint CONTEXT_ESP_OFFSET_ARM = 56;        /* ???????? */
 
         /////////////////////////////////////////////////////////////////////////////////
 
-        private const uint CONTEXT_FLAGS_OFFSET_ARM64 = 0;  /* ???????? */
-        private const uint CONTEXT_SIZE_ARM64 = 912;        /* ???????? */
-        private const uint CONTEXT_ESP_OFFSET_ARM64 = 256;  /* ???????? */
+        private const uint CONTEXT_FLAGS_OFFSET_ARM64 = 0;     /* ???????? */
+        private const uint CONTEXT_SIZE_ARM64 = 912;           /* ???????? */
+        private const uint CONTEXT_ESP_OFFSET_ARM64 = 256;     /* ???????? */
 #endif
         #endregion
 
@@ -471,6 +471,7 @@ namespace Eagle._Components.Private
         /////////////////////////////////////////////////////////////////////////////////
 
         #region Windows Thread Context Metadata
+#if WINDOWS
         //
         // NOTE: This is used to synchronize access to the
         //       ThreadContextBuffer static field.
@@ -479,7 +480,6 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
-#if WINDOWS
         //
         // NOTE: When not zero, this will point to memory that must be freed
         //       via the Marshal.FreeCoTaskMem method.  This will be handled

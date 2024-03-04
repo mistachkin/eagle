@@ -1433,6 +1433,85 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region GetData Support Methods
+        protected virtual void IncrementGetDataCount(
+            int[] counts, /* in, out */
+            int index,    /* in */
+            int count     /* in */
+            )
+        {
+            if (counts == null)
+                return;
+
+            int length = counts.Length;
+
+            if (length == 0)
+                return;
+
+            if ((index < 0) || (index >= length))
+                return;
+
+            counts[index] += count;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Snippet Manager Support Methods
+        protected virtual ReturnCode GetDataViaSnippetManager(
+            Interpreter interpreter,     /* in */
+            string name,                 /* in */
+            DataFlags dataFlags,         /* in: NOT USED */
+            int[] counts,                /* in, out */
+            bool verbose,                /* in: NOT USED */
+            bool isolated,               /* in: NOT USED */
+            ref ScriptFlags scriptFlags, /* in, out: NOT USED */
+            ref IClientData clientData,  /* out: NOT USED */
+            ref Result result,           /* out */
+            ref ResultList errors        /* in, out: NOT USED */
+            )
+        {
+            IncrementGetDataCount(counts, 0, 1);
+
+            if (interpreter != null)
+            {
+                ISnippet snippet = null;
+
+                if ((interpreter.InternalGetSnippet(name,
+                        SnippetFlags.FileHostMask, LookupFlags.FileHostMask,
+                        ref snippet) == ReturnCode.Ok) && (snippet != null))
+                {
+                    SnippetFlags snippetFlags = snippet.SnippetFlags;
+
+                    if (FlagOps.HasFlags(
+                            snippetFlags, SnippetFlags.UseBytes, true))
+                    {
+                        result = snippet.Bytes;
+                    }
+#if XML
+                    else if (FlagOps.HasFlags(
+                            snippetFlags, SnippetFlags.UseXml, true))
+                    {
+                        result = snippet.Xml;
+                    }
+#endif
+                    else
+                    {
+                        result = snippet.Text;
+                    }
+
+                    IncrementGetDataCount(counts, 1, 1);
+                    return ReturnCode.Ok;
+                }
+            }
+
+            IncrementGetDataCount(counts, 1, 1);
+            return ReturnCode.Continue;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region File System Support Methods
         protected virtual ReturnCode GetDataViaFileSystem(
             Interpreter interpreter,     /* in */
@@ -1478,22 +1557,16 @@ namespace Eagle._Hosts
             if (isolated)
                 fileSearchFlags |= FileSearchFlags.Isolated;
 
-            if ((counts != null) && (counts.Length > 0))
-                counts[0]++;
+            IncrementGetDataCount(counts, 2, 1);
 
             int count = 0;
 
             string value = PathOps.Search(
                 interpreter, name, fileSearchFlags, ref count);
 
-            if ((counts != null) && (counts.Length > 0))
-            {
-                counts[0]--; /* UNDO */
-                counts[0] += count;
-            }
-
-            if ((counts != null) && (counts.Length > 1))
-                counts[1] += count;
+            IncrementGetDataCount(counts, 2, -1); /* UNDO */
+            IncrementGetDataCount(counts, 2, count);
+            IncrementGetDataCount(counts, 3, count);
 
             if (value != null)
             {
@@ -1630,8 +1703,7 @@ namespace Eagle._Hosts
 
                         try
                         {
-                            if ((counts != null) && (counts.Length > 2))
-                                counts[2]++;
+                            IncrementGetDataCount(counts, 4, 1);
 
                             Result error = null;
 
@@ -1639,8 +1711,7 @@ namespace Eagle._Hosts
                                 interpreter, pluginUniqueResourceName,
                                 cultureInfo, ref error); /* throw */
 
-                            if ((counts != null) && (counts.Length > 3))
-                                counts[3]++;
+                            IncrementGetDataCount(counts, 5, 1);
 
                             if (resourceStream == null)
                             {
@@ -1716,8 +1787,7 @@ namespace Eagle._Hosts
                     {
                         try
                         {
-                            if ((counts != null) && (counts.Length > 2))
-                                counts[2]++;
+                            IncrementGetDataCount(counts, 4, 1);
 
                             Result error = null;
 
@@ -1725,8 +1795,7 @@ namespace Eagle._Hosts
                                 interpreter, uniqueResourceName,
                                 cultureInfo, ref error); /* throw */
 
-                            if ((counts != null) && (counts.Length > 3))
-                                counts[3]++;
+                            IncrementGetDataCount(counts, 5, 1);
 
                             if (resourceStream == null)
                             {
@@ -1821,8 +1890,7 @@ namespace Eagle._Hosts
 
                         try
                         {
-                            if ((counts != null) && (counts.Length > 2))
-                                counts[2]++;
+                            IncrementGetDataCount(counts, 4, 1);
 
                             Result error = null;
 
@@ -1830,8 +1898,7 @@ namespace Eagle._Hosts
                                 interpreter, pluginUniqueResourceName,
                                 cultureInfo, ref error); /* throw */
 
-                            if ((counts != null) && (counts.Length > 3))
-                                counts[3]++;
+                            IncrementGetDataCount(counts, 5, 1);
 
                             if (resourceValue == null)
                             {
@@ -1916,8 +1983,7 @@ namespace Eagle._Hosts
                     {
                         try
                         {
-                            if ((counts != null) && (counts.Length > 2))
-                                counts[2]++;
+                            IncrementGetDataCount(counts, 4, 1);
 
                             Result error = null;
 
@@ -1925,8 +1991,7 @@ namespace Eagle._Hosts
                                 interpreter, uniqueResourceName,
                                 cultureInfo, ref error); /* throw */
 
-                            if ((counts != null) && (counts.Length > 3))
-                                counts[3]++;
+                            IncrementGetDataCount(counts, 5, 1);
 
                             if (resourceValue == null)
                             {
@@ -2078,14 +2143,12 @@ namespace Eagle._Hosts
                 {
                     try
                     {
-                        if ((counts != null) && (counts.Length > 4))
-                            counts[4]++;
+                        IncrementGetDataCount(counts, 6, 1);
 
                         Stream resourceStream = resourceManager.GetStream(
                             uniqueResourceName); /* throw */
 
-                        if ((counts != null) && (counts.Length > 5))
-                            counts[5]++;
+                        IncrementGetDataCount(counts, 7, 1);
 
                         //
                         // NOTE: In order to continue, we must have the found the
@@ -2179,14 +2242,12 @@ namespace Eagle._Hosts
                     {
                         try
                         {
-                            if ((counts != null) && (counts.Length > 4))
-                                counts[4]++;
+                            IncrementGetDataCount(counts, 6, 1);
 
                             Stream resourceStream = resourceManager.GetStream(
                                 uniqueResourceName); /* throw */
 
-                            if ((counts != null) && (counts.Length > 5))
-                                counts[5]++;
+                            IncrementGetDataCount(counts, 7, 1);
 
                             //
                             // NOTE: In order to continue, we must have the found the
@@ -2282,14 +2343,12 @@ namespace Eagle._Hosts
 
                         try
                         {
-                            if ((counts != null) && (counts.Length > 4))
-                                counts[4]++;
+                            IncrementGetDataCount(counts, 6, 1);
 
                             resourceValue = resourceManager.GetString(
                                 uniqueResourceName); /* throw */
 
-                            if ((counts != null) && (counts.Length > 5))
-                                counts[5]++;
+                            IncrementGetDataCount(counts, 7, 1);
                         }
                         catch (MissingManifestResourceException) /* EXPECTED */
                         {
@@ -2436,14 +2495,12 @@ namespace Eagle._Hosts
                 {
                     try
                     {
-                        if ((counts != null) && (counts.Length > 6))
-                            counts[6]++;
+                        IncrementGetDataCount(counts, 8, 1);
 
                         Stream resourceStream = assembly.GetManifestResourceStream(
                             uniqueResourceName); /* throw */
 
-                        if ((counts != null) && (counts.Length > 7))
-                            counts[7]++;
+                        IncrementGetDataCount(counts, 9, 1);
 
                         //
                         // NOTE: In order to continue, we must have the found the
@@ -2525,14 +2582,12 @@ namespace Eagle._Hosts
                 {
                     try
                     {
-                        if ((counts != null) && (counts.Length > 6))
-                            counts[6]++;
+                        IncrementGetDataCount(counts, 8, 1);
 
                         Stream resourceStream = assembly.GetManifestResourceStream(
                             uniqueResourceName); /* throw */
 
-                        if ((counts != null) && (counts.Length > 7))
-                            counts[7]++;
+                        IncrementGetDataCount(counts, 9, 1);
 
                         //
                         // NOTE: In order to continue, we must have the found the
@@ -3189,7 +3244,7 @@ namespace Eagle._Hosts
             //
             bool[] @checked = {
                 false, false, false, false, false, false, false, false,
-                false
+                false, false
             };
 
             //
@@ -3197,12 +3252,13 @@ namespace Eagle._Hosts
             //       were performed using the file system, plugins, and
             //       resource managers.
             //
-            int[] counts = { 0, 0, 0, 0, 0, 0, 0, 0 };
+            int[] counts = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
             //
             // NOTE: This is the list of errors encountered during the
             //       search for the requested script.
             //
+            ReturnCode code; /* REUSED */
             ResultList errors = null;
 
             ///////////////////////////////////////////////////////////////////
@@ -3226,6 +3282,34 @@ namespace Eagle._Hosts
             ///////////////////////////////////////////////////////////////////
 
             //
+            // HACK: *SECURITY* Always check via ISnippetManager interface
+            //       first.  Also, this behavior CANNOT be disabled.
+            //
+            {
+                @checked[0] = true;
+
+                code = GetDataViaSnippetManager(
+                    localInterpreter, name, dataFlags, counts,
+                    verbose, isolated, ref scriptFlags,
+                    ref clientData, ref result, ref errors);
+
+                if ((code == ReturnCode.Ok) ||
+                    (code == ReturnCode.Error))
+                {
+                    GetDataTrace(
+                        localInterpreter,
+                        "exited, via snippet manager",
+                        name, dataFlags, scriptFlags,
+                        clientData, ReturnCode.Ok,
+                        result);
+
+                    return code;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
             // NOTE: First, if it has not been prohibited by the caller,
             //       try to get the requested script externally, using
             //       our standard file system search routine.
@@ -3233,9 +3317,9 @@ namespace Eagle._Hosts
             if (!FlagOps.HasFlags(
                     scriptFlags, ScriptFlags.NoFileSystem, true))
             {
-                @checked[0] = true;
+                @checked[1] = true;
 
-                ReturnCode code = GetDataViaFileSystem(
+                code = GetDataViaFileSystem(
                     localInterpreter, name, dataFlags, counts,
                     verbose, isolated, ref scriptFlags,
                     ref clientData, ref result, ref errors);
@@ -3281,7 +3365,7 @@ namespace Eagle._Hosts
 
                     if (plugins != null)
                     {
-                        @checked[1] = true;
+                        @checked[2] = true;
 
                         CultureInfo cultureInfo =
                             localInterpreter.InternalCultureInfo;
@@ -3295,7 +3379,7 @@ namespace Eagle._Hosts
                             //       "ReturnCode.Continue" in
                             //       order to keep searching.
                             //
-                            ReturnCode code = GetDataViaPlugin(
+                            code = GetDataViaPlugin(
                                 localInterpreter, name, plugin,
                                 uniqueResourceNames, cultureInfo,
                                 engineFlags, dataFlags, verbose,
@@ -3340,35 +3424,35 @@ namespace Eagle._Hosts
                             this.ResourceManager : null;
 
                     if (thisResourceManager != null)
-                        @checked[2] = true;
+                        @checked[3] = true;
 
                     ResourceManager applicationResourceManager = !FlagOps.HasFlags(
                         scriptFlags, ScriptFlags.NoApplicationResourceManager, true) ?
                             this.ApplicationResourceManager : null;
 
                     if (applicationResourceManager != null)
-                        @checked[3] = true;
+                        @checked[4] = true;
 
                     ResourceManager libraryResourceManager = !FlagOps.HasFlags(
                         scriptFlags, ScriptFlags.NoLibraryResourceManager, true) ?
                             this.LibraryResourceManager : null;
 
                     if (libraryResourceManager != null)
-                        @checked[4] = true;
+                        @checked[5] = true;
 
                     ResourceManager packagesResourceManager = !FlagOps.HasFlags(
                         scriptFlags, ScriptFlags.NoPackagesResourceManager, true) ?
                             this.PackagesResourceManager : null;
 
                     if (packagesResourceManager != null)
-                        @checked[5] = true;
+                        @checked[6] = true;
 
                     ResourceManager kitResourceManager = !FlagOps.HasFlags(
                         scriptFlags, ScriptFlags.NoKitResourceManager, true) ?
                             this.KitResourceManager : null;
 
                     if (kitResourceManager != null)
-                        @checked[6] = true;
+                        @checked[7] = true;
 
                     //
                     // NOTE: If this host is running isolated (i.e. in
@@ -3386,7 +3470,7 @@ namespace Eagle._Hosts
 #endif
 
                     if (interpreterResourceManager != null)
-                        @checked[7] = true;
+                        @checked[8] = true;
 
                     //
                     // NOTE: We prefer to use the customizable resource
@@ -3424,7 +3508,7 @@ namespace Eagle._Hosts
                         //       "ReturnCode.Continue" in
                         //       order to keep searching.
                         //
-                        ReturnCode code = GetDataViaResourceManager(
+                        code = GetDataViaResourceManager(
                             localInterpreter, name, anyPair,
                             uniqueResourceNames, engineFlags,
                             dataFlags, verbose, isolated, counts,
@@ -3457,14 +3541,14 @@ namespace Eagle._Hosts
                     Assembly assembly = GlobalState.GetAssembly();
 
                     if (assembly != null)
-                        @checked[8] = true;
+                        @checked[9] = true;
 
                     //
                     // NOTE: This method *MUST* return
                     //       "ReturnCode.Continue" in
                     //       order to keep searching.
                     //
-                    ReturnCode code = GetDataViaAssemblyManifest(
+                    code = GetDataViaAssemblyManifest(
                         localInterpreter, name, assembly,
                         uniqueResourceNames, engineFlags,
                         dataFlags, verbose, isolated, counts,
@@ -3495,6 +3579,8 @@ namespace Eagle._Hosts
                 "data \"{0}\" not found",
                 name));
 
+            ///////////////////////////////////////////////////////////////////
+
             //
             // NOTE: In quiet mode, skip the other error information.
             //
@@ -3502,72 +3588,86 @@ namespace Eagle._Hosts
             {
                 if (!@checked[0])
                     /* NOT VERBOSE */
-                    errors.Add("skipped file system");
+                    errors.Add("skipped snippet manager");
 
                 if (counts[0] == 0)
                     /* NOT VERBOSE */
-                    errors.Add("no files were checked");
+                    errors.Add("no snippets were checked");
 
                 if (counts[0] != counts[1])
                     /* NOT VERBOSE */
-                    errors.Add("error while checking files");
+                    errors.Add("error while checking snippets");
 
                 if (!@checked[1])
                     /* NOT VERBOSE */
-                    errors.Add("skipped plugin list");
+                    errors.Add("skipped file system");
 
                 if (counts[2] == 0)
                     /* NOT VERBOSE */
-                    errors.Add("no plugins were queried");
+                    errors.Add("no files were checked");
 
                 if (counts[2] != counts[3])
                     /* NOT VERBOSE */
-                    errors.Add("error while querying plugins");
+                    errors.Add("error while checking files");
 
                 if (!@checked[2])
                     /* NOT VERBOSE */
-                    errors.Add("skipped extension resource manager");
-
-                if (!@checked[3])
-                    /* NOT VERBOSE */
-                    errors.Add("skipped application resource manager");
-
-                if (!@checked[4])
-                    /* NOT VERBOSE */
-                    errors.Add("skipped library resource manager");
-
-                if (!@checked[5])
-                    /* NOT VERBOSE */
-                    errors.Add("skipped packages resource manager");
-
-                if (!@checked[6])
-                    /* NOT VERBOSE */
-                    errors.Add("skipped kit resource manager");
-
-                if (!@checked[7])
-                    /* NOT VERBOSE */
-                    errors.Add("skipped interpreter resource manager");
+                    errors.Add("skipped plugin list");
 
                 if (counts[4] == 0)
                     /* NOT VERBOSE */
-                    errors.Add("no resource managers were queried");
+                    errors.Add("no plugins were queried");
 
                 if (counts[4] != counts[5])
                     /* NOT VERBOSE */
-                    errors.Add("error while querying resource managers");
+                    errors.Add("error while querying plugins");
+
+                if (!@checked[3])
+                    /* NOT VERBOSE */
+                    errors.Add("skipped extension resource manager");
+
+                if (!@checked[4])
+                    /* NOT VERBOSE */
+                    errors.Add("skipped application resource manager");
+
+                if (!@checked[5])
+                    /* NOT VERBOSE */
+                    errors.Add("skipped library resource manager");
+
+                if (!@checked[6])
+                    /* NOT VERBOSE */
+                    errors.Add("skipped packages resource manager");
+
+                if (!@checked[7])
+                    /* NOT VERBOSE */
+                    errors.Add("skipped kit resource manager");
 
                 if (!@checked[8])
                     /* NOT VERBOSE */
-                    errors.Add("skipped assembly manifest");
+                    errors.Add("skipped interpreter resource manager");
 
                 if (counts[6] == 0)
                     /* NOT VERBOSE */
-                    errors.Add("no assembly manifests were queried");
+                    errors.Add("no resource managers were queried");
 
                 if (counts[6] != counts[7])
                     /* NOT VERBOSE */
+                    errors.Add("error while querying resource managers");
+
+                if (!@checked[9])
+                    /* NOT VERBOSE */
+                    errors.Add("skipped assembly manifest");
+
+                if (counts[8] == 0)
+                    /* NOT VERBOSE */
+                    errors.Add("no assembly manifests were queried");
+
+                if (counts[8] != counts[9])
+                    /* NOT VERBOSE */
                     errors.Add("error while querying assembly manifests");
             }
+
+            ///////////////////////////////////////////////////////////////////
 
             result = errors;
 

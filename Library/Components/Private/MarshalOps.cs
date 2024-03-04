@@ -2887,8 +2887,13 @@ namespace Eagle._Components.Private
             if ((rank == 0) || (maximumRank > rank))
                 rank = maximumRank;
 
+            //
+            // BUGBUG: Why did this ever use Variant here?  Since
+            //         the core marshaller never deals with these
+            //         directly, why use it here?
+            //
             if (elementType == null)
-                elementType = typeof(Variant);
+                elementType = typeof(object);
 
             return true;
         }
@@ -3073,16 +3078,6 @@ namespace Eagle._Components.Private
             return VariableFlags.NoElement | VariableFlags.NoLinkIndex |
                 (input ? VariableFlags.Defined : VariableFlags.None) |
                 VariableFlags.NonVirtual;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        private static Type GetArrayElementType(
-            Type elementType
-            )
-        {
-            return (elementType == typeof(Variant)) ?
-                typeof(object) : elementType;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -9447,9 +9442,6 @@ namespace Eagle._Components.Private
             if (ScriptOps.HasFlags(
                     interpreter, InterpreterFlags.HashCodeAsHandle, true))
             {
-                string typeName = FormatOps.ObjectHandleTypeName(
-                    typeof(Assembly), true);
-
                 return FormatOps.ObjectHashCode(null, null, assembly);
             }
             else
@@ -10386,11 +10378,13 @@ namespace Eagle._Components.Private
                                         //       opaque object handle for this object value and return
                                         //       it.
                                         //
+                                        Assembly valueTypeAssembly = valueType.Assembly;
+
                                         bool runtime = (valueType != null) &&
-                                            GlobalState.IsAssembly(valueType.Assembly);
+                                            GlobalState.IsAssembly(valueTypeAssembly);
 
                                         bool application = (valueType != null) &&
-                                            GlobalState.IsEntryAssembly(valueType.Assembly);
+                                            GlobalState.IsEntryAssembly(valueTypeAssembly);
 
                                         //
                                         // NOTE: If the caller requested that an alias be created for
@@ -10664,6 +10658,7 @@ namespace Eagle._Components.Private
             goto done;
 
         done:
+
             return code;
         }
 
@@ -11864,8 +11859,7 @@ namespace Eagle._Components.Private
                                                         }
                                                     }
 
-                                                    array = Array.CreateInstance(
-                                                        GetArrayElementType(elementType),
+                                                    array = Array.CreateInstance(elementType,
                                                         ArrayOps.ToNonNullable<int>(lengths, 0),
                                                         ArrayOps.ToNonNullable<int>(lowerBounds, 0));
                                                 }
@@ -11913,10 +11907,7 @@ namespace Eagle._Components.Private
                                 if (rank == 1)
                                 {
                                     StringList list = (StringList)newArg;
-
-                                    Array array = Array.CreateInstance(
-                                        GetArrayElementType(elementType),
-                                        list.Count);
+                                    Array array = Array.CreateInstance(elementType, list.Count);
 
                                     for (int index = 0; index < list.Count; index++)
                                     {

@@ -65,6 +65,10 @@ namespace Eagle._Plugins
             //
             if (pluginData != null)
             {
+                id = pluginData.Id;
+
+                EntityOps.MaybeSetupId(this);
+
                 EntityOps.MaybeSetGroup(
                     this, pluginData.Group);
 
@@ -296,6 +300,25 @@ namespace Eagle._Plugins
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        /// <summary>
+        ///   The client data passed to the original method that created this
+        ///   plugin instance.  This value will be passed to the Initialize and
+        ///   Terminate methods whenever they are called by the core library.
+        ///   This will normally be set based on the plugin data provided to
+        ///   the constructor of this class; however, it can be manually reset
+        ///   at any time.
+        /// </summary>
+        private IClientData clientData;
+        public virtual IClientData ClientData
+        {
+            get { return clientData; }
+            set { clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         /// <summary>
         ///   The logical group name for this plugin.  The default value is
@@ -325,25 +348,6 @@ namespace Eagle._Plugins
         {
             get { return description; }
             set { description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        /// <summary>
-        ///   The client data passed to the original method that created this
-        ///   plugin instance.  This value will be passed to the Initialize and
-        ///   Terminate methods whenever they are called by the core library.
-        ///   This will normally be set based on the plugin data provided to
-        ///   the constructor of this class; however, it can be manually reset
-        ///   at any time.
-        /// </summary>
-        private IClientData clientData;
-        public virtual IClientData ClientData
-        {
-            get { return clientData; }
-            set { clientData = value; }
         }
         #endregion
 

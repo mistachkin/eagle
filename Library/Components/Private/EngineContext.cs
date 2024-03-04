@@ -75,6 +75,12 @@ namespace Eagle._Components.Private
             settingLevels = 0;
             packageLevels = 0;
 
+            interpreterStateFlags = InterpreterStateFlags.None;
+
+#if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
+            cacheFlags = CacheFlags.None;
+#endif
+
 #if ARGUMENT_CACHE
             cacheArgument = Argument.InternalCreate();
 #endif
@@ -433,6 +439,26 @@ namespace Eagle._Components.Private
             get { CheckDisposed(); return packageLevels; }
             set { CheckDisposed(); packageLevels = value; }
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private InterpreterStateFlags interpreterStateFlags;
+        public InterpreterStateFlags InterpreterStateFlags
+        {
+            get { CheckDisposed(); return interpreterStateFlags; }
+            set { CheckDisposed(); interpreterStateFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
+        private CacheFlags cacheFlags;
+        public CacheFlags CacheFlags
+        {
+            get { CheckDisposed(); return cacheFlags; }
+            set { CheckDisposed(); cacheFlags = value; }
+        }
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -965,6 +991,12 @@ namespace Eagle._Components.Private
                     subCommandLevels = 0;
                     settingLevels = 0;
                     packageLevels = 0;
+
+                    interpreterStateFlags = InterpreterStateFlags.None;
+
+#if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
+                    cacheFlags = CacheFlags.None;
+#endif
 
 #if ARGUMENT_CACHE
                     cacheArgument = null;

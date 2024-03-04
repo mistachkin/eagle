@@ -155,7 +155,7 @@ namespace Eagle._Commands
                                 {
                                     if (argumentIndex == Index.Invalid)
                                     {
-                                        Variant value = null;
+                                        IVariant value = null;
                                         string channelId = null;
 
                                         if (options.IsPresent("-channelid", ref value))

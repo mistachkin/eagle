@@ -95,6 +95,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public virtual IClientData ClientData /* EXEMPT */
+        {
+            get { CheckDisposed(); return clientData; }
+            set { CheckDisposed(); clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public virtual string Group /* EXEMPT */
@@ -110,17 +121,6 @@ namespace Eagle._Hosts
         {
             get { CheckDisposed(); return description; }
             set { CheckDisposed(); description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public virtual IClientData ClientData /* EXEMPT */
-        {
-            get { CheckDisposed(); return clientData; }
-            set { CheckDisposed(); clientData = value; }
         }
         #endregion
 
@@ -465,6 +465,7 @@ namespace Eagle._Hosts
 
         public virtual ReturnCode QueueWorkItem(
             ThreadStart callback,
+            QueueFlags flags,
             ref Result error
             )
         {
@@ -478,6 +479,7 @@ namespace Eagle._Hosts
         public virtual ReturnCode QueueWorkItem(
             WaitCallback callback,
             object state,
+            QueueFlags flags,
             ref Result error
             )
         {

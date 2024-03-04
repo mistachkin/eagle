@@ -11,7 +11,6 @@
 
 using System;
 using Eagle._Attributes;
-using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
@@ -22,77 +21,50 @@ namespace Eagle._Functions
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.NonStandard)]
     [Arguments(Arity.Nullary)]
     [ObjectGroup("constant")]
-    internal sealed class Pi : Core
+    internal sealed class Pi : Arguments
     {
+        #region Public Constructors
         public Pi(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
             : base(functionData)
         {
             // do nothing.
         }
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
-            ReturnCode code = ReturnCode.Ok;
-
-            if (interpreter != null)
+            if (base.Execute(
+                    interpreter, clientData, arguments, ref value,
+                    ref error) != ReturnCode.Ok)
             {
-                if (arguments != null)
-                {
-                    if (arguments.Count == (this.Arguments + 1))
-                    {
-                        try
-                        {
-                            value = Math.PI;
-                        }
-                        catch (Exception e)
-                        {
-                            Engine.SetExceptionErrorCode(interpreter, e);
-
-                            error = String.Format(
-                                "caught math exception: {0}",
-                                e);
-
-                            code = ReturnCode.Error;
-                        }
-                    }
-                    else
-                    {
-                        if (arguments.Count > (this.Arguments + 1))
-                            error = String.Format(
-                                "too many arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-                        else
-                            error = String.Format(
-                                "too few arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-
-                        code = ReturnCode.Error;
-                    }
-                }
-                else
-                {
-                    error = "invalid argument list";
-                    code = ReturnCode.Error;
-                }
-            }
-            else
-            {
-                error = "invalid interpreter";
-                code = ReturnCode.Error;
+                return ReturnCode.Error;
             }
 
-            return code;
+            try
+            {
+                value = Math.PI;
+            }
+            catch (Exception e)
+            {
+                Engine.SetExceptionErrorCode(interpreter, e);
+
+                error = String.Format("caught math exception: {0}", e);
+
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
         }
         #endregion
     }

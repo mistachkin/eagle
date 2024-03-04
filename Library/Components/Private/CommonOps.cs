@@ -28,6 +28,7 @@ using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
+using DefineConstants = Eagle._Constants.DefineConstants;
 using SysEnv = System.Environment;
 
 namespace Eagle._Components.Private
@@ -1357,6 +1358,106 @@ namespace Eagle._Components.Private
 #else
                 return false;
 #endif
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////
+
+            #region Runtime Checking Methods
+            public static ReturnCode CheckDefineConstants(
+                StringList defines, /* in */
+                ref Result error    /* out */
+                )
+            {
+                if (defines == null)
+                {
+                    error = "invalid define constants";
+                    return ReturnCode.Error;
+                }
+
+                StringDictionary dictionary = new StringDictionary(
+                    defines, true, false);
+
+                StringList wantedOptions;
+                StringList unwantedOptions;
+
+                if (IsDotNetCore())
+                {
+                    wantedOptions = DefineConstants.DotNetCore;
+                    unwantedOptions = DefineConstants.DotNetFramework;
+                }
+                else
+                {
+                    wantedOptions = DefineConstants.DotNetFramework;
+                    unwantedOptions = DefineConstants.DotNetCore;
+                }
+
+                StringList missingOptions = null;
+
+                if (wantedOptions != null)
+                {
+                    wantedOptions = new StringList(wantedOptions);
+
+                    foreach (string option in wantedOptions)
+                    {
+                        if (option == null)
+                            continue;
+
+                        if (!dictionary.ContainsKey(option))
+                        {
+                            if (missingOptions == null)
+                                missingOptions = new StringList();
+
+                            missingOptions.Add(option);
+                        }
+                    }
+
+                    //
+                    // HACK: If at least one of the "wanted" option was
+                    //       found, we (successfully) found the target
+                    //       runtime -AND- this is not an error.
+                    //
+                    if ((missingOptions != null) &&
+                        (missingOptions.Count < wantedOptions.Count))
+                    {
+                        missingOptions = null;
+                    }
+                }
+
+                StringList extraOptions = null;
+
+                if (unwantedOptions != null)
+                {
+                    unwantedOptions = new StringList(unwantedOptions);
+
+                    foreach (string option in unwantedOptions)
+                    {
+                        if (option == null)
+                            continue;
+
+                        if (dictionary.ContainsKey(option))
+                        {
+                            if (extraOptions == null)
+                                extraOptions = new StringList();
+
+                            extraOptions.Add(option);
+                        }
+                    }
+                }
+
+                if ((missingOptions == null) && (extraOptions == null))
+                {
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    error = String.Format(
+                        "check failed, missing {0}, extra {1}",
+                        FormatOps.WrapOrNull(missingOptions),
+                        FormatOps.WrapOrNull(extraOptions));
+
+                    return ReturnCode.Error;
+                }
             }
             #endregion
 

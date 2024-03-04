@@ -69,7 +69,7 @@ namespace Eagle._Components.Public
             int groupIndex,
             int index,
             string name,
-            Variant value
+            IVariant value
             )
         {
             this.kind = IdentifierKind.Option;
@@ -126,6 +126,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public IClientData ClientData
+        {
+            get { return clientData; }
+            set { clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public string Group
@@ -141,17 +152,6 @@ namespace Eagle._Components.Public
         {
             get { return description; }
             set { description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public IClientData ClientData
-        {
-            get { return clientData; }
-            set { clientData = value; }
         }
         #endregion
 
@@ -200,8 +200,8 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        private Variant value;
-        public Variant Value
+        private IVariant value;
+        public IVariant Value
         {
             get { return value; }
             set { this.value = value; }
@@ -340,7 +340,7 @@ namespace Eagle._Components.Public
 
         public bool IsPresent(
             OptionDictionary options, /* NOT USED */
-            ref Variant value
+            ref IVariant value
             )
         {
             if (HasFlags(OptionFlags.Present, true))
@@ -360,7 +360,7 @@ namespace Eagle._Components.Public
             OptionDictionary options,
             bool present,
             int index,
-            Variant value
+            IVariant value
             )
         {
             if (present)
@@ -377,7 +377,7 @@ namespace Eagle._Components.Public
             }
 
             //
-            // NOTE: Now mark all the other options in this option group as 
+            // NOTE: Now mark all the other options in this option group as
             //       "not present".
             //
             if ((options != null) && (options.Values != null))
@@ -390,7 +390,7 @@ namespace Eagle._Components.Public
                         (option.GroupIndex == this.groupIndex))
                     {
                         //
-                        // NOTE: Only modify the flags since that is how we detect 
+                        // NOTE: Only modify the flags since that is how we detect
                         //       whether the option is considered to be "present".
                         //
                         option.Flags &= ~OptionFlags.Present;
@@ -656,8 +656,9 @@ namespace Eagle._Components.Public
 
             list.Add(option.Name);
 
-            list.Add((option.Value != null) ?
-                option.Value.ToString() : null);
+            IVariant value = option.Value;
+
+            list.Add((value != null) ? value.ToString() : null);
 
             return list;
         }
@@ -690,7 +691,7 @@ namespace Eagle._Components.Public
             Type type,
             OptionFlags flags,
             string name,
-            Variant value
+            IVariant value
             )
         {
             return new Option(
@@ -716,7 +717,7 @@ namespace Eagle._Components.Public
         public static IOption Create(
             OptionFlags flags,
             string name,
-            Variant value
+            IVariant value
             )
         {
             return Create(null, flags, name, value);
@@ -897,7 +898,7 @@ namespace Eagle._Components.Public
             }
 
             int nextIndex = StandardElementCount;
-            Variant value = null;
+            IVariant value = null;
 
             if (ScriptOps.GetOptionValue(
                     interpreter, list, type, optionFlags, true, allowInteger,
@@ -997,7 +998,7 @@ namespace Eagle._Components.Public
                 nextIndex++;
             }
 
-            Variant value = null;
+            IVariant value = null;
 
             if (ScriptOps.GetOptionValue(
                     interpreter, list, type, optionFlags, false, allowInteger,

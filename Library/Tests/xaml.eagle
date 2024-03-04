@@ -152,6 +152,7 @@ runTest {test xaml-1.2 {isolated create/use/destroy Xaml window} -setup {
   $interpreterSettings InitializeFlags Default
   $interpreterSettings ScriptFlags Default
   $interpreterSettings InterpreterFlags Default
+  $interpreterSettings InterpreterTestFlags Default
 
   set result null
   set interpreterHelper [object invoke -alias -objectflags +AutoDispose \

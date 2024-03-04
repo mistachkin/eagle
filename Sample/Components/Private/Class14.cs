@@ -110,7 +110,8 @@ namespace Sample
                     Utility.DebugTrace(String.Format(
                         "NewWebClient: code = {0}, error = {1}", code,
                         Utility.FormatWrapOrNull(error)),
-                        typeof(Class14).Name, TracePriority.Medium);
+                        typeof(Class14).Name, TracePriority.Medium |
+                            TracePriority.FromPlugin);
                 }
             }
 
@@ -148,7 +149,8 @@ namespace Sample
                 Utility.FormatWrapOrNull(interpreter), flags,
                 Utility.FormatWrapOrNull(clientData), isolated,
                 Utility.FormatWrapOrNull(error)),
-                typeof(Class14).Name, TracePriority.Medium);
+                typeof(Class14).Name, TracePriority.Medium |
+                    TracePriority.FromPlugin);
 
             WebClientData webClientData = clientData as WebClientData;
 

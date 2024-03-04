@@ -108,6 +108,17 @@ namespace Eagle._Components.Private
         // HACK: This is purposely not read-only.
         //
         private static uint MinimumHistoryBufferSize = 200;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: When this is set to non-zero, the native Win32 API will
+        //       be used to write to the console; otherwise, the managed
+        //       System.Console class will be used.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool useNativeConsole = false;
 #endif
         #endregion
         #endregion
@@ -214,7 +225,7 @@ namespace Eagle._Components.Private
 
         #region Host Support Methods
         private static IHost TryGet(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             IHost host = null;
@@ -273,7 +284,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static IInteractiveHost TryGetInteractive(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             IInteractiveHost interactiveHost = null;
@@ -332,7 +343,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static int TryGetInteractiveLoops(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             try
@@ -352,9 +363,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetDefaultPrompt(
-            PromptType type,
-            PromptFlags flags,
-            long id
+            PromptType type,   /* in */
+            PromptFlags flags, /* in */
+            long id            /* in */
             )
         {
             string result = null;
@@ -388,7 +399,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetInteractiveMode(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             if (interpreter == null)
@@ -405,7 +416,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasEmptyContent(
-            DetailFlags detailFlags
+            DetailFlags detailFlags /* in */
             )
         {
             return FlagOps.HasFlags(
@@ -415,7 +426,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasVerboseContent(
-            DetailFlags detailFlags
+            DetailFlags detailFlags /* in */
             )
         {
             return FlagOps.HasFlags(
@@ -425,7 +436,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static DetailFlags GetDetailFlags(
-            Interpreter interpreter
+            Interpreter interpreter /* in */
             )
         {
             if (interpreter != null)
@@ -442,8 +453,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void HeaderFlagsToDetailFlags(
-            HeaderFlags headerFlags,
-            ref DetailFlags detailFlags
+            HeaderFlags headerFlags,    /* in */
+            ref DetailFlags detailFlags /* in, out */
             )
         {
             if (FlagOps.HasFlags(
@@ -532,10 +543,10 @@ namespace Eagle._Components.Private
         //          to use after the interpreter has been disposed.
         //
         public static bool BuildInterpreterInfoList(
-            Interpreter interpreter,
-            string name,
-            DetailFlags detailFlags,
-            ref StringPairList list
+            Interpreter interpreter, /* in */
+            string name,             /* in */
+            DetailFlags detailFlags, /* in */
+            ref StringPairList list  /* in, out */
             )
         {
             if (list == null)
@@ -609,8 +620,8 @@ namespace Eagle._Components.Private
 
         #region Sleep Support Methods
         public static ReturnCode ThreadSleep(
-            int milliseconds,
-            ref Result error
+            int milliseconds, /* in */
+            ref Result error  /* out */
             ) /* THREAD-SAFE */
         {
             Exception exception = null;
@@ -621,8 +632,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode ThreadSleep(
-            int milliseconds,
-            ref Exception exception
+            int milliseconds,       /* in */
+            ref Exception exception /* out */
             ) /* THREAD-SAFE */
         {
             Result error = null;
@@ -633,9 +644,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode ThreadSleep(
-            int milliseconds,
-            ref Exception exception,
-            ref Result error
+            int milliseconds,        /* in */
+            ref Exception exception, /* out */
+            ref Result error         /* out */
             ) /* THREAD-SAFE */
         {
             try
@@ -667,7 +678,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void ThreadSleep(
-            int milliseconds
+            int milliseconds /* in */
             ) /* THREAD-SAFE */
         {
             Interlocked.Increment(ref pendingSleepCount);
@@ -691,7 +702,7 @@ namespace Eagle._Components.Private
 
         #region Yield Support Methods
         public static ReturnCode ThreadYield(
-            ref Result error
+            ref Result error /* out */
             ) /* THREAD-SAFE */
         {
             Exception exception = null;
@@ -702,8 +713,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode ThreadYield(
-            ref Exception exception,
-            ref Result error
+            ref Exception exception, /* out */
+            ref Result error         /* out */
             ) /* THREAD-SAFE */
         {
             try
@@ -760,6 +771,44 @@ namespace Eagle._Components.Private
             finally
             {
                 Interlocked.Decrement(ref pendingYieldCount);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Yield / Sleep Support Methods
+        private static void YieldTypeAndMilliseconds(
+            int value,           /* in */
+            out YieldType type,  /* out */
+            out int milliseconds /* out */
+            )
+        {
+            type = ((YieldType)value & YieldType.Mask);
+            milliseconds = (value & (int)~type);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void MaybeThreadYieldAndOrSleep(
+            int value /* in */
+            )
+        {
+            YieldType type;
+            int milliseconds;
+
+            YieldTypeAndMilliseconds(value, out type, out milliseconds);
+
+            if ((type == YieldType.Both) || (type == YieldType.Pure))
+            {
+                /* NO RESULT */
+                ThreadYield();
+            }
+
+            if ((type == YieldType.Both) || (type == YieldType.Sleep))
+            {
+                /* NO RESULT */
+                ThreadSleep(milliseconds);
             }
         }
         #endregion
@@ -833,8 +882,8 @@ namespace Eagle._Components.Private
         #region Host Wrapper Methods
         #region Exit Support Methods
         public static void SetExiting(
-            Interpreter interpreter,
-            bool exiting
+            Interpreter interpreter, /* in */
+            bool exiting             /* in */
             )
         {
             if (interpreter == null)
@@ -868,11 +917,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void SetExiting(
-            Interpreter interpreter,
-            IProcessHost processHost,
-            string hostName,
-            bool isolated,
-            bool exiting
+            Interpreter interpreter,  /* in */
+            IProcessHost processHost, /* in */
+            string hostName,          /* in */
+            bool isolated,            /* in */
+            bool exiting              /* in */
             )
         {
             //
@@ -904,9 +953,9 @@ namespace Eagle._Components.Private
 
         #region Sleep Support Methods
         public static ReturnCode Sleep(
-            Interpreter interpreter,
-            int milliseconds,
-            ref Result error
+            Interpreter interpreter, /* in */
+            int milliseconds,        /* in */
+            ref Result error         /* out */
             ) /* THREAD-SAFE */
         {
             return Sleep(
@@ -916,9 +965,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode Sleep(
-            IThreadHost threadHost,
-            int milliseconds,
-            ref Result error
+            IThreadHost threadHost, /* in */
+            int milliseconds,       /* in */
+            ref Result error        /* out */
             ) /* THREAD-SAFE */
         {
             return Sleep(
@@ -928,10 +977,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode Sleep(
-            IThreadHost threadHost,
-            int milliseconds,
-            bool strict,
-            ref Result error
+            IThreadHost threadHost, /* in */
+            int milliseconds,       /* in */
+            bool strict,            /* in */
+            ref Result error        /* out */
             )
         {
             if (threadHost != null)
@@ -979,9 +1028,9 @@ namespace Eagle._Components.Private
 
         #region Yield Support Methods
         public static ReturnCode Yield(
-            Interpreter interpreter,
-            bool strict,
-            ref Result error
+            Interpreter interpreter, /* in */
+            bool strict,             /* in */
+            ref Result error         /* out */
             )
         {
             return Yield(
@@ -991,9 +1040,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode Yield(
-            IThreadHost threadHost,
-            bool strict,
-            ref Result error
+            IThreadHost threadHost, /* in */
+            bool strict,            /* in */
+            ref Result error        /* out */
             )
         {
             if (threadHost != null)
@@ -1039,10 +1088,66 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Console Support Methods
+#if CONSOLE
+#if NATIVE && WINDOWS
+        public static bool ShouldUseNative()
+        {
+            return useNativeConsole;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void SetUseNative(
+            bool useNative /* in */
+            )
+        {
+            useNativeConsole = useNative;
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ConsoleWrite(
+            string value /* in */
+            )
+        {
+#if NATIVE && WINDOWS
+            if (ShouldUseNative())
+            {
+                ConsoleOps.WriteNative<string>(value, false); /* throw */
+                return;
+            }
+#endif
+
+            Console.Write(value); /* throw */
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ConsoleWriteLine(
+            string value /* in */
+            )
+        {
+#if NATIVE && WINDOWS
+            if (ShouldUseNative())
+            {
+                ConsoleOps.WriteNative<string>(value, true); /* throw */
+                return;
+            }
+#endif
+
+            Console.WriteLine(value);
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Output Support Methods
         public static bool WriteLine(
-            IInteractiveHost interactiveHost,
-            string value
+            IInteractiveHost interactiveHost, /* in */
+            string value                      /* in */
             )
         {
             if (interactiveHost != null)
@@ -1067,9 +1172,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool WriteResultLine(
-            IInteractiveHost interactiveHost,
-            ReturnCode code,
-            Result result
+            IInteractiveHost interactiveHost, /* in */
+            ReturnCode code,                  /* in */
+            Result result                     /* in */
             )
         {
             if (interactiveHost != null)
@@ -1092,38 +1197,38 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void WriteOrConsole(
-            IInteractiveHost interactiveHost,
-            string value
+            IInteractiveHost interactiveHost, /* in */
+            string value                      /* in */
             )
         {
             if (interactiveHost != null)
                 interactiveHost.Write(value);
 #if CONSOLE
             else
-                Console.Write(value);
+                ConsoleWrite(value);
 #endif
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static void WriteLineOrConsole(
-            IInteractiveHost interactiveHost,
-            string value
+            IInteractiveHost interactiveHost, /* in */
+            string value                      /* in */
             )
         {
             if (interactiveHost != null)
                 interactiveHost.WriteLine(value);
 #if CONSOLE
             else
-                Console.WriteLine(value);
+                ConsoleWriteLine(value);
 #endif
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static void WriteConsoleOrComplain(
-            ReturnCode code,
-            Result result
+            ReturnCode code, /* in */
+            Result result    /* in */
             )
         {
             WriteConsoleOrComplain(code, result, 0);
@@ -1132,15 +1237,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void WriteConsoleOrComplain(
-            ReturnCode code,
-            Result result,
-            int errorLine
+            ReturnCode code, /* in */
+            Result result,   /* in */
+            int errorLine    /* in */
             )
         {
 #if CONSOLE
             try
             {
-                Console.WriteLine(ResultOps.Format(code, result, errorLine));
+                ConsoleWriteLine(ResultOps.Format(code, result, errorLine));
             }
             catch
 #endif
@@ -1159,7 +1264,7 @@ namespace Eagle._Components.Private
 
         #region Introspection Support Methods
         private static bool IsNullType(
-            Type type
+            Type type /* in */
             )
         {
             return (type != null) &&
@@ -1197,10 +1302,10 @@ namespace Eagle._Components.Private
 #if DEBUG && VERBOSE
         public static void EmitTrace(
             string prefix,
-            Interpreter interpreter,
-            IInteractiveHost interactiveHost,
-            int interactiveLoops,
-            TracePriority? priority
+            Interpreter interpreter,          /* in */
+            IInteractiveHost interactiveHost, /* in */
+            int interactiveLoops,             /* in */
+            TracePriority? priority           /* in */
             )
         {
             string name = null;
@@ -1232,10 +1337,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsOpen(
-            Interpreter interpreter,
-            bool? refresh,
-            ref HostFlags hostFlags,
-            ref IInteractiveHost interactiveHost
+            Interpreter interpreter,             /* in */
+            bool? refresh,                       /* in */
+            ref HostFlags hostFlags,             /* out */
+            ref IInteractiveHost interactiveHost /* out */
             )
         {
             bool localRefresh;
@@ -1420,8 +1525,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static HeaderFlags GetHeaderFlags(
-            IInteractiveHost interactiveHost,
-            HeaderFlags @default
+            IInteractiveHost interactiveHost, /* in */
+            HeaderFlags @default              /* in */
             )
         {
             if (interactiveHost != null)
@@ -1444,7 +1549,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static HostFlags GetHostFlags(
-            IInteractiveHost interactiveHost
+            IInteractiveHost interactiveHost /* in */
             )
         {
             if (interactiveHost != null)
@@ -1467,7 +1572,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool IsInputRedirected(
-            IInteractiveHost interactiveHost
+            IInteractiveHost interactiveHost /* in */
             )
         {
             if (interactiveHost != null)
@@ -1490,7 +1595,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static int GetReadLevels(
-            IInteractiveHost interactiveHost
+            IInteractiveHost interactiveHost /* in */
             )
         {
             if (interactiveHost != null)
@@ -1513,7 +1618,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ConsoleColor GetHighContrastColor(
-            ConsoleColor color
+            ConsoleColor color /* in */
             )
         {
             switch (color)
@@ -1592,14 +1697,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode GetColors(
-            IColorHost colorHost,
-            string name,
-            bool foreground,
-            bool background,
-            bool strict,
-            ref ConsoleColor foregroundColor,
-            ref ConsoleColor backgroundColor,
-            ref Result error
+            IColorHost colorHost,             /* in */
+            string name,                      /* in */
+            bool foreground,                  /* in */
+            bool background,                  /* in */
+            bool strict,                      /* in */
+            ref ConsoleColor foregroundColor, /* out */
+            ref ConsoleColor backgroundColor, /* out */
+            ref Result error                  /* out */
             )
         {
             ReturnCode code;
@@ -1665,8 +1770,8 @@ namespace Eagle._Components.Private
         #region Shell Support Methods
 #if SHELL
         public static bool SetTitle(
-            IInteractiveHost interactiveHost,
-            string value
+            IInteractiveHost interactiveHost, /* in */
+            string value                      /* in */
             )
         {
             if (interactiveHost != null)
@@ -1690,11 +1795,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode LoadProfile(
-            Interpreter interpreter,
-            IInteractiveHost interactiveHost,
-            string profile,
-            Encoding encoding,
-            ref Result error
+            Interpreter interpreter,          /* in */
+            IInteractiveHost interactiveHost, /* in */
+            string profile,                   /* in */
+            Encoding encoding,                /* in */
+            ref Result error                  /* out */
             )
         {
             _Hosts.Profile profileHost = interactiveHost as _Hosts.Profile;
@@ -1741,8 +1846,8 @@ namespace Eagle._Components.Private
 
         #region Library Support Methods
         public static bool HasNoHost(
-            ScriptFlags scriptFlags,
-            ref Result error
+            ScriptFlags scriptFlags, /* in */
+            ref Result error         /* out */
             )
         {
             if (FlagOps.HasFlags(scriptFlags, ScriptFlags.NoHost, true))
@@ -1757,13 +1862,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode GetScript(
-            Interpreter interpreter,
-            IFileSystemHost fileSystemHost,
-            string name,
-            bool direct,
-            ref ScriptFlags scriptFlags,
-            ref IClientData clientData,
-            ref Result result
+            Interpreter interpreter,        /* in */
+            IFileSystemHost fileSystemHost, /* in */
+            string name,                    /* in */
+            bool direct,                    /* in */
+            ref ScriptFlags scriptFlags,    /* in, out */
+            ref IClientData clientData,     /* in, out */
+            ref Result result               /* out */
             )
         {
             if (HasNoHost(scriptFlags, ref result))
@@ -1894,19 +1999,19 @@ namespace Eagle._Components.Private
 
         #region Channel Support Methods
         public static ReturnCode GetStream(
-            Interpreter interpreter,
-            IFileSystemHost fileSystemHost,
-            string path,
-            FileMode mode,
-            FileAccess access,
-            FileShare share,
-            int bufferSize,
-            FileOptions options,
-            bool strict,
-            ref HostStreamFlags hostStreamFlags,
-            ref string fullPath,
-            ref Stream stream,
-            ref Result error
+            Interpreter interpreter,             /* in */
+            IFileSystemHost fileSystemHost,      /* in */
+            string path,                         /* in */
+            FileMode mode,                       /* in */
+            FileAccess access,                   /* in */
+            FileShare share,                     /* in */
+            int bufferSize,                      /* in */
+            FileOptions options,                 /* in */
+            bool strict,                         /* in */
+            ref HostStreamFlags hostStreamFlags, /* in, out */
+            ref string fullPath,                 /* out */
+            ref Stream stream,                   /* out */
+            ref Result error                     /* out */
             )
         {
             if (fileSystemHost != null)
@@ -2017,13 +2122,13 @@ namespace Eagle._Components.Private
 
         #region Class Factory Methods
         public static HostCreateFlags GetCreateFlags(
-            HostCreateFlags hostCreateFlags,
-            bool useAttach,
-            bool noColor,
-            bool noTitle,
-            bool noIcon,
-            bool noProfile,
-            bool noCancel
+            HostCreateFlags hostCreateFlags, /* in */
+            bool useAttach,                  /* in */
+            bool noColor,                    /* in */
+            bool noTitle,                    /* in */
+            bool noIcon,                     /* in */
+            bool noProfile,                  /* in */
+            bool noCancel                    /* in */
             )
         {
             HostCreateFlags result = Defaults.HostCreateFlags;
@@ -2064,13 +2169,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void GetProperties(
-            Interpreter interpreter,
-            out HostCreateFlags hostCreateFlags,
-            out IHost host,
-            out string profile,
-            out CultureInfo cultureInfo,
-            out ResourceManager resourceManager,
-            out IBinder binder
+            Interpreter interpreter,             /* in */
+            out HostCreateFlags hostCreateFlags, /* out */
+            out IHost host,                      /* out */
+            out string profile,                  /* out */
+            out CultureInfo cultureInfo,         /* out */
+            out ResourceManager resourceManager, /* out */
+            out IBinder binder                   /* out */
             )
         {
             hostCreateFlags = interpreter.HostCreateFlags; /* throw */
@@ -2084,8 +2189,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static IHostData NewData(
-            string typeName,
-            HostCreateFlags hostCreateFlags
+            string typeName,                /* in */
+            HostCreateFlags hostCreateFlags /* in */
             )
         {
             return new HostData(
@@ -2096,9 +2201,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static IHostData NewData(
-            string typeName,
-            Interpreter interpreter,
-            HostCreateFlags hostCreateFlags
+            string typeName,                /* in */
+            Interpreter interpreter,        /* in */
+            HostCreateFlags hostCreateFlags /* in */
             )
         {
             return new HostData(
@@ -2109,11 +2214,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static IHostData NewData(
-            string typeName,
-            Interpreter interpreter,
-            ResourceManager resourceManager,
-            string profile,
-            HostCreateFlags hostCreateFlags
+            string typeName,                 /* in */
+            Interpreter interpreter,         /* in */
+            ResourceManager resourceManager, /* in */
+            string profile,                  /* in */
+            HostCreateFlags hostCreateFlags  /* in */
             )
         {
             return new HostData(
@@ -2124,12 +2229,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static IHost NewCustom(
-            NewHostCallback callback,
-            Interpreter interpreter,
-            ResourceManager resourceManager,
-            string profile,
-            HostCreateFlags hostCreateFlags,
-            ref Result error
+            NewHostCallback callback,        /* in */
+            Interpreter interpreter,         /* in */
+            ResourceManager resourceManager, /* in */
+            string profile,                  /* in */
+            HostCreateFlags hostCreateFlags, /* in */
+            ref Result error                 /* out */
             )
         {
             if (callback == null)
@@ -2176,10 +2281,10 @@ namespace Eagle._Components.Private
 
 #if CONSOLE
         public static IHost NewConsole(
-            Interpreter interpreter,
-            ResourceManager resourceManager,
-            string profile,
-            HostCreateFlags hostCreateFlags
+            Interpreter interpreter,         /* in */
+            ResourceManager resourceManager, /* in */
+            string profile,                  /* in */
+            HostCreateFlags hostCreateFlags  /* in */
             )
         {
             return new _Hosts.Console(NewData(
@@ -2191,10 +2296,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static IHost NewDiagnostic(
-            Interpreter interpreter,
-            ResourceManager resourceManager,
-            string profile,
-            HostCreateFlags hostCreateFlags
+            Interpreter interpreter,         /* in */
+            ResourceManager resourceManager, /* in */
+            string profile,                  /* in */
+            HostCreateFlags hostCreateFlags  /* in */
             )
         {
             return new _Hosts.Diagnostic(NewData(
@@ -2205,10 +2310,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static IHost NewFake(
-            Interpreter interpreter,
-            ResourceManager resourceManager,
-            string profile,
-            HostCreateFlags hostCreateFlags
+            Interpreter interpreter,         /* in */
+            ResourceManager resourceManager, /* in */
+            string profile,                  /* in */
+            HostCreateFlags hostCreateFlags  /* in */
             )
         {
             return new _Hosts.Fake(NewData(
@@ -2219,10 +2324,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static IHost NewNull(
-            Interpreter interpreter,
-            ResourceManager resourceManager,
-            string profile,
-            HostCreateFlags hostCreateFlags
+            Interpreter interpreter,         /* in */
+            ResourceManager resourceManager, /* in */
+            string profile,                  /* in */
+            HostCreateFlags hostCreateFlags  /* in */
             )
         {
             return new _Hosts.Null(NewData(
@@ -2233,12 +2338,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static _Hosts.Wrapper NewWrapper(
-            Interpreter interpreter,
-            ResourceManager resourceManager,
-            string profile,
-            HostCreateFlags hostCreateFlags,
-            IHost baseHost,
-            bool baseHostOwned
+            Interpreter interpreter,         /* in */
+            ResourceManager resourceManager, /* in */
+            string profile,                  /* in */
+            HostCreateFlags hostCreateFlags, /* in */
+            IHost baseHost,                  /* in */
+            bool baseHostOwned               /* in */
             )
         {
             return new _Hosts.Wrapper(NewData(
@@ -2295,10 +2400,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode CopyAndWrap(
-            Interpreter interpreter,
-            Type type,
-            ref IHost host,
-            ref Result error
+            Interpreter interpreter, /* in */
+            Type type,               /* in */
+            ref IHost host,          /* out */
+            ref Result error         /* out */
             )
         {
             if (interpreter == null)
@@ -2424,8 +2529,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode UnwrapAndDispose(
-            Interpreter interpreter,
-            ref Result error
+            Interpreter interpreter, /* in */
+            ref Result error         /* out */
             )
         {
             if (interpreter == null)
@@ -2477,225 +2582,237 @@ namespace Eagle._Components.Private
 
         #region Native Console Wrapper Methods
 #if CONSOLE
-        private static void CloseNativeConsole(
-            Interpreter interpreter,
-            bool quiet
+        private static void NotImplemented(
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool quiet               /* in */
             )
         {
-            ReturnCode consoleCode;
-            Result consoleError = null;
+            if (quiet)
+                return;
 
+            DebugOps.Complain(
+                interpreter, ReturnCode.Error, "not implemented");
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void CloseNativeConsole(
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool quiet               /* in */
+            )
+        {
 #if NATIVE && WINDOWS
             if (NativeConsole.IsSupported())
             {
-                consoleCode = NativeConsole.Close(ref consoleError);
+                ReturnCode code;
+                Result error = null;
+
+                code = NativeConsole.Close(ref error);
+
+                if ((code != ReturnCode.Ok) && !quiet)
+                    DebugOps.Complain(interpreter, code, error);
+
+                return;
             }
-            else
-            {
-                consoleError = "not implemented";
-                consoleCode = ReturnCode.Error;
-            }
-#else
-            consoleError = "not implemented";
-            consoleCode = ReturnCode.Error;
 #endif
 
-            if (!quiet && (consoleCode != ReturnCode.Ok))
-                DebugOps.Complain(interpreter, consoleCode, consoleError);
+            NotImplemented(interpreter, quiet);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static void OpenNativeConsole(
-            Interpreter interpreter,
-            bool forceConsole,
-            bool attachConsole,
-            bool quiet
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool forceConsole,       /* in */
+            bool attachConsole,      /* in */
+            bool quiet               /* in */
             )
         {
-            ReturnCode consoleCode;
-            Result consoleError = null;
-
 #if NATIVE && WINDOWS
             if (NativeConsole.IsSupported())
             {
+                ReturnCode code;
                 bool? attached = null;
+                Result error = null;
 
-                consoleCode = NativeConsole.AttachOrOpen(
+                code = NativeConsole.AttachOrOpen(
                     forceConsole, attachConsole, ref attached,
-                    ref consoleError);
+                    ref error);
 
-                if ((consoleCode == ReturnCode.Ok) &&
+                if ((code == ReturnCode.Ok) &&
                     NativeConsole.ShouldPreventClose(attached))
                 {
-                    consoleCode = NativeConsole.PreventClose(
-                        ref consoleError);
+                    code = NativeConsole.PreventClose(ref error);
                 }
+
+                if ((code != ReturnCode.Ok) && !quiet)
+                    DebugOps.Complain(interpreter, code, error);
+
+                return;
             }
-            else
-            {
-                consoleError = "not implemented";
-                consoleCode = ReturnCode.Error;
-            }
-#else
-            consoleError = "not implemented";
-            consoleCode = ReturnCode.Error;
 #endif
 
-            if (!quiet && (consoleCode != ReturnCode.Ok))
-                DebugOps.Complain(interpreter, consoleCode, consoleError);
+            NotImplemented(interpreter, quiet);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static void NoCloseNativeConsole(
-            Interpreter interpreter,
-            bool quiet
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool quiet               /* in */
             )
         {
-            ReturnCode consoleCode;
-            Result consoleError = null;
-
 #if NATIVE && WINDOWS
             if (NativeConsole.IsSupported())
             {
-                consoleCode = NativeConsole.PreventClose(
-                    ref consoleError);
+                ReturnCode code;
+                Result error = null;
+
+                code = NativeConsole.PreventClose(ref error);
+
+                if ((code != ReturnCode.Ok) && !quiet)
+                    DebugOps.Complain(interpreter, code, error);
+
+                return;
             }
-            else
-            {
-                consoleError = "not implemented";
-                consoleCode = ReturnCode.Error;
-            }
-#else
-            consoleError = "not implemented";
-            consoleCode = ReturnCode.Error;
 #endif
 
-            if (!quiet && (consoleCode != ReturnCode.Ok))
-                DebugOps.Complain(interpreter, consoleCode, consoleError);
+            NotImplemented(interpreter, quiet);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static void FixNativeConsole(
-            Interpreter interpreter,
-            bool quiet
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool quiet               /* in */
             )
         {
-            ReturnCode consoleCode;
-            Result consoleError = null;
-
 #if NATIVE && WINDOWS
-            consoleCode = ConsoleOps.ResetInputBufferSize(
-                ref consoleError);
+            if (NativeConsole.IsSupported())
+            {
+                ReturnCode code;
+                Result error = null;
 
-            if (consoleCode == ReturnCode.Ok)
-                ResetAllInterpreterStandardInputChannels();
-#else
-            consoleError = "not implemented";
-            consoleCode = ReturnCode.Error;
+                code = ConsoleOps.ResetInputBufferSize(ref error);
+
+                if (code == ReturnCode.Ok)
+                    ResetAllInterpreterStandardInputChannels();
+
+                if ((code != ReturnCode.Ok) && !quiet)
+                    DebugOps.Complain(interpreter, code, error);
+
+                return;
+            }
 #endif
 
-            if (!quiet && (consoleCode != ReturnCode.Ok))
-                DebugOps.Complain(interpreter, consoleCode, consoleError);
+            NotImplemented(interpreter, quiet);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static void HookNativeConsole(
-            Interpreter interpreter,
-            bool quiet
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool quiet               /* in */
             )
         {
-            ReturnCode consoleCode;
-            Result consoleError = null;
-
 #if NATIVE && WINDOWS
             if (NativeConsole.IsSupported())
             {
-                consoleCode = NativeConsole.MaybeOpenHandles(
-                    ref consoleError);
+                ReturnCode code;
+                Result error = null;
+
+                code = NativeConsole.MaybeOpenHandles(ref error);
+
+                if ((code != ReturnCode.Ok) && !quiet)
+                    DebugOps.Complain(interpreter, code, error);
+
+                return;
             }
-            else
-            {
-                consoleError = "not implemented";
-                consoleCode = ReturnCode.Error;
-            }
-#else
-            consoleError = "not implemented";
-            consoleCode = ReturnCode.Error;
 #endif
 
-            if (!quiet && (consoleCode != ReturnCode.Ok))
-                DebugOps.Complain(interpreter, consoleCode, consoleError);
+            NotImplemented(interpreter, quiet);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static void PushNativeConsole(
-            Interpreter interpreter,
-            bool quiet
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool quiet               /* in */
             )
         {
-            ReturnCode consoleCode;
-            Result consoleError = null;
-
 #if NATIVE && WINDOWS
             if (NativeConsole.IsSupported())
             {
-                consoleCode = NativeConsole.MaybeChangeToNewActiveScreenBuffer(
-                    ref consoleError);
+                ReturnCode code;
+                Result error = null;
+
+                code = NativeConsole.MaybeChangeToNewActiveScreenBuffer(
+                    ref error);
+
+                if ((code != ReturnCode.Ok) && !quiet)
+                    DebugOps.Complain(interpreter, code, error);
+
+                return;
             }
-            else
-            {
-                consoleError = "not implemented";
-                consoleCode = ReturnCode.Error;
-            }
-#else
-            consoleError = "not implemented";
-            consoleCode = ReturnCode.Error;
 #endif
 
-            if (!quiet && (consoleCode != ReturnCode.Ok))
-                DebugOps.Complain(interpreter, consoleCode, consoleError);
+            NotImplemented(interpreter, quiet);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static void HistoryNativeConsole(
-            Interpreter interpreter,
-            bool quiet
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool quiet               /* in */
             )
         {
-            ReturnCode consoleCode;
-            Result consoleError = null;
-
 #if NATIVE && WINDOWS
             if (NativeConsole.IsSupported())
             {
-                consoleCode = NativeConsole.SetupHistory(
-                    MinimumHistoryBufferSize, ref consoleError);
+                ReturnCode code;
+                Result error = null;
+
+                code = NativeConsole.SetupHistory(
+                    MinimumHistoryBufferSize, ref error);
+
+                if ((code != ReturnCode.Ok) && !quiet)
+                    DebugOps.Complain(interpreter, code, error);
+
+                return;
             }
-            else
-            {
-                consoleError = "not implemented";
-                consoleCode = ReturnCode.Error;
-            }
-#else
-            consoleError = "not implemented";
-            consoleCode = ReturnCode.Error;
 #endif
 
-            if (!quiet && (consoleCode != ReturnCode.Ok))
-                DebugOps.Complain(interpreter, consoleCode, consoleError);
+            NotImplemented(interpreter, quiet);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void WriteNativeConsole(
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool quiet               /* in */
+            )
+        {
+#if NATIVE && WINDOWS
+            if (NativeConsole.IsSupported())
+            {
+                /* NO RESULT */
+                SetUseNative(true);
+
+                /* NO RESULT */
+                ConsoleOps.SetUseNative(true);
+
+                return;
+            }
+#endif
+
+            NotImplemented(interpreter, quiet);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static void SetupNativeConsole(
-            Interpreter interpreter,
-            HostCreateFlags hostCreateFlags
+            Interpreter interpreter,        /* in: OPTIONAL */
+            HostCreateFlags hostCreateFlags /* in */
             )
         {
             bool quiet = FlagOps.HasFlags(
@@ -2706,6 +2823,7 @@ namespace Eagle._Components.Private
             if (FlagOps.HasFlags(
                     hostCreateFlags, HostCreateFlags.CloseConsole, true))
             {
+                /* NO RESULT */
                 CloseNativeConsole(interpreter, quiet);
             }
 
@@ -2714,6 +2832,7 @@ namespace Eagle._Components.Private
             if (FlagOps.HasFlags(
                     hostCreateFlags, HostCreateFlags.OpenConsole, true))
             {
+                /* NO RESULT */
                 OpenNativeConsole(interpreter,
                     FlagOps.HasFlags(hostCreateFlags,
                         HostCreateFlags.ForceConsole, true),
@@ -2726,6 +2845,7 @@ namespace Eagle._Components.Private
             if (FlagOps.HasFlags(
                     hostCreateFlags, HostCreateFlags.NoCloseConsole, true))
             {
+                /* NO RESULT */
                 NoCloseNativeConsole(interpreter, quiet);
             }
 
@@ -2734,6 +2854,7 @@ namespace Eagle._Components.Private
             if (FlagOps.HasFlags(
                     hostCreateFlags, HostCreateFlags.FixConsole, true))
             {
+                /* NO RESULT */
                 FixNativeConsole(interpreter, quiet);
             }
 
@@ -2742,6 +2863,7 @@ namespace Eagle._Components.Private
             if (FlagOps.HasFlags(
                     hostCreateFlags, HostCreateFlags.HookConsole, true))
             {
+                /* NO RESULT */
                 HookNativeConsole(interpreter, quiet);
             }
 
@@ -2750,6 +2872,7 @@ namespace Eagle._Components.Private
             if (FlagOps.HasFlags(
                     hostCreateFlags, HostCreateFlags.PushConsole, true))
             {
+                /* NO RESULT */
                 PushNativeConsole(interpreter, quiet);
             }
 
@@ -2758,7 +2881,17 @@ namespace Eagle._Components.Private
             if (FlagOps.HasFlags(
                     hostCreateFlags, HostCreateFlags.HistoryConsole, true))
             {
+                /* NO RESULT */
                 HistoryNativeConsole(interpreter, quiet);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (FlagOps.HasFlags(
+                    hostCreateFlags, HostCreateFlags.WriteConsole, true))
+            {
+                /* NO RESULT */
+                WriteNativeConsole(interpreter, quiet);
             }
         }
 #endif

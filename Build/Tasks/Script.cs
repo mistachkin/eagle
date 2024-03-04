@@ -214,10 +214,60 @@ namespace Eagle._Tasks
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         /* [Optional()] */
+        public string CreateFlagsString
+        {
+            get { CheckDisposed(); return createFlags.ToString(); }
+            set
+            {
+                CheckDisposed();
+
+                object enumValue;
+                Result error = null;
+
+                enumValue = Utility.TryParseFlagsEnum(
+                    null, typeof(CreateFlags),
+                    createFlags.ToString(), value,
+                    null, true, true, true, ref error);
+
+                if (enumValue == null)
+                    throw new ScriptException(error);
+
+                createFlags = (CreateFlags)enumValue;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* [Optional()] */
         public HostCreateFlags HostCreateFlags
         {
             get { CheckDisposed(); return hostCreateFlags; }
             set { CheckDisposed(); hostCreateFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* [Optional()] */
+        public string HostCreateFlagsString
+        {
+            get { CheckDisposed(); return hostCreateFlags.ToString(); }
+            set
+            {
+                CheckDisposed();
+
+                object enumValue;
+                Result error = null;
+
+                enumValue = Utility.TryParseFlagsEnum(
+                    null, typeof(HostCreateFlags),
+                    hostCreateFlags.ToString(), value,
+                    null, true, true, true, ref error);
+
+                if (enumValue == null)
+                    throw new ScriptException(error);
+
+                hostCreateFlags = (HostCreateFlags)enumValue;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -232,10 +282,60 @@ namespace Eagle._Tasks
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         /* [Optional()] */
+        public string EngineFlagsString
+        {
+            get { CheckDisposed(); return engineFlags.ToString(); }
+            set
+            {
+                CheckDisposed();
+
+                object enumValue;
+                Result error = null;
+
+                enumValue = Utility.TryParseFlagsEnum(
+                    null, typeof(EngineFlags),
+                    engineFlags.ToString(), value,
+                    null, true, true, true, ref error);
+
+                if (enumValue == null)
+                    throw new ScriptException(error);
+
+                engineFlags = (EngineFlags)enumValue;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* [Optional()] */
         public SubstitutionFlags SubstitutionFlags
         {
             get { CheckDisposed(); return substitutionFlags; }
             set { CheckDisposed(); substitutionFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* [Optional()] */
+        public string SubstitutionFlagsString
+        {
+            get { CheckDisposed(); return substitutionFlags.ToString(); }
+            set
+            {
+                CheckDisposed();
+
+                object enumValue;
+                Result error = null;
+
+                enumValue = Utility.TryParseFlagsEnum(
+                    null, typeof(SubstitutionFlags),
+                    substitutionFlags.ToString(), value,
+                    null, true, true, true, ref error);
+
+                if (enumValue == null)
+                    throw new ScriptException(error);
+
+                substitutionFlags = (SubstitutionFlags)enumValue;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -250,10 +350,60 @@ namespace Eagle._Tasks
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         /* [Optional()] */
+        public string EventFlagsString
+        {
+            get { CheckDisposed(); return eventFlags.ToString(); }
+            set
+            {
+                CheckDisposed();
+
+                object enumValue;
+                Result error = null;
+
+                enumValue = Utility.TryParseFlagsEnum(
+                    null, typeof(EventFlags),
+                    eventFlags.ToString(), value,
+                    null, true, true, true, ref error);
+
+                if (enumValue == null)
+                    throw new ScriptException(error);
+
+                eventFlags = (EventFlags)enumValue;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* [Optional()] */
         public ExpressionFlags ExpressionFlags
         {
             get { CheckDisposed(); return expressionFlags; }
             set { CheckDisposed(); expressionFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* [Optional()] */
+        public string ExpressionFlagsString
+        {
+            get { CheckDisposed(); return expressionFlags.ToString(); }
+            set
+            {
+                CheckDisposed();
+
+                object enumValue;
+                Result error = null;
+
+                enumValue = Utility.TryParseFlagsEnum(
+                    null, typeof(ExpressionFlags),
+                    expressionFlags.ToString(), value,
+                    null, true, true, true, ref error);
+
+                if (enumValue == null)
+                    throw new ScriptException(error);
+
+                expressionFlags = (ExpressionFlags)enumValue;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

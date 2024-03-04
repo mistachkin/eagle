@@ -50,23 +50,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region IDynamicExecuteCallback Members
-        private ExecuteCallback callback;
-        public virtual ExecuteCallback Callback
-        {
-            get { return callback; }
-            set { callback = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region IGetClientData / ISetClientData Members
         private IClientData clientData;
         public virtual IClientData ClientData
         {
             get { return clientData; }
             set { clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IDynamicExecuteCallback Members
+        private ExecuteCallback callback;
+        public virtual ExecuteCallback Callback
+        {
+            get { return callback; }
+            set { callback = value; }
         }
         #endregion
 

@@ -830,6 +830,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasFlags(
+            InterpreterTestFlags flags,
+            InterpreterTestFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != InterpreterTestFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
             InterpreterType flags,
             InterpreterType hasFlags,
             bool all
@@ -883,6 +897,20 @@ namespace Eagle._Components.Private
                 return ((flags & hasFlags) == hasFlags);
             else
                 return ((flags & hasFlags) != LevelFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            ListElementFlags flags,
+            ListElementFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != ListElementFlags.None);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1400,6 +1428,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasFlags(
+            QueueFlags flags,
+            QueueFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != QueueFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
             ReadyFlags flags,
             ReadyFlags hasFlags,
             bool all
@@ -1525,6 +1567,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if !NET_STANDARD_20 && !MONO
+        public static bool HasFlags(
+            SddlFlags flags,
+            SddlFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != SddlFlags.None);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool HasFlags(
             SdkType flags,
             SdkType hasFlags,
@@ -1608,6 +1666,20 @@ namespace Eagle._Components.Private
                 return ((flags & hasFlags) != SimulatedKeyFlags.None);
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            SnippetFlags flags,
+            SnippetFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != SnippetFlags.None);
+        }
 
         ///////////////////////////////////////////////////////////////////////
 

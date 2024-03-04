@@ -31,6 +31,10 @@ namespace Eagle._ObjectTypes
 
             if (objectTypeData != null)
             {
+                id = objectTypeData.Id;
+
+                EntityOps.MaybeSetupId(this);
+
                 EntityOps.MaybeSetGroup(
                     this, objectTypeData.Group);
 
@@ -76,6 +80,17 @@ namespace Eagle._ObjectTypes
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public virtual IClientData ClientData
+        {
+            get { return clientData; }
+            set { clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public virtual string Group
@@ -91,17 +106,6 @@ namespace Eagle._ObjectTypes
         {
             get { return description; }
             set { description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public virtual IClientData ClientData
-        {
-            get { return clientData; }
-            set { clientData = value; }
         }
         #endregion
 

@@ -577,6 +577,9 @@
   <data name="lib/Eagle1.0/file2.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\lib\Eagle1.0\file2.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
+  <data name="lib/Eagle1.0/file2u.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\lib\Eagle1.0\file2u.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
   <data name="lib/Eagle1.0/file3.eagle" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\lib\Eagle1.0\file3.eagle;System.String, mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>

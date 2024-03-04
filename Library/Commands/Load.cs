@@ -129,7 +129,7 @@ namespace Eagle._Commands
 
                                 if (code == ReturnCode.Ok)
                                 {
-                                    Variant value = null;
+                                    IVariant value = null;
                                     IRuleSet ruleSet = null;
 
                                     if (options.IsPresent("-ruleset", ref value))

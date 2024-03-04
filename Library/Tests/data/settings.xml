@@ -27,6 +27,7 @@
   <InitializeFlags>Default, Test</InitializeFlags>
   <ScriptFlags>Default</ScriptFlags>
   <InterpreterFlags>Default</InterpreterFlags>
+  <InterpreterTestFlags>Default</InterpreterTestFlags>
   <PluginFlags>Default</PluginFlags>
   <AutoPathList>{%EAGLE%\bin\Debug\lib} does_not_exist</AutoPathList>
 </InterpreterSettings>

@@ -125,7 +125,7 @@ namespace Eagle._Commands
 
                                 if (code == ReturnCode.Ok)
                                 {
-                                    Variant value = null;
+                                    IVariant value = null;
                                     string indexText = null;
 
                                     if (options.IsPresent("-index", ref value))

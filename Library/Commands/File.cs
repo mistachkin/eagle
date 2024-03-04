@@ -111,8 +111,8 @@ namespace Eagle._Commands
             "readable", "rename", "rights", "rmdir", "rootname",
             "rootpath", "same", "sddl", "separator", "size",
             "split", "stat", "system", "tail", "tempname", "temppath",
-            "touch", "type", "under", "validname", "version", "volumes",
-            "writable"
+            "touch", "trusted", "type", "under", "validname", "verified",
+            "version", "volumes", "writable"
         }); 
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -470,7 +470,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex == Index.Invalid) ||
                                                     ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     string pattern = null;
 
                                                     if (options.IsPresent("-pattern", ref value))
@@ -997,7 +997,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-nocase"))
                                                         noCase = true;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     MatchMode mode = StringOps.DefaultMatchMode;
 
                                                     if (options.IsPresent("-match", ref value))
@@ -1140,7 +1140,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) && ((argumentIndex + 1) == arguments.Count))
                                                 {
 #if NATIVE && WINDOWS
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     bool directory = false;
 
                                                     if (options.IsPresent("-directory", ref value))
@@ -1443,7 +1443,7 @@ namespace Eagle._Commands
 
                                                     if (!String.IsNullOrEmpty(path))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         bool legacyResolve = true; /* COMPAT: Eagle beta. */
 
                                                         if (options.IsPresent("-legacy", ref value))
@@ -1511,7 +1511,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) && ((argumentIndex + 1) == arguments.Count))
                                                 {
 #if NATIVE && WINDOWS
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     bool directory = false;
 
                                                     if (options.IsPresent("-directory", ref value))
@@ -1913,72 +1913,165 @@ namespace Eagle._Commands
                                     }
                                 case "sddl":
                                     {
-                                        if ((arguments.Count == 3) || (arguments.Count == 4))
+                                        if (arguments.Count >= 3)
                                         {
 #if !NET_STANDARD_20 && !MONO
-                                            if (!CommonOps.Runtime.IsMono())
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(typeof(SddlFlags),
+                                                    OptionFlags.MustHaveEnumValue, Index.Invalid,
+                                                    Index.Invalid, "-flags", new Variant(SddlFlags.Default)),
+                                                Option.CreateEndOfOptions()
+                                            });
+
+                                            int argumentIndex = Index.Invalid;
+
+                                            code = interpreter.GetOptions(
+                                                options, arguments, 0, 2, Index.Invalid, false,
+                                                ref argumentIndex, ref result);
+
+                                            if (code == ReturnCode.Ok)
                                             {
-                                                try
+                                                if ((argumentIndex != Index.Invalid) &&
+                                                    ((argumentIndex + 1) <= arguments.Count) &&
+                                                    ((argumentIndex + 2) >= arguments.Count))
                                                 {
-                                                    if (PathOps.PathExists(arguments[2]))
+                                                    IVariant value = null;
+                                                    SddlFlags flags = SddlFlags.Default;
+
+                                                    if (options.IsPresent("-flags", ref value))
+                                                        flags = (SddlFlags)value.Value;
+
+                                                    string path = arguments[argumentIndex];
+                                                    string sddl = null;
+
+                                                    if ((argumentIndex + 2) == arguments.Count)
+                                                        sddl = arguments[argumentIndex + 1];
+
+                                                    if (!CommonOps.Runtime.IsMono())
                                                     {
-                                                        bool isDirectory = Directory.Exists(arguments[2]);
-                                                        FileSystemSecurity security;
-
-                                                        if (isDirectory)
-                                                            security = Directory.GetAccessControl(arguments[2]);
-                                                        else
-                                                            security = File.GetAccessControl(arguments[2]);
-
-                                                        if (arguments.Count == 4)
+                                                        try
                                                         {
-                                                            security.SetSecurityDescriptorSddlForm(
-                                                                arguments[3], AccessControlSections.Access);
+                                                            bool isDirectory;
+                                                            bool isFile;
 
-                                                            //
-                                                            // NOTE: Commit changes to file access control and refresh
-                                                            //       our file security object to reflect the changes.
-                                                            //
-                                                            if (isDirectory)
+                                                            if (PathOps.PathExists(path, out isDirectory, out isFile))
                                                             {
-                                                                Directory.SetAccessControl(arguments[2], (DirectorySecurity)security);
-                                                                security = Directory.GetAccessControl(arguments[2]);
+                                                                bool includeExplicit = FlagOps.HasFlags(
+                                                                    flags, SddlFlags.IncludeExplicit, true);
+
+                                                                bool includeInherited = FlagOps.HasFlags(
+                                                                    flags, SddlFlags.IncludeInherited, true);
+
+                                                                bool skipBadRights = FlagOps.HasFlags(
+                                                                    flags, SddlFlags.SkipBadRights, true);
+
+                                                                FileSystemSecurity security;
+
+                                                                if (isDirectory)
+                                                                    security = Directory.GetAccessControl(path);
+                                                                else
+                                                                    security = File.GetAccessControl(path);
+
+                                                                bool shouldSet = (sddl != null);
+
+                                                                if (FlagOps.HasFlags(flags, SddlFlags.Remove, true))
+                                                                {
+                                                                    code = FileOps.RemoveAccessRules(
+                                                                        security, includeExplicit, includeInherited,
+                                                                        false, skipBadRights, ref result);
+
+                                                                    if ((code == ReturnCode.Ok) && !shouldSet)
+                                                                        shouldSet = true;
+                                                                }
+
+                                                                if (code == ReturnCode.Ok)
+                                                                {
+                                                                    if (shouldSet)
+                                                                    {
+                                                                        if (sddl != null)
+                                                                        {
+                                                                            security.SetSecurityDescriptorSddlForm(
+                                                                                sddl, AccessControlSections.Access);
+                                                                        }
+
+                                                                        //
+                                                                        // NOTE: Commit changes to the access control
+                                                                        //       and refresh our file security object
+                                                                        //       to reflect the changes.
+                                                                        //
+                                                                        if (isDirectory)
+                                                                        {
+                                                                            Directory.SetAccessControl(
+                                                                                path, (DirectorySecurity)security);
+
+                                                                            security = Directory.GetAccessControl(path);
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            File.SetAccessControl(
+                                                                                path, (FileSecurity)security);
+
+                                                                            security = File.GetAccessControl(path);
+                                                                        }
+                                                                    }
+
+                                                                    //
+                                                                    // NOTE: Finally, get the (modified?) SDDL string
+                                                                    //       -OR- list of properties for the specified
+                                                                    //       path and return it.
+                                                                    //
+                                                                    if (FlagOps.HasFlags(flags, SddlFlags.ToList, true))
+                                                                    {
+                                                                        result = FileOps.ToList(security.GetAccessRules(
+                                                                            includeExplicit, includeInherited,
+                                                                            typeof(SecurityIdentifier)));
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        result = security.GetSecurityDescriptorSddlForm(
+                                                                            AccessControlSections.Access);
+                                                                    }
+                                                                }
                                                             }
                                                             else
                                                             {
-                                                                File.SetAccessControl(arguments[2], (FileSecurity)security);
-                                                                security = File.GetAccessControl(arguments[2]);
+                                                                result = String.Format(
+                                                                    "could not read \"{0}\": no such file or directory",
+                                                                    arguments[argumentIndex]);
+
+                                                                code = ReturnCode.Error;
                                                             }
                                                         }
+                                                        catch (Exception e)
+                                                        {
+                                                            Engine.SetExceptionErrorCode(interpreter, e);
 
-                                                        //
-                                                        // NOTE: Get the SDDL string for the specified path and
-                                                        //       return it.
-                                                        //
-                                                        result = security.GetSecurityDescriptorSddlForm(
-                                                            AccessControlSections.Access);
+                                                            result = e;
+                                                            code = ReturnCode.Error;
+                                                        }
                                                     }
                                                     else
                                                     {
-                                                        result = String.Format(
-                                                            "could not read \"{0}\": no such file or directory",
-                                                            arguments[2]);
-
+                                                        result = "not implemented";
                                                         code = ReturnCode.Error;
                                                     }
                                                 }
-                                                catch (Exception e)
+                                                else
                                                 {
-                                                    Engine.SetExceptionErrorCode(interpreter, e);
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(arguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, arguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"file sddl ?options? name ?sddl?\"";
+                                                    }
 
-                                                    result = e;
                                                     code = ReturnCode.Error;
                                                 }
-                                            }
-                                            else
-                                            {
-                                                result = "not implemented";
-                                                code = ReturnCode.Error;
                                             }
 #else
                                             result = "not implemented";
@@ -1987,7 +2080,7 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"file sddl name ?sddl?\"";
+                                            result = "wrong # args: should be \"file sddl ?options? name ?sddl?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -2276,6 +2369,20 @@ namespace Eagle._Commands
                                         }
                                         break;
                                     }
+                                case "trusted":
+                                    {
+                                        if (arguments.Count == 3)
+                                        {
+                                            result = RuntimeOps.IsFileTrusted(
+                                                interpreter, null, arguments[2], IntPtr.Zero);
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"file trusted path\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "type":
                                     {
                                         if (arguments.Count == 3)
@@ -2342,7 +2449,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 2) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     MatchMode mode = MatchMode.None;
 
                                                     if (options.IsPresent("-mode", ref value))
@@ -2528,6 +2635,19 @@ namespace Eagle._Commands
                                         }
                                         break;
                                     }
+                                case "verified":
+                                    {
+                                        if (arguments.Count == 3)
+                                        {
+                                            result = RuntimeOps.IsStrongNameVerified(arguments[2], true);
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"file verified path\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "version":
                                     {
                                         if (arguments.Count >= 3)
@@ -2557,28 +2677,31 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-fixed"))
                                                         @fixed = true;
 
-                                                    FileVersionInfo version = null;
+                                                    FileVersionInfo fileVersion = null;
+                                                    Version version = null;
 
                                                     code = FileOps.GetFileVersion(
-                                                        arguments[argumentIndex], true, ref version,
+                                                        arguments[argumentIndex], true,
+                                                        ref fileVersion, ref version,
                                                         ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                     {
                                                         if (full)
                                                         {
-                                                            result = version.ToString();
+                                                            if (fileVersion != null)
+                                                                result = fileVersion.ToString();
+                                                            else
+                                                                result = version;
                                                         }
                                                         else if (@fixed)
                                                         {
-                                                            result = String.Format(
-                                                                "{0}.{1}.{2}.{3}", version.FileMajorPart,
-                                                                version.FileMinorPart, version.FileBuildPart,
-                                                                version.FilePrivatePart);
+                                                            result = FormatOps.FixedVersion(
+                                                                version, false);
                                                         }
                                                         else
                                                         {
-                                                            result = version.FileVersion;
+                                                            result = version;
                                                         }
                                                     }
                                                 }

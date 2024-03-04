@@ -59,6 +59,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static InterpreterTestFlags InterpreterTestFlags =
+            InterpreterTestFlags.Default;
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static InterpreterStateFlags InterpreterStateFlags =
             InterpreterStateFlags.Default;
 

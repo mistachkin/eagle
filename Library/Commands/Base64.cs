@@ -94,7 +94,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Encoding encoding = null;
 
                                                     if (options.IsPresent("-encoding", ref value))
@@ -164,7 +164,7 @@ namespace Eagle._Commands
                                             {
                                                 if ((argumentIndex != Index.Invalid) && ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Encoding encoding = null;
 
                                                     if (options.IsPresent("-encoding", ref value))

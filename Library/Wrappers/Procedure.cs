@@ -68,6 +68,16 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        public IClientData ClientData
+        {
+            get { return (procedure != null) ? procedure.ClientData : null; }
+            set { if (procedure != null) { procedure.ClientData = value; } }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         public string Group
         {
@@ -81,16 +91,6 @@ namespace Eagle._Wrappers
         {
             get { return (procedure != null) ? procedure.Description : null; }
             set { if (procedure != null) { procedure.Description = value; } }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        public IClientData ClientData
-        {
-            get { return (procedure != null) ? procedure.ClientData : null; }
-            set { if (procedure != null) { procedure.ClientData = value; } }
         }
         #endregion
 

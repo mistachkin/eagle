@@ -144,7 +144,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Interpreter localInterpreter = interpreter;
 
                                                     if (options.IsPresent("-interpreter", ref value))
@@ -586,7 +586,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex == Index.Invalid) ||
                                                     ((argumentIndex + 1) == newArguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Interpreter localInterpreter = interpreter;
 
                                                     if (options.IsPresent("-interpreter", ref value))
@@ -2184,7 +2184,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 1) == newArguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     int level = 0;
 
                                                     if (options.IsPresent("-level", ref value))
@@ -3480,7 +3480,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 1) < newArguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     int timeout = _Timeout.Infinite;
 
                                                     if (options.IsPresent("-timeout", ref value))
@@ -3978,7 +3978,7 @@ namespace Eagle._Commands
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                Variant value = null;
+                                                IVariant value = null;
                                                 Interpreter localInterpreter = null;
 
                                                 if (options.IsPresent("-interpreter", ref value))
@@ -4704,7 +4704,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex == Index.Invalid) ||
                                                     ((argumentIndex + 1) == newArguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     TracePriority priority = TraceOps.GetTracePriority();
 
                                                     if (options.IsPresent("-priority", ref value))

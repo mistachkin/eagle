@@ -267,6 +267,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private bool? useIndicators;
+        public bool? UseIndicators
+        {
+            get { CheckDisposed(); lock (syncRoot) { return useIndicators; } }
+            set { CheckDisposed(); lock (syncRoot) { useIndicators = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool rawIndicators;
+        public bool RawIndicators
+        {
+            get { CheckDisposed(); lock (syncRoot) { return rawIndicators; } }
+            set { CheckDisposed(); lock (syncRoot) { rawIndicators = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool seeListeners;
+        public bool SeeListeners
+        {
+            get { CheckDisposed(); lock (syncRoot) { return seeListeners; } }
+            set { CheckDisposed(); lock (syncRoot) { seeListeners = value; } }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private ResultList results;
         public ResultList Results
         {
@@ -364,6 +391,9 @@ namespace Eagle._Components.Public
                             useConsole = false;
                             useNative = false;
                             rawLogFile = false;
+                            useIndicators = null;
+                            rawIndicators = false;
+                            seeListeners = false;
 
                             ////////////////////////////////
 

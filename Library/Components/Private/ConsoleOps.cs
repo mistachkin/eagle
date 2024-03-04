@@ -46,6 +46,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if NATIVE && WINDOWS
+        //
+        // NOTE: When this is set to non-zero, the native Win32 API will
+        //       be used to write to the console; otherwise, the managed
+        //       System.Console class will be used.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool useNativeConsole = false;
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: The Type object for the internal System.ConsolePal type.
         //       This is used, via reflection, by various methods of this
@@ -198,7 +211,7 @@ namespace Eagle._Components.Private
         #region Dead Code
 #if DEAD_CODE
         public static void MaybeEnableConsole( /* NOT USED */
-            ref bool console
+            ref bool console /* in, out */
             )
         {
             if (!console && GlobalConfiguration.DoesValueExist(
@@ -213,7 +226,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void MaybeDisableConsole(
-            ref bool console
+            ref bool console /* in, out */
             )
         {
             if (console && GlobalConfiguration.DoesValueExist(
@@ -228,7 +241,7 @@ namespace Eagle._Components.Private
         #region Dead Code
 #if DEAD_CODE
         public static void MaybeEnableVerbose( /* NOT USED */
-            ref bool verbose
+            ref bool verbose /* in, out */
             )
         {
             if (!verbose && GlobalConfiguration.DoesValueExist(
@@ -243,7 +256,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void MaybeDisableVerbose(
-            ref bool verbose
+            ref bool verbose /* in, out */
             )
         {
             if (verbose && GlobalConfiguration.DoesValueExist(
@@ -257,8 +270,52 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Console Output Support
+#if NATIVE && WINDOWS
+        public static bool ShouldUseNative()
+        {
+            return useNativeConsole;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void SetUseNative(
+            bool useNative /* in */
+            )
+        {
+            useNativeConsole = useNative;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void WriteNative<T>(
+            T value,     /* in */
+            bool newLine /* in */
+            )
+        {
+            Result error = null;
+
+            if (NativeConsole.WriteString<T>(
+                    value, newLine, ref error) != ReturnCode.Ok)
+            {
+                throw new Exception(error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void WriteNativeLine()
+        {
+            Result error = null;
+
+            if (NativeConsole.WriteLine(ref error) != ReturnCode.Ok)
+                throw new Exception(error);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void WriteCore(
-            string value
+            string value /* in */
             )
         {
             ConsoleColor savedForegroundColor;
@@ -273,6 +330,14 @@ namespace Eagle._Components.Private
 
             try
             {
+#if NATIVE && WINDOWS
+                if (ShouldUseNative())
+                {
+                    WriteNative(value, true); /* throw */
+                    return;
+                }
+#endif
+
                 Console.WriteLine(value); /* throw */
             }
             finally
@@ -284,7 +349,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void WriteCoreNoThrow(
-            string value
+            string value /* in */
             )
         {
             try
@@ -302,7 +367,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void WritePrompt(
-            string value
+            string value /* in */
             )
         {
             WriteCoreNoThrow(value);
@@ -311,7 +376,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void MaybeWritePrompt(
-            string value
+            string value /* in */
             )
         {
             MaybeWritePrompt(value, true, true);
@@ -320,9 +385,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void MaybeWritePrompt(
-            string value,
-            bool console,
-            bool verbose
+            string value, /* in */
+            bool console, /* in */
+            bool verbose  /* in */
             )
         {
             MaybeDisableConsole(ref console);
@@ -335,7 +400,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static void WriteError(
-            string value
+            string value /* in */
             )
         {
             WriteCoreNoThrow(value);
@@ -344,8 +409,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void MaybeWriteError(
-            string value,
-            bool console
+            string value, /* in */
+            bool console  /* in */
             )
         {
             MaybeDisableConsole(ref console);
@@ -357,7 +422,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void WriteComplaint(
-            string value
+            string value /* in */
             )
         {
             WriteCoreNoThrow(value);
@@ -391,8 +456,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static Type GetType(
-            bool @private,
-            ref Result error
+            bool @private,   /* in */
+            ref Result error /* out */
             )
         {
             if (@private)
@@ -423,14 +488,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region System.Console Support Methods (Mono 2.0 - 5.12)
+        #region System.Console Support Methods (Mono 2.0 - 6.12)
 #if UNIX
         //
         // NOTE: This method is used to support the IDebugHost.Cancel method
         //       when running on Unix (Mono).
         //
         public static ReturnCode SimulateEndOfTransmission(
-            ref Result error
+            ref Result error /* out */
             )
         {
             if (!isMono)
@@ -501,8 +566,8 @@ namespace Eagle._Components.Private
         //       method.
         //
         public static ReturnCode ResetStreams(
-            ChannelType channelType,
-            ref Result error
+            ChannelType channelType, /* in */
+            ref Result error         /* out */
             )
         {
 #if !MONO
@@ -669,7 +734,7 @@ namespace Eagle._Components.Private
         //       it is processing the FixConsole host creation flag.
         //
         public static ReturnCode ResetInputBufferSize(
-            ref Result error
+            ref Result error /* out */
             )
         {
             return ResetInputBufferSize(ConsoleBufferSize, ref error);
@@ -681,8 +746,8 @@ namespace Eagle._Components.Private
         // NOTE: See above.
         //
         private static ReturnCode ResetInputBufferSize(
-            int bufferSize,
-            ref Result error
+            int bufferSize,  /* in */
+            ref Result error /* out */
             )
         {
 #if !MONO
@@ -747,7 +812,7 @@ namespace Eagle._Components.Private
         //       the console host.
         //
         public static ReturnCode ResetCachedInputRecord(
-            ref Result error
+            ref Result error /* out */
             )
         {
 #if !MONO
@@ -805,7 +870,7 @@ namespace Eagle._Components.Private
         //       console channels.
         //
         public static IntPtr GetInputHandle(
-            ref Result error
+            ref Result error /* out */
             )
         {
             if (!isDotNetCore || isWindows)
@@ -869,7 +934,7 @@ namespace Eagle._Components.Private
         //       console channels.
         //
         public static IntPtr GetOutputHandle(
-            ref Result error
+            ref Result error /* out */
             )
         {
             if (!isDotNetCore || isWindows)
@@ -931,8 +996,8 @@ namespace Eagle._Components.Private
         //       of the console host.
         //
         public static ReturnCode GetInputStream(
-            ref Stream stream,
-            ref Result error
+            ref Stream stream, /* out */
+            ref Result error   /* out */
             )
         {
             //
@@ -994,8 +1059,8 @@ namespace Eagle._Components.Private
         //       of the console host.
         //
         public static ReturnCode GetOutputStream(
-            ref Stream stream,
-            ref Result error
+            ref Stream stream, /* out */
+            ref Result error   /* out */
             )
         {
             //
@@ -1057,8 +1122,8 @@ namespace Eagle._Components.Private
         //       of the console host.
         //
         public static ReturnCode GetErrorStream(
-            ref Stream stream,
-            ref Result error
+            ref Stream stream, /* out */
+            ref Result error   /* out */
             )
         {
             //
@@ -1120,9 +1185,9 @@ namespace Eagle._Components.Private
         //       of the console host.
         //
         public static ReturnCode UnhookControlHandler(
-            bool strict,
-            StringList list,
-            ref Result error
+            bool strict,     /* in */
+            StringList list, /* in: OPTIONAL */
+            ref Result error /* out */
             )
         {
 #if !MONO

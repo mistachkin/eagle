@@ -18,6 +18,6 @@ namespace Eagle._Interfaces.Public
     public interface IExpressionToken : IToken
     {
         Lexeme Lexeme { get; set; }
-        Variant Variant { get; set; }
+        IVariant Variant { get; set; }
     }
 }

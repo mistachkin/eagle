@@ -116,7 +116,7 @@ namespace Eagle._Commands
                 return ReturnCode.Error;
             }
 
-            Variant value = null;
+            IVariant value = null;
             Encoding encoding = null;
 
             if (options.IsPresent("-encoding", ref value))
@@ -145,25 +145,33 @@ namespace Eagle._Commands
                 try
                 {
 #if ARGUMENT_CACHE
-                    CacheFlags savedCacheFlags = CacheFlags.None;
+                    CacheFlags savedCacheFlags;
 
                     if (withInfo)
                     {
                         interpreter.BeginNoArgumentCache(
-                            ref savedCacheFlags);
+                            out savedCacheFlags);
+                    }
+                    else
+                    {
+                        savedCacheFlags = CacheFlags.None;
                     }
 
                     try
                     {
 #endif
 #if DEBUGGER && DEBUGGER_BREAKPOINTS
-                        InterpreterStateFlags savedInterpreterStateFlags =
-                            InterpreterStateFlags.None;
+                        InterpreterStateFlags savedInterpreterStateFlags;
 
                         if (withInfo)
                         {
                             interpreter.BeginArgumentLocation(
-                                ref savedInterpreterStateFlags);
+                                out savedInterpreterStateFlags);
+                        }
+                        else
+                        {
+                            savedInterpreterStateFlags =
+                                InterpreterStateFlags.None;
                         }
 
                         try

@@ -1002,7 +1002,7 @@ proc matchBadTypeError { result } {
 
   if {[isEagle]} then {
     if {[string match \
-        {unsupported operand type for operator "*" (*)} $result]} then {
+        {unsupported operand type * for operator "*" (*)} $result]} then {
       return badType
     } else {
       return $result

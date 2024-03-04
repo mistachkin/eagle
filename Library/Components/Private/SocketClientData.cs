@@ -387,11 +387,20 @@ namespace Eagle._Components.Private
             if (stream == null)
                 return;
 
-            if (readTimeout != null)
-                stream.ReadTimeout = (int)readTimeout;
+            int? localReadTimeout;
+            int? localWriteTimeout;
 
-            if (writeTimeout != null)
-                stream.WriteTimeout = (int)writeTimeout;
+            lock (syncRoot)
+            {
+                localReadTimeout = readTimeout;
+                localWriteTimeout = writeTimeout;
+            }
+
+            if (localReadTimeout != null)
+                stream.ReadTimeout = (int)localReadTimeout;
+
+            if (localWriteTimeout != null)
+                stream.WriteTimeout = (int)localWriteTimeout;
         }
         #endregion
     }

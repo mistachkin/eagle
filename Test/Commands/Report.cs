@@ -293,7 +293,7 @@ namespace Eagle._Commands
                                         if (options.IsPresent("-asynchronous"))
                                             asynchronous = true;
 
-                                        Variant value = null;
+                                        IVariant value = null;
                                         int timeout = _Timeout.Infinite;
 
                                         if (options.IsPresent("-timeout", ref value))

@@ -29,7 +29,7 @@ namespace Eagle._Functions
     {
         #region Public Constructors
         public Default(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
         {
             kind = IdentifierKind.Function;
@@ -44,6 +44,10 @@ namespace Eagle._Functions
 
             if (functionData != null)
             {
+                id = functionData.Id;
+
+                EntityOps.MaybeSetupId(this);
+
                 EntityOps.MaybeSetGroup(
                     this, functionData.Group);
 
@@ -93,6 +97,17 @@ namespace Eagle._Functions
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public virtual IClientData ClientData
+        {
+            get { return clientData; }
+            set { clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public virtual string Group
@@ -108,17 +123,6 @@ namespace Eagle._Functions
         {
             get { return description; }
             set { description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public virtual IClientData ClientData
-        {
-            get { return clientData; }
-            set { clientData = value; }
         }
         #endregion
 
@@ -145,9 +149,9 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         public virtual ReturnCode Initialize(
-            Interpreter interpreter,
-            IClientData clientData,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ref Result result        /* out */
             )
         {
             Interlocked.Increment(ref initializeCount);
@@ -157,9 +161,9 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         public virtual ReturnCode Terminate(
-            Interpreter interpreter,
-            IClientData clientData,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ref Result result        /* out */
             )
         {
             Interlocked.Decrement(ref initializeCount);
@@ -242,11 +246,11 @@ namespace Eagle._Functions
 
         #region IExecuteArgument Members
         public virtual ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
             return ReturnCode.Ok;
@@ -262,8 +266,8 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool ResetUsage(
-            UsageType type,
-            ref long value
+            UsageType type, /* in */
+            ref long value  /* out */
             )
         {
             switch (type)
@@ -292,8 +296,8 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool GetUsage(
-            UsageType type,
-            ref long value
+            UsageType type, /* in */
+            ref long value  /* out */
             )
         {
             switch (type)
@@ -322,8 +326,8 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool SetUsage(
-            UsageType type,
-            ref long value
+            UsageType type, /* in */
+            ref long value  /* out */
             )
         {
             switch (type)
@@ -352,8 +356,8 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool AddUsage(
-            UsageType type,
-            ref long value
+            UsageType type, /* in */
+            ref long value  /* out */
             )
         {
             switch (type)
@@ -382,7 +386,7 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool CountUsage(
-            ref long count
+            ref long count /* out */
             )
         {
             count = Interlocked.Increment(ref usageCount);
@@ -392,7 +396,7 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool ProfileUsage(
-            ref long microseconds
+            ref long microseconds /* in, out */
             )
         {
             Interlocked.Increment(ref usageCount);

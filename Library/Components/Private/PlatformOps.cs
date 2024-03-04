@@ -105,6 +105,9 @@ namespace Eagle._Components.Private
 
         private const int Windows11September2022UpdateBuildNumber = 22621;
         private const string Windows11September2022UpdateName = "Windows 11, September 2022 Update";
+
+        private const int Windows11September2023UpdateBuildNumber = 22631;
+        private const string Windows11September2023UpdateName = "Windows 11, September 2023 Update";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -1298,7 +1301,7 @@ namespace Eagle._Components.Private
 
                 if (code != ReturnCode.Ok)
                     DebugOps.Complain(interpreter, code, result);
-            });
+            }, false);
         }
 #endif
 
@@ -2254,6 +2257,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool IsWindows11September2023Update()
+        {
+            Version osVersion = null;
+
+            if (!IsWindows11OrHigher(ref osVersion))
+                return false;
+
+            //
+            // BUGBUG: The language in MSDN seems to strongly imply that
+            //         the build number must be an exact match for the
+            //         associated .NET Framework version to be inclued
+            //         with the operating system; therefore, use the
+            //         "equal to" operator here, not the "greater than
+            //         or equal to" operator.
+            //
+            if ((osVersion != null) &&
+                (osVersion.Build == Windows11September2023UpdateBuildNumber))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IsWindowsServer2012R2()
         {
             if (!IsWindowsServerOperatingSystem())
@@ -2840,6 +2869,8 @@ namespace Eagle._Components.Private
                         return Windows11RtmName;
                     case Windows11September2022UpdateBuildNumber:
                         return Windows11September2022UpdateName;
+                    case Windows11September2023UpdateBuildNumber:
+                        return Windows11September2023UpdateName;
                 }
             }
 

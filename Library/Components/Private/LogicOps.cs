@@ -138,6 +138,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static byte Imp(byte X, byte Y)
+        {
+            return (byte)(~X | Y);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static int Imp(int X, int Y)
         {
             return ~X | Y;
@@ -155,6 +162,13 @@ namespace Eagle._Components.Private
         public static bool Eqv(bool X, bool Y)
         {
             return (X && Y) || (!X && !Y);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static byte Eqv(byte X, byte Y)
+        {
+            return (byte)~(X ^ Y);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

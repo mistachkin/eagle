@@ -276,7 +276,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static ReturnCode ProcessEvents(
+        public static ReturnCode ProcessEvents(
             Interpreter interpreter,
             EventFlags eventFlags,
             EventPriority priority,

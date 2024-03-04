@@ -180,7 +180,7 @@ namespace Eagle._Commands
                                                                 if (plugin != null)
                                                                 {
                                                                     bool haveOverride = false;
-                                                                    Variant value = null;
+                                                                    IVariant value = null;
 
                                                                     CreateFlags createFlags =
                                                                         childInterpreter.CreateFlagsNoLock;
@@ -846,7 +846,7 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         IRuleSet ruleSet = null;
 
                                                         if (options.IsPresent("-ruleset", ref value))
@@ -970,6 +970,7 @@ namespace Eagle._Commands
                                                         InitializeFlags initializeFlags;
                                                         ScriptFlags scriptFlags;
                                                         InterpreterFlags interpreterFlags;
+                                                        InterpreterTestFlags interpreterTestFlags;
                                                         PluginFlags pluginFlags;
 
 #if NATIVE && TCL
@@ -981,14 +982,14 @@ namespace Eagle._Commands
                                                             interpreter, creationFlagTypes,
                                                             CreateFlags.NestedUse,
                                                             HostCreateFlags.NestedUse,
-                                                            null, null, null, null,
+                                                            null, null, null, null, null,
 #if NATIVE && TCL
                                                             null, null,
 #endif
                                                             out createFlags,
                                                             out hostCreateFlags, out initializeFlags,
                                                             out scriptFlags, out interpreterFlags,
-                                                            out pluginFlags
+                                                            out interpreterTestFlags, out pluginFlags
 #if NATIVE && TCL
                                                             , out findFlags, out loadFlags
 #endif
@@ -1148,7 +1149,7 @@ namespace Eagle._Commands
                                                         code = interpreter.CreateChildInterpreter(path,
                                                             clientData, ruleSet, createFlags, hostCreateFlags,
                                                             initializeFlags, scriptFlags, interpreterFlags,
-                                                            pluginFlags,
+                                                            interpreterTestFlags, pluginFlags,
 #if NATIVE && TCL
                                                             findFlags, loadFlags,
 #endif
@@ -1680,7 +1681,7 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-global"))
                                                             global = true;
 
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         INamespace @namespace = null;
 
                                                         if (options.IsPresent("-namespace", ref value))
@@ -2307,7 +2308,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 2) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Type type = null;
 
                                                     if (options.IsPresent("-type", ref value))
@@ -2451,7 +2452,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex != Index.Invalid)
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     DateTime dateTime = TimeOps.GetUtcNow();
 
                                                     if (options.IsPresent("-when", ref value))
@@ -2592,7 +2593,7 @@ namespace Eagle._Commands
                                                             {
                                                                 if (getArgumentIndex == scanArgumentIndex)
                                                                 {
-                                                                    Variant value = null;
+                                                                    IVariant value = null;
                                                                     Encoding encoding = null;
 
                                                                     if (options.IsPresent("-encoding", ref value))
@@ -2793,7 +2794,7 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         IdentifierKind kind = IdentifierKind.None;
 
                                                         if (options.IsPresent("-kind", ref value))
@@ -3131,7 +3132,7 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-userinterface"))
                                                             userInterface = true;
 
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         int limit = 0;
 
                                                         if (options.IsPresent("-limit", ref value))
@@ -3166,7 +3167,8 @@ namespace Eagle._Commands
 
                                                                 if (Engine.QueueWorkItem(childInterpreter,
                                                                         EventManager.ServiceEventsThreadStart,
-                                                                        serviceEventClientData))
+                                                                        serviceEventClientData,
+                                                                        ThreadOps.GetQueueFlags(false)))
                                                                 {
                                                                     result = String.Empty;
                                                                     code = ReturnCode.Ok;
@@ -3637,7 +3639,7 @@ namespace Eagle._Commands
                                                     ((argumentIndex + 3) <= arguments.Count) &&
                                                     ((argumentIndex + 4) >= arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     SubCommandFlags subCommandFlags = SubCommandFlags.Default;
 
                                                     if (options.IsPresent("-flags", ref value))

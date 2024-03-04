@@ -66,9 +66,10 @@ if {[isEagle]} then {
 
 runTest {test error-1.4 {error flags get properly reset} -setup {
   set savedFlags [object invoke -flags +NonPublic Interpreter.GetActive \
-      interpreterFlags]
-  object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
-      [appendArgs $savedFlags " -WriteTestData"]
+      interpreterTestFlags]
+
+  object invoke -flags +NonPublic Interpreter.GetActive interpreterTestFlags \
+      [appendArgs $savedFlags " -WriteData"]
 
   set savedVerbose $eagle_tests(Verbose)
   set eagle_tests(Verbose) Default
@@ -80,7 +81,7 @@ runTest {test error-1.4 {error flags get properly reset} -setup {
   set eagle_tests(Verbose) $savedVerbose
   unset -nocomplain savedVerbose
 
-  object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
+  object invoke -flags +NonPublic Interpreter.GetActive interpreterTestFlags \
       $savedFlags
   unset -nocomplain savedFlags
 } -constraints {eagle command.object} -result \

@@ -44,6 +44,10 @@ namespace Eagle._Procedures
 
             if (procedureData != null)
             {
+                id = procedureData.Id;
+
+                EntityOps.MaybeSetupId(this);
+
                 EntityOps.MaybeSetGroup(
                     this, procedureData.Group);
 
@@ -106,6 +110,17 @@ namespace Eagle._Procedures
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public virtual IClientData ClientData
+        {
+            get { return clientData; }
+            set { clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public virtual string Group
@@ -121,17 +136,6 @@ namespace Eagle._Procedures
         {
             get { return description; }
             set { description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public virtual IClientData ClientData
-        {
-            get { return clientData; }
-            set { clientData = value; }
         }
         #endregion
 

@@ -13,7 +13,7 @@
 #define _PKG_VERSION_H_
 
 #define LIBRARY_NAME		"Spilornis"
-#define SOURCE_ID		"3408f6a4276cac14fcd30d0c0d9bc8afd3929c83"
-#define SOURCE_TIMESTAMP	"2023-06-06 14:43:06 UTC"
+#define SOURCE_ID		"687511caf5977ca1c8261dba4d77e6bbcf444161"
+#define SOURCE_TIMESTAMP	"2024-02-29 17:27:11 UTC"
 
 #endif /* _PKG_VERSION_H_ */

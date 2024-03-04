@@ -441,9 +441,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode CanLoadFile(
+            string fileName, /* in */
+            ref string xml,  /* out */
+            ref Result error /* out */
+            )
+        {
+            XmlDocument document = null;
+
+            return LoadFile(fileName, ref document, ref xml, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode LoadFile(
             string fileName,          /* in */
             ref XmlDocument document, /* out */
+            ref Result error          /* out */
+            )
+        {
+            string xml = null;
+
+            return LoadFile(fileName, ref document, ref xml, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode LoadFile(
+            string fileName,          /* in */
+            ref XmlDocument document, /* out */
+            ref string xml,           /* out */
             ref Result error          /* out */
             )
         {
@@ -469,6 +496,7 @@ namespace Eagle._Components.Private
                 document = new XmlDocument();
                 document.Load(fileName); /* throw */
 
+                xml = document.OuterXml;
                 return ReturnCode.Ok;
             }
             catch (Exception e)
@@ -858,6 +886,60 @@ namespace Eagle._Components.Private
             }
 
             return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ValidateScriptString(
+            string xml,      /* in */
+            bool relaxed,    /* in */
+            ref Result error /* out */
+            )
+        {
+            XmlDocument document = null;
+
+            if (LoadString(
+                    xml, ref document,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (Validate(
+                    null, null, document, relaxed,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ValidateScriptFile(
+            string path,     /* in */
+            bool relaxed,    /* in */
+            ref Result error /* out */
+            )
+        {
+            XmlDocument document = null;
+
+            if (LoadFile(
+                    path, ref document,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (Validate(
+                    null, null, document, relaxed,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
         }
 
         ///////////////////////////////////////////////////////////////////////

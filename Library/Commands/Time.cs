@@ -105,7 +105,7 @@ namespace Eagle._Commands
                                     }
                                 }
 
-                                Variant value = null;
+                                IVariant value = null;
                                 int timeout = _Timeout.Infinite; /* milliseconds */
 
                                 if (options.IsPresent("-timeout", ref value))

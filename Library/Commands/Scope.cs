@@ -661,7 +661,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-lock"))
                                                         @lock = true;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     int timeout = 0; /* milliseconds */
 
                                                     if (options.IsPresent("-timeout", ref value))

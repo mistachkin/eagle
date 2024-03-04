@@ -2618,6 +2618,19 @@
 
   <!--
   ******************************************************************************
+  -->
+
+  <Target Name="ProjectBuildOutputIsLocked"
+          Condition="'$(ProjectName)' != ''">
+    <CreateProperty Value="true">
+      <Output TaskParameter="Value" PropertyName="SkipCopyToOutputDirectory" />
+    </CreateProperty>
+
+    <Warning Text="The project &quot;$(ProjectName)&quot; build output is locked, skipping..." />
+  </Target>
+
+  <!--
+  ******************************************************************************
   **                      Eagle Library Specific Targets                      **
   ******************************************************************************
   -->
@@ -2675,6 +2688,7 @@
                          ..\lib\Eagle1.0\exec.eagle;
                          ..\lib\Eagle1.0\file1.eagle;
                          ..\lib\Eagle1.0\file2.eagle;
+                         ..\lib\Eagle1.0\file2u.eagle;
                          ..\lib\Eagle1.0\file3.eagle;
                          ..\lib\Eagle1.0\info.eagle;
                          ..\lib\Eagle1.0\list.eagle;
@@ -3060,5 +3074,55 @@
 
     <Touch AlwaysCreate="true"
            Files="$(TargetPath).RunTests.done" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Import Condition="'$(EagleTaskTargets)' != 'false' And
+                     '$(EagleTaskPath)' != '' And
+                     HasTrailingSlash('$(EagleTaskPath)') And
+                     Exists('$(EagleTaskPath)Eagle.tasks')"
+          Project="$(EagleTaskPath)Eagle.tasks" />
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="LockBuildOutputDirectories">
+    <EvaluateFile Condition="'$(BuildTool)' == 'MSBuild' And
+                             '$(EagleLibraryDir)' != '' And
+                             HasTrailingSlash('$(EagleLibraryDir)') And
+                             Exists('$(EagleLibraryDir)Tools\lockBuild.eagle') And
+                             '$(EagleTaskPath)' != '' And
+                             HasTrailingSlash('$(EagleTaskPath)') And
+                             Exists('$(EagleTaskPath)EagleShell.exe')"
+                  Args="true" Text="$(EagleLibraryDir)Tools\lockBuild.eagle">
+      <Output TaskParameter="Code" PropertyName="LockBuildOutputCode" />
+      <Output TaskParameter="Result" PropertyName="LockBuildOutputResult" />
+    </EvaluateFile>
+
+    <Message Text="LockBuildOutputDirectories: $(LockBuildOutputCode) $(LockBuildOutputResult)" />
+  </Target>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <Target Name="UnlockBuildOutputDirectories">
+    <EvaluateFile Condition="'$(BuildTool)' == 'MSBuild' And
+                             '$(EagleLibraryDir)' != '' And
+                             HasTrailingSlash('$(EagleLibraryDir)') And
+                             Exists('$(EagleLibraryDir)Tools\lockBuild.eagle') And
+                             '$(EagleTaskPath)' != '' And
+                             HasTrailingSlash('$(EagleTaskPath)') And
+                             Exists('$(EagleTaskPath)EagleShell.exe')"
+                  Args="false" Text="$(EagleLibraryDir)Tools\lockBuild.eagle">
+      <Output TaskParameter="Code" PropertyName="UnlockBuildOutputCode" />
+      <Output TaskParameter="Result" PropertyName="UnlockBuildOutputResult" />
+    </EvaluateFile>
+
+    <Message Text="UnlockBuildOutputDirectories: $(UnlockBuildOutputCode) $(UnlockBuildOutputResult)" />
   </Target>
 </Project>

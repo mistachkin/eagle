@@ -43,7 +43,7 @@ namespace Eagle._Components.Public
         private ExpressionToken(
             IToken token,
             Lexeme lexeme,
-            Variant variant
+            IVariant variant
             )
             : base(token)
         {
@@ -66,7 +66,7 @@ namespace Eagle._Components.Public
         private ExpressionToken(
             IParseState parseState,
             Lexeme lexeme,
-            Variant variant
+            IVariant variant
             )
             : this(parseState)
         {
@@ -122,7 +122,7 @@ namespace Eagle._Components.Public
             Interpreter interpreter,    /* NOT USED */
             IParseState parseState,
             IExpressionState exprState, /* NOT USED */
-            Variant variant,
+            IVariant variant,
             Lexeme lexeme
             )
         {
@@ -201,7 +201,7 @@ namespace Eagle._Components.Public
 
             list.Add("Lexeme", this.Lexeme.ToString());
 
-            Variant variant = this.Variant;
+            IVariant variant = this.Variant;
 
             if (variant != null)
                 list.Add("Variant", variant.ToString());
@@ -224,8 +224,8 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
-        private Variant variant;
-        public virtual Variant Variant
+        private IVariant variant;
+        public virtual IVariant Variant
         {
             get { return variant; }
             set { if (IsImmutable()) throw new InvalidOperationException(); variant = value; }
@@ -4779,15 +4779,17 @@ namespace Eagle._Components.Public
                     {
                         try
                         {
-                            if (value.Value is decimal)
+                            object innerValue = value.Value;
+
+                            if (innerValue is decimal)
                             {
                                 value = interpreter.FixFinalPrecision(
-                                    (decimal)value.Value); /* throw */
+                                    (decimal)innerValue); /* throw */
                             }
-                            else if (value.Value is double)
+                            else if (innerValue is double)
                             {
                                 value = interpreter.FixFinalPrecision(
-                                    (double)value.Value); /* throw */
+                                    (double)innerValue); /* throw */
                             }
                             //
                             // NOTE: If the final result of the expression is
@@ -4796,12 +4798,12 @@ namespace Eagle._Components.Public
                             //       the final result to an integer instead
                             //       (COMPAT: Tcl).
                             //
-                            else if (value.Value is bool)
+                            else if (innerValue is bool)
                             {
                                 if (HasBooleanToInteger(expressionFlags))
                                 {
                                     value = ConversionOps.ToInt(
-                                        (bool)value.Value);
+                                        (bool)innerValue);
                                 }
                             }
 #if DEBUG && VERBOSE
@@ -4811,8 +4813,8 @@ namespace Eagle._Components.Public
                                     "EvaluateSubExpression: skipped " +
                                     "fixup, unsupported type {0}, " +
                                     "value = {1}",
-                                    FormatOps.TypeName(value.Value),
-                                    FormatOps.WrapOrNull(value.Value)),
+                                    FormatOps.TypeName(innerValue),
+                                    FormatOps.WrapOrNull(innerValue)),
                                     typeof(ExpressionEvaluator).Name,
                                     TracePriority.ValueDebug);
                             }

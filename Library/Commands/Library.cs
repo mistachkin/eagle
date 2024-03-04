@@ -599,7 +599,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-alias"))
                                                         alias = true;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Type returnType = typeof(void);
 
                                                     if (options.IsPresent("-returntype", ref value))
@@ -909,7 +909,7 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-locked"))
                                                             locked = true;
 
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         ModuleFlags flags = ModuleFlags.None;
 
                                                         if (options.IsPresent("-flags", ref value))
@@ -1059,7 +1059,7 @@ namespace Eagle._Commands
                                                     // NOTE: Check for and process the optional module name
                                                     //       argument.
                                                     //
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     string moduleName = null;
 
                                                     if (options.IsPresent("-module", ref value))

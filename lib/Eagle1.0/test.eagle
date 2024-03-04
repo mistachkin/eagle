@@ -103,6 +103,146 @@ namespace eval ::Eagle {
     return ""; # NOTE: Not found.
   }
 
+  proc enableRuntimeOptionsForTcl { enable } {
+    #
+    # NOTE: Enable all fallbacks for the runtime option
+    #       procedures (within the core script library)
+    #       that rely upon the global list value within
+    #       the "eagle_platform(runtimeOptions)" script
+    #       variable.
+    #
+    if {$enable} then {
+      set ::env(tclHasRuntimeOption) 1
+      set ::env(tclListRuntimeOptions) 1
+      set ::env(tclAddRuntimeOption) 1
+      set ::env(tclRemoveRuntimeOption) 1
+    } else {
+      unset -nocomplain ::env(tclRemoveRuntimeOption)
+      unset -nocomplain ::env(tclAddRuntimeOption)
+      unset -nocomplain ::env(tclListRuntimeOptions)
+      unset -nocomplain ::env(tclHasRuntimeOption)
+    }
+
+    return ""
+  }
+
+  proc setupEvaluateViaTemporaryFile { varName name script } {
+    if {[string length $varName] == 0} then {
+      error "variable name is required for a temporary script file"
+    }
+
+    upvar 1 $varName array
+    set element [appendArgs evaluateViaTemporaryFile : $name]
+
+    if {[info exists array($element)]} then {
+      set fileName $array($element)
+
+      if {![file exists $fileName]} then {
+        error [appendArgs \
+            "temporary file \"" $fileName "\" for \"" \
+            $name "\" does not exist"]
+      }
+
+      if {$script ne [readFile $fileName]} then {
+        error [appendArgs \
+            "temporary file \"" $fileName "\" for \"" \
+            $name "\" does not match script"]
+      }
+    } elseif {[string length $script] > 0} then {
+      set fileName [getTemporaryFileName]
+
+      writeFile $fileName $script
+
+      set array($element) $fileName
+    } else {
+      error [appendArgs \
+          "cannot create temporary file for \"" $name \
+          "\" without a script"]
+    }
+
+    return $fileName
+  }
+
+  proc evaluateViaTemporaryFile { varName name script {verbose 0} } {
+    #
+    # NOTE: Example usage of this procedure should be similar to the
+    #       following:
+    #
+    #       try {
+    #         evaluateViaTemporaryFile "" <unique script name> {
+    #           <script block here>
+    #         }
+    #       } finally {
+    #         cleanupEvaluateViaTemporaryFiles ""
+    #       }
+    #
+    if {[string length $varName] == 0} then {
+      set varName eagle_debugger; # HACK: Eagle "system" variable.
+    }
+
+    #
+    # NOTE: Since this procedure uses the [try] command, it will
+    #       require Tcl 8.6+ -OR- Eagle -OR- a shim.
+    #
+    try {
+      upvar 1 $varName debugger
+
+      set fileName [setupEvaluateViaTemporaryFile \
+          debugger $name $script]
+
+      return [uplevel 1 [list source $fileName]]
+    } finally {
+      if {[string length $varName] == 0 && \
+          [info exists fileName] && \
+          [string length $fileName] > 0} then {
+        if {![info exists ::no(deleteEvaluateViaTemporaryFile)]} then {
+          if {[info exists fileName] && \
+              [string length $fileName] > 0 && \
+              [file exists $fileName]} then {
+            if {[catch {file delete $fileName} error]} then {
+              if {$verbose > 0} then {
+                tputs $::test_channel [appendArgs \
+                    "---- temporary script cleanup failure (1): " \
+                    $error \n]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  proc cleanupEvaluateViaTemporaryFiles { varName {verbose 0} } {
+    if {[string length $varName] == 0} then {
+      set varName eagle_debugger; # HACK: Eagle "system" variable.
+    }
+
+    set result [list]
+
+    upvar 1 $varName debugger
+
+    foreach name [lsort [array names \
+        debugger evaluateViaTemporaryFile:*]] {
+      set fileName $debugger($name)
+
+      if {[file exists $fileName] && \
+          [file isfile $fileName]} then {
+        if {[catch {file delete $fileName} error] == 0} then {
+          unset -nocomplain debugger($name)
+          lappend result $fileName
+        } else {
+          if {$verbose > 0} then {
+            tputs $::test_channel [appendArgs \
+                "---- temporary script cleanup failure (2): " \
+                $error \n]
+          }
+        }
+      }
+    }
+
+    return $result
+  }
+
   proc getKnownTclVariables {} {
     #
     # HACK: If the caller is not the global frame (somehow?), then return
@@ -120,7 +260,7 @@ namespace eval ::Eagle {
     #       https://www.tcl.tk/man/tcl/TclCmd/tclvars.htm
     #       https://wiki.tcl.tk/tclvars
     #
-    return [list \
+    return [lsort [list \
         argc \
         argv \
         argv0 \
@@ -148,7 +288,7 @@ namespace eval ::Eagle {
         tcl_version \
         tcl_wordchars \
         tcl_nonwordchars \
-        unknown_pending]
+        unknown_pending]]
   }
 
   proc getKnownTestVariables {} {
@@ -160,7 +300,7 @@ namespace eval ::Eagle {
       return [list]
     }
 
-    return [list \
+    return [lsort [list \
         path \
         test_all_path \
         test_base_cops \
@@ -176,6 +316,7 @@ namespace eval ::Eagle {
         test_database_table \
         test_database_type \
         test_exit_on_complete \
+        test_extra_paths \
         test_file \
         test_flags \
         test_home_path \
@@ -216,6 +357,7 @@ namespace eval ::Eagle {
         test_suite_file \
         test_suite_running \
         test_tclsh \
+        test_tclsh_raw \
         test_tclsh_verbose \
         test_threshold \
         test_timeout \
@@ -226,19 +368,19 @@ namespace eval ::Eagle {
         test_volume \
         test_wait \
         test_well_known \
-        test_wix]
+        test_wix]]
   }
 
   proc getKnownOtherVariables {} {
     #
-    # HACK: If the caller is not the global frame (somehow?), then return
-    #       nothing, as we can only handle global variables.
+    # HACK: If the caller is (somehow?) not the global frame, we should
+    #       return nothing, as we can only handle global variables.
     #
     if {[uplevel 1 [list info level]] != 0} then {
       return [list]
     }
 
-    return [list \
+    set result [list \
         base_path \
         bin_file \
         bin_path \
@@ -249,6 +391,20 @@ namespace eval ::Eagle {
         native_lib_path \
         no \
         root_path]
+
+    #
+    # HACK: When running on Eagle, eagle_platform is a system variable
+    #       and does not need to be returned from this procedure.
+    #
+    if {![isEagle]} then {
+      #
+      # HACK: This is necessary to preserve runtime options, which are
+      #       contained in the eagle_platform(runtimeOptions) element.
+      #
+      lappend result eagle_platform;
+    }
+
+    return [lsort $result]
   }
 
   proc cleanState {
@@ -379,26 +535,38 @@ namespace eval ::Eagle {
   }
 
   proc testDoEvents { milliseconds } {
+    set count 0; set total 0
+
     if {$milliseconds > 0} then {
       set sleep [expr {max(50, int($milliseconds / 40.0))}]
-      set total 0
 
       while {$total < $milliseconds} {
-        update;            # NOTE: Pending events (e.g. WinForms)?
-        after $sleep;      # NOTE: Sleep to prevent excess spinning.
-        incr total $sleep; # NOTE: Keep track of approx elapsed time.
+        if {[isEagle]} then {
+          incr count [update +Count]
+        } else {
+          update; incr count; # NOTE: Pending events (e.g. WinForms)?
+        }
+
+        after $sleep;         # NOTE: Sleep to prevent excess spinning.
+        incr total $sleep;    # NOTE: Keep track of approx elapsed time.
       }
     } elseif {$milliseconds == 0} then {
       #
       # NOTE: The number of milliseconds is exactly zero, process
       #       events exactly one time.
       #
-      update
+      if {[isEagle]} then {
+        incr count [update +Count]
+      } else {
+        update; incr count
+      }
     } else {
       #
       # NOTE: The number of milliseconds is negative, do nothing.
       #
     }
+
+    return [list $count $total]
   }
 
   proc trawputs { channel string } {
@@ -836,7 +1004,9 @@ namespace eval ::Eagle {
     set result [list]
 
     if {[isEagle]} then {
-      if {[catch {set ::eagle_tests(Constraints)} constraints] == 0} then {
+      if {[catch {
+        set ::eagle_tests(Constraints)
+      } constraints] == 0} then {
         eval lappend result $constraints
       }
     } else {
@@ -1148,7 +1318,7 @@ namespace eval ::Eagle {
       #         evaluated in Eagle).
       #
       set expr {[catch {
-        string first -timeout [time nop -1 ---]
+        string first -timeout [time nop 0 ---]
       } timeout] in [list 0 2] && $timeout != -1}
 
       #
@@ -1958,10 +2128,57 @@ namespace eval ::Eagle {
     return $result
   }
 
-  proc getTestFiles { directories matchFilePatterns skipFilePatterns } {
+  proc getTestFiles {
+          directories matchFilePatterns skipFilePatterns {quiet false} } {
     set result [list]
 
+    #
+    # HACK: If any "directory" appears to look like a variable name,
+    #       use that variable name, in the context of the caller, in
+    #       order to obtain a list of directories where test files
+    #       may be located.
+    #
+    set newDirectories [list]
+
     foreach directory $directories {
+      if {[regexp -nocase -- {^[A-Z][0-9A-Z_]*$} $directory]} then {
+        set varName $directory
+
+        if {[uplevel 1 info exists $varName]} then {
+          set varValue [uplevel 1 set $varName]
+
+          if {[isEagle]} then {
+            if {![string is list -strict $varValue]} then {
+              continue
+            }
+          } else {
+            if {[catch {llength $varValue}]} then {
+              continue
+            }
+          }
+
+          eval lappend newDirectories $varValue
+
+          if {!$quiet} then {
+            set varLength [llength $varValue]
+
+            tputs $::test_channel [appendArgs \
+                "---- added " $varLength " test file " \
+                [expr {$varLength == 1 ? \
+                    "directory" : "directories"}] \
+                " from variable: " $varName \n]
+          }
+
+          continue
+        }
+      }
+
+      lappend newDirectories $directory
+    }
+
+    set count 0
+
+    foreach directory $newDirectories {
       set matchFileNames [list]
 
       foreach pattern $matchFilePatterns {
@@ -1976,9 +2193,18 @@ namespace eval ::Eagle {
 
       foreach fileName $matchFileNames {
         if {[lsearch -exact $skipFileNames $fileName] == -1} then {
-          lappend result $fileName
+          lappend result $fileName; incr count
         }
       }
+    }
+
+    if {!$quiet} then {
+      set length [llength $newDirectories]
+
+      tputs $::test_channel [appendArgs \
+          "---- added " $count " test files from " \
+          [expr {$length == 1 ? "directory" : "directories"}] \
+          ": " $newDirectories \n]
     }
 
     return $result
@@ -1992,7 +2218,37 @@ namespace eval ::Eagle {
     return [expr {[info exists ::test_run_bucket] ? $::test_run_bucket : ""}]
   }
 
+  proc isValidGuid { value } {
+    if {[isEagle]} then {
+      return [string is guid -strict $value]
+    } else {
+      set pattern [appendArgs \
+          ^ {[0-9A-F]{8}} - {[0-9A-F]{4}} - {[0-9A-F]{4}} \
+          - {[0-9A-F]{4}} - {[0-9A-F]{12}} \$]
+
+      return [regexp -nocase -- $pattern $value]
+    }
+  }
+
   proc getNewTestRunId {} {
+    #
+    # HACK: Unless forbidden from doing so, include a new GUID generated
+    #       either via the [guid new] sub-command -OR- using the [exec]
+    #       command to execute an external "uuidgen" tool, which may be
+    #       present.
+    #
+    set guid ""
+
+    if {![info exists ::no(newGuidForTestRun)]} then {
+      if {![info exists ::no(guidNew)] && [isEagle]} then {
+        set guid [guid new]
+      } elseif {![info exists ::no(uuidgenTool)] && [catch {
+        exec uuidgen; # maybe in PATH?
+      } exec] == 0 && [isValidGuid $exec]} then {
+        set guid $exec
+      }
+    }
+
     #
     # HACK: Yes, this is a bit ugly; however, it creates a nice unique
     #       identifier to represent the test run, which makes analyzing
@@ -2016,8 +2272,8 @@ namespace eval ::Eagle {
         #       [string format] command.
         #
         return [hash normal sha256 [string format \
-            "{0}{1:X8}{2:X8}{3:X16}{4:X16}{5:X16}" [info host] [pid] \
-            [info tid] [clock now] [clock clicks] [expr $expr]]]
+            "{0}{1:X8}{2:X8}{3:X16}{4:X16}{5:X16}{6}" [info host] [pid] \
+            [info tid] [clock now] [clock clicks] [expr $expr] $guid]]
       } else {
         #
         # HACK: Mono does not currently support calling the String.Format
@@ -2028,7 +2284,7 @@ namespace eval ::Eagle {
         return [hash normal sha256 [appendArgs [info host] [string \
             trimleft [pid] -] [string trimleft [info tid] -] [string \
             trimleft [clock now] -] [string trimleft [clock clicks] -] \
-            [string trimleft [expr $expr] -]]]
+            [string trimleft [expr $expr] -] $guid]]
       }
     } else {
       #
@@ -2047,7 +2303,7 @@ namespace eval ::Eagle {
 
       #
       # NOTE: Build the final result with the [format] command, converting
-      #       all the pieces to hexadecimal (except the host, which is
+      #       all the pieces to hexadecimal (except for the host, which is
       #       already hexadecimal).
       #
       set pid [pid]; set seconds [clock seconds]; set clicks [clock clicks]
@@ -2055,7 +2311,8 @@ namespace eval ::Eagle {
       return [appendArgs \
           $host [format [appendArgs % [getLengthModifier $pid] X% \
           [getLengthModifier $seconds] X% [getLengthModifier $clicks] X% \
-          [getLengthModifier $random] X] $pid $seconds $clicks $random]]
+          [getLengthModifier $random] X] $pid $seconds $clicks $random] \
+          $guid]
     }
   }
 
@@ -3066,7 +3323,7 @@ namespace eval ::Eagle {
           1.0.6483.12345 1.0.6543.58654 1.0.6781.49000 1.0.6781.49042 \
           1.0.6848.11041 1.0.7213.50727 1.0.7790.43198 1.0.7897.33333 \
           1.0.7900.33333 1.0.7945.33333 1.0.8192.54321 1.0.8251.52012 \
-          1.0.8369.11942 1.0.8503.24499]
+          1.0.8369.11942 1.0.8503.24499 1.0.8613.27347 1.0.8734.30319]
     } else {
       return [list]
     }
@@ -3117,7 +3374,12 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    set list [after info]
+    if {![info exists ::no(query,afters)]} then {
+      set list [after info]
+    } else {
+      set list [list]
+    }
+
     set array(afters,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
@@ -3127,7 +3389,12 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    set list [info globals]
+    if {![info exists ::no(query,globals)]} then {
+      set list [info globals]
+    } else {
+      set list [list]
+    }
+
     set array(variables,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
@@ -3137,7 +3404,12 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    set list [info commands]
+    if {![info exists ::no(query,commands)]} then {
+      set list [info commands]
+    } else {
+      set list [list]
+    }
+
     set array(commands,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
@@ -3147,7 +3419,12 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    set list [info procs]
+    if {![info exists ::no(query,procedures)]} then {
+      set list [info procs]
+    } else {
+      set list [list]
+    }
+
     set array(procedures,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
@@ -3157,10 +3434,14 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    if {[isStableEagleRelease 47 true]} then {; # NOTE: Post Beta 47.
-      set list [namespace descendants ::]
+    if {![info exists ::no(query,namespaces)]} then {
+      if {[isStableEagleRelease 47 true]} then {; # NOTE: Post Beta 47.
+        set list [namespace descendants ::]
+      } else {
+        set list [namespace children ::]
+      }
     } else {
-      set list [namespace children ::]
+      set list [list]
     }
 
     set array(namespaces,$index) [llength $list]
@@ -3172,10 +3453,14 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    if {[info exists ::test_path]} then {
-      set list [getFiles $::test_path *]
+    if {![info exists ::no(query,files)]} then {
+      if {[info exists ::test_path]} then {
+        set list [getFiles $::test_path *]
+      } else {
+        set list [list]; # NOTE: Information not available.
+      }
     } else {
-      set list [list]; # NOTE: Information not available.
+      set list [list]
     }
 
     set array(files,$index) [llength $list]
@@ -3187,10 +3472,14 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    if {[info exists ::bin_path]} then {
-      set list [getFiles $::bin_path *]
+    if {![info exists ::no(query,binaryFiles)]} then {
+      if {[info exists ::bin_path]} then {
+        set list [getFiles $::bin_path *]
+      } else {
+        set list [list]; # NOTE: Information not available.
+      }
     } else {
-      set list [list]; # NOTE: Information not available.
+      set list [list]
     }
 
     set array(binaryFiles,$index) [llength $list]
@@ -3211,7 +3500,12 @@ namespace eval ::Eagle {
       set excludeTemporaryFiles ""
     }
 
-    set list [getFiles [getTemporaryPath] * $excludeTemporaryFiles]
+    if {![info exists ::no(query,temporaryFiles)]} then {
+      set list [getFiles [getTemporaryPath] * $excludeTemporaryFiles]
+    } else {
+      set list [list]
+    }
+
     set array(temporaryFiles,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
@@ -3221,7 +3515,12 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    set list [file channels]
+    if {![info exists ::no(query,channels)]} then {
+      set list [file channels]
+    } else {
+      set list [list]
+    }
+
     set array(channels,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
@@ -3231,7 +3530,12 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    set list [interp aliases]
+    if {![info exists ::no(query,aliases)]} then {
+      set list [interp aliases]
+    } else {
+      set list [list]
+    }
+
     set array(aliases,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
@@ -3241,26 +3545,30 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    if {[isStableEagleRelease 45 true]} then {; # NOTE: Post Beta 45.
-      #
-      # NOTE: This version of Eagle should support the [interp children]
-      #       sub-command.
-      #
-      set list [interp children]; # Beta 46+
-    } elseif {[catch {interp children} children] == 0} then {
-      #
-      # NOTE: The version of native Tcl in use appears to support the new
-      #       [interp children] sub-command.
-      #
-      set list $children; # Tcl 8.7+ (?)
+    if {![info exists ::no(query,interpreters)]} then {
+      if {[isStableEagleRelease 45 true]} then {; # NOTE: Post Beta 45.
+        #
+        # NOTE: This version of Eagle should support the [interp children]
+        #       sub-command.
+        #
+        set list [interp children]; # Beta 46+
+      } elseif {[catch {interp children} children] == 0} then {
+        #
+        # NOTE: The version of native Tcl in use appears to support the new
+        #       [interp children] sub-command.
+        #
+        set list $children; # Tcl 8.7+ (?)
+      } else {
+        #
+        # NOTE: Unfortunately, this exact terminology is needed to retain
+        #       backward compatibility with native Tcl 8.4+.  Please see:
+        #
+        #       https://urn.to/r/tcl_interp_slaves
+        #
+        set list [interp slaves]; # COMPAT: Tcl.
+      }
     } else {
-      #
-      # NOTE: Unfortunately, this exact terminology is needed to retain
-      #       backward compatibility with native Tcl 8.4+.  Please see:
-      #
-      #       https://urn.to/r/tcl_interp_slaves
-      #
-      set list [interp slaves]; # COMPAT: Tcl.
+      set list [list]
     }
 
     set array(interpreters,$index) [llength $list]
@@ -3272,7 +3580,12 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    set list [array names env]
+    if {![info exists ::no(query,environment)]} then {
+      set list [array names env]
+    } else {
+      set list [list]
+    }
+
     set array(environment,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
@@ -3282,7 +3595,12 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    set list [info loaded]
+    if {![info exists ::no(query,loaded)]} then {
+      set list [info loaded]
+    } else {
+      set list [list]
+    }
+
     set array(loaded,$index) [llength $list]
 
     if {[info exists array(listed,$index)] && \
@@ -3313,7 +3631,8 @@ namespace eval ::Eagle {
       #
       #########################################################################
 
-      if {[catch {info previouspid} list]} then {
+      if {[info exists ::no(query,previousPid)] || \
+          [catch {info previouspid} list]} then {
         set list 0; # NOTE: Integer, zero for "not in use", negative ok.
       }
 
@@ -3330,7 +3649,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {scope list} list]} then {
+      if {[info exists ::no(query,scopes)] || \
+          [catch {scope list} list]} then {
         set list [list]
       }
 
@@ -3343,7 +3663,32 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {object assemblies} list]} then {
+      if {[info exists ::no(query,snippets)] || [catch {
+        if {[llength [info commands object]] > 0} then {
+          set names null; set error null
+
+          set code [object invoke Interpreter.GetActive \
+              ListSnippets null false None None names error]
+
+          if {$code ne "Ok"} then {
+            error [getStringFromObjectHandle $error]
+          }
+        }
+      } list]} then {
+        set list [list]
+      }
+
+      set array(snippets,$index) [llength $list]
+
+      if {[info exists array(listed,$index)] && \
+          [lsearch -exact $array(listed,$index) snippets] != -1} then {
+        set array(snippets,$index,list) $list
+      }
+
+      #########################################################################
+
+      if {[info exists ::no(query,assemblies)] || \
+          [catch {object assemblies} list]} then {
         set list [list]
       }
 
@@ -3356,7 +3701,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {getProcesses ""} list]} then {
+      if {[info exists ::no(query,processes)] || \
+          [catch {getProcesses ""} list]} then {
         set list [list]
       }
 
@@ -3369,7 +3715,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {info objects} list]} then {
+      if {[info exists ::no(query,objects)] || \
+          [catch {info objects} list]} then {
         set list [list]
       }
 
@@ -3382,7 +3729,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {info callbacks} list]} then {
+      if {[info exists ::no(query,objectCallbacks)] || \
+          [catch {info callbacks} list]} then {
         set list [list]
       }
 
@@ -3395,7 +3743,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {object types} list]} then {
+      if {[info exists ::no(query,objectTypes)] || \
+          [catch {object types} list]} then {
         set list [list]
       }
 
@@ -3408,7 +3757,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {object interfaces} list]} then {
+      if {[info exists ::no(query,objectInterfaces)] || \
+          [catch {object interfaces} list]} then {
         set list [list]
       }
 
@@ -3421,7 +3771,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {object namespaces} list]} then {
+      if {[info exists ::no(query,objectNamespaces)] || \
+          [catch {object namespaces} list]} then {
         set list [list]
       }
 
@@ -3441,7 +3792,8 @@ namespace eval ::Eagle {
       #
       #########################################################################
 
-      if {[catch {info connections} list]} then {
+      if {[info exists ::no(query,connections)] || \
+          [catch {info connections} list]} then {
         set list [list]
       }
 
@@ -3454,7 +3806,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {info transactions} list]} then {
+      if {[info exists ::no(query,transactions)] || \
+          [catch {info transactions} list]} then {
         set list [list]
       }
 
@@ -3467,7 +3820,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {info modules} list]} then {
+      if {[info exists ::no(query,modules)] || \
+          [catch {info modules} list]} then {
         set list [list]
       }
 
@@ -3480,7 +3834,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {info delegates} list]} then {
+      if {[info exists ::no(query,delegates)] || \
+          [catch {info delegates} list]} then {
         set list [list]
       }
 
@@ -3497,7 +3852,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {!$haveTclCmd || [catch {tcl ready} list]} then {
+      if {[info exists ::no(query,tcl)] || \
+          !$haveTclCmd || [catch {tcl ready} list]} then {
         set list False; # NOTE: Boolean, false is "not in use".
       }
 
@@ -3510,7 +3866,8 @@ namespace eval ::Eagle {
 
       #######################################################################
 
-      if {!$haveTclCmd || [catch {tcl interps} list]} then {
+      if {[info exists ::no(query,tclInterps)] || \
+          !$haveTclCmd || [catch {tcl interps} list]} then {
         set list [list]
       }
 
@@ -3523,7 +3880,8 @@ namespace eval ::Eagle {
 
       #######################################################################
 
-      if {!$haveTclCmd || [catch {tcl threads} list]} then {
+      if {[info exists ::no(query,tclThreads)] || \
+          !$haveTclCmd || [catch {tcl threads} list]} then {
         set list [list]
       }
 
@@ -3536,7 +3894,8 @@ namespace eval ::Eagle {
 
       #######################################################################
 
-      if {!$haveTclCmd || [catch {tcl command list} list]} then {
+      if {[info exists ::no(query,tclCommands)] || \
+          !$haveTclCmd || [catch {tcl command list} list]} then {
         set list [list]
       }
 
@@ -3549,7 +3908,7 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[catch {
+      if {[info exists ::no(query,scriptThreads)] || [catch {
         #
         # NOTE: Grab the number of active threads that are active because
         #       of ScriptThread object instances.  This will only work if
@@ -5542,7 +5901,7 @@ namespace eval ::Eagle {
         set pid [getPidFromTestLogFileName $fileName $baseFileNameOnly]
 
         if {[string length $pid] > 0 && ![isActiveProcess $pid]} then {
-          if {[catch {file delete $fileName}] == 0} then {
+          if {[catch {file delete $fileName} error] == 0} then {
             lappend result $fileName; # deleted
             set directory [file dirname $fileName]
 
@@ -5552,6 +5911,12 @@ namespace eval ::Eagle {
             }] == 0} then {
               lappend result $directory; # removed
             }
+          } elseif {[info exists ::test_channel]} then {
+            #
+            # TODO: Is this actually valid to use here?
+            #
+            tputs $::test_channel [appendArgs \
+                "---- inactive test log cleanup error: " $error \n]
           }
         }
       }
@@ -6584,7 +6949,11 @@ namespace eval ::Eagle {
                   "---- native Tcl script failure: " $error \n]
             }
 
-            return [expr {$verbose > 3 ? $error : "error"}]
+            if {$verbose > 4} then {
+              error $error
+            } else {
+              return [expr {$verbose > 3 ? $error : "error"}]
+            }
           }
         }
 
@@ -6639,7 +7008,11 @@ namespace eval ::Eagle {
                 "---- native Tcl script failure: " $error \n]
           }
 
-          return [expr {$verbose > 3 ? $error : "error"}]
+          if {$verbose > 4} then {
+            error $error
+          } else {
+            return [expr {$verbose > 3 ? $error : "error"}]
+          }
         }
       } finally {
         #
@@ -6653,12 +7026,30 @@ namespace eval ::Eagle {
               [string length $fileName] > 0 && \
               [file exists $fileName]} then {
             #
-            # NOTE: Delete the temporary file we used to query the machine
-            #       type for the native Tcl shell.
+            # NOTE: Delete temporary file we used to evaluate the script
+            #       using the native Tcl shell.
             #
-            catch {file delete $fileName}
+            if {[catch {file delete $fileName} error]} then {
+              if {$verbose > 0} then {
+                tputs $::test_channel [appendArgs \
+                    "---- native Tcl cleanup failure: " $error \n]
+              }
+
+              if {$verbose > 4} then {
+                error $error
+              }
+            }
           }
         }
+      }
+    }
+
+    proc getTclShellRaw {} {
+      if {[info exists ::test_tclsh_raw] && \
+          [string is boolean -strict $::test_tclsh_raw]} then {
+        return $::test_tclsh_raw
+      } else {
+        return ""; # TODO: Good default?
       }
     }
 
@@ -6701,10 +7092,23 @@ namespace eval ::Eagle {
       } $shell $verbose]
     }
 
-    proc evalWithTclShell { script {raw false} {shell ""} {verbose 0} } {
+    proc fileNormalizeWithTclShell { path {shell ""} {verbose 0} } {
+      return [testExecTclScript [string map [list %path% $path] {
+        puts -nonewline stdout [file normalize {%path%}]
+      }] $shell $verbose]
+    }
+
+    proc evalWithTclShell { script {raw ""} {shell ""} {verbose 0} } {
       return [testExecTclScript [string map \
           [list %script% $script %raw% $raw] {
-        if {%raw%} then {
+        if {[string length {%raw%}] == 0} then {
+          set code [catch {%script%} result]
+          if {$code == 0} then {
+            puts -nonewline stdout $result; # success
+          } else {
+            puts -nonewline stdout [list $code $result]; # error
+          }
+        } elseif {%raw%} then {
           set code [catch {%script%} result]
           puts -nonewline stdout [list $code $result]
         } else {
@@ -7105,27 +7509,28 @@ namespace eval ::Eagle {
     #       namespace as well.
     #
     exportAndImportPackageCommands [namespace current] [list \
-        cleanupAfterEvents findParentDirectory \
-        getKnownTclVariables getKnownTestVariables getKnownOtherVariables \
-        cleanState dumpState needTestDoEvents testDoEvents trawputs \
-        doesTestOutputRepeat toneputs tputs ttclLog doesTestLogFileExist \
-        getTestLogStartSentry readTestLogStartSentry \
-        extractTestRunIdFromLogStartSentry doesTestLogHaveStartSentry \
-        didTestLogHaveStartSentry setTestLogStartSentry tlog \
-        getSoftwareRegistryKey haveConstraint addConstraint \
-        haveOrAddConstraint getConstraints getCachedConstraints \
-        useCachedConstraints removeConstraint fixConstraints \
-        fixTimingConstraints testDebugBreak testArrayGet testArrayGet2 \
-        testResultGet testValueGet getValueOrDefault getFirstLineOfError \
-        calculateBogoCops calculateRelativePerformance formatTimeStamp \
-        formatElapsedTime sourceIfValid processTestArguments \
+        cleanupAfterEvents findParentDirectory enableRuntimeOptionsForTcl \
+        setupEvaluateViaTemporaryFile evaluateViaTemporaryFile \
+        cleanupEvaluateViaTemporaryFiles getKnownTclVariables \
+        getKnownTestVariables getKnownOtherVariables cleanState dumpState \
+        needTestDoEvents testDoEvents trawputs doesTestOutputRepeat \
+        toneputs tputs ttclLog doesTestLogFileExist getTestLogStartSentry \
+        readTestLogStartSentry extractTestRunIdFromLogStartSentry \
+        doesTestLogHaveStartSentry didTestLogHaveStartSentry \
+        setTestLogStartSentry tlog getSoftwareRegistryKey haveConstraint \
+        addConstraint haveOrAddConstraint getConstraints \
+        getCachedConstraints useCachedConstraints removeConstraint \
+        fixConstraints fixTimingConstraints testDebugBreak testArrayGet \
+        testArrayGet2 testResultGet testValueGet getValueOrDefault \
+        getFirstLineOfError calculateBogoCops calculateRelativePerformance \
+        formatTimeStamp formatElapsedTime sourceIfValid processTestArguments \
         getTclShellFileName getTemporaryPath getTemporaryFileName getFiles \
-        getTestFiles getTestRunId getTestRunBucket getNewTestRunId \
-        getDefaultTestLogSubPath getDefaultTestLogPath getTestLogPath \
-        getTestLogId getDefaultTestLog getTestLog getLastTestLog \
-        getTestSuite getTestSuiteFileName getTestSuiteFullName \
-        getTestSuiteVariantName getTestMachine getTestPlatform \
-        getTestConfiguration getTestNamePrefix getTestSuffix \
+        getTestFiles getTestRunId getTestRunBucket isValidGuid \
+        getNewTestRunId getDefaultTestLogSubPath getDefaultTestLogPath \
+        getTestLogPath getTestLogId getDefaultTestLog getTestLog \
+        getLastTestLog getTestSuite getTestSuiteFileName \
+        getTestSuiteFullName getTestSuiteVariantName getTestMachine \
+        getTestPlatform getTestConfiguration getTestNamePrefix getTestSuffix \
         getTestUncountedLeaks getTestListedLeaks getRuntimeAssemblyName \
         getTestAssemblyName canTestExec testExec testClrExec execTestShell \
         isRandomOrder isBreakOnDemand isBreakOnLeak isStopOnFailure \

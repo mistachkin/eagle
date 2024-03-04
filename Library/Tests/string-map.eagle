@@ -527,9 +527,9 @@ proc getStringIsClasses { type } {
           wideinteger
 
       if {[isEagle]} then {
-        lappend result base64 byte datetime decimal dict guid list \
-            none number numeric timespan uri value variant version \
-            xml
+        lappend result base64 byte datetime decimal dict guid \
+            inetaddr list none number numeric timespan uri value \
+            variant version xml
       }
     }
     entity {
@@ -613,7 +613,12 @@ proc getStringIsValues { class } {
           TwoByte Tcl]
     }
     guid {
-      set ::refs(5X) [object invoke -create -alias Guid NewGuid]
+      if {[info exists ::no(guidNew)]} then {
+        set ::refs(5X) [object invoke -create -alias Guid Empty]
+      } else {
+        set ::refs(5X) [object invoke -create -alias Guid NewGuid]
+      }
+
       set ::refs(6X) [expr {random()}]
       set ::refs(7X) [pid]
       set ::refs(8X) [$::refs(5X) ToString N]
@@ -627,6 +632,37 @@ proc getStringIsValues { class } {
     }
     identifier {
       return [list a ab _ab 1ab ab1 _ \; : \{ \} \[ \] () \$ \r \n]
+    }
+    inetaddr {
+      set ::refs(52X) 0
+      set ::refs(53X) 0x0
+      set ::refs(54X) [object invoke Int32 MinValue]
+      set ::refs(55X) [object invoke Int32 MaxValue]
+      set ::refs(56X) [object invoke UInt32 MinValue]
+      set ::refs(57X) [object invoke UInt32 MaxValue]
+      set ::refs(58X) [format 0x%x [object invoke Int32 MinValue]]
+      set ::refs(59X) [format 0x%x [object invoke Int32 MaxValue]]
+      set ::refs(60X) [format 0x%x [object invoke UInt32 MinValue]]
+      set ::refs(61X) [format 0x%x [object invoke UInt32 MaxValue]]
+      set ::refs(62X) 0.0.0.0
+      set ::refs(63X) 1.1.1.1
+      set ::refs(64X) 100.100.100.100
+      set ::refs(65X) 255.255.255.255
+      set ::refs(66X) 256.256.256.256
+      set ::refs(67X) -1.-1.-1.-1
+      set ::refs(68X) -0.-0.-0.-0
+      set ::refs(69X) 0x0.0x0.0x0.0x0
+      set ::refs(70X) 0x01.0x01.0x01.0x01
+      set ::refs(71X) 0xFF.0xFF.0xFF.0xFF
+      set ::refs(72X) 0x100.0x100.0x100.0x100
+
+      return [list \
+          $::refs(52X) $::refs(53X) $::refs(54X) $::refs(55X) \
+          $::refs(56X) $::refs(57X) $::refs(58X) $::refs(59X) \
+          $::refs(60X) $::refs(61X) $::refs(62X) $::refs(63X) \
+          $::refs(64X) $::refs(65X) $::refs(66X) $::refs(67X) \
+          $::refs(68X) $::refs(69X) $::refs(70X) $::refs(71X) \
+          $::refs(72X)]
     }
     interpreter {
       set ::refs(6X) [expr {random()}]
@@ -669,6 +705,17 @@ proc getStringIsValues { class } {
     }
     version {
       return [list -1 0 1 1.0 1.1 1.0.0 1.1.2 1.0.0.0 1.1.1.2 1.1.1.1.2]
+    }
+    versionrange {
+      return [list \
+          good-bad - -1 -1.2 -1.2.3 -1.2.3.4 -1.2.3.4.5 1- 1-1 1-1.2 \
+          1-1.2.3 1-1.2.3.4 1-1.2.3.4.5 1.2-1 1.2.3-1 1.2.3.4-1 \
+          1.2.3.4.5-1 1-1.2 1-1.2.3 1-1.2.3.4 1-1.2.3.4.5 1.2-1.2 \
+          1.2-1.2.3 1.2-1.2.3.4 1.2-1.2.3.4.5 1.2.3-1.2 1.2.3-1.2.3 \
+          1.2.3-1.2.3.4 1.2.3-1.2.3.4.5 1.2.3.4-1 1.2.3.4-1.2 \
+          1.2.3.4-1.2.3 1.2.3.4-1.2.3.4 1.2.3.4-1.2.3.4.5 1.2.3.4.5-1 \
+          1.2.3.4.5-1.2 1.2.3.4.5-1.2.3 1.2.3.4.5-1.2.3.4 \
+          1.2.3.4.5-1.2.3.4.5]
     }
     xml {
       set ::refs(18X) {<one>more</one>}
@@ -1854,7 +1901,22 @@ runTest {test string-99.404 {string is identifier} -body {
 
 ###############################################################################
 
-runTest {test string-99.405 {string is interpreter} -setup {
+runTest {test string-99.405 {string is inetaddr} -setup {
+  resetStringIsRefs
+} -body {
+  getStringIsResults $test_channel inetaddr
+} -cleanup {
+  unset -nocomplain refs; # NOTE: From getStringIsValues.
+} -constraints {eagle compile.NETWORK command.object} -result {empty 1 strict 0\
+<refs(52X)> 1 <refs(53X)> 1 <refs(54X)> 1 <refs(55X)> 1 <refs(56X)> 1\
+<refs(57X)> 1 <refs(58X)> 1 <refs(59X)> 1 <refs(60X)> 1 <refs(61X)> 1\
+<refs(62X)> 1 <refs(63X)> 1 <refs(64X)> 1 <refs(65X)> 1 <refs(66X)> 0\
+<refs(67X)> 0 <refs(68X)> 0 <refs(69X)> 1 <refs(70X)> 1 <refs(71X)> 1\
+<refs(72X)> 0}}
+
+###############################################################################
+
+runTest {test string-99.406 {string is interpreter} -setup {
   resetStringIsRefs
 } -body {
   getStringIsResults $test_channel interpreter
@@ -1865,7 +1927,7 @@ runTest {test string-99.405 {string is interpreter} -setup {
 
 ###############################################################################
 
-runTest {test string-99.406 {string is object} -setup {
+runTest {test string-99.407 {string is object} -setup {
   resetStringIsRefs
 } -body {
   getStringIsResults $test_channel object
@@ -1876,7 +1938,7 @@ runTest {test string-99.406 {string is object} -setup {
 
 ###############################################################################
 
-runTest {test string-99.407 {string is type} -setup {
+runTest {test string-99.408 {string is type} -setup {
   resetStringIsRefs
 } -body {
   getStringIsResults $test_channel type
@@ -1889,7 +1951,7 @@ StringList 1 Eagle._Interfaces.Public.IClientData 1 Random 1 Int32 1\
 
 ###############################################################################
 
-runTest {test string-99.408 {string is uri} -setup {
+runTest {test string-99.409 {string is uri} -setup {
   resetStringIsRefs
 } -body {
   getStringIsResults $test_channel uri
@@ -1900,14 +1962,14 @@ runTest {test string-99.408 {string is uri} -setup {
 
 ###############################################################################
 
-runTest {test string-99.409 {string is version} -body {
+runTest {test string-99.410 {string is version} -body {
   getStringIsResults $test_channel version
 } -constraints {eagle} -result {empty 1 strict 0 -1 0 0 0 1 0 1.0 1 1.1 1 1.0.0\
 1 1.1.2 1 1.0.0.0 1 1.1.1.2 1 1.1.1.1.2 0}}
 
 ###############################################################################
 
-runTest {test string-99.410 {string is xml} -body {
+runTest {test string-99.411 {string is xml} -body {
   getStringIsResults $test_channel xml
 } -cleanup {
   unset -nocomplain refs; # NOTE: From getStringIsValues.
@@ -1917,7 +1979,7 @@ null 0 true 0 false 0 -1 0 0 0 1 0 1.0 0 <refs(18X)> 1 <refs(19X)> 1\
 
 ###############################################################################
 
-runTest {test string-99.411 {string is plugin} -body {
+runTest {test string-99.412 {string is plugin} -body {
   getStringIsResults $test_channel plugin
 } -cleanup {
   unset -nocomplain refs; # NOTE: From getStringIsValues.
@@ -1926,7 +1988,7 @@ runTest {test string-99.411 {string is plugin} -body {
 
 ###############################################################################
 
-runTest {test string-99.412 {string is base64} -body {
+runTest {test string-99.413 {string is base64} -body {
   getStringIsResults $test_channel base64
 } -cleanup {
   unset -nocomplain refs; # NOTE: From getStringIsValues.
@@ -1935,7 +1997,7 @@ runTest {test string-99.412 {string is base64} -body {
 
 ###############################################################################
 
-runTest {test string-99.413 {string is encoding} -body {
+runTest {test string-99.414 {string is encoding} -body {
   getStringIsResults $test_channel encoding
 } -cleanup {
   unset -nocomplain refs; # NOTE: From getStringIsValues.
@@ -1947,7 +2009,7 @@ Identity 1 OneByte 1 TwoByte 1 Tcl 1}}
 
 ###############################################################################
 
-runTest {test string-99.414 {string is component} -setup {
+runTest {test string-99.415 {string is component} -setup {
   resetStringIsRefs
 } -body {
   getStringIsResults $test_channel component
@@ -1958,6 +2020,18 @@ runTest {test string-99.414 {string is component} -setup {
 1 <refs(37X)> 1 <refs(38X)> 1 <refs(39X)> 1 <refs(40X)> 1 <refs(41X)> 0\
 <refs(42X)> 1 <refs(43X)> 1 <refs(44X)> 1 <refs(45X)> 1 <refs(46X)> 1\
 <refs(47X)> 0 <refs(48X)> 1 <refs(49X)> 0 <refs(50X)> 1 <refs(51X)> 1}}
+
+###############################################################################
+
+runTest {test string-99.416 {string is versionrange} -body {
+  getStringIsResults $test_channel versionrange
+} -constraints {eagle} -result {empty 1 strict 0 good-bad 0 - 1 -1 0 -1.2 1\
+-1.2.3 1 -1.2.3.4 1 -1.2.3.4.5 0 1- 0 1-1 0 1-1.2 0 1-1.2.3 0 1-1.2.3.4 0\
+1-1.2.3.4.5 0 1.2-1 0 1.2.3-1 0 1.2.3.4-1 0 1.2.3.4.5-1 0 1-1.2 0 1-1.2.3 0\
+1-1.2.3.4 0 1-1.2.3.4.5 0 1.2-1.2 1 1.2-1.2.3 1 1.2-1.2.3.4 1 1.2-1.2.3.4.5 0\
+1.2.3-1.2 1 1.2.3-1.2.3 1 1.2.3-1.2.3.4 1 1.2.3-1.2.3.4.5 0 1.2.3.4-1 0\
+1.2.3.4-1.2 1 1.2.3.4-1.2.3 1 1.2.3.4-1.2.3.4 1 1.2.3.4-1.2.3.4.5 0 1.2.3.4.5-1\
+0 1.2.3.4.5-1.2 0 1.2.3.4.5-1.2.3 0 1.2.3.4.5-1.2.3.4 0 1.2.3.4.5-1.2.3.4.5 0}}
 
 ###############################################################################
 
@@ -1974,9 +2048,10 @@ runTest {test string-99.500 {string classes} -body {
 } -constraints {eagle} -result {alnum alpha array ascii asciialnum asciialpha\
 asciidigit base64 boolean byte command component control datetime decimal dict\
 digit directory double element encoding false file graph guid hexadecimal\
-identifier integer interpreter list lower none not number numeric object path\
-plugin print punct real reserved scalar single space timespan true type upper\
-uri value variant version wideinteger wordchar xdigit xml}}
+identifier inetaddr integer interpreter list lower none not number numeric\
+object path plugin print punct real reserved scalar single space timespan true\
+type upper uri value variant version versionrange wideinteger wordchar xdigit\
+xml}}
 
 ###############################################################################
 
@@ -2031,6 +2106,7 @@ runTest {test encoding-100.1 {encoding names (built-in)} -setup {
   list [expr {[haveConstraint dotNetCore50] || \
               [haveConstraint dotNetCore60] || \
               [haveConstraint dotNetCore70] || \
+              [haveConstraint dotNetCore80] || \
           [lsearch -exact -- $names utf-7] != -1}] \
       [expr {[lsearch -exact -- $names utf-8] != -1}] \
       [expr {[lsearch -exact -- $names utf-16] != -1}] \
@@ -2217,8 +2293,8 @@ runTest {test hash-1.1.2 {hash algorithms (.NET Core before 7)} -body {
   lsort $result
 } -cleanup {
   unset -nocomplain name type pair result text
-} -constraints [fixConstraints {eagle dotNetCore !dotNetCore70}] -result \
-"\{mac HMACMD5 55CD9EE051258D537966F6914B2907CB\} \{mac HMACSHA1\
+} -constraints [fixConstraints {eagle dotNetCore !dotNetCore70 !dotNetCore80}] \
+-result "\{mac HMACMD5 55CD9EE051258D537966F6914B2907CB\} \{mac HMACSHA1\
 457B0A2E4834FF8AA0F9BFAD83F7CA51EA9272B5\} \{mac HMACSHA256\
 F4BB7209D8015710EC185E78F36C26B143DE6E891D42B0C83038BBA7EB65FE06\} \{mac\
 HMACSHA384 [appendArgs F0253DF25F461FC75D997FF45DAEEDCB5242E7B5D94ECD76608EE7A \
@@ -2276,7 +2352,7 @@ runTest {test hash-1.1.3 {hash algorithms (.NET Core after 7)} -body {
   lsort $result
 } -cleanup {
   unset -nocomplain name type pair result text
-} -constraints {eagle dotNetCore dotNetCore70} -result "\{mac HMACMD5\
+} -constraints {eagle dotNetCore dotNetCore70OrHigher} -result "\{mac HMACMD5\
 55CD9EE051258D537966F6914B2907CB\} \{mac HMACSHA1\
 457B0A2E4834FF8AA0F9BFAD83F7CA51EA9272B5\} \{mac HMACSHA256\
 F4BB7209D8015710EC185E78F36C26B143DE6E891D42B0C83038BBA7EB65FE06\} \{mac\

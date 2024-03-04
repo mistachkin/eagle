@@ -58,6 +58,7 @@
     <None Include="Configurations\dotNet\5.0\EagleShell.runtimeconfig.json" />
     <None Include="Configurations\dotNet\6.0\EagleShell.runtimeconfig.json" />
     <None Include="Configurations\dotNet\7.0\EagleShell.runtimeconfig.json" />
+    <None Include="Configurations\dotNet\8.0\EagleShell.runtimeconfig.json" />
     <None Include="Configurations\netFx\EagleShell.exe.config" />
     <None Include="Configurations\netFx\EagleShell.exe.mda.config" />
     <None Include="Resources\Eagle32.png" />

@@ -20,7 +20,7 @@ using Eagle._Containers.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("0fb6f163-3c5e-4bb8-a948-93bab9968b0f")]
-    public interface IEventManager : IMaybeDisposed, ISimpleSynchronize, ISynchronize
+    public interface IEventManager : IMaybeDisposed, ISynchronizeSimple, ISynchronize
     {
         int QueueEventCount { get; }
         int QueueIdleEventCount { get; }

@@ -155,7 +155,8 @@ namespace Eagle._Forms
                 //       able to exit), fallback to using the thread pool if
                 //       the engine fails to queue the work item.
                 //
-                if (!Engine.QueueWorkItem(interpreter, AsyncExit, null))
+                if (!Engine.QueueWorkItem(
+                        interpreter, AsyncExit, null, QueueFlags.Default))
                 {
                     /* IGNORED */
                     Utility.QueueUserWorkItem(AsyncExit, null);

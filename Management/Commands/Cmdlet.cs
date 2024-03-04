@@ -499,7 +499,7 @@ namespace Eagle._Commands
                                     if ((argumentIndex != Index.Invalid) &&
                                         ((argumentIndex + 3) == arguments.Count))
                                     {
-                                        Variant value = null;
+                                        IVariant value = null;
                                         string currentOperation = null;
 
                                         if (options.IsPresent("-currentOperation", true, ref value))

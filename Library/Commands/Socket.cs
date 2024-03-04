@@ -90,7 +90,7 @@ namespace Eagle._Commands
                                 //
                                 if ((argumentIndex != Index.Invalid) && ((argumentIndex + 2) >= arguments.Count))
                                 {
-                                    Variant value = null;
+                                    IVariant value = null;
                                     AddressFamily addressFamily = AddressFamily.InterNetwork;
 
                                     if (options.IsPresent("-addressfamily", ref value))

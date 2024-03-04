@@ -23,7 +23,7 @@ namespace Eagle._Components.Public
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        IClientData, ICoreClientData
+        IClientData, IBaseClientData
     {
         #region Public Constants
         public static readonly IClientData Empty = new ClientData(null, true);
@@ -62,8 +62,8 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Private Methods
-        protected void CheckReadOnly()
+        #region Protected Methods
+        protected virtual void CheckReadOnly()
         {
             if (readOnly)
                 throw new ScriptException("data is read-only");
@@ -71,7 +71,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        protected bool IsEmpty()
+        protected virtual bool IsEmpty()
         {
             return Object.ReferenceEquals(this, Empty);
         }
@@ -80,7 +80,6 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IClientData Members
-        private object data;
         public virtual object Data
         {
             get { return DataNoThrow; }
@@ -90,21 +89,8 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ICoreClientData Members
-        public virtual IClientData Parent
-        {
-            get { return null; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public virtual IEnumerable<IClientData> Children
-        {
-            get { return null; }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
+        #region IBaseClientData Members
+        private object data;
         public virtual object DataNoThrow
         {
             get { return data; }
@@ -121,16 +107,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public virtual Type MaybeGetDataType()
+        private IClientData log;
+        public virtual IClientData Log
         {
-            return AppDomainOps.MaybeGetType(data);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public virtual string GetDataTypeName()
-        {
-            return FormatOps.RawTypeName(data);
+            get { return log; }
+            set { log = value; }
         }
         #endregion
 
@@ -168,16 +149,16 @@ namespace Eagle._Components.Public
             //       detecting the read-only property goes (since it is not
             //       part of the formal IClientData interface).
             //
-            ICoreClientData coreClientData = clientData as ICoreClientData;
+            IBaseClientData baseClientData = clientData as IBaseClientData;
 
-            if (coreClientData == null)
+            if (baseClientData == null)
                 return false; /* NOTE: It cannot be read-only if null. */
 
             //
             // NOTE: Return the value of the read-only property for the
             //       IClientData instance.
             //
-            return coreClientData.ReadOnly;
+            return baseClientData.ReadOnly;
         }
 
         ///////////////////////////////////////////////////////////////////////

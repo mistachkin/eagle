@@ -294,6 +294,7 @@
     <Compile Include="Components\Private\Namespace.cs" />
     <Compile Include="Components\Private\NamespaceOps.cs" />
     <Compile Include="Components\Private\NullEnumerator.cs" />
+    <Compile Include="Components\Private\NumberOps.cs" />
     <Compile Include="Components\Private\ObjectOps.cs" />
     <Compile Include="Components\Private\OperatorData.cs" />
     <Compile Include="Components\Private\Operators.cs" />
@@ -326,6 +327,8 @@
     <Compile Include="Components\Private\ServiceEventClientData.cs" />
     <Compile Include="Components\Private\SettingsOps.cs" />
     <Compile Include="Components\Private\SetupOps.cs" />
+    <Compile Include="Components\Private\Snippet.cs" />
+    <Compile Include="Components\Private\SnippetOps.cs" />
     <Compile Include="Components\Private\StringBuilderCache.cs" />
     <Compile Include="Components\Private\StringBuilderFactory.cs" />
     <Compile Include="Components\Private\StringBuilderWrapper.cs" />
@@ -338,6 +341,7 @@
     <Compile Include="Components\Private\TimeOps.cs" />
     <Compile Include="Components\Private\TraceLimits.cs" />
     <Compile Include="Components\Private\TraceOps.cs" />
+    <Compile Include="Components\Private\VariantOps.cs" />
     <Compile Include="Components\Private\Vars.cs" />
     <Compile Include="Components\Private\WindowOps.cs" />
     <Compile Include="Components\Private\WinTrustDotNet.cs" />
@@ -355,6 +359,7 @@
     <Compile Include="Components\Public\CommandCallbackWrapper.cs" />
     <Compile Include="Components\Public\CommandData.cs" />
     <Compile Include="Components\Public\Constants.cs" />
+    <Compile Include="Components\Public\CoreClientData.cs" />
     <Compile Include="Components\Public\DelegateData.cs" />
     <Compile Include="Components\Public\Delegates.cs" />
     <Compile Include="Components\Public\Engine.cs" />
@@ -376,7 +381,6 @@
     <Compile Include="Components\Public\MutablePair.cs" />
     <Compile Include="Components\Public\MutableTriplet.cs" />
     <Compile Include="Components\Public\NamespaceData.cs" />
-    <Compile Include="Components\Public\Number.cs" />
     <Compile Include="Components\Public\ObjectData.cs" />
     <Compile Include="Components\Public\ObjectPair.cs" />
     <Compile Include="Components\Public\ObjectTriplet.cs" />
@@ -479,6 +483,7 @@
     <Compile Include="Containers\Private\TypeFactoryCallbackDictionary.cs" />
     <Compile Include="Containers\Private\TypePairDictionary.cs" />
     <Compile Include="Containers\Private\TypeToStringCallbackDictionary.cs" />
+    <Compile Include="Containers\Private\TypeTypeCodeDictionary.cs" />
     <Compile Include="Containers\Private\WrapperDictionary.cs" />
     <Compile Include="Containers\Public\ArgumentDictionary.cs" />
     <Compile Include="Containers\Public\ArgumentList.cs" />
@@ -513,6 +518,7 @@
     <Compile Include="Containers\Public\StringSortedList.cs" />
     <Compile Include="Containers\Public\TokenList.cs" />
     <Compile Include="Containers\Public\TraceList.cs" />
+    <Compile Include="Containers\Public\TypeCodeList.cs" />
     <Compile Include="Containers\Public\TypeList.cs" />
     <Compile Include="Containers\Public\UlongList.cs" />
     <Compile Include="Containers\Public\UriDictionary.cs" />
@@ -526,6 +532,7 @@
     <Compile Include="Encodings\TwoByteEncoding.cs" />
     <Compile Include="Functions\Abs.cs" />
     <Compile Include="Functions\Acos.cs" />
+    <Compile Include="Functions\Arguments.cs" />
     <Compile Include="Functions\Asin.cs" />
     <Compile Include="Functions\Atan.cs" />
     <Compile Include="Functions\Atan2.cs" />
@@ -613,6 +620,7 @@
     <Compile Include="Interfaces\Public\Argument.cs" />
     <Compile Include="Interfaces\Public\ArgumentManager.cs" />
     <Compile Include="Interfaces\Public\AsynchronousContext.cs" />
+    <Compile Include="Interfaces\Public\BaseClientData.cs" />
     <Compile Include="Interfaces\Public\Binder.cs" />
     <Compile Include="Interfaces\Public\BoxHost.cs" />
     <Compile Include="Interfaces\Public\Callback.cs" />
@@ -625,6 +633,7 @@
     <Compile Include="Interfaces\Public\Command.cs" />
     <Compile Include="Interfaces\Public\CommandBaseData.cs" />
     <Compile Include="Interfaces\Public\CommandData.cs" />
+    <Compile Include="Interfaces\Public\Convert.cs" />
     <Compile Include="Interfaces\Public\CoreClientData.cs" />
     <Compile Include="Interfaces\Public\CryptographyData.cs" />
     <Compile Include="Interfaces\Public\DebugHost.cs" />
@@ -664,6 +673,8 @@
     <Compile Include="Interfaces\Public\HaveCultureInfo.cs" />
     <Compile Include="Interfaces\Public\HaveDictionary.cs" />
     <Compile Include="Interfaces\Public\HaveEncoding.cs" />
+    <Compile Include="Interfaces\Public\HaveExecutionPolicy.cs" />
+    <Compile Include="Interfaces\Public\HaveFileName.cs" />
     <Compile Include="Interfaces\Public\HaveInterpreter.cs" />
     <Compile Include="Interfaces\Public\HaveObjectFlags.cs" />
     <Compile Include="Interfaces\Public\HaveOwner.cs" />
@@ -681,6 +692,7 @@
     <Compile Include="Interfaces\Public\Interpreter.cs" />
     <Compile Include="Interfaces\Public\InterpreterManager.cs" />
     <Compile Include="Interfaces\Public\Levels.cs" />
+    <Compile Include="Interfaces\Public\Math.cs" />
     <Compile Include="Interfaces\Public\MaybeDisposed.cs" />
     <Compile Include="Interfaces\Public\MutableAnyPair.cs" />
     <Compile Include="Interfaces\Public\MutableAnyTriplet.cs" />
@@ -690,6 +702,7 @@
     <Compile Include="Interfaces\Public\NamespaceData.cs" />
     <Compile Include="Interfaces\Public\NewHostCallback.cs" />
     <Compile Include="Interfaces\Public\NewProcedureCallback.cs" />
+    <Compile Include="Interfaces\Public\Number.cs" />
     <Compile Include="Interfaces\Public\Object.cs" />
     <Compile Include="Interfaces\Public\ObjectData.cs" />
     <Compile Include="Interfaces\Public\Option.cs" />
@@ -740,8 +753,10 @@
     <Compile Include="Interfaces\Public\SetInterpreter.cs" />
     <Compile Include="Interfaces\Public\Setup.cs" />
     <Compile Include="Interfaces\Public\SetValue.cs" />
-    <Compile Include="Interfaces\Public\SimpleSynchronize.cs" />
     <Compile Include="Interfaces\Public\SizeHost.cs" />
+    <Compile Include="Interfaces\Public\Snippet.cs" />
+    <Compile Include="Interfaces\Public\SnippetData.cs" />
+    <Compile Include="Interfaces\Public\SnippetManager.cs" />
     <Compile Include="Interfaces\Public\State.cs" />
     <Compile Include="Interfaces\Public\StreamHost.cs" />
     <Compile Include="Interfaces\Public\StringList.cs" />
@@ -750,6 +765,8 @@
     <Compile Include="Interfaces\Public\SubCommandData.cs" />
     <Compile Include="Interfaces\Public\Synchronize.cs" />
     <Compile Include="Interfaces\Public\SynchronizeBase.cs" />
+    <Compile Include="Interfaces\Public\SynchronizeSimple.cs" />
+    <Compile Include="Interfaces\Public\SynchronizeStatic.cs" />
     <Compile Include="Interfaces\Public\Syntax.cs" />
     <Compile Include="Interfaces\Public\ThreadHost.cs" />
     <Compile Include="Interfaces\Public\ThreadLock.cs" />
@@ -769,6 +786,7 @@
     <Compile Include="Interfaces\Public\ValueData.cs" />
     <Compile Include="Interfaces\Public\Variable.cs" />
     <Compile Include="Interfaces\Public\VariableManager.cs" />
+    <Compile Include="Interfaces\Public\Variant.cs" />
     <Compile Include="Interfaces\Public\Wrapper.cs" />
     <Compile Include="Interfaces\Public\WrapperData.cs" />
     <Compile Include="Interfaces\Public\WriteHost.cs" />
@@ -790,14 +808,18 @@
     <Compile Include="Operators\LeftShift.cs" />
     <Compile Include="Operators\LessThan.cs" />
     <Compile Include="Operators\LessThanOrEqualTo.cs" />
+    <Compile Include="Operators\List.cs" />
     <Compile Include="Operators\ListIn.cs" />
     <Compile Include="Operators\ListNotIn.cs" />
+    <Compile Include="Operators\Logic.cs" />
     <Compile Include="Operators\LogicalAnd.cs" />
     <Compile Include="Operators\LogicalEqv.cs" />
     <Compile Include="Operators\LogicalImp.cs" />
     <Compile Include="Operators\LogicalNot.cs" />
     <Compile Include="Operators\LogicalOr.cs" />
     <Compile Include="Operators\LogicalXor.cs" />
+    <Compile Include="Operators\Math.cs" />
+    <Compile Include="Operators\MaybeString.cs" />
     <Compile Include="Operators\Minus.cs" />
     <Compile Include="Operators\Modulus.cs" />
     <Compile Include="Operators\Multiply.cs" />
@@ -806,6 +828,7 @@
     <Compile Include="Operators\Question.cs" />
     <Compile Include="Operators\RightRotate.cs" />
     <Compile Include="Operators\RightShift.cs" />
+    <Compile Include="Operators\String.cs" />
     <Compile Include="Operators\StringEqual.cs" />
     <Compile Include="Operators\StringGreaterThan.cs" />
     <Compile Include="Operators\StringGreaterThanOrEqualTo.cs" />
@@ -1360,7 +1383,6 @@
   <!-- END Eagle Enterprise Edition SECTION -->
   <ItemGroup Condition="'$(EagleConsole)' != 'false'">
     <Compile Include="Components\Private\ConsoleOps.cs" />
-    <Compile Include="Containers\Private\BooleanList.cs" />
     <Compile Include="Hosts\Console.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleNetwork)' != 'false'">
@@ -1743,6 +1765,9 @@
     <None Include="$(EagleDir)\lib\Eagle1.0\file2.eagle">
       <Link>lib\Eagle1.0\file2.eagle</Link>
     </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\file2u.eagle">
+      <Link>lib\Eagle1.0\file2u.eagle</Link>
+    </None>
     <None Include="$(EagleDir)\lib\Eagle1.0\file3.eagle">
       <Link>lib\Eagle1.0\file3.eagle</Link>
     </None>
@@ -2031,6 +2056,9 @@
     <None Include="Tests\data\client.tcl" />
     <None Include="Tests\data\evaluate.eagle" />
     <None Include="Tests\data\FakeInstances.reg" />
+    <None Include="Tests\data\file3_1_1_expected_cmd.txt" />
+    <None Include="Tests\data\file3_1_1_expected_glob.txt" />
+    <None Include="Tests\data\file3_1_1_expected_mixed.txt" />
     <None Include="Tests\data\file.dat" />
     <None Include="Tests\data\FontViewer.xaml" />
     <None Include="Tests\data\garbage.txt" />
@@ -2081,6 +2109,7 @@
       EagleDetectWix39;
       EagleDetectWix310;
       EagleDetectWix311;
+      LockBuildOutputDirectories;
       EagleMsgGenUnsetReadOnly;
       EagleMsgGen;
       EagleMessagesResGenUnsetReadOnly;

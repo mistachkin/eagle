@@ -115,6 +115,9 @@
     <None Include="$(EagleDir)\lib\Eagle1.0\file2.eagle">
       <Link>lib\Eagle1.0\file2.eagle</Link>
     </None>
+    <None Include="$(EagleDir)\lib\Eagle1.0\file2u.eagle">
+      <Link>lib\Eagle1.0\file2u.eagle</Link>
+    </None>
     <None Include="$(EagleDir)\lib\Eagle1.0\file3.eagle">
       <Link>lib\Eagle1.0\file3.eagle</Link>
     </None>

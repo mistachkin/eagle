@@ -28,13 +28,11 @@ using NamedEventWaitHandleDictionary =
     System.Collections.Generic.Dictionary<string,
         Eagle._Components.Private.ThreadOps.NamedEventWaitHandle>;
 
-using ThreadStartPair =
-    Eagle._Components.Public.AnyPair<
-        System.Threading.ThreadStart, object>;
+using ThreadStartTriplet = Eagle._Components.Public.AnyTriplet<
+    System.Threading.ThreadStart, object, System.Threading.EventWaitHandle>;
 
-using WaitCallbackPair =
-    Eagle._Components.Public.AnyPair<
-        System.Threading.WaitCallback, object>;
+using WaitCallbackTriplet = Eagle._Components.Public.AnyTriplet<
+    System.Threading.WaitCallback, object, System.Threading.EventWaitHandle>;
 
 namespace Eagle._Components.Private
 {
@@ -47,11 +45,16 @@ namespace Eagle._Components.Private
         //       Thread objects have ever been created by this class and
         //       how many work items have been queued by this class.
         //
-        private static int createCount;
-        private static int createActiveCount;
+        private static long createCount;
+        private static long createActiveCount;
 
-        private static int queueCount;
-        private static int queueActiveCount;
+        private static long queueCount;
+        private static long queueActiveCount;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long eventCount;
+        private static long eventActiveCount;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -373,6 +376,15 @@ namespace Eagle._Components.Private
                         queueActiveCount.ToString());
                 }
 
+                if (empty || (eventCount != 0))
+                    localList.Add("EventCount", eventCount.ToString());
+
+                if (empty || (eventActiveCount != 0))
+                {
+                    localList.Add("EventActiveCount",
+                        eventActiveCount.ToString());
+                }
+
                 if (localList.Count > 0)
                 {
                     list.Add((IPair<string>)null);
@@ -516,8 +528,10 @@ namespace Eagle._Components.Private
                     result = false;
 
                 @event.Close();
-
                 @event = null;
+
+                Interlocked.Decrement(ref eventActiveCount);
+
                 return result;
             }
         }
@@ -1393,8 +1407,8 @@ namespace Eagle._Components.Private
             if (useThreadPool)
             {
                 /* IGNORED */
-                QueueUserWorkItem(new WaitCallback(start), parameter);
-                Interlocked.Increment(ref queueCount);
+                QueueUserWorkItem(
+                    new WaitCallback(start), parameter, false);
             }
             else
             {
@@ -1589,26 +1603,31 @@ namespace Eagle._Components.Private
             object state /* in */
             ) /* System.Threading.WaitCallback */
         {
-            ThreadStartPair anyPair = state as ThreadStartPair;
+            ThreadStartTriplet anyTriplet = state as ThreadStartTriplet;
 
-            if (anyPair == null)
+            if (anyTriplet == null)
             {
                 TraceOps.DebugTrace(String.Format(
                     "ThreadStartWrapper: cannot convert state to {0}",
-                    MarshalOps.GetErrorTypeName(typeof(ThreadStartPair))),
+                    MarshalOps.GetErrorTypeName(typeof(ThreadStartTriplet))),
                     typeof(ThreadOps).Name, TracePriority.ThreadError);
 
                 return;
             }
 
-            ThreadStart newCallback = anyPair.X;
+            EventWaitHandle @event = anyTriplet.Z;
+
+            if (@event != null)
+                SetEvent(@event);
+
+            ThreadStart newCallback = anyTriplet.X;
 
             if (newCallback == null)
             {
                 TraceOps.DebugTrace(String.Format(
                     "ThreadStartWrapper: missing {0} delegate from {1}",
                     MarshalOps.GetErrorTypeName(typeof(ThreadStart)),
-                    MarshalOps.GetErrorTypeName(typeof(ThreadStartPair))),
+                    MarshalOps.GetErrorTypeName(typeof(ThreadStartTriplet))),
                     typeof(ThreadOps).Name, TracePriority.ThreadError);
 
                 return;
@@ -1632,32 +1651,37 @@ namespace Eagle._Components.Private
             object state /* in */
             ) /* System.Threading.WaitCallback */
         {
-            WaitCallbackPair anyPair = state as WaitCallbackPair;
+            WaitCallbackTriplet anyTriplet = state as WaitCallbackTriplet;
 
-            if (anyPair == null)
+            if (anyTriplet == null)
             {
                 TraceOps.DebugTrace(String.Format(
                     "WaitCallbackWrapper: cannot convert state to {0}",
-                    MarshalOps.GetErrorTypeName(typeof(WaitCallbackPair))),
+                    MarshalOps.GetErrorTypeName(typeof(WaitCallbackTriplet))),
                     typeof(ThreadOps).Name, TracePriority.ThreadError);
 
                 return;
             }
 
-            WaitCallback newCallback = anyPair.X;
+            EventWaitHandle @event = anyTriplet.Z;
+
+            if (@event != null)
+                SetEvent(@event);
+
+            WaitCallback newCallback = anyTriplet.X;
 
             if (newCallback == null)
             {
                 TraceOps.DebugTrace(String.Format(
                     "WaitCallbackWrapper: missing {0} delegate from {1}",
                     MarshalOps.GetErrorTypeName(typeof(WaitCallback)),
-                    MarshalOps.GetErrorTypeName(typeof(WaitCallbackPair))),
+                    MarshalOps.GetErrorTypeName(typeof(WaitCallbackTriplet))),
                     typeof(ThreadOps).Name, TracePriority.ThreadError);
 
                 return;
             }
 
-            object newState = anyPair.Y;
+            object newState = anyTriplet.Y;
 
             Interlocked.Increment(ref queueActiveCount);
 
@@ -1673,33 +1697,140 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static bool QueueUserWorkItem(
-            ThreadStart callBack /* in */
+        private static void WaitForStart(
+            EventWaitHandle @event, /* in */
+            int timeout,            /* in */
+            DateTime started        /* in */
             )
         {
-            return ThreadPool.QueueUserWorkItem(new WaitCallback(
-                ThreadStartWrapper), new ThreadStartPair(callBack));
+            DateTime stopped = TimeOps.GetUtcNow();
+
+            if (WaitEvent(@event, timeout))
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "WaitForStart: success: {0}",
+                    FormatOps.TimeSpan(
+                        stopped.Subtract(started),
+                        true)), typeof(ThreadOps).Name,
+                    TracePriority.ThreadDebug);
+            }
+            else
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "WaitForStart: failure: {0}",
+                    FormatOps.TimeSpan(
+                        stopped.Subtract(started),
+                        true)), typeof(ThreadOps).Name,
+                    TracePriority.ThreadError);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static QueueFlags GetQueueFlags(
+            bool waitForStart /* in */
+            )
+        {
+            QueueFlags result = QueueFlags.Default;
+
+            if (waitForStart)
+                result |= QueueFlags.WaitForStart;
+
+            return result;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static bool QueueUserWorkItem(
-            WaitCallback callBack /* in */
+            ThreadStart callBack, /* in */
+            bool waitForStart     /* in */
             )
         {
-            return ThreadPool.QueueUserWorkItem(new WaitCallback(
-                WaitCallbackWrapper), new WaitCallbackPair(callBack));
+            using (EventWaitHandle @event = waitForStart ?
+                    CreateEvent(false) : null)
+            {
+                DateTime started = TimeOps.GetUtcNow();
+
+                try
+                {
+                    Interlocked.Increment(ref queueCount);
+
+                    return ThreadPool.QueueUserWorkItem(
+                        new WaitCallback(ThreadStartWrapper),
+                        new ThreadStartTriplet(callBack, null, @event));
+                }
+                finally
+                {
+                    if (waitForStart)
+                    {
+                        WaitForStart(
+                            @event, GetDefaultJoinTimeout(), started);
+                    }
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static bool QueueUserWorkItem(
             WaitCallback callBack, /* in */
-            object state           /* in */
+            bool waitForStart      /* in */
             )
         {
-            return ThreadPool.QueueUserWorkItem(new WaitCallback(
-                WaitCallbackWrapper), new WaitCallbackPair(callBack, state));
+            using (EventWaitHandle @event = waitForStart ?
+                    CreateEvent(false) : null)
+            {
+                DateTime started = TimeOps.GetUtcNow();
+
+                try
+                {
+                    Interlocked.Increment(ref queueCount);
+
+                    return ThreadPool.QueueUserWorkItem(
+                        new WaitCallback(WaitCallbackWrapper),
+                        new WaitCallbackTriplet(callBack, null, @event));
+                }
+                finally
+                {
+                    if (waitForStart)
+                    {
+                        WaitForStart(
+                            @event, GetDefaultJoinTimeout(), started);
+                    }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool QueueUserWorkItem(
+            WaitCallback callBack, /* in */
+            object state,          /* in */
+            bool waitForStart      /* in */
+            )
+        {
+            using (EventWaitHandle @event = waitForStart ?
+                    CreateEvent(false) : null)
+            {
+                DateTime started = TimeOps.GetUtcNow();
+
+                try
+                {
+                    Interlocked.Increment(ref queueCount);
+
+                    return ThreadPool.QueueUserWorkItem(
+                        new WaitCallback(WaitCallbackWrapper),
+                        new WaitCallbackTriplet(callBack, state, @event));
+                }
+                finally
+                {
+                    if (waitForStart)
+                    {
+                        WaitForStart(
+                            @event, GetDefaultJoinTimeout(), started);
+                    }
+                }
+            }
         }
         #endregion
 
@@ -1735,6 +1866,9 @@ namespace Eagle._Components.Private
         {
             try
             {
+                Interlocked.Increment(ref eventCount);
+                Interlocked.Increment(ref eventActiveCount);
+
                 return new EventWaitHandle(
                     false, automatic ? EventResetMode.AutoReset :
                     EventResetMode.ManualReset);
@@ -1767,6 +1901,9 @@ namespace Eagle._Components.Private
         {
             try
             {
+                Interlocked.Increment(ref eventCount);
+                Interlocked.Increment(ref eventActiveCount);
+
                 if (ShouldUseNamedEvents())
                 {
                     NamedEventWaitHandle @event = new NamedEventWaitHandle(
@@ -1805,6 +1942,9 @@ namespace Eagle._Components.Private
         {
             try
             {
+                Interlocked.Increment(ref eventCount);
+                Interlocked.Increment(ref eventActiveCount);
+
                 if (ShouldUseNamedEvents())
                 {
                     NamedEventWaitHandle @event = new NamedEventWaitHandle(
@@ -1843,6 +1983,9 @@ namespace Eagle._Components.Private
         {
             try
             {
+                Interlocked.Increment(ref eventCount);
+                Interlocked.Increment(ref eventActiveCount);
+
                 if (ShouldUseNamedEvents())
                 {
                     NamedEventWaitHandle @event = new NamedEventWaitHandle(
@@ -1946,6 +2089,8 @@ namespace Eagle._Components.Private
                     {
                         @event.Close();
                         @event = null;
+
+                        Interlocked.Decrement(ref eventActiveCount);
                     }
                 }
                 else

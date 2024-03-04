@@ -38,6 +38,9 @@ package ifneeded Eagle.File 1.0 \
 package ifneeded Eagle.File.Types 1.0 \
     [list sourceWithInfo [file join $dir file2.eagle]]
 
+package ifneeded Eagle.File.Utf8 1.0 \
+    [list sourceWithInfo [file join $dir file2u.eagle]]
+
 package ifneeded Eagle.File.Finder 1.0 \
     [list sourceWithInfo [file join $dir file3.eagle]]
 

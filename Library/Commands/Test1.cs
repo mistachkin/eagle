@@ -109,11 +109,11 @@ namespace Eagle._Commands
 
 #if TEST
                             bool captureTrace = ScriptOps.HasFlags(interpreter,
-                                InterpreterFlags.CaptureTestTraces, true);
+                                InterpreterTestFlags.CaptureTraces, true);
 #endif
 
                             bool noChangeReturnCode = ScriptOps.HasFlags(interpreter,
-                                InterpreterFlags.NoChangeTestReturnCode, true);
+                                InterpreterTestFlags.NoChangeReturnCode, true);
 
                             ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -216,7 +216,7 @@ namespace Eagle._Commands
                                             // NOTE: Emit tracking information for test scripts?
                                             //
                                             bool track = ScriptOps.HasFlags(
-                                                interpreter, InterpreterFlags.TrackTestScripts,
+                                                interpreter, InterpreterTestFlags.TrackScripts,
                                                 true);
 
                                             ReturnCode bodyCode = ReturnCode.Ok;
@@ -272,7 +272,7 @@ namespace Eagle._Commands
                                                         }
 
                                                         if ((bodyResult == null) && ScriptOps.HasFlags(
-                                                                interpreter, InterpreterFlags.TestNullIsEmpty,
+                                                                interpreter, InterpreterTestFlags.NullIsEmpty,
                                                                 true))
                                                         {
                                                             bodyResult = String.Empty;

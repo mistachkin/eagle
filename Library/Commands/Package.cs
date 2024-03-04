@@ -50,7 +50,7 @@ namespace Eagle._Commands
 
         #region IEnsemble Members
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] { 
-            "forget", "ifneeded", "indexes", "info", "loaded",
+            "absent", "forget", "ifneeded", "indexes", "info", "loaded",
             "names", "pending", "present", "provide", "relativefilename",
             "require", "reset", "scan", "unknown", "vcompare",
             "versions", "vloaded", "vsatisfies", "vsort",
@@ -108,6 +108,75 @@ namespace Eagle._Commands
                         {
                             switch (subCommand)
                             {
+                                case "absent":
+                                    {
+                                        if (arguments.Count >= 3)
+                                        {
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] { 
+                                                new Option(null, OptionFlags.None, Index.Invalid,
+                                                    Index.Invalid, "-exact", null),
+                                                Option.CreateEndOfOptions()
+                                            });
+
+                                            int argumentIndex = Index.Invalid;
+
+                                            code = interpreter.GetOptions(
+                                                options, arguments, 0, 2, Index.Invalid,
+                                                false, ref argumentIndex, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                if ((argumentIndex != Index.Invalid) &&
+                                                    ((argumentIndex + 2) >= arguments.Count))
+                                                {
+                                                    string packageName = arguments[argumentIndex];
+                                                    bool exact = false;
+
+                                                    if (options.IsPresent("-exact"))
+                                                        exact = true;
+
+                                                    Version version = null;
+
+                                                    if ((argumentIndex + 1) < arguments.Count)
+                                                    {
+                                                        code = Value.GetVersion(
+                                                            arguments[argumentIndex + 1],
+                                                            interpreter.InternalCultureInfo,
+                                                            ref version, ref result);
+                                                    }
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        code = interpreter.AbsentPackage(
+                                                            packageName, version, exact,
+                                                            ref result);
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(arguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, arguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"package absent ?-exact? package ?version?\"";
+                                                    }
+
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"package absent ?-exact? package ?version?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "forget":
                                     {
                                         if (arguments.Count >= 2)
@@ -705,7 +774,7 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-whatif"))
                                                             whatIf = true;
 
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         PackageIndexFlags newFlags = oldFlags;
 
                                                         if (whatIf)

@@ -91,10 +91,18 @@ namespace Eagle._Commands
                 if ((code == ReturnCode.Ok) &&
                     FlagOps.HasFlags(updateFlags, UpdateFlags.Queue, true))
                 {
+                    int eventCount = 0;
+
                     code = EventOps.ProcessEvents(
                         interpreter, interpreter.UpdateEventFlags,
                         EventPriority.Update, null, 0, true, false,
-                        ref result);
+                        ref eventCount, ref result);
+
+                    if ((code == ReturnCode.Ok) &&
+                        FlagOps.HasFlags(updateFlags, UpdateFlags.Count, true))
+                    {
+                        result = eventCount;
+                    }
                 }
 
                 if ((code == ReturnCode.Ok) &&

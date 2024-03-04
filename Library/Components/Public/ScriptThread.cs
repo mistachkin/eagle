@@ -545,7 +545,8 @@ namespace Eagle._Components.Public
                     try
                     {
                         if (Engine.QueueWorkItem(
-                                scriptThread.GetWaitCallback(attach), null))
+                                scriptThread.GetWaitCallback(attach),
+                                null, ThreadOps.GetQueueFlags(false)))
                         {
                             if (ThreadOps.WaitEvent(startEvent, timeout))
                             {

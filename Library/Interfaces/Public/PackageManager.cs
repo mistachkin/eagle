@@ -18,6 +18,13 @@ namespace Eagle._Interfaces.Public
     [ObjectId("74ac785b-566a-407f-89ea-325053ca4976")]
     public interface IPackageManager
     {
+        ReturnCode AbsentPackage(
+            string name,
+            Version version,
+            bool exact,
+            ref Result result
+            );
+
         ReturnCode PresentPackage(
             string name,
             Version version,

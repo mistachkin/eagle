@@ -621,6 +621,11 @@ namespace Eagle._Interfaces.Public
             ref Result error
             );
 
+        ReturnCode SwapCommands(
+            ref StringList list,
+            ref Result error
+            );
+
         ///////////////////////////////////////////////////////////////////////
 
         ReturnCode AddSubCommands(

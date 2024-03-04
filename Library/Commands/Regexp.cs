@@ -100,7 +100,7 @@ namespace Eagle._Commands
                                 string pattern = arguments[argumentIndex];
                                 string input = arguments[argumentIndex + 1];
 
-                                Variant value = null;
+                                IVariant value = null;
 
                                 RegexOptions regExOptions =
                                     StringOps.DefaultRegExSyntaxOptions;

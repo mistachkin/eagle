@@ -23,141 +23,135 @@ namespace Eagle._Functions
     [Arguments(Arity.None)]
     [TypeListFlags(TypeListFlags.NumberTypes)]
     [ObjectGroup("aggregate")]
-    internal sealed class Min : Core
+    internal sealed class Min : Arguments
     {
+        #region Public Constructors
         public Min(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
             : base(functionData)
         {
             // do nothing.
         }
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
-            ReturnCode code = ReturnCode.Ok;
+            int argumentCount = 0;
 
-            if (interpreter != null)
+            if (base.Execute(interpreter,
+                    clientData, arguments, ref argumentCount,
+                    ref value, ref error) != ReturnCode.Ok)
             {
-                if (arguments != null)
+                return ReturnCode.Error;
+            }
+
+            if (argumentCount < 2)
+            {
+                error = String.Format(
+                    "too few arguments for math function {0}",
+                    FormatOps.WrapOrNull(base.Name));
+
+                return ReturnCode.Error;
+            }
+
+            IVariant variant1 = null;
+
+            if (Value.GetVariant(interpreter,
+                    (IGetValue)arguments[1], ValueFlags.AnyVariant,
+                    interpreter.InternalCultureInfo, ref variant1,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            for (int argumentIndex = 2;
+                    argumentIndex < argumentCount; argumentIndex++)
+            {
+                IVariant variant2 = null;
+
+                if (Value.GetVariant(interpreter,
+                        (IGetValue)arguments[argumentIndex],
+                        ValueFlags.AnyVariant,
+                        interpreter.InternalCultureInfo,
+                        ref variant2, ref error) != ReturnCode.Ok)
                 {
-                    if (arguments.Count >= 2)
+                    return ReturnCode.Error;
+                }
+
+                if (Value.FixupVariants(
+                        this, variant1, variant2, null, null,
+                        false, false, ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+
+                try
+                {
+                    if (variant1.IsDouble())
                     {
-                        Variant variant1 = null;
-
-                        code = Value.GetVariant(interpreter,
-                            (IGetValue)arguments[1], ValueFlags.AnyVariant,
-                            interpreter.InternalCultureInfo, ref variant1, ref error);
-
-                        if (code == ReturnCode.Ok)
-                        {
-                            for (int argumentIndex = 2; argumentIndex < arguments.Count; argumentIndex++)
-                            {
-                                Variant variant2 = null;
-
-                                code = Value.GetVariant(interpreter,
-                                    (IGetValue)arguments[argumentIndex], ValueFlags.AnyVariant,
-                                    interpreter.InternalCultureInfo, ref variant2, ref error);
-
-                                if (code != ReturnCode.Ok)
-                                    break;
-
-                                code = Value.FixupVariants(
-                                    this, variant1, variant2, null, null, false, false,
-                                    ref error);
-
-                                if (code != ReturnCode.Ok)
-                                    break;
-
-                                try
-                                {
-                                    if (variant1.IsDouble())
-                                    {
-                                        variant1.Value = Math.Min(
-                                            (double)variant1.Value, (double)variant2.Value);
-                                    }
-                                    else if (variant1.IsDecimal())
-                                    {
-                                        variant1.Value = Math.Min(
-                                            (decimal)variant1.Value, (decimal)variant2.Value);
-                                    }
-                                    else if (variant1.IsWideInteger())
-                                    {
-                                        variant1.Value = Math.Min(
-                                            (long)variant1.Value, (long)variant2.Value);
-                                    }
-                                    else if (variant1.IsInteger())
-                                    {
-                                        variant1.Value = Math.Min(
-                                            (int)variant1.Value, (int)variant2.Value);
-                                    }
-                                    else if (variant1.IsBoolean())
-                                    {
-                                        variant1.Value = Math.Min(
-                                            ConversionOps.ToInt((bool)variant1.Value),
-                                            ConversionOps.ToInt((bool)variant2.Value));
-                                    }
-                                    else
-                                    {
-                                        error = String.Format(
-                                            "unsupported variant type for function {0}",
-                                            FormatOps.WrapOrNull(base.Name));
-
-                                        code = ReturnCode.Error;
-                                    }
-                                }
-                                catch (Exception e)
-                                {
-                                    Engine.SetExceptionErrorCode(interpreter, e);
-
-                                    error = String.Format(
-                                        "caught math exception: {0}",
-                                        e);
-
-                                    code = ReturnCode.Error;
-                                    break;
-                                }
-                            }
-
-                            if (code == ReturnCode.Ok)
-                            {
-                                value = Argument.GetOrCreate(
-                                    interpreter, variant1,
-                                    interpreter.HasNoCacheArgument());
-                            }
-                        }
+                        variant1.Value = Math.Min(
+                            (double)variant1.Value,
+                            (double)variant2.Value);
+                    }
+                    else if (variant1.IsDecimal())
+                    {
+                        variant1.Value = Math.Min(
+                            (decimal)variant1.Value,
+                            (decimal)variant2.Value);
+                    }
+                    else if (variant1.IsWideInteger())
+                    {
+                        variant1.Value = Math.Min(
+                            (long)variant1.Value,
+                            (long)variant2.Value);
+                    }
+                    else if (variant1.IsInteger())
+                    {
+                        variant1.Value = Math.Min(
+                            (int)variant1.Value,
+                            (int)variant2.Value);
+                    }
+                    else if (variant1.IsBoolean())
+                    {
+                        variant1.Value = Math.Min(
+                            ConversionOps.ToInt(
+                                (bool)variant1.Value),
+                            ConversionOps.ToInt(
+                                (bool)variant2.Value));
                     }
                     else
                     {
                         error = String.Format(
-                            "too few arguments for math function {0}",
+                            "unsupported argument type for function {0}",
                             FormatOps.WrapOrNull(base.Name));
 
-                        code = ReturnCode.Error;
+                        return ReturnCode.Error;
                     }
                 }
-                else
+                catch (Exception e)
                 {
-                    error = "invalid argument list";
-                    code = ReturnCode.Error;
+                    Engine.SetExceptionErrorCode(interpreter, e);
+
+                    error = String.Format("caught math exception: {0}", e);
+
+                    return ReturnCode.Error;
                 }
             }
-            else
-            {
-                error = "invalid interpreter";
-                code = ReturnCode.Error;
-            }
 
-            return code;
+            value = Argument.GetOrCreate(
+                interpreter, variant1, interpreter.HasNoCacheArgument());
+
+            return ReturnCode.Ok;
         }
         #endregion
     }

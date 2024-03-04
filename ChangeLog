@@ -1,6 +1,84 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
+BUGFIX: fix and/or address Coverity issues from #330323 to #342758.
+
+BUGFIX: add preliminary support for the .NET 8.0 runtime.
+
+BUGFIX: when cloning variables for [scope create -clone], make a copy of the
+        variable container dictionary before passing it into the method that
+        enumerates it (i.e. MaybeCopyFrom), since arbitrary variable traces
+        may be fired, which may then modify the original variable container
+        dictionary.
+
+BUGFIX: for the purposes of [scope create -clone], make sure the auto-path
+        variable is treated as a "special variable" and skipped over.
+
+BUGFIX: script library helper procedures from file3.eagle depend on those from
+        runopt.eagle being available even when running in native Tcl.
+
+BUGFIX: add several missing procedures from the test constraints package to the
+        list of its native Tcl exports.
+
+REFACTOR: *BREAKING CHANGE* add the ISynchronizeStatic interface, rename the
+          ISimpleSynchronize interface to ISynchronizeSimple, and support the
+          ISynchronizeStatic interface in the Interpreter class.
+
+REFACTOR: *BREAKING CHANGE* completely rewrote the Variant subsystem and all
+          the associated expression operators to simplify the code and improve
+          performance.  Special thanks to PaulBraetz@GitHub for inspiring this
+          work.
+
+REFACTOR: *BREAKING CHANGE* all write access to the System.Console class now
+          go through the ConsoleOps or HostOps classes.  Optionally, these can
+          both be configured to use the native Win32 API WriteConsoleW.
+
+REFACTOR: *BREAKING CHANGE* enhancements to the tracing subsystem to provide a
+          bit more context for each message.
+
+REFACTOR: *BREAKING CHANGE* move all test related interpreter flags into a new
+          enumeration named InterpreterTestFlags.  added interactive #dtflags
+          and #itflags commands.  added -noCleanup option to [test2] command.
+          add InterpreterTestFlags property to the InterpreterHelper class.
+
+REFACTOR: *BREAKING CHANGE* add the file2u.eagle core library script file, move
+          several Unicode related procedures into it, and add two more sets of
+          procedures, one for Unicode without line-ending translations and one
+          for UTF-8.
+
+FEATURE: add [string is versionrange] sub-command.
+
+FEATURE: add listRuntimeOptions and toggleRuntimeOption core script library
+         helper procedures.
+
+FEATURE: add [package absent] sub-command.  it will raise a script error if a
+         specified package is present in the interpreter.
+
+FEATURE: add [string is inetaddr] sub-command and the [getExternalIpAddress]
+         core script library helper procedure.
+
+FEATURE: add [file trusted] and [file verified] sub-commands.
+
+FEATURE: add the -trustedonly and -verifiedonly options to the [object load]
+         sub-command.
+
+FEATURE: add [host font] sub-command to query and/or change font used with the
+         System.Console class.
+
+FEATURE: add support for decimal and double option values.
+
+FEATURE: add GetNullableTimeSpan2 method to the Value class.
+
+FEATURE: add GetTotalLength, IsFramework20, IsFramework40, CopyTrustedHashes,
+         CheckDefineConstants, FormatTracePriority, FormatDefineConstants, and
+         GetUtcNowTicks methods to the Utility class.
+
+FEATURE: add overloads for the PushActiveInterpreter, HashString, GetBytes,
+         GetUniqueElements, and QueueUserWorkItem methods within the Utility
+         class.
+
+************************* Beta 1.0.8503.24499 RELEASE *************************
+
 BUGFIX: fix and/or address Coverity issues from #300175 to #316072.
 
 BUGFIX: prevent the built-in Diagnostic host from emitting one character at a

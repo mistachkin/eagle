@@ -33,7 +33,7 @@ namespace Eagle._Operators
         //       core operator set.
         //
         public Core(
-            IOperatorData operatorData
+            IOperatorData operatorData /* in */
             )
             : base(operatorData)
         {
@@ -51,10 +51,10 @@ namespace Eagle._Operators
 
         #region IExecute Members
         public virtual ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

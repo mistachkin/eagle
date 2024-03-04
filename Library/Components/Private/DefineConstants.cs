@@ -17,7 +17,37 @@ namespace Eagle._Constants
     [ObjectId("428a5842-dcd7-46e7-8b40-decfabb331a2")]
     internal static class DefineConstants
     {
-        public static readonly StringList OptionList = new StringList(new string[] {
+        public static readonly StringList DotNetFramework =
+            new StringList(new string[] {
+            "NET_20",
+            "NET_30",
+            "NET_35",
+            "NET_40",
+            "NET_45",
+            "NET_451",
+            "NET_452",
+            "NET_46",
+            "NET_461",
+            "NET_462",
+            "NET_47",
+            "NET_471",
+            "NET_472",
+            "NET_48",
+            "NET_481"
+        });
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static readonly StringList DotNetCore =
+            new StringList(new string[] {
+            "NET_STANDARD_20",
+            "NET_STANDARD_21"
+        });
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static readonly StringList OptionList =
+            new StringList(new string[] {
 #if APPDOMAINS
             "APPDOMAINS",
 #endif

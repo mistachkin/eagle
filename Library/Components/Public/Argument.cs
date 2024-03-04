@@ -222,23 +222,6 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Dead Code
-#if DEAD_CODE
-        [DebuggerStepThrough()]
-        private Argument(
-            Number value
-            )
-            : this(NoFlags, NoName, (value != null) ? value.Value : null,
-                   NoDefault, NoFileName, NoLine, NoLine, NoViaSource,
-                   NoCacheValue, NoHashValue)
-        {
-            // do nothing.
-        }
-#endif
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         [DebuggerStepThrough()]
         private Argument(
             Interpreter value
@@ -251,8 +234,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        [DebuggerStepThrough()]
         private Argument(
-            Variant value
+            IGetValue value
             )
             : this(NoFlags, NoName, (value != null) ? value.Value : null,
                    NoDefault, NoFileName, NoLine, NoLine, NoViaSource,
@@ -476,7 +460,7 @@ namespace Eagle._Components.Public
         /* INTERNAL STATIC OK */
         [DebuggerStepThrough()]
         internal static Argument InternalCreate(
-            Variant value
+            IGetValue value
             )
         {
             return new Argument(value);
@@ -565,7 +549,7 @@ namespace Eagle._Components.Public
         [DebuggerStepThrough()]
         internal static Argument GetOrCreate(
             Interpreter interpreter,
-            Variant value,
+            IVariant value,
             bool createOnly
             )
         {
@@ -1006,16 +990,6 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         [DebuggerStepThrough()]
-        private static Argument FromVariant(
-            Variant value
-            )
-        {
-            return InternalCreate(value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        [DebuggerStepThrough()]
         private static Argument FromDouble(
             double value
             )
@@ -1307,19 +1281,6 @@ namespace Eagle._Components.Public
         {
             if (value != null)
                 return FromResult(value);
-            else
-                return null;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        [DebuggerStepThrough()]
-        public static implicit operator Argument(
-            Variant value
-            )
-        {
-            if (value != null)
-                return FromVariant(value);
             else
                 return null;
         }

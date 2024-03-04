@@ -23,125 +23,99 @@ namespace Eagle._Functions
     [Arguments(Arity.Unary)]
     [TypeListFlags(TypeListFlags.NumberTypes)]
     [ObjectGroup("logarithmic")]
-    internal sealed class Log2 : Core
+    internal sealed class Log2 : Arguments
     {
+        #region Public Constructors
         public Log2(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
             : base(functionData)
         {
             // do nothing.
         }
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
-            ReturnCode code = ReturnCode.Ok;
-
-            if (interpreter != null)
+            if (base.Execute(
+                    interpreter, clientData, arguments, ref value,
+                    ref error) != ReturnCode.Ok)
             {
-                if (arguments != null)
+                return ReturnCode.Error;
+            }
+
+            IVariant variant1 = null;
+
+            if (Value.GetVariant(interpreter,
+                    (IGetValue)arguments[1], ValueFlags.AnyVariant,
+                    interpreter.InternalCultureInfo, ref variant1,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            try
+            {
+                if (variant1.IsDouble())
                 {
-                    if (arguments.Count == (this.Arguments + 1))
+                    value = Math.Log((double)variant1.Value, 2);
+                }
+                else if (variant1.IsDecimal())
+                {
+                    if (variant1.ConvertTo(TypeCode.Double))
                     {
-                        Variant variant1 = null;
-
-                        code = Value.GetVariant(interpreter,
-                            (IGetValue)arguments[1], ValueFlags.AnyVariant,
-                            interpreter.InternalCultureInfo, ref variant1, ref error);
-
-                        if (code == ReturnCode.Ok)
-                        {
-                            try
-                            {
-                                if (variant1.IsDouble())
-                                {
-                                    value = Math.Log((double)variant1.Value, 2);
-                                }
-                                else if (variant1.IsDecimal())
-                                {
-                                    if (variant1.ConvertTo(typeof(double)))
-                                    {
-                                        value = Math.Log((double)variant1.Value, 2);
-                                    }
-                                    else
-                                    {
-                                        error = String.Format(
-                                            "could not convert decimal {0} to double",
-                                            FormatOps.WrapOrNull(arguments[1]));
-
-                                        code = ReturnCode.Error;
-                                    }
-                                }
-                                else if (variant1.IsWideInteger())
-                                {
-                                    value = MathOps.Log2((long)variant1.Value);
-                                }
-                                else if (variant1.IsInteger())
-                                {
-                                    value = MathOps.Log2((int)variant1.Value);
-                                }
-                                else if (variant1.IsBoolean())
-                                {
-                                    value = MathOps.Log2(
-                                        ConversionOps.ToInt((bool)variant1.Value));
-                                }
-                                else
-                                {
-                                    error = String.Format(
-                                        "unsupported variant type for function {0}",
-                                        FormatOps.WrapOrNull(base.Name));
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            catch (Exception e)
-                            {
-                                Engine.SetExceptionErrorCode(interpreter, e);
-
-                                error = String.Format(
-                                    "caught math exception: {0}",
-                                    e);
-
-                                code = ReturnCode.Error;
-                            }
-                        }
+                        value = Math.Log((double)variant1.Value, 2);
                     }
                     else
                     {
-                        if (arguments.Count > (this.Arguments + 1))
-                            error = String.Format(
-                                "too many arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-                        else
-                            error = String.Format(
-                                "too few arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
+                        error = String.Format(
+                            "could not convert decimal {0} to double",
+                            FormatOps.WrapOrNull(arguments[1]));
 
-                        code = ReturnCode.Error;
+                        return ReturnCode.Error;
                     }
+                }
+                else if (variant1.IsWideInteger())
+                {
+                    value = MathOps.Log2((long)variant1.Value);
+                }
+                else if (variant1.IsInteger())
+                {
+                    value = MathOps.Log2((int)variant1.Value);
+                }
+                else if (variant1.IsBoolean())
+                {
+                    value = MathOps.Log2(
+                        ConversionOps.ToInt((bool)variant1.Value));
                 }
                 else
                 {
-                    error = "invalid argument list";
-                    code = ReturnCode.Error;
+                    error = String.Format(
+                        "unsupported argument type for function {0}",
+                        FormatOps.WrapOrNull(base.Name));
+
+                    return ReturnCode.Error;
                 }
             }
-            else
+            catch (Exception e)
             {
-                error = "invalid interpreter";
-                code = ReturnCode.Error;
+                Engine.SetExceptionErrorCode(interpreter, e);
+
+                error = String.Format("caught math exception: {0}", e);
+
+                return ReturnCode.Error;
             }
 
-            return code;
+            return ReturnCode.Ok;
         }
         #endregion
     }

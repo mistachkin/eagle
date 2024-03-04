@@ -3832,13 +3832,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string RemoveExtension(
+            string path /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(path))
+                return path;
+
+            int index = path.LastIndexOf(Characters.Period);
+
+            if (index == Index.Invalid)
+                return path;
+
+            return path.Substring(0, index);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string GetExtension(
             string path /* in */
             )
         {
             try
             {
-                return Path.GetExtension(path);
+                return Path.GetExtension(path); /* throw */
             }
             catch
             {
@@ -6245,7 +6262,9 @@ namespace Eagle._Components.Private
             ref Result error /* out */
             )
         {
-            if (String.IsNullOrEmpty(fileName))
+            string localFileName = fileName;
+
+            if (String.IsNullOrEmpty(localFileName))
             {
                 error = "invalid file name";
                 return null;
@@ -6253,11 +6272,17 @@ namespace Eagle._Components.Private
 
             try
             {
-                if (GetPathType(fileName) != PathType.Absolute)
+                if (GetPathType(localFileName) != PathType.Absolute)
                 {
                     error = "file name not absolute";
                     return null;
                 }
+
+                //
+                // BUGFIX: Make sure that the native directory
+                //         separators are always used.
+                //
+                localFileName = GetNativePath(localFileName);
 
                 //
                 // HACK: Make sure the global paths are setup
@@ -6277,13 +6302,13 @@ namespace Eagle._Components.Private
                         continue;
 
                     if (!SharedStringOps.StartsWith(
-                            fileName, path, ComparisonType))
+                            localFileName, path, ComparisonType))
                     {
                         continue;
                     }
 
                     string relativeFileName = MaybeTrimStart(
-                        fileName.Substring(path.Length));
+                        localFileName.Substring(path.Length));
 
                     string[] parts; /* REUSED */
                     string part; /* REUSED */
@@ -6402,10 +6427,22 @@ namespace Eagle._Components.Private
             string path /* in */
             )
         {
-            if (!HasDirectory(path))
-                return path;
+            string result = path;
 
-            return Path.GetFileName(path);
+            if (String.IsNullOrEmpty(result))
+                return result;
+
+            try
+            {
+                if (!HasDirectory(result)) /* throw? */
+                    return result;
+
+                return Path.GetFileName(result); /* throw */
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6416,31 +6453,40 @@ namespace Eagle._Components.Private
         {
             string result = path;
 
+            if (String.IsNullOrEmpty(result))
+                return result;
+
             try
             {
-                if (!String.IsNullOrEmpty(result))
+                //
+                // HACK: This is a horrible hack.
+                //
+                if (IsRemoteUri(result))
                 {
-                    if (IsRemoteUri(result))
-                    {
-                        //
-                        // HACK: This is a horrible hack.
-                        //
-                        result = GetUnixPath(Path.GetDirectoryName(result));
-                    }
-                    else
-                    {
-                        result = Path.GetDirectoryName(result);
-                    }
+                    return GetUnixPath(
+                        Path.GetDirectoryName(
+                            result)); /* throw */
                 }
-
-                return result;
+                else
+                {
+                    return Path.GetDirectoryName(
+                        result); /* throw */
+                }
             }
+#if DEBUG && VERBOSE
+            catch (Exception e)
+#else
             catch
+#endif
             {
-                // do nothing.
-            }
+#if DEBUG && VERBOSE
+                TraceOps.DebugTrace(
+                    e, typeof(PathOps).Name,
+                    TracePriority.FileSystemError);
+#endif
 
-            return null;
+                return null;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6766,7 +6812,7 @@ namespace Eagle._Components.Private
         {
             try
             {
-                IEnumerable<string> localPaths; /* REUSED */
+                string[] localPaths; /* REUSED */
 
                 localPaths = Directory.GetDirectories(
                     GetNativePath(path), searchPattern,
@@ -6774,6 +6820,8 @@ namespace Eagle._Components.Private
 
                 if (localPaths != null)
                 {
+                    Array.Sort(localPaths); /* O(N) */
+
                     foreach (string localPath in localPaths)
                     {
                         if (String.IsNullOrEmpty(localPath))
@@ -6810,7 +6858,7 @@ namespace Eagle._Components.Private
         {
             try
             {
-                IEnumerable<string> localPaths; /* REUSED */
+                string[] localPaths; /* REUSED */
 
                 localPaths = Directory.GetFiles(
                     GetNativePath(path), searchPattern,
@@ -6818,6 +6866,8 @@ namespace Eagle._Components.Private
 
                 if (localPaths != null)
                 {
+                    Array.Sort(localPaths); /* O(N) */
+
                     foreach (string localPath in localPaths)
                     {
                         if (String.IsNullOrEmpty(localPath))
@@ -6836,6 +6886,8 @@ namespace Eagle._Components.Private
 
                 if (localPaths != null)
                 {
+                    Array.Sort(localPaths); /* O(N) */
+
                     foreach (string localPath in localPaths)
                     {
                         if (String.IsNullOrEmpty(localPath))
@@ -6972,7 +7024,7 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            IEnumerable<string> localPaths; /* REUSED */
+            string[] localPaths; /* REUSED */
             StringList localList; /* REUSED */
 
             bool anyLevel = FlagOps.HasFlags(
@@ -7013,6 +7065,9 @@ namespace Eagle._Components.Private
 
                         localPaths = null;
                     }
+
+                    if (localPaths != null)
+                        Array.Sort(localPaths); /* O(N) */
                 }
 
                 if (localPaths != null)
@@ -7059,6 +7114,9 @@ namespace Eagle._Components.Private
 
                         localPaths = null;
                     }
+
+                    if (localPaths != null)
+                        Array.Sort(localPaths); /* O(N) */
                 }
 
                 if (localPaths != null)
@@ -7685,6 +7743,85 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static bool IsScriptFile(
+            string path,    /* in */
+            bool noXml,     /* in */
+            bool noValidate /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(path))
+                return false;
+
+            string extension = GetExtension(path);
+
+            if (String.IsNullOrEmpty(extension))
+                return false;
+
+            if (SharedStringOps.Equals(extension,
+                    FileExtension.Script, ComparisonType))
+            {
+                return true;
+            }
+
+#if XML
+            //
+            // HACK: Generally, it would be something of an
+            //       "bad" pattern in this library to have
+            //       this class call into the XmlOps class;
+            //       however, it is needed for the snippet
+            //       subsystem -AND- callers can opt-out of
+            //       this behavior.
+            //
+            if (!noXml && SharedStringOps.Equals(extension,
+                    FileExtension.Markup, ComparisonType))
+            {
+                Result error = null;
+
+                if (noValidate || (XmlOps.ValidateScriptFile(
+                        path, true, ref error) == ReturnCode.Ok))
+                {
+                    return true;
+                }
+                else
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "IsScriptFile: path = {0}, error = {1}",
+                        FormatOps.WrapOrNull(path),
+                        FormatOps.WrapOrNull(error)),
+                        typeof(PathOps).Name,
+                        TracePriority.ScriptError2);
+                }
+            }
+#endif
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IsSignatureFile(
+            string path /* in */
+            )
+        {
+            if (String.IsNullOrEmpty(path))
+                return false;
+
+            string extension = GetExtension(path);
+
+            if (String.IsNullOrEmpty(extension))
+                return false;
+
+            if (SharedStringOps.Equals(extension,
+                    FileExtension.Signature, ComparisonType))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static bool IsSameFile(
             Interpreter interpreter, /* in: OPTIONAL */
             string path1,            /* in */
@@ -7850,11 +7987,28 @@ namespace Eagle._Components.Private
             string path /* in */
             )
         {
+            bool isDirectory;
+            bool isFile;
+
+            return PathExists(path, out isDirectory, out isFile);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool PathExists(
+            string path,          /* in */
+            out bool isDirectory, /* out */
+            out bool isFile       /* out */
+            )
+        {
             //
-            // NOTE: Does the specified path exist as either an
-            //       existing directory or a file?
+            // NOTE: Does the path specified actually exist
+            //       as either a directory or regular file?
             //
-            return Directory.Exists(path) || File.Exists(path);
+            isDirectory = Directory.Exists(path);
+            isFile = File.Exists(path);
+
+            return isDirectory || isFile;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

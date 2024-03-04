@@ -80,7 +80,7 @@ namespace Eagle._Commands
                 {
                     if (argumentIndex != Index.Invalid)
                     {
-                        Variant value = null;
+                        IVariant value = null;
                         string pathPrefix = null;
 
                         if (options.IsPresent("-path", ref value))

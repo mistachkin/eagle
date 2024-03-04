@@ -385,6 +385,7 @@ IF ERRORLEVEL 1 (
   GOTO errors
 )
 
+%_CECHO% "%TOOLS%\JustWait.exe" "%PAUSE_MILLISECONDS%"
 %__ECHO% "%TOOLS%\JustWait.exe" "%PAUSE_MILLISECONDS%"
 
 IF ERRORLEVEL 1 (
@@ -407,6 +408,7 @@ IF ERRORLEVEL 1 (
   GOTO errors
 )
 
+%_CECHO% "%TOOLS%\JustWait.exe" "%PAUSE_MILLISECONDS%"
 %__ECHO% "%TOOLS%\JustWait.exe" "%PAUSE_MILLISECONDS%"
 
 IF ERRORLEVEL 1 (
@@ -430,6 +432,7 @@ IF NOT DEFINED NOSIGNTOOL2 (
     GOTO errors
   )
 
+  %_CECHO% "%TOOLS%\JustWait.exe" "%PAUSE_MILLISECONDS%"
   %__ECHO% "%TOOLS%\JustWait.exe" "%PAUSE_MILLISECONDS%"
 
   IF ERRORLEVEL 1 (
@@ -450,6 +453,7 @@ IF NOT DEFINED NOSIGNTOOL3 (
     GOTO errors
   )
 
+  %_CECHO% "%TOOLS%\JustWait.exe" "%PAUSE_MILLISECONDS%"
   %__ECHO% "%TOOLS%\JustWait.exe" "%PAUSE_MILLISECONDS%"
 
   IF ERRORLEVEL 1 (

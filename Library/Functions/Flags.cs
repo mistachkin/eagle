@@ -26,94 +26,65 @@ namespace Eagle._Functions
     [Arguments(Arity.Unary)]
     [TypeListFlags(TypeListFlags.StringTypes)]
     [ObjectGroup("control")]
-    internal sealed class Flags : Core
+    internal sealed class Flags : Arguments
     {
+        #region Public Constructors
         public Flags(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
             : base(functionData)
         {
             // do nothing.
         }
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
-            ReturnCode code = ReturnCode.Ok;
-
-            if (interpreter != null)
+            if (base.Execute(
+                    interpreter, clientData, arguments, ref value,
+                    ref error) != ReturnCode.Ok)
             {
-                if (arguments != null)
-                {
-                    if (arguments.Count == (this.Arguments + 1))
-                    {
-                        lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
-                        {
-                            object enumValue = EnumOps.TryParseFlags(
-                                interpreter, typeof(ExpressionFlags),
-                                interpreter.ExpressionFlags.ToString(),
-                                arguments[1], interpreter.InternalCultureInfo,
-                                true, true, true, ref error);
-
-                            if (enumValue is ExpressionFlags)
-                            {
-                                try
-                                {
-                                    interpreter.ExpressionFlags = (ExpressionFlags)enumValue;
-                                    value = interpreter.ExpressionFlags;
-                                }
-                                catch (Exception e)
-                                {
-                                    Engine.SetExceptionErrorCode(interpreter, e);
-
-                                    error = String.Format(
-                                        "caught math exception: {0}",
-                                        e);
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            else
-                            {
-                                code = ReturnCode.Error;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (arguments.Count > (this.Arguments + 1))
-                            error = String.Format(
-                                "too many arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-                        else
-                            error = String.Format(
-                                "too few arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-
-                        code = ReturnCode.Error;
-                    }
-                }
-                else
-                {
-                    error = "invalid argument list";
-                    code = ReturnCode.Error;
-                }
-            }
-            else
-            {
-                error = "invalid interpreter";
-                code = ReturnCode.Error;
+                return ReturnCode.Error;
             }
 
-            return code;
+            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+            {
+                object enumValue = EnumOps.TryParseFlags(
+                    interpreter, typeof(ExpressionFlags),
+                    interpreter.ExpressionFlags.ToString(),
+                    arguments[1], interpreter.InternalCultureInfo,
+                    true, true, true, ref error);
+
+                if (!(enumValue is ExpressionFlags))
+                    return ReturnCode.Error;
+
+                try
+                {
+                    interpreter.ExpressionFlags =
+                        (ExpressionFlags)enumValue;
+
+                    value = interpreter.ExpressionFlags;
+                }
+                catch (Exception e)
+                {
+                    Engine.SetExceptionErrorCode(interpreter, e);
+
+                    error = String.Format("caught math exception: {0}", e);
+
+                    return ReturnCode.Error;
+                }
+            }
+
+            return ReturnCode.Ok;
         }
         #endregion
     }

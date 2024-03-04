@@ -1,0 +1,325 @@
+###############################################################################
+#
+# lockBuild.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Output Directory Locking Tool for MSBuild
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  if {[llength $argv] != 1} then {
+    error [appendArgs \
+        "usage: " [file tail [getShellExecutableName]] \
+        " " [file tail [info script]] " " <enable>]
+  }
+
+  set enable [lindex $argv 0]
+
+  if {[string is not boolean -strict $enable]} then {
+    error "enable flag argument must be boolean"
+  }
+
+  if {![info exists whatIf]} then {
+    set whatIf false
+  }
+
+  if {[info exists env(EAGLE)]} then {
+    set baseDirectory [file normalize $env(EAGLE)]
+  } else {
+    set baseDirectory [file normalize [info base]]
+  }
+
+  if {![info exists configuration]} then {
+    set configuration Debug; # TODO: Good default?
+  }
+
+  if {![info exists textOrSuffix]} then {
+    if {$configuration eq [info engine Configuration]} then {
+      set textOrSuffix [info engine TextOrSuffix]
+    } else {
+      set textOrSuffix ""
+    }
+  }
+
+  if {![info exists harpyDirectory]} then {
+    set harpyDirectory [file join \
+        $baseDirectory bin [appendArgs $configuration \
+        $textOrSuffix] lib Harpy1.0]
+  }
+
+  proc maybeWhatIf { args } {
+    variable whatIf
+
+    if {$whatIf} then {
+      puts stdout [appendArgs $args \n]; return ""
+    } else {
+      return [uplevel 1 $args]
+    }
+  }
+
+  proc writeLockFile { fileName } {
+    variable canary
+
+    if {[file exists $fileName]} then {
+      return false
+    } else {
+      writeFile $fileName [string map \
+          [list \n \r\n] [appendArgs [string trim [subst {
+#
+# <${canary}>
+#   This build output directory has been locked for use by clients.
+#   Locked as of: [clock format [clock seconds] -iso -gmt true]Z
+# </${canary}>
+#
+      }]] \n]]
+
+      file attributes $fileName -readOnly true
+      return true
+    }
+  }
+
+  proc isRelativeTo { fileName directory {varName ""} } {
+    set directory [file normalize $directory]
+    set directoryLength [string length $directory]
+
+    if {$directoryLength == 0} then {
+      return false
+    }
+
+    set fileName [file normalize $fileName]
+    set fileNameLength [string length $fileName]
+
+    if {$fileNameLength == 0 || \
+        $fileNameLength <= $directoryLength} then {
+      return false
+    }
+
+    set index $directoryLength; # -1 for position, +1 for slash
+
+    if {[file join [string range $fileName 0 $index] .] eq \
+        [file join $directory .]} then {
+      if {[string length $varName] > 0} then {
+        upvar 1 $varName relativeFileName
+      }
+
+      set relativeFileName \
+          [string range $fileName [incr index] end]
+
+      return true
+    }
+
+    return false
+  }
+
+  proc maybeCreateDirectoryFor { fileName } {
+    set directory [file dirname $fileName]
+
+    if {![file exists $directory]} then {
+      maybeWhatIf file mkdir $directory
+    }
+  }
+
+  proc copyDirectoryRecursive { sourceDirectory targetDirectory } {
+    if {[file exists $sourceDirectory]} then {
+      set sourceFileNames [findFilesRecursive \
+          [file join [file normalize $sourceDirectory] *]]
+
+      foreach sourceFileName $sourceFileNames {
+        if {[isRelativeTo $sourceFileName \
+            $sourceDirectory relativeFileName]} then {
+          set targetFileName [file join \
+              $targetDirectory $relativeFileName]
+
+          if {![file exists $targetFileName]} then {
+            maybeCreateDirectoryFor $targetFileName
+
+            maybeWhatIf file copy $sourceFileName \
+                $targetFileName
+          }
+        }
+      }
+    }
+  }
+
+  proc isLockedDirectory { fileName directory {varName ""} } {
+    variable canary
+
+    if {![file exists $fileName]} then {
+      return false
+    }
+
+    if {![file attributes $fileName -readOnly]} then {
+      error [appendArgs \
+          "file \"" $fileName "\" must be read-only"]
+    }
+
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName data
+    }
+
+    set data [readFile $fileName]
+
+    if {[string first [appendArgs < $canary >] $data] == -1 || \
+        [string first [appendArgs </ $canary >] $data] == -1} then {
+      error [appendArgs \
+          "missing canary for directory \"" $directory \
+          "\" within file \"" $fileName \"]
+    }
+
+    if {[string first $directory $data] != -1} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  proc lockDirectory { fileName directory } {
+    variable lockSddl
+
+    if {[isLockedDirectory $fileName $directory data]} then {
+      puts stdout [appendArgs \
+          "directory \"" $directory "\" appears already locked"]
+
+      return
+    }
+
+    set data [string map [list \r\n \n] $data]; # unix
+
+    append data \n [list \
+        set savedSddl($directory) \
+        [file sddl $directory]] \n
+
+    set parentDirectory [file dirname $directory]
+    set parentWebConfig [file join $parentDirectory Web.config]
+
+    if {[file exists $parentWebConfig]} then {
+      append data \n [list \
+          set savedSddl($parentWebConfig) \
+          [file sddl $parentWebConfig]] \n
+    }
+
+    set data [string map [list \n \r\n] $data]
+    maybeWhatIf file attributes $fileName -readOnly false
+
+    try {
+      maybeWhatIf writeFile $fileName $data
+    } finally {
+      maybeWhatIf file attributes $fileName -readOnly true
+    }
+
+    maybeWhatIf file sddl $directory $lockSddl
+
+    if {[file exists $parentWebConfig]} then {
+      maybeWhatIf file sddl $parentWebConfig $lockSddl
+    }
+
+    puts stdout [appendArgs \
+        "directory \"" $directory "\" is now locked"]
+  }
+
+  proc unlockDirectory { fileName directory } {
+    global env
+    variable savedSddl
+
+    isLockedDirectory $fileName $directory; # error (?)
+    source $fileName
+
+    if {![info exists savedSddl($directory)]} then {
+      error [appendArgs \
+          "missing saved SDDL for directory \"" $directory \"]
+    }
+
+    foreach name [lsort [array names savedSddl]] {
+      if {[file exists $name]} then {
+        maybeWhatIf file sddl $name $savedSddl($name)
+      }
+    }
+
+    maybeWhatIf file attributes $fileName -readOnly false
+
+    if {[info exists env(WriteBuildLockFiles)]} then {
+      maybeWhatIf file delete $fileName
+    } else {
+      set backupFileName [appendArgs $fileName . [pid]]
+
+      try {
+        maybeWhatIf file rename $fileName $backupFileName
+      } finally {
+        maybeWhatIf file attributes $backupFileName -readOnly true
+      }
+    }
+
+    puts stdout [appendArgs \
+        "directory \"" $directory "\" is now unlocked"]
+  }
+
+  addRuntimeOption findViaGlob; # HACK: No popup console windows.
+  set canary eagle.build.lock.file
+  set lockSddl "D:P(A;OICI;0x1200a9;;;WD)"; # TODO: Optimize this?
+  set lockFileNameOnly LOCKED; # COMPAT: Eagle beta.
+
+  if {[info exists env(LockBuildFastAndClean)]} then {
+    set directories [list \
+        [file join $baseDirectory Service bin] \
+        [file join $baseDirectory Plugins Commercial \
+            Enterprise Kapok bin]]
+
+    set fileNames [list]
+
+    foreach directory $directories {
+      set fileName [file join $directory $lockFileNameOnly]
+
+      if {$enable && \
+          [info exists env(WriteBuildLockFiles)] && \
+          [file exists $directory] && \
+          ![isLockedDirectory $fileName $directory]} then {
+        writeLockFile $fileName
+      }
+
+      lappend fileNames $fileName
+    }
+  } else {
+    set fileNames [findFilesRecursive [file normalize \
+        [file join $baseDirectory $lockFileNameOnly]]]
+  }
+
+  foreach fileName $fileNames {
+    if {[file exists $fileName]} then {; # HACK: LockBuildFastAndClean
+      set fileNameOnly [file tail $fileName]
+
+      if {$fileNameOnly eq $lockFileNameOnly} then {; # case-sensitive
+        set directory [file dirname $fileName]
+
+        if {$enable} then {
+          #
+          # HACK: In order to function correctly, the Kapok
+          #       server requires a matching Harpy; therefore,
+          #       copy it into the read-only "sandbox" now.
+          #
+          if {![isLockedDirectory $fileName $directory] && \
+              [string match */Kapok/* $directory]} then {
+            copyDirectoryRecursive $harpyDirectory \
+                [file join $directory lib Harpy1.0]
+          }
+
+          lockDirectory $fileName $directory
+        } else {
+          unlockDirectory $fileName $directory
+        }
+      }
+    }
+  }
+}

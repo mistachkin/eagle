@@ -1616,8 +1616,8 @@ namespace Eagle._Components.Private
 
                     result.Add(typeof(Uri), ToUri);
                     result.Add(typeof(Version), ToVersion);
-                    result.Add(typeof(Number), ToNumber);
-                    result.Add(typeof(Variant), ToVariant);
+                    result.Add(typeof(INumber), ToNumber);
+                    result.Add(typeof(IVariant), ToVariant);
 
                     //
                     // NOTE: Next, add their corresponding reference types.
@@ -1636,8 +1636,8 @@ namespace Eagle._Components.Private
 
                     result.Add(typeof(Uri).MakeByRefType(), ToUri);
                     result.Add(typeof(Version).MakeByRefType(), ToVersion);
-                    result.Add(typeof(Number).MakeByRefType(), ToNumber);
-                    result.Add(typeof(Variant).MakeByRefType(), ToVariant);
+                    result.Add(typeof(INumber).MakeByRefType(), ToNumber);
+                    result.Add(typeof(IVariant).MakeByRefType(), ToVariant);
 
                     //
                     // NOTE: Next, add their corresponding nullable types.
@@ -2067,18 +2067,36 @@ namespace Eagle._Components.Private
                     CultureInfo cultureInfo,
                     IClientData clientData, /* NOT USED */
                     ref MarshalFlags marshalFlags, /* NOT USED */
-                    ref object value, /* Eagle._Components.Public.Number */
+                    ref object value, /* NOTE: Not Eagle._Interfaces.Public.INumber. */
                     ref Result error
                     )
                 {
-                    Number numberValue = null;
+                    INumber numberValue = null;
 
                     if (Value.GetNumber(
                             text, ValueFlags.AnyNumberAnyRadix, cultureInfo,
                             ref numberValue, ref error) == ReturnCode.Ok)
                     {
-                        value = numberValue;
-                        return ReturnCode.Ok;
+                        if (FlagOps.HasFlags(
+                                marshalFlags, MarshalFlags.KeepWrapper, true))
+                        {
+                            value = numberValue;
+                            return ReturnCode.Ok;
+                        }
+                        else
+                        {
+                            if (numberValue != null)
+                            {
+                                value = numberValue.Value;
+                                return ReturnCode.Ok;
+                            }
+                            else
+                            {
+                                error = String.Format(
+                                    "invalid {0} instance from GetNumber",
+                                    typeof(INumber));
+                            }
+                        }
                     }
 
                     return ReturnCode.Error;
@@ -2093,20 +2111,38 @@ namespace Eagle._Components.Private
                     OptionDictionary options, /* NOT USED */
                     CultureInfo cultureInfo,
                     IClientData clientData, /* NOT USED */
-                    ref MarshalFlags marshalFlags, /* NOT USED */
-                    ref object value, /* Eagle._Components.Public.Variant */
+                    ref MarshalFlags marshalFlags,
+                    ref object value, /* NOTE: Not Eagle._Interfaces.Public.IVariant. */
                     ref Result error
                     )
                 {
-                    Variant variantValue = null;
+                    IVariant variantValue = null;
 
                     if (Value.GetVariant(
                             interpreter, text, ValueFlags.AnyVariant,
                             cultureInfo, ref variantValue,
                             ref error) == ReturnCode.Ok)
                     {
-                        value = variantValue;
-                        return ReturnCode.Ok;
+                        if (FlagOps.HasFlags(
+                                marshalFlags, MarshalFlags.KeepWrapper, true))
+                        {
+                            value = variantValue;
+                            return ReturnCode.Ok;
+                        }
+                        else
+                        {
+                            if (variantValue != null)
+                            {
+                                value = variantValue.Value;
+                                return ReturnCode.Ok;
+                            }
+                            else
+                            {
+                                error = String.Format(
+                                    "invalid {0} instance from GetVariant",
+                                    typeof(IVariant));
+                            }
+                        }
                     }
 
                     return ReturnCode.Error;

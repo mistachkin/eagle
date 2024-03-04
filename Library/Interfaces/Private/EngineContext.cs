@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using Eagle._Attributes;
+using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
@@ -51,6 +52,12 @@ namespace Eagle._Interfaces.Private
         int SubCommandLevels { get; set; }
         int SettingLevels { get; set; }
         int PackageLevels { get; set; }
+
+        InterpreterStateFlags InterpreterStateFlags { get; set; }
+
+#if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
+        CacheFlags CacheFlags { get; set; }
+#endif
 
 #if ARGUMENT_CACHE
         Argument CacheArgument { get; set; }

@@ -12,6 +12,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+
+#if NETWORK
+using System.Net;
+#endif
+
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -72,45 +77,47 @@ namespace Eagle._Commands
             {
                 callbacks = new Dictionary<string, CharIsCallback>();
 
-                callbacks.Add("array", null);       // *SPECIAL CASE*, whole string only
-                callbacks.Add("base64", null);      // *SPECIAL CASE*, whole string only
-                callbacks.Add("boolean", null);     // *SPECIAL CASE*, whole string only
-                callbacks.Add("byte", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("command", null);     // *SPECIAL CASE*, whole string only
-                callbacks.Add("component", null);   // *SPECIAL CASE*, whole string only
-                callbacks.Add("datetime", null);    // *SPECIAL CASE*, whole string only
-                callbacks.Add("decimal", null);     // *SPECIAL CASE*, whole string only
-                callbacks.Add("dict", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("directory", null);   // *SPECIAL CASE*, whole string only
-                callbacks.Add("double", null);      // *SPECIAL CASE*, whole string only
-                callbacks.Add("element", null);     // *SPECIAL CASE*, whole string only
-                callbacks.Add("encoding", null);    // *SPECIAL CASE*, whole string only
-                callbacks.Add("false", null);       // *SPECIAL CASE*, whole string only
-                callbacks.Add("file", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("guid", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("identifier", null);  // *SPECIAL CASE*, whole string only
-                callbacks.Add("integer", null);     // *SPECIAL CASE*, whole string only
-                callbacks.Add("interpreter", null); // *SPECIAL CASE*, whole string only
-                callbacks.Add("list", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("none", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("not", null);         // *SPECIAL CASE*, modifier only
-                callbacks.Add("number", null);      // *SPECIAL CASE*, whole string only
-                callbacks.Add("numeric", null);     // *SPECIAL CASE*, whole string only
-                callbacks.Add("object", null);      // *SPECIAL CASE*, whole string only
-                callbacks.Add("path", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("plugin", null);      // *SPECIAL CASE*, whole string only
-                callbacks.Add("real", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("scalar", null);      // *SPECIAL CASE*, whole string only
-                callbacks.Add("single", null);      // *SPECIAL CASE*, whole string only
-                callbacks.Add("timespan", null);    // *SPECIAL CASE*, whole string only
-                callbacks.Add("true", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("type", null);        // *SPECIAL CASE*, whole string only
-                callbacks.Add("uri", null);         // *SPECIAL CASE*, whole string only
-                callbacks.Add("value", null);       // *SPECIAL CASE*, whole string only
-                callbacks.Add("variant", null);     // *SPECIAL CASE*, whole string only
-                callbacks.Add("version", null);     // *SPECIAL CASE*, whole string only
-                callbacks.Add("xml", null);         // *SPECIAL CASE*, whole string only
-                callbacks.Add("wideinteger", null); // *SPECIAL CASE*, whole string only
+                callbacks.Add("array", null);        // *SPECIAL CASE*, whole string only
+                callbacks.Add("base64", null);       // *SPECIAL CASE*, whole string only
+                callbacks.Add("boolean", null);      // *SPECIAL CASE*, whole string only
+                callbacks.Add("byte", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("command", null);      // *SPECIAL CASE*, whole string only
+                callbacks.Add("component", null);    // *SPECIAL CASE*, whole string only
+                callbacks.Add("datetime", null);     // *SPECIAL CASE*, whole string only
+                callbacks.Add("decimal", null);      // *SPECIAL CASE*, whole string only
+                callbacks.Add("dict", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("directory", null);    // *SPECIAL CASE*, whole string only
+                callbacks.Add("double", null);       // *SPECIAL CASE*, whole string only
+                callbacks.Add("element", null);      // *SPECIAL CASE*, whole string only
+                callbacks.Add("encoding", null);     // *SPECIAL CASE*, whole string only
+                callbacks.Add("false", null);        // *SPECIAL CASE*, whole string only
+                callbacks.Add("file", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("guid", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("identifier", null);   // *SPECIAL CASE*, whole string only
+                callbacks.Add("inetaddr", null);     // *SPECIAL CASE*, whole string only
+                callbacks.Add("integer", null);      // *SPECIAL CASE*, whole string only
+                callbacks.Add("interpreter", null);  // *SPECIAL CASE*, whole string only
+                callbacks.Add("list", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("none", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("not", null);          // *SPECIAL CASE*, modifier only
+                callbacks.Add("number", null);       // *SPECIAL CASE*, whole string only
+                callbacks.Add("numeric", null);      // *SPECIAL CASE*, whole string only
+                callbacks.Add("object", null);       // *SPECIAL CASE*, whole string only
+                callbacks.Add("path", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("plugin", null);       // *SPECIAL CASE*, whole string only
+                callbacks.Add("real", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("scalar", null);       // *SPECIAL CASE*, whole string only
+                callbacks.Add("single", null);       // *SPECIAL CASE*, whole string only
+                callbacks.Add("timespan", null);     // *SPECIAL CASE*, whole string only
+                callbacks.Add("true", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("type", null);         // *SPECIAL CASE*, whole string only
+                callbacks.Add("uri", null);          // *SPECIAL CASE*, whole string only
+                callbacks.Add("value", null);        // *SPECIAL CASE*, whole string only
+                callbacks.Add("variant", null);      // *SPECIAL CASE*, whole string only
+                callbacks.Add("version", null);      // *SPECIAL CASE*, whole string only
+                callbacks.Add("versionrange", null); // *SPECIAL CASE*, whole string only
+                callbacks.Add("xml", null);          // *SPECIAL CASE*, whole string only
+                callbacks.Add("wideinteger", null);  // *SPECIAL CASE*, whole string only
 
                 //
                 // NOTE: Per-character callbacks for character class checking
@@ -342,7 +349,7 @@ namespace Eagle._Commands
                                                     if ((argumentIndex != Index.Invalid) &&
                                                         ((argumentIndex + 2) == arguments.Count))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                                                         CultureInfo cultureInfo = null;
 
@@ -492,7 +499,7 @@ namespace Eagle._Commands
                                                     if ((argumentIndex != Index.Invalid) &&
                                                         ((argumentIndex + 2) == arguments.Count))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                                                         CultureInfo cultureInfo = null;
 
@@ -583,7 +590,7 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-nocase"))
                                                             noCase = true;
 
-                                                        Variant value = null;
+                                                        IVariant value = null;
 
                                                         StringComparison comparisonType =
                                                             SharedStringOps.GetBinaryComparisonType(noCase);
@@ -687,7 +694,7 @@ namespace Eagle._Commands
                                                 {
                                                     if (argumentIndex != Index.Invalid)
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         string valueFormat = null;
 
                                                         if (options.IsPresent("-valueformat", ref value))
@@ -855,7 +862,7 @@ namespace Eagle._Commands
                                                                 if (options.IsPresent("-strict"))
                                                                     strict = true;
 
-                                                                Variant value = null;
+                                                                IVariant value = null;
                                                                 string varName = null;
 
                                                                 if (options.IsPresent("-failindex", ref value))
@@ -1190,6 +1197,42 @@ namespace Eagle._Commands
 
                                                                                 break;
                                                                             }
+                                                                        case "inetaddr":
+                                                                            {
+                                                                                //
+                                                                                // HACK: Any valid 32-bit integer, including
+                                                                                //       their signed or unsigned variations,
+                                                                                //       is technically a valid IP address
+                                                                                //
+                                                                                long longValue = 0; /* NOT USED */
+
+                                                                                if (Value.GetWideInteger2(
+                                                                                        @string, ValueFlags.AnyInteger,
+                                                                                        interpreter.InternalCultureInfo,
+                                                                                        ref longValue) == ReturnCode.Ok)
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+                                                                                {
+#if NETWORK
+                                                                                    IPAddress address;
+
+                                                                                    if (IPAddress.TryParse(@string, out address))
+                                                                                    {
+                                                                                        valid = !not;
+                                                                                    }
+                                                                                    else
+#endif
+                                                                                    {
+                                                                                        //
+                                                                                        // HACK: Not valid -OR- not supported.
+                                                                                        //
+                                                                                        valid = not;
+                                                                                    }
+                                                                                }
+                                                                                break;
+                                                                            }
                                                                         case "integer":
                                                                             {
                                                                                 int intValue = 0; /* NOT USED */
@@ -1260,7 +1303,7 @@ namespace Eagle._Commands
                                                                             }
                                                                         case "number":
                                                                             {
-                                                                                Number number = null; /* NOT USED */
+                                                                                INumber number = null; /* NOT USED */
 
                                                                                 if (Value.GetNumber(
                                                                                         @string, ValueFlags.AnyNumberAnyRadix,
@@ -1349,7 +1392,7 @@ namespace Eagle._Commands
                                                                             }
                                                                         case "real":
                                                                             {
-                                                                                Number number = null; /* NOT USED */
+                                                                                INumber number = null; /* NOT USED */
 
                                                                                 if (Value.GetNumber(
                                                                                         @string, ValueFlags.AnyRealAnyRadix,
@@ -1482,7 +1525,7 @@ namespace Eagle._Commands
                                                                             }
                                                                         case "variant":
                                                                             {
-                                                                                Variant variant = null; /* NOT USED */
+                                                                                IVariant variant = null; /* NOT USED */
 
                                                                                 if (Value.GetVariant(
                                                                                         interpreter, @string,
@@ -1509,6 +1552,24 @@ namespace Eagle._Commands
                                                                                         @string,
                                                                                         interpreter.InternalCultureInfo,
                                                                                         ref version) == ReturnCode.Ok)
+                                                                                {
+                                                                                    valid = !not;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    valid = not;
+                                                                                }
+                                                                                break;
+                                                                            }
+                                                                        case "versionrange":
+                                                                            {
+                                                                                Version version1 = null; /* NOT USED */
+                                                                                Version version2 = null; /* NOT USED */
+
+                                                                                if (Value.GetVersionRange(
+                                                                                        @string, ValueFlags.AnyVersionRange,
+                                                                                        interpreter.InternalCultureInfo,
+                                                                                        ref version1, ref version2) == ReturnCode.Ok)
                                                                                 {
                                                                                     valid = !not;
                                                                                 }
@@ -1653,7 +1714,7 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-nocase"))
                                                             noCase = true;
 
-                                                        Variant value = null;
+                                                        IVariant value = null;
 
                                                         StringComparison comparisonType =
                                                             SharedStringOps.GetBinaryComparisonType(noCase);
@@ -1783,7 +1844,7 @@ namespace Eagle._Commands
                                                         {
                                                             if ((list.Count % 2) == 0)
                                                             {
-                                                                Variant value = null;
+                                                                IVariant value = null;
                                                                 string countVarName = null;
 
                                                                 if (options.IsPresent("-countvar", ref value))
@@ -1927,7 +1988,7 @@ namespace Eagle._Commands
                                                     if ((argumentIndex != Index.Invalid) &&
                                                         ((argumentIndex + 2) == arguments.Count))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         MatchMode mode = StringOps.DefaultMatchMode;
 
                                                         if (options.IsPresent("-mode", ref value))
@@ -2156,7 +2217,7 @@ namespace Eagle._Commands
                                                     if ((argumentIndex != Index.Invalid) &&
                                                         ((argumentIndex + 2) == arguments.Count))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                                                         CultureInfo cultureInfo = null;
 
@@ -2247,7 +2308,7 @@ namespace Eagle._Commands
                                                         ((argumentIndex + 3) >= arguments.Count))
                                                     {
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         CultureInfo cultureInfo = null;
 
                                                         if (options.IsPresent("-culture", ref value))

@@ -22,7 +22,8 @@
 namespace eval ::Eagle {
   #
   # NOTE: This procedure attempts to emit a Tcl log message based on the
-  #       calling procedure currently being invoked.
+  #       calling procedure currently being invoked.  This procedure is
+  #       explicitly designed to allow overriding via external scripts.
   #
   proc tclLogForCommand { {command ""} } {
     set level [info level]; # current procedure
@@ -30,9 +31,24 @@ namespace eval ::Eagle {
     incr level -1; # calling procedure
 
     if {[string length $command] > 0} then {
+      set equals [string repeat = $level]
+
       set suffix [appendArgs \
-          " " [string repeat = $level] "> command \{" \
-          $command \}]
+          " " $equals "> command \{" $command \}]
+
+      if {[uplevel 1 [list info exists error]]} then {
+        set error [uplevel 1 [list set error]]
+
+        if {[string length $error] > 0} then {
+          append suffix " " $equals "> error \{" $error \}
+        }
+      } elseif {[uplevel 1 [list info exists result]]} then {
+        set result [uplevel 1 [list set result]]
+
+        if {[string length $result] > 0} then {
+          append suffix " " $equals "> result \{" $result \}
+        }
+      }
     } else {
       set suffix ""
     }
@@ -48,7 +64,10 @@ namespace eval ::Eagle {
   #
   # NOTE: This procedure figures out extra option values for use with the
   #       "dir" command of the Windows command shell based on which types
-  #       of paths are being saught.
+  #       of paths are being saught.  This procedure is not explicitly
+  #       designed to allow overriding via external scripts; however, it
+  #       can be overridden if some care is taken to maintain compatible
+  #       semantics.
   #
   proc populateTypesForComSpecDir { dirVarName fileVarName } {
     upvar 1 $dirVarName dirTypes
@@ -64,6 +83,9 @@ namespace eval ::Eagle {
   #
   # NOTE: This procedure figures out what the -types option values should
   #       be to locate both visible and hidden directories and/or files.
+  #       This procedure is not explicitly designed to allow overriding
+  #       via external scripts; however, it can be overridden if some care
+  #       is taken to maintain compatible semantics.
   #
   proc populateTypesForGlob { dirVarName fileVarName } {
     upvar 1 $dirVarName dirTypes
@@ -85,8 +107,68 @@ namespace eval ::Eagle {
   }
 
   #
+  # NOTE: This procedure returns a list of paths (presumably from [glob])
+  #       that have been filtered to remove those that are unwanted, e.g.
+  #       the "." and ".." directories, etc.  This procedure is explicitly
+  #       designed to allow overriding via external scripts.
+  #
+  proc filterForGlob { paths } {
+    set result [list]
+
+    foreach path $paths {
+      #
+      # HACK: The "in" operator for [expr] cannot be used here if we want
+      #       to support Tcl 8.4.
+      #
+      if {[lsearch -exact [list . ..] $path] != -1} then {
+        continue
+      }
+
+      lappend result $path
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if file and directory searches
+  #       are able to use the "dir" command of the Windows command shell.
+  #       This procedure is not explicitly designed to allow overriding
+  #       via external scripts; however, it can be overridden if some
+  #       care is taken to maintain compatible semantics.
+  #
+  proc canUseComSpecDir { pattern } {
+    if {[info exists ::no(canUseComSpecDir)]} then {
+      return false
+    }
+
+    if {![isWindows]} then {
+      return false
+    }
+
+    if {![info exists ::env(ComSpec)]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure returns the current directory value that should be
+  #       used when converting relative paths to absolute paths from within
+  #       the [getDirResultPath] procedure.  This procedure is explicitly
+  #       designed to allow overriding via external scripts.
+  #
+  proc pwdForDirResultPath { pattern path } {
+    return [pwd]
+  }
+
+  #
   # NOTE: This procedure uses the type of the specified path to figure out
   #       the (possibly normalized) path to add to the finder results.
+  #       This procedure is not explicitly designed to allow overriding via
+  #       external scripts; however, it can be overridden if some care is
+  #       taken to maintain compatible semantics.
   #
   proc getDirResultPath { pattern path } {
     if {[file pathtype $path] eq "absolute"} then {
@@ -99,19 +181,22 @@ namespace eval ::Eagle {
       #         information when invoked without the sub-directories flag.
       #
       if {[hasRuntimeOption getDirResultJoinPath]} then {
-        if {[string is path -strict $pattern] || \
+        if {![isEagle] || \
+            [string is path -strict $pattern] || \
             [string is component -strict $pattern]} then {
           if {[file pathtype $pattern] eq "absolute"} then {
             set newPath [file normalize $pattern]
           } else {
-            set newPath [file normalize [file join [pwd] $pattern]]
+            set newPath [file normalize [file join \
+                [pwdForDirResultPath $pattern $path] $pattern]]
           }
 
           if {![file exists $newPath]} then {
             set newPath [file normalize [file join $newPath $path]]
           }
         } else {
-          set newPath [file normalize [file join [pwd] $path]]
+          set newPath [file normalize [file join \
+              [pwdForDirResultPath $pattern $path] $path]]
         }
 
         if {[file exists $newPath]} then {
@@ -131,7 +216,8 @@ namespace eval ::Eagle {
 
   #
   # NOTE: This procedure attempts to normalize the specified path in a way
-  #       that (ideally) should not raise a script error.
+  #       that (ideally) should not raise a script error.  This procedure
+  #       is explicitly designed to allow overriding via external scripts.
   #
   proc fileNormalizeForGlob { path } {
     if {[isEagle]} then {
@@ -158,21 +244,27 @@ namespace eval ::Eagle {
 
   #
   # NOTE: This procedure performs [glob] using specified types, directory,
-  #       and pattern.
+  #       and pattern.  This procedure is not explicitly designed to allow
+  #       overriding via external scripts; however, it can be overridden
+  #       if some care is taken to maintain compatible semantics.
   #
   proc performGlob { types directory pattern } {
     if {[hasRuntimeOption tracePerformGlob]} then {
       tclLogForCommand
     }
 
-    return [glob -nocomplain -types \
-        $types [fileNormalizeForGlob [file join $directory $pattern]]]
+    return [filterForGlob [glob -nocomplain -types \
+        $types [fileNormalizeForGlob [file join $directory \
+        $pattern]]]]
   }
 
   #
   # NOTE: This procedure works around the lack of the -nocase option to the
   #       native Tcl interpreter for versions before 8.5.  It should not be
-  #       used by external callers.
+  #       used by external callers.  This procedure is not explicitly
+  #       designed to allow overriding via external scripts; however, it
+  #       can be overridden if some care is taken to maintain compatible
+  #       semantics.
   #
   proc maybeAppendPathResult { listVarName element } {
     upvar 1 $listVarName list
@@ -207,67 +299,72 @@ namespace eval ::Eagle {
   #
   proc findViaGlob {
           directory traversePattern wantPattern wantDirs wantFiles hidden
-          recursive {callback ""} } {
-    populateTypesForGlob dirTypes fileTypes
-
+          recursive allowEmpty allowFiltered {callback ""} } {
     set result [list]
 
-    foreach type [list visible hidden] {
-      set wantHidden [expr {
-        $type eq "hidden" ? "true" : "false"
-      }]
+    if {($allowEmpty || [string length $wantPattern] > 0) && \
+        ($allowFiltered || [llength [filterForGlob [list \
+        $wantPattern]]] > 0)} then {
+      populateTypesForGlob dirTypes fileTypes
 
-      if {[string length $hidden] == 0 || \
-          [string is $wantHidden -strict $hidden]} then {
-        if {$recursive && \
-            [string length $traversePattern] > 0 && \
-            [info exists dirTypes($type)]} then {
-          if {[catch {
-            performGlob $dirTypes($type) $directory \
-                $traversePattern
-          } list] == 0} then {
-            foreach subDirectory $list {
-              eval lappend result [findViaGlob \
-                  $subDirectory $traversePattern \
-                  $wantPattern $wantDirs $wantFiles \
-                  $hidden $recursive $callback]
-            }
-          }
-        }
+      foreach type [list visible hidden] {
+        set wantHidden [expr {
+          $type eq "hidden" ? "true" : "false"
+        }]
 
-        if {[string length $wantPattern] > 0} then {
-          if {$wantDirs && \
+        if {[string length $hidden] == 0 || \
+            [string is $wantHidden -strict $hidden]} then {
+          if {$recursive && \
+              [string length $traversePattern] > 0 && \
               [info exists dirTypes($type)]} then {
             if {[catch {
               performGlob $dirTypes($type) $directory \
-                  $wantPattern
+                  $traversePattern
             } list] == 0} then {
-              if {[string length $callback] == 0} then {
-                eval lappend result $list
-              } else {
-                foreach element $list {
-                  if {[$callback $callback \
-                      $type directory $element]} then {
-                    lappend result $element
-                  }
-                }
+              foreach subDirectory $list {
+                eval lappend result [findViaGlob \
+                    $subDirectory $traversePattern \
+                    $wantPattern $wantDirs $wantFiles \
+                    $hidden $recursive $allowEmpty \
+                    $allowFiltered $callback]
               }
             }
           }
 
-          if {$wantFiles && \
-              [info exists fileTypes($type)]} then {
-            if {[catch {
-              performGlob $fileTypes($type) $directory \
-                  $wantPattern
-            } list] == 0} then {
-              if {[string length $callback] == 0} then {
-                eval lappend result $list
-              } else {
-                foreach element $list {
-                  if {[$callback $callback \
-                      $type file $element]} then {
-                    lappend result $element
+          if {[string length $wantPattern] > 0} then {
+            if {$wantDirs && \
+                [info exists dirTypes($type)]} then {
+              if {[catch {
+                performGlob $dirTypes($type) $directory \
+                    $wantPattern
+              } list] == 0} then {
+                if {[string length $callback] == 0} then {
+                  eval lappend result $list
+                } else {
+                  foreach element $list {
+                    if {[$callback $callback \
+                        $type directory $element]} then {
+                      lappend result $element
+                    }
+                  }
+                }
+              }
+            }
+
+            if {$wantFiles && \
+                [info exists fileTypes($type)]} then {
+              if {[catch {
+                performGlob $fileTypes($type) $directory \
+                    $wantPattern
+              } list] == 0} then {
+                if {[string length $callback] == 0} then {
+                  eval lappend result $list
+                } else {
+                  foreach element $list {
+                    if {[$callback $callback \
+                        $type file $element]} then {
+                      lappend result $element
+                    }
                   }
                 }
               }
@@ -287,10 +384,14 @@ namespace eval ::Eagle {
   #       can find visible items, hidden items, or both.  To find both,
   #       an empty string should be passed for the "hidden" argument.
   #
-  proc findViaComSpecDir { pattern wantDirs wantFiles hidden recursive } {
+  proc findViaComSpecDir {
+          directory pattern wantDirs wantFiles hidden recursive
+          allowEmpty allowFiltered } {
     set result [list]
 
-    if {[info exists ::env(ComSpec)]} then {
+    if {[canUseComSpecDir $pattern] && ($allowEmpty || [string length \
+        $pattern] > 0) && ($allowFiltered || [llength [filterForGlob \
+        [list $pattern]]] > 0)} then {
       set path ""
 
       if {[isEagle]} then {
@@ -332,18 +433,34 @@ namespace eval ::Eagle {
             if {[isEagle]} then {lappend command -unicode}
 
             lappend command $::env(ComSpec)
-
             if {[isEagle]} then {lappend command /u}
+            lappend command /c
 
-            lappend command /c dir /b
+            if {[string length $directory] > 0 && \
+                [lsearch -exact [list . ..] $directory] == -1} then {
+              lappend command cd
+
+              if {[isEagle]} then {
+                lappend command [appendArgs \
+                    \" [file nativename $directory] \"]
+              } else {
+                lappend command [file nativename $directory]
+              }
+
+              lappend command &&
+            }
+
+            lappend command dir /b
             if {$recursive} then {lappend command /s}
             lappend command [set $wantVarName]
 
-            if {[isEagle]} then {
-              lappend command [appendArgs \
-                  \" [file nativename $pattern] \"]
-            } else {
-              lappend command [file nativename $pattern]
+            if {[string length $pattern] > 0} then {
+              if {[isEagle]} then {
+                lappend command [appendArgs \
+                    \" [file nativename $pattern] \"]
+              } else {
+                lappend command [file nativename $pattern]
+              }
             }
 
             if {[hasRuntimeOption traceFindViaComSpecDir]} then {
@@ -369,31 +486,79 @@ namespace eval ::Eagle {
   }
 
   #
+  # NOTE: This procedure may return directory name information that may be
+  #       present in the specified pattern.  If the directory name does not
+  #       represent an absolute path, an empty string is returned instead.
+  #       This procedure is explicitly designed to allow overriding via
+  #       external scripts.
+  #
+  proc fileDirNameForFind { pattern } {
+    set result [file dirname $pattern]
+
+    if {[string length $result] > 0 && \
+        [file pathtype $result] eq "absolute"} then {
+      return $result
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure returns the file name portion that may be present
+  #       in the specified pattern.  This procedure is explicitly designed
+  #       to allow overriding via external scripts.
+  #
+  proc fileTailForFind { pattern } {
+    if {[string length $pattern] > 0 && \
+        [file pathtype $pattern] eq "absolute"} then {
+      return [file tail $pattern]
+    }
+
+    return $pattern
+  }
+
+  #
   # NOTE: This procedure returns a list of directories matching the pattern
   #       specified.  It does not recurse into sub-directories.
   #
   proc findDirectories { pattern } {
-    if {![info exists ::no(findForEagle)] && [isEagle]} then {
-      if {[hasRuntimeOption findViaGlob] || ![isWindows] || \
-          ![info exists ::env(ComSpec)]} then {
+    if {![info exists ::no(findForEagle)] && \
+        ![info exists ::no(findDirectoriesForEagle)] && \
+        [isEagle]} then {
+      if {![canUseComSpecDir $pattern] || \
+          [hasRuntimeOption findViaGlob]} then {
         return [findViaGlob \
-            [file dirname $pattern] * [file tail $pattern] \
-            true false "" false]
+            [fileDirNameForFind $pattern] * \
+            [fileTailForFind $pattern] \
+            true false "" false false false]
       } else {
-        return [findViaComSpecDir $pattern true false "" false]
+        return [findViaComSpecDir \
+            [fileDirNameForFind $pattern] \
+            $pattern true false "" false \
+            false false]
       }
     } else {
-      populateTypesForGlob dirTypes fileTypes
+      if {[canUseComSpecDir $pattern] && \
+          [hasRuntimeOption findViaComSpecDir]} then {
+        return [findViaComSpecDir \
+            [fileDirNameForFind $pattern] \
+            $pattern true false "" false \
+            false false]
+      } else {
+        populateTypesForGlob dirTypes fileTypes
 
-      set result [list]
+        set result [list]
 
-      eval lappend result [glob -nocomplain -types \
-          $dirTypes(visible) [fileNormalizeForGlob $pattern]]
+        eval lappend result [filterForGlob [glob -nocomplain \
+            -types $dirTypes(visible) [fileNormalizeForGlob \
+            $pattern]]]
 
-      eval lappend result [glob -nocomplain -types \
-          $dirTypes(hidden) [fileNormalizeForGlob $pattern]]
+        eval lappend result [filterForGlob [glob -nocomplain \
+            -types $dirTypes(hidden) [fileNormalizeForGlob \
+            $pattern]]]
 
-      return $result
+        return $result
+      }
     }
   }
 
@@ -402,13 +567,17 @@ namespace eval ::Eagle {
   #       specified.  It recurses into sub-directories.
   #
   proc findDirectoriesRecursive { pattern } {
-    if {[hasRuntimeOption findViaGlob] || ![isWindows] || \
-        ![info exists ::env(ComSpec)]} then {
+    if {![canUseComSpecDir $pattern] || \
+        [hasRuntimeOption findViaGlob]} then {
       return [findViaGlob \
-          [file dirname $pattern] * [file tail $pattern] \
-          true false "" true]
+          [fileDirNameForFind $pattern] * \
+          [fileTailForFind $pattern] \
+          true false "" true false false]
     } else {
-      return [findViaComSpecDir $pattern true false "" true]
+      return [findViaComSpecDir \
+          [fileDirNameForFind $pattern] \
+          $pattern true false "" true \
+          false false]
     }
   }
 
@@ -417,27 +586,43 @@ namespace eval ::Eagle {
   #       specified.  It does not recurse into sub-directories.
   #
   proc findFiles { pattern } {
-    if {![info exists ::no(findForEagle)] && [isEagle]} then {
-      if {[hasRuntimeOption findViaGlob] || ![isWindows] || \
-          ![info exists ::env(ComSpec)]} then {
+    if {![info exists ::no(findForEagle)] && \
+        ![info exists ::no(findFilesForEagle)] && \
+        [isEagle]} then {
+      if {![canUseComSpecDir $pattern] || \
+          [hasRuntimeOption findViaGlob]} then {
         return [findViaGlob \
-            [file dirname $pattern] * [file tail $pattern] \
-            false true "" false]
+            [fileDirNameForFind $pattern] * \
+            [fileTailForFind $pattern] false \
+            true "" false false false]
       } else {
-        return [findViaComSpecDir $pattern false true "" false]
+        return [findViaComSpecDir \
+            [fileDirNameForFind $pattern] \
+            $pattern false true "" false \
+            false false]
       }
     } else {
-      populateTypesForGlob dirTypes fileTypes
+      if {[canUseComSpecDir $pattern] && \
+          [hasRuntimeOption findViaComSpecDir]} then {
+        return [findViaComSpecDir \
+            [fileDirNameForFind $pattern] \
+            $pattern false true "" false \
+            false false]
+      } else {
+        populateTypesForGlob dirTypes fileTypes
 
-      set result [list]
+        set result [list]
 
-      eval lappend result [glob -nocomplain -types \
-          $fileTypes(visible) [fileNormalizeForGlob $pattern]]
+        eval lappend result [filterForGlob [glob -nocomplain \
+            -types $fileTypes(visible) [fileNormalizeForGlob \
+            $pattern]]]
 
-      eval lappend result [glob -nocomplain -types \
-          $fileTypes(hidden) [fileNormalizeForGlob $pattern]]
+        eval lappend result [filterForGlob [glob -nocomplain \
+            -types $fileTypes(hidden) [fileNormalizeForGlob \
+            $pattern]]]
 
-      return $result
+        return $result
+      }
     }
   }
 
@@ -446,13 +631,17 @@ namespace eval ::Eagle {
   #       specified.  It recurses into sub-directories.
   #
   proc findFilesRecursive { pattern } {
-    if {[hasRuntimeOption findViaGlob] || ![isWindows] || \
-        ![info exists ::env(ComSpec)]} then {
+    if {![canUseComSpecDir $pattern] || \
+        [hasRuntimeOption findViaGlob]} then {
       return [findViaGlob \
-          [file dirname $pattern] * [file tail $pattern] \
-          false true "" true]
+          [fileDirNameForFind $pattern] * \
+          [fileTailForFind $pattern] false \
+          true "" true false false]
     } else {
-      return [findViaComSpecDir $pattern false true "" true]
+      return [findViaComSpecDir \
+          [fileDirNameForFind $pattern] \
+          $pattern false true "" true \
+          false false]
     }
   }
 
@@ -591,6 +780,13 @@ namespace eval ::Eagle {
         lappend command [appendArgs \
             /LOG: [file nativename $logFileName]]
       }
+    }
+
+    #
+    # NOTE: Optionally emit trace to log all our command arguments.
+    #
+    if {[hasRuntimeOption traceCopyFilesRecursive]} then {
+      tclLogForCommand $command
     }
 
     #

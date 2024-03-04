@@ -750,7 +750,18 @@ namespace Eagle._Components.Private
 
                 try
                 {
-                    interpreter.InternalSoftTryLock(
+                    //
+                    // BUGFIX: *HACK* Normally, the InternalSoftTryLock
+                    //         method would be used here; however, that
+                    //         actually ended up being a problem during
+                    //         test suite runs.  Other threads may grab
+                    //         the interpreter lock, which then causes
+                    //         the interpreter quiet flag to be ignored,
+                    //         thus blowing up the release process, due
+                    //         to MSBuild seeing any "error message" as
+                    //         a build failure.
+                    //
+                    interpreter.InternalHardTryLock(
                         ref locked); /* TRANSACTIONAL */
 
                     if (locked)
@@ -3362,7 +3373,6 @@ namespace Eagle._Components.Private
                 if (listener != null)
                 {
                     int count = listeners.Count;
-                    Type type = listener.GetType();
 
                     for (int index = 0; index < count; index++)
                     {
@@ -3504,6 +3514,59 @@ namespace Eagle._Components.Private
             }
 
             return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static TraceIndicatorFlags CalculateListeners()
+        {
+            return CalculateListeners(GetTraceListeners());
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static TraceIndicatorFlags CalculateListeners(
+            TraceListenerCollection listeners
+            )
+        {
+            TraceIndicatorFlags flags = TraceIndicatorFlags.None;
+
+            if (listeners == null)
+                return flags;
+
+            foreach (TraceListener listener in listeners)
+            {
+                if (listener == null)
+                    continue;
+
+                if (listener is DefaultTraceListener)
+                    flags |= TraceIndicatorFlags.HaveDefault;
+
+#if CONSOLE && !NET_STANDARD_20
+                if (listener is ConsoleTraceListener)
+                    flags |= TraceIndicatorFlags.HaveConsole;
+#endif
+
+#if TEST && NATIVE
+                if (listener is _Tests.Default.NativeTraceListener)
+                    flags |= TraceIndicatorFlags.HaveNative;
+#endif
+
+                if (listener is TextWriterTraceListener)
+                    flags |= TraceIndicatorFlags.HaveRawLogFile;
+
+#if TEST
+                if (listener is _Tests.Default.Listener)
+                    flags |= TraceIndicatorFlags.HaveTestLogFile;
+#endif
+
+#if TEST
+                if (listener is IBufferedTraceListener)
+                    flags |= TraceIndicatorFlags.HaveBuffered;
+#endif
+            }
+
+            return flags;
         }
 
         ///////////////////////////////////////////////////////////////////////

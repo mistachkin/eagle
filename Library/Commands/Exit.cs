@@ -122,7 +122,7 @@ namespace Eagle._Commands
                 if ((argumentIndex == Index.Invalid) ||
                     ((argumentIndex + 1) == arguments.Count))
                 {
-                    Variant value = null;
+                    IVariant value = null;
                     string message = null;
 
                     if (options.IsPresent("-message", ref value))

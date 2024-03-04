@@ -70,6 +70,16 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        public IClientData ClientData
+        {
+            get { return (@delegate != null) ? @delegate.ClientData : null; }
+            set { if (@delegate != null) { @delegate.ClientData = value; } }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         public string Group
         {
@@ -83,16 +93,6 @@ namespace Eagle._Wrappers
         {
             get { return (@delegate != null) ? @delegate.Description : null; }
             set { if (@delegate != null) { @delegate.Description = value; } }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        public IClientData ClientData
-        {
-            get { return (@delegate != null) ? @delegate.ClientData : null; }
-            set { if (@delegate != null) { @delegate.ClientData = value; } }
         }
         #endregion
 

@@ -44,7 +44,7 @@ namespace Eagle._Operators
 
         #region Public Constructors
         public Question(
-            IOperatorData operatorData
+            IOperatorData operatorData /* in */
             )
             : base(operatorData)
         {
@@ -56,11 +56,11 @@ namespace Eagle._Operators
 
         #region IExecuteArgument Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
             if (interpreter == null)
@@ -75,10 +75,12 @@ namespace Eagle._Operators
                 return ReturnCode.Error;
             }
 
-            string localName = (arguments.Count > 0) ?
+            int argumentCount = arguments.Count;
+
+            string localName = (argumentCount > 0) ?
                 (string)arguments[0] : this.Name;
 
-            if (arguments.Count != (this.Operands + 1))
+            if (argumentCount != (this.Operands + 1))
             {
                 if (ExpressionParser.IsOperatorNameOnly(localName))
                 {

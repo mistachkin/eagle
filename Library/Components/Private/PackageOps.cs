@@ -120,6 +120,26 @@ namespace Eagle._Components.Private
             else
                 return (VersionCompare(version1, version2) >= 0);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool MaybeSwapVersion(
+            ref Version version1,
+            ref Version version2
+            )
+        {
+            if (VersionCompare(version1, version2) == 1)
+            {
+                Version temporary = version1;
+
+                version1 = version2;
+                version2 = temporary;
+
+                return true;
+            }
+
+            return false;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -222,9 +242,13 @@ namespace Eagle._Components.Private
                 }
                 catch (Exception e)
                 {
-                    TraceOps.DebugTrace(
-                        e, typeof(PackageOps).Name,
-                        TracePriority.FileSystemError);
+                    if (!FlagOps.HasFlags(
+                            flags, PackageIfNeededFlags.Silent, true))
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(PackageOps).Name,
+                            TracePriority.FileSystemError);
+                    }
                 }
 
                 if (fileNames != null)
@@ -238,7 +262,7 @@ namespace Eagle._Components.Private
                     bool noVerified = FlagOps.HasFlags(
                         flags, PackageIfNeededFlags.NoVerified, true);
 
-                    Array.Sort(fileNames);
+                    Array.Sort(fileNames); /* O(N) */
 
                     foreach (string fileName in fileNames)
                     {
@@ -1198,7 +1222,10 @@ namespace Eagle._Components.Private
 
             try
             {
-                interpreter.SetPendingPackageIndexes(true);
+                InterpreterStateFlags savedInterpreterStateFlags;
+
+                interpreter.BeginPendingPackageIndexes(
+                    out savedInterpreterStateFlags);
 
                 try
                 {
@@ -1240,7 +1267,8 @@ namespace Eagle._Components.Private
                 }
                 finally
                 {
-                    interpreter.SetPendingPackageIndexes(false);
+                    interpreter.EndPendingPackageIndexes(
+                        ref savedInterpreterStateFlags);
                 }
             }
             finally
@@ -1515,6 +1543,9 @@ namespace Eagle._Components.Private
             bool noSort = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.NoSort, true);
 
+            bool allowDuplicate = FlagOps.HasFlags(
+                packageIndexFlags, PackageIndexFlags.AllowDuplicateDirectory, true);
+
             //
             // NOTE: Create a string comparer for file names, used to
             //       sort them.
@@ -1542,6 +1573,25 @@ namespace Eagle._Components.Private
                 //
                 if (IsDisabled(newPath))
                     continue;
+
+                //
+                // HACK: If duplicate paths are not allowed -AND- this
+                //       is a duplicate path, skip it.
+                //
+                if (!allowDuplicate)
+                {
+                    int oldCount = 0;
+
+                    if (SearchIndexes(
+                            interpreter, packageIndexes, path,
+                            ref oldCount, ref error) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+
+                    if (oldCount > 0)
+                        continue;
+                }
 
                 //
                 // NOTE: Make sure the directory exists prior to
@@ -1580,9 +1630,12 @@ namespace Eagle._Components.Private
                             }
                             catch (Exception e)
                             {
-                                TraceOps.DebugTrace(
-                                    e, typeof(PackageOps).Name,
-                                    TracePriority.FileSystemError);
+                                if (trace && verbose)
+                                {
+                                    TraceOps.DebugTrace(
+                                        e, typeof(PackageOps).Name,
+                                        TracePriority.FileSystemError);
+                                }
 
                                 localError = e;
                             }
@@ -1895,11 +1948,17 @@ namespace Eagle._Components.Private
             bool noFileError = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.NoFileError, true);
 
+            bool trace = FlagOps.HasFlags(
+                packageIndexFlags, PackageIndexFlags.Trace, true);
+
             bool verbose = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.Verbose, true);
 
             bool noSort = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.NoSort, true);
+
+            bool allowDuplicate = FlagOps.HasFlags(
+                packageIndexFlags, PackageIndexFlags.AllowDuplicateDirectory, true);
 
             //
             // NOTE: Create a string comparer for file names, used to
@@ -1928,6 +1987,25 @@ namespace Eagle._Components.Private
                 //
                 if (IsDisabled(newPath))
                     continue;
+
+                //
+                // HACK: If duplicate paths are not allowed -AND- this
+                //       is a duplicate path, skip it.
+                //
+                if (!allowDuplicate)
+                {
+                    int oldCount = 0;
+
+                    if (SearchIndexes(
+                            interpreter, packageIndexes, path,
+                            ref oldCount, ref error) != ReturnCode.Ok)
+                    {
+                        return ReturnCode.Error;
+                    }
+
+                    if (oldCount > 0)
+                        continue;
+                }
 
                 //
                 // NOTE: Make sure the directory exists prior to
@@ -1960,9 +2038,12 @@ namespace Eagle._Components.Private
                     }
                     catch (Exception e)
                     {
-                        TraceOps.DebugTrace(
-                            e, typeof(PackageOps).Name,
-                            TracePriority.FileSystemError);
+                        if (trace && verbose)
+                        {
+                            TraceOps.DebugTrace(
+                                e, typeof(PackageOps).Name,
+                                TracePriority.FileSystemError);
+                        }
 
                         localError = e;
                     }
@@ -2565,7 +2646,7 @@ namespace Eagle._Components.Private
                         ref error) == ReturnCode.Ok)))
                 {
                     if (!FlagOps.HasFlags(packageIndexFlags,
-                            PackageIndexFlags.AllowDuplicate, true) &&
+                            PackageIndexFlags.AllowDuplicateFile, true) &&
                         (RemoveLogicalDuplicates(
                             interpreter, ref packageIndexes,
                             ref error) != ReturnCode.Ok))
@@ -2597,7 +2678,7 @@ namespace Eagle._Components.Private
                         ref error) == ReturnCode.Ok)))
                 {
                     if (!FlagOps.HasFlags(packageIndexFlags,
-                            PackageIndexFlags.AllowDuplicate, true) &&
+                            PackageIndexFlags.AllowDuplicateFile, true) &&
                         (RemoveLogicalDuplicates(
                             interpreter, ref packageIndexes,
                             ref error) != ReturnCode.Ok))
@@ -2903,6 +2984,59 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static ReturnCode SearchIndexes(
+            Interpreter interpreter,               /* in */
+            PackageIndexDictionary packageIndexes, /* in */
+            string path,                           /* in */
+            ref int count,                         /* in, out */
+            ref Result error                       /* out */
+            )
+        {
+            if (packageIndexes == null)
+            {
+                error = "invalid package indexes";
+                return ReturnCode.Error;
+            }
+
+            StringList fileNames = packageIndexes.GetKeysInOrder(false);
+
+            if (fileNames == null)
+            {
+                error = "failed to reorder file names for marking";
+                return ReturnCode.Error;
+            }
+
+            if (fileNames.Count == 0)
+                return ReturnCode.Ok;
+
+            foreach (string fileName in fileNames)
+            {
+                if (String.IsNullOrEmpty(fileName))
+                    continue;
+
+                if (PathOps.IsSameFile(interpreter, fileName, path))
+                {
+                    count++;
+                    continue;
+                }
+
+                string directory = PathOps.GetDirectoryName(fileName);
+
+                if (String.IsNullOrEmpty(directory))
+                    continue;
+
+                if (PathOps.IsSameFile(interpreter, directory, path))
+                {
+                    count++;
+                    // continue; /* REDUNDANT */
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static void UnsetIndexCallbackDirectory(
             Interpreter interpreter, /* in */
             string varName,          /* in */
@@ -3046,19 +3180,18 @@ namespace Eagle._Components.Private
             }
 
 #if ARGUMENT_CACHE
-            CacheFlags savedCacheFlags = CacheFlags.None;
+            CacheFlags savedCacheFlags;
 
-            interpreter.BeginNoArgumentCache(ref savedCacheFlags);
+            interpreter.BeginNoArgumentCache(out savedCacheFlags);
 
             try
             {
 #endif
 #if DEBUGGER && DEBUGGER_BREAKPOINTS
-                InterpreterStateFlags savedInterpreterStateFlags =
-                    InterpreterStateFlags.None;
+                InterpreterStateFlags savedInterpreterStateFlags;
 
                 interpreter.BeginArgumentLocation(
-                    ref savedInterpreterStateFlags);
+                    out savedInterpreterStateFlags);
 
                 try
                 {

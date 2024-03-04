@@ -89,7 +89,7 @@ namespace Eagle._Commands
 
                                 if (code == ReturnCode.Ok)
                                 {
-                                    Variant value = null;
+                                    IVariant value = null;
                                     IClientData localClientData = clientData;
 
                                     if (options.IsPresent("-clientdata", ref value))

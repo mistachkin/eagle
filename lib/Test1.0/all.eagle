@@ -98,8 +98,8 @@ set no(epilogue.eagle) true
 
 set test_time [time {
   runAllTests $test_channel $test_path \
-      [getTestFiles [list $test_path] $test_flags(-file) \
-          $test_flags(-notFile)] \
+      [getTestFiles [list $test_path test_extra_paths] \
+          $test_flags(-file) $test_flags(-notFile)] \
       [list [file tail [info script]] *.tcl \
           epilogue.eagle prologue.eagle] \
       $test_flags(-startFile) $test_flags(-stopFile)

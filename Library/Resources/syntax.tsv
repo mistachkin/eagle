@@ -180,7 +180,7 @@ file rmdir	file rmdir dir ?dir ...?
 file rootname	file rootname name
 file rootpath	file rootpath name
 file same	file same name1 name2
-file sddl	file sddl name ?sddl?
+file sddl	file sddl ?options? name ?sddl?
 file separator	file separator ?name?
 file size	file size name
 file split	file split name
@@ -190,9 +190,11 @@ file tail	file tail name
 file tempname	file tempname
 file temppath	file temppath
 file touch	file touch path
+file trusted	file trusted path
 file type	file type name
 file under	file under ?options? name1 name2
 file validname	file validname path ?pathType?
+file verified	file verified path
 file version	file version ?options? name
 file volumes	file volumes
 file writable	file writable name
@@ -224,6 +226,7 @@ host echo	host echo ?enabled?
 host errchan	host errchan ?channel?
 host exit	host exit ?force?
 host flags	host flags
+host font	host font ?options?
 host inchan	host inchan ?channel?
 host isopen	host isopen
 host mode	host mode channel ?mode?
@@ -502,6 +505,7 @@ object unimport	object unimport ?options?
 object untype	object untype ?options?
 object verifyall	object verifyall ?options?
 open	open fileName ?access? ?permissions? ?type? ?options?
+package absent	package absent ?-exact? package ?version?
 package forget	package forget ?package package ...?
 package ifneeded	package ifneeded package version ?script? ?flags?
 package indexes	package indexes ?pattern?

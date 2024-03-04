@@ -2435,23 +2435,20 @@ namespace Eagle._Components.Private.Tcl
             ref Result error /* in */
             )
         {
-            ReturnCode code;
-            FileVersionInfo version = null;
+            Version version = null;
 
-            code = FileOps.GetFileVersion(
-                fileName, true, ref version, ref error);
-
-            if (code == ReturnCode.Ok)
+            if (FileOps.GetFileVersion(
+                    fileName, true, ref version,
+                    ref error) == ReturnCode.Ok)
             {
                 return GlobalState.GetFourPartVersion(
-                    version.FileMajorPart,
-                    version.FileMinorPart,
-                    version.FileBuildPart,
-                    version.FilePrivatePart
-                );
+                    version.Major, version.Minor,
+                    version.Build, version.Revision);
             }
-
-            return null;
+            else
+            {
+                return null;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5636,7 +5633,8 @@ namespace Eagle._Components.Private.Tcl
             try
             {
                 StringList list = new StringList(
-                    EnvVars.EagleTclDll, EnvVars.EagleTkDll,
+                    EnvVars.EagleTclDir, EnvVars.EagleTclDll,
+                    EnvVars.EagleTkDll, EnvVars.TclDir,
                     EnvVars.TclDll, EnvVars.TkDll
                 );
 

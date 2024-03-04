@@ -16,137 +16,69 @@ using System.Security;
 using System.Text;
 using Eagle._Attributes;
 using Eagle._Components.Private;
-using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
-using _Public = Eagle._Components.Public;
+using _Value = Eagle._Components.Public.Value;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Components.Public
 {
     [ObjectId("1d8b24ad-d959-43bb-92a6-e20bcb369d04")]
-    public class Variant : Number
+    public sealed class Variant :
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+        ScriptMarshalByRefObject,
+#endif
+        IVariant, ICloneable
     {
-        private static readonly object staticSyncRoot = new object();
-        private static TypeDelegateDictionary variantTypes;
+        #region Private Constants
+        private static readonly NumberType[] numberTypes = {
+            NumberType.Integral, NumberType.FloatingPoint,
+            NumberType.FixedPoint
+        };
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly TypeCode[] integralTypeCodes = {
+            TypeCode.Int64, TypeCode.Int32, TypeCode.Int16,
+            TypeCode.Byte, TypeCode.Boolean
+        };
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly TypeCode[] floatingTypeCodes = {
+            TypeCode.Double, TypeCode.Single
+        };
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly TypeCode[] fixedTypeCodes = {
+            TypeCode.Decimal
+        };
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
 
         #region Static Constructor
         static Variant()
         {
-            InitializeTypes();
+            NumberOps.InitializeTypes();
+            VariantOps.InitializeTypes();
         }
         #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        internal new static void InitializeTypes()
+        #region Public Constructors
+        #region Number Constructors (Base Class)
+        //
+        // HACK: This is needed for use by the GetFramework method family.
+        //
+        public Variant()
         {
-            lock (staticSyncRoot) /* TRANSACTIONAL */
-            {
-                if (variantTypes == null)
-                {
-                    variantTypes = new TypeDelegateDictionary();
-                    variantTypes.Add(typeof(Number), null);
-                    variantTypes.Add(typeof(DateTime), null);
-                    variantTypes.Add(typeof(TimeSpan), null);
-                    variantTypes.Add(typeof(Guid), null);
-                    variantTypes.Add(typeof(string), null);
-                    variantTypes.Add(typeof(StringList), null);
-                    variantTypes.Add(typeof(StringDictionary), null);
-                    variantTypes.Add(typeof(IObject), null);
-                    variantTypes.Add(typeof(ICallFrame), null);
-                    variantTypes.Add(typeof(Interpreter), null);
-                    variantTypes.Add(typeof(Type), null);
-                    variantTypes.Add(typeof(TypeList), null);
-                    variantTypes.Add(typeof(EnumList), null);
-                    variantTypes.Add(typeof(Uri), null);
-                    variantTypes.Add(typeof(Version), null);
-                    variantTypes.Add(typeof(ReturnCodeList), null);
-                    variantTypes.Add(typeof(IIdentifier), null);
-                    variantTypes.Add(typeof(IAlias), null);
-                    variantTypes.Add(typeof(IOption), null);
-                    variantTypes.Add(typeof(INamespace), null);
-                    variantTypes.Add(typeof(SecureString), null);
-                    variantTypes.Add(typeof(Encoding), null);
-                    variantTypes.Add(typeof(CultureInfo), null);
-                    variantTypes.Add(typeof(IPlugin), null);
-                    variantTypes.Add(typeof(IExecute), null);
-                    variantTypes.Add(typeof(ICallback), null);
-                    variantTypes.Add(typeof(IRuleSet), null);
-                    variantTypes.Add(typeof(byte[]), null);
-                }
-            }
+            Clear();
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        private static TypeList GetTypes()
-        {
-            lock (staticSyncRoot) /* TRANSACTIONAL */
-            {
-                if (variantTypes == null)
-                    return null;
-
-                return new TypeList(variantTypes.Keys);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        private static bool HaveType(
-            Type type
-            )
-        {
-            lock (staticSyncRoot) /* TRANSACTIONAL */
-            {
-                if (variantTypes == null)
-                    return false;
-
-                if (type == null)
-                    return false;
-
-                return variantTypes.ContainsKey(type);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual void Clear(bool @base)
-        {
-            if (@base)
-                base.Value = null;
-
-            this.dateTimeValue = null;
-            this.timeSpanValue = null;
-            this.guidValue = null;
-            this.stringValue = null;
-            this.listValue = null;
-            this.dictionaryValue = null;
-            this.objectValue = null;
-            this.frameValue = null;
-            this.interpreterValue = null;
-            this.typeValue = null;
-            this.typeListValue = null;
-            this.enumListValue = null;
-            this.uriValue = null;
-            this.versionValue = null;
-            this.returnCodeListValue = null;
-            this.identifierValue = null;
-            this.aliasValue = null;
-            this.optionValue = null;
-            this.namespaceValue = null;
-            this.secureStringValue = null;
-            this.encodingValue = null;
-            this.cultureInfoValue = null;
-            this.pluginValue = null;
-            this.executeValue = null;
-            this.callbackValue = null;
-            this.ruleSetValue = null;
-            this.byteArrayValue = null;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         //
         // BUGFIX: We cannot use the clear method in this constructor because
@@ -156,2189 +88,551 @@ namespace Eagle._Components.Public
         //         Value property, leaving our value invalid for all types not
         //         supported directly by our base class.
         //
-        public Variant(object value)
-            : base(value) /* may throw */
+        public Variant(
+            object value /* in */
+            )
         {
-            // do nothing.
+            SetValueOrThrow(value); /* throw */
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(bool value)
-            : base(value)
+        public Variant(
+            bool value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(sbyte value)
-            : base(value)
+        public Variant(
+            sbyte value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(byte value)
-            : base(value)
+        public Variant(
+            byte value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(short value)
-            : base(value)
+        public Variant(
+            short value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(ushort value)
-            : base(value)
+        public Variant(
+            ushort value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(char value)
-            : base(value)
+        public Variant(
+            char value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(int value)
-            : base(value)
+        public Variant(
+            int value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(uint value)
-            : base(value)
+        public Variant(
+            uint value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(long value)
-            : base(value)
+        public Variant(
+            long value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(ulong value)
-            : base(value)
+        public Variant(
+            ulong value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(Enum value)
-            : base(value)
+        public Variant(
+            Enum value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(ReturnCode value)
-            : base(value)
+        public Variant(
+            decimal value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(MatchMode value)
-            : base(value)
+        public Variant(
+            float value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(MidpointRounding value)
-            : base(value)
+        public Variant(
+            double value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(decimal value)
-            : base(value)
+        public Variant(
+            IGetValue value /* in */
+            )
         {
-            Clear(false);
+            if (value != null)
+                SetValueOrThrow(value.Value); /* throw */
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Variant Constructors (This Class)
+        public Variant(
+            DateTime value /* in */
+            )
+        {
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(float value)
-            : base(value)
+        public Variant(
+            TimeSpan value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(double value)
-            : base(value)
+        public Variant(
+            Guid value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(DateTime value)
-            : base()
+        public Variant(
+            string value /* in */
+            )
         {
-            Clear(false);
-
-            this.dateTimeValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(TimeSpan value)
-            : base()
+        public Variant(
+            StringList value /* in */
+            )
         {
-            Clear(false);
-
-            this.timeSpanValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(Guid value)
-            : base()
+        public Variant(
+            StringDictionary value /* in */
+            )
         {
-            Clear(false);
-
-            this.guidValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(Number value)
-            : base(value)
+        public Variant(
+            IObject value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(string value)
-            : base()
+        public Variant(
+            ICallFrame value /* in */
+            )
         {
-            Clear(false);
-
-            this.stringValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(StringList value)
-            : base()
+        public Variant(
+            Interpreter value /* in */
+            )
         {
-            Clear(false);
-
-            this.listValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(StringDictionary value)
-            : base()
+        public Variant(
+            Type value /* in */
+            )
         {
-            Clear(false);
-
-            this.dictionaryValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(IObject value)
-            : base()
+        public Variant(
+            TypeList value /* in */
+            )
         {
-            Clear(false);
-
-            this.objectValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(ICallFrame value)
-            : base()
+        public Variant(
+            EnumList value /* in */
+            )
         {
-            Clear(false);
-
-            this.frameValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(Interpreter value)
+        public Variant(
+            Uri value /* in */
+            )
         {
-            Clear(false);
-
-            this.interpreterValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(Type value)
+        public Variant(
+            Version value /* in */
+            )
         {
-            Clear(false);
-
-            this.typeValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(TypeList value)
+        public Variant(
+            ReturnCodeList value /* in */
+            )
         {
-            Clear(false);
-
-            this.typeListValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(EnumList value)
+        public Variant(
+            IAlias value /* in */
+            )
         {
-            Clear(false);
-
-            this.enumListValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(Uri value)
+        public Variant(
+            IOption value /* in */
+            )
         {
-            Clear(false);
-
-            this.uriValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(Version value)
+        public Variant(
+            INamespace value /* in */
+            )
         {
-            Clear(false);
-
-            this.versionValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(ReturnCodeList value)
+        public Variant(
+            SecureString value /* in */
+            )
         {
-            Clear(false);
-
-            this.returnCodeListValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(IIdentifier value)
+        public Variant(
+            Encoding value /* in */
+            )
         {
-            Clear(false);
-
-            this.identifierValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(IAlias value)
+        public Variant(
+            CultureInfo value /* in */
+            )
         {
-            Clear(false);
-
-            this.aliasValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(IOption value)
+        public Variant(
+            IPlugin value /* in */
+            )
         {
-            Clear(false);
-
-            this.optionValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(INamespace value)
+        public Variant(
+            IExecute value /* in */
+            )
         {
-            Clear(false);
-
-            this.namespaceValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(SecureString value)
+        public Variant(
+            ICallback value /* in */
+            )
         {
-            Clear(false);
-
-            this.secureStringValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(Encoding value)
+        public Variant(
+            IRuleSet value /* in */
+            )
         {
-            Clear(false);
-
-            this.encodingValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(CultureInfo value)
+        public Variant(
+            IIdentifier value /* in */
+            )
         {
-            Clear(false);
-
-            this.cultureInfoValue = value;
+            SetValueNoThrow(value);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(IPlugin value)
+        public Variant(
+            byte[] value /* in */
+            )
         {
-            Clear(false);
+            SetValueNoThrow(value);
+        }
+        #endregion
+        #endregion
 
-            this.pluginValue = value;
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Value Helper Methods
+        private IEnumerable<NumberType> GetNumberTypes()
+        {
+            return numberTypes;
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public Variant(IExecute value)
+        private IEnumerable<TypeCode> GetTypeCodes(
+            NumberType numberType /* in */
+            )
         {
-            Clear(false);
-
-            this.executeValue = value;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public Variant(ICallback value)
-        {
-            Clear(false);
-
-            this.callbackValue = value;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public Variant(IRuleSet value)
-        {
-            Clear(false);
-
-            this.ruleSetValue = value;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public Variant(byte[] value)
-        {
-            Clear(false);
-
-            this.byteArrayValue = value;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public Variant(Variant value)
-            : base(/* Number */ value)
-        {
-            object @object = (value != null) ? value.Value : null;
-
-            if (@object is DateTime)
-                this.dateTimeValue = (DateTime)@object; /* ValueType, Deep Copy */
-
-            if (@object is TimeSpan)
-                this.timeSpanValue = (TimeSpan)@object; /* ValueType, Deep Copy */
-
-            if (@object is Guid)
-                this.guidValue = (Guid)@object; /* ValueType, Deep Copy */
-
-            if (@object is string)
-                this.stringValue = (string)@object; /* Immutable, Deep Copy */
-
-            if (@object is StringList)
-                this.listValue = new StringList((StringList)@object); /* Deep Copy */
-
-            if (@object is StringDictionary)
-                this.dictionaryValue = new StringDictionary((IDictionary<string, string>)@object); /* Deep Copy */
-
-            if (@object is IObject)
-                this.objectValue = (IObject)@object; /* Shallow Copy */
-
-            if (@object is ICallFrame)
-                this.frameValue = (ICallFrame)@object; /* Shallow Copy */
-
-            if (@object is Interpreter)
-                this.interpreterValue = (Interpreter)@object; /* Shallow Copy */
-
-            if (@object is Type)
-                this.typeValue = (Type)@object; /* Shallow Copy */
-
-            if (@object is TypeList)
-                this.typeListValue = (TypeList)@object; /* Shallow Copy */
-
-            if (@object is EnumList)
-                this.enumListValue = (EnumList)@object; /* Shallow Copy */
-
-            if (@object is Uri)
-                this.uriValue = (Uri)@object; /* Shallow Copy */
-
-            if (@object is Version)
-                this.versionValue = (Version)@object; /* Shallow Copy */
-
-            if (@object is ReturnCodeList)
-                this.returnCodeListValue = (ReturnCodeList)@object; /* Shallow Copy */
-
-            if (@object is IIdentifier)
-                this.identifierValue = (IIdentifier)@object; /* Shallow Copy */
-
-            if (@object is IAlias)
-                this.aliasValue = (IAlias)@object; /* Shallow Copy */
-
-            if (@object is IOption)
-                this.optionValue = (IOption)@object; /* Shallow Copy */
-
-            if (@object is INamespace)
-                this.namespaceValue = (INamespace)@object; /* Shallow Copy */
-
-            if (@object is SecureString)
-                this.secureStringValue = (SecureString)@object; /* Shallow Copy */
-
-            if (@object is Encoding)
-                this.encodingValue = (Encoding)@object; /* Shallow Copy */
-
-            if (@object is CultureInfo)
-                this.cultureInfoValue = (CultureInfo)@object; /* Shallow Copy */
-
-            if (@object is IPlugin)
-                this.pluginValue = (IPlugin)@object; /* Shallow Copy */
-
-            if (@object is IExecute)
-                this.executeValue = (IExecute)@object; /* Shallow Copy */
-
-            if (@object is ICallback)
-                this.callbackValue = (ICallback)@object; /* Shallow Copy */
-
-            if (@object is IRuleSet)
-                this.ruleSetValue = (IRuleSet)@object; /* Shallow Copy */
-
-            if (@object is byte[])
-                this.byteArrayValue = (byte[])@object; /* Shallow Copy */
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        #region System.Object Overrides
-        public override string ToString()
-        {
-            if (dateTimeValue is DateTime)
+            switch (numberType)
             {
-                return FormatOps.Iso8601DateTime(dateTimeValue);
+                case NumberType.Integral:
+                    {
+                        return integralTypeCodes;
+                    }
+                case NumberType.FloatingPoint:
+                    {
+                        return floatingTypeCodes;
+                    }
+                case NumberType.FixedPoint:
+                    {
+                        return fixedTypeCodes;
+                    }
+                default:
+                    {
+                        return null;
+                    }
             }
-            else if (timeSpanValue is TimeSpan)
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void Clear()
+        {
+            value = null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void SetValueNoThrow(
+            object value /* in */
+            )
+        {
+            this.value = value;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void SetValueOrThrow(
+            object value /* in */
+            )
+        {
+            IGetValue getValue = value as IGetValue;
+
+            if (getValue != null)
             {
-                return timeSpanValue.ToString();
+                if (Object.ReferenceEquals(getValue, this))
+                    return;
+
+                SetValueOrThrow(getValue.Value); /* RECURSIVE */
             }
-            else if (guidValue is Guid)
+            else if (value == null)
             {
-                return guidValue.ToString();
+                Clear();
             }
-            else if (stringValue is string)
+            if (value is StringList)
             {
-                return stringValue;
+                SetValueNoThrow(new StringList(
+                    (StringList)value)); /* Deep Copy */
             }
-            else if (listValue is StringList)
+            else if (value is StringDictionary)
             {
-                return listValue.ToString();
+                SetValueNoThrow(new StringDictionary(
+                    (IDictionary<string, string>)value)); /* Deep Copy */
             }
-            else if (dictionaryValue is StringDictionary)
+            else if (VariantOps.HaveType(value))
             {
-                return dictionaryValue.ToString();
-            }
-            else if (objectValue is IObject)
-            {
-                return objectValue.ToString();
-            }
-            else if (frameValue is ICallFrame)
-            {
-                return frameValue.ToString();
-            }
-            else if (interpreterValue is Interpreter)
-            {
-                return interpreterValue.ToString();
-            }
-            else if (typeValue is Type)
-            {
-                return typeValue.ToString();
-            }
-            else if (typeListValue is TypeList)
-            {
-                return typeListValue.ToString();
-            }
-            else if (enumListValue is EnumList)
-            {
-                return enumListValue.ToString();
-            }
-            else if (uriValue is Uri)
-            {
-                return uriValue.ToString();
-            }
-            else if (versionValue is Version)
-            {
-                return versionValue.ToString();
-            }
-            else if (returnCodeListValue is ReturnCodeList)
-            {
-                return returnCodeListValue.ToString();
-            }
-            else if (identifierValue is IIdentifier)
-            {
-                return identifierValue.ToString();
-            }
-            else if (aliasValue is IAlias)
-            {
-                return aliasValue.ToString();
-            }
-            else if (optionValue is IOption)
-            {
-                return optionValue.ToString();
-            }
-            else if (namespaceValue is INamespace)
-            {
-                return namespaceValue.ToString();
-            }
-            else if (secureStringValue is SecureString)
-            {
-                return secureStringValue.ToString();
-            }
-            else if (encodingValue is Encoding)
-            {
-                return encodingValue.ToString();
-            }
-            else if (cultureInfoValue is CultureInfo)
-            {
-                return cultureInfoValue.ToString();
-            }
-            else if (pluginValue is IPlugin)
-            {
-                return pluginValue.ToString();
-            }
-            else if (executeValue is IExecute)
-            {
-                return executeValue.ToString();
-            }
-            else if (callbackValue is ICallback)
-            {
-                return callbackValue.ToString();
-            }
-            else if (ruleSetValue is IRuleSet)
-            {
-                return ruleSetValue.ToString();
-            }
-            else if (byteArrayValue is byte[])
-            {
-                return Convert.ToBase64String(byteArrayValue,
-                    Base64FormattingOptions.InsertLineBreaks);
+                SetValueNoThrow(value);
             }
             else
             {
-                return base.ToString();
+                Type type = null;
+
+                if (NumberOps.HaveType(value, ref type))
+                {
+                    SetValueNoThrow(value);
+                }
+                else
+                {
+                    throw new ScriptException(
+                        String.Format("cannot set {0} value",
+                        FormatOps.TypeName(typeof(INumber))),
+                        new ArgumentException(String.Format(
+                            "unsupported type {0}",
+                            FormatOps.TypeName(type))));
+                }
             }
         }
         #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public static bool ToDateTime(Variant variant, ref DateTime value)
+        #region Private Math Helper Methods
+        private static string UnsupportedOperatorType(
+            TypeCode typeCode,              /* in */
+            IIdentifierName identifierName, /* in */
+            Lexeme lexeme                   /* in */
+            )
         {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsDateTime())
-                    {
-                        value = (DateTime)variant.Value;
-
-                        result = true;
-                    }
-                    else
-                    {
-                        if (variant.IsString())
-                        {
-                            DateTime dateTime = DateTime.MinValue;
-
-                            if (_Public.Value.TryParseDateTime(
-                                    (string)variant.Value, true, out dateTime))
-                            {
-                                value = dateTime;
-
-                                result = true;
-                            }
-                        }
-                        else if (variant.IsList())
-                        {
-                            DateTime dateTime = DateTime.MinValue;
-
-                            if (_Public.Value.TryParseDateTime(
-                                    variant.Value.ToString(), true, out dateTime))
-                            {
-                                value = dateTime;
-
-                                result = true;
-                            }
-                        }
-                        else
-                        {
-                            IConvertible convertible = variant.Value as IConvertible;
-
-                            if (convertible != null)
-                            {
-                                value = convertible.ToDateTime(
-                                    _Public.Value.GetDateTimeFormatProvider(null));
-
-                                result = true;
-                            }
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToTimeSpan(Variant variant, ref TimeSpan value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsTimeSpan())
-                    {
-                        value = (TimeSpan)variant.Value;
-
-                        result = true;
-                    }
-                    else
-                    {
-                        if (variant.IsString())
-                        {
-                            TimeSpan timeSpan = TimeSpan.Zero;
-
-                            if (TimeSpan.TryParse((string)variant.Value, out timeSpan))
-                            {
-                                value = timeSpan;
-
-                                result = true;
-                            }
-                        }
-                        else if (variant.IsList())
-                        {
-                            TimeSpan timeSpan = TimeSpan.Zero;
-
-                            if (TimeSpan.TryParse(variant.Value.ToString(), out timeSpan))
-                            {
-                                value = timeSpan;
-
-                                result = true;
-                            }
-                        }
-                        else
-                        {
-                            IConvertible convertible = variant.Value as IConvertible;
-
-                            if (convertible != null)
-                            {
-                                value = new TimeSpan(convertible.ToInt64(null));
-
-                                result = true;
-                            }
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToGuid(Variant variant, ref Guid value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsGuid())
-                        value = (Guid)variant.Value;
-                    else if (variant.IsString())
-                        value = new Guid((string)variant.Value); /* throw */
-                    else if (variant.IsList())
-                        value = new Guid(variant.Value.ToString()); /* throw */
-                    else
-                        value = new Guid(variant.Value.ToString()); /* throw */
-
-                    result = true;
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToString(Variant variant, ref string value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsString())
-                        value = (string)variant.Value;
-                    else if (variant.IsList())
-                        value = variant.Value.ToString();
-                    else
-                        value = Convert.ToString(variant.Value); /* throw */
-
-                    result = true;
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToList(Variant variant, ref StringList value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsList())
-                        value = (StringList)variant.Value;
-                    else if (variant.IsString())
-                        value = new StringList(new string[] {
-                            (string)variant.Value
-                        });
-                    else
-                        value = new StringList(new string[] {
-                            Convert.ToString(variant.Value) /* throw */
-                        });
-
-                    result = true;
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToDictionary(Variant variant, ref StringDictionary value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsDictionary())
-                        value = (StringDictionary)variant.Value;
-                    else if (variant.IsList())
-                        value = new StringDictionary(
-                            (StringList)variant.Value, false, true);
-                    else if (variant.IsString())
-                        value = new StringDictionary(new string[] {
-                            (string)variant.Value
-                        }, false, true);
-                    else
-                        value = new StringDictionary(new string[] {
-                            Convert.ToString(variant.Value) /* throw */
-                        }, false, true);
-
-                    result = true;
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToObject(Variant variant, ref IObject value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsObject())
-                    {
-                        value = (IObject)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToCallFrame(Variant variant, ref ICallFrame value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsCallFrame())
-                    {
-                        value = (ICallFrame)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToInterpreter(Variant variant, ref Interpreter value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsInterpreter())
-                    {
-                        value = (Interpreter)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToType(Variant variant, ref Type value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsType())
-                    {
-                        value = (Type)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToTypeList(Variant variant, ref TypeList value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsTypeList())
-                    {
-                        value = (TypeList)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToEnumList(Variant variant, ref EnumList value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsEnumList())
-                    {
-                        value = (EnumList)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToUri(Variant variant, ref Uri value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsUri())
-                    {
-                        value = (Uri)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToVersion(Variant variant, ref Version value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsVersion())
-                    {
-                        value = (Version)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToReturnCodeList(Variant variant, ref ReturnCodeList value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsReturnCodeList())
-                    {
-                        value = (ReturnCodeList)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToIdentifier(Variant variant, ref IIdentifier value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsIdentifier())
-                    {
-                        value = (IIdentifier)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToAlias(Variant variant, ref IAlias value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsAlias())
-                    {
-                        value = (IAlias)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToOption(Variant variant, ref IOption value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsOption())
-                    {
-                        value = (IOption)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToNamespace(Variant variant, ref INamespace value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsNamespace())
-                    {
-                        value = (INamespace)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToSecureString(Variant variant, ref SecureString value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsSecureString())
-                    {
-                        value = (SecureString)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToEncoding(Variant variant, ref Encoding value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsEncoding())
-                    {
-                        value = (Encoding)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToCultureInfo(Variant variant, ref CultureInfo value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsCultureInfo())
-                    {
-                        value = (CultureInfo)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToPlugin(Variant variant, ref IPlugin value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsPlugin())
-                    {
-                        value = (IPlugin)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToExecute(Variant variant, ref IExecute value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsExecute())
-                    {
-                        value = (IExecute)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToCallback(Variant variant, ref ICallback value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsCallback())
-                    {
-                        value = (ICallback)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToRuleSet(Variant variant, ref IRuleSet value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsRuleSet())
-                    {
-                        value = (IRuleSet)variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool ToByteArray(Variant variant, ref byte[] value)
-        {
-            bool result = false;
-
-            try
-            {
-                if (variant != null)
-                {
-                    if (variant.IsByteArray())
-                    {
-                        value = (byte[])variant.Value;
-
-                        result = true;
-                    }
-                }
-            }
-            catch
-            {
-                // do nothing.
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToDateTime(ref DateTime value)
-        {
-            return ToDateTime(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToTimeSpan(ref TimeSpan value)
-        {
-            return ToTimeSpan(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToGuid(ref Guid value)
-        {
-            return ToGuid(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToString(ref string value)
-        {
-            return ToString(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToList(ref StringList value)
-        {
-            return ToList(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToDictionary(ref StringDictionary value)
-        {
-            return ToDictionary(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToObject(ref IObject value)
-        {
-            return ToObject(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToCallFrame(ref ICallFrame value)
-        {
-            return ToCallFrame(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToInterpreter(ref Interpreter value)
-        {
-            return ToInterpreter(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToType(ref Type value)
-        {
-            return ToType(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToTypeList(ref TypeList value)
-        {
-            return ToTypeList(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToEnumList(ref EnumList value)
-        {
-            return ToEnumList(this, ref value);
+            return String.Format(
+                "unsupported operator type {0} for operand type {1}",
+                FormatOps.OperatorName(identifierName, lexeme),
+                typeCode);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public virtual bool ToUri(ref Uri value)
+        private static string UnsupportedOperandType(
+            string prefix,                  /* in */
+            TypeCode typeCode,              /* in */
+            IIdentifierName identifierName, /* in */
+            Lexeme lexeme                   /* in */
+            )
         {
-            return ToUri(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToVersion(ref Version value)
-        {
-            return ToVersion(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToReturnCodeList(ref ReturnCodeList value)
-        {
-            return ToReturnCodeList(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToIdentifier(ref IIdentifier value)
-        {
-            return ToIdentifier(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToAlias(ref IAlias value)
-        {
-            return ToAlias(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToOption(ref IOption value)
-        {
-            return ToOption(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToNamespace(ref INamespace value)
-        {
-            return ToNamespace(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToSecureString(ref SecureString value)
-        {
-            return ToSecureString(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToEncoding(ref Encoding value)
-        {
-            return ToEncoding(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToCultureInfo(ref CultureInfo value)
-        {
-            return ToCultureInfo(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToPlugin(ref IPlugin value)
-        {
-            return ToPlugin(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToExecute(ref IExecute value)
-        {
-            return ToExecute(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToCallback(ref ICallback value)
-        {
-            return ToCallback(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToRuleSet(ref IRuleSet value)
-        {
-            return ToRuleSet(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool ToByteArray(ref byte[] value)
-        {
-            return ToByteArray(this, ref value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsNumber()
-        {
-            return ((dateTimeValue == null) && (timeSpanValue == null) &&
-                    (guidValue == null) && (stringValue == null) &&
-                    (listValue == null) && (dictionaryValue == null) &&
-                    (objectValue == null) && (frameValue == null) &&
-                    (interpreterValue == null) && (typeValue == null) &&
-                    (typeListValue == null) && (enumListValue == null) &&
-                    (uriValue == null) && (versionValue == null) &&
-                    (returnCodeListValue == null) && (aliasValue == null) &&
-                    (optionValue == null) && (namespaceValue == null) &&
-                    (secureStringValue == null) && (encodingValue == null) &&
-                    (cultureInfoValue == null) && (pluginValue == null) &&
-                    (executeValue == null) && (callbackValue == null) &&
-                    (ruleSetValue == null) && (byteArrayValue == null));
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsDateTime()
-        {
-            return (dateTimeValue is DateTime);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsTimeSpan()
-        {
-            return (timeSpanValue is TimeSpan);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsGuid()
-        {
-            return (guidValue is Guid);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsString()
-        {
-            return (stringValue is string);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsList()
-        {
-            return (listValue is StringList);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsDictionary()
-        {
-            return (dictionaryValue is StringDictionary);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsObject()
-        {
-            return (objectValue is IObject);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsCallFrame()
-        {
-            return (frameValue is ICallFrame);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsInterpreter()
-        {
-            return (interpreterValue is Interpreter);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsType()
-        {
-            return (typeValue is Type);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsTypeList()
-        {
-            return (typeListValue is TypeList);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsEnumList()
-        {
-            return (enumListValue is EnumList);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsUri()
-        {
-            return (uriValue is Uri);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsVersion()
-        {
-            return (versionValue is Version);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsReturnCodeList()
-        {
-            return (returnCodeListValue is ReturnCodeList);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+            if (prefix != null)
+                prefix = String.Format("{0} ", prefix);
 
-        public virtual bool IsIdentifier()
-        {
-            return (identifierValue is IIdentifier);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsAlias()
-        {
-            return (aliasValue is IAlias);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsOption()
-        {
-            return (optionValue is IOption);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsNamespace()
-        {
-            return (namespaceValue is INamespace);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsSecureString()
-        {
-            return (secureStringValue is SecureString);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsEncoding()
-        {
-            return (encodingValue is Encoding);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsCultureInfo()
-        {
-            return (cultureInfoValue is CultureInfo);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsPlugin()
-        {
-            return (pluginValue is IPlugin);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsExecute()
-        {
-            return (executeValue is IExecute);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsCallback()
-        {
-            return (callbackValue is ICallback);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsRuleSet()
-        {
-            return (ruleSetValue is IRuleSet);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public virtual bool IsByteArray()
-        {
-            return (byteArrayValue is byte[]);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static TypeList Types(Variant value /* NOT USED */)
-        {
-            return GetTypes();
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public override TypeList Types()
-        {
-            return Types(this);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public static bool IsSupported(Variant value /* NOT USED */, Type type)
-        {
-            return HaveType(type);
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public override bool IsSupported(Type type)
-        {
-            return (IsSupported(this, type) || base.IsSupported(type));
+            return String.Format(
+                "unsupported {0}operand type {1} for operator {2}",
+                prefix, typeCode, FormatOps.OperatorName(identifierName,
+                lexeme));
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        public override bool ConvertTo(Type type)
+        private static string UnsupportedOperandTypes(
+            TypeCode typeCode1,             /* in */
+            TypeCode typeCode2,             /* in */
+            IIdentifierName identifierName, /* in */
+            Lexeme lexeme                   /* in */
+            )
         {
-            bool result = false;
-
-            if (type == typeof(DateTime))
-            {
-                DateTime dateTime = DateTime.MinValue;
-
-                if (result = ToDateTime(ref dateTime))
-                {
-                    Clear(true);
-
-                    dateTimeValue = dateTime;
-                }
-            }
-            else if (type == typeof(TimeSpan))
-            {
-                TimeSpan timeSpan = TimeSpan.Zero;
-
-                if (result = ToTimeSpan(ref timeSpan))
-                {
-                    Clear(true);
-
-                    timeSpanValue = timeSpan;
-                }
-            }
-            else if (type == typeof(Guid))
-            {
-                Guid guid = Guid.Empty;
-
-                if (result = ToGuid(ref guid))
-                {
-                    Clear(true);
-
-                    guidValue = guid;
-                }
-            }
-            if (type == typeof(string))
-            {
-                string @string = null;
-
-                if (result = ToString(ref @string))
-                {
-                    Clear(true);
-
-                    stringValue = @string;
-                }
-            }
-            else if (type == typeof(StringList))
-            {
-                StringList list = null;
-
-                if (result = ToList(ref list))
-                {
-                    Clear(true);
-
-                    listValue = list;
-                }
-            }
-            else if (type == typeof(StringDictionary))
-            {
-                StringDictionary dictionary = null;
-
-                if (result = ToDictionary(ref dictionary))
-                {
-                    Clear(true);
-
-                    dictionaryValue = dictionary;
-                }
-            }
-            else if (type == typeof(IObject))
-            {
-                IObject @object = null;
-
-                if (result = ToObject(ref @object))
-                {
-                    Clear(true);
-
-                    objectValue = @object;
-                }
-            }
-            else if (type == typeof(ICallFrame))
-            {
-                ICallFrame frame = null;
-
-                if (result = ToCallFrame(ref frame))
-                {
-                    Clear(true);
-
-                    frameValue = frame;
-                }
-            }
-            else if (type == typeof(Interpreter))
-            {
-                Interpreter interpreter = null;
-
-                if (result = ToInterpreter(ref interpreter))
-                {
-                    Clear(true);
-
-                    interpreterValue = interpreter;
-                }
-            }
-            else if (type == typeof(Type))
-            {
-                Type _type = null;
-
-                if (result = ToType(ref _type))
-                {
-                    Clear(true);
-
-                    typeValue = _type;
-                }
-            }
-            else if (type == typeof(TypeList))
-            {
-                TypeList typeList = null;
-
-                if (result = ToTypeList(ref typeList))
-                {
-                    Clear(true);
-
-                    typeListValue = typeList;
-                }
-            }
-            else if (type == typeof(EnumList))
-            {
-                EnumList enumList = null;
-
-                if (result = ToEnumList(ref enumList))
-                {
-                    Clear(true);
-
-                    enumListValue = enumList;
-                }
-            }
-            else if (type == typeof(Uri))
-            {
-                Uri uri = null;
-
-                if (result = ToUri(ref uri))
-                {
-                    Clear(true);
-
-                    uriValue = uri;
-                }
-            }
-            else if (type == typeof(Version))
-            {
-                Version version = null;
-
-                if (result = ToVersion(ref version))
-                {
-                    Clear(true);
-
-                    versionValue = version;
-                }
-            }
-            else if (type == typeof(ReturnCodeList))
-            {
-                ReturnCodeList returnCodeList = null;
-
-                if (result = ToReturnCodeList(ref returnCodeList))
-                {
-                    Clear(true);
-
-                    returnCodeListValue = returnCodeList;
-                }
-            }
-            else if (type == typeof(IIdentifier))
-            {
-                IIdentifier identifier = null;
-
-                if (result = ToIdentifier(ref identifier))
-                {
-                    Clear(true);
-
-                    identifierValue = identifier;
-                }
-            }
-            else if (type == typeof(IAlias))
-            {
-                IAlias alias = null;
-
-                if (result = ToAlias(ref alias))
-                {
-                    Clear(true);
-
-                    aliasValue = alias;
-                }
-            }
-            else if (type == typeof(IOption))
-            {
-                IOption option = null;
-
-                if (result = ToOption(ref option))
-                {
-                    Clear(true);
-
-                    optionValue = option;
-                }
-            }
-            else if (type == typeof(INamespace))
-            {
-                INamespace @namespace = null;
-
-                if (result = ToNamespace(ref @namespace))
-                {
-                    Clear(true);
-
-                    namespaceValue = @namespace;
-                }
-            }
-            else if (type == typeof(SecureString))
-            {
-                SecureString secureString = null;
-
-                if (result = ToSecureString(ref secureString))
-                {
-                    Clear(true);
-
-                    secureStringValue = secureString;
-                }
-            }
-            else if (type == typeof(Encoding))
-            {
-                Encoding encoding = null;
-
-                if (result = ToEncoding(ref encoding))
-                {
-                    Clear(true);
-
-                    encodingValue = encoding;
-                }
-            }
-            else if (type == typeof(CultureInfo))
-            {
-                CultureInfo cultureInfo = null;
-
-                if (result = ToCultureInfo(ref cultureInfo))
-                {
-                    Clear(true);
-
-                    cultureInfoValue = cultureInfo;
-                }
-            }
-            else if (type == typeof(IPlugin))
-            {
-                IPlugin plugin = null;
-
-                if (result = ToPlugin(ref plugin))
-                {
-                    Clear(true);
-
-                    pluginValue = plugin;
-                }
-            }
-            else if (type == typeof(IExecute))
-            {
-                IExecute execute = null;
-
-                if (result = ToExecute(ref execute))
-                {
-                    Clear(true);
-
-                    executeValue = execute;
-                }
-            }
-            else if (type == typeof(ICallback))
-            {
-                ICallback callback = null;
-
-                if (result = ToCallback(ref callback))
-                {
-                    Clear(true);
-
-                    callbackValue = callback;
-                }
-            }
-            else if (type == typeof(IRuleSet))
-            {
-                IRuleSet ruleSet = null;
-
-                if (result = ToRuleSet(ref ruleSet))
-                {
-                    Clear(true);
-
-                    ruleSetValue = ruleSet;
-                }
-            }
-            else if (type == typeof(byte[]))
-            {
-                byte[] byteArray = null;
-
-                if (result = ToByteArray(ref byteArray))
-                {
-                    Clear(true);
-
-                    byteArrayValue = byteArray;
-                }
-            }
-            else if (result = base.ConvertTo(type))
-            {
-                Clear(false);
-            }
-
-            return result;
-        }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        public override object BaseValue
-        {
-            get { return base.Value; }
+            return String.Format(
+                "type mismatch for operator {0}, {1} versus {2}",
+                FormatOps.OperatorName(identifierName, lexeme),
+                typeCode1, typeCode2);
         }
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        private DateTime? dateTimeValue; // System.DateTime; however, we need it NULLABLE.
-        private TimeSpan? timeSpanValue; // System.TimeSpan; however, we need it NULLABLE.
-        private Guid? guidValue;         // System.Guid; however, we need it NULLABLE.
-        private string stringValue;
-        private StringList listValue;
-        private StringDictionary dictionaryValue;
-        private IObject objectValue;
-        private ICallFrame frameValue;
-        private Interpreter interpreterValue;
-        private Type typeValue;
-        private TypeList typeListValue;
-        private EnumList enumListValue;
-        private Uri uriValue;
-        private Version versionValue;
-        private ReturnCodeList returnCodeListValue;
-        private IIdentifier identifierValue;
-        private IAlias aliasValue;
-        private IOption optionValue;
-        private INamespace namespaceValue;
-        private SecureString secureStringValue;
-        private Encoding encodingValue;
-        private CultureInfo cultureInfoValue;
-        private IPlugin pluginValue;
-        private IExecute executeValue;
-        private ICallback callbackValue;
-        private IRuleSet ruleSetValue;
-        private byte[] byteArrayValue;
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IGetValue / ISetValue Members
         //
@@ -2346,245 +640,2866 @@ namespace Eagle._Components.Public
         //       for the IGetValue.Value property, mostly due to backward
         //       compatibility.
         //
-        public override object Value
+        private object value;
+        public object Value
+        {
+            get { return value; }
+            set { SetValueOrThrow(value); /* throw */ }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public int Length
         {
             get
             {
-                if (dateTimeValue is DateTime)
-                    return dateTimeValue;
-                else if (timeSpanValue is TimeSpan)
-                    return timeSpanValue;
-                else if (guidValue is Guid)
-                    return guidValue;
-                else if (stringValue is string)
-                    return stringValue;
-                else if (listValue is StringList)
-                    return listValue;
-                else if (dictionaryValue is StringDictionary)
-                    return dictionaryValue;
-                else if (objectValue is IObject)
-                    return objectValue;
-                else if (frameValue is ICallFrame)
-                    return frameValue;
-                else if (interpreterValue is Interpreter)
-                    return interpreterValue;
-                else if (typeValue is Type)
-                    return typeValue;
-                else if (typeListValue is TypeList)
-                    return typeListValue;
-                else if (enumListValue is EnumList)
-                    return enumListValue;
-                else if (uriValue is Uri)
-                    return uriValue;
-                else if (versionValue is Version)
-                    return versionValue;
-                else if (returnCodeListValue is ReturnCodeList)
-                    return returnCodeListValue;
-                else if (aliasValue is IAlias)
-                    return aliasValue;
-                else if (optionValue is IOption)
-                    return optionValue;
-                else if (namespaceValue is INamespace)
-                    return namespaceValue;
-                else if (secureStringValue is SecureString)
-                    return secureStringValue;
-                else if (encodingValue is Encoding)
-                    return encodingValue;
-                else if (cultureInfoValue is CultureInfo)
-                    return cultureInfoValue;
-                else if (pluginValue is IPlugin)
-                    return pluginValue;
-                else if (executeValue is IExecute)
-                    return executeValue;
-                else if (callbackValue is ICallback)
-                    return callbackValue;
-                else if (ruleSetValue is IRuleSet)
-                    return ruleSetValue;
-                else if (byteArrayValue is byte[])
-                    return byteArrayValue;
-                else
-                    return base.Value;
+                string stringValue = ToString();
+
+                return (stringValue != null) ?
+                    stringValue.Length : _Constants.Length.Invalid;
             }
-            set
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public string String
+        {
+            get { return ToString(); }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IConvert Members
+        public bool MatchNumberType(
+            NumberType numberType /* in */
+            )
+        {
+            switch (Convert.GetTypeCode(value))
             {
-                if (value is Number)
-                {
-                    Clear(true); /* enforce logical union */
+                case TypeCode.Boolean:
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.Int32:
+                case TypeCode.Int64:
+                    {
+                        return (numberType == NumberType.Integral);
+                    }
+                case TypeCode.Single:
+                case TypeCode.Double:
+                    {
+                        return (numberType == NumberType.FloatingPoint);
+                    }
+                case TypeCode.Decimal:
+                    {
+                        return (numberType == NumberType.FixedPoint);
+                    }
+                default:
+                    {
+                        return false;
+                    }
+            }
+        }
 
-                    base.Value = ((Number)value).Value; /* cannot fail */
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool MatchTypeCode(
+            TypeCode typeCode /* in */
+            )
+        {
+            return Convert.GetTypeCode(value) == typeCode;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ConvertTo(
+            TypeCode typeCode /* in */
+            )
+        {
+            if (MatchTypeCode(typeCode))
+                return true;
+
+            switch (typeCode)
+            {
+                case TypeCode.Boolean:
+                    {
+                        bool boolValue = false;
+
+                        if (ToBoolean(ref boolValue))
+                        {
+                            SetValueNoThrow(boolValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.Char:
+                    {
+                        char charValue = Characters.Null;
+
+                        if (ToCharacter(ref charValue))
+                        {
+                            SetValueNoThrow(charValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.SByte:
+                    {
+                        sbyte sbyteValue = 0;
+
+                        if (ToSignedByte(ref sbyteValue))
+                        {
+                            SetValueNoThrow(sbyteValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.Byte:
+                    {
+                        byte byteValue = 0;
+
+                        if (ToByte(ref byteValue))
+                        {
+                            SetValueNoThrow(byteValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.Int16:
+                    {
+                        short shortValue = 0;
+
+                        if (ToNarrowInteger(ref shortValue))
+                        {
+                            SetValueNoThrow(shortValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.UInt16:
+                    {
+                        ushort ushortValue = 0;
+
+                        if (ToUnsignedNarrowInteger(ref ushortValue))
+                        {
+                            SetValueNoThrow(ushortValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.Int32:
+                    {
+                        int intValue = 0;
+
+                        if (ToInteger(ref intValue))
+                        {
+                            SetValueNoThrow(intValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.UInt32:
+                    {
+                        uint uintValue = 0;
+
+                        if (ToUnsignedInteger(ref uintValue))
+                        {
+                            SetValueNoThrow(uintValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.Int64:
+                    {
+                        long longValue = 0;
+
+                        if (ToWideInteger(ref longValue))
+                        {
+                            SetValueNoThrow(longValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.UInt64:
+                    {
+                        ulong ulongValue = 0;
+
+                        if (ToUnsignedWideInteger(ref ulongValue))
+                        {
+                            SetValueNoThrow(ulongValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.Single:
+                    {
+                        float floatValue = 0.0f;
+
+                        if (ToSingle(ref floatValue))
+                        {
+                            SetValueNoThrow(floatValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.Double:
+                    {
+                        double doubleValue = 0.0;
+
+                        if (ToDouble(ref doubleValue))
+                        {
+                            SetValueNoThrow(doubleValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.Decimal:
+                    {
+                        decimal decimalValue = Decimal.Zero;
+
+                        if (ToDecimal(ref decimalValue))
+                        {
+                            SetValueNoThrow(decimalValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.DateTime:
+                    {
+                        DateTime dateTime = DateTime.MinValue;
+
+                        if (ToDateTime(ref dateTime))
+                        {
+                            SetValueNoThrow(dateTime);
+                            return true;
+                        }
+
+                        break;
+                    }
+                case TypeCode.String:
+                    {
+                        string stringValue = null;
+
+                        if (ToString(ref stringValue))
+                        {
+                            SetValueNoThrow(stringValue);
+                            return true;
+                        }
+
+                        break;
+                    }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ConvertTo(
+            Type type /* in */
+            )
+        {
+            TypeCode typeCode = TypeCode.Empty;
+
+            if (NumberOps.HaveTypeCode(
+                    type, ref typeCode) &&
+                (typeCode != TypeCode.Object) &&
+                ConvertTo(typeCode))
+            {
+                return true;
+            }
+
+            if (type == typeof(ReturnCode))
+            {
+                ReturnCode code = ReturnCode.Ok;
+
+                if (ToReturnCode(ref code))
+                {
+                    SetValueNoThrow(code);
+                    return true;
                 }
-                else if (value is DateTime)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(MatchMode))
+            {
+                MatchMode mode = MatchMode.None;
 
-                    this.dateTimeValue = (DateTime)value; /* cannot fail */
+                if (ToMatchMode(ref mode))
+                {
+                    SetValueNoThrow(mode);
+                    return true;
                 }
-                else if (value is TimeSpan)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(MidpointRounding))
+            {
+                MidpointRounding rounding = MidpointRounding.ToEven;
 
-                    this.timeSpanValue = (TimeSpan)value; /* cannot fail */
+                if (ToMidpointRounding(ref rounding))
+                {
+                    SetValueNoThrow(rounding);
+                    return true;
                 }
-                else if (value is Guid)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(TimeSpan))
+            {
+                TimeSpan timeSpan = TimeSpan.Zero;
 
-                    this.guidValue = (Guid)value; /* cannot fail */
+                if (ToTimeSpan(ref timeSpan))
+                {
+                    SetValueNoThrow(timeSpan);
+                    return true;
                 }
-                else if (value is string)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(Guid))
+            {
+                Guid guid = Guid.Empty;
 
-                    this.stringValue = (string)value; /* cannot fail */
+                if (ToGuid(ref guid))
+                {
+                    SetValueNoThrow(guid);
+                    return true;
                 }
-                else if (value is StringList)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(StringList))
+            {
+                StringList list = null;
 
-                    this.listValue = (StringList)value; /* cannot fail */
+                if (ToList(ref list))
+                {
+                    SetValueNoThrow(list);
+                    return true;
                 }
-                else if (value is StringDictionary)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(StringDictionary))
+            {
+                StringDictionary dictionary = null;
 
-                    this.dictionaryValue = (StringDictionary)value; /* cannot fail */
+                if (ToDictionary(ref dictionary))
+                {
+                    SetValueNoThrow(dictionary);
+                    return true;
                 }
-                else if (value is IObject)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(IObject))
+            {
+                IObject @object = null;
 
-                    this.objectValue = (IObject)value; /* cannot fail */
+                if (ToObject(ref @object))
+                {
+                    SetValueNoThrow(@object);
+                    return true;
                 }
-                else if (value is ICallFrame)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(ICallFrame))
+            {
+                ICallFrame frame = null;
 
-                    this.frameValue = (ICallFrame)value; /* cannot fail */
+                if (ToCallFrame(ref frame))
+                {
+                    SetValueNoThrow(frame);
+                    return true;
                 }
-                else if (value is Interpreter)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(Interpreter))
+            {
+                Interpreter interpreter = null;
 
-                    this.interpreterValue = (Interpreter)value; /* cannot fail */
+                if (ToInterpreter(ref interpreter))
+                {
+                    SetValueNoThrow(interpreter);
+                    return true;
                 }
-                else if (value is Type)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(Type))
+            {
+                Type _type = null;
 
-                    this.typeValue = (Type)value; /* cannot fail */
+                if (ToType(ref _type))
+                {
+                    SetValueNoThrow(_type);
+                    return true;
                 }
-                else if (value is TypeList)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(TypeList))
+            {
+                TypeList typeList = null;
 
-                    this.typeListValue = (TypeList)value; /* cannot fail */
+                if (ToTypeList(ref typeList))
+                {
+                    SetValueNoThrow(typeList);
+                    return true;
                 }
-                else if (value is EnumList)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(EnumList))
+            {
+                EnumList enumList = null;
 
-                    this.enumListValue = (EnumList)value; /* cannot fail */
+                if (ToEnumList(ref enumList))
+                {
+                    SetValueNoThrow(enumList);
+                    return true;
                 }
-                else if (value is Uri)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(Uri))
+            {
+                Uri uri = null;
 
-                    this.uriValue = (Uri)value; /* cannot fail */
+                if (ToUri(ref uri))
+                {
+                    SetValueNoThrow(uri);
+                    return true;
                 }
-                else if (value is Version)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(Version))
+            {
+                Version version = null;
 
-                    this.versionValue = (Version)value; /* cannot fail */
+                if (ToVersion(ref version))
+                {
+                    SetValueNoThrow(version);
+                    return true;
                 }
-                else if (value is ReturnCodeList)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(ReturnCodeList))
+            {
+                ReturnCodeList returnCodeList = null;
 
-                    this.returnCodeListValue = (ReturnCodeList)value; /* cannot fail */
+                if (ToReturnCodeList(ref returnCodeList))
+                {
+                    SetValueNoThrow(returnCodeList);
+                    return true;
                 }
-                else if (value is IAlias)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(IAlias))
+            {
+                IAlias alias = null;
 
-                    this.aliasValue = (IAlias)value; /* cannot fail */
+                if (ToAlias(ref alias))
+                {
+                    SetValueNoThrow(alias);
+                    return true;
                 }
-                else if (value is IOption)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(IOption))
+            {
+                IOption option = null;
 
-                    this.optionValue = (IOption)value; /* cannot fail */
+                if (ToOption(ref option))
+                {
+                    SetValueNoThrow(option);
+                    return true;
                 }
-                else if (value is INamespace)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(INamespace))
+            {
+                INamespace @namespace = null;
 
-                    this.namespaceValue = (INamespace)value; /* cannot fail */
+                if (ToNamespace(ref @namespace))
+                {
+                    SetValueNoThrow(@namespace);
+                    return true;
                 }
-                else if (value is SecureString)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(SecureString))
+            {
+                SecureString secureString = null;
 
-                    this.secureStringValue = (SecureString)value; /* cannot fail */
+                if (ToSecureString(ref secureString))
+                {
+                    SetValueNoThrow(secureString);
+                    return true;
                 }
-                else if (value is Encoding)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(Encoding))
+            {
+                Encoding encoding = null;
 
-                    this.encodingValue = (Encoding)value; /* cannot fail */
+                if (ToEncoding(ref encoding))
+                {
+                    SetValueNoThrow(encoding);
+                    return true;
                 }
-                else if (value is CultureInfo)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(CultureInfo))
+            {
+                CultureInfo cultureInfo = null;
 
-                    this.cultureInfoValue = (CultureInfo)value; /* cannot fail */
+                if (ToCultureInfo(ref cultureInfo))
+                {
+                    SetValueNoThrow(cultureInfo);
+                    return true;
                 }
-                else if (value is IPlugin)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(IPlugin))
+            {
+                IPlugin plugin = null;
 
-                    this.pluginValue = (IPlugin)value; /* cannot fail */
+                if (ToPlugin(ref plugin))
+                {
+                    SetValueNoThrow(plugin);
+                    return true;
                 }
-                else if (value is IExecute)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(IExecute))
+            {
+                IExecute execute = null;
 
-                    this.executeValue = (IExecute)value; /* cannot fail */
+                if (ToExecute(ref execute))
+                {
+                    SetValueNoThrow(execute);
+                    return true;
                 }
-                else if (value is ICallback)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(ICallback))
+            {
+                ICallback callback = null;
 
-                    this.callbackValue = (ICallback)value; /* cannot fail */
+                if (ToCallback(ref callback))
+                {
+                    SetValueNoThrow(callback);
+                    return true;
                 }
-                else if (value is IRuleSet)
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(IRuleSet))
+            {
+                IRuleSet ruleSet = null;
 
-                    this.ruleSetValue = (IRuleSet)value; /* cannot fail */
+                if (ToRuleSet(ref ruleSet))
+                {
+                    SetValueNoThrow(ruleSet);
+                    return true;
                 }
-                else if (value is byte[])
-                {
-                    Clear(true); /* enforce logical union */
+            }
+            else if (type == typeof(IIdentifier))
+            {
+                IIdentifier identifier = null;
 
-                    this.byteArrayValue = (byte[])value; /* cannot fail */
+                if (ToIdentifier(ref identifier))
+                {
+                    SetValueNoThrow(identifier);
+                    return true;
+                }
+            }
+            else if (type == typeof(byte[]))
+            {
+                byte[] byteArray = null;
+
+                if (ToByteArray(ref byteArray))
+                {
+                    SetValueNoThrow(byteArray);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool MaybeConvertWith(
+            IConvert convert2, /* in */
+            bool skip1,        /* in */
+            bool skip2         /* in */
+            )
+        {
+            if (convert2 == null)
+                return false;
+
+            IEnumerable<NumberType> numberTypes = GetNumberTypes();
+
+            if (numberTypes == null)
+                return false;
+
+            foreach (NumberType numberType in numberTypes)
+            {
+                if (numberType == NumberType.Integral)
+                {
+                    if (!MatchNumberType(numberType) ||
+                        !convert2.MatchNumberType(numberType))
+                    {
+                        continue;
+                    }
                 }
                 else
                 {
-                    base.Value = value; /* may be null, can fail with throw */
-
-                    Clear(false); /* enforce logical union */
+                    if (!MatchNumberType(numberType) &&
+                        !convert2.MatchNumberType(numberType))
+                    {
+                        continue;
+                    }
                 }
+
+                IEnumerable<TypeCode> typeCodes = GetTypeCodes(numberType);
+
+                if (typeCodes == null)
+                    continue;
+
+                foreach (TypeCode typeCode in typeCodes)
+                {
+                    bool match1 = MatchTypeCode(typeCode);
+                    bool match2 = convert2.MatchTypeCode(typeCode);
+
+                    if (!match1 && !match2)
+                        continue;
+
+                    if (!skip1 && !match1 && !ConvertTo(typeCode))
+                        return false;
+
+                    if (!skip2 && !match2 && !convert2.ConvertTo(typeCode))
+                        return false;
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IMath Members
+        public ReturnCode Calculate(
+            IIdentifierName identifierName, /* in */
+            Lexeme lexeme,                  /* in */
+            IConvert convert,               /* in */
+            ref Argument result,            /* in */
+            ref Result error                /* in */
+            )
+        {
+            object value1 = value;
+            TypeCode typeCode1 = Convert.GetTypeCode(value1);
+
+            object value2 = null;
+            TypeCode typeCode2 = TypeCode.Empty;
+
+            if (convert != null)
+            {
+                value2 = convert.Value;
+                typeCode2 = Convert.GetTypeCode(value2);
+            }
+
+            switch (lexeme)
+            {
+                case Lexeme.BitwiseNot: /* Arity.Unary */
+                case Lexeme.LogicalNot: /* Arity.Unary */
+                case Lexeme.Minus:      /* Arity.UnaryAndBinary */
+                case Lexeme.Plus:       /* Arity.UnaryAndBinary */
+                    {
+                        //
+                        // NOTE: The first (and maybe only) type
+                        //       code value will be checked below,
+                        //       by the operator itself.  For the
+                        //       (two) operators that can accept
+                        //       either one or two operands (i.e.
+                        //       Minus and Plus), that extra type
+                        //       code handling is also checked by
+                        //       the operators themselves.
+                        //
+                        break;
+                    }
+                default:
+                    {
+                        //
+                        // NOTE: All other operators do require
+                        //       both type codes to be equal.
+                        //
+                        if (typeCode1 != typeCode2) /* IMPOSSIBLE? */
+                        {
+                            //
+                            // HACK: It is like that this code
+                            //       is impossible to hit.
+                            //
+                            error = UnsupportedOperandTypes(
+                                typeCode1, typeCode2,
+                                identifierName, lexeme);
+
+                            return ReturnCode.Error;
+                        }
+
+                        break;
+                    }
+            }
+
+            switch (lexeme)
+            {
+                case Lexeme.Exponent:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = MathOps.Pow(
+                                        ConversionOps.ToInt((bool)value1),
+                                        ConversionOps.ToInt((bool)value2));
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = MathOps.Pow((int)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = MathOps.Pow((long)value1, (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Double:
+                                {
+                                    result = Math.Pow((double)value1, (double)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Decimal:
+                                {
+                                    if (!ConvertTo(TypeCode.Double))
+                                    {
+                                        error = UnsupportedOperandType("1st",
+                                            typeCode1, identifierName, lexeme);
+
+                                        return ReturnCode.Error;
+                                    }
+
+                                    value1 = value; /* CONVERTED */
+
+                                    if ((convert == null) ||
+                                        !convert.ConvertTo(TypeCode.Double))
+                                    {
+                                        error = UnsupportedOperandType("2nd",
+                                            typeCode2, identifierName, lexeme);
+
+                                        return ReturnCode.Error;
+                                    }
+
+                                    value2 = convert.Value; /* CONVERTED */
+
+                                    goto case TypeCode.Double;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.Multiply:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ConversionOps.ToInt((bool)value1) *
+                                        ConversionOps.ToInt((bool)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ((int)value1 * (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ((long)value1 * (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Double:
+                                {
+                                    result = ((double)value1 * (double)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Decimal:
+                                {
+                                    result = ((decimal)value1 * (decimal)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.Divide:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ConversionOps.ToInt((bool)value1) /
+                                        ConversionOps.ToInt((bool)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ((int)value1 / (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ((long)value1 / (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Double:
+                                {
+                                    result = ((double)value1 / (double)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Decimal:
+                                {
+                                    result = ((decimal)value1 / (decimal)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.Modulus:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ConversionOps.ToInt((bool)value1) %
+                                        ConversionOps.ToInt((bool)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ((int)value1 % (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ((long)value1 % (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.Plus:
+                    {
+                        if (value2 != null)
+                        {
+                            if (typeCode2 != typeCode1)
+                            {
+                                if ((convert != null) &&
+                                    convert.ConvertTo(typeCode1))
+                                {
+                                    value2 = convert.Value; /* CONVERTED */
+                                    goto case Lexeme.Plus;
+                                }
+                                else
+                                {
+                                    error = UnsupportedOperandType("2nd",
+                                        typeCode2, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                            }
+
+                            switch (typeCode1)
+                            {
+                                case TypeCode.Boolean:
+                                    {
+                                        result = ConversionOps.ToInt((bool)value1) +
+                                            ConversionOps.ToInt((bool)value2);
+
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Int32:
+                                    {
+                                        result = ((int)value1 + (int)value2);
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Int64:
+                                    {
+                                        result = ((long)value1 + (long)value2);
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Double:
+                                    {
+                                        result = ((double)value1 + (double)value2);
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Decimal:
+                                    {
+                                        result = ((decimal)value1 + (decimal)value2);
+                                        return ReturnCode.Ok;
+                                    }
+                                default:
+                                    {
+                                        error = UnsupportedOperandType(null,
+                                            typeCode1, identifierName, lexeme);
+
+                                        return ReturnCode.Error;
+                                    }
+                            }
+                        }
+                        else
+                        {
+                            switch (typeCode1)
+                            {
+                                case TypeCode.Boolean:
+                                    {
+                                        result = +ConversionOps.ToInt((bool)value1);
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Int32:
+                                    {
+                                        result = +(int)value1;
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Int64:
+                                    {
+                                        result = +(long)value1;
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Double:
+                                    {
+                                        result = +(double)value1;
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Decimal:
+                                    {
+                                        result = +(decimal)value1;
+                                        return ReturnCode.Ok;
+                                    }
+                                default:
+                                    {
+                                        error = UnsupportedOperandType("1st",
+                                            typeCode1, identifierName, lexeme);
+
+                                        return ReturnCode.Error;
+                                    }
+                            }
+                        }
+                    }
+                case Lexeme.Minus:
+                    {
+                        if (value2 != null)
+                        {
+                            if (typeCode2 != typeCode1)
+                            {
+                                if ((convert != null) &&
+                                    convert.ConvertTo(typeCode1))
+                                {
+                                    value2 = convert.Value; /* CONVERTED */
+                                    goto case Lexeme.Minus;
+                                }
+                                else
+                                {
+                                    error = UnsupportedOperandType("2nd",
+                                        typeCode2, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                            }
+
+                            switch (typeCode1)
+                            {
+                                case TypeCode.Boolean:
+                                    {
+                                        result = ConversionOps.ToInt((bool)value1) -
+                                            ConversionOps.ToInt((bool)value2);
+
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Int32:
+                                    {
+                                        result = ((int)value1 - (int)value2);
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Int64:
+                                    {
+                                        result = ((long)value1 - (long)value2);
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Double:
+                                    {
+                                        result = ((double)value1 - (double)value2);
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Decimal:
+                                    {
+                                        result = ((decimal)value1 - (decimal)value2);
+                                        return ReturnCode.Ok;
+                                    }
+                                default:
+                                    {
+                                        error = UnsupportedOperandType(null,
+                                            typeCode1, identifierName, lexeme);
+
+                                        return ReturnCode.Error;
+                                    }
+                            }
+                        }
+                        else
+                        {
+                            switch (typeCode1)
+                            {
+                                case TypeCode.Boolean:
+                                    {
+                                        result = -ConversionOps.ToInt((bool)value1);
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Int32:
+                                    {
+                                        result = -(int)value1;
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Int64:
+                                    {
+                                        result = -(long)value1;
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Double:
+                                    {
+                                        result = -(double)value1;
+                                        return ReturnCode.Ok;
+                                    }
+                                case TypeCode.Decimal:
+                                    {
+                                        result = -(decimal)value1;
+                                        return ReturnCode.Ok;
+                                    }
+                                default:
+                                    {
+                                        error = UnsupportedOperandType("1st",
+                                            typeCode1, identifierName, lexeme);
+
+                                        return ReturnCode.Error;
+                                    }
+                            }
+                        }
+                    }
+                case Lexeme.LeftShift:
+                    {
+                        //
+                        // HACK: *SPECIAL* Since the shift and rotate
+                        //       operators require the second operand
+                        //       to (always) be of type System.Int32,
+                        //       make sure to convert it to that type
+                        //       now, if needed.
+                        //
+                        if (typeCode1 == TypeCode.Int64)
+                        {
+                            if ((convert != null) &&
+                                convert.ConvertTo(TypeCode.Int32))
+                            {
+                                value2 = convert.Value; /* CONVERTED */
+                            }
+                            else
+                            {
+                                error = UnsupportedOperandType("2nd",
+                                    typeCode2, identifierName, lexeme);
+
+                                return ReturnCode.Error;
+                            }
+                        }
+
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = MathOps.LeftShift(
+                                        ConversionOps.ToInt((bool)value1),
+                                        ConversionOps.ToInt((bool)value2));
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = MathOps.LeftShift((int)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = MathOps.LeftShift((long)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.RightShift:
+                    {
+                        //
+                        // HACK: *SPECIAL* Since the shift and rotate
+                        //       operators require the second operand
+                        //       to (always) be of type System.Int32,
+                        //       make sure to convert it to that type
+                        //       now, if needed.
+                        //
+                        if (typeCode1 == TypeCode.Int64)
+                        {
+                            if ((convert != null) &&
+                                convert.ConvertTo(TypeCode.Int32))
+                            {
+                                value2 = convert.Value; /* CONVERTED */
+                            }
+                            else
+                            {
+                                error = UnsupportedOperandType("2nd",
+                                    typeCode2, identifierName, lexeme);
+
+                                return ReturnCode.Error;
+                            }
+                        }
+
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = MathOps.RightShift(
+                                        ConversionOps.ToInt((bool)value1),
+                                        ConversionOps.ToInt((bool)value2));
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = MathOps.RightShift((int)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = MathOps.RightShift((long)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.LeftRotate:
+                    {
+                        //
+                        // HACK: *SPECIAL* Since the shift and rotate
+                        //       operators require the second operand
+                        //       to (always) be of type System.Int32,
+                        //       make sure to convert it to that type
+                        //       now, if needed.
+                        //
+                        if (typeCode1 == TypeCode.Int64)
+                        {
+                            if ((convert != null) &&
+                                convert.ConvertTo(TypeCode.Int32))
+                            {
+                                value2 = convert.Value; /* CONVERTED */
+                            }
+                            else
+                            {
+                                error = UnsupportedOperandType("2nd",
+                                    typeCode2, identifierName, lexeme);
+
+                                return ReturnCode.Error;
+                            }
+                        }
+
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = MathOps.LeftRotate(
+                                        ConversionOps.ToInt((bool)value1),
+                                        ConversionOps.ToInt((bool)value2));
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = MathOps.LeftRotate((int)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = MathOps.LeftRotate((long)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.RightRotate:
+                    {
+                        //
+                        // HACK: *SPECIAL* Since the shift and rotate
+                        //       operators require the second operand
+                        //       to (always) be of type System.Int32,
+                        //       make sure to convert it to that type
+                        //       now, if needed.
+                        //
+                        if (typeCode1 == TypeCode.Int64)
+                        {
+                            if ((convert != null) &&
+                                convert.ConvertTo(TypeCode.Int32))
+                            {
+                                value2 = convert.Value; /* CONVERTED */
+                            }
+                            else
+                            {
+                                error = UnsupportedOperandType("2nd",
+                                    typeCode2, identifierName, lexeme);
+
+                                return ReturnCode.Error;
+                            }
+                        }
+
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = MathOps.RightRotate(
+                                        ConversionOps.ToInt((bool)value1),
+                                        ConversionOps.ToInt((bool)value2));
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = MathOps.RightRotate((int)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = MathOps.RightRotate((long)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.LessThan:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ConversionOps.ToInt((bool)value1) <
+                                        ConversionOps.ToInt((bool)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ((int)value1 < (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ((long)value1 < (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Double:
+                                {
+                                    result = ((double)value1 < (double)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Decimal:
+                                {
+                                    result = ((decimal)value1 < (decimal)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.GreaterThan:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ConversionOps.ToInt((bool)value1) >
+                                        ConversionOps.ToInt((bool)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ((int)value1 > (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ((long)value1 > (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Double:
+                                {
+                                    result = ((double)value1 > (double)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Decimal:
+                                {
+                                    result = ((decimal)value1 > (decimal)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.LessThanOrEqualTo:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ConversionOps.ToInt((bool)value1) <=
+                                        ConversionOps.ToInt((bool)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ((int)value1 <= (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ((long)value1 <= (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Double:
+                                {
+                                    result = ((double)value1 <= (double)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Decimal:
+                                {
+                                    result = ((decimal)value1 <= (decimal)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.GreaterThanOrEqualTo:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ConversionOps.ToInt((bool)value1) >=
+                                        ConversionOps.ToInt((bool)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ((int)value1 >= (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ((long)value1 >= (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Double:
+                                {
+                                    result = ((double)value1 >= (double)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Decimal:
+                                {
+                                    result = ((decimal)value1 >= (decimal)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.Equal:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ConversionOps.ToInt((bool)value1) ==
+                                        ConversionOps.ToInt((bool)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ((int)value1 == (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ((long)value1 == (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Double:
+                                {
+                                    result = ((double)value1 == (double)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Decimal:
+                                {
+                                    result = ((decimal)value1 == (decimal)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.NotEqual:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ConversionOps.ToInt((bool)value1) !=
+                                        ConversionOps.ToInt((bool)value2);
+
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ((int)value1 != (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ((long)value1 != (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Double:
+                                {
+                                    result = ((double)value1 != (double)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Decimal:
+                                {
+                                    result = ((decimal)value1 != (decimal)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.BitwiseAnd:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = (bool)value1 & (bool)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Byte:
+                                {
+                                    result = (byte)value1 & (byte)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = (int)value1 & (int)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = (long)value1 & (long)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.BitwiseXor:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = (bool)value1 ^ (bool)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Byte:
+                                {
+                                    result = (byte)value1 ^ (byte)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = (int)value1 ^ (int)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = (long)value1 ^ (long)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.BitwiseOr:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = (bool)value1 | (bool)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Byte:
+                                {
+                                    result = (byte)value1 | (byte)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = (int)value1 | (int)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = (long)value1 | (long)value2;
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.BitwiseEqv:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = LogicOps.Eqv((bool)value1, (bool)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Byte:
+                                {
+                                    result = LogicOps.Eqv((byte)value1, (byte)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = LogicOps.Eqv((int)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = LogicOps.Eqv((long)value1, (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.BitwiseImp:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = LogicOps.Imp((bool)value1, (bool)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Byte:
+                                {
+                                    result = LogicOps.Imp((byte)value1, (byte)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = LogicOps.Imp((int)value1, (int)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = LogicOps.Imp((long)value1, (long)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.LogicalAnd:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = LogicOps.And((bool)value1, (bool)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.LogicalXor:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = LogicOps.Xor((bool)value1, (bool)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.LogicalOr:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = LogicOps.Or((bool)value1, (bool)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.LogicalEqv:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = LogicOps.Eqv((bool)value1, (bool)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.LogicalImp:
+                    {
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = LogicOps.Imp((bool)value1, (bool)value2);
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.LogicalNot:
+                    {
+                        //
+                        // HACK: *SPECIAL* Since the unary operators do
+                        //       not have a "fixup" phase, perform the
+                        //       conversion to boolean for the one (and
+                        //       only) operand now.
+                        //
+                        if (typeCode1 != TypeCode.Boolean)
+                        {
+                            if (ConvertTo(TypeCode.Boolean))
+                            {
+                                value1 = value; /* CONVERTED */
+                                typeCode1 = TypeCode.Boolean;
+                            }
+                            else
+                            {
+                                error = UnsupportedOperandType("1st",
+                                    typeCode1, identifierName, lexeme);
+
+                                return ReturnCode.Error;
+                            }
+                        }
+
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = !(bool)value1;
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                case Lexeme.BitwiseNot:
+                    {
+                        //
+                        // BUGBUG: This is not correct.  We need to use
+                        //         the smallest type possible here.
+                        //
+                        switch (typeCode1)
+                        {
+                            case TypeCode.Boolean:
+                                {
+                                    result = ~ConversionOps.ToInt((bool)value1);
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Byte:
+                                {
+                                    result = ~(byte)value1;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int32:
+                                {
+                                    result = ~(int)value1;
+                                    return ReturnCode.Ok;
+                                }
+                            case TypeCode.Int64:
+                                {
+                                    result = ~(long)value1;
+                                    return ReturnCode.Ok;
+                                }
+                            default:
+                                {
+                                    error = UnsupportedOperandType(null,
+                                        typeCode1, identifierName, lexeme);
+
+                                    return ReturnCode.Error;
+                                }
+                        }
+                    }
+                default:
+                    {
+                        error = UnsupportedOperatorType(
+                            typeCode1, identifierName, lexeme);
+
+                        return ReturnCode.Error;
+                    }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode StringCompare(
+            IIdentifierName identifierName,  /* in */
+            Lexeme lexeme,                   /* in */
+            IConvert convert,                /* in */
+            StringComparison comparisonType, /* in */
+            ref Argument result,             /* out */
+            ref Result error                 /* out */
+            )
+        {
+            if (convert == null)
+            {
+                error = "missing operand for string compare";
+                return ReturnCode.Error;
+            }
+
+            object value1 = value;
+            TypeCode typeCode1 = Convert.GetTypeCode(value1);
+
+            if (typeCode1 != TypeCode.String)
+            {
+                error = UnsupportedOperandType("1st",
+                    typeCode1, identifierName, lexeme);
+
+                return ReturnCode.Error;
+            }
+
+            object value2 = convert.Value;
+            TypeCode typeCode2 = Convert.GetTypeCode(value2);
+
+            if (typeCode2 != TypeCode.String)
+            {
+                error = UnsupportedOperandType("2nd",
+                    typeCode2, identifierName, lexeme);
+
+                return ReturnCode.Error;
+            }
+
+            switch (lexeme)
+            {
+                case Lexeme.GreaterThan: /* MaybeString */
+                case Lexeme.StringGreaterThan: /* String */
+                    {
+                        result = SharedStringOps.Compare(
+                            (string)value1, (string)value2,
+                            comparisonType) > 0;
+
+                        return ReturnCode.Ok;
+                    }
+                case Lexeme.GreaterThanOrEqualTo: /* MaybeString */
+                case Lexeme.StringGreaterThanOrEqualTo: /* String */
+                    {
+                        result = SharedStringOps.Compare(
+                            (string)value1, (string)value2,
+                            comparisonType) >= 0;
+
+                        return ReturnCode.Ok;
+                    }
+                case Lexeme.LessThan: /* MaybeString */
+                case Lexeme.StringLessThan: /* String */
+                    {
+                        result = SharedStringOps.Compare(
+                            (string)value1, (string)value2,
+                            comparisonType) < 0;
+
+                        return ReturnCode.Ok;
+                    }
+                case Lexeme.LessThanOrEqualTo: /* MaybeString */
+                case Lexeme.StringLessThanOrEqualTo: /* String */
+                    {
+                        result = SharedStringOps.Compare(
+                            (string)value1, (string)value2,
+                            comparisonType) <= 0;
+
+                        return ReturnCode.Ok;
+                    }
+                case Lexeme.Equal: /* MaybeString */
+                case Lexeme.StringEqual: /* String */
+                    {
+                        result = SharedStringOps.Equals(
+                            (string)value1, (string)value2,
+                            comparisonType);
+
+                        return ReturnCode.Ok;
+                    }
+                case Lexeme.NotEqual: /* MaybeString */
+                case Lexeme.StringNotEqual: /* String */
+                    {
+                        result = !SharedStringOps.Equals(
+                            (string)value1, (string)value2,
+                            comparisonType);
+
+                        return ReturnCode.Ok;
+                    }
+                default:
+                    {
+                        error = UnsupportedOperatorType(
+                            typeCode1, identifierName, lexeme);
+
+                        return ReturnCode.Error;
+                    }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode ListMayContain(
+            IIdentifierName identifierName,  /* in */
+            Lexeme lexeme,                   /* in */
+            IConvert convert,                /* in */
+            StringComparison comparisonType, /* in */
+            ref Argument result,             /* out */
+            ref Result error                 /* out */
+            )
+        {
+            if (convert == null)
+            {
+                error = "missing operand for list containment";
+                return ReturnCode.Error;
+            }
+
+            object value1 = value;
+            TypeCode typeCode1 = Convert.GetTypeCode(value1);
+
+            if (typeCode1 != TypeCode.String)
+            {
+                error = UnsupportedOperandType("1st",
+                    typeCode1, identifierName, lexeme);
+
+                return ReturnCode.Error;
+            }
+
+            object value2 = convert.Value;
+            TypeCode typeCode2 = Convert.GetTypeCode(value2);
+
+            if (!(value2 is StringList))
+            {
+                error = UnsupportedOperandType("2nd",
+                    typeCode2, identifierName, lexeme);
+
+                return ReturnCode.Error;
+            }
+
+            switch (lexeme)
+            {
+                case Lexeme.ListIn:
+                    {
+                        result = ((StringList)value2).Contains(
+                            (string)value1, comparisonType);
+
+                        return ReturnCode.Ok;
+                    }
+                case Lexeme.ListNotIn:
+                    {
+                        result = !((StringList)value2).Contains(
+                            (string)value1, comparisonType);
+
+                        return ReturnCode.Ok;
+                    }
+                default:
+                    {
+                        error = UnsupportedOperatorType(
+                            typeCode1, identifierName, lexeme);
+
+                        return ReturnCode.Error;
+                    }
             }
         }
         #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+
+        #region INumber Members
+        public bool IsBoolean()
+        {
+            return (value is bool);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsSignedByte()
+        {
+            return (value is sbyte);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsByte()
+        {
+            return (value is byte);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsNarrowInteger()
+        {
+            return (value is short);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsUnsignedNarrowInteger()
+        {
+            return (value is ushort);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsCharacter()
+        {
+            return (value is char);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsInteger()
+        {
+            return (value is int);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsUnsignedInteger()
+        {
+            return (value is uint);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsWideInteger()
+        {
+            return (value is long);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsUnsignedWideInteger()
+        {
+            return (value is ulong);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsReturnCode()
+        {
+            return (value is ReturnCode);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsDecimal()
+        {
+            return (value is decimal);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsSingle()
+        {
+            return (value is float);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsDouble()
+        {
+            return (value is double);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsIntegral()
+        {
+            switch (Convert.GetTypeCode(value))
+            {
+                case TypeCode.Boolean:
+                case TypeCode.Char:
+                case TypeCode.SByte:
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.UInt16:
+                case TypeCode.Int32:
+                case TypeCode.UInt32:
+                case TypeCode.Int64:
+                case TypeCode.UInt64:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsEnum()
+        {
+            return (value is Enum);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsIntegralOrEnum()
+        {
+            return IsIntegral() || IsEnum();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsFixedPoint()
+        {
+            switch (Convert.GetTypeCode(value))
+            {
+                case TypeCode.Decimal:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsFloatingPoint()
+        {
+            switch (Convert.GetTypeCode(value))
+            {
+                case TypeCode.Single:
+                case TypeCode.Double:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToBoolean(
+            ref bool value /* out */
+            )
+        {
+            return NumberOps.ToBoolean(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToSignedByte(
+            ref sbyte value /* out */
+            )
+        {
+            return NumberOps.ToSignedByte(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToByte(
+            ref byte value /* out */
+            )
+        {
+            return NumberOps.ToByte(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToNarrowInteger(
+            ref short value /* out */
+            )
+        {
+            return NumberOps.ToNarrowInteger(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToUnsignedNarrowInteger(
+            ref ushort value /* out */
+            )
+        {
+            return NumberOps.ToUnsignedNarrowInteger(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToCharacter(
+            ref char value /* out */
+            )
+        {
+            return NumberOps.ToCharacter(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToInteger(
+            ref int value /* out */
+            )
+        {
+            return NumberOps.ToInteger(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToUnsignedInteger(
+            ref uint value /* out */
+            )
+        {
+            return NumberOps.ToUnsignedInteger(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToWideInteger(
+            ref long value /* out */
+            )
+        {
+            return NumberOps.ToWideInteger(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToUnsignedWideInteger(
+            ref ulong value /* out */
+            )
+        {
+            return NumberOps.ToUnsignedWideInteger(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToReturnCode(
+            ref ReturnCode value /* out */
+            )
+        {
+            return NumberOps.ToReturnCode(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToMatchMode(
+            ref MatchMode value /* out */
+            )
+        {
+            return NumberOps.ToMatchMode(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToMidpointRounding(
+            ref MidpointRounding value /* out */
+            )
+        {
+            return NumberOps.ToMidpointRounding(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToDecimal(
+            ref decimal value /* out */
+            )
+        {
+            return NumberOps.ToDecimal(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToSingle(
+            ref float value /* out */
+            )
+        {
+            return NumberOps.ToSingle(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToDouble(
+            ref double value /* out */
+            )
+        {
+            return NumberOps.ToDouble(this, null, ref value);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IVariant Members
+        public bool IsNumber()
+        {
+            switch (Convert.GetTypeCode(value))
+            {
+                case TypeCode.Boolean:
+                case TypeCode.Char:
+                case TypeCode.SByte:
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.UInt16:
+                case TypeCode.Int32:
+                case TypeCode.UInt32:
+                case TypeCode.Int64:
+                case TypeCode.UInt64:
+                case TypeCode.Single:
+                case TypeCode.Double:
+                case TypeCode.Decimal:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsDateTime()
+        {
+            return (value is DateTime);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsTimeSpan()
+        {
+            return (value is TimeSpan);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsGuid()
+        {
+            return (value is Guid);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsString()
+        {
+            return (value is string);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsList()
+        {
+            return (value is StringList);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsDictionary()
+        {
+            return (value is StringDictionary);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsObject()
+        {
+            return (value is IObject);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsCallFrame()
+        {
+            return (value is ICallFrame);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsInterpreter()
+        {
+            return (value is Interpreter);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsType()
+        {
+            return (value is Type);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsTypeList()
+        {
+            return (value is TypeList);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsEnumList()
+        {
+            return (value is EnumList);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsUri()
+        {
+            return (value is Uri);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsVersion()
+        {
+            return (value is Version);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsReturnCodeList()
+        {
+            return (value is ReturnCodeList);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsAlias()
+        {
+            return (value is IAlias);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsOption()
+        {
+            return (value is IOption);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsNamespace()
+        {
+            return (value is INamespace);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsSecureString()
+        {
+            return (value is SecureString);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsEncoding()
+        {
+            return (value is Encoding);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsCultureInfo()
+        {
+            return (value is CultureInfo);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsPlugin()
+        {
+            return (value is IPlugin);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsExecute()
+        {
+            return (value is IExecute);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsCallback()
+        {
+            return (value is ICallback);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsRuleSet()
+        {
+            return (value is IRuleSet);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsIdentifier()
+        {
+            return (value is IIdentifier);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool IsByteArray()
+        {
+            return (value is byte[]);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToDateTime(
+            ref DateTime value /* out */
+            )
+        {
+            return VariantOps.ToDateTime(
+                this, _Value.GetDefaultCulture(), ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToTimeSpan(
+            ref TimeSpan value /* out */
+            )
+        {
+            return VariantOps.ToTimeSpan(
+                this, _Value.GetDefaultCulture(), ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToGuid(
+            ref Guid value /* out */
+            )
+        {
+            return VariantOps.ToGuid(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToString(
+            ref string value /* out */
+            )
+        {
+            return VariantOps.ToString(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToList(
+            ref StringList value /* out */
+            )
+        {
+            return VariantOps.ToList(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToDictionary(
+            ref StringDictionary value /* out */
+            )
+        {
+            return VariantOps.ToDictionary(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToObject(
+            ref IObject value /* out */
+            )
+        {
+            return VariantOps.ToObject(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToCallFrame(
+            ref ICallFrame value /* out */
+            )
+        {
+            return VariantOps.ToCallFrame(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToInterpreter(
+            ref Interpreter value /* out */
+            )
+        {
+            return VariantOps.ToInterpreter(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToType(
+            ref Type value /* out */
+            )
+        {
+            return VariantOps.ToType(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToTypeList(
+            ref TypeList value /* out */
+            )
+        {
+            return VariantOps.ToTypeList(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToEnumList(
+            ref EnumList value /* out */
+            )
+        {
+            return VariantOps.ToEnumList(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToUri(
+            ref Uri value /* out */
+            )
+        {
+            return VariantOps.ToUri(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToVersion(
+            ref Version value /* out */
+            )
+        {
+            return VariantOps.ToVersion(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToReturnCodeList(
+            ref ReturnCodeList value /* out */
+            )
+        {
+            return VariantOps.ToReturnCodeList(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToAlias(
+            ref IAlias value /* out */
+            )
+        {
+            return VariantOps.ToAlias(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToOption(
+            ref IOption value /* out */
+            )
+        {
+            return VariantOps.ToOption(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToNamespace(
+            ref INamespace value /* out */
+            )
+        {
+            return VariantOps.ToNamespace(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToSecureString(
+            ref SecureString value /* out */
+            )
+        {
+            return VariantOps.ToSecureString(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToEncoding(
+            ref Encoding value /* out */
+            )
+        {
+            return VariantOps.ToEncoding(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToCultureInfo(
+            ref CultureInfo value /* out */
+            )
+        {
+            return VariantOps.ToCultureInfo(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToPlugin(
+            ref IPlugin value /* out */
+            )
+        {
+            return VariantOps.ToPlugin(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToExecute(
+            ref IExecute value /* out */
+            )
+        {
+            return VariantOps.ToExecute(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToCallback(
+            ref ICallback value /* out */
+            )
+        {
+            return VariantOps.ToCallback(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToRuleSet(
+            ref IRuleSet value /* out */
+            )
+        {
+            return VariantOps.ToRuleSet(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToIdentifier(
+            ref IIdentifier value /* out */
+            )
+        {
+            return VariantOps.ToIdentifier(this, null, ref value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public bool ToByteArray(
+            ref byte[] value /* out */
+            )
+        {
+            return VariantOps.ToByteArray(this, null, ref value);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
-        public override object Clone()
+        public object Clone()
         {
             return new Variant(this);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region System.Object Overrides
+        public override bool Equals(
+            object obj /* in */
+            )
+        {
+            IGetValue getValue = obj as IGetValue;
+
+            if (getValue == null)
+                return false;
+
+            return GenericOps<object>.Equals(
+                this.Value, getValue.Value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public override int GetHashCode()
+        {
+            return GenericOps<object>.GetHashCode(this.Value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public override string ToString()
+        {
+            object localValue = value;
+
+            if (localValue is string)
+            {
+                return (string)localValue;
+            }
+            else if (localValue is byte[])
+            {
+                return Convert.ToBase64String((byte[])localValue,
+                    Base64FormattingOptions.InsertLineBreaks);
+            }
+            else if (localValue is DateTime)
+            {
+                return FormatOps.Iso8601DateTime(
+                    (DateTime)localValue);
+            }
+            else if (VariantOps.HaveType(localValue))
+            {
+                return localValue.ToString();
+            }
+            else
+            {
+                return GenericOps<object>.ToString(
+                    localValue, String.Empty);
+            }
         }
         #endregion
     }

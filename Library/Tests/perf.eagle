@@ -39,6 +39,7 @@ runTest {test perf-1.1 {isolated variable increments per second} -body {
       [list -eventflags Wait -success Success] \
       -noArgumentsFileName -noAppSettings \
       -preInitialize [appendArgs \" "set env(NoAutoRecord) true" \"] \
+      -preInitialize [appendArgs \" "set env(NoWorkerThread) true" \"] \
       -preInitialize [appendArgs \" [expr {[haveConstraint quiet] ? \
       "catch {object invoke Eagle._Tests.Default TestSetQuiet}" : ""}] \"] \
       -evaluate [appendArgs \" {after flags =Immediate; \

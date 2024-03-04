@@ -498,6 +498,7 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
   $is(2) InitializeFlags "Default, Test"
   $is(2) ScriptFlags Default
   $is(2) InterpreterFlags Default
+  $is(2) InterpreterTestFlags Default
   $is(2) PluginFlags Default
   $is(2) AppDomain null; # ignored, not serialized.
   $is(2) Host null; # ignored, not serialized.
@@ -568,6 +569,7 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
       [string equal [$is(1) InitializeFlags] [$is(3) InitializeFlags]] \
       [string equal [$is(1) ScriptFlags] [$is(3) ScriptFlags]] \
       [string equal [$is(1) InterpreterFlags] [$is(3) InterpreterFlags]] \
+      [string equal [$is(1) InterpreterTestFlags] [$is(3) InterpreterTestFlags]] \
       [string equal [$is(1) PluginFlags] [$is(3) PluginFlags]] \
       [string equal [$is(1) AutoPathList] [$is(3) AutoPathList]]
 } -cleanup {
@@ -577,7 +579,8 @@ runTest {test interp-1.10.1 {load/save interpreter settings XML} -setup {
 } -constraints {eagle command.object compile.XML compile.SERIALIZATION\
 file_settings.xml} -result {True True True True True True True True True True\
 {{id 1 type Include kind Command mode Glob patterns o*} {id 2 type Exclude kind\
-Command mode Exact patterns open}} True True True True True True True True}}
+Command mode Exact patterns open}} True True True True True True True True\
+True}}
 
 ###############################################################################
 
@@ -624,6 +627,7 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
   $is(2) InitializeFlags "Default, Test"
   $is(2) ScriptFlags Default
   $is(2) InterpreterFlags Default
+  $is(2) InterpreterTestFlags Default
   $is(2) PluginFlags Default
   $is(2) AppDomain null; # ignored, not serialized.
   $is(2) Host null; # ignored, not serialized.
@@ -694,6 +698,7 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
       [string equal [$is(1) InitializeFlags] [$is(3) InitializeFlags]] \
       [string equal [$is(1) ScriptFlags] [$is(3) ScriptFlags]] \
       [string equal [$is(1) InterpreterFlags] [$is(3) InterpreterFlags]] \
+      [string equal [$is(1) InterpreterTestFlags] [$is(3) InterpreterTestFlags]] \
       [string equal [$is(1) PluginFlags] [$is(3) PluginFlags]] \
       [string equal [$is(1) AutoPathList] [$is(3) AutoPathList]]
 } -cleanup {
@@ -703,7 +708,7 @@ runTest {test interp-1.10.2 {load/save interpreter settings INI} -setup {
 } -constraints {eagle command.object file_settings.ini} -result {True True True\
 True True True True True True True {{id 1 type Include kind Command mode Glob\
 patterns o*} {id 2 type Exclude kind Command mode Exact patterns open}} True\
-True True True True True True True}}
+True True True True True True True True}}
 
 ###############################################################################
 
@@ -748,6 +753,8 @@ runTest {test interp-1.11.1 {load/use interpreter settings XML} -body {
           [$interp -flags +NonPublic ScriptFlags]] \
       [string equal [$settings InterpreterFlags] \
           [$interp -flags +NonPublic InterpreterFlags]] \
+      [string equal [$settings InterpreterTestFlags] \
+          [$interp -flags +NonPublic InterpreterTestFlags]] \
       [string equal [$settings PluginFlags] \
           [$interp -flags +NonPublic PluginFlags]] \
       [string equal [$settings AutoPathList] [$interp AutoPathList]]
@@ -757,7 +764,7 @@ runTest {test interp-1.11.1 {load/use interpreter settings XML} -body {
   unset -nocomplain args result interp error code settings
 } -constraints \
 {eagle command.object compile.XML compile.SERIALIZATION file_settings.xml} \
--result {True True True True True True True True True True True}}
+-result {True True True True True True True True True True True True}}
 
 ###############################################################################
 
@@ -802,6 +809,8 @@ runTest {test interp-1.11.2 {load/use interpreter settings INI} -body {
           [$interp -flags +NonPublic ScriptFlags]] \
       [string equal [$settings InterpreterFlags] \
           [$interp -flags +NonPublic InterpreterFlags]] \
+      [string equal [$settings InterpreterTestFlags] \
+          [$interp -flags +NonPublic InterpreterTestFlags]] \
       [string equal [$settings PluginFlags] \
           [$interp -flags +NonPublic PluginFlags]] \
       [string equal [$settings AutoPathList] [$interp AutoPathList]]
@@ -811,7 +820,7 @@ runTest {test interp-1.11.2 {load/use interpreter settings INI} -body {
   unset -nocomplain args result interp error code settings
 } -constraints \
 {eagle command.object file_settings.ini} \
--result {True True True True True True True True True True True}}
+-result {True True True True True True True True True True True True}}
 
 ###############################################################################
 
@@ -2415,6 +2424,10 @@ runTest {test interp-1.74 {clone interpreter settings} -setup {
     object invoke -flags +NonPublic Interpreter.GetActive InterpreterFlags
   }]
 
+  set obj(13) [interp eval $interp {
+    object invoke -flags +NonPublic Interpreter.GetActive InterpreterTestFlags
+  }]
+
   interp set $interp obj(1) $obj(1)
   interp set $interp obj(2) $obj(2)
   interp set $interp obj(3) $obj(3)
@@ -2477,6 +2490,7 @@ runTest {test interp-1.74 {clone interpreter settings} -setup {
       [string equal [$is(1) InitializeFlags] $obj(10)] \
       [string equal [$is(1) ScriptFlags] $obj(11)] \
       [string equal [$is(1) InterpreterFlags] $obj(12)] \
+      [string equal [$is(1) InterpreterTestFlags] $obj(13)] \
       [$is(1) Profile] [$is(1) Text] [$is(1) LibraryPath] \
       [$is(1) AutoPathList] \
       [string equal [maybeInvoke $is(2) AppDomain Id] [info appdomain]] \
@@ -2493,6 +2507,7 @@ runTest {test interp-1.74 {clone interpreter settings} -setup {
       [string equal [$is(2) InitializeFlags] $obj(10)] \
       [string equal [$is(2) ScriptFlags] $obj(11)] \
       [string equal [$is(2) InterpreterFlags] $obj(12)] \
+      [string equal [$is(2) InterpreterTestFlags] $obj(13)] \
       [$is(2) Profile] [$is(2) Text] [$is(2) LibraryPath] \
       [$is(2) AutoPathList]
 } -cleanup {
@@ -2503,9 +2518,9 @@ runTest {test interp-1.74 {clone interpreter settings} -setup {
   unset -nocomplain error code is obj interp
 } -constraints {eagle command.object namespaces.available} -result {True True\
 True True True True True False False {one two three} en-US True True True True\
-interp-1.74 {# interp-1.74} lib/interp-1.74 {4 5 6} True True True True True\
-True True True True {one two three} en-US True True True True interp-1.74 {#\
-interp-1.74} lib/interp-1.74 {4 5 6}}}
+True interp-1.74 {# interp-1.74} lib/interp-1.74 {4 5 6} True True True True\
+True True True True True {one two three} en-US True True True True True\
+interp-1.74 {# interp-1.74} lib/interp-1.74 {4 5 6}}}
 
 ###############################################################################
 
@@ -2752,15 +2767,15 @@ channels cleanup copy ctime delete dirname drive executable exists extension\
 glob information isdirectory isfile join list lstat magic mkdir mtime\
 nativename normalize objectid owned pathtype readable rename rights rmdir\
 rootname rootpath same sddl separator size split stat system tail tempname\
-temppath touch type under validname version volumes writable} {active\
-administrator appdomain args assembly base binary bindertypes body callbacks\
-channels clr cmdcount cmdline cmdtype commands complete connections context\
-culture cultures decision default delegates engine ensembles exists externals\
-frame framework frameworkextra functions globals hostname hwnd identifier\
-interactive interps lastinput level levelid library linkedname loaded locals\
-modules nameofexecutable newline nprocs objects operands operators os\
-patchlevel path pid plugin pluginflags policies ppid previouspid processors\
-procs programextension ptid runtime runtimeversion script setup\
+temppath touch trusted type under validname verified version volumes writable}\
+{active administrator appdomain args assembly base binary bindertypes body\
+callbacks channels clr cmdcount cmdline cmdtype commands complete connections\
+context culture cultures decision default delegates engine ensembles exists\
+externals frame framework frameworkextra functions globals hostname hwnd\
+identifier interactive interps lastinput level levelid library linkedname\
+loaded locals modules nameofexecutable newline nprocs objects operands\
+operators os patchlevel path pid plugin pluginflags policies ppid previouspid\
+processors procs programextension ptid runtime runtimeversion script setup\
 sharedlibextension shelllibrary source subcommands syntax sysvars tclversion\
 tid transactions user varlinks vars whitespace windows windowtext} {addcommands\
 alias aliases bgerror callbacklimit cancel childlimit children create delete\
@@ -2774,19 +2789,20 @@ alias aliasnamespaces assemblies callbackflags certificate cleanup create\
 declare dispose exists flags foreach fromvar get hash import interfaces invoke\
 invokeall invokeraw isnull isoftype list lmap load members namespaces\
 referencecount removecallback removereference resolve search strongname type\
-types unalias unaliasnamespace undeclare unimport untype verifyall} {forget\
-ifneeded indexes info loaded names pending present provide relativefilename\
-require reset scan unknown vcompare versions vloaded vsatisfies vsort withdraw}\
-{} {} {compare create download escape get host isvalid join offline parse ping\
-post scheme security softwareupdates time unescape upload} {active cancel clear\
-counts dump enable flags idle info} {buildnumber days duration filetime format\
-isvalid scan seconds} {channels dirname join split validname} {appdomain args\
-body commands complete context default engine ensembles exists functions\
-globals level library locals nprocs objects operands operators patchlevel procs\
-script subcommands tclversion vars} {alias aliases cancel children exists\
-issafe issdk rename} {dispose exists invoke invokeall invokeraw isnull\
-isoftype} {forget ifneeded info loaded names pending present provide require\
-unknown vcompare versions vsatisfies vsort withdraw} {} {} {get isvalid post}}}
+types unalias unaliasnamespace undeclare unimport untype verifyall} {absent\
+forget ifneeded indexes info loaded names pending present provide\
+relativefilename require reset scan unknown vcompare versions vloaded\
+vsatisfies vsort withdraw} {} {} {compare create download escape get host\
+isvalid join offline parse ping post scheme security softwareupdates time\
+unescape upload} {active cancel clear counts dump enable flags idle info}\
+{buildnumber days duration filetime format isvalid scan seconds} {channels\
+dirname join split validname} {appdomain args body commands complete context\
+default engine ensembles exists functions globals level library locals nprocs\
+objects operands operators patchlevel procs script subcommands tclversion vars}\
+{alias aliases cancel children exists issafe issdk rename} {dispose exists\
+invoke invokeall invokeraw isnull isoftype} {absent forget ifneeded info loaded\
+names pending present provide require unknown vcompare versions vsatisfies\
+vsort withdraw} {} {} {get isvalid post}}}
 
 ###############################################################################
 
@@ -3176,6 +3192,7 @@ runTest {test interp-1.400 {embedded core script library} -setup {
     lib/Eagle1.0/exec.eagle \
     lib/Eagle1.0/file1.eagle \
     lib/Eagle1.0/file2.eagle \
+    lib/Eagle1.0/file2u.eagle \
     lib/Eagle1.0/file3.eagle \
     lib/Eagle1.0/info.eagle \
     lib/Eagle1.0/list.eagle \
@@ -3228,7 +3245,7 @@ runTest {test interp-1.400 {embedded core script library} -setup {
 } -constraints {eagle command.object compile.EMBEDDED_LIBRARY compile.TEST\
 Eagle._Tests.Default.TestGetResourceString} -result {Empty Ok Ok Ok Ok Ok Ok Ok\
 Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok Ok\
-Ok Ok Ok Ok Ok Ok Ok}}
+Ok Ok Ok Ok Ok Ok Ok Ok}}
 
 ###############################################################################
 
@@ -4492,6 +4509,8 @@ runTest {test interp-1.9999 {try/finally thread affinity} -setup {
 } -cleanup {
   cleanupThread $t(1)
   cleanupThread $t(2)
+
+  cleanupAfterEvents
 
   catch {
     object invoke -flags +NonPublic Interpreter.GetActive \

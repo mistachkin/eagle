@@ -115,6 +115,12 @@ namespace Eagle._Resources
             }
         }
 
+        internal static string file2u_eagle {
+            get {
+                return ResourceManager.GetString("file2u.eagle", resourceCulture);
+            }
+        }
+
         internal static string file3_eagle {
             get {
                 return ResourceManager.GetString("file3.eagle", resourceCulture);

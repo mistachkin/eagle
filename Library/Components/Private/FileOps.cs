@@ -175,6 +175,33 @@ namespace Eagle._Components.Private
 #if !NET_STANDARD_20 && !MONO
         internal static readonly FileSystemRights NoFileSystemRights =
             (FileSystemRights)0; /* None */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static readonly FileSystemRights AllFileSystemRights =
+            FileSystemRights.ListDirectory |
+            FileSystemRights.ReadData |
+            FileSystemRights.CreateFiles |
+            FileSystemRights.WriteData |
+            FileSystemRights.CreateDirectories |
+            FileSystemRights.AppendData |
+            FileSystemRights.ReadExtendedAttributes |
+            FileSystemRights.WriteExtendedAttributes |
+            FileSystemRights.ExecuteFile |
+            FileSystemRights.Traverse |
+            FileSystemRights.DeleteSubdirectoriesAndFiles |
+            FileSystemRights.ReadAttributes |
+            FileSystemRights.WriteAttributes |
+            FileSystemRights.Write |
+            FileSystemRights.Delete |
+            FileSystemRights.ReadPermissions |
+            FileSystemRights.Read |
+            FileSystemRights.ReadAndExecute |
+            FileSystemRights.Modify |
+            FileSystemRights.ChangePermissions |
+            FileSystemRights.TakeOwnership |
+            FileSystemRights.Synchronize |
+            FileSystemRights.FullControl;
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -730,6 +757,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static bool IsProductVersionEmpty(
+            FileVersionInfo version,
+            bool nullIsEmpty
+            )
+        {
+            if (version == null)
+                return nullIsEmpty;
+
+            return (version.ProductMajorPart == 0) &&
+                (version.ProductMinorPart == 0) &&
+                (version.ProductBuildPart == 0) &&
+                (version.ProductPrivatePart == 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static bool IsFileVersionEmpty(
             FileVersionInfo version,
             bool nullIsEmpty
@@ -747,30 +790,69 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static ReturnCode GetFileVersion(
-            string fileName,
-            bool nonEmpty,
-            ref FileVersionInfo version,
-            ref Result error
+            string fileName,                 /* in */
+            bool nonEmpty,                   /* in */
+            ref Version version,             /* out */
+            ref Result error                 /* out */
+            )
+        {
+            FileVersionInfo fileVersion = null;
+
+            return GetFileVersion(
+                fileName, nonEmpty, ref fileVersion,
+                ref version, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetFileVersion(
+            string fileName,                 /* in */
+            bool nonEmpty,                   /* in */
+            ref FileVersionInfo fileVersion, /* out */
+            ref Version version,             /* out */
+            ref Result error                 /* out */
             )
         {
             if (File.Exists(fileName))
             {
                 try
                 {
-                    FileVersionInfo localVersion =
+                    FileVersionInfo localFileVersion =
                         FileVersionInfo.GetVersionInfo(fileName);
 
-                    if (!nonEmpty || !IsFileVersionEmpty(
-                            localVersion, true))
+                    if (!IsFileVersionEmpty(localFileVersion, true))
                     {
-                        version = localVersion;
+                        fileVersion = localFileVersion;
+
+                        version = new Version(
+                            localFileVersion.FileMajorPart,
+                            localFileVersion.FileMinorPart,
+                            localFileVersion.FileBuildPart,
+                            localFileVersion.FilePrivatePart);
+
                         return ReturnCode.Ok;
                     }
-                    else
+                    else if (!IsProductVersionEmpty(localFileVersion, true))
+                    {
+                        fileVersion = localFileVersion;
+
+                        version = new Version(
+                            localFileVersion.ProductMajorPart,
+                            localFileVersion.ProductMinorPart,
+                            localFileVersion.ProductBuildPart,
+                            localFileVersion.ProductPrivatePart);
+
+                        return ReturnCode.Ok;
+                    }
+                    else if (nonEmpty)
                     {
                         error = String.Format(
                             "file {0} cannot have empty version",
                             FormatOps.WrapOrNull(fileName));
+                    }
+                    else
+                    {
+                        return ReturnCode.Ok;
                     }
                 }
                 catch (Exception e)
@@ -1501,6 +1583,153 @@ namespace Eagle._Components.Private
                     "can't get attributes {0}: {1}",
                     FormatOps.WrapOrNull(path), e.Message);
 
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool IsBadFileSystemRights(
+            FileSystemRights rights /* in */
+            )
+        {
+            //
+            // HACK: Apparently, the .NET Framework cannot handle all the
+            //       valid file system rights.  For more details, please
+            //       refer to the following:
+            //
+            //       https://stackoverflow.com/questions/9694834
+            //
+            return (rights & ~AllFileSystemRights) != NoFileSystemRights;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string ToString(
+            FileSystemAccessRule rule /* in */
+            )
+        {
+            if (rule == null)
+                return null;
+
+            StringList list = new StringList();
+
+            IdentityReference identity = rule.IdentityReference;
+
+            list.Add("IdentityReference");
+
+            if (identity != null)
+                list.Add(identity.ToString());
+            else
+                list.Add((string)null);
+
+            list.Add("FileSystemRights");
+            list.Add(rule.FileSystemRights.ToString());
+
+            list.Add("AccessControlType");
+            list.Add(rule.AccessControlType.ToString());
+
+            list.Add("InheritanceFlags");
+            list.Add(rule.InheritanceFlags.ToString());
+
+            list.Add("PropagationFlags");
+            list.Add(rule.PropagationFlags.ToString());
+
+            list.Add("IsInherited");
+            list.Add(rule.IsInherited.ToString());
+
+            return list.ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static StringList ToList(
+            AuthorizationRuleCollection rules /* in */
+            )
+        {
+            if (rules == null)
+                return null;
+
+            StringList list = new StringList();
+
+            foreach (FileSystemAccessRule rule in rules)
+            {
+                if (rule == null)
+                    continue;
+
+                list.Add(ToString(rule));
+            }
+
+            return list;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode RemoveAccessRules(
+            FileSystemSecurity security, /* in */
+            bool includeExplicit,        /* in */
+            bool includeInherited,       /* in */
+            bool allowNull,              /* in */
+            bool skipBadRights,          /* in */
+            ref Result error             /* out */
+            )
+        {
+            if (security == null)
+            {
+                error = "invalid security object";
+                return ReturnCode.Error;
+            }
+
+            try
+            {
+                if (includeInherited)
+                    security.SetAccessRuleProtection(true, false); /* throw */
+
+                AuthorizationRuleCollection rules = security.GetAccessRules(
+                    includeExplicit, includeInherited, typeof(SecurityIdentifier));
+
+                if (rules == null)
+                {
+                    error = "invalid authorization rules";
+                    return ReturnCode.Error;
+                }
+
+                foreach (FileSystemAccessRule rule in rules)
+                {
+                    if (rule == null)
+                    {
+                        if (allowNull)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            error = "invalid file system access rule";
+                            return ReturnCode.Error;
+                        }
+                    }
+
+                    if (skipBadRights &&
+                        IsBadFileSystemRights(rule.FileSystemRights))
+                    {
+                        continue;
+                    }
+
+                    if (!security.RemoveAccessRule(rule))
+                    {
+                        error = String.Format(
+                            "failed to remove access rule {0}",
+                            ToString(rule));
+
+                        return ReturnCode.Error;
+                    }
+                }
+
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                error = e;
                 return ReturnCode.Error;
             }
         }
@@ -2836,6 +3065,8 @@ namespace Eagle._Components.Private
                         if (fileNames == null)
                             continue;
 
+                        Array.Sort(fileNames); /* O(N) */
+
                         foreach (string fileName in fileNames)
                         {
                             if (String.IsNullOrEmpty(fileName))
@@ -3127,6 +3358,8 @@ namespace Eagle._Components.Private
 
                                     if (fileNames != null)
                                     {
+                                        Array.Sort(fileNames); /* O(N) */
+
                                         foreach (string fileName in fileNames)
                                         {
                                             if (String.IsNullOrEmpty(fileName))

@@ -2022,9 +2022,9 @@ namespace Eagle._Components.Private
             // NOTE: If the primary assembly is not "trusted", allow any
             //       native library to load.
             //
-            // NOTE: For the purposes of this ShouldCheckCoreTrusted() call, the
-            //       "Eagle Native Utility Library" (Spilornis) *IS* considered
-            //       to be part of the "Eagle Core Library".
+            // NOTE: For the purposes of this ShouldCheckCoreTrusted() call,
+            //       the "Eagle Native Utility Library" (Spilornis) *IS*
+            //       considered to be part of the "Eagle Core Library".
             //
             if (!ShouldCheckCoreFileTrusted() || !IsFileTrusted(
                     interpreter, null, GlobalState.GetAssemblyLocation(),
@@ -2439,7 +2439,17 @@ namespace Eagle._Components.Private
 
                 if (fileName != null)
                 {
-                    simpleName = Path.GetFileNameWithoutExtension(fileName);
+                    try
+                    {
+                        simpleName = Path.GetFileNameWithoutExtension(
+                            fileName); /* throw */
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(RuntimeOps).Name,
+                            TracePriority.FileSystemError);
+                    }
                 }
                 else
                 {
@@ -3485,7 +3495,7 @@ namespace Eagle._Components.Private
             localClientData = null;
             localResult = null;
 
-            if (fileSystemHost.GetData(
+            if (fileSystemHost.GetData( /* EXEMPT */
                     resourceName, HostOps.CombineDataFlags(
                         interpreter, DataFlags.Plugin),
                     ref scriptFlags, ref localClientData,
@@ -3512,7 +3522,7 @@ namespace Eagle._Components.Private
             localResult = null;
 
             /* IGNORED */
-            fileSystemHost.GetData(
+            fileSystemHost.GetData( /* EXEMPT */
                 String.Format(SymbolsFormat, resourceName),
                 HostOps.CombineDataFlags(interpreter, DataFlags.Plugin),
                 ref scriptFlags, ref localClientData, ref localResult);
@@ -7843,7 +7853,9 @@ namespace Eagle._Components.Private
                 if (SharedStringOps.SystemEquals(
                         typeName, typeof(_Functions.Default).FullName) ||
                     SharedStringOps.SystemEquals(
-                        typeName, typeof(_Functions.Core).FullName))
+                        typeName, typeof(_Functions.Core).FullName) ||
+                    SharedStringOps.SystemEquals(
+                        typeName, typeof(_Functions.Arguments).FullName))
                 {
                     continue;
                 }
@@ -7947,7 +7959,9 @@ namespace Eagle._Components.Private
                 if (SharedStringOps.SystemEquals(
                         typeName, typeof(_Functions.Default).FullName) ||
                     SharedStringOps.SystemEquals(
-                        typeName, typeof(_Functions.Core).FullName))
+                        typeName, typeof(_Functions.Core).FullName) ||
+                    SharedStringOps.SystemEquals(
+                        typeName, typeof(_Functions.Arguments).FullName))
                 {
                     continue;
                 }

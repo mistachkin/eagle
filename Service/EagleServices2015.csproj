@@ -130,6 +130,20 @@
       CleanDoneFiles;
     </CleanDependsOn>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(ProjectBuildOutputIsLocked)' != 'false' And
+                            Exists('$(MSBuildProjectDirectory)\bin\LOCKED')">
+    <!--
+        NOTE: We cannot build this project if the build output (directory)
+              has been manually locked in place, e.g. because some other
+              (client) machine may depend on it being intact.
+    -->
+    <BuildDependsOn>
+      ProjectBuildOutputIsLocked
+    </BuildDependsOn>
+    <CleanDependsOn>
+      ProjectBuildOutputIsLocked
+    </CleanDependsOn>
+  </PropertyGroup>
   <PropertyGroup Condition="!Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v14.0\WebApplications\Microsoft.WebApplication.targets') And
                             '$(MissingWebApplicationProjects)' != 'false'">
     <!--

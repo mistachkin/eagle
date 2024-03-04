@@ -1,3 +1,10 @@
+;
+; This file contains mappings between the "well-known" plugin assembly
+; file names, their public key tokens, and their contained plugin type
+; names.  If additional plugin type names are added to any of these in
+; the future, this file should be updated as well.
+;
+AlphaCipher.dll	9ca6d7c646f437e6 AlphaCipher.Cryptography
 Badge.dll	8bf43b4749e46a0b Badge.Enterprise Security.Certificates
 Badge.Basic.dll	8bf43b4749e46a0b Badge.Enterprise Security.Certificates
 Demo.dll	c339cf39bcc248dd Demo.Enterprise

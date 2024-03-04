@@ -58,6 +58,7 @@ using ConsoleColor = Eagle._Components.Public.ConsoleColor;
 using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using _Result = Eagle._Components.Public.Result;
+using _TracePriority = Eagle._Components.Public.TracePriority;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -69,7 +70,7 @@ namespace Eagle._Components.Private
     internal static class FormatOps
     {
         #region Private Constants
-        private static readonly string TracePriorityFormat = "X2";
+        private static readonly string TracePriorityFormat = "X";
 
         private const string RuntimeSeparator = " - ";
         private const string ConfigurationSeparator = " - ";
@@ -79,6 +80,8 @@ namespace Eagle._Components.Private
 
         internal static readonly string DisplayNoMessage = "<noMessage>";
         internal static readonly string DisplayNoCategory = "<noCategory>";
+
+        private static readonly string DisplayNoTime = "<noTime>";
 
         private static readonly string DisplayNoType = "<noType>";
         private static readonly string DisplayNoAssembly = "<noAssembly>";
@@ -111,6 +114,12 @@ namespace Eagle._Components.Private
         internal static readonly string DisplayFormat = "<{0}>";
         private static readonly string DisplayAnonymous = "<anonymous>";
         internal static readonly string DisplayUnavailable = "<unavailable>";
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static readonly string DisplayIsEnabled = "<isEnabled>";
+        private static readonly string DisplaySetEnabled = "<setEnabled>";
+        private static readonly string DisplaySetDisabled = "<setDisabled>";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -170,11 +179,14 @@ namespace Eagle._Components.Private
 
         private const string DefaultEllipsis = "...";
 
+        private const string CompactOutputFormat = "x";
         private const string ByteOutputFormat = "x2";
         private const string ULongOutputFormat = "x16";
 
         internal const string HexadecimalPrefix = "0x";
         private const string HexadecimalFormat = "{0}{1:X}";
+
+        private const string TraceIndicatorsFormat = "[f:{0}] {1}";
 
         // private const string HexavigesimalAlphabet = "0123456789ABCDEFGHIJKLMNOP";
         private const string HexavigesimalAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -294,6 +306,28 @@ namespace Eagle._Components.Private
         private static StringList skipNames = new StringList(
             "DebugTrace", "DebugWrite", "DebugWriteTo", "DebugWriteOrTrace",
             "DebugTraceUriError");
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: If this field is non-zero, extra trace indicators will be
+        //       included in the formatted trace output.
+        //
+        private static bool useTraceIndicators;
+
+        //
+        // NOTE: If this field is non-zero, extra trace indicators will be
+        //       included as the full text of the associated flag names in
+        //       the formatted trace output.
+        //
+        private static bool rawTraceIndicators;
+
+        //
+        // NOTE: If this field is non-zero, the current trace listeners will
+        //       be checked and the resulting flags will be included in the
+        //       extra trace indicators.
+        //
+        private static bool seeTraceListeners;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -492,6 +526,73 @@ namespace Eagle._Components.Private
             }
         }
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string TimeSpan(
+            TimeSpan? timeSpan,
+            bool display
+            )
+        {
+            if (timeSpan == null)
+                return display ? DisplayNull : null;
+
+            //
+            // HACK: If there are a non-zero number of days, hours, etc,
+            //       we can just use the ToString method here, which will
+            //       produce an appropriate human readable string.
+            //
+            TimeSpan localTimeSpan = (TimeSpan)timeSpan;
+
+            if (MathOps.NotZero(localTimeSpan.TotalDays) ||
+                MathOps.NotZero(localTimeSpan.TotalHours) ||
+                MathOps.NotZero(localTimeSpan.TotalMinutes) ||
+                MathOps.NotZero(localTimeSpan.TotalSeconds))
+            {
+                return localTimeSpan.ToString();
+            }
+            else
+            {
+                double milliseconds = localTimeSpan.TotalMilliseconds;
+
+                if (MathOps.NotZero(milliseconds))
+                {
+                    return String.Format(
+                        "{0} milliseconds", milliseconds);
+                }
+                else
+                {
+                    long ticks = localTimeSpan.Ticks;
+
+                    if (ticks != 0)
+                        return String.Format("{0} ticks", ticks);
+                    else
+                        return display ? DisplayNoTime : null;
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void ResetTraceIndicators()
+        {
+            useTraceIndicators = false;
+            rawTraceIndicators = false;
+            seeTraceListeners = false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void SetTraceIndicators(
+            bool useIndicators,
+            bool rawIndicators,
+            bool seeListeners
+            )
+        {
+            useTraceIndicators = useIndicators;
+            rawTraceIndicators = rawIndicators;
+            seeTraceListeners = seeListeners;
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1482,6 +1583,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string DefineConstants(
+            IEnumerable<string> collection
+            )
+        {
+            if (collection == null)
+                return DisplayNullList;
+
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            foreach (string item in collection)
+            {
+                if (item == null)
+                    continue;
+
+                if (builder.Length > 0)
+                    builder.Append(Characters.Space);
+
+                builder.Append(item);
+            }
+
+            if (builder.Length > 0)
+            {
+                return StringBuilderCache.GetStringAndRelease(
+                    ref builder);
+            }
+
+            /* IGNORED */
+            StringBuilderCache.Release(ref builder);
+
+            return DisplayEmptyList;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static object MaybeNull(
             object value
             )
@@ -1672,6 +1807,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string IdentifierName(
+            IIdentifierName identifierName
+            )
+        {
+            if (identifierName == null)
+                return DisplayNull;
+
+            return WrapOrNull(identifierName.Name);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string TypeAndWrapOrNull(
             object value
             )
@@ -1827,6 +1974,22 @@ namespace Eagle._Components.Private
             }
 
             return DisplayNull;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string HashValue(
+            byte[] hashValue
+            )
+        {
+            string hashString = ArrayOps.ToHexadecimalString(
+                hashValue);
+
+            if (hashString == null)
+                return null;
+
+            hashString = hashString.ToLowerInvariant();
+            return String.Format("0x{0}", hashString);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2505,6 +2668,18 @@ namespace Eagle._Components.Private
             return String.Format("{0}{1}",
                 prefix ? HexadecimalPrefix : String.Empty,
                 value.ToString(ULongOutputFormat));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string CompactHexadecimal(
+            ulong value,
+            bool prefix
+            )
+        {
+            return String.Format("{0}{1}",
+                prefix ? HexadecimalPrefix : String.Empty,
+                value.ToString(CompactOutputFormat));
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3373,7 +3548,7 @@ namespace Eagle._Components.Private
                         //
                         TraceOps.DebugTrace(
                             e, typeof(FormatOps).Name,
-                            TracePriority.SecurityError);
+                            _TracePriority.SecurityError);
                     }
                 }
             }
@@ -4180,6 +4355,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static string DisplayString(
+            Regex value
+            )
+        {
+            if (value == null)
+                return DisplayNull;
+
+            return DisplayString(value.ToString(), true);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string DisplayString(
             string value
             )
         {
@@ -4345,6 +4532,36 @@ namespace Eagle._Components.Private
                 return String.Format(
                     "{0} {1} {2}", name, version, extra).Trim();
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string FixedVersion(
+            Version version,
+            bool display
+            )
+        {
+            if (version == null)
+                return display ? DisplayNull : null;
+
+            return FixedVersion(
+                version.Major, version.Minor, version.Build,
+                version.Revision, display);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string FixedVersion(
+            int major,
+            int minor,
+            int build,
+            int revision,
+            bool display
+            )
+        {
+            return String.Format(
+                "{0}.{1}.{2}.{3}", major, minor, build,
+                revision);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5257,7 +5474,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         private static void MaybeTreatAsFatalError(
-            TracePriority? priority,
+            _TracePriority? priority,
             Interpreter interpreter
             )
         {
@@ -5273,7 +5490,7 @@ namespace Eagle._Components.Private
             try
             {
                 defaultHost.SetTreatAsFatalError(FlagOps.HasFlags(
-                    (TracePriority)priority, TracePriority.Fatal, true));
+                    (_TracePriority)priority, _TracePriority.Fatal, true));
             }
             catch
             {
@@ -5324,6 +5541,32 @@ namespace Eagle._Components.Private
                         }
                     }
                 }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string TracePriority(
+            _TracePriority priority,
+            bool baseOnly,
+            bool shortName
+            )
+        {
+            _TracePriority basePriority = priority & _TracePriority.HasPrioritiesMask;
+            string name = TraceOps.GetTracePriorityName(basePriority, shortName);
+
+            if (baseOnly)
+            {
+                return name;
+            }
+            else
+            {
+                _TracePriority flags = priority & ~basePriority;
+
+                return String.Format(
+                    "{0} {1}{2}", name, HexadecimalPrefix,
+                    EnumOps.ToUIntOrULong(flags).ToString(
+                    TracePriorityFormat));
             }
         }
 
@@ -5397,12 +5640,111 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static TraceIndicatorFlags TraceIndicators(
+            _TracePriority? priority,
+            Interpreter interpreter,
+            bool includeListeners
+            )
+        {
+            TraceIndicatorFlags result =  TraceIndicatorFlags.None;
+
+            if (includeListeners)
+                result |= DebugOps.CalculateListeners();
+
+            if (priority != null)
+            {
+                _TracePriority localPriority = (_TracePriority)priority;
+
+                if (FlagOps.HasFlags(
+                        localPriority, _TracePriority.External, true))
+                {
+                    result |= TraceIndicatorFlags.External;
+                }
+
+                if (FlagOps.HasFlags(
+                        localPriority, _TracePriority.FromPlugin, true))
+                {
+                    result |= TraceIndicatorFlags.FromPlugin;
+                }
+
+                if (FlagOps.HasFlags(
+                        localPriority, _TracePriority.FromSdk, true))
+                {
+                    result |= TraceIndicatorFlags.FromSdk;
+                }
+
+                if (FlagOps.HasFlags(
+                        localPriority, _TracePriority.ViaWrapper, true))
+                {
+                    result |= TraceIndicatorFlags.ViaWrapper;
+                }
+            }
+
+            Thread currentThread = Thread.CurrentThread;
+
+            if (currentThread != null)
+            {
+                if (currentThread.IsBackground)
+                    result |= TraceIndicatorFlags.Background;
+
+                if (currentThread.IsThreadPoolThread)
+                    result |= TraceIndicatorFlags.ThreadPool;
+            }
+
+            if (interpreter != null)
+            {
+                if (interpreter.IsPrimarySystemThread())
+                    result |= TraceIndicatorFlags.PrimaryThread;
+            }
+            else
+            {
+                result |= TraceIndicatorFlags.NoInterpreter;
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static string GetTraceOutputFormat(
+            string format,
+            _TracePriority? priority,
+            Interpreter interpreter
+            )
+        {
+            TraceIndicatorFlags indicatorFlags = useTraceIndicators ?
+                TraceIndicators(
+                    priority, interpreter, seeTraceListeners) :
+                TraceIndicatorFlags.None;
+
+            if (indicatorFlags != TraceIndicatorFlags.None)
+            {
+                if (rawTraceIndicators)
+                {
+                    return String.Format(TraceIndicatorsFormat,
+                        indicatorFlags, format);
+                }
+                else
+                {
+                    return String.Format(TraceIndicatorsFormat,
+                        CompactHexadecimal((ulong)indicatorFlags,
+                        false), format);
+                }
+            }
+            else
+            {
+                return format;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static string TraceOutput(
             string format,
             string prefix,
             DateTime? dateTime,
-            TracePriority? priority,
+            _TracePriority? priority,
 #if WEB && !NET_STANDARD_20
             string serverName,
 #endif
@@ -5438,7 +5780,7 @@ namespace Eagle._Components.Private
             string format,
             string prefix,
             DateTime? dateTime,
-            TracePriority? priority,
+            _TracePriority? priority,
 #if WEB && !NET_STANDARD_20
             string serverName,
 #endif
@@ -5519,11 +5861,12 @@ namespace Eagle._Components.Private
             MaybeTreatAsFatalError(priority, interpreter);
             MaybeRemoveMethodName(methodName, method, ref message);
 
-            return String.Format(format, prefix, (dateTime != null) ?
+            return String.Format(
+                GetTraceOutputFormat(format, priority, interpreter),
+                prefix, (dateTime != null) ?
                 TraceDateTime((DateTime)dateTime, false) : DisplayNull,
-                (priority != null) ? HexadecimalPrefix +
-                EnumOps.ToUIntOrULong(priority.Value).ToString(
-                    TracePriorityFormat) : DisplayNull,
+                (priority != null) ? TracePriority(
+                    (_TracePriority)priority, false, false) : DisplayNull,
 #if WEB && !NET_STANDARD_20
                 (serverName != null) ? serverName : DisplayNull,
 #else
@@ -5774,6 +6117,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string MaybeEnabled(
+            bool? enabled
+            )
+        {
+            if (enabled == null)
+                return DisplayIsEnabled;
+
+            return (bool)enabled ? DisplaySetEnabled : DisplaySetDisabled;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string EnabledAndValue(
             bool enabled,
             string value
@@ -5854,6 +6209,18 @@ namespace Eagle._Components.Private
             )
         {
             return DisplayString(name);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string OperatorName(
+            IIdentifierName identifierName,
+            Lexeme lexeme
+            )
+        {
+            return OperatorName(
+                (identifierName != null) ? identifierName.Name : null,
+                lexeme);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

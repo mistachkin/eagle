@@ -36,10 +36,14 @@ namespace Eagle._Extensions
             FileExtension.Script.Substring(1)
         };
 
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: By default, no console.
         //
         private static readonly bool DefaultConsole = false;
+
+        ///////////////////////////////////////////////////////////////////////
 
         //
         // NOTE: By default:
@@ -59,6 +63,8 @@ namespace Eagle._Extensions
 #endif
             );
 
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: By default:
         //
@@ -68,6 +74,8 @@ namespace Eagle._Extensions
         //
         private static readonly HostCreateFlags DefaultHostCreateFlags =
             HostCreateFlags.EmbeddedUse;
+
+        ///////////////////////////////////////////////////////////////////////
 
         //
         // NOTE: By default, consider all standard option sources.

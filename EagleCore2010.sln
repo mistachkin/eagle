@@ -4,6 +4,26 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		ChangeLog = ChangeLog
 		Eagle.url = Eagle.url
+		README = README
+		license.terms = license.terms
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eagle2010", "Library\Eagle2010.csproj", "{2D4021DA-415C-4FAD-95FF-6ACA0974A677}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EagleShell2010", "Shell\EagleShell2010.csproj", "{51FA98F6-9806-4DCC-ACDE-B4DA8F05D966}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shells", "Shells", "{5D7A051B-CC06-4C4F-8FAB-521D08C45107}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{B0600BC5-3263-48F1-AD9D-B7333C35D648}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NuGet", "NuGet", "{BB07C1EC-9D39-45CE-822E-4A1F036739D9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{05D4F556-7957-4BC8-A854-7A18F0A9294A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Release", "Release", "{665DC209-0021-4CE2-AA97-64586BEFAC7D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Keys", "Keys", "{8349C89A-6E5C-4F55-950E-65CFDEB04906}"
+	ProjectSection(SolutionItems) = preProject
 		Keys\EagleBetaPrivate.snk = Keys\EagleBetaPrivate.snk
 		Keys\EagleBetaPublic.snk = Keys\EagleBetaPublic.snk
 		Keys\EagleDemoPrivate.snk = Keys\EagleDemoPrivate.snk
@@ -14,7 +34,22 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Keys\EagleStrongPublic.snk = Keys\EagleStrongPublic.snk
 		Keys\MistachkinPrivate.snk = Keys\MistachkinPrivate.snk
 		Keys\MistachkinPublic.snk = Keys\MistachkinPublic.snk
-		README = README
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MSBuild", "MSBuild", "{57783403-B92A-44AB-9DF4-46CB884ECFEA}"
+	ProjectSection(SolutionItems) = preProject
+		Targets\Eagle.Builds.targets = Targets\Eagle.Builds.targets
+		NuGet\build\Eagle.NuGet.targets = NuGet\build\Eagle.NuGet.targets
+		Targets\Eagle.Presets.targets = Targets\Eagle.Presets.targets
+		Targets\Eagle.Sample.targets = Targets\Eagle.Sample.targets
+		Targets\Eagle.Settings.targets = Targets\Eagle.Settings.targets
+		Targets\Eagle.targets = Targets\Eagle.targets
+		Targets\Eagle.tasks = Targets\Eagle.tasks
+		NuGet\build\Eagle.Tools.NuGet.targets = NuGet\build\Eagle.Tools.NuGet.targets
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ToolData", "ToolData", "{F0F47859-9B4A-4C8E-A2B4-5A5F22D3986E}"
+	ProjectSection(SolutionItems) = preProject
 		data\exclude_archive.txt = data\exclude_archive.txt
 		data\exclude_bin.txt = data\exclude_bin.txt
 		data\exclude_core.txt = data\exclude_core.txt
@@ -23,39 +58,42 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		data\exclude_src.txt = data\exclude_src.txt
 		data\exclude_update_bin.txt = data\exclude_update_bin.txt
 		data\exclude_update_lib.txt = data\exclude_update_lib.txt
-		license.terms = license.terms
-		NuGet\build\Eagle.NuGet.targets = NuGet\build\Eagle.NuGet.targets
-		NuGet\build\Eagle.Tools.NuGet.targets = NuGet\build\Eagle.Tools.NuGet.targets
-		NuGet\Eagle.Beta.nuspec = NuGet\Eagle.Beta.nuspec
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Library", "Library", "{1234E12A-FD50-40E4-A907-45285CC74B03}"
+	ProjectSection(SolutionItems) = preProject
 		NuGet\Eagle.CLRv2.Core.nuspec = NuGet\Eagle.CLRv2.Core.nuspec
-		NuGet\Eagle.CLRv2.nuspec = NuGet\Eagle.CLRv2.nuspec
 		NuGet\Eagle.CLRv4.Core.nuspec = NuGet\Eagle.CLRv4.Core.nuspec
-		NuGet\Eagle.CLRv4.nuspec = NuGet\Eagle.CLRv4.nuspec
 		NuGet\Eagle.DotNet.nuspec = NuGet\Eagle.DotNet.nuspec
 		NuGet\Eagle.DotNet.Standard.2.0.nuspec = NuGet\Eagle.DotNet.Standard.2.0.nuspec
 		NuGet\Eagle.DotNet.Standard.2.1.nuspec = NuGet\Eagle.DotNet.Standard.2.1.nuspec
 		NuGet\Eagle.Mono.nuspec = NuGet\Eagle.Mono.nuspec
-		NuGet\Eagle.Test.nuspec = NuGet\Eagle.Test.nuspec
-		NuGet\Eagle.Tools.nuspec = NuGet\Eagle.Tools.nuspec
-		NuGet\Eagle.Tools.CLRv2.nuspec = NuGet\Eagle.Tools.CLRv2.nuspec
-		NuGet\Eagle.Tools.CLRv4.nuspec = NuGet\Eagle.Tools.CLRv4.nuspec
 		NuGet\Eagle.nuspec = NuGet\Eagle.nuspec
-		NuGet\Eagle.src.nuspec = NuGet\Eagle.src.nuspec
-		Targets\Eagle.Builds.targets = Targets\Eagle.Builds.targets
-		Targets\Eagle.Presets.targets = Targets\Eagle.Presets.targets
-		Targets\Eagle.Sample.targets = Targets\Eagle.Sample.targets
-		Targets\Eagle.Settings.targets = Targets\Eagle.Settings.targets
-		Targets\Eagle.targets = Targets\Eagle.targets
-		Targets\Eagle.tasks = Targets\Eagle.tasks
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eagle2010", "Library\Eagle2010.csproj", "{2D4021DA-415C-4FAD-95FF-6ACA0974A677}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Library", "Library", "{18DDCE16-C980-4332-9A24-48D9FA9D6ED4}"
+	ProjectSection(SolutionItems) = preProject
+		NuGet\Eagle.Beta.nuspec = NuGet\Eagle.Beta.nuspec
+		NuGet\Eagle.Test.nuspec = NuGet\Eagle.Test.nuspec
+	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EagleShell2010", "Shell\EagleShell2010.csproj", "{51FA98F6-9806-4DCC-ACDE-B4DA8F05D966}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Auxiliary", "Auxiliary", "{F1EF3E49-7C71-4F68-8E2D-88E44E642D39}"
+	ProjectSection(SolutionItems) = preProject
+		NuGet\Eagle.CLRv2.nuspec = NuGet\Eagle.CLRv2.nuspec
+		NuGet\Eagle.CLRv4.nuspec = NuGet\Eagle.CLRv4.nuspec
+	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shells", "Shells", "{5D7A051B-CC06-4C4F-8FAB-521D08C45107}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{44FBF72A-A616-4671-ABCC-47315D188390}"
+	ProjectSection(SolutionItems) = preProject
+		NuGet\Eagle.src.nuspec = NuGet\Eagle.src.nuspec
+	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{B0600BC5-3263-48F1-AD9D-B7333C35D648}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{10B8DE38-280B-484D-B48C-F27700E9404C}"
+	ProjectSection(SolutionItems) = preProject
+		NuGet\Eagle.Tools.CLRv2.nuspec = NuGet\Eagle.Tools.CLRv2.nuspec
+		NuGet\Eagle.Tools.CLRv4.nuspec = NuGet\Eagle.Tools.CLRv4.nuspec
+		NuGet\Eagle.Tools.nuspec = NuGet\Eagle.Tools.nuspec
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -172,5 +210,16 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{51FA98F6-9806-4DCC-ACDE-B4DA8F05D966} = {5D7A051B-CC06-4C4F-8FAB-521D08C45107}
 		{2D4021DA-415C-4FAD-95FF-6ACA0974A677} = {B0600BC5-3263-48F1-AD9D-B7333C35D648}
+		{BB07C1EC-9D39-45CE-822E-4A1F036739D9} = {55EEBBFF-9F07-4451-8525-695810E3BC82}
+		{8349C89A-6E5C-4F55-950E-65CFDEB04906} = {55EEBBFF-9F07-4451-8525-695810E3BC82}
+		{57783403-B92A-44AB-9DF4-46CB884ECFEA} = {55EEBBFF-9F07-4451-8525-695810E3BC82}
+		{F0F47859-9B4A-4C8E-A2B4-5A5F22D3986E} = {55EEBBFF-9F07-4451-8525-695810E3BC82}
+		{05D4F556-7957-4BC8-A854-7A18F0A9294A} = {BB07C1EC-9D39-45CE-822E-4A1F036739D9}
+		{665DC209-0021-4CE2-AA97-64586BEFAC7D} = {BB07C1EC-9D39-45CE-822E-4A1F036739D9}
+		{18DDCE16-C980-4332-9A24-48D9FA9D6ED4} = {05D4F556-7957-4BC8-A854-7A18F0A9294A}
+		{1234E12A-FD50-40E4-A907-45285CC74B03} = {665DC209-0021-4CE2-AA97-64586BEFAC7D}
+		{F1EF3E49-7C71-4F68-8E2D-88E44E642D39} = {665DC209-0021-4CE2-AA97-64586BEFAC7D}
+		{44FBF72A-A616-4671-ABCC-47315D188390} = {665DC209-0021-4CE2-AA97-64586BEFAC7D}
+		{10B8DE38-280B-484D-B48C-F27700E9404C} = {665DC209-0021-4CE2-AA97-64586BEFAC7D}
 	EndGlobalSection
 EndGlobal

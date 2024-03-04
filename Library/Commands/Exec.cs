@@ -280,7 +280,7 @@ namespace Eagle._Commands
                                 if (options.IsPresent("-shell"))
                                     useShellExecute = true;
 
-                                Variant value = null;
+                                IVariant value = null;
 
                                 if (options.IsPresent("-objectflags", ref value))
                                     objectFlags = (ObjectFlags)value.Value;

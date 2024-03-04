@@ -28,18 +28,20 @@ namespace Eagle._Components.Private
         #region Private Data
         private static readonly object syncRoot = new object();
 
+        ///////////////////////////////////////////////////////////////////////
+
         private static CertificateDictionary certificates = null;
 
         ///////////////////////////////////////////////////////////////////////
 
-        internal static X509RevocationMode DefaultRevocationMode =
+        private static X509VerificationFlags verificationFlags =
+            X509VerificationFlags.NoFlag;
+
+        private static X509RevocationMode revocationMode =
             X509RevocationMode.Online;
 
-        internal static X509RevocationFlag DefaultRevocationFlag =
+        private static X509RevocationFlag revocationFlag =
             X509RevocationFlag.ExcludeRoot;
-
-        internal static X509VerificationFlags DefaultVerificationFlags =
-            X509VerificationFlags.NoFlag;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -70,6 +72,27 @@ namespace Eagle._Components.Private
                             FormatOps.DisplayNull);
                 }
 
+                if (empty ||
+                    (verificationFlags != X509VerificationFlags.NoFlag))
+                {
+                    localList.Add("VerificationFlags",
+                        verificationFlags.ToString());
+                }
+
+                if (empty ||
+                    (revocationMode != X509RevocationMode.NoCheck))
+                {
+                    localList.Add("RevocationMode",
+                        revocationMode.ToString());
+                }
+
+                if (empty ||
+                    (revocationFlag != X509RevocationFlag.EndCertificateOnly))
+                {
+                    localList.Add("RevocationFlag",
+                        revocationFlag.ToString());
+                }
+
                 if (localList.Count > 0)
                 {
                     list.Add((IPair<string>)null);
@@ -84,6 +107,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Certificate Methods
+        public static void QueryFlags(
+            out X509VerificationFlags verificationFlags,
+            out X509RevocationMode revocationMode,
+            out X509RevocationFlag revocationFlag
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                verificationFlags = CertificateOps.verificationFlags;
+                revocationMode = CertificateOps.revocationMode;
+                revocationFlag = CertificateOps.revocationFlag;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void Initialize(
             bool force
             )

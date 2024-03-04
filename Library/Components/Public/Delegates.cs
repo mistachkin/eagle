@@ -65,6 +65,15 @@ namespace Eagle._Components.Public.Delegates
 
     ///////////////////////////////////////////////////////////////////////////
 
+    [ObjectId("97a5de4e-da1b-4ef7-9adc-5285a3e3e221")]
+    public delegate bool? UniqueStringCallback<TValue>(
+        ICollection<string> collection,         /* in */
+        IDictionary<string, TValue> dictionary, /* in: OPTIONAL */
+        string keyItem                          /* in */
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("8064c19a-300e-4383-92a3-98154391ae86")]
     public delegate bool CheckCancelCallback(
         IClientData clientData,
@@ -679,8 +688,8 @@ namespace Eagle._Components.Public.Delegates
 
     #region Command Execution Related Delegates
     //
-    // NOTE: Interpreter command execution callback (see also IExecute
-    //       interface).
+    // NOTE: Interpreter command execution callback (see also the
+    //       IExecute interface).
     //
     [ObjectId("f566bc2c-242c-4a0b-a556-605f6b4b3833")]
     public delegate ReturnCode ExecuteCallback(
@@ -688,6 +697,21 @@ namespace Eagle._Components.Public.Delegates
         IClientData clientData,
         ArgumentList arguments,
         ref Result result
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    //
+    // NOTE: Interpreter function execution callback (see also the
+    //       IExecuteArgument interface).
+    //
+    [ObjectId("6ad94277-45c8-4e89-b709-60a51f31af6a")]
+    public delegate ReturnCode ExecuteArgumentCallback(
+        Interpreter interpreter, // TODO: Change to use the IInterpreter type.
+        IClientData clientData,
+        ArgumentList arguments,
+        ref Argument value,
+        ref Result error
     );
     #endregion
 

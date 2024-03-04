@@ -332,10 +332,46 @@ namespace Eagle._Constants
 
     ///////////////////////////////////////////////////////////////////////////
 
+    [ObjectId("2d9df6da-630f-463f-84f1-bc8ff28f018c")]
+    public static class Beep
+    {
+        public static readonly int Invalid = -1;
+
+        //
+        // NOTE: These are the "default" beep values, per MSDN.
+        //
+        public static readonly int Frequency = 800;
+        public static readonly int Duration = 200;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("0407ec6f-852f-4d02-add6-36fdf51fedad")]
     public static class Width
     {
         public static readonly int Invalid = -1;
+        public static readonly int Default = 80;
+        public static readonly int Minimum = 40;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    [ObjectId("cffe4c6d-2308-430e-9ceb-b1980fb5ee9c")]
+    public static class Height
+    {
+        public static readonly int Invalid = -1;
+        public static readonly int Default = 25;
+        public static readonly int Minimum = 10;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    [ObjectId("efc3c71a-c818-48ed-876e-831a25418a54")]
+    public static class Margin
+    {
+        public static readonly int Invalid = -1;
+        public static readonly int Default = 4;
+        public static readonly int Minimum = 2;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -413,12 +449,20 @@ namespace Eagle._Constants
             FormatOps.ScriptTypeToFileName(ScriptTypes.Startup,
                 PackageType.Library, false, false);
 
+        public static readonly string Worker =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.Worker,
+                PackageType.Library, false, false);
+
         public static readonly string Safe =
             FormatOps.ScriptTypeToFileName(ScriptTypes.Safe,
                 PackageType.Library, false, false);
 
         public static readonly string Shell =
             FormatOps.ScriptTypeToFileName(ScriptTypes.Shell,
+                PackageType.Library, false, false);
+
+        public static readonly string ShellWorker =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.ShellWorker,
                 PackageType.Library, false, false);
 
         public static readonly string Test =
@@ -485,12 +529,20 @@ namespace Eagle._Constants
             FormatOps.ScriptTypeToFileName(ScriptTypes.Startup,
                 PackageType.Library, true, false);
 
+        public static readonly string Worker =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.Worker,
+                PackageType.Library, true, false);
+
         public static readonly string Safe =
             FormatOps.ScriptTypeToFileName(ScriptTypes.Safe,
                 PackageType.Library, true, false);
 
         public static readonly string Shell =
             FormatOps.ScriptTypeToFileName(ScriptTypes.Shell,
+                PackageType.Library, true, false);
+
+        public static readonly string ShellWorker =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.ShellWorker,
                 PackageType.Library, true, false);
 
         public static readonly string Test =
@@ -1014,6 +1066,11 @@ namespace Eagle._Constants
         public static readonly string NoVerbose =
             "Selected diagnostic messages are disabled.";
 
+#if THREADING
+        public static readonly string NoWorkers =
+            "Worker threads disabled.";
+#endif
+
         public static readonly string Verbose =
             "Selected diagnostic messages are enabled.";
 
@@ -1065,8 +1122,14 @@ namespace Eagle._Constants
         public static readonly string DefaultTracePriorities =
             "Default trace priority mask overridden via environment: {0}.";
 
+        public static readonly string DefaultGlobalPriorities =
+            "Default trace priority flags overridden via environment: {0}.";
+
         public static readonly string DefaultTracePrioritiesError =
             "Default trace priority mask could not be overridden via environment: {0}.";
+
+        public static readonly string DefaultGlobalPrioritiesError =
+            "Default trace priority flags could not be overridden via environment: {0}.";
 
         public static readonly string DefaultTracePriority =
             "Default trace priority overridden via environment: {0}.";

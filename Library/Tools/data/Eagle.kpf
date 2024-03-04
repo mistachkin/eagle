@@ -29,6 +29,7 @@ https://eagle.to/</URL>
 <file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="exec.eagle" url="../../../lib/Eagle1.0/exec.eagle" id="19c69b5d-9039-4bda-9e61-1e0bbf7efe23" />
 <file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="file1.eagle" url="../../../lib/Eagle1.0/file1.eagle" id="cd3dd353-8d70-4ed6-84a6-a82bd6340146" />
 <file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="file2.eagle" url="../../../lib/Eagle1.0/file2.eagle" id="290e2da3-93f2-45c6-bf13-101ac5cc40c3" />
+<file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="file2u.eagle" url="../../../lib/Eagle1.0/file2u.eagle" id="ac97218a-67b3-47d3-93dd-c93eac45ebb8" />
 <file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="file3.eagle" url="../../../lib/Eagle1.0/file3.eagle" id="0cc0610f-c962-4824-92bf-233730a67352" />
 <file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="info.eagle" url="../../../lib/Eagle1.0/info.eagle" id="e06c1622-adff-4e79-b3ea-3818fbed8956" />
 <file idref="6300c397-bb52-442f-bcdc-f6f56ed40e67" name="init.eagle" url="../../../lib/Eagle1.0/init.eagle" id="e3848b5c-fa0d-43b0-b3fe-930221048fab" />
@@ -223,6 +224,9 @@ https://eagle.to/</URL>
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="client.tcl" url="../../Tests/data/client.tcl" id="9ea4f6c4-315f-4582-b9c9-523cdd0d90ee" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="evaluate.eagle" url="../../Tests/data/evaluate.eagle" id="316ce54d-20a8-4031-a621-e0f588c979fd" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="FakeInstances.reg" url="../../Tests/data/FakeInstances.reg" id="da17d8d1-3825-4883-ab20-8e7583b984d2" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="file3_1_1_expected_cmd.txt" url="../../Tests/data/file3_1_1_expected_cmd.txt" id="4898185d-f5a0-438a-9bbf-badcb8a72ea6" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="file3_1_1_expected_glob.txt" url="../../Tests/data/file3_1_1_expected_glob.txt" id="72944913-465d-479f-8df3-3cf30abdf7f7" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="file3_1_1_expected_mixed.txt" url="../../Tests/data/file3_1_1_expected_mixed.txt" id="b123715b-b54a-45cb-b415-b2c408d4e4ab" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="file.dat" url="../../Tests/data/file.dat" id="304aa1a9-74d7-406c-b421-3605be93db80" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="FontViewer.xaml" url="../../Tests/data/FontViewer.xaml" id="0ebb895c-c3a9-48d5-b8cc-c90fb90744dd" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="garbage.txt" url="../../Tests/data/garbage.txt" id="ac6fc947-47b6-4a9a-8fd7-a03fde5b316c" />

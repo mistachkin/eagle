@@ -81,7 +81,7 @@ namespace Eagle._Commands
                         {
                             if (argumentIndex == Index.Invalid)
                             {
-                                Variant value = null;
+                                IVariant value = null;
                                 int size = _Size.Invalid;
 
                                 if (options.IsPresent("-size", ref value))

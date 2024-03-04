@@ -41,6 +41,9 @@ namespace Eagle._Components.Private
     internal static class TraceOps
     {
         #region Private Constants
+#if MONO_BUILD
+#pragma warning disable 414
+#endif
         //
         // NOTE: This regular expression can be used to determines if a string
         //       is considered to be a valid category.  By default, this value
@@ -60,6 +63,9 @@ namespace Eagle._Components.Private
         //
         private static readonly Regex DefaultMethodNameRegEx = RegExOps.Create(
             "^[\\.0-9A-Z_]*$", RegexOptions.IgnoreCase);
+#if MONO_BUILD
+#pragma warning restore 414
+#endif
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -203,6 +209,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: This array MUST be the same size as the full and
+        //          short name arrays (below).
+        //
         private static readonly TracePriority[] TracePriorities = {
             TracePriority.Lowest,
             TracePriority.Lower,
@@ -213,6 +223,42 @@ namespace Eagle._Components.Private
             TracePriority.High,
             TracePriority.Higher,
             TracePriority.Highest
+        };
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This array MUST be the same size as the flag and
+        //          short name arrays (above and below).
+        //
+        private static readonly string[] TracePriorityFullNames = {
+            "Lowest",
+            "Lower",
+            "Low",
+            "MediumLow",
+            "Medium",
+            "MediumHigh",
+            "High",
+            "Higher",
+            "Highest"
+        };
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This array MUST be the same size as the flag and
+        //          full name arrays (above).
+        //
+        private static readonly string[] TracePriorityShortNames = {
+            "L3",
+            "L2",
+            "L1",
+            "M3",
+            "M2",
+            "M1",
+            "H3",
+            "H2",
+            "H1"
         };
 
         ///////////////////////////////////////////////////////////////////////
@@ -323,6 +369,9 @@ namespace Eagle._Components.Private
         private static TracePriority DefaultTracePriorities =
             TracePriority.DefaultMask;
 
+        private static TracePriority DefaultGlobalPriorities =
+            TracePriority.None;
+
         ///////////////////////////////////////////////////////////////////////
 
         //
@@ -432,11 +481,12 @@ namespace Eagle._Components.Private
         private static IntDictionary bonusTraceCategories;
 
         //
-        // NOTE: This field helps determine what the IsTraceEnabled method
-        //       will return.  It is used to check if the specified trace
+        // NOTE: These fields help determine what the IsTraceEnabled method
+        //       will return.  They are used to check if the specified trace
         //       priority matches this mask of enabled trace priorities.
         //
         private static TracePriority tracePriorities;
+        private static TracePriority globalPriorities;
 
         //
         // NOTE: This is the default trace priority value used when a method
@@ -779,6 +829,9 @@ namespace Eagle._Components.Private
                     if (tracePriorities != TracePriority.None)
                         tracePriorities = TracePriority.None;
 
+                    if (globalPriorities != TracePriority.None)
+                        globalPriorities = TracePriority.None;
+
                     if (defaultTracePriority != TracePriority.None)
                         defaultTracePriority = TracePriority.None;
                 }
@@ -831,6 +884,12 @@ namespace Eagle._Components.Private
                 {
                     localList.Add("TracePriorities",
                         tracePriorities.ToString());
+                }
+
+                if (empty || (globalPriorities != TracePriority.None))
+                {
+                    localList.Add("GlobalPriorities",
+                        globalPriorities.ToString());
                 }
 
                 if (empty || (defaultTracePriority != TracePriority.None))
@@ -1261,6 +1320,9 @@ namespace Eagle._Components.Private
 
                 /* NO RESULT */
                 PolicyContext.ResetForceTraceFull();
+
+                /* NO RESULT */
+                FormatOps.ResetTraceIndicators();
             }
         }
 
@@ -1282,6 +1344,12 @@ namespace Eagle._Components.Private
 
                 bool verboseFlags = FlagOps.HasFlags(
                     stateType, TraceStateType.VerboseFlags, true);
+
+                bool rawIndicators = FlagOps.HasFlags(
+                    stateType, TraceStateType.RawIndicators, true);
+
+                bool seeListeners = FlagOps.HasFlags(
+                    stateType, TraceStateType.SeeListeners, true);
 
                 TraceStateType result = TraceStateType.None;
 
@@ -1712,6 +1780,29 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////
 
+                if (FlagOps.HasFlags(
+                        stateType, TraceStateType.Indicators, true))
+                {
+                    if (FlagOps.HasFlags(
+                            stateType, TraceStateType.ResetIndicators, true))
+                    {
+                        /* NO RESULT */
+                        FormatOps.ResetTraceIndicators();
+
+                        result |= TraceStateType.ResetIndicators;
+                    }
+                    else
+                    {
+                        /* NO RESULT */
+                        FormatOps.SetTraceIndicators(
+                            enabled, rawIndicators, seeListeners);
+                    }
+
+                    result |= TraceStateType.Indicators;
+                }
+
+                ///////////////////////////////////////////////////////////////
+
                 //
                 // HACK: *SPECIAL* This enumeration value is used to mean that
                 //       all internal state should be changed *if* it involves
@@ -1809,7 +1900,10 @@ namespace Eagle._Components.Private
             out bool useDefault,
             out bool useConsole,
             out bool useNative,
-            out bool rawLogFile
+            out bool rawLogFile,
+            out bool? useIndicators,
+            out bool rawIndicators,
+            out bool seeListeners
             )
         {
             clientData = traceClientData.ClientData;
@@ -1837,6 +1931,9 @@ namespace Eagle._Components.Private
             useConsole = traceClientData.UseConsole;
             useNative = traceClientData.UseNative;
             rawLogFile = traceClientData.RawLogFile;
+            useIndicators = traceClientData.UseIndicators;
+            rawIndicators = traceClientData.RawIndicators;
+            seeListeners = traceClientData.SeeListeners;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1879,6 +1976,9 @@ namespace Eagle._Components.Private
             bool useConsole;
             bool useNative;
             bool rawLogFile;
+            bool? useIndicators;
+            bool rawIndicators;
+            bool seeListeners;
 
             UnpackClientData(
                 traceClientData, out clientData, out interpreter,
@@ -1889,7 +1989,8 @@ namespace Eagle._Components.Private
                 out formatString, out formatIndex, out forceEnabled,
                 out resetSystem, out resetListeners, out trace,
                 out debug, out verbose, out useDefault,
-                out useConsole, out useNative, out rawLogFile);
+                out useConsole, out useNative, out rawLogFile,
+                out useIndicators, out rawIndicators, out seeListeners);
 
             ///////////////////////////////////////////////////////////////////
 
@@ -2000,6 +2101,31 @@ namespace Eagle._Components.Private
 
                 traceClientData.AddResult("SetTraceCategories");
                 traceClientData.AddResult(TraceCategoryType.Bonus);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            TraceStateType localStateType; /* REUSED */
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (useIndicators != null)
+            {
+                /* NO RESULT */
+                FormatOps.SetTraceIndicators(
+                    (bool)useIndicators, rawIndicators, seeListeners);
+
+                localStateType = (bool)useIndicators ?
+                    TraceStateType.Indicators : TraceStateType.None;
+
+                if (rawIndicators)
+                    localStateType |= TraceStateType.RawIndicators;
+
+                if (seeListeners)
+                    localStateType |= TraceStateType.SeeListeners;
+
+                traceClientData.AddResult("SetTraceIndicators");
+                traceClientData.AddResult(localStateType);
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -2462,6 +2588,48 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static TracePriority? CheckForGlobalPriorities(
+            string envVarName /* in */
+            )
+        {
+            string stringValue = CommonOps.Environment.GetVariable(
+                envVarName);
+
+            if (stringValue == null)
+                return null; /* NOT OVERRIDDEN */
+
+            object enumValue;
+            Result error = null;
+
+            enumValue = EnumOps.TryParseFlags(
+                null, typeof(TracePriority),
+                DefaultGlobalPriorities.ToString(), stringValue,
+                null, true, true, true, ref error);
+
+            if (enumValue is TracePriority)
+            {
+#if CONSOLE
+                AppendInitializationMessage(String.Format(
+                    _Constants.Prompt.DefaultGlobalPriorities,
+                    enumValue));
+#endif
+
+                return (TracePriority)enumValue;
+            }
+            else
+            {
+#if CONSOLE
+                AppendInitializationMessage(String.Format(
+                    _Constants.Prompt.DefaultGlobalPrioritiesError,
+                    error));
+#endif
+
+                return null; /* SYSTEM DEFAULT */
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool IsTracePossible()
         {
             /* NO-LOCK */
@@ -2617,7 +2785,8 @@ namespace Eagle._Components.Private
             int adjustment              /* in */
             )
         {
-            int oldIndex = FindTracePriority(priority, adjustment > 0);
+            int oldIndex = FindTracePriority(
+                priority, adjustment > 0);
 
             if (oldIndex == Index.Invalid)
                 return;
@@ -2655,6 +2824,45 @@ namespace Eagle._Components.Private
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 AdjustTracePriority(ref priority, adjustment);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetTracePriorityName(
+            TracePriority priority, /* in */
+            bool shortName          /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                int index = FindTracePriority(priority, false);
+
+                if (index == Index.Invalid)
+                    return null;
+
+                if (shortName)
+                {
+                    if (TracePriorityShortNames != null)
+                    {
+                        int length = TracePriorityShortNames.Length;
+
+                        if (length > 0)
+                            return TracePriorityShortNames[index];
+                    }
+                }
+                else
+                {
+                    if (TracePriorityFullNames != null)
+                    {
+                        int length = TracePriorityFullNames.Length;
+
+                        if (length > 0)
+                            return TracePriorityFullNames[index];
+                    }
+                }
+
+                return String.Empty;
             }
         }
 
@@ -2868,6 +3076,17 @@ namespace Eagle._Components.Private
                         AdjustTracePriority(ref priority, categoryBonus);
 
                     //
+                    // NOTE: If the "Always" flag is set within the priority
+                    //       then all remaining checks will be skipped -AND-
+                    //       this flag will ALWAYS be honored forevermore.
+                    //
+                    if (HasTracePriorities(globalPriorities | priority,
+                            TracePriority.Always, true))
+                    {
+                        goto done;
+                    }
+
+                    //
                     // NOTE: The priority flags specified by the caller must
                     //       all be present in the configured trace priority
                     //       flags.
@@ -2960,6 +3179,8 @@ namespace Eagle._Components.Private
                     }
                 }
             }
+
+        done:
 
             return result;
         }
@@ -3272,6 +3493,105 @@ namespace Eagle._Components.Private
                         else if (useDefaults)
                         {
                             tracePriorities = DefaultTracePriorities;
+                        }
+                    }
+                    catch
+                    {
+                        // do nothing.
+                    }
+                }
+
+                ///////////////////////////////////////////////////////////////
+
+                return result;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static TracePriority GetGlobalPriorities()
+        {
+            lock (syncRoot)
+            {
+                return globalPriorities;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void SetGlobalPriorities(
+            TracePriority priorities /* in */
+            )
+        {
+            lock (syncRoot)
+            {
+                globalPriorities = priorities;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void AdjustGlobalPriorities(
+            TracePriority priority, /* in */
+            bool enabled            /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (enabled)
+                    globalPriorities |= priority;
+                else
+                    globalPriorities &= ~priority;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ResetGlobalPriorities()
+        {
+            lock (syncRoot)
+            {
+                globalPriorities = DefaultGlobalPriorities;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static TraceStateType InitializeGlobalPriorities(
+            bool force,      /* in */
+            bool useDefaults /* in */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                TraceStateType result = TraceStateType.None;
+
+                ///////////////////////////////////////////////////////////////
+
+                if (force || (globalPriorities == TracePriority.None))
+                {
+                    //
+                    // HACK: Since there is nothing we can do about it here,
+                    //       and its initialization is non-critical, do not
+                    //       let exceptions escape from the method called
+                    //       here.  Also, there was the possibility of this
+                    //       method causing an issue for Interpreter.Create
+                    //       if an exception escaped from this point, per a
+                    //       variant of Coverity issue #236095.
+                    //
+                    try
+                    {
+                        TracePriority? priorities = CheckForGlobalPriorities(
+                            EnvVars.GlobalPriorities);
+
+                        if (priorities != null)
+                        {
+                            globalPriorities = (TracePriority)priorities;
+                            result |= TraceStateType.Priorities;
+                        }
+                        else if (useDefaults)
+                        {
+                            globalPriorities = DefaultGlobalPriorities;
                         }
                     }
                     catch
@@ -5917,7 +6237,9 @@ namespace Eagle._Components.Private
 #if MAYBE_TRACE
             try
             {
-                if (TraceLimits.IsTripped(message, category, priority))
+                if (!FlagOps.HasFlags(
+                        priority, TracePriority.NoLimits, true) &&
+                    TraceLimits.IsTripped(message, category, priority))
                 {
                     TraceWasDropped(
                         null, message, category, priority);
@@ -5976,7 +6298,9 @@ namespace Eagle._Components.Private
 #if MAYBE_TRACE
             try
             {
-                if (TraceLimits.IsTripped(message, category, priority))
+                if (!FlagOps.HasFlags(
+                        priority, TracePriority.NoLimits, true) &&
+                    TraceLimits.IsTripped(message, category, priority))
                 {
                     TraceWasDropped(
                         null, message, category, priority);

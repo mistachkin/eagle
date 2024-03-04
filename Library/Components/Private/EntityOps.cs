@@ -2510,6 +2510,411 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static StringList GetFlagsNoThrow(
+            object @object /* in */
+            )
+        {
+            StringList result = null;
+
+            try
+            {
+                IAliasData aliasData = @object as IAliasData;
+
+                if (aliasData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("AliasFlags");
+                    result.Add(aliasData.AliasFlags.ToString());
+                }
+
+                ICallbackData callbackData = @object as ICallbackData;
+
+                if (callbackData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("MarshalFlags");
+                    result.Add(callbackData.MarshalFlags.ToString());
+
+                    result.Add("CallbackFlags");
+                    // result.Add(callbackData.CallbackFlags.ToString()); /* CS0176 */
+                    result.Add(String.Format("{0}", callbackData.CallbackFlags));
+
+                    result.Add("ByRefArgumentFlags");
+                    // result.Add(callbackData.ByRefArgumentFlags.ToString()); /* CS0176 */
+                    result.Add(String.Format("{0}", callbackData.ByRefArgumentFlags));
+                }
+
+                ICallFrame frame = @object as ICallFrame;
+
+                if (frame != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("CallFrameFlags");
+                    result.Add(frame.Flags.ToString());
+                }
+
+                IChannel channel = @object as IChannel;
+
+                if (channel != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("CanRead");
+                    result.Add(channel.CanRead.ToString());
+                    result.Add("CanSeek");
+                    result.Add(channel.CanSeek.ToString());
+                    result.Add("CanWrite");
+                    result.Add(channel.CanWrite.ToString());
+                    result.Add("HitEndOfStream");
+                    result.Add(channel.HitEndOfStream.ToString());
+                    result.Add("EndOfStream");
+
+                    try
+                    {
+                        result.Add(channel.EndOfStream.ToString());
+                    }
+                    catch (Exception e)
+                    {
+                        result.Add(e.GetType().ToString());
+                    }
+
+                    result.Add("AnyEndOfStream");
+                    result.Add(channel.AnyEndOfStream.ToString());
+                    result.Add("OneEndOfStream");
+                    result.Add(channel.OneEndOfStream.ToString());
+                    result.Add("Length");
+
+                    try
+                    {
+                        result.Add(channel.Length.ToString());
+                    }
+                    catch (Exception e)
+                    {
+                        result.Add(e.GetType().ToString());
+                    }
+
+                    result.Add("Position");
+
+                    try
+                    {
+                        result.Add(channel.Position.ToString());
+                    }
+                    catch (Exception e)
+                    {
+                        result.Add(e.GetType().ToString());
+                    }
+                }
+
+                ICommandBaseData commandBaseData = @object as ICommandBaseData;
+
+                if (commandBaseData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("BaseCommandFlags");
+                    result.Add(commandBaseData.CommandFlags.ToString());
+                }
+
+                ICommandData commandData = @object as ICommandData;
+
+                if (commandData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("CommandFlags");
+                    result.Add(commandData.CommandFlags.ToString());
+                }
+
+#if EMIT && NATIVE && LIBRARY
+                IDelegate @delegate = @object as IDelegate;
+
+                if (@delegate != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("FunctionName");
+                    result.Add(@delegate.FunctionName);
+                }
+#endif
+
+                IDelegateData delegateData = @object as IDelegateData;
+
+                if (delegateData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("DelegateFlags");
+                    result.Add(delegateData.ToString());
+                }
+
+                IEvent @event = @object as IEvent;
+
+                if (@event != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("EventType");
+                    result.Add(@event.Type.ToString());
+                    result.Add("EventFlags");
+                    result.Add(@event.Flags.ToString());
+                    result.Add("EventPriority");
+                    result.Add(@event.Priority.ToString());
+                }
+
+                IFunctionData functionData = @object as IFunctionData;
+
+                if (functionData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("FunctionFlags");
+                    result.Add(functionData.Flags.ToString());
+                }
+
+                IHaveObjectFlags haveObjectFlags = @object as IHaveObjectFlags;
+
+                if (haveObjectFlags != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("ObjectFlags");
+                    result.Add(haveObjectFlags.ObjectFlags.ToString());
+                }
+
+                IHost host = @object as IHost;
+
+                if (host != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("HostCreateFlags");
+                    result.Add(host.HostCreateFlags.ToString());
+                    result.Add("HostFlags");
+                    result.Add(host.GetHostFlags().ToString());
+                    result.Add("TestFlags");
+                    result.Add(host.GetTestFlags().ToString());
+                    result.Add("HeaderFlags");
+                    result.Add(host.GetHeaderFlags().ToString());
+                }
+
+                IHostData hostData = @object as IHostData;
+
+                if (hostData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("HostDataCreateFlags");
+                    result.Add(hostData.HostCreateFlags.ToString());
+                }
+
+                IInteractiveLoopData loopData = @object as IInteractiveLoopData;
+
+                if (loopData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("ReturnCode");
+                    result.Add(loopData.Code.ToString());
+                    result.Add("BreakpointType");
+                    result.Add(loopData.BreakpointType.ToString());
+                    result.Add("EngineFlags");
+                    result.Add(loopData.EngineFlags.ToString());
+                    result.Add("SubstitutionFlags");
+                    result.Add(loopData.SubstitutionFlags.ToString());
+                    result.Add("EventFlags");
+                    result.Add(loopData.EventFlags.ToString());
+                    result.Add("ExpressionFlags");
+                    result.Add(loopData.ExpressionFlags.ToString());
+                    result.Add("HeaderFlags");
+                    result.Add(loopData.HeaderFlags.ToString());
+                    result.Add("Exit");
+                    result.Add(loopData.Exit.ToString());
+                }
+
+#if EMIT && NATIVE && LIBRARY
+                IModule module = @object as IModule;
+
+                if (module != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("ModuleFlags");
+                    result.Add(module.Flags.ToString());
+                }
+#endif
+
+                IOption option = @object as IOption;
+
+                if (option != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("OptionFlags");
+                    result.Add(option.Flags.ToString());
+                }
+
+                IOperatorData operatorData = @object as IOperatorData;
+
+                if (operatorData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("OperatorFlags");
+                    result.Add(operatorData.Flags.ToString());
+                }
+
+                IPackageData packageData = @object as IPackageData;
+
+                if (packageData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("PackageFlags");
+                    result.Add(packageData.Flags.ToString());
+                }
+
+                IPluginData pluginData = @object as IPluginData;
+
+                if (pluginData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("PluginFlags");
+                    result.Add(pluginData.Flags.ToString());
+                }
+
+                IProcedureData procedureData = @object as IProcedureData;
+
+                if (procedureData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("ProcedureFlags");
+                    result.Add(procedureData.Flags.ToString());
+                }
+
+                IResolveData resolveData = @object as IResolveData;
+
+                if (resolveData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("ResolveFlags");
+                    result.Add(resolveData.Flags.ToString());
+                }
+
+#if SHELL
+                IShellCallbackData shellCallbackData = @object as IShellCallbackData;
+
+                if (shellCallbackData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("WhatIf");
+                    result.Add(shellCallbackData.WhatIf.ToString());
+                    result.Add("StopOnUnknown");
+                    result.Add(shellCallbackData.StopOnUnknown.ToString());
+                }
+#endif
+
+                ISnippetData snippetData = @object as ISnippetData;
+
+                if (snippetData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("SnippetFlags");
+                    result.Add(snippetData.SnippetFlags.ToString());
+                }
+
+                ISubCommandData subCommandData = @object as ISubCommandData;
+
+                if (subCommandData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("SubCommandFlags");
+                    result.Add(subCommandData.Flags.ToString());
+                }
+
+                ITraceData traceData = @object as ITraceData;
+
+                if (traceData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("BindingFlags");
+                    result.Add(traceData.BindingFlags.ToString());
+                    result.Add("MethodFlags");
+                    result.Add(traceData.MethodFlags.ToString());
+                    result.Add("TraceFlags");
+                    result.Add(traceData.TraceFlags.ToString());
+                }
+
+                IUpdateData updateData = @object as IUpdateData;
+
+                if (updateData != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("ActionType");
+                    result.Add(updateData.ActionType.ToString());
+                    result.Add("ReleaseType");
+                    result.Add(updateData.ReleaseType.ToString());
+                    result.Add("UpdateType");
+                    result.Add(updateData.UpdateType.ToString());
+                }
+
+                IVariable variable = @object as IVariable;
+
+                if (variable != null)
+                {
+                    if (result == null)
+                        result = new StringList();
+
+                    result.Add("VariableFlags");
+                    result.Add(variable.Flags.ToString());
+                }
+            }
+            catch
+            {
+                // do nothing.
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void MaybeSetGroup(
             IIdentifier identifier,
             string group

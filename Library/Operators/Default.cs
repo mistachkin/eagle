@@ -26,7 +26,7 @@ namespace Eagle._Operators
     {
         #region Public Constructors
         public Default(
-            IOperatorData operatorData
+            IOperatorData operatorData /* in */
             )
         {
             kind = IdentifierKind.Operator;
@@ -41,6 +41,10 @@ namespace Eagle._Operators
 
             if (operatorData != null)
             {
+                id = operatorData.Id;
+
+                EntityOps.MaybeSetupId(this);
+
                 EntityOps.MaybeSetGroup(
                     this, operatorData.Group);
 
@@ -92,6 +96,17 @@ namespace Eagle._Operators
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public virtual IClientData ClientData
+        {
+            get { return clientData; }
+            set { clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public virtual string Group
@@ -107,17 +122,6 @@ namespace Eagle._Operators
         {
             get { return description; }
             set { description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public virtual IClientData ClientData
-        {
-            get { return clientData; }
-            set { clientData = value; }
         }
         #endregion
 
@@ -259,11 +263,11 @@ namespace Eagle._Operators
 
         #region IExecuteArgument Members
         public virtual ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
             return ReturnCode.Ok;
@@ -279,8 +283,8 @@ namespace Eagle._Operators
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool ResetUsage(
-            UsageType type,
-            ref long value
+            UsageType type, /* in */
+            ref long value  /* out */
             )
         {
             switch (type)
@@ -309,8 +313,8 @@ namespace Eagle._Operators
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool GetUsage(
-            UsageType type,
-            ref long value
+            UsageType type, /* in */
+            ref long value  /* out */
             )
         {
             switch (type)
@@ -339,8 +343,8 @@ namespace Eagle._Operators
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool SetUsage(
-            UsageType type,
-            ref long value
+            UsageType type, /* in */
+            ref long value  /* out */
             )
         {
             switch (type)
@@ -369,8 +373,8 @@ namespace Eagle._Operators
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool AddUsage(
-            UsageType type,
-            ref long value
+            UsageType type, /* in */
+            ref long value  /* out */
             )
         {
             switch (type)
@@ -399,7 +403,7 @@ namespace Eagle._Operators
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool CountUsage(
-            ref long count
+            ref long count /* out */
             )
         {
             count = Interlocked.Increment(ref usageCount);
@@ -409,7 +413,7 @@ namespace Eagle._Operators
         ///////////////////////////////////////////////////////////////////////
 
         public virtual bool ProfileUsage(
-            ref long microseconds
+            ref long microseconds /* out */
             )
         {
             Interlocked.Increment(ref usageCount);

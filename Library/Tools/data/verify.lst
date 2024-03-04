@@ -145,6 +145,7 @@ set eagle_manifests(source) {
   Eagle/lib/Eagle1.0/exec.eagle
   Eagle/lib/Eagle1.0/file1.eagle
   Eagle/lib/Eagle1.0/file2.eagle
+  Eagle/lib/Eagle1.0/file2u.eagle
   Eagle/lib/Eagle1.0/file3.eagle
   Eagle/lib/Eagle1.0/info.eagle
   Eagle/lib/Eagle1.0/init.eagle
@@ -419,6 +420,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/NativeStack.cs
   Eagle/Library/Components/Private/NativeUtility.cs
   Eagle/Library/Components/Private/NullEnumerator.cs
+  Eagle/Library/Components/Private/NumberOps.cs
   Eagle/Library/Components/Private/ObjectOps.cs
   Eagle/Library/Components/Private/OperatorData.cs
   Eagle/Library/Components/Private/Operators.cs
@@ -455,6 +457,8 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/SetupOps.cs
   Eagle/Library/Components/Private/Shell.cs
   Eagle/Library/Components/Private/ShellOps.cs
+  Eagle/Library/Components/Private/Snippet.cs
+  Eagle/Library/Components/Private/SnippetOps.cs
   Eagle/Library/Components/Private/SocketClientData.cs
   Eagle/Library/Components/Private/SocketOps.cs
   Eagle/Library/Components/Private/StatusFormOps.cs
@@ -487,6 +491,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Private/UpdateData.cs
   Eagle/Library/Components/Private/UpdateOps.cs
   Eagle/Library/Components/Private/VariableContext.cs
+  Eagle/Library/Components/Private/VariantOps.cs
   Eagle/Library/Components/Private/Vars.cs
   Eagle/Library/Components/Private/WebOps.cs
   Eagle/Library/Components/Private/WinTrustDotNet.cs
@@ -509,6 +514,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Public/CommandCallbackWrapper.cs
   Eagle/Library/Components/Public/CommandData.cs
   Eagle/Library/Components/Public/Constants.cs
+  Eagle/Library/Components/Public/CoreClientData.cs
   Eagle/Library/Components/Public/DatabaseVariable.cs
   Eagle/Library/Components/Public/DelegateData.cs
   Eagle/Library/Components/Public/Delegates.cs
@@ -543,7 +549,6 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Public/NewHostCallbackBridge.cs
   Eagle/Library/Components/Public/NewProcedureCallbackBridge.cs
   Eagle/Library/Components/Public/NewWebClientCallbackBridge.cs
-  Eagle/Library/Components/Public/Number.cs
   Eagle/Library/Components/Public/ObjectData.cs
   Eagle/Library/Components/Public/ObjectPair.cs
   Eagle/Library/Components/Public/ObjectTriplet.cs
@@ -608,7 +613,6 @@ set eagle_manifests(source) {
   Eagle/Library/Containers/Private/ArgumentInfoList.cs
   Eagle/Library/Containers/Private/ArgumentListStack.cs
   Eagle/Library/Containers/Private/ArraySearchDictionary.cs
-  Eagle/Library/Containers/Private/BooleanList.cs
   Eagle/Library/Containers/Private/BreakpointDictionary.cs
   Eagle/Library/Containers/Private/CacheDictionary.cs
   Eagle/Library/Containers/Private/CallFrameDictionary.cs
@@ -691,6 +695,7 @@ set eagle_manifests(source) {
   Eagle/Library/Containers/Private/TypeIntPtrDictionary.cs
   Eagle/Library/Containers/Private/TypePairDictionary.cs
   Eagle/Library/Containers/Private/TypeToStringCallbackDictionary.cs
+  Eagle/Library/Containers/Private/TypeTypeCodeDictionary.cs
   Eagle/Library/Containers/Private/WrapperDictionary.cs
   Eagle/Library/Containers/Public/ArgumentDictionary.cs
   Eagle/Library/Containers/Public/ArgumentList.cs
@@ -725,6 +730,7 @@ set eagle_manifests(source) {
   Eagle/Library/Containers/Public/StringSortedList.cs
   Eagle/Library/Containers/Public/TokenList.cs
   Eagle/Library/Containers/Public/TraceList.cs
+  Eagle/Library/Containers/Public/TypeCodeList.cs
   Eagle/Library/Containers/Public/TypeList.cs
   Eagle/Library/Containers/Public/UlongList.cs
   Eagle/Library/Containers/Public/UriDictionary.cs
@@ -749,6 +755,7 @@ set eagle_manifests(source) {
   Eagle/Library/Encodings/TwoByteEncoding.cs
   Eagle/Library/Functions/Abs.cs
   Eagle/Library/Functions/Acos.cs
+  Eagle/Library/Functions/Arguments.cs
   Eagle/Library/Functions/Asin.cs
   Eagle/Library/Functions/Atan.cs
   Eagle/Library/Functions/Atan2.cs
@@ -854,6 +861,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/ArgumentManager.cs
   Eagle/Library/Interfaces/Public/AsynchronousCallback.cs
   Eagle/Library/Interfaces/Public/AsynchronousContext.cs
+  Eagle/Library/Interfaces/Public/BaseClientData.cs
   Eagle/Library/Interfaces/Public/Binder.cs
   Eagle/Library/Interfaces/Public/BoxHost.cs
   Eagle/Library/Interfaces/Public/CacheManager.cs
@@ -868,6 +876,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/Command.cs
   Eagle/Library/Interfaces/Public/CommandBaseData.cs
   Eagle/Library/Interfaces/Public/CommandData.cs
+  Eagle/Library/Interfaces/Public/Convert.cs
   Eagle/Library/Interfaces/Public/CoreClientData.cs
   Eagle/Library/Interfaces/Public/CryptographyData.cs
   Eagle/Library/Interfaces/Public/DbConnectionParameters.cs
@@ -908,6 +917,8 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/HaveCultureInfo.cs
   Eagle/Library/Interfaces/Public/HaveDictionary.cs
   Eagle/Library/Interfaces/Public/HaveEncoding.cs
+  Eagle/Library/Interfaces/Public/HaveExecutionPolicy.cs
+  Eagle/Library/Interfaces/Public/HaveFileName.cs
   Eagle/Library/Interfaces/Public/HaveInterpreter.cs
   Eagle/Library/Interfaces/Public/HaveObjectFlags.cs
   Eagle/Library/Interfaces/Public/HaveOwner.cs
@@ -932,6 +943,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/InterpreterManager.cs
   Eagle/Library/Interfaces/Public/Levels.cs
   Eagle/Library/Interfaces/Public/KeyEventManager.cs
+  Eagle/Library/Interfaces/Public/Math.cs
   Eagle/Library/Interfaces/Public/MaybeDisposed.cs
   Eagle/Library/Interfaces/Public/MutableAnyPair.cs
   Eagle/Library/Interfaces/Public/MutableAnyTriplet.cs
@@ -944,6 +956,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/NewWebClientCallback.cs
   Eagle/Library/Interfaces/Public/Notify.cs
   Eagle/Library/Interfaces/Public/NotifyManager.cs
+  Eagle/Library/Interfaces/Public/Number.cs
   Eagle/Library/Interfaces/Public/Object.cs
   Eagle/Library/Interfaces/Public/ObjectData.cs
   Eagle/Library/Interfaces/Public/ObjectType.cs
@@ -1001,8 +1014,10 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/ShellCallback.cs
   Eagle/Library/Interfaces/Public/ShellCallbackData.cs
   Eagle/Library/Interfaces/Public/ShellManager.cs
-  Eagle/Library/Interfaces/Public/SimpleSynchronize.cs
   Eagle/Library/Interfaces/Public/SizeHost.cs
+  Eagle/Library/Interfaces/Public/Snippet.cs
+  Eagle/Library/Interfaces/Public/SnippetData.cs
+  Eagle/Library/Interfaces/Public/SnippetManager.cs
   Eagle/Library/Interfaces/Public/State.cs
   Eagle/Library/Interfaces/Public/StatusManager.cs
   Eagle/Library/Interfaces/Public/StreamHost.cs
@@ -1012,6 +1027,8 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/SubCommandData.cs
   Eagle/Library/Interfaces/Public/Synchronize.cs
   Eagle/Library/Interfaces/Public/SynchronizeBase.cs
+  Eagle/Library/Interfaces/Public/SynchronizeSimple.cs
+  Eagle/Library/Interfaces/Public/SynchronizeStatic.cs
   Eagle/Library/Interfaces/Public/Syntax.cs
   Eagle/Library/Interfaces/Public/TclEntityManager.cs
   Eagle/Library/Interfaces/Public/TclManager.cs
@@ -1034,6 +1051,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/ValueData.cs
   Eagle/Library/Interfaces/Public/Variable.cs
   Eagle/Library/Interfaces/Public/VariableManager.cs
+  Eagle/Library/Interfaces/Public/Variant.cs
   Eagle/Library/Interfaces/Public/WebTransferCallback.cs
   Eagle/Library/Interfaces/Public/Wrapper.cs
   Eagle/Library/Interfaces/Public/WrapperData.cs
@@ -1063,14 +1081,18 @@ set eagle_manifests(source) {
   Eagle/Library/Operators/LeftShift.cs
   Eagle/Library/Operators/LessThan.cs
   Eagle/Library/Operators/LessThanOrEqualTo.cs
+  Eagle/Library/Operators/List.cs
   Eagle/Library/Operators/ListIn.cs
   Eagle/Library/Operators/ListNotIn.cs
+  Eagle/Library/Operators/Logic.cs
   Eagle/Library/Operators/LogicalAnd.cs
   Eagle/Library/Operators/LogicalEqv.cs
   Eagle/Library/Operators/LogicalImp.cs
   Eagle/Library/Operators/LogicalNot.cs
   Eagle/Library/Operators/LogicalOr.cs
   Eagle/Library/Operators/LogicalXor.cs
+  Eagle/Library/Operators/Math.cs
+  Eagle/Library/Operators/MaybeString.cs
   Eagle/Library/Operators/Minus.cs
   Eagle/Library/Operators/Modulus.cs
   Eagle/Library/Operators/Multiply.cs
@@ -1079,6 +1101,7 @@ set eagle_manifests(source) {
   Eagle/Library/Operators/Question.cs
   Eagle/Library/Operators/RightRotate.cs
   Eagle/Library/Operators/RightShift.cs
+  Eagle/Library/Operators/String.cs
   Eagle/Library/Operators/StringEqual.cs
   Eagle/Library/Operators/StringGreaterThan.cs
   Eagle/Library/Operators/StringGreaterThanOrEqualTo.cs
@@ -1149,6 +1172,9 @@ set eagle_manifests(source) {
   Eagle/Library/Tests/data/callStack.eagle
   Eagle/Library/Tests/data/client.tcl
   Eagle/Library/Tests/data/evaluate.eagle
+  Eagle/Library/Tests/data/file3_1_1_expected_cmd.txt
+  Eagle/Library/Tests/data/file3_1_1_expected_glob.txt
+  Eagle/Library/Tests/data/file3_1_1_expected_mixed.txt
   Eagle/Library/Tests/data/file.dat
   Eagle/Library/Tests/data/garbage.txt
   Eagle/Library/Tests/data/hosts.txt
@@ -1350,6 +1376,7 @@ set eagle_manifests(source) {
   Eagle/Library/Tools/db.bat
   Eagle/Library/Tools/deploy.bat
   Eagle/Library/Tools/flight.bat
+  Eagle/Library/Tools/lockBuild.eagle
   Eagle/Library/Tools/netFx20Sp.bat
   Eagle/Library/Tools/preFlight.bat
   Eagle/Library/Tools/release.bat
@@ -1623,6 +1650,7 @@ set eagle_manifests(source) {
   Eagle/Shell/Configurations/dotNet/5.0/EagleShell.runtimeconfig.json
   Eagle/Shell/Configurations/dotNet/6.0/EagleShell.runtimeconfig.json
   Eagle/Shell/Configurations/dotNet/7.0/EagleShell.runtimeconfig.json
+  Eagle/Shell/Configurations/dotNet/8.0/EagleShell.runtimeconfig.json
   Eagle/Shell/Configurations/netFx/EagleShell.exe.config
   Eagle/Shell/Configurations/netFx/EagleShell.exe.mda.config
   Eagle/Shell/EagleShell.csproj
@@ -1947,6 +1975,7 @@ set eagle_manifests(binaryLibrary) {
   Eagle/lib/Eagle1.0/exec.eagle
   Eagle/lib/Eagle1.0/file1.eagle
   Eagle/lib/Eagle1.0/file2.eagle
+  Eagle/lib/Eagle1.0/file2u.eagle
   Eagle/lib/Eagle1.0/file3.eagle
   Eagle/lib/Eagle1.0/info.eagle
   Eagle/lib/Eagle1.0/init.eagle
@@ -2032,6 +2061,9 @@ set eagle_manifests(binaryTests) {
   Eagle/Tests/data/client.tcl
   Eagle/Tests/data/evaluate.eagle
   Eagle/Tests/data/FakeInstances.reg
+  Eagle/Tests/data/file3_1_1_expected_cmd.txt
+  Eagle/Tests/data/file3_1_1_expected_glob.txt
+  Eagle/Tests/data/file3_1_1_expected_mixed.txt
   Eagle/Tests/data/file.dat
   Eagle/Tests/data/FontViewer.xaml
   Eagle/Tests/data/garbage.txt
@@ -2228,6 +2260,7 @@ set eagle_manifests(setupFull) {
   {{app}\lib\Eagle1.0\exec.eagle}
   {{app}\lib\Eagle1.0\file1.eagle}
   {{app}\lib\Eagle1.0\file2.eagle}
+  {{app}\lib\Eagle1.0\file2u.eagle}
   {{app}\lib\Eagle1.0\file3.eagle}
   {{app}\lib\Eagle1.0\info.eagle}
   {{app}\lib\Eagle1.0\init.eagle}
@@ -2433,6 +2466,9 @@ set eagle_manifests(setupFull) {
   {{app}\tests\data\client.tcl}
   {{app}\tests\data\evaluate.eagle}
   {{app}\tests\data\FakeInstances.reg}
+  {{app}\tests\data\file3_1_1_expected_cmd.txt}
+  {{app}\tests\data\file3_1_1_expected_glob.txt}
+  {{app}\tests\data\file3_1_1_expected_mixed.txt}
   {{app}\tests\data\file.dat}
   {{app}\tests\data\FontViewer.xaml}
   {{app}\tests\data\garbage.txt}
@@ -3225,6 +3261,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/NativeStack.cs
   src/Library/Components/Private/NativeUtility.cs
   src/Library/Components/Private/NullEnumerator.cs
+  src/Library/Components/Private/NumberOps.cs
   src/Library/Components/Private/ObjectOps.cs
   src/Library/Components/Private/OperatorData.cs
   src/Library/Components/Private/Operators.cs
@@ -3261,6 +3298,8 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/SetupOps.cs
   src/Library/Components/Private/Shell.cs
   src/Library/Components/Private/ShellOps.cs
+  src/Library/Components/Private/Snippet.cs
+  src/Library/Components/Private/SnippetOps.cs
   src/Library/Components/Private/SocketClientData.cs
   src/Library/Components/Private/SocketOps.cs
   src/Library/Components/Private/StatusFormOps.cs
@@ -3293,6 +3332,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Private/UpdateData.cs
   src/Library/Components/Private/UpdateOps.cs
   src/Library/Components/Private/VariableContext.cs
+  src/Library/Components/Private/VariantOps.cs
   src/Library/Components/Private/Vars.cs
   src/Library/Components/Private/WebOps.cs
   src/Library/Components/Private/WindowOps.cs
@@ -3315,6 +3355,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Public/CommandCallbackWrapper.cs
   src/Library/Components/Public/CommandData.cs
   src/Library/Components/Public/Constants.cs
+  src/Library/Components/Public/CoreClientData.cs
   src/Library/Components/Public/DatabaseVariable.cs
   src/Library/Components/Public/DelegateData.cs
   src/Library/Components/Public/Delegates.cs
@@ -3349,7 +3390,6 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Public/NewHostCallbackBridge.cs
   src/Library/Components/Public/NewProcedureCallbackBridge.cs
   src/Library/Components/Public/NewWebClientCallbackBridge.cs
-  src/Library/Components/Public/Number.cs
   src/Library/Components/Public/ObjectData.cs
   src/Library/Components/Public/ObjectPair.cs
   src/Library/Components/Public/ObjectTriplet.cs
@@ -3412,7 +3452,6 @@ set eagle_manifests(nuGetSource) {
   src/Library/Containers/Private/ArgumentInfoList.cs
   src/Library/Containers/Private/ArgumentListStack.cs
   src/Library/Containers/Private/ArraySearchDictionary.cs
-  src/Library/Containers/Private/BooleanList.cs
   src/Library/Containers/Private/BreakpointDictionary.cs
   src/Library/Containers/Private/CacheDictionary.cs
   src/Library/Containers/Private/CallbackDictionary.cs
@@ -3495,6 +3534,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Containers/Private/TypeIntPtrDictionary.cs
   src/Library/Containers/Private/TypePairDictionary.cs
   src/Library/Containers/Private/TypeToStringCallbackDictionary.cs
+  src/Library/Containers/Private/TypeTypeCodeDictionary.cs
   src/Library/Containers/Private/WrapperDictionary.cs
   src/Library/Containers/Public/ArgumentDictionary.cs
   src/Library/Containers/Public/ArgumentList.cs
@@ -3529,6 +3569,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Containers/Public/StringSortedList.cs
   src/Library/Containers/Public/TokenList.cs
   src/Library/Containers/Public/TraceList.cs
+  src/Library/Containers/Public/TypeCodeList.cs
   src/Library/Containers/Public/TypeList.cs
   src/Library/Containers/Public/UlongList.cs
   src/Library/Containers/Public/UriDictionary.cs
@@ -3542,6 +3583,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Encodings/TwoByteEncoding.cs
   src/Library/Functions/Abs.cs
   src/Library/Functions/Acos.cs
+  src/Library/Functions/Arguments.cs
   src/Library/Functions/Asin.cs
   src/Library/Functions/Atan.cs
   src/Library/Functions/Atan2.cs
@@ -3646,6 +3688,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/ArgumentManager.cs
   src/Library/Interfaces/Public/AsynchronousCallback.cs
   src/Library/Interfaces/Public/AsynchronousContext.cs
+  src/Library/Interfaces/Public/BaseClientData.cs
   src/Library/Interfaces/Public/Binder.cs
   src/Library/Interfaces/Public/BoxHost.cs
   src/Library/Interfaces/Public/CacheManager.cs
@@ -3660,6 +3703,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/Command.cs
   src/Library/Interfaces/Public/CommandBaseData.cs
   src/Library/Interfaces/Public/CommandData.cs
+  src/Library/Interfaces/Public/Convert.cs
   src/Library/Interfaces/Public/CoreClientData.cs
   src/Library/Interfaces/Public/CryptographyData.cs
   src/Library/Interfaces/Public/DbConnectionParameters.cs
@@ -3700,6 +3744,8 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/HaveCultureInfo.cs
   src/Library/Interfaces/Public/HaveDictionary.cs
   src/Library/Interfaces/Public/HaveEncoding.cs
+  src/Library/Interfaces/Public/HaveExecutionPolicy.cs
+  src/Library/Interfaces/Public/HaveFileName.cs
   src/Library/Interfaces/Public/HaveInterpreter.cs
   src/Library/Interfaces/Public/HaveObjectFlags.cs
   src/Library/Interfaces/Public/HaveOwner.cs
@@ -3724,6 +3770,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/InterpreterManager.cs
   src/Library/Interfaces/Public/Levels.cs
   src/Library/Interfaces/Public/KeyEventManager.cs
+  src/Library/Interfaces/Public/Math.cs
   src/Library/Interfaces/Public/MaybeDisposed.cs
   src/Library/Interfaces/Public/MutableAnyPair.cs
   src/Library/Interfaces/Public/MutableAnyTriplet.cs
@@ -3736,6 +3783,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/NewWebClientCallback.cs
   src/Library/Interfaces/Public/Notify.cs
   src/Library/Interfaces/Public/NotifyManager.cs
+  src/Library/Interfaces/Public/Number.cs
   src/Library/Interfaces/Public/Object.cs
   src/Library/Interfaces/Public/ObjectData.cs
   src/Library/Interfaces/Public/ObjectType.cs
@@ -3793,8 +3841,10 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/ShellCallback.cs
   src/Library/Interfaces/Public/ShellCallbackData.cs
   src/Library/Interfaces/Public/ShellManager.cs
-  src/Library/Interfaces/Public/SimpleSynchronize.cs
   src/Library/Interfaces/Public/SizeHost.cs
+  src/Library/Interfaces/Public/Snippet.cs
+  src/Library/Interfaces/Public/SnippetData.cs
+  src/Library/Interfaces/Public/SnippetManager.cs
   src/Library/Interfaces/Public/State.cs
   src/Library/Interfaces/Public/StatusManager.cs
   src/Library/Interfaces/Public/StreamHost.cs
@@ -3804,6 +3854,8 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/SubCommandData.cs
   src/Library/Interfaces/Public/Synchronize.cs
   src/Library/Interfaces/Public/SynchronizeBase.cs
+  src/Library/Interfaces/Public/SynchronizeSimple.cs
+  src/Library/Interfaces/Public/SynchronizeStatic.cs
   src/Library/Interfaces/Public/Syntax.cs
   src/Library/Interfaces/Public/TclEntityManager.cs
   src/Library/Interfaces/Public/TclManager.cs
@@ -3826,6 +3878,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/ValueData.cs
   src/Library/Interfaces/Public/Variable.cs
   src/Library/Interfaces/Public/VariableManager.cs
+  src/Library/Interfaces/Public/Variant.cs
   src/Library/Interfaces/Public/WebTransferCallback.cs
   src/Library/Interfaces/Public/Wrapper.cs
   src/Library/Interfaces/Public/WrapperData.cs
@@ -3854,14 +3907,18 @@ set eagle_manifests(nuGetSource) {
   src/Library/Operators/LeftShift.cs
   src/Library/Operators/LessThan.cs
   src/Library/Operators/LessThanOrEqualTo.cs
+  src/Library/Operators/List.cs
   src/Library/Operators/ListIn.cs
   src/Library/Operators/ListNotIn.cs
+  src/Library/Operators/Logic.cs
   src/Library/Operators/LogicalAnd.cs
   src/Library/Operators/LogicalEqv.cs
   src/Library/Operators/LogicalImp.cs
   src/Library/Operators/LogicalNot.cs
   src/Library/Operators/LogicalOr.cs
   src/Library/Operators/LogicalXor.cs
+  src/Library/Operators/Math.cs
+  src/Library/Operators/MaybeString.cs
   src/Library/Operators/Minus.cs
   src/Library/Operators/Modulus.cs
   src/Library/Operators/Multiply.cs
@@ -3870,6 +3927,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Operators/Question.cs
   src/Library/Operators/RightRotate.cs
   src/Library/Operators/RightShift.cs
+  src/Library/Operators/String.cs
   src/Library/Operators/StringEqual.cs
   src/Library/Operators/StringGreaterThan.cs
   src/Library/Operators/StringGreaterThanOrEqualTo.cs

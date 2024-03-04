@@ -57,6 +57,7 @@ namespace Eagle._Components.Public
         private InitializeFlags initializeFlags;
         private ScriptFlags scriptFlags;
         private InterpreterFlags interpreterFlags;
+        private InterpreterTestFlags interpreterTestFlags;
         private PluginFlags pluginFlags;
 
 #if NATIVE && TCL
@@ -108,6 +109,7 @@ namespace Eagle._Components.Public
             initializeFlags = InitializeFlags.None;
             scriptFlags = ScriptFlags.None;
             interpreterFlags = InterpreterFlags.None;
+            interpreterTestFlags = InterpreterTestFlags.None;
             pluginFlags = PluginFlags.None;
 
 #if NATIVE && TCL
@@ -142,6 +144,7 @@ namespace Eagle._Components.Public
             initializeFlags = Defaults.InitializeFlags;
             scriptFlags = Defaults.ScriptFlags;
             interpreterFlags = Defaults.InterpreterFlags;
+            interpreterTestFlags = Defaults.InterpreterTestFlags;
             pluginFlags = Defaults.PluginFlags;
 
 #if NATIVE && TCL
@@ -164,6 +167,7 @@ namespace Eagle._Components.Public
             initializeFlags = interpreter.InitializeFlags;
             scriptFlags = interpreter.ScriptFlags;
             interpreterFlags = interpreter.InterpreterFlags;
+            interpreterTestFlags = interpreter.InterpreterTestFlags;
             pluginFlags = interpreter.PluginFlags;
 
 #if NATIVE && TCL
@@ -235,6 +239,13 @@ namespace Eagle._Components.Public
         internal void RemoveUnsafeOptions() /* DO NOT USE: TESTS ONLY. */
         {
             interpreterFlags &= ~InterpreterFlags.UnsafeMask;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        internal void RemoveUnsafeTestOptions() /* DO NOT USE: TESTS ONLY. */
+        {
+            interpreterTestFlags &= ~InterpreterTestFlags.UnsafeMask;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -525,6 +536,15 @@ namespace Eagle._Components.Public
             {
                 targetInterpreterSettings.InterpreterFlags = interpreterFlags;
                 result.Add("interpreterFlags");
+            }
+
+            InterpreterTestFlags interpreterTestFlags =
+                sourceInterpreterSettings.InterpreterTestFlags;
+
+            if (forceMissing || (interpreterTestFlags != InterpreterTestFlags.None))
+            {
+                targetInterpreterSettings.InterpreterTestFlags = interpreterTestFlags;
+                result.Add("interpreterTestFlags");
             }
 
             PluginFlags pluginFlags = sourceInterpreterSettings.PluginFlags;
@@ -854,6 +874,22 @@ namespace Eagle._Components.Public
                     return ReturnCode.Error;
             }
 
+            node = documentElement.SelectSingleNode("InterpreterTestFlags");
+
+            if ((node != null) && !String.IsNullOrEmpty(node.InnerText))
+            {
+                enumValue = EnumOps.TryParseFlags(
+                    null, typeof(InterpreterTestFlags),
+                    interpreterSettings.InterpreterTestFlags.ToString(),
+                    node.InnerText, cultureInfo, true, true, true,
+                    ref error);
+
+                if (enumValue is InterpreterTestFlags)
+                    interpreterSettings.InterpreterTestFlags = (InterpreterTestFlags)enumValue;
+                else
+                    return ReturnCode.Error;
+            }
+
             node = documentElement.SelectSingleNode("PluginFlags");
 
             if ((node != null) && !String.IsNullOrEmpty(node.InnerText))
@@ -990,6 +1026,10 @@ namespace Eagle._Components.Public
 
             node = document.CreateElement("InterpreterFlags");
             node.InnerText = interpreterSettings.InterpreterFlags.ToString();
+            documentElement.AppendChild(node);
+
+            node = document.CreateElement("InterpreterTestFlags");
+            node.InnerText = interpreterSettings.InterpreterTestFlags.ToString();
             documentElement.AppendChild(node);
 
             node = document.CreateElement("PluginFlags");
@@ -1398,7 +1438,24 @@ namespace Eagle._Components.Public
                 interpreterFlags &= ~InterpreterFlags.UnsafeMask;
             }
 
+            InterpreterTestFlags interpreterTestFlags =
+                interpreterSettings.InterpreterTestFlags;
+
+            interpreterTestFlags |= InterpreterTestFlags.ForShellUse;
+
+            if (FlagOps.HasFlags(
+                    createFlags, CreateFlags.Safe, true))
+            {
+                //
+                // HACK: Remove interpreter test flags that are
+                //       not designed for "safe" interpreters.
+                //
+                interpreterTestFlags &= ~InterpreterTestFlags.UnsafeMask;
+            }
+
             interpreterSettings.InterpreterFlags = interpreterFlags;
+            interpreterSettings.interpreterTestFlags = interpreterTestFlags;
+
             return ReturnCode.Ok;
         }
 #endif
@@ -1699,6 +1756,17 @@ namespace Eagle._Components.Public
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
+        public InterpreterTestFlags InterpreterTestFlags
+        {
+            get { return interpreterTestFlags; }
+            set { interpreterTestFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if XML && SERIALIZATION
+        [XmlIgnore()]
+#endif
         public PluginFlags PluginFlags
         {
             get { return pluginFlags; }
@@ -1924,6 +1992,9 @@ namespace Eagle._Components.Public
 
             list.Add("interpreterFlags");
             list.Add(interpreterFlags.ToString());
+
+            list.Add("interpreterTestFlags");
+            list.Add(interpreterTestFlags.ToString());
 
             list.Add("pluginFlags");
             list.Add(pluginFlags.ToString());

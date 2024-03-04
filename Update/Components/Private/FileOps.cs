@@ -969,6 +969,8 @@ namespace Eagle._Components.Private
                 if (fileNames == null)
                     return null;
 
+                Array.Sort(fileNames); /* O(N) */
+
                 if (noDirectory)
                 {
                     IList<string> result = new List<string>();

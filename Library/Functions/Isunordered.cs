@@ -23,103 +23,82 @@ namespace Eagle._Functions
     [Arguments(Arity.Binary)]
     [TypeListFlags(TypeListFlags.FloatTypes)]
     [ObjectGroup("indicator")]
-    internal sealed class Isunordered : Core
+    internal sealed class Isunordered : Arguments
     {
+        #region Public Constructors
         public Isunordered(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
             : base(functionData)
         {
             // do nothing.
         }
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
-            ReturnCode code = ReturnCode.Ok;
-
-            if (interpreter != null)
+            if (base.Execute(
+                    interpreter, clientData, arguments, ref value,
+                    ref error) != ReturnCode.Ok)
             {
-                if (arguments != null)
+                return ReturnCode.Error;
+            }
+
+            double doubleValue1 = 0.0;
+
+            if (Value.GetDouble((IGetValue)arguments[1],
+                    interpreter.InternalCultureInfo, ref doubleValue1,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            double doubleValue2 = 0.0;
+
+            if (Value.GetDouble((IGetValue)arguments[2],
+                    interpreter.InternalCultureInfo, ref doubleValue2,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            try
+            {
+                FloatingPointClass fpClass1 = MathOps.Classify(
+                    doubleValue1);
+
+                FloatingPointClass fpClass2 = MathOps.Classify(
+                    doubleValue2);
+
+                if ((fpClass1 == FloatingPointClass.NaN) ||
+                    (fpClass2 == FloatingPointClass.NaN))
                 {
-                    if (arguments.Count == (this.Arguments + 1))
-                    {
-                        double doubleValue1 = 0.0;
-
-                        code = Value.GetDouble(
-                            (IGetValue)arguments[1], interpreter.InternalCultureInfo,
-                            ref doubleValue1, ref error);
-
-                        if (code == ReturnCode.Ok)
-                        {
-                            double doubleValue2 = 0.0;
-
-                            code = Value.GetDouble(
-                                (IGetValue)arguments[2], interpreter.InternalCultureInfo,
-                                ref doubleValue2, ref error);
-
-                            if (code == ReturnCode.Ok)
-                            {
-                                try
-                                {
-                                    if ((MathOps.Classify(doubleValue1) == FloatingPointClass.NaN) ||
-                                        (MathOps.Classify(doubleValue2) == FloatingPointClass.NaN))
-                                    {
-                                        value = true;
-                                    }
-                                    else
-                                    {
-                                        value = false;
-                                    }
-                                }
-                                catch (Exception e)
-                                {
-                                    Engine.SetExceptionErrorCode(interpreter, e);
-
-                                    error = String.Format(
-                                        "caught math exception: {0}",
-                                        e);
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (arguments.Count > (this.Arguments + 1))
-                            error = String.Format(
-                                "too many arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-                        else
-                            error = String.Format(
-                                "too few arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-
-                        code = ReturnCode.Error;
-                    }
+                    value = true;
                 }
                 else
                 {
-                    error = "invalid argument list";
-                    code = ReturnCode.Error;
+                    value = false;
                 }
             }
-            else
+            catch (Exception e)
             {
-                error = "invalid interpreter";
-                code = ReturnCode.Error;
+                Engine.SetExceptionErrorCode(interpreter, e);
+
+                error = String.Format("caught math exception: {0}", e);
+
+                return ReturnCode.Error;
             }
 
-            return code;
+            return ReturnCode.Ok;
         }
         #endregion
     }

@@ -1029,6 +1029,7 @@ namespace Eagle._Components.Private
             result["flags"].Add("diflags");
             result["flags"].Add("dizflags");
             result["flags"].Add("dscflags");
+            result["flags"].Add("dtflags");
             result["flags"].Add("evflags");
             result["flags"].Add("exflags");
             result["flags"].Add("hflags");
@@ -1037,6 +1038,7 @@ namespace Eagle._Components.Private
             result["flags"].Add("iexflags");
             result["flags"].Add("iflags");
             result["flags"].Add("isflags");
+            result["flags"].Add("itflags");
             result["flags"].Add("izflags");
             result["flags"].Add("ldflags");
             result["flags"].Add("leflags");
@@ -2130,6 +2132,11 @@ namespace Eagle._Components.Private
                     new StringSortedList(Enum.GetNames(typeof(InterpreterFlags))),
                     itemSeparator, Characters.Space.ToString(), itemSuffix));
 
+            string interpreterTestFlagsHelpItem = String.Format(flagHelp,
+                GenericOps<string>.DictionaryToEnglish(
+                    new StringSortedList(Enum.GetNames(typeof(InterpreterTestFlags))),
+                    itemSeparator, Characters.Space.ToString(), itemSuffix));
+
             string initializeFlagsHelpItem = String.Format(flagHelp,
                 GenericOps<string>.DictionaryToEnglish(
                     new StringSortedList(Enum.GetNames(typeof(InitializeFlags))),
@@ -2327,6 +2334,10 @@ namespace Eagle._Components.Private
                     "Substitutes the specified arguments using the isolated debugger interpreter."));
 #endif
 
+            result.Add("dtflags",
+                new StringPair("?flags?",
+                    "Displays or sets the default test flags for the interactive interpreter.  " + interpreterTestFlagsHelpItem));
+
             result.Add("einfo",
                 new StringPair(null,
                     "Displays the engine status information for the interactive interpreter."));
@@ -2477,6 +2488,10 @@ namespace Eagle._Components.Private
             result.Add("isflags",
                 new StringPair("?flags?",
                     "Displays or sets the interactive command substitution flags for the interactive interpreter.  " + substitutionFlagsHelpItem));
+
+            result.Add("itflags",
+                new StringPair("?flags?",
+                    "Displays or sets the test flags for the interactive interpreter.  " + interpreterTestFlagsHelpItem));
 
             result.Add("izflags",
                 new StringPair("?flags?",
@@ -3871,9 +3886,9 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, CommandLineOption.Security));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
-                                "{0}-{1} : Arranges for the interpreter to be recreated the next time\n" +
-                                "{0}             its available commands would have been modified and then\n" +
-                                "{0}             continues processing arguments.",
+                                "{0}-{1} <enable> : Arranges for the interpreter to be recreated the\n" +
+                                "{0}                      next time its available commands would have been\n" +
+                                "{0}                      modified and then continues processing arguments.",
                                 Characters.HorizontalTab, CommandLineOption.SetCreate));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
@@ -3965,8 +3980,8 @@ namespace Eagle._Components.Private
                             displayHost.WriteLine(String.Format(
                                 "{0}-{1} <path> : Sets the vendor path (i.e. the name of an\n" +
                                 "{0}                     additional sub-directory within each directory\n" +
-                                "{0}                     searched when attempting to find user-specific\n" +
-                                "{0}                     and/or application-specific files) and then\n" +
+                                "{0}                     searched when attempting to locate files that are\n" +
+                                "{0}                     specific to the user and/or application) and then\n" +
                                 "{0}                     continues processing arguments.",
                                 Characters.HorizontalTab, CommandLineOption.VendorPath));
                             displayHost.WriteLine();
@@ -4134,12 +4149,12 @@ namespace Eagle._Components.Private
                                 EnvVars.XdgRuntimeDir));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
-                                "{0}If the \"{1}\", \"{2}\", \"{3}\", or \"{4}\"\n" +
-                                "{0}environment variables are set [to anything], their values will be used\n" +
-                                "{0}by the native Tcl integration subsystem as directory/file locations to\n" +
-                                "{0}check for native Tcl libraries.",
-                                Characters.HorizontalTab, EnvVars.EagleTclDll, EnvVars.EagleTkDll,
-                                EnvVars.TclDll, EnvVars.TkDll));
+                                "{0}If the \"{1}\", \"{2}\", \"{3}\", \"{4}\",\n" +
+                                "{0}\"{5}\", or \"{6}\" environment variables are set [to anything],\n" +
+                                "{0}their values will be used by the native Tcl integration subsystem as\n" +
+                                "{0}directory/file locations to check for native Tcl libraries.",
+                                Characters.HorizontalTab, EnvVars.EagleTclDir, EnvVars.EagleTclDll,
+                                EnvVars.EagleTkDll, EnvVars.TclDir, EnvVars.TclDll, EnvVars.TkDll));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\", \"{2}\", \"{3}\", or \"{4}\"\n" +
@@ -4157,6 +4172,12 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, EnvVars.EllipsisLimit));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set\n" +
+                                "{0}[to anything], the most modern cryptographic algorithms will be used\n" +
+                                "{0}wherever applicable.",
+                                Characters.HorizontalTab, EnvVars.ForceModernAlgorithms));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], it\n" +
                                 "{0}will bypass detection of potential error conditions that may prevent\n" +
                                 "{0}plugins that belong to the security package (e.g. Harpy and Badge)\n" +
@@ -4168,6 +4189,13 @@ namespace Eagle._Components.Private
                                 "{0}the lists of trusted hashes will be used when making trust decisions on\n" +
                                 "{0}platforms where they would normally be ignored.",
                                 Characters.HorizontalTab, EnvVars.ForceTrustedHashes));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything],\n" +
+                                "{0}its value will be used to alter or set the default trace priority\n" +
+                                "{0}flags.  If the value cannot be converted to trace priority flags, it\n" +
+                                "{0}will be ignored.",
+                                Characters.HorizontalTab, EnvVars.GlobalPriorities));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set, its value will be\n" +
@@ -4425,6 +4453,14 @@ namespace Eagle._Components.Private
                                 "{0}creation process.",
                                 Characters.HorizontalTab, EnvVars.NoVerified));
                             displayHost.WriteLine();
+#if THREADING
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], worker\n" +
+                                "{0}threads, e.g. via the thread pool, are disabled while creating and\n" +
+                                "{0}initializing the interpreter.",
+                                Characters.HorizontalTab, EnvVars.NoWorkers));
+                            displayHost.WriteLine();
+#endif
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set\n" +
                                 "{0}[to anything], its value will be used to set the list of \"penalty\"\n" +
@@ -4668,8 +4704,8 @@ namespace Eagle._Components.Private
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], it will\n" +
                                 "{0}be interpreted as the name of an additional sub-directory within each\n" +
-                                "{0}directory searched when attempting to find user-specific and/or\n" +
-                                "{0}application-specific files.",
+                                "{0}directory searched when attempting to locate files that are specific to\n" +
+                                "{0}the user and/or application.",
                                 Characters.HorizontalTab, EnvVars.VendorPath));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
@@ -4973,7 +5009,7 @@ namespace Eagle._Components.Private
             if (options == null)
                 return null;
 
-            int maximumLength = ListOps.GetMaximumLength(options);
+            int maximumLength = ListOps.GetMaximumLength<string>(options);
 
             int itemsPerLine = GetItemsPerLine(
                 null, 0, maximumLength, perLine, optionWidth);
@@ -5416,7 +5452,7 @@ namespace Eagle._Components.Private
             if (help == null)
                 return 0;
 
-            return ListOps.GetMaximumLength(help.Keys);
+            return ListOps.GetMaximumLength<string>(help.Keys);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5740,7 +5776,7 @@ namespace Eagle._Components.Private
 
                 if (help != null)
                 {
-                    int helpMaximumLength = ListOps.GetMaximumLength(
+                    int helpMaximumLength = ListOps.GetMaximumLength<string>(
                         help.Keys);
 
                     int helpItemsPerLine = GetItemsPerLine(
@@ -5770,7 +5806,7 @@ namespace Eagle._Components.Private
                                 if ((topics == null) || (topics.Count == 0))
                                     continue;
 
-                                int groupMaximumLength = ListOps.GetMaximumLength(
+                                int groupMaximumLength = ListOps.GetMaximumLength<string>(
                                     topics);
 
                                 int groupItemsPerLine = GetItemsPerLine(
@@ -5858,7 +5894,7 @@ namespace Eagle._Components.Private
                             "group is"), true, helpForegroundColor,
                             helpBackgroundColor);
 
-                        int groupsMaximumLength = ListOps.GetMaximumLength(
+                        int groupsMaximumLength = ListOps.GetMaximumLength<string>(
                             groups.Keys);
 
                         int groupsItemsPerLine = GetItemsPerLine(

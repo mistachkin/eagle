@@ -76,6 +76,9 @@ using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using _StringDictionary = Eagle._Containers.Public.StringDictionary;
 
+using ActiveInterpreterPair = Eagle._Interfaces.Public.IAnyPair<
+    Eagle._Components.Public.Interpreter, Eagle._Interfaces.Public.IClientData>;
+
 using AssemblyFilePluginNames = System.Collections.Generic.Dictionary<
     string, Eagle._Containers.Public.StringList>;
 
@@ -118,6 +121,44 @@ namespace Eagle._Components.Public
             )
         {
             GlobalState.PushActiveInterpreter(interpreter);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void PushActiveInterpreter(
+            Interpreter interpreter,
+            IClientData clientData
+            )
+        {
+            GlobalState.PushActiveInterpreter(interpreter, clientData);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void MaybePushActiveLogClientData(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref int pushed
+            )
+        {
+            GlobalState.MaybePushActiveLogClientData(
+                interpreter, clientData, ref pushed);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ActiveInterpreterPair MaybePopActiveLogClientData(
+            ref int pushed
+            ) /* THREAD-SAFE */
+        {
+            return GlobalState.MaybePopActiveLogClientData(null, ref pushed);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ActiveInterpreterPair PeekActiveInterpreter()
+        {
+            return GlobalState.PeekActiveInterpreter();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -662,6 +703,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static long GetUtcNowTicks()
+        {
+            return TimeOps.GetUtcNowTicks();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if XML
         public static bool LooksLikeXmlDocument(
             string text
@@ -1093,9 +1141,25 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
+            return HashOps.Compute(interpreter,
+                HashOps.GetAlgorithmName(EncodingType.Text),
+                value, StringOps.GetEncoding(encodingType),
+                false, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static byte[] HashString(
+            Interpreter interpreter,
+            string hashAlgorithmName,
+            string value,
+            EncodingType encodingType,
+            ref Result error
+            )
+        {
             return HashOps.Compute(
-                interpreter, HashOps.DefaultStringAlgorithmName,
-                value, StringOps.GetEncoding(encodingType), false,
+                interpreter, hashAlgorithmName, value,
+                StringOps.GetEncoding(encodingType), false,
                 ref error);
         }
 
@@ -1146,9 +1210,9 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
-            return HashOps.Compute(
-                HashOps.DefaultStringAlgorithmName, value1, value2,
-                StringOps.GetEncoding(encodingType), ref error);
+            return HashOps.Compute(HashOps.GetAlgorithmName(
+                EncodingType.Text), value1, value2, StringOps.GetEncoding(
+                encodingType), ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1463,6 +1527,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static void CopyTrustedHashes(
+            Interpreter sourceInterpreter,
+            Interpreter targetInterpreter
+            )
+        {
+            PolicyOps.CopyTrustedHashes(sourceInterpreter, targetInterpreter);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode AddTrustedHashes(
             IEnumerable<string> hashes,
             bool clear,
@@ -1490,6 +1564,17 @@ namespace Eagle._Components.Public
             )
         {
             GlobalState.SetLibraryPath(libraryPath, refresh);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FormatTracePriority(
+            TracePriority priority,
+            bool baseOnly,
+            bool shortName
+            )
+        {
+            return FormatOps.TracePriority(priority, baseOnly, shortName);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2486,6 +2571,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static int GetTotalLength<T>(
+            IList<T> list,
+            string format,
+            int startIndex,
+            int minimum
+            )
+        {
+            return ListOps.GetTotalLength<T>(
+                list, format, startIndex, minimum);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IEnumerableEquals<T>(
             IEnumerable<T> collection1,
             IEnumerable<T> collection2,
@@ -2820,11 +2918,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode GetBytes(
+            Encoding encoding,
+            string value,
+            EncodingType type,
+            bool errorOnNull,
+            ref byte[] bytes,
+            ref Result error
+            )
+        {
+            return StringOps.GetBytes(
+                encoding, value, type, errorOnNull, ref bytes,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static StringList GetUniqueElements(
             StringList list
             )
         {
             return ListOps.GetUniqueElements(list);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static StringList GetUniqueElements(
+            StringList list,
+            UniqueStringCallback<string> callback
+            )
+        {
+            return ListOps.GetUniqueElements(list, callback);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3469,6 +3593,30 @@ namespace Eagle._Components.Public
         public static bool IsAdministrator()
         {
             return _RuntimeOps.IsAdministrator();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CheckDefineConstants(
+            StringList defines,
+            ref Result error
+            )
+        {
+            return CommonOps.Runtime.CheckDefineConstants(defines, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsFramework20()
+        {
+            return CommonOps.Runtime.IsFramework20();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsFramework40()
+        {
+            return CommonOps.Runtime.IsFramework40();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4329,6 +4477,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string FormatDefineConstants(
+            IEnumerable<string> collection
+            )
+        {
+            return FormatOps.DefineConstants(collection);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string FormatCommandLogEntry(
             Interpreter interpreter,
             IPluginData pluginData,
@@ -5156,7 +5313,19 @@ namespace Eagle._Components.Public
             WaitCallback callBack
             )
         {
-            return ThreadOps.QueueUserWorkItem(callBack);
+            return ThreadOps.QueueUserWorkItem(callBack, false);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool QueueUserWorkItem(
+            WaitCallback callBack,
+            QueueFlags flags
+            )
+        {
+            return ThreadOps.QueueUserWorkItem(
+                callBack, FlagOps.HasFlags(flags,
+                QueueFlags.WaitForStart, true));
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5166,7 +5335,20 @@ namespace Eagle._Components.Public
             object state
             )
         {
-            return ThreadOps.QueueUserWorkItem(callBack, state);
+            return ThreadOps.QueueUserWorkItem(callBack, state, false);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool QueueUserWorkItem(
+            WaitCallback callBack,
+            object state,
+            QueueFlags flags
+            )
+        {
+            return ThreadOps.QueueUserWorkItem(
+                callBack, state, FlagOps.HasFlags(flags,
+                QueueFlags.WaitForStart, true));
         }
 
         ///////////////////////////////////////////////////////////////////////

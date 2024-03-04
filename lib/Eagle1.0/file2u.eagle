@@ -1,0 +1,128 @@
+###############################################################################
+#
+# file2u.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle File 2u Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure reconfigures the specified channel to full Unicode
+  #       mode.
+  #
+  proc makeUnicodeChannel { channel } {
+    fconfigure $channel -encoding unicode -translation auto; # UNICODE TEXT
+  }
+
+  #
+  # NOTE: This procedure reads all data from the specified Unicode file and
+  #       returns it.
+  #
+  proc readUnicodeFile { fileName } {
+    set channel [open $fileName RDONLY]
+    makeUnicodeChannel $channel
+    set result [read $channel]
+    close $channel
+    return $result
+  }
+
+  #
+  # NOTE: This procedure writes all data to the specified Unicode file and
+  #       returns an empty string.  Previous data contained in the file,
+  #       if any, is lost.
+  #
+  proc writeUnicodeFile { fileName data } {
+    set channel [open $fileName {WRONLY CREAT TRUNC}]
+    makeUnicodeChannel $channel
+    puts -nonewline $channel $data
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: This procedure reconfigures the specified channel to full Unicode
+  #       mode without any line-ending translations.
+  #
+  proc makeUnicodeBinaryChannel { channel } {
+    fconfigure $channel -encoding unicode -translation binary; # UNICODE BINARY
+  }
+
+  #
+  # NOTE: This procedure reads all data from the specified Unicode file and
+  #       returns it.
+  #
+  proc readUnicodeBinaryFile { fileName } {
+    set channel [open $fileName RDONLY]
+    makeUnicodeBinaryChannel $channel
+    set result [read $channel]
+    close $channel
+    return $result
+  }
+
+  #
+  # NOTE: This procedure writes all data to the specified Unicode file and
+  #       returns an empty string.  Previous data contained in the file,
+  #       if any, is lost.
+  #
+  proc writeUnicodeBinaryFile { fileName data } {
+    set channel [open $fileName {WRONLY CREAT TRUNC}]
+    makeUnicodeBinaryChannel $channel
+    puts -nonewline $channel $data
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: This procedure reconfigures the specified channel to full UTF-8
+  #       mode.
+  #
+  proc makeUtf8Channel { channel } {
+    fconfigure $channel -encoding utf-8 -translation auto; # UTF-8 TEXT
+  }
+
+  #
+  # NOTE: This procedure reads all data from the specified UTF-8 file and
+  #       returns it.
+  #
+  proc readUtf8File { fileName } {
+    set channel [open $fileName RDONLY]
+    makeUtf8Channel $channel
+    set result [read $channel]
+    close $channel
+    return $result
+  }
+
+  #
+  # NOTE: This procedure writes all data to the specified UTF-8 file and
+  #       returns an empty string.  Previous data contained in the file,
+  #       if any, is lost.
+  #
+  proc writeUtf8File { fileName data } {
+    set channel [open $fileName {WRONLY CREAT TRUNC}]
+    makeUtf8Channel $channel
+    puts -nonewline $channel $data
+    close $channel
+    return ""
+  }
+
+  #
+  # NOTE: Provide the Eagle UTF-8 file package to the interpreter.
+  #
+  package provide Eagle.File.Utf8 \
+    [expr {[isEagle] ? [info engine PatchLevel] : "1.0"}]
+}
+

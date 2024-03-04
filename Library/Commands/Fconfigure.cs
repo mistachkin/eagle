@@ -80,7 +80,7 @@ namespace Eagle._Commands
                                     {
                                         if (argumentIndex == Index.Invalid)
                                         {
-                                            Variant value = null;
+                                            IVariant value = null;
                                             bool? blockingMode = null;
 
                                             if (options.IsPresent("-blocking", ref value))

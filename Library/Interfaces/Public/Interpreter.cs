@@ -176,14 +176,28 @@ namespace Eagle._Interfaces.Public
 #endif
 
         string BackgroundError { get; set; }
+
+        ///////////////////////////////////////////////////////////////////////
+        // UNKNOWN HANDLING
+        ///////////////////////////////////////////////////////////////////////
+
         string Unknown { get; set; }
         string GlobalUnknown { get; set; }
         string NamespaceUnknown { get; set; }
-
         UnknownCallback UnknownCallback { get; set; }
         PackageCallback PackageFallback { get; set; }
         string PackageUnknown { get; set; }
 
+        ///////////////////////////////////////////////////////////////////////
+        // OUTPUT HANDLING
+        ///////////////////////////////////////////////////////////////////////
+
+        int OutputMargin { get; }
+        int OutputWidth { get; }
+        int OutputHeight { get; }
+
+        ///////////////////////////////////////////////////////////////////////
+        // EXIT HANDLING
         ///////////////////////////////////////////////////////////////////////
 
         //

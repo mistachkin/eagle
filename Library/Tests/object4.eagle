@@ -92,6 +92,10 @@ System#CodeDom#Compiler#CompilerResults#\d+ \{\} \{hello from C#\}$}}
 runTest {test object-4.2.1 {using CSharp compiler with Eagle} -body {
   set id [object invoke Interpreter.GetActive NextId]
 
+  set guid [expr {
+    [info exists ::no(guidNew)] ? [guid null] : [guid new]
+  }]
+
   unset -nocomplain results errors
 
   set code [compileCSharp [subst {
@@ -104,7 +108,7 @@ runTest {test object-4.2.1 {using CSharp compiler with Eagle} -body {
 
     namespace _Dynamic${id}
     {
-        \[ObjectId("[guid new]")\]
+        \[ObjectId("${guid}")\]
         \[CommandFlags(CommandFlags.Unsafe)\]
         internal sealed class Test${id} : _Commands.Default
         {
@@ -226,7 +230,7 @@ runTest {test object-4.2.1 {using CSharp compiler with Eagle} -body {
     catch {info previouspid true}
   }
 
-  unset -nocomplain id code results errors
+  unset -nocomplain guid id code results errors
 } -constraints {eagle command.guid command.object dotNetCoreOrShell\
 monoMatchFramework monoBug211 compileCSharp} -match regexp -result {^Ok\
 System#CodeDom#Compiler#CompilerResults#\d+ \{\} \{hello from C#\}$}}

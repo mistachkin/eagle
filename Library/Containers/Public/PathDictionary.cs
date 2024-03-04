@@ -184,7 +184,7 @@ namespace Eagle._Containers.Public
             if (directories == null)
                 return null;
 
-            Array.Sort(directories);
+            Array.Sort(directories); /* O(N) */
 
             return CreateFrom(directories);
         }

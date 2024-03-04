@@ -3055,6 +3055,40 @@ namespace Eagle._Components.Private
                 return true; /* COMMAND PROCESSED */
             }
             else if (CheckCommand(
+                    interpreter, text, "itflags", loopData.ClientData,
+                    true, exact, ref debugVerbose, ref debugArguments,
+                    ref accessError, ref localCode, ref localResult))
+            {
+                if (accessError != null)
+                {
+                    WriteAccessError(interactiveHost, ref accessError);
+                    return true; /* COMMAND PROCESSED */
+                }
+
+                Commands.itflags(
+                    interpreter, debugArguments, ref localCode,
+                    ref localResult);
+
+                return true; /* COMMAND PROCESSED */
+            }
+            else if (CheckCommand(
+                    interpreter, text, "dtflags", loopData.ClientData,
+                    true, exact, ref debugVerbose, ref debugArguments,
+                    ref accessError, ref localCode, ref localResult))
+            {
+                if (accessError != null)
+                {
+                    WriteAccessError(interactiveHost, ref accessError);
+                    return true; /* COMMAND PROCESSED */
+                }
+
+                Commands.dtflags(
+                    interpreter, debugArguments, ref localCode,
+                    ref localResult);
+
+                return true; /* COMMAND PROCESSED */
+            }
+            else if (CheckCommand(
                     interpreter, text, "paflags", loopData.ClientData,
                     true, exact, ref debugVerbose, ref debugArguments,
                     ref accessError, ref localCode, ref localResult))
@@ -4735,7 +4769,8 @@ namespace Eagle._Components.Private
                         TestOps.hostWorkItemDelay, TestOps.hostWorkItemForce);
 
                     if (Engine.QueueWorkItem(
-                            interpreter, TestOps.HostCancelThreadStart, anyPair))
+                            interpreter, TestOps.HostCancelThreadStart,
+                            anyPair, ThreadOps.GetQueueFlags(false)))
                     {
                         localResult = "queued host cancel work item";
                         localCode = ReturnCode.Ok;
@@ -4769,7 +4804,8 @@ namespace Eagle._Components.Private
                         TestOps.hostWorkItemDelay, TestOps.hostWorkItemForce);
 
                     if (Engine.QueueWorkItem(
-                            interpreter, TestOps.HostExitThreadStart, anyPair))
+                            interpreter, TestOps.HostExitThreadStart,
+                            anyPair, ThreadOps.GetQueueFlags(false)))
                     {
                         localResult = "queued host exit work item";
                         localCode = ReturnCode.Ok;
@@ -8860,7 +8896,8 @@ namespace Eagle._Components.Private
 
                     if (enumValue is InterpreterFlags)
                     {
-                        interpreter.InterpreterFlags = (InterpreterFlags)enumValue;
+                        interpreter.InterpreterFlags =
+                            (InterpreterFlags)enumValue;
 
                         localCode = ReturnCode.Ok;
                     }
@@ -8900,7 +8937,8 @@ namespace Eagle._Components.Private
 
                     if (enumValue is InterpreterFlags)
                     {
-                        interpreter.DefaultInterpreterFlags = (InterpreterFlags)enumValue;
+                        interpreter.DefaultInterpreterFlags =
+                            (InterpreterFlags)enumValue;
 
                         localCode = ReturnCode.Ok;
                     }
@@ -8916,6 +8954,88 @@ namespace Eagle._Components.Private
 
                 if (localCode == ReturnCode.Ok)
                     localResult = interpreter.DefaultInterpreterFlags;
+            }
+
+            ///////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
+                CommandFlags.NonStandard | CommandFlags.Interactive)]
+            public static void itflags(
+                Interpreter interpreter,
+                ArgumentList debugArguments,
+                ref ReturnCode localCode,
+                ref Result localResult
+                )
+            {
+                if ((debugArguments.Count >= 2) &&
+                    !String.IsNullOrEmpty(debugArguments[1]))
+                {
+                    object enumValue = EnumOps.TryParseFlags(
+                        interpreter, typeof(InterpreterTestFlags),
+                        interpreter.InterpreterTestFlags.ToString(),
+                        debugArguments[1], interpreter.InternalCultureInfo,
+                        true, true, true, ref localResult);
+
+                    if (enumValue is InterpreterTestFlags)
+                    {
+                        interpreter.InterpreterTestFlags =
+                            (InterpreterTestFlags)enumValue;
+
+                        localCode = ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        localCode = ReturnCode.Error;
+                    }
+                }
+                else
+                {
+                    localCode = ReturnCode.Ok;
+                }
+
+                if (localCode == ReturnCode.Ok)
+                    localResult = interpreter.InterpreterTestFlags;
+            }
+
+            ///////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
+                CommandFlags.NonStandard | CommandFlags.Interactive)]
+            public static void dtflags(
+                Interpreter interpreter,
+                ArgumentList debugArguments,
+                ref ReturnCode localCode,
+                ref Result localResult
+                )
+            {
+                if ((debugArguments.Count >= 2) &&
+                    !String.IsNullOrEmpty(debugArguments[1]))
+                {
+                    object enumValue = EnumOps.TryParseFlags(
+                        interpreter, typeof(InterpreterTestFlags),
+                        interpreter.DefaultInterpreterTestFlags.ToString(),
+                        debugArguments[1], interpreter.InternalCultureInfo,
+                        true, true, true, ref localResult);
+
+                    if (enumValue is InterpreterTestFlags)
+                    {
+                        interpreter.DefaultInterpreterTestFlags =
+                            (InterpreterTestFlags)enumValue;
+
+                        localCode = ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        localCode = ReturnCode.Error;
+                    }
+                }
+                else
+                {
+                    localCode = ReturnCode.Ok;
+                }
+
+                if (localCode == ReturnCode.Ok)
+                    localResult = interpreter.DefaultInterpreterTestFlags;
             }
 
             ///////////////////////////////////////////////////////////////////////
@@ -9940,7 +10060,7 @@ namespace Eagle._Components.Private
                     if (argumentIndex == Index.Invalid)
                     {
                         StringList list = new StringList();
-                        Variant value = null;
+                        IVariant value = null;
 
                         if (options.IsPresent("-code", ref value))
                         {

@@ -469,7 +469,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     string pattern = null;
 
                                                     if (options.IsPresent("-pattern", ref value))
@@ -1304,7 +1304,7 @@ namespace Eagle._Commands
                                                         out dispose, out alias, out aliasRaw, out aliasAll,
                                                         out aliasReference, out toString);
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
 
                                                     bool collect = SharedStringOps.SystemEquals(subCommand, "lmap");
 
@@ -3974,6 +3974,8 @@ namespace Eagle._Commands
                                                     bool importNoCase;
                                                     bool fromObject;
                                                     bool reflectionOnly;
+                                                    bool trustedOnly;
+                                                    bool verifiedOnly;
 
                                                     ObjectOps.ProcessObjectLoadOptions(
                                                         options, null, null, out @namespace, out loadType,
@@ -3981,7 +3983,7 @@ namespace Eagle._Commands
                                                         out declarePattern, out importPattern, out declare,
                                                         out import, out declareNonPublic, out declareNoCase,
                                                         out importNonPublic, out importNoCase, out fromObject,
-                                                        out reflectionOnly);
+                                                        out reflectionOnly, out trustedOnly, out verifiedOnly);
 
                                                     //
                                                     // NOTE: Check for a pattern without a mode (change to
@@ -4065,13 +4067,37 @@ namespace Eagle._Commands
                                                                         }
                                                                     case LoadType.File:
                                                                         {
-                                                                            if (reflectionOnly)
+                                                                            if (!trustedOnly || RuntimeOps.IsFileTrusted(
+                                                                                    interpreter, null, loadName, IntPtr.Zero))
                                                                             {
-                                                                                assembly = Assembly.ReflectionOnlyLoadFrom(loadName);
+                                                                                if (!verifiedOnly ||
+                                                                                    RuntimeOps.IsStrongNameVerified(loadName, true))
+                                                                                {
+                                                                                    if (reflectionOnly)
+                                                                                    {
+                                                                                        assembly = Assembly.ReflectionOnlyLoadFrom(loadName);
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        assembly = Assembly.LoadFrom(loadName);
+                                                                                    }
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    result = String.Format(
+                                                                                        "assembly file name {0} is not verified",
+                                                                                        FormatOps.WrapOrNull(loadName));
+
+                                                                                    code = ReturnCode.Error;
+                                                                                }
                                                                             }
                                                                             else
                                                                             {
-                                                                                assembly = Assembly.LoadFrom(loadName);
+                                                                                result = String.Format(
+                                                                                    "assembly file name {0} is not trusted",
+                                                                                    FormatOps.WrapOrNull(loadName));
+
+                                                                                code = ReturnCode.Error;
                                                                             }
                                                                             break;
                                                                         }
@@ -4271,7 +4297,7 @@ namespace Eagle._Commands
                                                     if ((pattern != null) && (matchMode == MatchMode.None))
                                                         matchMode = StringOps.DefaultObjectMatchMode;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Type type = null;
 
                                                     if (options.IsPresent("-type", ref value))
@@ -5109,7 +5135,7 @@ namespace Eagle._Commands
                                                         out x509RevocationMode, out x509RevocationFlag,
                                                         out chain);
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     VerifyFlags verifyFlags = VerifyFlags.Default;
 
                                                     if (options.IsPresent("-verifyflags", ref value))

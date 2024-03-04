@@ -323,6 +323,8 @@ runTest {test basic-1.23 {boolean expression parsing} -setup {
   catch {set x 0; while {[incr x]} {}}
   expr {$x > 0}
 } -cleanup {
+  cleanupAfterEvents
+
   after flags [appendArgs = $savedFlags]
   unset -nocomplain x savedFlags
 } -constraints {eagle tip285} -noCancel true -noEvent true -result {True}}
@@ -1142,6 +1144,9 @@ unset -nocomplain old_auto_path
 runTest {test basic-1.36 {top-level script cancellation} -setup {
   set i [interp create]
 
+  interp eval $i {package require Eagle.Test}
+  interp set $i test_channel $test_channel
+
   if {[haveConstraint quiet]} then {
     object invoke Eagle._Tests.Default TestSetQuiet $i true
   }
@@ -1172,7 +1177,7 @@ runTest {test basic-1.36 {top-level script cancellation} -setup {
 
   interp eval $i [list set x 0]
   interp eval $i [list after flags =Immediate]
-  interp eval $i [list after 3000 [list interp cancel -unwind]]
+  interp eval $i [list after 1000 [list interp cancel -unwind]]
 
   catch {interp eval $i [string repeat {incr x;} $c]}
   interp resetcancel $i -global; # HACK: Beta 47+
@@ -1183,6 +1188,8 @@ runTest {test basic-1.36 {top-level script cancellation} -setup {
 
   list $x [expr {$x < $c}]
 } -cleanup {
+  interp eval $i {cleanupAfterEvents}
+
   catch {interp delete $i}
   unset -nocomplain x c i
 } -constraints {eagle command.object tip285 globalTip285 compile.TEST\
@@ -2948,7 +2955,12 @@ unset -nocomplain host
 
 runTest {test basic-1.102 {guid command} -body {
   set guid(null) [guid null]
-  set guid(new) [guid new]
+
+  if {[info exists ::no(guidNew)]} then {
+    set guid(new) d0bbde4f-0f14-4cbd-a3ad-ed5eb19d864e
+  } else {
+    set guid(new) [guid new]
+  }
 
   list $guid(null) $guid(new) [guid isvalid foo] \
       [guid isvalid $guid(null)] [guid isvalid $guid(new)] \
@@ -3172,7 +3184,8 @@ runTest {test basic-10.2007 {[getKnownEagleVersions] procedure} -setup {
 1.0.6120.16902} {39 1.0.6234.51946} {40 1.0.6483.12345} {41 1.0.6543.58654} {42\
 1.0.6781.49000} {43 1.0.6781.49042} {44 1.0.6848.11041} {45 1.0.7213.50727} {46\
 1.0.7790.43198} {47 1.0.7897.33333} {48 1.0.7900.33333} {49 1.0.7945.33333} {50\
-1.0.8192.54321} {51 1.0.8251.52012} {52 1.0.8369.11942} {53 1.0.8503.24499}}}
+1.0.8192.54321} {51 1.0.8251.52012} {52 1.0.8369.11942} {53 1.0.8503.24499} {54\
+1.0.8613.27347} {55 1.0.8734.30319}}}
 
 ###############################################################################
 

@@ -11,6 +11,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using Eagle._Attributes;
@@ -70,6 +72,16 @@ namespace Eagle._Components.Private
         //       or one of these at a time.
         //
         private static int ThreadPending = 0;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: If this field is set to non-zero, attempts to release a
+        //       (previously cached?) StringBuilder instance back to the
+        //       pool will start searching at the first index; otherwise,
+        //       they will start with the index based on their capacity.
+        //
+        private static int ReleaseToFirst = 1;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -159,6 +171,40 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        private static bool BeginNoCache(
+            out int savedEnableCount /* out */
+            )
+        {
+            savedEnableCount = Interlocked.CompareExchange(
+                ref enableCount, 0, 0);
+
+            if (Interlocked.CompareExchange(ref enableCount,
+                    0, savedEnableCount) == savedEnableCount)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool EndNoCache(
+            ref int savedEnableCount /* in, out */
+            )
+        {
+            if (Interlocked.CompareExchange(ref enableCount,
+                    savedEnableCount, 0) == 0)
+            {
+                savedEnableCount = 0;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static bool TryPopulateAt(
             int index /* in */
             )
@@ -285,12 +331,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static int GetIndexOffset()
+        {
+            return (MinimumCapacity > 0) ?
+                MathOps.Log2(MinimumCapacity) : 0;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static int CapacityToIndex(
-            int capacity /* in */
+            int capacity, /* in */
+            bool release  /* in: NOT USED */
             )
         {
             if (FixedCapacity > 0)
             {
+                return 0;
+            }
+            else if (release && (Interlocked.CompareExchange(
+                    ref ReleaseToFirst, 0, 0) > 0))
+            {
+                //
+                // HACK: Release to first available slot?
+                //
                 return 0;
             }
             else
@@ -301,10 +364,8 @@ namespace Eagle._Components.Private
                     return 0;
                 }
 
-                int offset = (MinimumCapacity > 0) ?
-                    MathOps.Log2(MinimumCapacity) : 0;
-
-                return MathOps.Log2(capacity) - offset;
+                return MathOps.Log2(
+                    capacity) - GetIndexOffset();
             }
         }
 
@@ -320,10 +381,8 @@ namespace Eagle._Components.Private
             }
             else
             {
-                int offset = (MinimumCapacity > 0) ?
-                    MathOps.Log2(MinimumCapacity) : 0;
-
-                ulong? capacity = MathOps.Pow2(index + offset);
+                ulong? capacity = MathOps.Pow2(
+                    index + GetIndexOffset());
 
                 if (capacity == null)
                     return 0;
@@ -345,7 +404,7 @@ namespace Eagle._Components.Private
             ref StringBuilder builder /* in, out: OPTIONAL */
             )
         {
-            int startIndex = CapacityToIndex(capacity);
+            int startIndex = CapacityToIndex(capacity, false);
             int length = instances.Length; /* SAFE: READ-ONLY */
 
             for (int index = startIndex; index < length; index++)
@@ -362,7 +421,7 @@ namespace Eagle._Components.Private
             ref StringBuilder builder /* in, out: OPTIONAL */
             )
         {
-            int startIndex = CapacityToIndex(capacity);
+            int startIndex = CapacityToIndex(capacity, true);
             int length = instances.Length; /* SAFE: READ-ONLY */
 
             for (int index = startIndex; index < length; index++)
@@ -374,9 +433,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static int TryPopulate()
+        private static long TryPopulate()
         {
-            int count = 0;
+            long count = 0;
             int length = instances.Length; /* SAFE: READ-ONLY */
 
             for (int index = 0; index < length; index++)
@@ -437,9 +496,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static int TryOptimize()
+        private static long TryOptimize()
         {
-            int count = 0;
+            long count = 0;
             int length = instances.Length; /* SAFE: READ-ONLY */
 
             for (int index = 0; index < length; index++)
@@ -465,7 +524,7 @@ namespace Eagle._Components.Private
                     {
                         if (!TryReleaseTo(index, ref builder))
                         {
-                            TraceOps.DebugTrace(String.Format(
+                            DebugTraceAlwaysNoCache(String.Format(
                                 "TryOptimize: cannot release {0}",
                                 RuntimeOps.GetHashCode(builder)),
                                 typeof(StringBuilderCache).Name,
@@ -491,8 +550,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static TracePriority GetTracePriority(
-            int count1, /* in */
-            int count2  /* in */
+            long count1, /* in */
+            long count2  /* in */
             )
         {
             TracePriority priority = TracePriority.PerformanceDebug2;
@@ -504,6 +563,89 @@ namespace Eagle._Components.Private
                 TraceOps.ExternalAdjustTracePriority(ref priority, 1);
 
             return priority;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [Conditional("DEBUG_TRACE")]
+        public static void DebugTraceAlwaysNoCache(
+            string message,        /* in */
+            string category,       /* in */
+            TracePriority priority /* in */
+            )
+        {
+            int savedEnableCount;
+
+            /* IGNORED */
+            BeginNoCache(out savedEnableCount);
+
+            try
+            {
+                TraceOps.DebugTraceAlways(message, category, priority);
+            }
+            finally
+            {
+                /* IGNORED */
+                EndNoCache(ref savedEnableCount);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [Conditional("DEBUG_TRACE")]
+        public static void DebugTraceAlwaysNoCache(
+            Exception exception,   /* in */
+            string category,       /* in */
+            TracePriority priority /* in */
+            )
+        {
+            int savedEnableCount;
+
+            /* IGNORED */
+            BeginNoCache(out savedEnableCount);
+
+            try
+            {
+                TraceOps.DebugTraceAlways(exception, category, priority);
+            }
+            finally
+            {
+                /* IGNORED */
+                EndNoCache(ref savedEnableCount);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [Conditional("DEBUG_TRACE")]
+        private static void DebugTraceNoCache(
+            string methodName,         /* in */
+            string message,            /* in */
+            string category,           /* in */
+            TracePriority priority,    /* in */
+            bool ellipsis,             /* in */
+            params object[] parameters /* in */
+            )
+        {
+            int savedEnableCount;
+
+            /* IGNORED */
+            BeginNoCache(out savedEnableCount);
+
+            try
+            {
+                TraceOps.DebugTrace(
+                    methodName, message, category, priority, ellipsis,
+                    parameters);
+            }
+            finally
+            {
+                /* IGNORED */
+                EndNoCache(ref savedEnableCount);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -533,11 +675,11 @@ namespace Eagle._Components.Private
                         break;
                     }
 
-                    int count1 = TryOptimize();
-                    int count2 = TryPopulate();
+                    long count1 = TryOptimize();
+                    long count2 = TryPopulate();
                     long? count3 = TryCollect();
 
-                    TraceOps.DebugTrace(
+                    DebugTraceNoCache(
                         "ThreadStart", null,
                         typeof(StringBuilderCache).Name,
                         GetTracePriority(count1, count2),
@@ -560,7 +702,7 @@ namespace Eagle._Components.Private
             }
             catch (Exception e)
             {
-                TraceOps.DebugTrace(
+                DebugTraceAlwaysNoCache(
                     e, typeof(StringBuilderCache).Name,
                     TracePriority.ThreadError);
             }
@@ -721,7 +863,7 @@ namespace Eagle._Components.Private
                         {
                             if (!TryRelease(localCapacity, ref builder))
                             {
-                                TraceOps.DebugTrace(String.Format(
+                                DebugTraceAlwaysNoCache(String.Format(
                                     "Acquire: cannot release {0}",
                                     RuntimeOps.GetHashCode(builder)),
                                     typeof(StringBuilderCache).Name,
@@ -769,6 +911,16 @@ namespace Eagle._Components.Private
 
                                 return true;
                             }
+#if DEBUG && VERBOSE
+                            else
+                            {
+                                DebugTraceAlwaysNoCache(String.Format(
+                                    "Release: cannot release {0}",
+                                    RuntimeOps.GetHashCode(builder)),
+                                    typeof(StringBuilderCache).Name,
+                                    TracePriority.CleanupError2);
+                            }
+#endif
                         }
                     }
 
@@ -859,8 +1011,8 @@ namespace Eagle._Components.Private
 
                         try
                         {
-                            success = ThreadPool.QueueUserWorkItem(
-                                ThreadStart, stopEvent);
+                            success = ThreadOps.QueueUserWorkItem(
+                                ThreadStart, stopEvent, false);
                         }
                         finally
                         {
@@ -1203,6 +1355,11 @@ namespace Eagle._Components.Private
             if (empty || (count != 0))
                 localList.Add("CollectCount", count.ToString());
 
+            count = Interlocked.CompareExchange(ref FixedCapacity, 0, 0);
+
+            if (empty || (count != 0))
+                localList.Add("FixedCapacity", count.ToString());
+
             count = Interlocked.CompareExchange(ref MinimumCapacity, 0, 0);
 
             if (empty || (count != 0))
@@ -1227,6 +1384,11 @@ namespace Eagle._Components.Private
 
             if (empty || (count != 0))
                 localList.Add("ThreadMilliseconds", count.ToString());
+
+            count = Interlocked.CompareExchange(ref ReleaseToFirst, 0, 0);
+
+            if (empty || (count != 0))
+                localList.Add("ReleaseToFirst", count.ToString());
 
             length = instances.Length; /* SAFE: READ-ONLY */
 
@@ -1258,7 +1420,7 @@ namespace Eagle._Components.Private
                 {
                     if (!TryReleaseTo(index, ref builder))
                     {
-                        TraceOps.DebugTrace(String.Format(
+                        DebugTraceAlwaysNoCache(String.Format(
                             "AddInfo: cannot release {0}",
                             RuntimeOps.GetHashCode(builder)),
                             typeof(StringBuilderCache).Name,

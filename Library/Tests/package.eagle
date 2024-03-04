@@ -321,6 +321,7 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
   execTestShell [list -exitcode exitCode -stdout stdOut -stderr stdErr] \
       -noArgumentsFileName -noAppSettings \
       -preInitialize [appendArgs \" "set env(NoAutoRecord) true" \"] \
+      -preInitialize [appendArgs \" "set env(NoWorkerThread) true" \"] \
       -preInitialize [appendArgs \" [expr {[haveConstraint quiet] ? \
       "catch {object invoke Eagle._Tests.Default TestSetQuiet}" : ""}] \"] \
       -preInitialize [appendArgs \" "catch \{object invoke -flags " \

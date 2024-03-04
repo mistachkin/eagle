@@ -151,6 +151,7 @@ runTest {test socket-1.2 {server sockets} -setup {
       execTestShell [list -eventflags Wait -success Success] \
           -noArgumentsFileName -noAppSettings \
           -preInitialize [appendArgs \" "set env(NoAutoRecord) true" \"] \
+          -preInitialize [appendArgs \" "set env(NoWorkerThread) true" \"] \
           -preInitialize [appendArgs \" [expr {[haveConstraint quiet] ? \
           "catch {object invoke Eagle._Tests.Default TestSetQuiet}" : ""}] \"] \
           -preInitialize [appendArgs \" "set no(logFileName) 1" \"] \

@@ -185,6 +185,15 @@ namespace Eagle._Components.Public
         // HACK: This is purposely not read-only.
         //
         private static int ReadPostScriptBufferSize = 262144; /* 256K */
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static bool BlockingFlagsForCheck = false; // BUGFIX: Cannot block.
+        private static bool BlockingFlagsForEvaluate = true; // COMPAT: Eagle beta.
+        private static bool BlockingFlagsForRead = true; // COMPAT: Eagle beta.
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -270,6 +279,49 @@ namespace Eagle._Components.Public
             //
             // NOTE: Return the final resulting flags.
             //
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        private static EngineFlags CombineFlags(
+            Interpreter interpreter,
+            EngineFlags engineFlags,
+            bool checkStack,
+            bool errorMask
+            )
+        {
+            EngineFlags result = engineFlags;
+
+            //
+            // NOTE: Make sure that we honor any flags set in the interpreter,
+            //       if available, in addition to the ones passed by the caller.
+            //
+            if (interpreter != null)
+            {
+                //
+                // HACK: The interpreter lock is not being held here, due to
+                //       this being within the very hot path.
+                //
+                result |= interpreter.EngineFlagsNoLock; /* EXEMPT */
+            }
+
+            //
+            // BUGFIX: If requested, make sure the native stack space checking
+            //         flag is set from within the engine itself.
+            //
+            if (checkStack)
+                result |= EngineFlags.BaseStackMask;
+
+            //
+            // BUGFIX: Make sure the error handling flags are not copied.  The
+            //         error handling flags will be removed from the interpreter
+            //         itself by the ResetResult method; however, that method
+            //         will not affect the flags in this local variable.
+            //
+            if (errorMask)
+                result &= ~EngineFlags.ErrorMask;
+
             return result;
         }
 
@@ -386,39 +438,143 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
-        private static EngineFlags CombineFlags(
-            Interpreter interpreter,
-            EngineFlags engineFlags,
-            bool checkStack,
-            bool errorMask
+        private static void InitializeAllFlags(
+            out EngineFlags engineFlags,             /* out */
+            out SubstitutionFlags substitutionFlags, /* out */
+            out ExpressionFlags expressionFlags      /* out */
             )
         {
-            EngineFlags result = engineFlags;
+            EventFlags eventFlags; /* NOT USED */
 
-            //
-            // NOTE: Make sure that we honor any flags set in the interpreter,
-            //       if available, in addition to the ones passed by the caller.
-            //
-            if (interpreter != null)
-                result |= interpreter.EngineFlags;
+            InitializeAllFlags(
+                out engineFlags, out substitutionFlags,
+                out eventFlags, out expressionFlags);
+        }
 
-            //
-            // BUGFIX: If requested, make sure the native stack space checking
-            //         flag is set from within the engine itself.
-            //
-            if (checkStack)
-                result |= EngineFlags.BaseStackMask;
+        ///////////////////////////////////////////////////////////////////////////////////////
 
-            //
-            // BUGFIX: Make sure the error handling flags are not copied.  The
-            //         error handling flags will be removed from the interpreter
-            //         itself by the ResetResult method; however, that method
-            //         will not affect the flags in this local variable.
-            //
-            if (errorMask)
-                result &= ~EngineFlags.ErrorMask;
+        private static void InitializeAllFlags(
+            out EngineFlags engineFlags,             /* out */
+            out SubstitutionFlags substitutionFlags, /* out */
+            out EventFlags eventFlags,               /* out */
+            out ExpressionFlags expressionFlags      /* out */
+            )
+        {
+            engineFlags = EngineFlags.None;
+            substitutionFlags = SubstitutionFlags.Default;
+            eventFlags = EventFlags.Default;
+            expressionFlags = ExpressionFlags.Default;
+        }
 
-            return result;
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool TryQueryAllFlags(
+            Interpreter interpreter,                 /* in */
+            bool blocking,                           /* in */
+            out EngineFlags engineFlags,             /* out */
+            out SubstitutionFlags substitutionFlags, /* out */
+            out ExpressionFlags expressionFlags,     /* out */
+            ref Result error                         /* out */
+            )
+        {
+            EventFlags eventFlags;
+
+            return TryQueryAllFlags(
+                interpreter, blocking, out engineFlags,
+                out substitutionFlags, out eventFlags,
+                out expressionFlags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool TryQueryAllFlags(
+            Interpreter interpreter,                 /* in */
+            bool blocking,                           /* in */
+            out EngineFlags engineFlags,             /* out */
+            out SubstitutionFlags substitutionFlags, /* out */
+            out EventFlags eventFlags,               /* out */
+            out ExpressionFlags expressionFlags,     /* out */
+            ref Result error                         /* out */
+            )
+        {
+            InitializeAllFlags(
+                out engineFlags, out substitutionFlags,
+                out eventFlags, out expressionFlags);
+
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return false;
+            }
+
+            bool locked = false;
+
+            try
+            {
+                if (blocking)
+                {
+                    interpreter.InternalLock(
+                        ref locked); /* TRANSACTIONAL */
+                }
+                else
+                {
+                    interpreter.InternalHardTryLock(
+                        ref locked); /* TRANSACTIONAL */
+                }
+
+                if (locked)
+                {
+                    engineFlags = interpreter.EngineFlagsNoLock;
+                    substitutionFlags = interpreter.SubstitutionFlagsNoLock;
+                    eventFlags = interpreter.EngineEventFlagsNoLock;
+                    expressionFlags = interpreter.ExpressionFlagsNoLock;
+
+                    return true;
+                }
+                else
+                {
+                    error = "unable to acquire lock";
+                    return false;
+                }
+            }
+            finally
+            {
+                interpreter.InternalExitLock(
+                    ref locked); /* TRANSACTIONAL */
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool TryAugmentAllFlags(
+            Interpreter interpreter,                 /* in */
+            bool blocking,                           /* in */
+            ref EngineFlags engineFlags,             /* in, out */
+            ref SubstitutionFlags substitutionFlags, /* in, out */
+            ref EventFlags eventFlags,               /* in, out */
+            ref ExpressionFlags expressionFlags,     /* in, out */
+            ref Result error                         /* out */
+            )
+        {
+            EngineFlags localEngineFlags;
+            SubstitutionFlags localSubstitutionFlags;
+            EventFlags localEventFlags;
+            ExpressionFlags localExpressionFlags;
+
+            if (!TryQueryAllFlags(
+                    interpreter, blocking, out localEngineFlags,
+                    out localSubstitutionFlags, out localEventFlags,
+                    out localExpressionFlags, ref error))
+            {
+                return false;
+            }
+
+            engineFlags |= localEngineFlags;
+            substitutionFlags |= localSubstitutionFlags;
+            eventFlags |= localEventFlags;
+            expressionFlags |= localExpressionFlags;
+
+            return true;
         }
         #endregion
 
@@ -790,28 +946,44 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Thread Queue Methods
+        //
+        // WARNING: This method is only for use by the Eagle._Hosts.Engine
+        //          class.
+        //
         internal static bool QueueWorkItem(
-            ThreadStart callBack
+            ThreadStart callBack,
+            QueueFlags flags
             ) /* throw */
         {
-            return ThreadOps.QueueUserWorkItem(callBack); /* throw */
+            return ThreadOps.QueueUserWorkItem(
+                callBack, FlagOps.HasFlags(flags,
+                QueueFlags.WaitForStart, true)); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        //
+        // WARNING: This method is only for use by the Eagle._Hosts.Engine
+        //          class, the Eagle._Components.Public.ScriptThread class,
+        //          and the Eagle._Components.Public.ScriptThread class.
+        //
         internal static bool QueueWorkItem(
             WaitCallback callBack,
-            object state
+            object state,
+            QueueFlags flags
             ) /* throw */
         {
-            return ThreadOps.QueueUserWorkItem(callBack, state); /* throw */
+            return ThreadOps.QueueUserWorkItem(
+                callBack, state, FlagOps.HasFlags(flags,
+                QueueFlags.WaitForStart, true)); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
         public static bool QueueWorkItem(
             Interpreter interpreter,
-            ThreadStart start
+            ThreadStart start,
+            QueueFlags flags
             ) /* throw */
         {
 #if NOTIFY
@@ -836,7 +1008,7 @@ namespace Eagle._Components.Public
                     ReturnCode code;
                     Result error = null;
 
-                    code = threadHost.QueueWorkItem(start, ref error);
+                    code = threadHost.QueueWorkItem(start, flags, ref error);
 
                     if (code == ReturnCode.Ok)
                         return true;
@@ -845,7 +1017,7 @@ namespace Eagle._Components.Public
                 }
                 else
                 {
-                    if (QueueWorkItem(start)) /* throw */
+                    if (QueueWorkItem(start, flags)) /* throw */
                         return true;
                     else
                         DebugOps.Complain(interpreter,
@@ -879,7 +1051,8 @@ namespace Eagle._Components.Public
         public static bool QueueWorkItem(
             Interpreter interpreter,
             ParameterizedThreadStart start,
-            object obj
+            object obj,
+            QueueFlags flags
             ) /* throw */
         {
 #if NOTIFY
@@ -904,7 +1077,8 @@ namespace Eagle._Components.Public
                     ReturnCode code;
                     Result error = null;
 
-                    code = threadHost.QueueWorkItem(new WaitCallback(start), obj, ref error);
+                    code = threadHost.QueueWorkItem(
+                        new WaitCallback(start), obj, flags, ref error);
 
                     if (code == ReturnCode.Ok)
                         return true;
@@ -913,11 +1087,16 @@ namespace Eagle._Components.Public
                 }
                 else
                 {
-                    if (QueueWorkItem(new WaitCallback(start), obj)) /* throw */
+                    if (QueueWorkItem(
+                            new WaitCallback(start), obj, flags)) /* throw */
+                    {
                         return true;
+                    }
                     else
+                    {
                         DebugOps.Complain(interpreter,
                             ReturnCode.Error, "could not queue work item");
+                    }
                 }
             }
             catch (Exception e)
@@ -2244,15 +2423,25 @@ namespace Eagle._Components.Public
             ref Result result
             ) /* ENTRY-POINT, THREAD-SAFE, RE-ENTRANT */
         {
-            EngineFlags engineFlags = EngineFlags.None;
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags engineFlags;
+            SubstitutionFlags substitutionFlags;
+            ExpressionFlags expressionFlags;
 
             if (interpreter != null)
             {
-                engineFlags = interpreter.EngineFlags;
-                substitutionFlags = interpreter.SubstitutionFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForCheck,
+                        out engineFlags, out substitutionFlags,
+                        out expressionFlags, ref result))
+                {
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                InitializeAllFlags(
+                    out engineFlags, out substitutionFlags,
+                    out expressionFlags);
             }
 
             return CheckEvents(
@@ -2673,9 +2862,6 @@ namespace Eagle._Components.Public
             bool notify = FlagOps.HasFlags(
                 cancelFlags, CancelFlags.Notify, true);
 #endif
-
-            bool force = FlagOps.HasFlags(
-                cancelFlags, CancelFlags.IgnorePending, true);
 
             bool locked = false;
 
@@ -3774,7 +3960,7 @@ namespace Eagle._Components.Public
                     return;
 
                 AddErrorInformation(
-                    interpreter, interpreter.EngineFlags,
+                    interpreter, interpreter.EngineFlagsNoLock,
                     result, errorCode, errorInfo);
             }
         }
@@ -5300,17 +5486,27 @@ namespace Eagle._Components.Public
             ref Result error         /* out */
             ) /* ENTRY-POINT, THREAD-SAFE */
         {
-            EngineFlags engineFlags = EngineFlags.None;
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            EventFlags eventFlags = EventFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags engineFlags;
+            SubstitutionFlags substitutionFlags;
+            EventFlags eventFlags;
+            ExpressionFlags expressionFlags;
 
             if (interpreter != null)
             {
-                engineFlags = interpreter.EngineFlags;
-                substitutionFlags = interpreter.SubstitutionFlags;
-                eventFlags = interpreter.EngineEventFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForRead,
+                        out engineFlags, out substitutionFlags,
+                        out eventFlags, out expressionFlags,
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                InitializeAllFlags(
+                    out engineFlags, out substitutionFlags,
+                    out eventFlags, out expressionFlags);
             }
 
             ReadInt32Callback charCallback = null;
@@ -5351,17 +5547,30 @@ namespace Eagle._Components.Public
             ref Result error            /* out */
             ) /* ENTRY-POINT, THREAD-SAFE */
         {
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            EventFlags eventFlags = EventFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags localEngineFlags;
+            SubstitutionFlags substitutionFlags;
+            EventFlags eventFlags;
+            ExpressionFlags expressionFlags;
 
             if (interpreter != null)
             {
-                engineFlags |= interpreter.EngineFlags;
-                substitutionFlags = interpreter.SubstitutionFlags;
-                eventFlags = interpreter.EngineEventFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForRead,
+                        out localEngineFlags, out substitutionFlags,
+                        out eventFlags, out expressionFlags,
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
             }
+            else
+            {
+                InitializeAllFlags(
+                    out localEngineFlags, out substitutionFlags,
+                    out eventFlags, out expressionFlags);
+            }
+
+            engineFlags |= localEngineFlags;
 
             ReadInt32Callback charCallback = null;
             ReadCharsCallback charsCallback = null;
@@ -5464,15 +5673,27 @@ namespace Eagle._Components.Public
             ref Result error                               /* out */
             ) /* THREAD-SAFE */
         {
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            EventFlags eventFlags = EventFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags localEngineFlags; /* NOT USED */
+            SubstitutionFlags substitutionFlags;
+            EventFlags eventFlags;
+            ExpressionFlags expressionFlags;
 
             if (interpreter != null)
             {
-                substitutionFlags = interpreter.SubstitutionFlags;
-                eventFlags = interpreter.EngineEventFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForRead,
+                        out localEngineFlags, out substitutionFlags,
+                        out eventFlags, out expressionFlags,
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                InitializeAllFlags(
+                    out localEngineFlags, out substitutionFlags,
+                    out eventFlags, out expressionFlags);
             }
 
             return ReadScriptStream(
@@ -6511,17 +6732,27 @@ namespace Eagle._Components.Public
             ref Result error         /* out */
             ) /* ENTRY-POINT, THREAD-SAFE */
         {
-            EngineFlags engineFlags = EngineFlags.None;
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            EventFlags eventFlags = EventFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags engineFlags;
+            SubstitutionFlags substitutionFlags;
+            EventFlags eventFlags;
+            ExpressionFlags expressionFlags;
 
             if (interpreter != null)
             {
-                engineFlags = interpreter.EngineFlags;
-                substitutionFlags = interpreter.SubstitutionFlags;
-                eventFlags = interpreter.EngineEventFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForRead,
+                        out engineFlags, out substitutionFlags,
+                        out eventFlags, out expressionFlags,
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                InitializeAllFlags(
+                    out engineFlags, out substitutionFlags,
+                    out eventFlags, out expressionFlags);
             }
 
             ReadScriptClientData readScriptClientData = null;
@@ -6550,17 +6781,27 @@ namespace Eagle._Components.Public
             ref Result error            /* out */
             ) /* ENTRY-POINT, THREAD-SAFE */
         {
-            EngineFlags engineFlags = EngineFlags.None;
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            EventFlags eventFlags = EventFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags engineFlags;
+            SubstitutionFlags substitutionFlags;
+            EventFlags eventFlags;
+            ExpressionFlags expressionFlags;
 
             if (interpreter != null)
             {
-                engineFlags = interpreter.EngineFlags;
-                substitutionFlags = interpreter.SubstitutionFlags;
-                eventFlags = interpreter.EngineEventFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForRead,
+                        out engineFlags, out substitutionFlags,
+                        out eventFlags, out expressionFlags,
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                InitializeAllFlags(
+                    out engineFlags, out substitutionFlags,
+                    out eventFlags, out expressionFlags);
             }
 
             ReadScriptClientData readScriptClientData =
@@ -6593,17 +6834,30 @@ namespace Eagle._Components.Public
             ref Result error         /* out */
             ) /* ENTRY-POINT, THREAD-SAFE */
         {
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            EventFlags eventFlags = EventFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags localEngineFlags;
+            SubstitutionFlags substitutionFlags;
+            EventFlags eventFlags;
+            ExpressionFlags expressionFlags;
 
             if (interpreter != null)
             {
-                engineFlags |= interpreter.EngineFlags;
-                substitutionFlags = interpreter.SubstitutionFlags;
-                eventFlags = interpreter.EngineEventFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForRead,
+                        out localEngineFlags, out substitutionFlags,
+                        out eventFlags, out expressionFlags,
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
             }
+            else
+            {
+                InitializeAllFlags(
+                    out localEngineFlags, out substitutionFlags,
+                    out eventFlags, out expressionFlags);
+            }
+
+            engineFlags |= localEngineFlags;
 
             ReadScriptClientData readScriptClientData = null;
             bool canRetry = false; /* NOT USED */
@@ -6632,17 +6886,30 @@ namespace Eagle._Components.Public
             ref Result error            /* out */
             ) /* ENTRY-POINT, THREAD-SAFE */
         {
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            EventFlags eventFlags = EventFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags localEngineFlags;
+            SubstitutionFlags substitutionFlags;
+            EventFlags eventFlags;
+            ExpressionFlags expressionFlags;
 
             if (interpreter != null)
             {
-                engineFlags |= interpreter.EngineFlags;
-                substitutionFlags = interpreter.SubstitutionFlags;
-                eventFlags = interpreter.EngineEventFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForRead,
+                        out localEngineFlags, out substitutionFlags,
+                        out eventFlags, out expressionFlags,
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
             }
+            else
+            {
+                InitializeAllFlags(
+                    out localEngineFlags, out substitutionFlags,
+                    out eventFlags, out expressionFlags);
+            }
+
+            engineFlags |= localEngineFlags;
 
             ReadScriptClientData readScriptClientData =
                 clientData as ReadScriptClientData;
@@ -7281,7 +7548,24 @@ namespace Eagle._Components.Public
                 if (!EngineFlagOps.HasNoFileNameOnly(engineFlags) &&
                     PathOps.HasDirectory(fileName))
                 {
-                    names.Add(Path.GetFileName(fileName));
+                    string fileNameOnly;
+
+                    try
+                    {
+                        fileNameOnly = Path.GetFileName(
+                            fileName); /* throw */
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(Engine).Name,
+                            TracePriority.FileSystemError);
+
+                        fileNameOnly = null;
+                    }
+
+                    if (fileNameOnly != null)
+                        names.Add(fileNameOnly);
                 }
 
                 //
@@ -7293,8 +7577,24 @@ namespace Eagle._Components.Public
                 if (!EngineFlagOps.HasNoRawName(engineFlags) &&
                     PathOps.HasExtension(fileName))
                 {
-                    names.Add(Path.GetFileNameWithoutExtension(
-                        fileName));
+                    string rawNameOnly;
+
+                    try
+                    {
+                        rawNameOnly = Path.GetFileNameWithoutExtension(
+                            fileName); /* throw */
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(Engine).Name,
+                            TracePriority.FileSystemError);
+
+                        rawNameOnly = null;
+                    }
+
+                    if (rawNameOnly != null)
+                        names.Add(rawNameOnly);
                 }
             }
 
@@ -7611,17 +7911,27 @@ namespace Eagle._Components.Public
             ref Result error            /* out */
             )
         {
-            EngineFlags engineFlags = EngineFlags.None;
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            EventFlags eventFlags = EventFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags engineFlags;
+            SubstitutionFlags substitutionFlags;
+            EventFlags eventFlags;
+            ExpressionFlags expressionFlags;
 
             if (interpreter != null)
             {
-                engineFlags = interpreter.EngineFlags;
-                substitutionFlags = interpreter.SubstitutionFlags;
-                eventFlags = interpreter.EngineEventFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForRead,
+                        out engineFlags, out substitutionFlags,
+                        out eventFlags, out expressionFlags,
+                        ref error))
+                {
+                    return ReturnCode.Error;
+                }
+            }
+            else
+            {
+                InitializeAllFlags(
+                    out engineFlags, out substitutionFlags,
+                    out eventFlags, out expressionFlags);
             }
 
             ReadScriptClientData readScriptClientData =
@@ -10052,15 +10362,13 @@ namespace Eagle._Components.Public
             if (expressionFlags != null)
                 localExpressionFlags = (ExpressionFlags)expressionFlags;
 
-            if (useInterpreterFlags)
+            if (useInterpreterFlags && !TryAugmentAllFlags(
+                    interpreter, BlockingFlagsForEvaluate,
+                    ref localEngineFlags, ref localSubstitutionFlags,
+                    ref localEventFlags, ref localExpressionFlags,
+                    ref result))
             {
-                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
-                {
-                    localEngineFlags |= interpreter.EngineFlagsNoLock;
-                    localSubstitutionFlags |= interpreter.SubstitutionFlagsNoLock;
-                    localEventFlags |= interpreter.EngineEventFlagsNoLock;
-                    localExpressionFlags |= interpreter.ExpressionFlagsNoLock;
-                }
+                return ReturnCode.Error;
             }
 
             //
@@ -11263,10 +11571,11 @@ namespace Eagle._Components.Public
             ref int errorLine
             ) /* ENTRY-POINT, THREAD-SAFE, RE-ENTRANT */
         {
-            EngineFlags engineFlags = EngineFlags.None;
-            SubstitutionFlags substitutionFlags = SubstitutionFlags.Default;
-            EventFlags eventFlags = EventFlags.Default;
-            ExpressionFlags expressionFlags = ExpressionFlags.Default;
+            EngineFlags engineFlags;
+            SubstitutionFlags substitutionFlags;
+            EventFlags eventFlags;
+            ExpressionFlags expressionFlags;
+
 #if RESULT_LIMITS
             int executeResultLimit = 0;
             int nestedResultLimit = 0;
@@ -11282,10 +11591,14 @@ namespace Eagle._Components.Public
                 if ((interpreter != null) &&
                     EngineFlagOps.HasUseInterpreter(engineFlags))
                 {
-                    engineFlags |= interpreter.EngineFlags;
-                    substitutionFlags |= interpreter.SubstitutionFlags;
-                    eventFlags |= interpreter.EngineEventFlags;
-                    expressionFlags |= interpreter.ExpressionFlags;
+                    if (!TryAugmentAllFlags(
+                            interpreter, BlockingFlagsForEvaluate,
+                            ref engineFlags, ref substitutionFlags,
+                            ref eventFlags, ref expressionFlags,
+                            ref result))
+                    {
+                        return ReturnCode.Error;
+                    }
 
 #if RESULT_LIMITS
                     executeResultLimit = interpreter.InternalExecuteResultLimit;
@@ -11295,15 +11608,25 @@ namespace Eagle._Components.Public
             }
             else if (interpreter != null)
             {
-                engineFlags = interpreter.EngineFlags;
-                substitutionFlags = interpreter.SubstitutionFlags;
-                eventFlags = interpreter.EngineEventFlags;
-                expressionFlags = interpreter.ExpressionFlags;
+                if (!TryQueryAllFlags(
+                        interpreter, BlockingFlagsForEvaluate,
+                        out engineFlags, out substitutionFlags,
+                        out eventFlags, out expressionFlags,
+                        ref result))
+                {
+                    return ReturnCode.Error;
+                }
 
 #if RESULT_LIMITS
                 executeResultLimit = interpreter.InternalExecuteResultLimit;
                 nestedResultLimit = interpreter.InternalNestedResultLimit;
 #endif
+            }
+            else
+            {
+                InitializeAllFlags(
+                    out engineFlags, out substitutionFlags,
+                    out eventFlags, out expressionFlags);
             }
 
             //
@@ -11852,7 +12175,8 @@ namespace Eagle._Components.Public
 
             try
             {
-                localEngineFlags = CombineFlags(interpreter, engineFlags, true, true);
+                localEngineFlags = CombineFlags(
+                    interpreter, engineFlags, true, true);
 
                 if (EngineFlagOps.HasNoEvaluate(localEngineFlags))
                 {
@@ -12522,7 +12846,8 @@ namespace Eagle._Components.Public
                     //          because the command we just executed above may have just
                     //          changed them (i.e. the [error] command).
                     //
-                    localEngineFlags = CombineFlags(interpreter, localEngineFlags, false, false);
+                    localEngineFlags = CombineFlags(
+                        interpreter, localEngineFlags, false, false);
 
                     if ((code == ReturnCode.Error) &&
                         !EngineFlagOps.HasErrorAlreadyLogged(localEngineFlags))
@@ -12789,7 +13114,8 @@ namespace Eagle._Components.Public
                                         EngineMode.EvaluateScript, interpreter,
                                         text, engineFlags, substitutionFlags,
                                         eventFlags, expressionFlags, callback,
-                                        clientData)))
+                                        clientData), ThreadOps.GetQueueFlags(
+                                        false)))
                             {
                                 return ReturnCode.Ok;
                             }
@@ -13509,7 +13835,8 @@ namespace Eagle._Components.Public
                                         EngineMode.EvaluateFile, interpreter,
                                         fileName, engineFlags, substitutionFlags,
                                         eventFlags, expressionFlags, callback,
-                                        clientData)))
+                                        clientData), ThreadOps.GetQueueFlags(
+                                        false)))
                             {
                                 return ReturnCode.Ok;
                             }
@@ -14365,7 +14692,8 @@ namespace Eagle._Components.Public
 
             if (interpreter != null)
             {
-                localEngineFlags = CombineFlags(interpreter, engineFlags, true, true);
+                localEngineFlags = CombineFlags(
+                    interpreter, engineFlags, true, true);
 
                 if (!EngineFlagOps.HasNoSubstitute(localEngineFlags))
                 {
@@ -14813,7 +15141,8 @@ namespace Eagle._Components.Public
                                         EngineMode.SubstituteString, interpreter,
                                         text, engineFlags, substitutionFlags,
                                         eventFlags, expressionFlags, callback,
-                                        clientData)))
+                                        clientData), ThreadOps.GetQueueFlags(
+                                        false)))
                             {
                                 return ReturnCode.Ok;
                             }
@@ -15191,7 +15520,8 @@ namespace Eagle._Components.Public
                                         EngineMode.SubstituteFile, interpreter,
                                         fileName, engineFlags, substitutionFlags,
                                         eventFlags, expressionFlags, callback,
-                                        clientData)))
+                                        clientData), ThreadOps.GetQueueFlags(
+                                        false)))
                             {
                                 return ReturnCode.Ok;
                             }

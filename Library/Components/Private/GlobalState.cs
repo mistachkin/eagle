@@ -345,7 +345,11 @@ namespace Eagle._Components.Private
         #region Entry Assembly Data
         private static Assembly entryAssembly = null;
         private static AssemblyName entryAssemblyName = null;
+
+#if DEAD_CODE
         private static string entryAssemblyTitle = null;
+#endif
+
         private static string entryAssemblyLocation = null;
         private static Version entryAssemblyVersion = null;
         private static string entryAssemblyPath = null;
@@ -357,7 +361,13 @@ namespace Eagle._Components.Private
         //       now.  It may be changed later; however, setting it up here
         //       is necessary for backward compatibility.
         //
+#if MONO_BUILD
+#pragma warning disable 414
+#endif
         private static bool entryAssemblySetup = RefreshEntryAssembly(null);
+#if MONO_BUILD
+#pragma warning restore 414
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -2579,13 +2589,14 @@ namespace Eagle._Components.Private
             Type type
             ) /* THREAD-SAFE */
         {
-            if ((activeInterpreters != null) && !activeInterpreters.IsEmpty)
+            if ((activeInterpreters != null) &&
+                !activeInterpreters.IsEmpty)
             {
                 if (type != null)
                 {
-                    for (int index = 0;
-                            index < activeInterpreters.Count;
-                            index++)
+                    int count = activeInterpreters.Count;
+
+                    for (int index = 0; index < count; index++)
                     {
                         ActiveInterpreterPair anyPair =
                             activeInterpreters.Peek(index);
@@ -2598,8 +2609,9 @@ namespace Eagle._Components.Private
                         if (clientData == null)
                             continue;
 
-                        if (AppDomainOps.MaybeGetTypeOrObject(
-                                clientData) == type)
+                        if (Object.ReferenceEquals(
+                                AppDomainOps.MaybeGetTypeOrObject(
+                                clientData), type))
                         {
                             return anyPair;
                         }
@@ -2676,15 +2688,15 @@ namespace Eagle._Components.Private
             Interpreter interpreter
             ) /* THREAD-SAFE */
         {
-            int count = 0;
+            int result = 0;
 
             if ((activeInterpreters != null) && !activeInterpreters.IsEmpty)
             {
                 if (interpreter != null)
                 {
-                    for (int index = 0;
-                            index < activeInterpreters.Count;
-                            index++)
+                    int count = activeInterpreters.Count;
+
+                    for (int index = 0; index < count; index++)
                     {
                         ActiveInterpreterPair anyPair =
                             activeInterpreters.Peek(index);
@@ -2700,17 +2712,17 @@ namespace Eagle._Components.Private
                         if (Object.ReferenceEquals(
                                 activeInterpreter, interpreter))
                         {
-                            count++;
+                            result++;
                         }
                     }
                 }
                 else
                 {
-                    count += activeInterpreters.Count;
+                    result += activeInterpreters.Count;
                 }
             }
 
-            return count;
+            return result;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2719,14 +2731,15 @@ namespace Eagle._Components.Private
             Interpreter interpreter
             ) /* THREAD-SAFE */
         {
-            int count = 0;
+            int result = 0;
 
             if ((activeInterpreters != null) && !activeInterpreters.IsEmpty)
             {
                 if (interpreter != null)
                 {
-                    for (int index = activeInterpreters.Count - 1;
-                            index >= 0; index--)
+                    int count = activeInterpreters.Count;
+
+                    for (int index = count - 1; index >= 0; index--)
                     {
                         ActiveInterpreterPair anyPair =
                             activeInterpreters.Peek(index);
@@ -2746,17 +2759,146 @@ namespace Eagle._Components.Private
                         }
 
                         activeInterpreters.RemoveAt(index);
-                        count++;
+                        result++;
                     }
                 }
                 else
                 {
-                    count += activeInterpreters.Count;
+                    result += activeInterpreters.Count;
                     activeInterpreters.Clear();
                 }
             }
 
-            return count;
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool PeekAndCheckInterpreter(
+            InterpreterStackList interpreters, /* in */
+            Interpreter interpreter            /* in: OPTIONAL */
+            )
+        {
+            ActiveInterpreterPair anyPair; /* NOT USED */
+
+            return PeekAndCheckInterpreter(
+                interpreters, interpreter, out anyPair);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool PeekAndCheckInterpreter(
+            InterpreterStackList interpreters, /* in */
+            Interpreter interpreter,           /* in: OPTIONAL */
+            out ActiveInterpreterPair anyPair  /* out */
+            )
+        {
+            anyPair = null;
+
+            ActiveInterpreterPair localAnyPair;
+            Interpreter localInterpreter;
+
+            try
+            {
+                if ((interpreters != null) && !interpreters.IsEmpty)
+                {
+                    localAnyPair = interpreters.Peek();
+
+                    if (interpreter == null)
+                    {
+                        anyPair = localAnyPair;
+                        return true;
+                    }
+
+                    if (localAnyPair != null)
+                    {
+                        localInterpreter = localAnyPair.X;
+
+                        if (Object.ReferenceEquals(
+                                localInterpreter, interpreter))
+                        {
+                            anyPair = localAnyPair;
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+            finally
+            {
+                localInterpreter = null;
+                localAnyPair = null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void MaybePushActiveLogClientData(
+            Interpreter interpreter,
+            IClientData clientData,
+            ref int pushed
+            ) /* THREAD-SAFE */
+        {
+            if (clientData == null)
+                return;
+
+            ActiveInterpreterPair anyPair = PeekActiveInterpreter();
+
+            if (anyPair == null)
+            {
+                PushActiveInterpreter(interpreter, clientData, ref pushed);
+                return;
+            }
+
+            IBaseClientData baseClientData = anyPair.Y as IBaseClientData;
+
+            if ((baseClientData != null) && (baseClientData.Log == null))
+            {
+                baseClientData.Log = clientData; /* ScriptLogClientData? */
+                return;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ActiveInterpreterPair MaybePopActiveLogClientData(
+            Interpreter interpreter,
+            ref int pushed
+            ) /* THREAD-SAFE */
+        {
+            if (Interlocked.Increment(ref pushed) > 1) /* RARE */
+            {
+                try
+                {
+                    return MaybePopActiveInterpreter(
+                        interpreter, ref pushed);
+                }
+                finally
+                {
+                    /* IGNORED */
+                    Interlocked.Decrement(ref pushed);
+                }
+            }
+            else
+            {
+                /* IGNORED */
+                Interlocked.Decrement(ref pushed);
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            ActiveInterpreterPair anyPair = PeekActiveInterpreter();
+
+            if (anyPair == null)
+                return null;
+
+            IBaseClientData baseClientData = anyPair.Y as IBaseClientData;
+
+            if ((baseClientData != null) && (baseClientData.Log != null))
+                baseClientData.Log = null; /* ScriptLogClientData? */
+
+            return anyPair;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2810,8 +2952,8 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
 #if NOTIFY && NOTIFY_GLOBAL && NOTIFY_ACTIVE
-            if ((interpreter != null) && !interpreter.Disposed &&
-                interpreter.GlobalNotify)
+            if ((interpreter != null) &&
+                interpreter.ShouldGlobalNotify)
             {
                 /* IGNORED */
                 Interpreter.CheckNotifications(null, false,
@@ -2828,6 +2970,68 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         /* THREAD-SAFE */
+        public static ActiveInterpreterPair PeekActiveInterpreter()
+        {
+            int pushed = 1; // required, or no peek.
+
+            return MaybePeekActiveInterpreter(null, ref pushed);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ActiveInterpreterPair MaybePeekActiveInterpreter(
+            Interpreter interpreter
+            ) /* THREAD-SAFE */
+        {
+            int pushed = 1; // required, or no peek.
+
+            return MaybePopActiveInterpreter(interpreter, ref pushed);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ActiveInterpreterPair MaybePeekActiveInterpreter(
+            Interpreter interpreter,
+            ref int pushed
+            ) /* THREAD-SAFE */
+        {
+            ActiveInterpreterPair anyPair = null;
+
+            if (Interlocked.CompareExchange(ref pushed, 0, 0) > 0)
+            {
+                if ((activeInterpreters != null) &&
+                    !activeInterpreters.IsEmpty)
+                {
+                    if (interpreter != null)
+                    {
+                        ActiveInterpreterPair localAnyPair;
+
+                        if (PeekAndCheckInterpreter(
+                                activeInterpreters, interpreter,
+                                out localAnyPair))
+                        {
+                            anyPair = localAnyPair;
+
+                            /* IGNORED */
+                            Interlocked.Decrement(ref pushed);
+                        }
+                    }
+                    else
+                    {
+                        anyPair = activeInterpreters.Peek();
+
+                        /* IGNORED */
+                        Interlocked.Decrement(ref pushed);
+                    }
+                }
+            }
+
+            return anyPair;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /* THREAD-SAFE */
         public static ActiveInterpreterPair PopActiveInterpreter()
         {
             int pushed = 1; // required, or no pop.
@@ -2837,10 +3041,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        /* THREAD-SAFE */
         public static ActiveInterpreterPair MaybePopActiveInterpreter(
             Interpreter interpreter
-            )
+            ) /* THREAD-SAFE */
         {
             int pushed = 1; // required, or no pop.
 
@@ -2855,30 +3058,17 @@ namespace Eagle._Components.Private
             ) /* THREAD-SAFE */
         {
             ActiveInterpreterPair anyPair = null; /* REUSED */
-            Interpreter localInterpreter = null; /* REUSED */
 
             if (Interlocked.CompareExchange(ref pushed, 0, 0) > 0)
             {
                 if ((activeInterpreters != null) &&
                     !activeInterpreters.IsEmpty)
                 {
-                    if (interpreter != null)
+                    if ((interpreter != null) &&
+                        !PeekAndCheckInterpreter(
+                            activeInterpreters, interpreter))
                     {
-                        anyPair = activeInterpreters.Peek();
-
-                        if (anyPair == null)
-                            return null;
-
-                        localInterpreter = anyPair.X;
-                        anyPair = null;
-
-                        if (!Object.ReferenceEquals(
-                                localInterpreter, interpreter))
-                        {
-                            return null;
-                        }
-
-                        localInterpreter = null;
+                        return null;
                     }
 
                     anyPair = activeInterpreters.Pop();
@@ -2889,6 +3079,8 @@ namespace Eagle._Components.Private
             }
 
             ///////////////////////////////////////////////////////////////////
+
+            Interpreter localInterpreter = null;
 
             if (anyPair != null)
             {
@@ -2907,8 +3099,7 @@ namespace Eagle._Components.Private
 
 #if NOTIFY && NOTIFY_GLOBAL && NOTIFY_ACTIVE
             if ((localInterpreter != null) &&
-                !localInterpreter.Disposed &&
-                localInterpreter.GlobalNotify)
+                localInterpreter.ShouldGlobalNotify)
             {
                 IClientData clientData = (anyPair != null) ?
                     anyPair.Y : null;
@@ -3854,7 +4045,8 @@ namespace Eagle._Components.Private
                 new PluginDataTriplet(
                     RuntimeOps.CombineOrCopyTrustedHashes(
                         interpreter, false),
-                    pluginData, refresh));
+                    pluginData, refresh),
+                ThreadOps.GetQueueFlags(false));
             #endregion
         }
         #endregion
@@ -4439,8 +4631,10 @@ namespace Eagle._Components.Private
             entryAssemblyName = (entryAssembly != null) ?
                 entryAssembly.GetName() : null;
 
+#if DEAD_CODE
             entryAssemblyTitle = SharedAttributeOps.GetAssemblyTitle(
                 entryAssembly);
+#endif
 
             entryAssemblyLocation = (entryAssembly != null) ?
                 entryAssembly.Location : null;

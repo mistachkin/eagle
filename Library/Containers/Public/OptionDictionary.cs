@@ -406,7 +406,7 @@ namespace Eagle._Containers.Public
             string name
             )
         {
-            Variant value = null;
+            IVariant value = null;
             int index = Index.Invalid;
 
             return IsPresent(
@@ -418,7 +418,7 @@ namespace Eagle._Containers.Public
 
         public bool IsPresent(
             string name,
-            ref Variant value
+            ref IVariant value
             )
         {
             int index = Index.Invalid;
@@ -432,7 +432,7 @@ namespace Eagle._Containers.Public
 
         public bool IsPresent(
             string name,
-            ref Variant value,
+            ref IVariant value,
             ref int index
             )
         {
@@ -448,7 +448,7 @@ namespace Eagle._Containers.Public
             bool noCase
             )
         {
-            Variant value = null;
+            IVariant value = null;
             int index = Index.Invalid;
 
             return IsPresent(
@@ -461,7 +461,7 @@ namespace Eagle._Containers.Public
         public bool IsPresent(
             string name,
             bool noCase,
-            ref Variant value
+            ref IVariant value
             )
         {
             int index = Index.Invalid;
@@ -476,7 +476,7 @@ namespace Eagle._Containers.Public
         public bool IsPresent(
             string name,
             bool noCase,
-            ref Variant value,
+            ref IVariant value,
             ref int index
             )
         {
@@ -493,7 +493,7 @@ namespace Eagle._Containers.Public
             bool noCase
             )
         {
-            Variant value = null;
+            IVariant value = null;
             int index = Index.Invalid;
 
             return IsPresent(
@@ -507,7 +507,7 @@ namespace Eagle._Containers.Public
             OptionDictionary options,
             string name,
             bool noCase,
-            ref Variant value
+            ref IVariant value
             )
         {
             int index = Index.Invalid;
@@ -523,7 +523,7 @@ namespace Eagle._Containers.Public
             OptionDictionary options,
             string name,
             bool noCase,
-            ref Variant value,
+            ref IVariant value,
             ref int index
             )
         {
@@ -539,7 +539,7 @@ namespace Eagle._Containers.Public
             string name
             )
         {
-            Variant value = null;
+            IVariant value = null;
             int index = Index.Invalid;
 
             return IsPresent(
@@ -551,7 +551,7 @@ namespace Eagle._Containers.Public
 
         internal bool CheckPresent(
             string name,
-            ref Variant value
+            ref IVariant value
             )
         {
             int index = Index.Invalid;
@@ -571,7 +571,7 @@ namespace Eagle._Containers.Public
             bool withValue,
             bool noCase,
             bool strict,
-            ref Variant value,
+            ref IVariant value,
             ref int index
             )
         {
@@ -682,7 +682,7 @@ namespace Eagle._Containers.Public
             string name,
             bool present,
             int index,
-            Variant value
+            IVariant value
             )
         {
             return SetPresent(this, name, present, index, value);
@@ -695,7 +695,7 @@ namespace Eagle._Containers.Public
             string name,
             bool present,
             int index,
-            Variant value
+            IVariant value
             )
         {
             if (options != null)
@@ -965,7 +965,7 @@ namespace Eagle._Containers.Public
 
                         if (!option.HasFlags(OptionFlags.EndOfOptions, true))
                         {
-                            Variant value = null;
+                            IVariant value = null;
 
                             if (!option.IsPresent(options, ref value))
                                 continue;
@@ -991,7 +991,7 @@ namespace Eagle._Containers.Public
 
                     if ((endOption != null) && !endOption.IsIgnored(options))
                     {
-                        Variant value = null;
+                        IVariant value = null;
 
                         if (endOption.IsPresent(options, ref value))
                         {

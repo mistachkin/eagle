@@ -18,6 +18,7 @@ namespace Eagle._Interfaces.Public
     public interface IInterpreterManager
     {
         bool PushActive(IClientData clientData);
+        bool PeekActive();
         bool PopActive();
 
         bool? SetDisposalEnabled(bool noComplain, bool? enabled);

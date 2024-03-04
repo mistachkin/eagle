@@ -220,6 +220,30 @@ namespace eval ::Eagle {
     } elseif {$force || ![info exists packageIndexUri]} then {
       set packageIndexUri {${baseUri}/${urn}}
     }
+
+    #
+    # NOTE: The URI where the current external IP address may be obtained.
+    #
+    variable ipUri; # DEFAULT: ${baseUri}/${urn}
+
+    if {$cleanup} then {
+      unset -nocomplain ipUri
+    } elseif {$force || ![info exists ipUri]} then {
+      set ipUri {${baseUri}/${urn}}
+    }
+
+    #
+    # NOTE: The list of URNs, relative to the base URI, where the current
+    #       external IP address may be obtained.  One of these will be
+    #       selected at random.
+    #
+    variable ipUrns; # DEFAULT: ip_01 ... ip_NN
+
+    if {$cleanup} then {
+      unset -nocomplain ipUrns
+    } elseif {$force || ![info exists ipUrns]} then {
+      set ipUrns [list ip_01]
+    }
   }
 
   #
@@ -932,7 +956,7 @@ namespace eval ::Eagle {
       error "request failed without providing error information"
     }
 
-    if {![string is list $data] || [llength $data] < 2} then {
+    if {![string is list -strict $data] || [llength $data] < 2} then {
       error [appendArgs \
           "request failed with error information: " $data]
     }
@@ -1023,7 +1047,7 @@ namespace eval ::Eagle {
       error "request failed without providing error information"
     }
 
-    if {![string is list $data] || [llength $data] < 2} then {
+    if {![string is list -strict $data] || [llength $data] < 2} then {
       error [appendArgs \
           "request failed with error information: " $data]
     }
@@ -1137,7 +1161,7 @@ namespace eval ::Eagle {
       error "request failed without providing error information"
     }
 
-    if {![string is list $data] || [llength $data] < 2} then {
+    if {![string is list -strict $data] || [llength $data] < 2} then {
       error [appendArgs \
           "request failed with error information: " $data]
     }
@@ -1170,6 +1194,88 @@ namespace eval ::Eagle {
     }
 
     return $directory
+  }
+
+  #
+  # NOTE: This procedure attempts to query (and return) the current external
+  #       IPv4/6 address.  The apiKey parameter is the optional API key to use,
+  #       which MAY enable additional permissions within the remote repository.
+  #       The optional channel argument is the output channel where diagnostic
+  #       information is sent.  The optional quiet argument should be non-zero
+  #       to prevent diagnostic information from being emitted.  This procedure
+  #       may raise script errors.
+  #
+  proc getExternalIpAddress {
+          {apiKey ""} {channel stdout} {quiet false} } {
+    setupPackageToolsetVars false
+
+    variable baseUri
+    variable ipUri
+    variable ipUrns
+
+    package require Eagle.Test
+
+    if {[info exists ::env(IpUri)]} then {
+      #
+      # HACK: Allow IP address index URI to be overridden via the global
+      #       environment.  This is necessary to enable testing on Mono.
+      #
+      set uri $::env(IpUri)
+    } else {
+      #
+      # NOTE: Normally, choose a random URN, which will resolve to one
+      #       of the official example script servers.
+      #
+      set urn [subst [lindex $ipUrns \
+          [expr {int(rand() * [llength $ipUrns])}]]]
+
+      set uri [subst $ipUri]
+    }
+
+    set query [list raw 1]
+
+    if {[string length $apiKey] > 0} then {
+      lappend query apiKey $apiKey
+    }
+
+    if {[isEagle]} then {
+      set fullUri $uri
+
+      foreach {name value} $query {
+        if {[string first ? $fullUri] != -1} then {
+          append fullUri &
+        } else {
+          append fullUri ?
+        }
+
+        append fullUri \
+            [uri escape data $name] = [uri escape data $value]
+      }
+
+      set data [string trim [uri download -inline $fullUri]]
+    } else {
+      package require http 2.0
+      package require Eagle.Tools.Common
+
+      namespace import -force \
+          ::Eagle::Tools::Common::getFileViaHttp \
+          ::Eagle::Tools::Common::writeFile
+
+      set data [string trim [getFileViaHttp \
+          $uri 20 $channel $quiet -binary true \
+          -query [eval ::http::formatQuery $query]]]
+    }
+
+    if {[string length $data] == 0} then {
+      error "request failed without providing error information"
+    }
+
+    if {![string is inetaddr -strict $data]} then {
+      error [appendArgs \
+          "request failed with error information: " $data]
+    }
+
+    return $data
   }
 
   #

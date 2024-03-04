@@ -113,7 +113,7 @@ namespace Eagle._Commands
                 return ReturnCode.Error;
             }
 
-            Variant value = null;
+            IVariant value = null;
             bool? keepEol = null;
 
             if (options.IsPresent("-keepeol", ref value))

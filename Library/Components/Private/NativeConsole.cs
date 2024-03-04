@@ -22,6 +22,7 @@ using System.Security;
 using System.Security.Permissions;
 #endif
 
+using System.Text;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -31,6 +32,7 @@ using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
+using UNM = Eagle._Components.Private.NativeConsole.UnsafeNativeMethods;
 
 namespace Eagle._Components.Private
 {
@@ -44,6 +46,10 @@ namespace Eagle._Components.Private
     {
         #region Private Constants
         private static bool DefaultNativeHandle = true; /* IsMono(); */
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static readonly char[] NativeNewLine = { '\r', '\n' };
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -131,6 +137,24 @@ namespace Eagle._Components.Private
         //       forcibly locked open.
         //
         private static bool? forcePreventClose = null;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is the saved console font.  The console font should be
+        //       saved prior to changing it.  Also, it should be restored if
+        //       this class is being unloaded, for whatever reason.
+        //
+        private static UNM.CONSOLE_FONT_INFOEX? savedConsoleFontEx = null;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is the per-thread character buffer for writing to the
+        //       native console.  Its use is merely an optimization.
+        //
+        [ThreadStatic()] /* ThreadSpecificData */
+        private static char[] consoleWriteBuffer = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -174,6 +198,33 @@ namespace Eagle._Components.Private
             internal const int STD_OUTPUT_HANDLE = -11;
             internal const int STD_ERROR_HANDLE = -12;
 
+            //
+            // NOTE: Font family constants.
+            //
+            internal const uint FF_DONTCARE = 0x00;
+            internal const uint FF_ROMAN = 0x10;
+            internal const uint FF_SWISS = 0x20;
+            internal const uint FF_MODERN = 0x30;
+            internal const uint FF_SCRIPT = 0x40;
+            internal const uint FF_DECORATIVE = 0x50;
+
+            //
+            // NOTE: Text metric pitch and family constants.
+            //
+            internal const uint TMPF_NONE = 0x00;
+            internal const uint TMPF_FIXED_PITCH = 0x01; /* variable pitch */
+            internal const uint TMPF_VECTOR = 0x02;
+            internal const uint TMPF_TRUETYPE = 0x04;
+            internal const uint TMPF_DEVICE = 0x08;
+
+            //
+            // NOTE: Per MSDN, besides having their own bits set, both
+            //       TrueType and PostScript fonts set the TMPF_VECTOR
+            //       bit as well.
+            //
+            internal const uint TMPF_TRUETYPE_VECTOR =
+                TMPF_VECTOR | TMPF_TRUETYPE;
+
             ///////////////////////////////////////////////////////////////////
 
             //
@@ -193,6 +244,21 @@ namespace Eagle._Components.Private
 
             internal const uint HISTORY_NONE = 0;
             internal const uint HISTORY_NO_DUP_FLAG = 1;
+
+            ///////////////////////////////////////////////////////////////////
+
+            [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+            [ObjectId("615b15c1-b994-40cf-8948-a85dcafd9ee1")]
+            internal struct CONSOLE_FONT_INFOEX
+            {
+                public uint cbSize;
+                public uint nFont;
+                public COORD dwFontSize;
+                public uint FontFamily;
+                public uint FontWeight;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+                public string FaceName;
+            }
 
             ///////////////////////////////////////////////////////////////////
 
@@ -260,6 +326,59 @@ namespace Eagle._Components.Private
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
             internal static extern uint GetFileType(IntPtr handle);
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool SetConsoleOutputCP(uint codePageID);
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool SetConsoleCP(uint codePageID);
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool SetConsoleFont(
+                IntPtr handle, uint fontIndex
+            );
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool GetCurrentConsoleFontEx(
+                IntPtr handle,
+                [MarshalAs(UnmanagedType.Bool)] bool maximumWindow,
+                ref CONSOLE_FONT_INFOEX consoleFontEx
+            );
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool SetCurrentConsoleFontEx(
+                IntPtr handle,
+                [MarshalAs(UnmanagedType.Bool)] bool maximumWindow,
+                ref CONSOLE_FONT_INFOEX consoleFontEx
+            );
+
+            ///////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.Kernel32,
+                CharSet = CharSet.Unicode, SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool WriteConsoleW(
+                IntPtr handle,
+                char[] buffer,
+                uint numberOfCharsToWrite,
+                out uint numberOfCharsWritten,
+                IntPtr reserved
+            );
 
             ///////////////////////////////////////////////////////////////////
 
@@ -538,6 +657,22 @@ namespace Eagle._Components.Private
                         FormatOps.WrapOrNull(forcePreventClose));
                 }
 
+                if (empty || (savedConsoleFontEx != null))
+                {
+                    StringList font = null;
+
+                    if (savedConsoleFontEx != null)
+                    {
+                        font = FontToList(
+                            (UNM.CONSOLE_FONT_INFOEX)
+                                savedConsoleFontEx);
+                    }
+
+                    localList.Add("SavedConsoleFontEx",
+                        (font != null) ? font.ToString() :
+                            FormatOps.DisplayNull);
+                }
+
                 if (localList.Count > 0)
                 {
                     list.Add((IPair<string>)null);
@@ -749,7 +884,7 @@ namespace Eagle._Components.Private
                 //
                 AddExitedEventHandler();
 
-                handle = UnsafeNativeMethods.CreateConsoleScreenBuffer(
+                handle = UNM.CreateConsoleScreenBuffer(
                     FileAccessMask.GENERIC_READ_WRITE,
                     FileShareMode.FILE_SHARE_READ_WRITE, IntPtr.Zero,
                     ConsoleScreenBufferFlags.CONSOLE_TEXTMODE_BUFFER,
@@ -1046,8 +1181,7 @@ namespace Eagle._Components.Private
                     return false;
                 }
 
-                if (!UnsafeNativeMethods.SetConsoleActiveScreenBuffer(
-                        handle))
+                if (!UNM.SetConsoleActiveScreenBuffer(handle))
                 {
                     error = NativeOps.GetErrorMessage();
                     return false;
@@ -1120,8 +1254,7 @@ namespace Eagle._Components.Private
             {
                 if (native)
                 {
-                    handle = UnsafeNativeMethods.GetStdHandle(
-                        UnsafeNativeMethods.STD_INPUT_HANDLE);
+                    handle = UNM.GetStdHandle(UNM.STD_INPUT_HANDLE);
 
                     bool invalid = false;
 
@@ -1163,8 +1296,7 @@ namespace Eagle._Components.Private
             {
                 if (native)
                 {
-                    handle = UnsafeNativeMethods.GetStdHandle(
-                        UnsafeNativeMethods.STD_OUTPUT_HANDLE);
+                    handle = UNM.GetStdHandle(UNM.STD_OUTPUT_HANDLE);
 
                     bool invalid = false;
 
@@ -1211,8 +1343,7 @@ namespace Eagle._Components.Private
                     //       class does not keep track of the standard error
                     //       channel.
                     //
-                    handle = UnsafeNativeMethods.GetStdHandle(
-                        UnsafeNativeMethods.STD_ERROR_HANDLE);
+                    handle = UNM.GetStdHandle(UNM.STD_ERROR_HANDLE);
 
                     bool invalid = false;
 
@@ -1268,8 +1399,7 @@ namespace Eagle._Components.Private
         {
             try
             {
-                if (UnsafeNativeMethods.SetStdHandle(
-                        UnsafeNativeMethods.STD_INPUT_HANDLE, handle))
+                if (UNM.SetStdHandle(UNM.STD_INPUT_HANDLE, handle))
                 {
 #if CONSOLE
                     if (ConsoleOps.ResetStreams(
@@ -1307,8 +1437,7 @@ namespace Eagle._Components.Private
         {
             try
             {
-                if (UnsafeNativeMethods.SetStdHandle(
-                        UnsafeNativeMethods.STD_OUTPUT_HANDLE, handle))
+                if (UNM.SetStdHandle(UNM.STD_OUTPUT_HANDLE, handle))
                 {
 #if CONSOLE
                     if (ConsoleOps.ResetStreams(
@@ -1346,8 +1475,7 @@ namespace Eagle._Components.Private
         {
             try
             {
-                if (UnsafeNativeMethods.SetStdHandle(
-                        UnsafeNativeMethods.STD_ERROR_HANDLE, handle))
+                if (UNM.SetStdHandle(UNM.STD_ERROR_HANDLE, handle))
                 {
 #if CONSOLE
                     if (ConsoleOps.ResetStreams(
@@ -1394,19 +1522,18 @@ namespace Eagle._Components.Private
 
             try
             {
-                uint type = UnsafeNativeMethods.GetFileType(handle);
+                uint type = UNM.GetFileType(handle);
 
-                if ((type != UnsafeNativeMethods.FILE_TYPE_UNKNOWN) ||
-                    (Marshal.GetLastWin32Error() == UnsafeNativeMethods.NO_ERROR))
+                if ((type != UNM.FILE_TYPE_UNKNOWN) ||
+                    (Marshal.GetLastWin32Error() == UNM.NO_ERROR))
                 {
-                    type &= ~UnsafeNativeMethods.FILE_TYPE_REMOTE;
+                    type &= ~UNM.FILE_TYPE_REMOTE;
 
-                    if (type == UnsafeNativeMethods.FILE_TYPE_CHAR)
+                    if (type == UNM.FILE_TYPE_CHAR)
                     {
                         uint mode = 0;
 
-                        if (UnsafeNativeMethods.GetConsoleMode(
-                                handle, ref mode))
+                        if (UNM.GetConsoleMode(handle, ref mode))
                         {
                             //
                             // NOTE: We do not care about the mode, this is a
@@ -1415,8 +1542,7 @@ namespace Eagle._Components.Private
                             //
                             redirected = false;
                         }
-                        else if (Marshal.GetLastWin32Error() ==
-                                UnsafeNativeMethods.ERROR_INVALID_HANDLE)
+                        else if (Marshal.GetLastWin32Error() == UNM.ERROR_INVALID_HANDLE)
                         {
                             //
                             // NOTE: The handle appears to be valid (see above)
@@ -1485,7 +1611,7 @@ namespace Eagle._Components.Private
 
             try
             {
-                IntPtr handle = UnsafeNativeMethods.GetConsoleInputWaitHandle();
+                IntPtr handle = UNM.GetConsoleInputWaitHandle();
 
                 if (!NativeOps.IsValidHandle(handle))
                 {
@@ -1520,7 +1646,7 @@ namespace Eagle._Components.Private
         {
             try
             {
-                if (UnsafeNativeMethods.GenerateConsoleCtrlEvent(@event, 0))
+                if (UNM.GenerateConsoleCtrlEvent(@event, 0))
                     return ReturnCode.Ok;
 
                 error = NativeOps.GetErrorMessage();
@@ -1546,7 +1672,7 @@ namespace Eagle._Components.Private
 
                 if (NativeOps.IsValidHandle(handle))
                 {
-                    if (UnsafeNativeMethods.FlushConsoleInputBuffer(handle))
+                    if (UNM.FlushConsoleInputBuffer(handle))
                         return ReturnCode.Ok;
 
                     error = NativeOps.GetErrorMessage();
@@ -1618,8 +1744,8 @@ namespace Eagle._Components.Private
                     // TODO: Should this really require checking both of
                     //       these?
                     //
-                    if ((UnsafeNativeMethods.GetFocus() == hWnd) ||
-                        (UnsafeNativeMethods.GetForegroundWindow() == hWnd))
+                    if ((UNM.GetFocus() == hWnd) ||
+                        (UNM.GetForegroundWindow() == hWnd))
                     {
                         return true;
                     }
@@ -1719,7 +1845,7 @@ namespace Eagle._Components.Private
 
             try
             {
-                if (UnsafeNativeMethods.SetFocus(hWnd) == IntPtr.Zero)
+                if (UNM.SetFocus(hWnd) == IntPtr.Zero)
                 {
                     int lastError = Marshal.GetLastWin32Error();
 
@@ -1758,14 +1884,12 @@ namespace Eagle._Components.Private
                 IntPtr handle;
                 bool invalid = false;
 
-                handle = UnsafeNativeMethods.GetStdHandle(
-                    UnsafeNativeMethods.STD_OUTPUT_HANDLE);
+                handle = UNM.GetStdHandle(UNM.STD_OUTPUT_HANDLE);
 
                 if (NativeOps.IsValidHandle(handle, ref invalid))
                 {
-                    UnsafeNativeMethods.COORD coordinates =
-                        UnsafeNativeMethods.GetLargestConsoleWindowSize(
-                            handle);
+                    UNM.COORD coordinates = UNM.GetLargestConsoleWindowSize(
+                        handle);
 
                     if ((coordinates.X != 0) || (coordinates.Y != 0))
                     {
@@ -1812,7 +1936,7 @@ namespace Eagle._Components.Private
         {
             try
             {
-                return UnsafeNativeMethods.GetConsoleWindow();
+                return UNM.GetConsoleWindow();
             }
             catch (Exception e)
             {
@@ -1822,6 +1946,70 @@ namespace Eagle._Components.Private
             }
 
             return IntPtr.Zero;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void CreateSecurityAttributes(
+            out IntPtr pSecurityAttributes /* out */
+            )
+        {
+            pSecurityAttributes = Marshal.AllocCoTaskMem(
+                Marshal.SizeOf(typeof(UNM.SECURITY_ATTRIBUTES)));
+
+            UNM.SECURITY_ATTRIBUTES securityAttributes =
+                new UNM.SECURITY_ATTRIBUTES();
+
+            securityAttributes.nLength = (uint)Marshal.SizeOf(
+                typeof(UNM.SECURITY_ATTRIBUTES));
+
+            securityAttributes.lpSecurityDescriptor = IntPtr.Zero;
+            securityAttributes.bInheritHandle = true;
+
+            Marshal.StructureToPtr(
+                securityAttributes, pSecurityAttributes, false);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static IntPtr OpenInputHandle(
+            IntPtr pSecurityAttributes /* in */
+            )
+        {
+            return PathOps.UnsafeNativeMethods.CreateFile(
+                UNM.ConsoleInputFileName, FileAccessMask.GENERIC_READ_WRITE,
+                FileShareMode.FILE_SHARE_READ, pSecurityAttributes,
+                FileCreationDisposition.OPEN_EXISTING,
+                FileFlagsAndAttributes.FILE_ATTRIBUTE_NONE, IntPtr.Zero);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static IntPtr OpenOutputHandle(
+            IntPtr pSecurityAttributes /* in */
+            )
+        {
+            return PathOps.UnsafeNativeMethods.CreateFile(
+                UNM.ConsoleOutputFileName, FileAccessMask.GENERIC_READ_WRITE,
+                FileShareMode.FILE_SHARE_WRITE, pSecurityAttributes,
+                FileCreationDisposition.OPEN_EXISTING,
+                FileFlagsAndAttributes.FILE_ATTRIBUTE_NONE, IntPtr.Zero);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static IntPtr GetOrOpenHandle(
+            bool output,     /* in */
+            ref Result error /* out */
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                if (MaybeOpenHandles(ref error) != ReturnCode.Ok)
+                    return IntPtr.Zero;
+
+                return output ? outputHandle : inputHandle;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1842,55 +2030,26 @@ namespace Eagle._Components.Private
             try
             {
                 if (openInput || openOutput)
-                {
-                    pSecurityAttributes = Marshal.AllocCoTaskMem(Marshal.SizeOf(
-                        typeof(UnsafeNativeMethods.SECURITY_ATTRIBUTES)));
-
-                    UnsafeNativeMethods.SECURITY_ATTRIBUTES securityAttributes =
-                        new UnsafeNativeMethods.SECURITY_ATTRIBUTES();
-
-                    securityAttributes.nLength = (uint)Marshal.SizeOf(
-                        typeof(UnsafeNativeMethods.SECURITY_ATTRIBUTES));
-
-                    securityAttributes.lpSecurityDescriptor = IntPtr.Zero;
-                    securityAttributes.bInheritHandle = true;
-
-                    Marshal.StructureToPtr(
-                        securityAttributes, pSecurityAttributes, false);
-                }
+                    CreateSecurityAttributes(out pSecurityAttributes);
 
                 if (openInput)
                 {
-                    localInputHandle = PathOps.UnsafeNativeMethods.CreateFile(
-                        UnsafeNativeMethods.ConsoleInputFileName,
-                        FileAccessMask.GENERIC_READ_WRITE,
-                        FileShareMode.FILE_SHARE_READ, pSecurityAttributes,
-                        FileCreationDisposition.OPEN_EXISTING,
-                        FileFlagsAndAttributes.FILE_ATTRIBUTE_NONE,
-                        IntPtr.Zero);
+                    localInputHandle = OpenInputHandle(pSecurityAttributes);
 
                     if (!NativeOps.IsValidHandle(localInputHandle))
                     {
                         error = NativeOps.GetErrorMessage();
-
                         return ReturnCode.Error;
                     }
                 }
 
                 if (openOutput)
                 {
-                    localOutputHandle = PathOps.UnsafeNativeMethods.CreateFile(
-                        UnsafeNativeMethods.ConsoleOutputFileName,
-                        FileAccessMask.GENERIC_READ_WRITE,
-                        FileShareMode.FILE_SHARE_WRITE, pSecurityAttributes,
-                        FileCreationDisposition.OPEN_EXISTING,
-                        FileFlagsAndAttributes.FILE_ATTRIBUTE_NONE,
-                        IntPtr.Zero);
+                    localOutputHandle = OpenOutputHandle(pSecurityAttributes);
 
                     if (!NativeOps.IsValidHandle(localOutputHandle))
                     {
                         error = NativeOps.GetErrorMessage();
-
                         return ReturnCode.Error;
                     }
                 }
@@ -2178,7 +2337,7 @@ namespace Eagle._Components.Private
         {
             try
             {
-                return UnsafeNativeMethods.GetConsoleWindow();
+                return UNM.GetConsoleWindow();
             }
             catch (Exception e)
             {
@@ -2314,8 +2473,7 @@ namespace Eagle._Components.Private
                     return ReturnCode.Ok;
                 }
 
-                if (UnsafeNativeMethods.AttachConsole(
-                        UnsafeNativeMethods.ATTACH_PARENT_PROCESS))
+                if (UNM.AttachConsole(UNM.ATTACH_PARENT_PROCESS))
                 {
                     TraceOps.DebugTrace(
                         "Attach: attached parent console",
@@ -2356,7 +2514,7 @@ namespace Eagle._Components.Private
                     return ReturnCode.Ok;
                 }
 
-                if (UnsafeNativeMethods.AllocConsole())
+                if (UNM.AllocConsole())
                 {
                     TraceOps.DebugTrace(
                         "Open: allocated new console",
@@ -2397,8 +2555,7 @@ namespace Eagle._Components.Private
                     return ReturnCode.Ok;
                 }
 
-                if (attach && UnsafeNativeMethods.AttachConsole(
-                        UnsafeNativeMethods.ATTACH_PARENT_PROCESS))
+                if (attach && UNM.AttachConsole(UNM.ATTACH_PARENT_PROCESS))
                 {
                     TraceOps.DebugTrace(
                         "AttachOrOpen: attached parent console",
@@ -2409,7 +2566,7 @@ namespace Eagle._Components.Private
                     return FixupHandles(ref error);
                 }
 
-                if (UnsafeNativeMethods.AllocConsole())
+                if (UNM.AllocConsole())
                 {
                     TraceOps.DebugTrace(
                         "AttachOrOpen: allocated new console",
@@ -2438,7 +2595,7 @@ namespace Eagle._Components.Private
         {
             try
             {
-                if (UnsafeNativeMethods.FreeConsole())
+                if (UNM.FreeConsole())
                 {
                     TraceOps.DebugTrace(
                         "Close: freed existing console",
@@ -2491,7 +2648,7 @@ namespace Eagle._Components.Private
 
                 if (NativeOps.IsValidHandle(handle))
                 {
-                    if (UnsafeNativeMethods.GetConsoleMode(handle, ref mode))
+                    if (UNM.GetConsoleMode(handle, ref mode))
                         return ReturnCode.Ok;
 
                     error = NativeOps.GetErrorMessage();
@@ -2520,7 +2677,7 @@ namespace Eagle._Components.Private
 
                 if (NativeOps.IsValidHandle(handle))
                 {
-                    if (UnsafeNativeMethods.SetConsoleMode(handle, mode))
+                    if (UNM.SetConsoleMode(handle, mode))
                         return ReturnCode.Ok;
 
                     error = NativeOps.GetErrorMessage();
@@ -2552,16 +2709,14 @@ namespace Eagle._Components.Private
                 {
                     uint currentMode = 0;
 
-                    if (UnsafeNativeMethods.GetConsoleMode(
-                            handle, ref currentMode))
+                    if (UNM.GetConsoleMode(handle, ref currentMode))
                     {
                         if (enable)
                             currentMode |= mode;  /* NOTE: Add mode(s). */
                         else
                             currentMode &= ~mode; /* NOTE: Remove mode(s). */
 
-                        if (UnsafeNativeMethods.SetConsoleMode(
-                                handle, currentMode))
+                        if (UNM.SetConsoleMode(handle, currentMode))
                         {
                             return ReturnCode.Ok;
                         }
@@ -2588,14 +2743,13 @@ namespace Eagle._Components.Private
         {
             try
             {
-                UnsafeNativeMethods.CONSOLE_HISTORY_INFO historyInfo =
-                    new UnsafeNativeMethods.CONSOLE_HISTORY_INFO();
+                UNM.CONSOLE_HISTORY_INFO historyInfo =
+                    new UNM.CONSOLE_HISTORY_INFO();
 
                 historyInfo.cbSize = (uint)Marshal.SizeOf(
-                    typeof(UnsafeNativeMethods.CONSOLE_HISTORY_INFO));
+                    typeof(UNM.CONSOLE_HISTORY_INFO));
 
-                if (!UnsafeNativeMethods.GetConsoleHistoryInfo(
-                        ref historyInfo))
+                if (!UNM.GetConsoleHistoryInfo(ref historyInfo))
                 {
                     error = NativeOps.GetErrorMessage();
                     return ReturnCode.Error;
@@ -2607,8 +2761,7 @@ namespace Eagle._Components.Private
                 {
                     historyInfo.HistoryBufferSize = 0;
 
-                    if (UnsafeNativeMethods.SetConsoleHistoryInfo(
-                            ref historyInfo))
+                    if (UNM.SetConsoleHistoryInfo(ref historyInfo))
                     {
                         return ReturnCode.Ok;
                     }
@@ -2622,8 +2775,7 @@ namespace Eagle._Components.Private
                 {
                     historyInfo.HistoryBufferSize = savedBufferSize;
 
-                    if (!UnsafeNativeMethods.SetConsoleHistoryInfo(
-                            ref historyInfo))
+                    if (!UNM.SetConsoleHistoryInfo(ref historyInfo))
                     {
                         TraceOps.DebugTrace(String.Format(
                             "ClearHistory: " +
@@ -2655,14 +2807,13 @@ namespace Eagle._Components.Private
         {
             try
             {
-                UnsafeNativeMethods.CONSOLE_HISTORY_INFO historyInfo =
-                    new UnsafeNativeMethods.CONSOLE_HISTORY_INFO();
+                UNM.CONSOLE_HISTORY_INFO historyInfo =
+                    new UNM.CONSOLE_HISTORY_INFO();
 
                 historyInfo.cbSize = (uint)Marshal.SizeOf(
-                    typeof(UnsafeNativeMethods.CONSOLE_HISTORY_INFO));
+                    typeof(UNM.CONSOLE_HISTORY_INFO));
 
-                if (!UnsafeNativeMethods.GetConsoleHistoryInfo(
-                        ref historyInfo))
+                if (!UNM.GetConsoleHistoryInfo(ref historyInfo))
                 {
                     error = NativeOps.GetErrorMessage();
                     return ReturnCode.Error;
@@ -2672,8 +2823,7 @@ namespace Eagle._Components.Private
                 {
                     historyInfo.HistoryBufferSize = minimumBufferSize;
 
-                    if (!UnsafeNativeMethods.SetConsoleHistoryInfo(
-                            ref historyInfo))
+                    if (!UNM.SetConsoleHistoryInfo(ref historyInfo))
                     {
                         error = NativeOps.GetErrorMessage();
                         return ReturnCode.Error;
@@ -2693,6 +2843,469 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Console Font Support Methods
+        private static StringList FontToList(
+            UNM.CONSOLE_FONT_INFOEX consoleFontEx /* in */
+            )
+        {
+            StringList list = new StringList();
+
+            list.Add("sizeOf", consoleFontEx.cbSize.ToString());
+            list.Add("index", consoleFontEx.nFont.ToString());
+            list.Add("sizeX", consoleFontEx.dwFontSize.X.ToString());
+            list.Add("sizeY", consoleFontEx.dwFontSize.Y.ToString());
+            list.Add("family", consoleFontEx.FontFamily.ToString());
+            list.Add("weight", consoleFontEx.FontWeight.ToString());
+            list.Add("faceName", consoleFontEx.FaceName);
+
+            return list;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void GetNewLine(
+            bool newLine,     /* in */
+            out char[] value, /* out */
+            out int length    /* out */
+            )
+        {
+            value = null;
+            length = 0;
+
+            if (newLine)
+            {
+                value = NativeNewLine;
+
+                if (value != null)
+                    length = value.Length;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static char[] GetWriteBuffer(
+            int length /* in */
+            )
+        {
+            if ((consoleWriteBuffer == null) ||
+                (consoleWriteBuffer.Length < length))
+            {
+                consoleWriteBuffer = new char[length];
+            }
+
+            return consoleWriteBuffer;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static char[] GetWriteBuffer( /* CANNOT RETURN NULL */
+            int length,   /* in */
+            bool newLine, /* in */
+            bool noCache  /* in */
+            )
+        {
+            char[] newLineValue;
+            int newLineLength;
+
+            GetNewLine(
+                newLine, out newLineValue, out newLineLength);
+
+            int resultLength = length + newLineLength;
+            char[] result;
+
+            if (noCache)
+                result = new char[resultLength];
+            else
+                result = GetWriteBuffer(resultLength);
+
+            Array.Clear(result, 0, result.Length);
+
+            if (newLineValue != null)
+            {
+                Array.Copy(
+                    newLineValue, 0, result, length, newLineLength);
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static char[] GetWriteBuffer<T>(
+            T value,         /* in */
+            bool newLine,    /* in */
+            bool noCache,    /* in */
+            out int length,  /* out */
+            ref Result error /* out */
+            )
+        {
+            length = 0;
+
+            if (value == null)
+            {
+                error = "invalid value";
+                return null;
+            }
+
+            char[] result;
+
+            if (typeof(T) == typeof(char[]))
+            {
+                if (!(value is char[]))
+                {
+                    error = String.Format(
+                        "unsupported value {0}, must be {1}",
+                        MarshalOps.GetErrorTypeName(typeof(T)),
+                        MarshalOps.GetErrorTypeName(typeof(char[])));
+
+                    return null;
+                }
+
+                char[] arrayValue = (char[])(value as object);
+
+                length = arrayValue.Length;
+                result = arrayValue;
+
+                return result;
+            }
+            else if (typeof(T) == typeof(char))
+            {
+                if (!(value is char))
+                {
+                    error = String.Format(
+                        "unsupported value {0}, must be {1}",
+                        MarshalOps.GetErrorTypeName(typeof(T)),
+                        MarshalOps.GetErrorTypeName(typeof(char)));
+
+                    return null;
+                }
+
+                length = 1;
+                result = GetWriteBuffer(length, newLine, noCache);
+                result[0] = (char)(value as object);
+
+                return result;
+            }
+            else if (typeof(T) == typeof(string))
+            {
+                if (!(value is string))
+                {
+                    error = String.Format(
+                        "unsupported value {0}, must be {1}",
+                        MarshalOps.GetErrorTypeName(typeof(T)),
+                        MarshalOps.GetErrorTypeName(typeof(string)));
+
+                    return null;
+                }
+
+                string stringValue = (string)(value as object);
+
+                length = stringValue.Length;
+                result = GetWriteBuffer(length, newLine, noCache);
+                stringValue.CopyTo(0, result, 0, length);
+
+                return result;
+            }
+            else
+            {
+                error = String.Format(
+                    "unsupported value type {0} for write",
+                    MarshalOps.GetErrorTypeName(typeof(T)));
+
+                return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode WriteString<T>(
+            IntPtr handle,   /* in */
+            T value,         /* in */
+            bool newLine,    /* in */
+            ref Result error /* out */
+            )
+        {
+            int length;
+
+            char[] buffer = GetWriteBuffer<T>(
+                value, newLine, false, out length, ref error);
+
+            if (buffer == null)
+                return ReturnCode.Error;
+
+            uint numberWritten;
+
+            if (!UNM.WriteConsoleW(
+                    handle, buffer, (uint)length,
+                    out numberWritten, IntPtr.Zero))
+            {
+                error = NativeOps.GetErrorMessage();
+                return ReturnCode.Error;
+            }
+
+            if (numberWritten != length)
+            {
+                error = String.Format(
+                    "actually wrote {0}, wanted to write {1}",
+                    numberWritten, length);
+
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Console Font Support Methods
+        public static ReturnCode GetFont(
+            ref StringList list, /* in, out */
+            ref Result error     /* out */
+            )
+        {
+            try
+            {
+                IntPtr handle = GetOrOpenHandle(true, ref error);
+
+                if (!NativeOps.IsValidHandle(handle))
+                    return ReturnCode.Error;
+
+                UNM.CONSOLE_FONT_INFOEX consoleFontEx =
+                    new UNM.CONSOLE_FONT_INFOEX();
+
+                consoleFontEx.cbSize = (uint)Marshal.SizeOf(
+                    typeof(UNM.CONSOLE_FONT_INFOEX));
+
+                if (!UNM.GetCurrentConsoleFontEx(
+                        handle, false, ref consoleFontEx))
+                {
+                    error = NativeOps.GetErrorMessage();
+                    return ReturnCode.Error;
+                }
+
+                list = FontToList(consoleFontEx);
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode SetFont(
+            string faceName, /* in: OPTIONAL */
+            short? fontSize, /* in: OPTIONAL */
+            bool noSave,     /* in */
+            ref Result error /* out */
+            )
+        {
+            try
+            {
+                IntPtr handle = GetOrOpenHandle(true, ref error);
+
+                if (!NativeOps.IsValidHandle(handle))
+                    return ReturnCode.Error;
+
+                UNM.CONSOLE_FONT_INFOEX consoleFontEx; /* REUSED */
+
+                if (!noSave)
+                {
+                    lock (syncRoot) /* TRANSACTIONAL */
+                    {
+                        if (savedConsoleFontEx == null)
+                        {
+                            consoleFontEx = new UNM.CONSOLE_FONT_INFOEX();
+
+                            consoleFontEx.cbSize = (uint)Marshal.SizeOf(
+                                typeof(UNM.CONSOLE_FONT_INFOEX));
+
+                            if (!UNM.GetCurrentConsoleFontEx(
+                                    handle, false, ref consoleFontEx))
+                            {
+                                error = NativeOps.GetErrorMessage();
+                                return ReturnCode.Error;
+                            }
+
+                            TraceOps.DebugTrace(String.Format(
+                                "SetFont: original = {0}", FontToList(
+                                consoleFontEx)), typeof(NativeConsole).Name,
+                                TracePriority.ConsoleDebug2);
+
+                            savedConsoleFontEx = consoleFontEx;
+                        }
+                    }
+                }
+
+                uint fontIndex = 0;
+
+                if (Value.GetUnsignedInteger2(
+                        faceName, ValueFlags.AnyInteger, null,
+                        ref fontIndex) == ReturnCode.Ok)
+                {
+                    if (!UNM.SetConsoleFont(handle, fontIndex))
+                    {
+                        error = NativeOps.GetErrorMessage();
+                        return ReturnCode.Error;
+                    }
+                }
+                else
+                {
+                    consoleFontEx = new UNM.CONSOLE_FONT_INFOEX();
+
+                    consoleFontEx.cbSize = (uint)Marshal.SizeOf(
+                        typeof(UNM.CONSOLE_FONT_INFOEX));
+
+                    if (!UNM.GetCurrentConsoleFontEx(
+                            handle, false, ref consoleFontEx))
+                    {
+                        error = NativeOps.GetErrorMessage();
+                        return ReturnCode.Error;
+                    }
+
+                    TraceOps.DebugTrace(String.Format(
+                        "SetFont: before = {0}", FontToList(
+                        consoleFontEx)), typeof(NativeConsole).Name,
+                        TracePriority.ConsoleDebug2);
+
+                    consoleFontEx.nFont = 0; // TODO: Zero is allowed?
+
+                    consoleFontEx.FontFamily =
+                        UNM.FF_MODERN | UNM.TMPF_TRUETYPE_VECTOR;
+
+                    if (fontSize != null)
+                    {
+                        consoleFontEx.dwFontSize.X = 0; // TODO: Zero allowed?
+                        consoleFontEx.dwFontSize.Y = (short)fontSize;
+                    }
+
+                    consoleFontEx.FaceName = faceName;
+
+                    TraceOps.DebugTrace(String.Format(
+                        "SetFont: modified = {0}", FontToList(
+                        consoleFontEx)), typeof(NativeConsole).Name,
+                        TracePriority.ConsoleDebug2);
+
+                    if (!UNM.SetCurrentConsoleFontEx(
+                            handle, false, ref consoleFontEx))
+                    {
+                        error = NativeOps.GetErrorMessage();
+                        return ReturnCode.Error;
+                    }
+
+#if DEBUG || FORCE_TRACE
+                    consoleFontEx = new UNM.CONSOLE_FONT_INFOEX();
+
+                    consoleFontEx.cbSize = (uint)Marshal.SizeOf(
+                        typeof(UNM.CONSOLE_FONT_INFOEX));
+
+                    if (!UNM.GetCurrentConsoleFontEx(
+                            handle, false, ref consoleFontEx))
+                    {
+                        error = NativeOps.GetErrorMessage();
+                        return ReturnCode.Error;
+                    }
+
+                    TraceOps.DebugTrace(String.Format(
+                        "SetFont: after = {0}", FontToList(
+                        consoleFontEx)), typeof(NativeConsole).Name,
+                        TracePriority.ConsoleDebug2);
+#endif
+                }
+
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CleanupFont(
+            bool noComplain, /* in */
+            ref Result error /* out */
+            )
+        {
+            try
+            {
+                lock (syncRoot) /* TRANSACTIONAL */
+                {
+                    if (savedConsoleFontEx == null)
+                    {
+                        if (noComplain)
+                        {
+                            return ReturnCode.Ok;
+                        }
+                        else
+                        {
+                            error = "no saved console font";
+                            return ReturnCode.Error;
+                        }
+                    }
+
+                    IntPtr handle = GetOrOpenHandle(true, ref error);
+
+                    if (!NativeOps.IsValidHandle(handle))
+                        return ReturnCode.Error;
+
+                    UNM.CONSOLE_FONT_INFOEX consoleFontEx =
+                        (UNM.CONSOLE_FONT_INFOEX)savedConsoleFontEx;
+
+                    if (!UNM.SetCurrentConsoleFontEx(
+                            handle, false, ref consoleFontEx))
+                    {
+                        error = NativeOps.GetErrorMessage();
+                        return ReturnCode.Error;
+                    }
+
+                    savedConsoleFontEx = null;
+                    return ReturnCode.Ok;
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode WriteString<T>(
+            T value,
+            bool newLine,
+            ref Result error
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                IntPtr handle = GetOrOpenHandle(true, ref error);
+
+                if (!NativeOps.IsValidHandle(handle))
+                    return ReturnCode.Error;
+
+                return WriteString<T>(handle, value, newLine, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode WriteLine(
+            ref Result error /* out */
+            )
+        {
+            return WriteString<char[]>(NativeNewLine, false, ref error);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public Console Other Support Methods
         public static ReturnCode GetProcessList(
             ref IntList list,
@@ -2704,8 +3317,7 @@ namespace Eagle._Components.Private
                 uint count = 1;
                 uint[] ids = new uint[count];
 
-                count = UnsafeNativeMethods.GetConsoleProcessList(
-                    ids, count);
+                count = UNM.GetConsoleProcessList(ids, count);
 
                 if (count == 1)
                 {
@@ -2716,8 +3328,7 @@ namespace Eagle._Components.Private
                 {
                     ids = new uint[count];
 
-                    count = UnsafeNativeMethods.GetConsoleProcessList(
-                        ids, count);
+                    count = UNM.GetConsoleProcessList(ids, count);
 
                     if (count > 0)
                     {
@@ -3166,6 +3777,13 @@ namespace Eagle._Components.Private
             cleanupError = null;
 
             cleanupCode = CleanupHandles(false, ref cleanupError);
+
+            if (cleanupCode != ReturnCode.Ok)
+                MaybeComplain(cleanupCode, cleanupError);
+
+            cleanupError = null;
+
+            cleanupCode = CleanupFont(true, ref cleanupError);
 
             if (cleanupCode != ReturnCode.Ok)
                 MaybeComplain(cleanupCode, cleanupError);

@@ -234,6 +234,54 @@ namespace Eagle._Components.Public
 
         #region Static "Factory" Members
         public static IScript Create(
+            ISnippet snippet,
+            ref Result error
+            )
+        {
+            if (snippet == null)
+            {
+                error = "invalid script";
+                return null;
+            }
+
+            string text = null;
+
+            if (SnippetOps.GetText(
+                    snippet, ref text, ref error) != ReturnCode.Ok)
+            {
+                return null;
+            }
+
+            Guid id = snippet.Id;
+
+            /* IGNORED */
+            ScriptOps.ExtractId(text, ref id);
+
+            IScript script = PrivateCreate(id,
+                snippet.Name, snippet.Group, snippet.Description,
+                ScriptTypes.Snippet, text, snippet.Path,
+                Parser.UnknownLine, Parser.UnknownLine, false,
+#if XML
+                XmlBlockType.None, TimeOps.GetUtcNow(), null,
+                null,
+#endif
+                EngineMode.EvaluateScript, ScriptFlags.None,
+                EngineFlags.None, SubstitutionFlags.Default,
+                EventFlags.None, ExpressionFlags.Default,
+                snippet.ClientData, ScriptSecurityFlags.None);
+
+            if (script == null)
+            {
+                error = "failed to create script";
+                return null;
+            }
+
+            return script;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static IScript Create(
             string text
             )
         {
@@ -791,6 +839,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public IClientData ClientData
+        {
+            get { CheckIsImmutable(); return clientData; }
+            set { CheckHasAnyRestrictions(); clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public string Group
@@ -806,17 +865,6 @@ namespace Eagle._Components.Public
         {
             get { return description; }
             set { CheckHasAnyRestrictions(); description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public IClientData ClientData
-        {
-            get { CheckIsImmutable(); return clientData; }
-            set { CheckHasAnyRestrictions(); clientData = value; }
         }
         #endregion
 

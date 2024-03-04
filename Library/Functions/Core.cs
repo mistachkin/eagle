@@ -32,7 +32,7 @@ namespace Eagle._Functions
         //       core function set.
         //
         public Core(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
             : base(functionData)
         {
@@ -50,10 +50,10 @@ namespace Eagle._Functions
 
         #region IExecute Members
         public virtual ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

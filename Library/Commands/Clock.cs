@@ -133,7 +133,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex == Index.Invalid) ||
                                                     ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     string format = null;
 
                                                     if (options.IsPresent("-format", ref value))
@@ -355,7 +355,7 @@ namespace Eagle._Commands
                                                 {
                                                     if (argumentIndex == Index.Invalid)
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         string format = null;
 
                                                         if (options.IsPresent("-format", ref value))
@@ -435,7 +435,7 @@ namespace Eagle._Commands
                                                 {
                                                     if (argumentIndex == Index.Invalid)
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         DateTimeKind kind = ObjectOps.GetDefaultDateTimeKind();
 
                                                         if (options.IsPresent("-kind", ref value))
@@ -703,7 +703,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     bool utc = false;
 
                                                     if (options.IsPresent("-gmt", ref value))
@@ -751,7 +751,7 @@ namespace Eagle._Commands
                                             {
                                                 if (argumentIndex == Index.Invalid)
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     string format = null;
 
                                                     if (options.IsPresent("-format", ref value))

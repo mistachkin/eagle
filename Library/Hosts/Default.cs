@@ -45,19 +45,11 @@ namespace Eagle._Hosts
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        IHost, IDisposable, IMaybeDisposed
+        IHost, IDisposable, IMaybeDisposed, ISynchronizeStatic
     {
         #region Protected Constants
         protected internal static readonly BindingFlags HostPropertyBindingFlags =
             ObjectOps.GetBindingFlags(MetaBindingFlags.HostProperty, true);
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        //
-        // NOTE: These are the "default" beep values, per MSDN.
-        //
-        protected internal static readonly int BeepFrequency = 800;
-        protected internal static readonly int BeepDuration = 200;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -120,32 +112,56 @@ namespace Eagle._Hosts
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            ScriptTypes.Initialization, ScriptTypes.Embedding,
-            ScriptTypes.Vendor, ScriptTypes.Startup,
-            ScriptTypes.Safe, ScriptTypes.Shell,
-            ScriptTypes.Test, ScriptTypes.PackageIndex,
-            ScriptTypes.All, ScriptTypes.Constraints,
-            ScriptTypes.Epilogue, ScriptTypes.Prologue,
+            ScriptTypes.Initialization,
+            ScriptTypes.Embedding,
+            ScriptTypes.Vendor,
+            ScriptTypes.Startup,
+            ScriptTypes.Worker,
+            ScriptTypes.Safe,
+            ScriptTypes.Shell,
+            ScriptTypes.ShellWorker,
+            ScriptTypes.Test,
+            ScriptTypes.PackageIndex,
+            ScriptTypes.All,
+            ScriptTypes.Constraints,
+            ScriptTypes.Epilogue,
+            ScriptTypes.Prologue,
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            FileNameOnly.Initialization, FileNameOnly.Embedding,
-            FileNameOnly.Vendor, FileNameOnly.Startup,
-            FileNameOnly.Safe, FileNameOnly.Shell,
-            FileNameOnly.Test, FileNameOnly.LibraryPackageIndex,
-            FileNameOnly.All, FileNameOnly.Constraints,
-            FileNameOnly.Epilogue, FileNameOnly.Prologue,
+            FileNameOnly.Initialization,
+            FileNameOnly.Embedding,
+            FileNameOnly.Vendor,
+            FileNameOnly.Startup,
+            FileNameOnly.Worker,
+            FileNameOnly.Safe,
+            FileNameOnly.Shell,
+            FileNameOnly.ShellWorker,
+            FileNameOnly.Test,
+            FileNameOnly.LibraryPackageIndex,
+            FileNameOnly.All,
+            FileNameOnly.Constraints,
+            FileNameOnly.Epilogue,
+            FileNameOnly.Prologue,
             /* FileNameOnly.TestPackageIndex, */ /* DUPLICATE */
             /* FileNameOnly.KitPackageIndex, */ /* DUPLICATE */
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            FileName.Initialization, FileName.Embedding,
-            FileName.Vendor, FileName.Startup,
-            FileName.Safe, FileName.Shell,
-            FileName.Test, FileName.LibraryPackageIndex,
-            FileName.All, FileName.Constraints,
-            FileName.Epilogue, FileName.Prologue,
+            FileName.Initialization,
+            FileName.Embedding,
+            FileName.Vendor,
+            FileName.Startup,
+            FileName.Worker,
+            FileName.Safe,
+            FileName.Shell,
+            FileName.ShellWorker,
+            FileName.Test,
+            FileName.LibraryPackageIndex,
+            FileName.All,
+            FileName.Constraints,
+            FileName.Epilogue,
+            FileName.Prologue,
             FileName.TestPackageIndex,
             FileName.KitPackageIndex
         }, true, false);
@@ -165,6 +181,13 @@ namespace Eagle._Hosts
 
         public static readonly bool DefaultCanExit = true;
         public static readonly bool DefaultCanForceExit = true;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Static Data
+        private static readonly object staticSyncRoot = new object();
+        private static long staticLockThreadId = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -248,6 +271,10 @@ namespace Eagle._Hosts
 
             if (hostData != null)
             {
+                id = hostData.Id;
+
+                EntityOps.MaybeSetupId(this);
+
                 EntityOps.MaybeSetGroup(
                     this, hostData.Group);
 
@@ -738,7 +765,7 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private int windowWidth = 80;
+        private int windowWidth = Width.Default;
         protected virtual int WindowWidth
         {
             get { return windowWidth; }
@@ -747,7 +774,7 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private int windowHeight = 25;
+        private int windowHeight = Height.Default;
         protected virtual int WindowHeight
         {
             get { return windowHeight; }
@@ -759,7 +786,7 @@ namespace Eagle._Hosts
 
         #region Protected Content Area Properties
         private int contentMargin = 0;
-        protected virtual int ContentMargin
+        protected internal virtual int ContentMargin
         {
             get { return contentMargin; }
             set { contentMargin = value; }
@@ -823,7 +850,7 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private int boxMargin = 2;
+        private int boxMargin = Margin.Default;
         protected virtual int BoxMargin
         {
             get { return boxMargin; }
@@ -5278,54 +5305,83 @@ namespace Eagle._Hosts
                             ConsoleColor savedForegroundColor = _ConsoleColor.None;
                             ConsoleColor savedBackgroundColor = _ConsoleColor.None;
 
-                            if (shouldColorForPass && !GetColors(ref savedForegroundColor, ref savedBackgroundColor))
-                                return false;
+                            //
+                            // TODO: Add flag to control if locking is used...  peer of shouldColorForPass.
+                            //       Copy this block to the other three (?) spots it is needed.
+                            //
+                            bool locked = false;
 
                             try
                             {
-                                if (shouldAdjustForPass && !AdjustColors(ref foregroundColor, ref backgroundColor))
-                                    return false;
-
-                                if (shouldColorForPass && !SetColors(true, true, foregroundColor, backgroundColor))
-                                    return false;
-
-                                int wrote = 0;
-
-                                if (shouldWriteForPass)
+                                if (shouldColorForPass)
                                 {
-                                    while (count-- > 0)
-                                    {
-                                        if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                            return false;
+                                    PrivateStaticTryLock(ref locked);
 
-                                        writeCharCallback(value); /* throw */
+                                    if (!locked)
+                                    {
+                                        TraceOps.LockTrace(
+                                            "WriteCore",
+                                            typeof(Default).Name, false,
+                                            TracePriority.LockError,
+                                            MaybeWhoHasStaticLock());
+
+                                        return false;
+                                    }
+
+                                    if (!GetColors(ref savedForegroundColor, ref savedBackgroundColor))
+                                        return false;
+
+                                    if (shouldAdjustForPass && !AdjustColors(ref foregroundColor, ref backgroundColor))
+                                        return false;
+
+                                    if (!SetColors(true, true, foregroundColor, backgroundColor))
+                                        return false;
+                                }
+
+                                try
+                                {
+                                    int wrote = 0;
+
+                                    if (shouldWriteForPass)
+                                    {
+                                        while (count-- > 0)
+                                        {
+                                            if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                return false;
+
+                                            writeCharCallback(value); /* throw */
+                                            wrote++;
+                                        }
+                                    }
+
+                                    if (shouldWriteLineForPass)
+                                    {
+                                        writeLineCallback(); /* throw */
                                         wrote++;
                                     }
-                                }
 
-                                if (shouldWriteLineForPass)
+                                    if ((wrote == 0) && shouldFlushForPass)
+                                    {
+                                        //
+                                        // NOTE: Nothing was written;
+                                        //       therefore, no flush.
+                                        //
+                                        shouldFlushForPass = false;
+                                    }
+
+                                    if (shouldFlushForPass && !Flush())
+                                        return false;
+                                }
+                                finally
                                 {
-                                    writeLineCallback(); /* throw */
-                                    wrote++;
+                                    if (shouldColorForPass)
+                                        /* IGNORED */
+                                        RestoreOrSetColors(savedForegroundColor, savedBackgroundColor);
                                 }
-
-                                if (wrote == 0)
-                                {
-                                    //
-                                    // NOTE: Nothing was written;
-                                    //       therefore, no flush.
-                                    //
-                                    shouldFlushForPass = false;
-                                }
-
-                                if (shouldFlushForPass && !Flush())
-                                    return false;
                             }
                             finally
                             {
-                                if (shouldColorForPass)
-                                    /* IGNORED */
-                                    RestoreOrSetColors(savedForegroundColor, savedBackgroundColor);
+                                PrivateStaticExitLock(ref locked);
                             }
                         }
 
@@ -5384,51 +5440,76 @@ namespace Eagle._Hosts
                             ConsoleColor savedForegroundColor = _ConsoleColor.None;
                             ConsoleColor savedBackgroundColor = _ConsoleColor.None;
 
-                            if (shouldColorForPass && !GetColors(ref savedForegroundColor, ref savedBackgroundColor))
-                                return false;
+                            bool locked = false;
 
                             try
                             {
-                                if (shouldAdjustForPass && !AdjustColors(ref foregroundColor, ref backgroundColor))
-                                    return false;
-
-                                if (shouldColorForPass && !SetColors(true, true, foregroundColor, backgroundColor))
-                                    return false;
-
-                                int wrote = 0;
-
-                                if (shouldWriteForPass)
+                                if (shouldColorForPass)
                                 {
-                                    if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                    PrivateStaticTryLock(ref locked);
+
+                                    if (!locked)
+                                    {
+                                        TraceOps.LockTrace(
+                                            "WriteCore",
+                                            typeof(Default).Name, false,
+                                            TracePriority.LockError,
+                                            MaybeWhoHasStaticLock());
+
+                                        return false;
+                                    }
+
+                                    if (!GetColors(ref savedForegroundColor, ref savedBackgroundColor))
                                         return false;
 
-                                    writeStringCallback(value); /* throw */
-                                    wrote++;
+                                    if (shouldAdjustForPass && !AdjustColors(ref foregroundColor, ref backgroundColor))
+                                        return false;
+
+                                    if (!SetColors(true, true, foregroundColor, backgroundColor))
+                                        return false;
                                 }
 
-                                if (shouldWriteLineForPass)
+                                try
                                 {
-                                    writeLineCallback(); /* throw */
-                                    wrote++;
-                                }
+                                    int wrote = 0;
 
-                                if (wrote == 0)
+                                    if (shouldWriteForPass)
+                                    {
+                                        if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                            return false;
+
+                                        writeStringCallback(value); /* throw */
+                                        wrote++;
+                                    }
+
+                                    if (shouldWriteLineForPass)
+                                    {
+                                        writeLineCallback(); /* throw */
+                                        wrote++;
+                                    }
+
+                                    if ((wrote == 0) && shouldFlushForPass)
+                                    {
+                                        //
+                                        // NOTE: Nothing was written;
+                                        //       therefore, no flush.
+                                        //
+                                        shouldFlushForPass = false;
+                                    }
+
+                                    if (shouldFlushForPass && !Flush())
+                                        return false;
+                                }
+                                finally
                                 {
-                                    //
-                                    // NOTE: Nothing was written;
-                                    //       therefore, no flush.
-                                    //
-                                    shouldFlushForPass = false;
+                                    if (shouldColorForPass)
+                                        /* IGNORED */
+                                        RestoreOrSetColors(savedForegroundColor, savedBackgroundColor);
                                 }
-
-                                if (shouldFlushForPass && !Flush())
-                                    return false;
                             }
                             finally
                             {
-                                if (shouldColorForPass)
-                                    /* IGNORED */
-                                    RestoreOrSetColors(savedForegroundColor, savedBackgroundColor);
+                                PrivateStaticExitLock(ref locked);
                             }
                         }
 
@@ -5487,156 +5568,181 @@ namespace Eagle._Hosts
                             ConsoleColor savedForegroundColor = _ConsoleColor.None;
                             ConsoleColor savedBackgroundColor = _ConsoleColor.None;
 
-                            if (shouldColorForPass && !GetColors(ref savedForegroundColor, ref savedBackgroundColor))
-                                return false;
+                            bool locked = false;
 
                             try
                             {
-                                if (shouldAdjustForPass && !AdjustColors(ref foregroundColor, ref backgroundColor))
-                                    return false;
-
-                                if (shouldColorForPass && !SetColors(true, true, foregroundColor, backgroundColor))
-                                    return false;
-
-                                switch (hostWriteType)
+                                if (shouldColorForPass)
                                 {
-                                    case HostWriteType.Normal:
-                                        {
-                                            int wrote = 0;
+                                    PrivateStaticTryLock(ref locked);
 
-                                            if (shouldWriteForPass)
-                                            {
-                                                while (count-- > 0)
-                                                {
-                                                    if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                        return false;
+                                    if (!locked)
+                                    {
+                                        TraceOps.LockTrace(
+                                            "WriteCore",
+                                            typeof(Default).Name, false,
+                                            TracePriority.LockError,
+                                            MaybeWhoHasStaticLock());
 
-                                                    if (Write(value))
-                                                        wrote++;
-                                                    else
-                                                        return false;
-                                                }
-                                            }
+                                        return false;
+                                    }
 
-                                            if (shouldWriteLineForPass)
-                                            {
-                                                if (WriteLine())
-                                                    wrote++;
-                                                else
-                                                    return false;
-                                            }
+                                    if (!GetColors(ref savedForegroundColor, ref savedBackgroundColor))
+                                        return false;
 
-                                            if (wrote == 0)
-                                            {
-                                                //
-                                                // NOTE: Nothing was written;
-                                                //       therefore, no flush.
-                                                //
-                                                shouldFlushForPass = false;
-                                            }
-                                            break;
-                                        }
-                                    case HostWriteType.Debug:
-                                        {
-                                            int wrote = 0;
+                                    if (shouldAdjustForPass && !AdjustColors(ref foregroundColor, ref backgroundColor))
+                                        return false;
 
-                                            if (shouldWriteForPass)
-                                            {
-                                                while (count-- > 0)
-                                                {
-                                                    if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                        return false;
-
-                                                    if (WriteDebug(value))
-                                                        wrote++;
-                                                    else
-                                                        return false;
-                                                }
-                                            }
-
-                                            if (shouldWriteLineForPass)
-                                            {
-                                                if (WriteDebugLine())
-                                                    wrote++;
-                                                else
-                                                    return false;
-                                            }
-
-                                            if (wrote == 0)
-                                            {
-                                                //
-                                                // NOTE: Nothing was written;
-                                                //       therefore, no flush.
-                                                //
-                                                shouldFlushForPass = false;
-                                            }
-                                            break;
-                                        }
-                                    case HostWriteType.Error:
-                                        {
-                                            int wrote = 0;
-
-                                            if (shouldWriteForPass)
-                                            {
-                                                while (count-- > 0)
-                                                {
-                                                    if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                        return false;
-
-                                                    if (WriteError(value))
-                                                        wrote++;
-                                                    else
-                                                        return false;
-                                                }
-                                            }
-
-                                            if (shouldWriteLineForPass)
-                                            {
-                                                if (WriteErrorLine())
-                                                    wrote++;
-                                                else
-                                                    return false;
-                                            }
-
-                                            if (wrote == 0)
-                                            {
-                                                //
-                                                // NOTE: Nothing was written;
-                                                //       therefore, no flush.
-                                                //
-                                                shouldFlushForPass = false;
-                                            }
-                                            break;
-                                        }
-                                    case HostWriteType.Flush:
-                                        {
-                                            //
-                                            // NOTE: Do nothing and allow
-                                            //       flush to occur (below)
-                                            //       even though nothing has
-                                            //       been written.
-                                            //
-                                            break;
-                                        }
-                                    default:
-                                        {
-                                            //
-                                            // NOTE: Nothing was written;
-                                            //       therefore, no flush.
-                                            //
-                                            shouldFlushForPass = false;
-                                            break;
-                                        }
+                                    if (!SetColors(true, true, foregroundColor, backgroundColor))
+                                        return false;
                                 }
 
-                                if (shouldFlushForPass && !Flush())
-                                    return false;
+                                try
+                                {
+                                    switch (hostWriteType)
+                                    {
+                                        case HostWriteType.Normal:
+                                            {
+                                                int wrote = 0;
+
+                                                if (shouldWriteForPass)
+                                                {
+                                                    while (count-- > 0)
+                                                    {
+                                                        if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                            return false;
+
+                                                        if (Write(value))
+                                                            wrote++;
+                                                        else
+                                                            return false;
+                                                    }
+                                                }
+
+                                                if (shouldWriteLineForPass)
+                                                {
+                                                    if (WriteLine())
+                                                        wrote++;
+                                                    else
+                                                        return false;
+                                                }
+
+                                                if ((wrote == 0) && shouldFlushForPass)
+                                                {
+                                                    //
+                                                    // NOTE: Nothing was written;
+                                                    //       therefore, no flush.
+                                                    //
+                                                    shouldFlushForPass = false;
+                                                }
+                                                break;
+                                            }
+                                        case HostWriteType.Debug:
+                                            {
+                                                int wrote = 0;
+
+                                                if (shouldWriteForPass)
+                                                {
+                                                    while (count-- > 0)
+                                                    {
+                                                        if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                            return false;
+
+                                                        if (WriteDebug(value))
+                                                            wrote++;
+                                                        else
+                                                            return false;
+                                                    }
+                                                }
+
+                                                if (shouldWriteLineForPass)
+                                                {
+                                                    if (WriteDebugLine())
+                                                        wrote++;
+                                                    else
+                                                        return false;
+                                                }
+
+                                                if ((wrote == 0) && shouldFlushForPass)
+                                                {
+                                                    //
+                                                    // NOTE: Nothing was written;
+                                                    //       therefore, no flush.
+                                                    //
+                                                    shouldFlushForPass = false;
+                                                }
+                                                break;
+                                            }
+                                        case HostWriteType.Error:
+                                            {
+                                                int wrote = 0;
+
+                                                if (shouldWriteForPass)
+                                                {
+                                                    while (count-- > 0)
+                                                    {
+                                                        if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                            return false;
+
+                                                        if (WriteError(value))
+                                                            wrote++;
+                                                        else
+                                                            return false;
+                                                    }
+                                                }
+
+                                                if (shouldWriteLineForPass)
+                                                {
+                                                    if (WriteErrorLine())
+                                                        wrote++;
+                                                    else
+                                                        return false;
+                                                }
+
+                                                if ((wrote == 0) && shouldFlushForPass)
+                                                {
+                                                    //
+                                                    // NOTE: Nothing was written;
+                                                    //       therefore, no flush.
+                                                    //
+                                                    shouldFlushForPass = false;
+                                                }
+                                                break;
+                                            }
+                                        case HostWriteType.Flush:
+                                            {
+                                                //
+                                                // NOTE: Do nothing and allow
+                                                //       flush to occur (below)
+                                                //       even though nothing has
+                                                //       been written.
+                                                //
+                                                break;
+                                            }
+                                        default:
+                                            {
+                                                //
+                                                // NOTE: Nothing was written;
+                                                //       therefore, no flush.
+                                                //
+                                                shouldFlushForPass = false;
+                                                break;
+                                            }
+                                    }
+
+                                    if (shouldFlushForPass && !Flush())
+                                        return false;
+                                }
+                                finally
+                                {
+                                    if (shouldColorForPass)
+                                        /* IGNORED */
+                                        RestoreOrSetColors(savedForegroundColor, savedBackgroundColor);
+                                }
                             }
                             finally
                             {
-                                if (shouldColorForPass)
-                                    /* IGNORED */
-                                    RestoreOrSetColors(savedForegroundColor, savedBackgroundColor);
+                                PrivateStaticExitLock(ref locked);
                             }
                         }
 
@@ -5692,217 +5798,242 @@ namespace Eagle._Hosts
                         ConsoleColor savedForegroundColor = _ConsoleColor.None;
                         ConsoleColor savedBackgroundColor = _ConsoleColor.None;
 
-                        if (shouldColorForPass && !GetColors(ref savedForegroundColor, ref savedBackgroundColor))
-                            return false;
+                        bool locked = false;
 
                         try
                         {
-                            if (shouldAdjustForPass && !AdjustColors(ref foregroundColor, ref backgroundColor))
-                                return false;
-
-                            if (shouldColorForPass && !SetColors(true, true, foregroundColor, backgroundColor))
-                                return false;
-
-                            //
-                            // NOTE: *SPECIAL* If the caller wants a new-line and we are
-                            //       operating in one-pass mode (i.e. both boolean flags
-                            //       are true), just call the appropriate Write*Line()
-                            //       method.
-                            //
-                            if (shouldWriteForPass && shouldWriteLineForPass)
+                            if (shouldColorForPass)
                             {
-                                switch (hostWriteType)
+                                PrivateStaticTryLock(ref locked);
+
+                                if (!locked)
                                 {
-                                    case HostWriteType.Normal:
-                                        {
-                                            if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                return false;
+                                    TraceOps.LockTrace(
+                                        "WriteCore",
+                                        typeof(Default).Name, false,
+                                        TracePriority.LockError,
+                                        MaybeWhoHasStaticLock());
 
-                                            if (!WriteLine(value))
-                                                return false;
-
-                                            break;
-                                        }
-                                    case HostWriteType.Debug:
-                                        {
-                                            if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                return false;
-
-                                            if (!WriteDebugLine(value))
-                                                return false;
-
-                                            break;
-                                        }
-                                    case HostWriteType.Error:
-                                        {
-                                            if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                return false;
-
-                                            if (!WriteErrorLine(value))
-                                                return false;
-
-                                            break;
-                                        }
-                                    case HostWriteType.Flush:
-                                        {
-                                            //
-                                            // NOTE: Do nothing and allow
-                                            //       flush to occur (below)
-                                            //       even though nothing has
-                                            //       been written.
-                                            //
-                                            break;
-                                        }
-                                    default:
-                                        {
-                                            //
-                                            // NOTE: Nothing was written;
-                                            //       therefore, no flush.
-                                            //
-                                            shouldFlushForPass = false;
-                                            break;
-                                        }
+                                    return false;
                                 }
-                            }
-                            else
-                            {
-                                switch (hostWriteType)
-                                {
-                                    case HostWriteType.Normal:
-                                        {
-                                            int wrote = 0;
 
-                                            if (shouldWriteForPass)
-                                            {
-                                                if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                    return false;
+                                if (!GetColors(ref savedForegroundColor, ref savedBackgroundColor))
+                                    return false;
 
-                                                if (Write(value))
-                                                    wrote++;
-                                                else
-                                                    return false;
-                                            }
+                                if (shouldAdjustForPass && !AdjustColors(ref foregroundColor, ref backgroundColor))
+                                    return false;
 
-                                            if (shouldWriteLineForPass)
-                                            {
-                                                if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                    return false;
-
-                                                if (WriteLine())
-                                                    wrote++;
-                                                else
-                                                    return false;
-                                            }
-
-                                            if (wrote == 0)
-                                            {
-                                                //
-                                                // NOTE: Nothing was written;
-                                                //       therefore, no flush.
-                                                //
-                                                shouldFlushForPass = false;
-                                            }
-                                            break;
-                                        }
-                                    case HostWriteType.Debug:
-                                        {
-                                            int wrote = 0;
-
-                                            if (shouldWriteForPass)
-                                            {
-                                                if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                    return false;
-
-                                                if (WriteDebug(value))
-                                                    wrote++;
-                                                else
-                                                    return false;
-                                            }
-
-                                            if (shouldWriteLineForPass)
-                                            {
-                                                if (WriteDebugLine())
-                                                    wrote++;
-                                                else
-                                                    return false;
-                                            }
-
-                                            if (wrote == 0)
-                                            {
-                                                //
-                                                // NOTE: Nothing was written;
-                                                //       therefore, no flush.
-                                                //
-                                                shouldFlushForPass = false;
-                                            }
-                                            break;
-                                        }
-                                    case HostWriteType.Error:
-                                        {
-                                            int wrote = 0;
-
-                                            if (shouldWriteForPass)
-                                            {
-                                                if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                    return false;
-
-                                                if (WriteError(value))
-                                                    wrote++;
-                                                else
-                                                    return false;
-                                            }
-
-                                            if (shouldWriteLineForPass)
-                                            {
-                                                if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
-                                                    return false;
-
-                                                if (WriteErrorLine())
-                                                    wrote++;
-                                                else
-                                                    return false;
-                                            }
-
-                                            if (wrote == 0)
-                                            {
-                                                //
-                                                // NOTE: Nothing was written;
-                                                //       therefore, no flush.
-                                                //
-                                                shouldFlushForPass = false;
-                                            }
-                                            break;
-                                        }
-                                    case HostWriteType.Flush:
-                                        {
-                                            //
-                                            // NOTE: Do nothing and allow
-                                            //       flush to occur (below)
-                                            //       even though nothing has
-                                            //       been written.
-                                            //
-                                            break;
-                                        }
-                                    default:
-                                        {
-                                            //
-                                            // NOTE: Nothing was written;
-                                            //       therefore, no flush.
-                                            //
-                                            shouldFlushForPass = false;
-                                            break;
-                                        }
-                                }
+                                if (!SetColors(true, true, foregroundColor, backgroundColor))
+                                    return false;
                             }
 
-                            if (shouldFlushForPass && !Flush())
-                                return false;
+                            try
+                            {
+                                //
+                                // NOTE: *SPECIAL* If the caller wants a new-line and we are
+                                //       operating in one-pass mode (i.e. both boolean flags
+                                //       are true), just call the appropriate Write*Line()
+                                //       method.
+                                //
+                                if (shouldWriteForPass && shouldWriteLineForPass)
+                                {
+                                    switch (hostWriteType)
+                                    {
+                                        case HostWriteType.Normal:
+                                            {
+                                                if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                    return false;
+
+                                                if (!WriteLine(value))
+                                                    return false;
+
+                                                break;
+                                            }
+                                        case HostWriteType.Debug:
+                                            {
+                                                if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                    return false;
+
+                                                if (!WriteDebugLine(value))
+                                                    return false;
+
+                                                break;
+                                            }
+                                        case HostWriteType.Error:
+                                            {
+                                                if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                    return false;
+
+                                                if (!WriteErrorLine(value))
+                                                    return false;
+
+                                                break;
+                                            }
+                                        case HostWriteType.Flush:
+                                            {
+                                                //
+                                                // NOTE: Do nothing and allow
+                                                //       flush to occur (below)
+                                                //       even though nothing has
+                                                //       been written.
+                                                //
+                                                break;
+                                            }
+                                        default:
+                                            {
+                                                //
+                                                // NOTE: Nothing was written;
+                                                //       therefore, no flush.
+                                                //
+                                                shouldFlushForPass = false;
+                                                break;
+                                            }
+                                    }
+                                }
+                                else
+                                {
+                                    switch (hostWriteType)
+                                    {
+                                        case HostWriteType.Normal:
+                                            {
+                                                int wrote = 0;
+
+                                                if (shouldWriteForPass)
+                                                {
+                                                    if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                        return false;
+
+                                                    if (Write(value))
+                                                        wrote++;
+                                                    else
+                                                        return false;
+                                                }
+
+                                                if (shouldWriteLineForPass)
+                                                {
+                                                    if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                        return false;
+
+                                                    if (WriteLine())
+                                                        wrote++;
+                                                    else
+                                                        return false;
+                                                }
+
+                                                if ((wrote == 0) && shouldFlushForPass)
+                                                {
+                                                    //
+                                                    // NOTE: Nothing was written;
+                                                    //       therefore, no flush.
+                                                    //
+                                                    shouldFlushForPass = false;
+                                                }
+                                                break;
+                                            }
+                                        case HostWriteType.Debug:
+                                            {
+                                                int wrote = 0;
+
+                                                if (shouldWriteForPass)
+                                                {
+                                                    if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                        return false;
+
+                                                    if (WriteDebug(value))
+                                                        wrote++;
+                                                    else
+                                                        return false;
+                                                }
+
+                                                if (shouldWriteLineForPass)
+                                                {
+                                                    if (WriteDebugLine())
+                                                        wrote++;
+                                                    else
+                                                        return false;
+                                                }
+
+                                                if ((wrote == 0) && shouldFlushForPass)
+                                                {
+                                                    //
+                                                    // NOTE: Nothing was written;
+                                                    //       therefore, no flush.
+                                                    //
+                                                    shouldFlushForPass = false;
+                                                }
+                                                break;
+                                            }
+                                        case HostWriteType.Error:
+                                            {
+                                                int wrote = 0;
+
+                                                if (shouldWriteForPass)
+                                                {
+                                                    if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                        return false;
+
+                                                    if (WriteError(value))
+                                                        wrote++;
+                                                    else
+                                                        return false;
+                                                }
+
+                                                if (shouldWriteLineForPass)
+                                                {
+                                                    if (normalize && !WriteCoreNormalizeValue(ref value, ref didNormalize))
+                                                        return false;
+
+                                                    if (WriteErrorLine())
+                                                        wrote++;
+                                                    else
+                                                        return false;
+                                                }
+
+                                                if ((wrote == 0) && shouldFlushForPass)
+                                                {
+                                                    //
+                                                    // NOTE: Nothing was written;
+                                                    //       therefore, no flush.
+                                                    //
+                                                    shouldFlushForPass = false;
+                                                }
+                                                break;
+                                            }
+                                        case HostWriteType.Flush:
+                                            {
+                                                //
+                                                // NOTE: Do nothing and allow
+                                                //       flush to occur (below)
+                                                //       even though nothing has
+                                                //       been written.
+                                                //
+                                                break;
+                                            }
+                                        default:
+                                            {
+                                                //
+                                                // NOTE: Nothing was written;
+                                                //       therefore, no flush.
+                                                //
+                                                shouldFlushForPass = false;
+                                                break;
+                                            }
+                                    }
+                                }
+
+                                if (shouldFlushForPass && !Flush())
+                                    return false;
+                            }
+                            finally
+                            {
+                                if (shouldColorForPass)
+                                    /* IGNORED */
+                                    RestoreOrSetColors(savedForegroundColor, savedBackgroundColor);
+                            }
                         }
                         finally
                         {
-                            if (shouldColorForPass)
-                                /* IGNORED */
-                                RestoreOrSetColors(savedForegroundColor, savedBackgroundColor);
+                            PrivateStaticExitLock(ref locked);
                         }
                     }
 
@@ -6422,6 +6553,16 @@ namespace Eagle._Hosts
             return FlagOps.HasFlags(
                 MaybeInitializeHostFlags(), HostFlags.NormalizeToNewLine, true);
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NATIVE && WINDOWS
+        protected virtual bool DoesNativeWindows()
+        {
+            return FlagOps.HasFlags(
+                MaybeInitializeHostFlags(), HostFlags.NativeWindows, true);
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6654,6 +6795,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region IGetClientData / ISetClientData Members
+        private IClientData clientData;
+        public virtual IClientData ClientData
+        {
+            get { CheckDisposed(); return clientData; }
+            set { CheckDisposed(); clientData = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region IIdentifier Members
         private string group;
         public virtual string Group
@@ -6669,17 +6821,6 @@ namespace Eagle._Hosts
         {
             get { CheckDisposed(); return description; }
             set { CheckDisposed(); description = value; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////////////////////////////
-
-        #region IGetClientData / ISetClientData Members
-        private IClientData clientData;
-        public virtual IClientData ClientData
-        {
-            get { CheckDisposed(); return clientData; }
-            set { CheckDisposed(); clientData = value; }
         }
         #endregion
 
@@ -6947,6 +7088,7 @@ namespace Eagle._Hosts
 
         public abstract ReturnCode QueueWorkItem(
             ThreadStart callback,
+            QueueFlags flags,
             ref Result error
             ); /* PRIMITIVE */
 
@@ -6955,6 +7097,7 @@ namespace Eagle._Hosts
         public abstract ReturnCode QueueWorkItem(
             WaitCallback callback,
             object state,
+            QueueFlags flags,
             ref Result error
             ); /* PRIMITIVE */
 
@@ -9863,7 +10006,7 @@ namespace Eagle._Hosts
 
             try
             {
-                if (boxLevels == 1)
+                if (levels == 1)
                 {
                     if (list != null)
                     {
@@ -11100,6 +11243,149 @@ namespace Eagle._Hosts
         public virtual bool Disposing
         {
             get { throw new NotImplementedException(); }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region ISynchronize Support Methods
+        private static long MaybeWhoHasStaticLock()
+        {
+            return Interlocked.CompareExchange(
+                ref staticLockThreadId, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void MaybeSomebodyHasStaticLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref staticLockThreadId,
+                    GlobalState.GetCurrentThreadId(), 0);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static void MaybeNobodyHasStaticLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref staticLockThreadId,
+                    0, GlobalState.GetCurrentThreadId());
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void PrivateStaticTryLock(
+            ref bool locked
+            )
+        {
+            if (staticSyncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(staticSyncRoot);
+            MaybeSomebodyHasStaticLock(locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void PrivateStaticTryLockWithWait(
+            ref bool locked
+            )
+        {
+            if (staticSyncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(
+                staticSyncRoot, ThreadOps.GetTimeout(
+                null, null, TimeoutType.WaitLock));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void PrivateStaticTryLock(
+            int timeout,
+            ref bool locked
+            )
+        {
+            if (staticSyncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(staticSyncRoot, timeout);
+            MaybeSomebodyHasStaticLock(locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private void PrivateStaticExitLock(
+            ref bool locked
+            )
+        {
+            if (staticSyncRoot == null)
+                return;
+
+            if (locked)
+            {
+                MaybeNobodyHasStaticLock(locked);
+                Monitor.Exit(staticSyncRoot);
+                locked = false;
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region ISynchronizeStatic Members
+        public virtual void StaticTryLock(
+            ref bool locked
+            )
+        {
+            CheckDisposed();
+
+            PrivateStaticTryLock(ref locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public virtual void StaticTryLockWithWait(
+            ref bool locked
+            )
+        {
+            CheckDisposed();
+
+            PrivateStaticTryLockWithWait(ref locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public virtual void StaticTryLock(
+            int timeout,
+            ref bool locked
+            )
+        {
+            CheckDisposed();
+
+            PrivateStaticTryLock(timeout, ref locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public virtual void StaticExitLock(
+            ref bool locked
+            )
+        {
+            CheckDisposed();
+
+            PrivateStaticExitLock(ref locked);
         }
         #endregion
 

@@ -258,7 +258,7 @@ namespace eval ::Eagle {
 
     if {$force || ![info exists ::no(dotNetCoreVersions)]} then {
       return [list [list 2 0] [list 2 1] [list 2 2] [list 3 0] \
-          [list 3 1] [list 5 0] [list 6 0] [list 7 0]]
+          [list 3 1] [list 5 0] [list 6 0] [list 7 0] [list 8 0]]
     } else {
       return [list]
     }
@@ -1082,7 +1082,7 @@ namespace eval ::Eagle {
       #
       foreach fileNameOnly [list \
           auxiliary.eagle compat.eagle csharp.eagle database.eagle \
-          embed.eagle exec.eagle file1.eagle file2.eagle \
+          embed.eagle exec.eagle file1.eagle file2.eagle file2u.eagle \
           file3.eagle info.eagle init.eagle list.eagle \
           object.eagle pkgIndex.eagle pkgIndex.tcl pkgt.eagle \
           platform.eagle process.eagle runopt.eagle safe.eagle \
@@ -2076,7 +2076,11 @@ namespace eval ::Eagle {
       #       start with "Eagle".
       #
       if {![info exists ::no(strictCheckForShell)]} then {
-        set match [expr {$name eq "Eagle" || $name eq "EagleShell"}]
+        set match [expr {
+          $name in [list \
+              Eagle Eagle32 Eagle64 EagleShell EagleShell32 \
+              EagleShell64 EagleKit EagleKit32 EagleKit64]
+        }]
       } else {
         set match [string match Eagle* $name]
       }
@@ -7177,23 +7181,26 @@ namespace eval ::Eagle {
     #
     exportAndImportPackageCommands [namespace current] [list \
         getKnownBuildTypes getKnownCompileOptions getKnownWindowsVersions \
+        getKnownDotNetVersions getKnownMonoVersions addKnownMonoConstraints \
+        getKnownDotNetCoreVersions getKnownPublicKeyTokenPattern \
+        addKnownDotNetConstraints addKnownDotNetCoreConstraints \
         getKnownMonoVersions addKnownMonoConstraints \
         getKnownDotNetCoreVersions addKnownDotNetCoreConstraints \
         getKnownTclVersions filterKnownVersions \
         getDotNetCoreDirectoryNameOnly getDotNetCoreLibPathDirectoryNameOnly \
         getRuntimeVersion getDottedVersion getDotlessVersion \
-        getMajorMinorVersion loadTestSettings lpermute alwaysFullInterpReady \
-        canExecComSpec canExecWhoAmI canExecTclShell canExecFossil \
-        canExecFsUtil canExecVsWhere canExecWmic getCpuStatus isTestMono \
-        isTestDotNetCore isTestAdministrator canPing cleanConstraintName \
-        cleanPackageName haveTclPlatformOsExtraUpdateName appendExecArguments \
-        tryDetectFossilRoot execFossilCommand checkForTestSuiteFiles \
-        checkForPlatform checkForWindowsVersion checkForGetInstalledUpdates \
-        checkForOperatingSystemUpdate checkForScriptLibrary checkForVariable \
-        checkForEnvironmentVariable checkForTclOptions \
-        checkForWindowsCommandProcessor checkForPackage checkForFossil \
-        checkForVisualStudioViaVsWhere checkForEagle checkForSymbols \
-        checkForLogFile checkForGaruda checkForShell \
+        getMajorMinorVersion loadTestSettings lpermute lcombine \
+        alwaysFullInterpReady canExecComSpec canExecWhoAmI canExecTclShell \
+        canExecFossil canExecFsUtil canExecVsWhere canExecWmic getCpuStatus \
+        isTestMono isTestDotNetCore isTestAdministrator canPing \
+        cleanConstraintName cleanPackageName haveTclPlatformOsExtraUpdateName \
+        appendExecArguments tryDetectFossilRoot execFossilCommand \
+        checkForTestSuiteFiles checkForPlatform checkForWindowsVersion \
+        checkForGetInstalledUpdates checkForOperatingSystemUpdate \
+        checkForScriptLibrary checkForEnvironmentVariable checkForVariable \
+        checkForTclOptions checkForWindowsCommandProcessor checkForPackage \
+        checkForFossil checkForVisualStudioViaVsWhere checkForEagle \
+        checkForSymbols checkForLogFile checkForGaruda checkForShell \
         checkForOfficialStableReleaseInProgress checkForDebug checkForTk \
         checkForVersion checkForCommand checkForSubCommand checkForIntIsWide \
         checkForEFormat checkForNamespaces checkForTestExec \

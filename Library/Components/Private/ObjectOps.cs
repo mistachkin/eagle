@@ -648,7 +648,10 @@ namespace Eagle._Components.Private
 
                     /* MetaBindingFlags.TypeDefaultLookup */
                     BindingFlags.Instance | BindingFlags.Static |
-                    BindingFlags.Public
+                    BindingFlags.Public,
+
+                    /* MetaBindingFlags.DynamicMethodHandle */
+                    BindingFlags.Instance | BindingFlags.NonPublic
                 };
             }
         }
@@ -1734,6 +1737,15 @@ namespace Eagle._Components.Private
         //
         public static OptionDictionary GetCertificateOptions()
         {
+            X509VerificationFlags localX509VerificationFlags;
+            X509RevocationMode localX509RevocationMode;
+            X509RevocationFlag localX509RevocationFlag;
+
+            CertificateOps.QueryFlags(
+                out localX509VerificationFlags,
+                out localX509RevocationMode,
+                out localX509RevocationFlag);
+
             return new OptionDictionary(
                 new IOption[] {
                 new Option(null, OptionFlags.None, Index.Invalid,
@@ -1743,15 +1755,15 @@ namespace Eagle._Components.Private
                 new Option(typeof(X509VerificationFlags),
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-verificationflags",
-                    new Variant(CertificateOps.DefaultVerificationFlags)),
+                    new Variant(localX509VerificationFlags)),
                 new Option(typeof(X509RevocationMode),
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-revocationmode",
-                    new Variant(CertificateOps.DefaultRevocationMode)),
+                    new Variant(localX509RevocationMode)),
                 new Option(typeof(X509RevocationFlag),
                     OptionFlags.MustHaveEnumValue, Index.Invalid,
                     Index.Invalid, "-revocationflag",
-                    new Variant(CertificateOps.DefaultRevocationFlag)),
+                    new Variant(localX509RevocationFlag)),
                 Option.CreateEndOfOptions()
             });
         }
@@ -2755,6 +2767,10 @@ namespace Eagle._Components.Private
                 new Option(typeof(ObjectFlags), OptionFlags.MustHaveEnumValue,
                     Index.Invalid, Index.Invalid, "-objectflags",
                     new Variant(DefaultObjectFlags | ObjectFlags.Assembly)),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-trustedonly", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-verifiedonly", null),
                 Option.CreateEndOfOptions()
             });
         }
@@ -3219,7 +3235,7 @@ namespace Eagle._Components.Private
             out string dateTimeFormat
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -3285,7 +3301,7 @@ namespace Eagle._Components.Private
             out CallbackFlags callbackFlags
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -3375,7 +3391,7 @@ namespace Eagle._Components.Private
             out MarshalFlags marshalFlags
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -3457,7 +3473,7 @@ namespace Eagle._Components.Private
             out bool noFixup
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -3900,7 +3916,7 @@ namespace Eagle._Components.Private
             out bool trace
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4311,7 +4327,7 @@ namespace Eagle._Components.Private
             out bool toString
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4531,7 +4547,7 @@ namespace Eagle._Components.Private
             out bool noCase
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4625,7 +4641,7 @@ namespace Eagle._Components.Private
             out bool trace
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4868,7 +4884,7 @@ namespace Eagle._Components.Private
             out bool aliasReference
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -4944,13 +4960,24 @@ namespace Eagle._Components.Private
             out bool cache
             )
         {
-            Variant value = null;
+            X509VerificationFlags localX509VerificationFlags;
+            X509RevocationMode localX509RevocationMode;
+            X509RevocationFlag localX509RevocationFlag;
+
+            CertificateOps.QueryFlags(
+                out localX509VerificationFlags,
+                out localX509RevocationMode,
+                out localX509RevocationFlag);
+
+            ///////////////////////////////////////////////////////////////////
+
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
             x509VerificationFlags = (defaultX509VerificationFlags != null) ?
                 (X509VerificationFlags)defaultX509VerificationFlags :
-                CertificateOps.DefaultVerificationFlags;
+                localX509VerificationFlags;
 
             if ((options != null) &&
                 options.CheckPresent("-verificationflags", ref value))
@@ -4962,7 +4989,7 @@ namespace Eagle._Components.Private
 
             x509RevocationMode = (defaultX509RevocationMode != null) ?
                 (X509RevocationMode)defaultX509RevocationMode :
-                CertificateOps.DefaultRevocationMode;
+                localX509RevocationMode;
 
             if ((options != null) &&
                 options.CheckPresent("-revocationmode", ref value))
@@ -4974,7 +5001,7 @@ namespace Eagle._Components.Private
 
             x509RevocationFlag = (defaultX509RevocationFlag != null) ?
                 (X509RevocationFlag)defaultX509RevocationFlag :
-                CertificateOps.DefaultRevocationFlag;
+                localX509RevocationFlag;
 
             if ((options != null) &&
                 options.CheckPresent("-revocationflag", ref value))
@@ -5063,7 +5090,7 @@ namespace Eagle._Components.Private
             out bool noCase
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5160,7 +5187,7 @@ namespace Eagle._Components.Private
             out bool @default
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5235,10 +5262,12 @@ namespace Eagle._Components.Private
             out bool importNonPublic,
             out bool importNoCase,
             out bool fromObject,
-            out bool reflectionOnly
+            out bool reflectionOnly,
+            out bool trustedOnly,
+            out bool verifiedOnly
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5316,6 +5345,20 @@ namespace Eagle._Components.Private
 
             if ((options != null) && options.CheckPresent("-reflectiononly"))
                 reflectionOnly = true;
+
+            ///////////////////////////////////////////////////////////////////
+
+            trustedOnly = false;
+
+            if ((options != null) && options.CheckPresent("-trustedonly"))
+                trustedOnly = true;
+
+            ///////////////////////////////////////////////////////////////////
+
+            verifiedOnly = false;
+
+            if ((options != null) && options.CheckPresent("-verifiedonly"))
+                verifiedOnly = true;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5528,7 +5571,7 @@ namespace Eagle._Components.Private
             out bool noCase
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5576,7 +5619,7 @@ namespace Eagle._Components.Private
             out BindingFlags bindingFlags
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 
@@ -5628,7 +5671,7 @@ namespace Eagle._Components.Private
             out ValueFlags memberValueFlags
             )
         {
-            Variant value = null;
+            IVariant value = null;
 
             ///////////////////////////////////////////////////////////////////
 

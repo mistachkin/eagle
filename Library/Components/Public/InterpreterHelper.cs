@@ -82,6 +82,7 @@ namespace Eagle._Components.Public
             InitializeFlags initializeFlags,
             ScriptFlags scriptFlags,
             InterpreterFlags interpreterFlags,
+            InterpreterTestFlags interpreterTestFlags,
             PluginFlags pluginFlags,
 #if NATIVE && TCL
             FindFlags findFlags,
@@ -96,7 +97,7 @@ namespace Eagle._Components.Public
             interpreter = Interpreter.Create(
                 ruleSet, args, createFlags, hostCreateFlags,
                 initializeFlags, scriptFlags, interpreterFlags,
-                pluginFlags,
+                interpreterTestFlags, pluginFlags,
 #if NATIVE && TCL
                 findFlags, loadFlags,
 #endif
@@ -256,6 +257,7 @@ namespace Eagle._Components.Public
             InitializeFlags initializeFlags,
             ScriptFlags scriptFlags,
             InterpreterFlags interpreterFlags,
+            InterpreterTestFlags interpreterTestFlags,
             PluginFlags pluginFlags,
 #if NATIVE && TCL
             FindFlags findFlags,
@@ -290,7 +292,7 @@ namespace Eagle._Components.Public
                 object[] ctorArgs = {
                     ruleSet, args, createFlags, hostCreateFlags,
                     initializeFlags, scriptFlags, interpreterFlags,
-                    pluginFlags,
+                    interpreterTestFlags, pluginFlags,
 #if NATIVE && TCL
                     findFlags, loadFlags,
 #endif

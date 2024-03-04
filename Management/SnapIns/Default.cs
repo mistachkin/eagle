@@ -47,4 +47,3 @@ namespace Eagle._SnapIns
         }
     }
 }
-

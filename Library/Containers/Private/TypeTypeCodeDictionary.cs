@@ -1,5 +1,5 @@
 /*
- * BooleanList.cs --
+ * TypeTypeCodeDictionary.cs --
  *
  * Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
  *
@@ -9,11 +9,13 @@
  * RCS: @(#) $Id: $
  */
 
+using System;
 using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Constants;
+using Eagle._Containers.Public;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -21,30 +23,28 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
-    [ObjectId("4b6433b9-ccd5-45a1-b205-4cbebcaeb248")]
-    internal sealed class BooleanList : List<bool>
+    [ObjectId("69f64e3b-4ebb-4020-83f1-1d6f6419f152")]
+    internal sealed class TypeTypeCodeDictionary : Dictionary<Type, TypeCode>
     {
-        #region Public Constructors
-        public BooleanList(int capacity)
-            : base(capacity)
+        public TypeTypeCodeDictionary()
+            : base()
         {
             // do nothing.
         }
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Public Methods
         public string ToString(
             string pattern,
             bool noCase
             )
         {
-            return ParserOps<bool>.ListToString(
-                this, Index.Invalid, Index.Invalid, ToStringFlags.None,
+            StringList list = new StringList(this.Keys);
+
+            return ParserOps<string>.ListToString(
+                list, Index.Invalid, Index.Invalid, ToStringFlags.None,
                 Characters.Space.ToString(), pattern, noCase);
         }
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 

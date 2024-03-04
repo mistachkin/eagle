@@ -58,18 +58,19 @@ proc getVars { after } {
                    "(?:test_cops )?" "(?:test_data_path )?" \
                    "(?:test_database )?" "(?:test_database_subst )?" \
                    "(?:test_database_table )?" "(?:test_database_type )?" \
-                   "(?:test_exit_on_complete )?" "(?:test_file )?" \
-                   "(?:test_flags )?" "(?:test_home_path )?" \
-                   "(?:test_host )?" "(?:test_hosts )?" \
-                   "(?:test_join_timeout )?" "(?:test_listed_leaks )?" \
-                   "(?:test_log )?" "(?:test_log_id )?" \
-                   "(?:test_log_path )?" "(?:test_log_queue )?" \
-                   "(?:test_log_sentry )?" "(?:test_long_timeout )?" \
-                   "(?:test_machine )?" "(?:test_mdas )?" \
-                   "(?:test_name_prefix )?" "(?:test_package_path )?" \
-                   "(?:test_path )?" "(?:test_platform )?" \
-                   "(?:test_port )?" "(?:test_puts_state )?" \
-                   "(?:test_random_order )?" "(?:test_repository_checkout )?" \
+                   "(?:test_exit_on_complete )?" "(?:test_extra_paths )?" \
+                   "(?:test_file )?" "(?:test_flags )?" \
+                   "(?:test_home_path )?" "(?:test_host )?" \
+                   "(?:test_hosts )?" "(?:test_join_timeout )?" \
+                   "(?:test_listed_leaks )?" "(?:test_log )?" \
+                   "(?:test_log_id )?" "(?:test_log_path )?" \
+                   "(?:test_log_queue )?" "(?:test_log_sentry )?" \
+                   "(?:test_long_timeout )?" "(?:test_machine )?" \
+                   "(?:test_mdas )?" "(?:test_name_prefix )?" \
+                   "(?:test_package_path )?" "(?:test_path )?" \
+                   "(?:test_platform )?" "(?:test_port )?" \
+                   "(?:test_puts_state )?" "(?:test_random_order )?" \
+                   "(?:test_repository_checkout )?" \
                    "(?:test_repository_file )?" "(?:test_repository_tags )?" \
                    "(?:test_repository_url )?" "(?:test_run_bucket )?" \
                    "(?:test_run_id )?" "(?:test_script )?" \
@@ -78,14 +79,14 @@ proc getVars { after } {
                    "(?:test_stress_count )?" "(?:test_suffix )?" \
                    "(?:test_suite )?" "(?:test_suite_errors )?" \
                    "(?:test_suite_file )?" "(?:test_suite_running )?" \
-                   "(?:test_tclsh )?" "(?:test_tclsh_verbose )?" \
-                   "(?:test_threshold )?" "(?:test_timeout )?" \
-                   "(?:test_timestamp )?" "(?:test_uncounted_leaks )?" \
-                   "(?:test_visual_studio )?" "(?:test_verbose )?" \
-                   "(?:test_volume )?" "(?:test_wait )?" \
-                   "(?:test_well_known )?" "(?:test_wix )?" \
-                   "(?:whatIfArgc )?" "(?:whatIfArgv )?" \
-                   mushroomMushroom]
+                   "(?:test_tclsh )?" "(?:test_tclsh_raw )?" \
+                   "(?:test_tclsh_verbose )?" "(?:test_threshold )?" \
+                   "(?:test_timeout )?" "(?:test_timestamp )?" \
+                   "(?:test_uncounted_leaks )?" "(?:test_visual_studio )?" \
+                   "(?:test_verbose )?" "(?:test_volume )?" \
+                   "(?:test_wait )?" "(?:test_well_known )?" \
+                   "(?:test_wix )?" "(?:whatIfArgc )?" \
+                   "(?:whatIfArgv )?" mushroomMushroom]
 
   #
   # NOTE: If we need the result after the global variable "b" has been added,
@@ -125,6 +126,7 @@ proc getVars { after } {
       "{(?:test_database_table )?} " "(?:test_database_table )?" \
       "{(?:test_database_type )?} " "(?:test_database_type )?" \
       "{(?:test_exit_on_complete )?} " "(?:test_exit_on_complete )?" \
+      "{(?:test_extra_paths )?} " "(?:test_extra_paths )?" \
       "{(?:test_file )?} " "(?:test_file )?" \
       "{(?:test_flags )?} " "(?:test_flags )?" \
       "{(?:test_home_path )?} " "(?:test_home_path )?" \
@@ -165,6 +167,7 @@ proc getVars { after } {
       "{(?:test_suite_file )?} " "(?:test_suite_file )?" \
       "{(?:test_suite_running )?} " "(?:test_suite_running )?" \
       "{(?:test_tclsh )?} " "(?:test_tclsh )?" \
+      "{(?:test_tclsh_raw )?} " "(?:test_tclsh_raw )?" \
       "{(?:test_tclsh_verbose )?} " "(?:test_tclsh_verbose )?" \
       "{(?:test_threshold )?} " "(?:test_threshold )?" \
       "{(?:test_timeout )?} " "(?:test_timeout )?" \

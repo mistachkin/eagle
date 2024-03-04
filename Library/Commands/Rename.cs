@@ -122,7 +122,7 @@ namespace Eagle._Commands
 
             ///////////////////////////////////////////////////////////////////
 
-            Variant value = null;
+            IVariant value = null;
             IdentifierKind kind = IdentifierKind.None;
 
             if (options.IsPresent("-kind", ref value))

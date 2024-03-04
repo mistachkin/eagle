@@ -1570,7 +1570,7 @@ namespace Eagle._Components.Private
                                 if (code == ReturnCode.Ok)
                                 {
                                     if (ScriptOps.HasFlags(
-                                            interpreter, InterpreterFlags.TestScriptWhatIf,
+                                            interpreter, InterpreterTestFlags.ScriptWhatIf,
                                             true))
                                     {
                                         whatIf = true;
@@ -1999,7 +1999,7 @@ namespace Eagle._Components.Private
             )
         {
             if ((interpreter == null) || !ScriptOps.HasFlags(
-                    interpreter, InterpreterFlags.WriteTestData, true))
+                    interpreter, InterpreterTestFlags.WriteData, true))
             {
                 return false;
             }
@@ -2014,7 +2014,7 @@ namespace Eagle._Components.Private
                 //       data here if that same data will later be returned.
                 //
                 if (!ScriptOps.HasFlags(interpreter,
-                        InterpreterFlags.NoReturnTestData, true) &&
+                        InterpreterTestFlags.NoReturnData, true) &&
                     !IsAutomaticWriteTestData(
                         interpreter, outputType))
                 {
@@ -2034,7 +2034,7 @@ namespace Eagle._Components.Private
             )
         {
             if ((interpreter == null) || ScriptOps.HasFlags(
-                    interpreter, InterpreterFlags.NoReturnTestData, true))
+                    interpreter, InterpreterTestFlags.NoReturnData, true))
             {
                 return false;
             }
@@ -2049,7 +2049,7 @@ namespace Eagle._Components.Private
                 //       data here if that same data was previously written.
                 //
                 if (ScriptOps.HasFlags(interpreter,
-                        InterpreterFlags.WriteTestData, true) &&
+                        InterpreterTestFlags.WriteData, true) &&
                     !IsAutomaticReturnTestData(
                         interpreter, outputType, wrote))
                 {
@@ -2068,7 +2068,7 @@ namespace Eagle._Components.Private
             )
         {
             if ((interpreter == null) || ScriptOps.HasFlags(
-                    interpreter, InterpreterFlags.NoLogTestData, true))
+                    interpreter, InterpreterTestFlags.NoLogData, true))
             {
                 return false;
             }
@@ -2099,7 +2099,7 @@ namespace Eagle._Components.Private
         {
 
             if ((interpreter == null) || ScriptOps.HasFlags(
-                    interpreter, InterpreterFlags.NoTrackTestData, true))
+                    interpreter, InterpreterTestFlags.NoTrackData, true))
             {
                 return false;
             }

@@ -254,6 +254,17 @@ namespace Eagle._Containers.Public
         {
             Add(callback, collection);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public StringList(
+            IEnumerable<string> collection1,
+            IEnumerable<string> collection2
+            )
+        {
+            AddRange(collection1, false);
+            AddRange(collection2, false);
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

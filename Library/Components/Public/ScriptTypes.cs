@@ -26,9 +26,11 @@ namespace Eagle._Components.Public
         public static readonly string Initialization = "init";     // library initialization / routines (via GetData)
         public static readonly string Embedding = "embed";         // application embedding initialization (via GetData)
         public static readonly string Vendor = "vendor";           // vendor initialization (via GetData)
-        public static readonly string Startup = "startup";         // application / user initialization
+        public static readonly string Startup = "startup";         // application / user initialization (synchronous)
+        public static readonly string Worker = "worker";           // application / user initialization (asynchronous)
         public static readonly string Safe = "safe";               // safe library initialization / routines (via GetData)
-        public static readonly string Shell = "shell";             // interactive shell customization (via GetData)
+        public static readonly string Shell = "shell";             // interactive shell customization (synchronous, via GetData)
+        public static readonly string ShellWorker = "shellWorker"; // interactive shell customization (asynchronous, via GetData)
         public static readonly string Test = "test";               // test library initialization / routines (via GetData)
         public static readonly string PackageIndex = "pkgIndex";   // package index (via GetData)
         public static readonly string Prologue = "prologue";       // test suite prologue (via GetData)
@@ -37,6 +39,7 @@ namespace Eagle._Components.Public
         public static readonly string Timer = "timer";             // timer script (via [after ms])
         public static readonly string Stream = "stream";           // via the engine method ReadScriptStream
         public static readonly string File = "file";               // via the engine method ReadScriptFile
+        public static readonly string Snippet = "snippet";         // via the ISnippetManager interface
 
 #if XML
         public static readonly string Block = "block";             // XML script block (via ReadScriptXml)

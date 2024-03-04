@@ -94,6 +94,13 @@
     -->
 
     <!--
+        NOTE: Enable use of the custom MSBuild tasks during the build?  By
+              default, this is enabled.  If this is disabled, custom build
+              targets that use these tasks may fail.
+    -->
+    <EagleTaskTargets Condition="'$(EagleTaskTargets)' == ''">true</EagleTaskTargets>
+
+    <!--
         NOTE: What is the target framework version for the solution?  Normally,
               this is set at the project level; however, there are times when it
               is convenient (or necessary) to set it globally.

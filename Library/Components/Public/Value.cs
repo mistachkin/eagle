@@ -83,6 +83,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         //
+        // HACK: This is purposely not read-only.
+        //
+        private static Regex versionRangeRegEx = RegExOps.Create(
+            "^(\\d+\\.\\d+(?:\\.\\d+(?:\\.\\d+)?)?)?-(\\d+\\.\\d+(?:\\.\\d+(?:\\.\\d+)?)?)?$",
+            RegexOptions.CultureInvariant);
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
         // HACK: These are purposely not read-only.
         //
         // NOTE: These are the *default* number styles that are used by the
@@ -182,6 +191,9 @@ namespace Eagle._Components.Public
         #region Static Constructor
         static Value()
         {
+            NumberOps.InitializeTypes();
+            VariantOps.InitializeTypes();
+
             Initialize();
         }
         #endregion
@@ -242,13 +254,19 @@ namespace Eagle._Components.Public
                 ///////////////////////////////////////////////////////////////
 
                 if (numberTypes == null)
-                    numberTypes = new TypeList(Number.Types(null));
+                {
+                    numberTypes = new TypeList();
+
+                    NumberOps.AddTypes(ref numberTypes);
+                }
 
                 ///////////////////////////////////////////////////////////////
 
                 if (integralTypes == null)
                 {
-                    integralTypes = new TypeList(Number.Types(null));
+                    integralTypes = new TypeList();
+
+                    NumberOps.AddTypes(ref integralTypes);
 
                     integralTypes.Remove(typeof(decimal));
                     integralTypes.Remove(typeof(float));
@@ -259,7 +277,9 @@ namespace Eagle._Components.Public
 
                 if (nonIntegralTypes == null)
                 {
-                    nonIntegralTypes = new TypeList(Number.Types(null));
+                    nonIntegralTypes = new TypeList();
+
+                    NumberOps.AddTypes(ref nonIntegralTypes);
 
                     nonIntegralTypes.Remove(typeof(bool));
                     nonIntegralTypes.Remove(typeof(sbyte));
@@ -281,9 +301,11 @@ namespace Eagle._Components.Public
 
                 if (otherTypes == null)
                 {
-                    otherTypes = new TypeList(Variant.Types(null));
+                    otherTypes = new TypeList();
 
-                    otherTypes.Remove(typeof(Number));
+                    VariantOps.AddTypes(ref otherTypes);
+
+                    otherTypes.Remove(typeof(INumber));
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -1367,6 +1389,131 @@ namespace Eagle._Components.Public
 
             error = MaybeInvokeErrorCallback(String.Format(
                 "expected version value but got {0}",
+                FormatOps.WrapOrNull(text)));
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        internal static ReturnCode GetVersionRange(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref Version value1,
+            ref Version value2
+            )
+        {
+            Result error = null;
+
+            return GetVersionRange(
+                text, flags, cultureInfo, ref value1, ref value2, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetVersionRange(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref Version value1,
+            ref Version value2,
+            ref Result error
+            )
+        {
+            Exception exception = null;
+
+            return GetVersionRange(
+                text, flags, cultureInfo, ref value1, ref value2, ref error, ref exception);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode GetVersionRange(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref Version value1,
+            ref Version value2,
+            ref Result error,
+            ref Exception exception
+            )
+        {
+            try
+            {
+                if (text != null)
+                {
+                    if (versionRangeRegEx != null)
+                    {
+                        Match match = versionRangeRegEx.Match(text);
+
+                        if (match.Success)
+                        {
+                            string matchValue1 = RegExOps.GetMatchValue(match, 1);
+                            string matchValue2 = RegExOps.GetMatchValue(match, 2);
+
+                            Version localValue1 = !String.IsNullOrEmpty(matchValue1) ?
+                                new Version(matchValue1) : null;
+
+                            Version localValue2 = !String.IsNullOrEmpty(matchValue2) ?
+                                new Version(matchValue2) : null;
+
+                            if ((localValue1 == null) && (localValue2 == null))
+                            {
+                                if (FlagOps.HasFlags(
+                                        flags, ValueFlags.AllowEmpty, true))
+                                {
+                                    goto goodVersion;
+                                }
+                                else
+                                {
+                                    goto badVersion;
+                                }
+                            }
+
+                            if ((localValue1 == null) || (localValue2 == null))
+                            {
+                                if (FlagOps.HasFlags(
+                                        flags, ValueFlags.AllowOpen, true))
+                                {
+                                    goto goodVersion;
+                                }
+                                else
+                                {
+                                    goto badVersion;
+                                }
+                            }
+
+                            /* IGNORED */
+                            PackageOps.MaybeSwapVersion(
+                                ref localValue1, ref localValue2);
+
+                        goodVersion:
+
+                            value1 = localValue1;
+                            value2 = localValue2;
+
+                            return ReturnCode.Ok;
+                        }
+                    }
+                }
+                else if (FlagOps.HasFlags(flags, ValueFlags.AllowNull, true))
+                {
+                    value1 = null;
+                    value2 = null;
+
+                    return ReturnCode.Ok;
+                }
+            }
+            catch (Exception e)
+            {
+                exception = e;
+            }
+
+        badVersion:
+
+            error = MaybeInvokeErrorCallback(String.Format(
+                "expected version range value but got {0}",
                 FormatOps.WrapOrNull(text)));
 
             return ReturnCode.Error;
@@ -3059,6 +3206,52 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode GetNullableTimeSpan2(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref TimeSpan? value,
+            ref Result error
+            )
+        {
+            Exception exception = null;
+
+            return GetNullableTimeSpan2(
+                text, flags, cultureInfo, ref value, ref error, ref exception);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetNullableTimeSpan2(
+            string text,
+            ValueFlags flags,
+            CultureInfo cultureInfo,
+            ref TimeSpan? value,
+            ref Result error,
+            ref Exception exception
+            )
+        {
+            if (String.IsNullOrEmpty(text))
+            {
+                value = null;
+                return ReturnCode.Ok;
+            }
+
+            TimeSpan timeSpan = TimeSpan.Zero;
+
+            if (GetTimeSpan2(
+                    text, flags, cultureInfo, ref timeSpan,
+                    ref error, ref exception) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            value = timeSpan;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static bool IsNoneName(
             string text
             )
@@ -4621,9 +4814,9 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Ok;
                 }
-                else if (Number.IsSupported(innerValue))
+                else if (NumberOps.HaveType(innerValue))
                 {
-                    Number number = new Number(innerValue);
+                    INumber number = new Variant(innerValue);
 
                     if (number.ToSingle(ref value))
                     {
@@ -4866,9 +5059,9 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Ok;
                 }
-                else if (Number.IsSupported(innerValue))
+                else if (NumberOps.HaveType(innerValue))
                 {
-                    Number number = new Number(innerValue);
+                    INumber number = new Variant(innerValue);
 
                     if (number.ToDouble(ref value))
                     {
@@ -5266,9 +5459,9 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Ok;
                 }
-                else if (Number.IsSupported(innerValue))
+                else if (NumberOps.HaveType(innerValue))
                 {
-                    Number number = new Number(innerValue);
+                    INumber number = new Variant(innerValue);
 
                     if (number.IsIntegral() &&
                         number.ToWideInteger(ref value))
@@ -5744,7 +5937,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Number number
+            ref INumber number
             )
         {
             Result error = null;
@@ -5759,7 +5952,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Number value,
+            ref INumber value,
             ref Result error
             )
         {
@@ -5774,11 +5967,11 @@ namespace Eagle._Components.Public
                     if ((longValue >= uint.MinValue) &&
                         (longValue <= uint.MaxValue))
                     {
-                        value = new Number(ConversionOps.ToUInt(longValue));
+                        value = new Variant(ConversionOps.ToUInt(longValue));
                     }
                     else
                     {
-                        value = new Number(ConversionOps.ToULong(longValue));
+                        value = new Variant(ConversionOps.ToULong(longValue));
                     }
                 }
                 else
@@ -5786,11 +5979,11 @@ namespace Eagle._Components.Public
                     if ((longValue >= int.MinValue) &&
                         (longValue <= int.MaxValue))
                     {
-                        value = new Number(ConversionOps.ToInt(longValue));
+                        value = new Variant(ConversionOps.ToInt(longValue));
                     }
                     else
                     {
-                        value = new Number(longValue);
+                        value = new Variant(longValue);
                     }
                 }
 
@@ -6067,9 +6260,9 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Ok;
                 }
-                else if (Number.IsSupported(innerValue))
+                else if (NumberOps.HaveType(innerValue))
                 {
-                    Number number = new Number(innerValue);
+                    INumber number = new Variant(innerValue);
 
                     if (number.ToByte(ref value))
                     {
@@ -6206,9 +6399,9 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Ok;
                 }
-                else if (Number.IsSupported(innerValue))
+                else if (NumberOps.HaveType(innerValue))
                 {
-                    Number number = new Number(innerValue);
+                    INumber number = new Variant(innerValue);
 
                     if (number.ToSignedByte(ref value))
                     {
@@ -6374,9 +6567,9 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Ok;
                 }
-                else if (Number.IsSupported(innerValue))
+                else if (NumberOps.HaveType(innerValue))
                 {
-                    Number number = new Number(innerValue);
+                    INumber number = new Variant(innerValue);
 
                     if (number.ToNarrowInteger(ref value))
                     {
@@ -6618,9 +6811,9 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Ok;
                 }
-                else if (Number.IsSupported(innerValue))
+                else if (NumberOps.HaveType(innerValue))
                 {
-                    Number number = new Number(innerValue);
+                    INumber number = new Variant(innerValue);
 
                     if (number.ToCharacter(ref value))
                     {
@@ -6787,9 +6980,9 @@ namespace Eagle._Components.Public
 
                     return ReturnCode.Ok;
                 }
-                else if (Number.IsSupported(innerValue))
+                else if (NumberOps.HaveType(innerValue))
                 {
-                    Number number = new Number(innerValue);
+                    INumber number = new Variant(innerValue);
 
                     if (number.ToInteger(ref value))
                     {
@@ -6900,7 +7093,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static ReturnCode GetUnsignedInteger2(
+        internal static ReturnCode GetUnsignedInteger2(
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
@@ -8824,7 +9017,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Number value
+            ref INumber value
             )
         {
             Result error = null;
@@ -8839,7 +9032,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Number value,
+            ref INumber value,
             ref Result error
             )
         {
@@ -8855,7 +9048,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Number value,
+            ref INumber value,
             ref Result error,
             ref Exception exception /* NOT USED */
             )
@@ -8877,7 +9070,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo,
                     ref uintValue) == ReturnCode.Ok))
             {
-                value = new Number(ConversionOps.ToInt(uintValue));
+                value = new Variant(ConversionOps.ToInt(uintValue));
 
                 return ReturnCode.Ok;
             }
@@ -8890,7 +9083,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo,
                     ref ulongValue) == ReturnCode.Ok))
             {
-                value = new Number(ConversionOps.ToLong(ulongValue));
+                value = new Variant(ConversionOps.ToLong(ulongValue));
 
                 return ReturnCode.Ok;
             }
@@ -8903,7 +9096,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo,
                     ref decimalValue) == ReturnCode.Ok))
             {
-                value = new Number(decimalValue);
+                value = new Variant(decimalValue);
 
                 return ReturnCode.Ok;
             }
@@ -8916,7 +9109,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo,
                     ref doubleValue) == ReturnCode.Ok))
             {
-                value = new Number(doubleValue);
+                value = new Variant(doubleValue);
 
                 return ReturnCode.Ok;
             }
@@ -8937,7 +9130,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo,
                     ref boolValue) == ReturnCode.Ok))
             {
-                value = new Number(boolValue);
+                value = new Variant(boolValue);
 
                 return ReturnCode.Ok;
             }
@@ -8957,7 +9150,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Number value,
+            ref INumber value,
             ref int stopIndex
             )
         {
@@ -8973,7 +9166,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Number value,
+            ref INumber value,
             ref int stopIndex,
             ref Result error
             )
@@ -8991,7 +9184,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Number value,
+            ref INumber value,
             ref int stopIndex,
             ref Result error,
             ref Exception exception /* NOT USED */
@@ -9005,7 +9198,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo,
                     ref intValue) == ReturnCode.Ok))
             {
-                value = new Number(intValue);
+                value = new Variant(intValue);
 
                 stopIndex = Index.Invalid;
 
@@ -9020,7 +9213,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo,
                     ref longValue) == ReturnCode.Ok))
             {
-                value = new Number(longValue);
+                value = new Variant(longValue);
 
                 stopIndex = Index.Invalid;
 
@@ -9035,7 +9228,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo, ref decimalValue,
                     ref stopIndex) == ReturnCode.Ok))
             {
-                value = new Number(decimalValue);
+                value = new Variant(decimalValue);
 
                 stopIndex = Index.Invalid;
 
@@ -9050,7 +9243,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo, ref doubleValue,
                     ref stopIndex) == ReturnCode.Ok))
             {
-                value = new Number(doubleValue);
+                value = new Variant(doubleValue);
 
                 stopIndex = Index.Invalid;
 
@@ -9073,7 +9266,7 @@ namespace Eagle._Components.Public
                     text, flags, cultureInfo,
                     ref boolValue) == ReturnCode.Ok))
             {
-                value = new Number(boolValue);
+                value = new Variant(boolValue);
 
                 stopIndex = Index.Invalid;
 
@@ -9302,7 +9495,7 @@ namespace Eagle._Components.Public
             IGetValue getValue,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Variant value,
+            ref IVariant value,
             ref Result error
             )
         {
@@ -9316,7 +9509,7 @@ namespace Eagle._Components.Public
 
             object innerValue = getValue.Value;
 
-            if (Number.IsSupported(innerValue))
+            if (NumberOps.HaveType(innerValue))
             {
                 value = new Variant(innerValue);
 
@@ -9443,7 +9636,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Variant value,
+            ref IVariant value,
             ref Result error
             )
         {
@@ -9469,7 +9662,7 @@ namespace Eagle._Components.Public
             DateTimeKind kind,
             DateTimeStyles styles,
             CultureInfo cultureInfo,
-            ref Variant value
+            ref IVariant value
             )
         {
             Result error = null;
@@ -9489,7 +9682,7 @@ namespace Eagle._Components.Public
             DateTimeKind kind,
             DateTimeStyles styles,
             CultureInfo cultureInfo,
-            ref Variant value,
+            ref IVariant value,
             ref Result error
             )
         {
@@ -9499,7 +9692,7 @@ namespace Eagle._Components.Public
                 (GetObject(
                     interpreter, text, LookupFlags.NoVerbose,
                     ref @object) == ReturnCode.Ok) &&
-                Number.IsSupported(@object))
+                NumberOps.HaveType(@object))
             {
                 try
                 {
@@ -9517,7 +9710,7 @@ namespace Eagle._Components.Public
             }
             else
             {
-                Number number = null;
+                INumber number = null;
 
                 if (FlagOps.HasFlags(flags, ValueFlags.Number, true) &&
                     (GetNumber(
@@ -9570,7 +9763,7 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Variant value,
+            ref IVariant value,
             ref int stopIndex,
             ref Result error
             )
@@ -9588,13 +9781,13 @@ namespace Eagle._Components.Public
             string text,
             ValueFlags flags,
             CultureInfo cultureInfo,
-            ref Variant value,
+            ref IVariant value,
             ref int stopIndex,
             ref Result error,       /* NOT USED */
             ref Exception exception /* NOT USED */
             )
         {
-            Number number = null;
+            INumber number = null;
 
             if (GetNumber2(text, flags, cultureInfo,
                     ref number, ref stopIndex) == ReturnCode.Ok)
@@ -9619,8 +9812,8 @@ namespace Eagle._Components.Public
 
         internal static ReturnCode FixupStringVariants(
             IIdentifierName identifierName,
-            Variant variant1,
-            Variant variant2,
+            IVariant variant1,
+            IVariant variant2,
             ref Result error
             )
         {
@@ -9630,8 +9823,8 @@ namespace Eagle._Components.Public
             //
             if ((variant1 != null) && (variant2 != null))
             {
-                if (variant1.ConvertTo(typeof(string)) &&
-                    variant2.ConvertTo(typeof(string)))
+                if (variant1.ConvertTo(TypeCode.String) &&
+                    variant2.ConvertTo(TypeCode.String))
                 {
                     return ReturnCode.Ok;
                 }
@@ -9648,8 +9841,7 @@ namespace Eagle._Components.Public
             {
                 error = MaybeInvokeErrorCallback(String.Format(
                     "one or more operands for operator {0} are invalid",
-                    FormatOps.WrapOrNull((identifierName != null) ?
-                    identifierName.Name : null)));
+                    FormatOps.IdentifierName(identifierName)));
 
                 return ReturnCode.Error;
             }
@@ -9664,16 +9856,15 @@ namespace Eagle._Components.Public
             ValueFlags flags,
             CultureInfo cultureInfo,
             bool readOnly,
-            ref string operatorName,
-            ref Variant operand1,
-            ref Variant operand2,
+            ref IVariant operand1,
+            ref IVariant operand2,
             ref Result error
             )
         {
             return GetOperandsFromArguments(
                 interpreter, @operator, arguments, flags, flags,
-                cultureInfo, readOnly, ref operatorName, ref operand1,
-                ref operand2, ref error);
+                cultureInfo, readOnly, ref operand1, ref operand2,
+                ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -9686,9 +9877,8 @@ namespace Eagle._Components.Public
             ValueFlags flags2,
             CultureInfo cultureInfo,
             bool readOnly,
-            ref string operatorName,
-            ref Variant operand1,
-            ref Variant operand2,
+            ref IVariant operand1,
+            ref IVariant operand2,
             ref Result error
             )
         {
@@ -9698,22 +9888,21 @@ namespace Eagle._Components.Public
             {
                 if (arguments != null)
                 {
-                    string localOperatorName = (arguments.Count > 0) ?
-                        (string)arguments[0] : @operator.Name;
-
                     //
                     // NOTE: Must be "operator arg ?arg?" unless the number of operands if
                     //       less than zero (i.e. those values are reserved for special
                     //       cases).
                     //
-                    if ((@operator.Operands < 0) ||
-                        (arguments.Count == (@operator.Operands + 1)))
+                    int operands = @operator.Operands;
+                    int argumentCount = arguments.Count;
+
+                    if ((operands < 0) || (argumentCount == (operands + 1)))
                     {
                         code = ReturnCode.Ok;
 
-                        Variant localOperand1 = null;
+                        IVariant localOperand1 = null;
 
-                        if ((code == ReturnCode.Ok) && (arguments.Count >= 2))
+                        if ((code == ReturnCode.Ok) && (argumentCount >= 2))
                         {
                             if (flags1 == ValueFlags.String)
                             {
@@ -9764,9 +9953,9 @@ namespace Eagle._Components.Public
                             }
                         }
 
-                        Variant localOperand2 = null;
+                        IVariant localOperand2 = null;
 
-                        if ((code == ReturnCode.Ok) && (arguments.Count >= 3))
+                        if ((code == ReturnCode.Ok) && (argumentCount >= 3))
                         {
                             if (flags2 == ValueFlags.String)
                             {
@@ -9823,15 +10012,16 @@ namespace Eagle._Components.Public
                             // NOTE: Commit changes to the variables provided by
                             //       the caller.
                             //
-                            operatorName = localOperatorName;
-
                             operand1 = localOperand1;
                             operand2 = localOperand2;
                         }
                     }
                     else
                     {
-                        if (@operator.Operands == 2)
+                        string localOperatorName = (argumentCount > 0) ?
+                            (string)arguments[0] : @operator.Name;
+
+                        if (operands == 2)
                         {
                             if (ExpressionParser.IsOperatorNameOnly(localOperatorName))
                             {
@@ -9846,7 +10036,7 @@ namespace Eagle._Components.Public
                                     FormatOps.OperatorName(localOperatorName)));
                             }
                         }
-                        else if (@operator.Operands == 1)
+                        else if (operands == 1)
                         {
                             error = MaybeInvokeErrorCallback(String.Format(
                                 "wrong # args: should be \"{0} operand\"",
@@ -9886,324 +10076,94 @@ namespace Eagle._Components.Public
 
         internal static ReturnCode FixupVariants(
             IIdentifierName identifierName,
-            Variant variant1,
-            Variant variant2,
-            Type variant1Type,
-            Type variant2Type,
-            bool variant1NoConvertTo,
-            bool variant2NoConvertTo
+            IVariant variant1,
+            IVariant variant2,
+            Type type1,
+            Type type2,
+            bool noConvert1,
+            bool noConvert2
             )
         {
             Result error = null;
 
             return FixupVariants(
-                identifierName, variant1, variant2, variant1Type,
-                variant2Type, variant1NoConvertTo, variant2NoConvertTo,
-                ref error);
+                identifierName, variant1, variant2, type1,
+                type2, noConvert1, noConvert2, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         internal static ReturnCode FixupVariants(
             IIdentifierName identifierName,
-            Variant variant1,
-            Variant variant2,
-            Type variant1Type,
-            Type variant2Type,
-            bool variant1NoConvertTo,
-            bool variant2NoConvertTo,
+            IVariant variant1,
+            IVariant variant2,
+            Type type1,
+            Type type2,
+            bool noConvert1,
+            bool noConvert2,
             ref Result error
             )
         {
-            ReturnCode code;
-
             //
-            // NOTE: Perform type-promotion/coercion on one or both
-            //       variants based on the allowed types for this
-            //       operator or function...
+            // NOTE: Perform type-promotion/coercion on one -OR-
+            //       both variants based on the allowed types for
+            //       this operator or function...
             //
-            if ((variant1 != null) && (variant2 != null))
-            {
-                code = ReturnCode.Ok;
-
-                if (code == ReturnCode.Ok)
-                {
-                    if (variant1Type != null)
-                    {
-                        if (!variant1.ConvertTo(variant1Type))
-                        {
-                            error = MaybeInvokeErrorCallback(String.Format(
-                                "failed to convert variant1 to type {0}",
-                                MarshalOps.GetErrorTypeName(variant1Type)));
-
-                            code = ReturnCode.Error;
-                        }
-                    }
-                }
-
-                if (code == ReturnCode.Ok)
-                {
-                    if (variant2Type != null)
-                    {
-                        if (!variant2.ConvertTo(variant2Type))
-                        {
-                            error = MaybeInvokeErrorCallback(String.Format(
-                                "failed to convert variant2 to type {0}",
-                                MarshalOps.GetErrorTypeName(variant2Type)));
-
-                            code = ReturnCode.Error;
-                        }
-                    }
-                }
-
-                if (code == ReturnCode.Ok)
-                {
-                    if (variant1.IsNumber() &&
-                        variant2.IsNumber())
-                    {
-                        bool variant1SkipConvertTo = variant1NoConvertTo ||
-                            (variant1Type != null);
-
-                        bool variant2SkipConvertTo = variant2NoConvertTo ||
-                            (variant2Type != null);
-
-                        if (variant1.IsIntegralOrEnum() &&
-                            variant2.IsIntegralOrEnum())
-                        {
-                            //
-                            // TODO: Add more of the supported Variant sub-types
-                            //       here (e.g. unsigned wide integer, etc).
-                            //
-                            if (variant1.IsWideInteger() ||
-                                variant2.IsWideInteger())
-                            {
-                                if ((variant1SkipConvertTo ||
-                                     variant1.IsWideInteger() ||
-                                     variant1.ConvertTo(typeof(long))) &&
-                                    (variant2SkipConvertTo ||
-                                     variant2.IsWideInteger() ||
-                                     variant2.ConvertTo(typeof(long))))
-                                {
-                                    code = ReturnCode.Ok;
-                                }
-                                else
-                                {
-                                    error = MaybeInvokeErrorCallback(String.Format(
-                                        "failed to convert variant to type {0}",
-                                        MarshalOps.GetErrorTypeName(typeof(long))));
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            else if (variant1.IsInteger() ||
-                                variant2.IsInteger())
-                            {
-                                if ((variant1SkipConvertTo ||
-                                     variant1.IsInteger() ||
-                                     variant1.ConvertTo(typeof(int))) &&
-                                    (variant2SkipConvertTo ||
-                                     variant2.IsInteger() ||
-                                     variant2.ConvertTo(typeof(int))))
-                                {
-                                    code = ReturnCode.Ok;
-                                }
-                                else
-                                {
-                                    error = MaybeInvokeErrorCallback(String.Format(
-                                        "failed to convert variant to type {0}",
-                                        MarshalOps.GetErrorTypeName(typeof(int))));
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            else if (variant1.IsNarrowInteger() ||
-                                variant2.IsNarrowInteger())
-                            {
-                                if ((variant1SkipConvertTo ||
-                                     variant1.IsNarrowInteger() ||
-                                     variant1.ConvertTo(typeof(short))) &&
-                                    (variant2SkipConvertTo ||
-                                     variant2.IsNarrowInteger() ||
-                                     variant2.ConvertTo(typeof(short))))
-                                {
-                                    code = ReturnCode.Ok;
-                                }
-                                else
-                                {
-                                    error = MaybeInvokeErrorCallback(String.Format(
-                                        "failed to convert variant to type {0}",
-                                        MarshalOps.GetErrorTypeName(typeof(short))));
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            else if (variant1.IsByte() || variant2.IsByte())
-                            {
-                                if ((variant1SkipConvertTo ||
-                                     variant1.IsByte() ||
-                                     variant1.ConvertTo(typeof(byte))) &&
-                                    (variant2SkipConvertTo ||
-                                     variant2.IsByte() ||
-                                     variant2.ConvertTo(typeof(byte))))
-                                {
-                                    code = ReturnCode.Ok;
-                                }
-                                else
-                                {
-                                    error = MaybeInvokeErrorCallback(String.Format(
-                                        "failed to convert variant to type {0}",
-                                        MarshalOps.GetErrorTypeName(typeof(byte))));
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            else if (variant1.IsBoolean() || variant2.IsBoolean())
-                            {
-                                if ((variant1SkipConvertTo ||
-                                     variant1.IsBoolean() ||
-                                     variant1.ConvertTo(typeof(bool))) &&
-                                    (variant2SkipConvertTo ||
-                                     variant2.IsBoolean() ||
-                                     variant2.ConvertTo(typeof(bool))))
-                                {
-                                    code = ReturnCode.Ok;
-                                }
-                                else
-                                {
-                                    error = MaybeInvokeErrorCallback(String.Format(
-                                        "failed to convert variant to type {0}",
-                                        MarshalOps.GetErrorTypeName(typeof(bool))));
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            else
-                            {
-                                error = MaybeInvokeErrorCallback(
-                                    "unsupported integral variant type");
-
-                                code = ReturnCode.Error;
-                            }
-                        }
-                        else if (variant1.IsFloatingPoint() ||
-                            variant2.IsFloatingPoint())
-                        {
-                            if (variant1.IsDouble() ||
-                                variant2.IsDouble())
-                            {
-                                if ((variant1SkipConvertTo ||
-                                     variant1.IsDouble() ||
-                                     variant1.ConvertTo(typeof(double))) &&
-                                    (variant2SkipConvertTo ||
-                                     variant2.IsDouble() ||
-                                     variant2.ConvertTo(typeof(double))))
-                                {
-                                    code = ReturnCode.Ok;
-                                }
-                                else
-                                {
-                                    error = MaybeInvokeErrorCallback(String.Format(
-                                        "failed to convert variant to type {0}",
-                                        MarshalOps.GetErrorTypeName(typeof(double))));
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            else if (variant1.IsSingle() ||
-                                variant2.IsSingle())
-                            {
-                                if ((variant1SkipConvertTo ||
-                                     variant1.IsSingle() ||
-                                     variant1.ConvertTo(typeof(float))) &&
-                                    (variant2SkipConvertTo ||
-                                     variant2.IsSingle() ||
-                                     variant2.ConvertTo(typeof(float))))
-                                {
-                                    code = ReturnCode.Ok;
-                                }
-                                else
-                                {
-                                    error = MaybeInvokeErrorCallback(String.Format(
-                                        "failed to convert variant to type {0}",
-                                        MarshalOps.GetErrorTypeName(typeof(float))));
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            else
-                            {
-                                error = MaybeInvokeErrorCallback(
-                                    "unsupported floating-point variant type");
-
-                                code = ReturnCode.Error;
-                            }
-                        }
-                        else if (variant1.IsFixedPoint() ||
-                            variant2.IsFixedPoint())
-                        {
-                            if (variant1.IsDecimal() ||
-                                variant2.IsDecimal())
-                            {
-                                if ((variant1SkipConvertTo ||
-                                     variant1.IsDecimal() ||
-                                     variant1.ConvertTo(typeof(decimal))) &&
-                                    (variant2SkipConvertTo ||
-                                     variant2.IsDecimal() ||
-                                     variant2.ConvertTo(typeof(decimal))))
-                                {
-                                    code = ReturnCode.Ok;
-                                }
-                                else
-                                {
-                                    error = MaybeInvokeErrorCallback(String.Format(
-                                        "failed to convert variant to type {0}",
-                                        MarshalOps.GetErrorTypeName(typeof(decimal))));
-
-                                    code = ReturnCode.Error;
-                                }
-                            }
-                            else
-                            {
-                                error = MaybeInvokeErrorCallback(
-                                    "unsupported fixed-point variant type");
-
-                                code = ReturnCode.Error;
-                            }
-                        }
-                        else
-                        {
-                            error = MaybeInvokeErrorCallback(
-                                "unsupported variant type");
-
-                            code = ReturnCode.Error;
-                        }
-                    }
-                    else
-                    {
-                        if ((variant1Type == null) ||
-                            (variant2Type == null))
-                        {
-                            error = MaybeInvokeErrorCallback(String.Format(
-                                "can't use non-numeric string as operand of {0}",
-                                FormatOps.WrapOrNull((identifierName != null) ?
-                                identifierName.Name : null)));
-
-                            code = ReturnCode.Error;
-                        }
-                    }
-                }
-            }
-            else
+            if ((variant1 == null) || (variant2 == null))
             {
                 error = MaybeInvokeErrorCallback(String.Format(
                     "one or more operands for {0} are invalid",
-                    FormatOps.WrapOrNull((identifierName != null) ?
-                    identifierName.Name : null)));
+                    FormatOps.IdentifierName(identifierName)));
 
-                code = ReturnCode.Error;
+                return ReturnCode.Error;
             }
 
-            return code;
+            //
+            // WARNING: These checks for the caller-specified type
+            //          conversions must occur before the number
+            //          checks below; otherwise, if there custom
+            //          conversion semantics for a particular type,
+            //          they won't be honored in numeric contexts.
+            //
+            if ((type1 != null) && !variant1.ConvertTo(type1))
+            {
+                error = MaybeInvokeErrorCallback(String.Format(
+                    "failed to convert variant1 to type {0}",
+                    MarshalOps.GetErrorTypeName(type1)));
+
+                return ReturnCode.Error;
+            }
+
+            if ((type2 != null) && !variant2.ConvertTo(type2))
+            {
+                error = MaybeInvokeErrorCallback(String.Format(
+                    "failed to convert variant2 to type {0}",
+                    MarshalOps.GetErrorTypeName(type2)));
+
+                return ReturnCode.Error;
+            }
+
+            if (!variant1.IsNumber() || !variant2.IsNumber())
+            {
+                if ((type1 == null) || (type2 == null))
+                    goto error;
+
+                return ReturnCode.Ok;
+            }
+
+            bool skip1 = noConvert1 || (type1 != null);
+            bool skip2 = noConvert2 || (type2 != null);
+
+            if (variant1.MaybeConvertWith(variant2, skip1, skip2))
+                return ReturnCode.Ok;
+
+        error:
+
+            error = MaybeInvokeErrorCallback(String.Format(
+                "can't use non-numeric string as operand of {0}",
+                FormatOps.IdentifierName(identifierName)));
+
+            return ReturnCode.Error;
         }
     }
 }

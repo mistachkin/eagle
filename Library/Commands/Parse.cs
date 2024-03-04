@@ -113,7 +113,7 @@ namespace Eagle._Commands
                                                     if ((argumentIndex != Index.Invalid) &&
                                                         ((argumentIndex + 1) == arguments.Count))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         EngineFlags engineFlags = interpreter.EngineFlags;
 
                                                         if (options.IsPresent("-engineflags", ref value))
@@ -212,7 +212,7 @@ namespace Eagle._Commands
                                                     if ((argumentIndex != Index.Invalid) &&
                                                         ((argumentIndex + 1) == arguments.Count))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         EngineFlags engineFlags = interpreter.EngineFlags;
 
                                                         if (options.IsPresent("-engineflags", ref value))
@@ -311,7 +311,7 @@ namespace Eagle._Commands
                                                     if ((argumentIndex != Index.Invalid) &&
                                                         ((argumentIndex + 2) == arguments.Count))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         string optionsVarName = Vars.OptionSet.Options;
 
                                                         if (options.IsPresent("-optionsvar", ref value))
@@ -560,7 +560,7 @@ namespace Eagle._Commands
                                                     if ((argumentIndex != Index.Invalid) &&
                                                         ((argumentIndex + 1) == arguments.Count))
                                                     {
-                                                        Variant value = null;
+                                                        IVariant value = null;
                                                         EngineFlags engineFlags = interpreter.EngineFlags;
 
                                                         if (options.IsPresent("-engineflags", ref value))

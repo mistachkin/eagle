@@ -31,8 +31,9 @@ runTest {test xml-1.1.1 {serialize/deserialize} -body {
   unset -nocomplain x xml y
 } -constraints {eagle command.object  command.xml compile.XML} \
 -constraintExpression {([haveConstraint dotNetOrDotNetCore] && \
-![haveConstraint dotNetCore60] && ![haveConstraint dotNetCore70]) || \
-[haveConstraint mono42OrHigher]} -result [string map [list \r\n \n] \
+![haveConstraint dotNetCore60] && ![haveConstraint dotNetCore70] && \
+![haveConstraint dotNetCore80]) || [haveConstraint mono42OrHigher]} \
+-result [string map [list \r\n \n] \
 {{<?xml version="1.0"?>
 <int>123456789</int>} 123456789}]}
 
@@ -47,9 +48,9 @@ runTest {test xml-1.1.2 {serialize/deserialize} -body {
   unset -nocomplain x xml y
 } -constraints {eagle command.object command.xml compile.XML} \
 -constraintExpression {[haveConstraint dotNetCore60] || \
-[haveConstraint dotNetCore70] || ([haveConstraint mono] && \
-![haveConstraint mono42OrHigher])} -match regexp -result \
-{\{.?<\?xml version="1\.0" encoding=".*"\?>\n?<int>123456789</int>\}\
+[haveConstraint dotNetCore70] || [haveConstraint dotNetCore80] || \
+([haveConstraint mono] && ![haveConstraint mono42OrHigher])} -match regexp \
+-result {\{.?<\?xml version="1\.0" encoding=".*"\?>\n?<int>123456789</int>\}\
 123456789$}}
 
 ###############################################################################
@@ -203,7 +204,8 @@ runTest {test xml-2.1 {xml foreach on all nodes} -setup {
 file_settings.xml} -result {{#document} #comment InterpreterSettings Culture\
 #text Profile #text Text #text LibraryPath #text RuleSet #text Args #text\
 CreateFlags #text HostCreateFlags #text InitializeFlags #text ScriptFlags #text\
-InterpreterFlags #text PluginFlags #text AutoPathList #text}}
+InterpreterFlags #text InterpreterTestFlags #text PluginFlags #text\
+AutoPathList #text}}
 
 ###############################################################################
 
@@ -223,7 +225,7 @@ runTest {test xml-2.2 {xml foreach on some nodes w/o namespaces} -setup {
 } -constraints {eagle command.object command.xml compile.XML\
 file_settings.xml} -result {InterpreterSettings Culture Profile Text\
 LibraryPath RuleSet Args CreateFlags HostCreateFlags InitializeFlags\
-ScriptFlags InterpreterFlags PluginFlags AutoPathList}}
+ScriptFlags InterpreterFlags InterpreterTestFlags PluginFlags AutoPathList}}
 
 ###############################################################################
 

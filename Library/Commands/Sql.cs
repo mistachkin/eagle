@@ -250,7 +250,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 1) < argumentCount))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     IDbTransaction transaction = null;
 
                                                     if (options.IsPresent("-transaction", ref value))
@@ -588,7 +588,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 2) < argumentCount))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     IDbTransaction transaction = null;
 
                                                     if (options.IsPresent("-transaction", ref value))
@@ -933,7 +933,7 @@ namespace Eagle._Commands
                                             {
                                                 if ((argumentIndex != Index.Invalid) && ((argumentIndex + 1) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     DbConnectionType dbConnectionType = DbConnectionType.Default; /* TODO: Good default? */
 
                                                     if (options.IsPresent("-type", ref value))
@@ -1082,7 +1082,7 @@ namespace Eagle._Commands
                                                 if ((argumentIndex != Index.Invalid) &&
                                                     ((argumentIndex + 2) == arguments.Count))
                                                 {
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     IsolationLevel isolationLevel = IsolationLevel.Unspecified; /* NOTE: Yes, this default is OK, per MSDN. */
 
                                                     if (options.IsPresent("-isolation", ref value))

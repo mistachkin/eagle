@@ -369,6 +369,8 @@ namespace Eagle._Components.Private
                 FormatOps.WrapOrNull(paths)),
                 typeof(ScriptOps).Name, TracePriority.PackageDebug3);
 
+            Array.Sort(fileNames); /* O(N) */
+
             foreach (string fileName in fileNames)
             {
                 if (String.IsNullOrEmpty(fileName))
@@ -446,6 +448,8 @@ namespace Eagle._Components.Private
 
                 if ((fileNames == null) || (fileNames.Length == 0))
                     continue;
+
+                Array.Sort(fileNames); /* O(N) */
 
                 foreach (string fileName in fileNames)
                 {
@@ -2212,27 +2216,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static void ExtractInterpreterCreationFlags(
-            Interpreter interpreter,                    /* in: OPTIONAL */
-            CreationFlagTypes creationFlagTypes,        /* in */
-            CreateFlags? fallbackCreateFlags,           /* in: OPTIONAL */
-            HostCreateFlags? fallbackHostCreateFlags,   /* in: OPTIONAL */
-            InitializeFlags? fallbackInitializeFlags,   /* in: OPTIONAL */
-            ScriptFlags? fallbackScriptFlags,           /* in: OPTIONAL */
-            InterpreterFlags? fallbackInterpreterFlags, /* in: OPTIONAL */
-            PluginFlags? fallbackPluginFlags,           /* in: OPTIONAL */
+            Interpreter interpreter,                            /* in: OPTIONAL */
+            CreationFlagTypes creationFlagTypes,                /* in */
+            CreateFlags? fallbackCreateFlags,                   /* in: OPTIONAL */
+            HostCreateFlags? fallbackHostCreateFlags,           /* in: OPTIONAL */
+            InitializeFlags? fallbackInitializeFlags,           /* in: OPTIONAL */
+            ScriptFlags? fallbackScriptFlags,                   /* in: OPTIONAL */
+            InterpreterFlags? fallbackInterpreterFlags,         /* in: OPTIONAL */
+            InterpreterTestFlags? fallbackInterpreterTestFlags, /* in: OPTIONAL */
+            PluginFlags? fallbackPluginFlags,                   /* in: OPTIONAL */
 #if NATIVE && TCL
-            FindFlags? fallbackFindFlags,               /* in: OPTIONAL */
-            LoadFlags? fallbackLoadFlags,               /* in: OPTIONAL */
+            FindFlags? fallbackFindFlags,                       /* in: OPTIONAL */
+            LoadFlags? fallbackLoadFlags,                       /* in: OPTIONAL */
 #endif
-            out CreateFlags createFlags,                /* out */
-            out HostCreateFlags hostCreateFlags,        /* out */
-            out InitializeFlags initializeFlags,        /* out */
-            out ScriptFlags scriptFlags,                /* out */
-            out InterpreterFlags interpreterFlags,      /* out */
-            out PluginFlags pluginFlags                 /* out */
+            out CreateFlags createFlags,                        /* out */
+            out HostCreateFlags hostCreateFlags,                /* out */
+            out InitializeFlags initializeFlags,                /* out */
+            out ScriptFlags scriptFlags,                        /* out */
+            out InterpreterFlags interpreterFlags,              /* out */
+            out InterpreterTestFlags interpreterTestFlags,      /* out */
+            out PluginFlags pluginFlags                         /* out */
 #if NATIVE && TCL
-            , out FindFlags findFlags,                  /* out */
-            out LoadFlags loadFlags                     /* out */
+            , out FindFlags findFlags,                          /* out */
+            out LoadFlags loadFlags                             /* out */
 #endif
             )
         {
@@ -2362,6 +2368,32 @@ namespace Eagle._Components.Private
             else
             {
                 interpreterFlags = InterpreterFlags.None;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if ((interpreter != null) && FlagOps.HasFlags(
+                    creationFlagTypes,
+                    CreationFlagTypes.CurrentInterpreterTestFlags, true))
+            {
+                interpreterTestFlags = interpreter.InterpreterTestFlags;
+            }
+            else if ((interpreter != null) && FlagOps.HasFlags(
+                    creationFlagTypes,
+                    CreationFlagTypes.DefaultInterpreterTestFlags, true))
+            {
+                interpreterTestFlags = interpreter.DefaultInterpreterTestFlags;
+            }
+            else if (FlagOps.HasFlags(creationFlagTypes,
+                    CreationFlagTypes.FallbackInterpreterTestFlags, true))
+            {
+                interpreterTestFlags = (fallbackInterpreterTestFlags != null) ?
+                    (InterpreterTestFlags)fallbackInterpreterTestFlags :
+                    Defaults.InterpreterTestFlags;
+            }
+            else
+            {
+                interpreterTestFlags = InterpreterTestFlags.None;
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -2510,6 +2542,7 @@ namespace Eagle._Components.Private
             InitializeFlags initializeFlags;
             ScriptFlags scriptFlags;
             InterpreterFlags interpreterFlags;
+            InterpreterTestFlags interpreterTestFlags;
             PluginFlags pluginFlags;
 
 #if NATIVE && TCL
@@ -2520,14 +2553,14 @@ namespace Eagle._Components.Private
             ExtractInterpreterCreationFlags(
                 interpreter, CreationFlagTypes.SettingsFlags,
                 defaultCreateFlags, defaultHostCreateFlags,
-                null, null, null, null,
+                null, null, null, null, null,
 #if NATIVE && TCL
                 null, null,
 #endif
                 out createFlags,
                 out hostCreateFlags, out initializeFlags,
                 out scriptFlags, out interpreterFlags,
-                out pluginFlags
+                out interpreterTestFlags, out pluginFlags
 #if NATIVE && TCL
                 , out findFlags, out loadFlags
 #endif
@@ -2587,7 +2620,7 @@ namespace Eagle._Components.Private
                             null, clientData, null, createFlags,
                             hostCreateFlags, initializeFlags,
                             scriptFlags, interpreterFlags,
-                            pluginFlags,
+                            interpreterTestFlags, pluginFlags,
 #if NATIVE && TCL
                             findFlags, loadFlags,
 #endif
@@ -2628,7 +2661,7 @@ namespace Eagle._Components.Private
                     Interpreter otherInterpreter = Interpreter.Create(
                         clientData, null, createFlags, hostCreateFlags,
                         initializeFlags, scriptFlags, interpreterFlags,
-                        pluginFlags, ref result);
+                        interpreterTestFlags, pluginFlags, ref result);
 
                     //
                     // HACK: Even though the created interpreter is not
@@ -3586,6 +3619,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Library Support Methods
+        public static void MaybeExactNameOnly(
+            string name,                /* in */
+            ref ScriptFlags scriptFlags /* in, out */
+            )
+        {
+            if (PathOps.IsScriptFile(name, false, false) &&
+                (PathOps.GetPathType(name) != PathType.Relative))
+            {
+                scriptFlags |= ScriptFlags.ExactNameOnly;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ScriptFlags GetFlags(
             Interpreter interpreter, /* in */
             ScriptFlags scriptFlags, /* in */
@@ -3801,6 +3848,8 @@ namespace Eagle._Components.Private
                 }
                 else
                 {
+                    MaybeExactNameOnly(name, ref scriptFlags);
+
                     localResult = null;
 
                     if (HostOps.GetScript(
@@ -3823,6 +3872,8 @@ namespace Eagle._Components.Private
             }
             else
             {
+                MaybeExactNameOnly(name, ref scriptFlags);
+
                 localResult = null;
 
                 if (HostOps.GetScript(
@@ -3874,6 +3925,8 @@ namespace Eagle._Components.Private
             ref ResultList errors
             )
         {
+            MaybeExactNameOnly(name, ref scriptFlags);
+
             Result localResult = null;
 
             if (HostOps.GetScript(
@@ -3902,6 +3955,8 @@ namespace Eagle._Components.Private
                         name, ref localResult) == ReturnCode.Ok)
                 {
                     string localName = localResult;
+
+                    MaybeExactNameOnly(localName, ref scriptFlags);
 
                     localResult = null;
 
@@ -4948,7 +5003,7 @@ namespace Eagle._Components.Private
             bool strict,
             bool noCase,
             CultureInfo cultureInfo,
-            ref Variant value,
+            ref IVariant value,
             ref int nextIndex,
             ref Result error
             )
@@ -6441,7 +6496,7 @@ namespace Eagle._Components.Private
                 IVariable localVariable = null;
 
                 if (interpreter.GetVariableViaResolversWithSplit(
-                        localFrame, localVarName /* FULL NAME*/,
+                        localFrame, localVarName /* FULL NAME */,
                         ref localVariable) == ReturnCode.Ok)
                 {
                     Result localUsableError = null;
@@ -6492,7 +6547,7 @@ namespace Eagle._Components.Private
                 IVariable otherVariable = null;
 
                 if (interpreter.GetVariableViaResolversWithSplit(
-                        otherFrame, otherVarName /* FULL NAME*/,
+                        otherFrame, otherVarName /* FULL NAME */,
                         ref otherVariable) == ReturnCode.Ok)
                 {
                     Result otherUsableError = null;
@@ -7966,6 +8021,21 @@ namespace Eagle._Components.Private
 
             return FlagOps.HasFlags( /* EXEMPT */
                 interpreter.InterpreterFlags, hasFlags, all);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            Interpreter interpreter,
+            InterpreterTestFlags hasFlags,
+            bool all
+            )
+        {
+            if (interpreter == null)
+                return false;
+
+            return FlagOps.HasFlags( /* EXEMPT */
+                interpreter.InterpreterTestFlags, hasFlags, all);
         }
         #endregion
 

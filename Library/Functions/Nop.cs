@@ -10,7 +10,6 @@
  */
 
 using Eagle._Attributes;
-using Eagle._Components.Private;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
@@ -24,23 +23,25 @@ namespace Eagle._Functions
     [ObjectGroup("nop")]
     internal sealed class Nop : Core
     {
+        #region Public Constructors
         public Nop(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
             : base(functionData)
         {
             // do nothing.
         }
+        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
             return ReturnCode.Ok;

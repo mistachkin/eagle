@@ -140,7 +140,7 @@ namespace Eagle._Commands
                                     ((argumentIndex + 2) <= arguments.Count) &&
                                     ((argumentIndex + 3) >= arguments.Count))
                                 {
-                                    Variant value = null;
+                                    IVariant value = null;
                                     bool raw = false;
 
                                     if (options.IsPresent("-raw"))
@@ -330,7 +330,7 @@ namespace Eagle._Commands
                                     ((argumentIndex + 2) <= arguments.Count) &&
                                     ((argumentIndex + 3) >= arguments.Count))
                                 {
-                                    Variant value = null;
+                                    IVariant value = null;
                                     bool raw = false;
 
                                     if (options.IsPresent("-raw"))
@@ -444,7 +444,7 @@ namespace Eagle._Commands
                                 if ((argumentIndex != Index.Invalid) &&
                                     ((argumentIndex + 2) == arguments.Count))
                                 {
-                                    Variant value = null;
+                                    IVariant value = null;
                                     bool raw = false;
 
                                     if (options.IsPresent("-raw"))

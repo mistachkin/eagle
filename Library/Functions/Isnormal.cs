@@ -23,87 +23,62 @@ namespace Eagle._Functions
     [Arguments(Arity.Unary)]
     [TypeListFlags(TypeListFlags.FloatTypes)]
     [ObjectGroup("indicator")]
-    internal sealed class Isnormal : Core
+    internal sealed class Isnormal : Arguments
     {
+        #region Public Constructors
         public Isnormal(
-            IFunctionData functionData
+            IFunctionData functionData /* in */
             )
             : base(functionData)
         {
             // do nothing.
         }
+        #endregion
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Argument value,
-            ref Result error
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Argument value,      /* out */
+            ref Result error         /* out */
             )
         {
-            ReturnCode code = ReturnCode.Ok;
-
-            if (interpreter != null)
+            if (base.Execute(
+                    interpreter, clientData, arguments, ref value,
+                    ref error) != ReturnCode.Ok)
             {
-                if (arguments != null)
-                {
-                    if (arguments.Count == (this.Arguments + 1))
-                    {
-                        double doubleValue = 0.0;
-
-                        code = Value.GetDouble(
-                            (IGetValue)arguments[1], interpreter.InternalCultureInfo,
-                            ref doubleValue, ref error);
-
-                        if (code == ReturnCode.Ok)
-                        {
-                            try
-                            {
-                                value = (MathOps.Classify(
-                                    doubleValue) == FloatingPointClass.Normal);
-                            }
-                            catch (Exception e)
-                            {
-                                Engine.SetExceptionErrorCode(interpreter, e);
-
-                                error = String.Format(
-                                    "caught math exception: {0}",
-                                    e);
-
-                                code = ReturnCode.Error;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (arguments.Count > (this.Arguments + 1))
-                            error = String.Format(
-                                "too many arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-                        else
-                            error = String.Format(
-                                "too few arguments for math function {0}",
-                                FormatOps.WrapOrNull(base.Name));
-
-                        code = ReturnCode.Error;
-                    }
-                }
-                else
-                {
-                    error = "invalid argument list";
-                    code = ReturnCode.Error;
-                }
-            }
-            else
-            {
-                error = "invalid interpreter";
-                code = ReturnCode.Error;
+                return ReturnCode.Error;
             }
 
-            return code;
+            double doubleValue = 0.0;
+
+            if (Value.GetDouble((IGetValue)arguments[1],
+                    interpreter.InternalCultureInfo, ref doubleValue,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            try
+            {
+                FloatingPointClass fpClass = MathOps.Classify(
+                    doubleValue);
+
+                value = (fpClass == FloatingPointClass.Normal);
+            }
+            catch (Exception e)
+            {
+                Engine.SetExceptionErrorCode(interpreter, e);
+
+                error = String.Format("caught math exception: {0}", e);
+
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
         }
         #endregion
     }

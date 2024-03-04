@@ -430,25 +430,101 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static int GetMaximumLength(
-            IEnumerable<string> collection
+        private static string ToString<T>(
+            string format,
+            T item
             )
         {
-            int result = Length.Invalid;
+            if (item == null)
+                return null;
 
-            if (collection != null)
+            IToString toString = item as IToString;
+
+            return (toString != null) ?
+                toString.ToString(format) : item.ToString();
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static int GetTotalLength<T>(
+            IList<T> list,
+            string format,
+            int startIndex,
+            int minimum
+            )
+        {
+            int result = 0;
+
+            if (list != null)
             {
-                foreach (string item in collection)
+                int count = list.Count;
+
+                for (int index = startIndex; index < count; index++)
                 {
+                    T item = list[index];
+
                     if (item == null)
                         continue;
 
-                    if (item.Length > result)
-                        result = item.Length;
+                    string itemString = ToString<T>(format, item);
+
+                    if (itemString == null)
+                        continue;
+
+                    int length = itemString.Length;
+
+                    if (length < minimum)
+                        continue;
+
+                    result += length;
                 }
             }
 
             return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static int GetMaximumLength<T>(
+            IEnumerable<T> collection
+            )
+        {
+            return GetMaximumLength<T>(collection, "{0}");
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static int GetMaximumLength<T>(
+            IEnumerable<T> collection,
+            string format
+            )
+        {
+            int maximum = Length.Invalid;
+
+            if (collection != null)
+            {
+                foreach (T item in collection)
+                {
+                    if (item == null)
+                        continue;
+
+                    string itemString = ToString<T>(
+                        format, item);
+
+                    if (itemString == null)
+                        continue;
+
+                    int length = itemString.Length;
+
+                    if ((maximum == Length.Invalid) ||
+                        (length > maximum))
+                    {
+                        maximum = length;
+                    }
+                }
+            }
+
+            return maximum;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -459,45 +535,43 @@ namespace Eagle._Components.Private
             int limit
             )
         {
-            int result = Length.Invalid;
+            int maximum = Length.Invalid;
 
             if (list != null)
             {
                 foreach (object element in list)
                 {
-                    if (element != null)
+                    if (element == null)
+                        continue;
+
+                    string value = ToString<object>(
+                        format, element);
+
+                    if (value == null)
+                        continue;
+
+                    int length = value.Length;
+
+                    if ((maximum == Length.Invalid) ||
+                        (length > maximum))
                     {
-                        IToString toString = element as IToString;
-                        string value;
-
-                        if (toString != null)
-                            value = toString.ToString(format);
-                        else
-                            value = element.ToString();
-
-                        if (!String.IsNullOrEmpty(value))
-                        {
-                            if ((result == Length.Invalid) ||
-                                (value.Length > result))
-                            {
-                                result = value.Length;
-                            }
-                        }
+                        maximum = length;
                     }
                 }
 
                 //
-                // NOTE: Reduce to the maximum limit allowed by the caller.
+                // NOTE: Reduce to the maximum limit
+                //       allowed by the caller.
                 //
-                if ((result != Length.Invalid) &&
+                if ((maximum != Length.Invalid) &&
                     (limit != Length.Invalid) &&
-                    (result > limit))
+                    (maximum > limit))
                 {
-                    result = limit;
+                    maximum = limit;
                 }
             }
 
-            return result;
+            return maximum;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -754,41 +828,106 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static StringList GetUniqueElements(
+        private static bool ShouldSkipElement( /* O(1) */
+            _StringDictionary dictionary, /* in */
+            string key                    /* in */
+            )
+        {
+            //
+            // HACK: Any null / empty list element are
+            //       always skipped (and never added).
+            //
+            if (String.IsNullOrEmpty(key))
+                return true;
+
+            //
+            // NOTE: If this element was seen before,
+            //       skip it now.
+            //
+            if (dictionary.ContainsKey(key))
+                return true;
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static StringList GetUniqueElements( /* O(N) */
+            StringList list /* in */
+            )
+        {
+            return GetUniqueElements(list, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static StringList GetUniqueElements( /* O(N) */
+            StringList list,                      /* in */
+            UniqueStringCallback<string> callback /* in */
+            )
+        {
+            return (callback != null) ?
+                GetUniqueElementsViaCallback(list, callback) :
+                GetUniqueElementsViaDefault(list);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static StringList GetUniqueElementsViaCallback( /* O(N) */
+            StringList list,                      /* in */
+            UniqueStringCallback<string> callback /* in */
+            )
+        {
+            if ((list == null) || (list.Count == 0) || (callback == null))
+                return list;
+
+            StringList result = new StringList();
+            _StringDictionary dictionary = new _StringDictionary();
+
+            foreach (string element in list)
+            {
+                bool? contains = callback(list, dictionary, element);
+
+                if (contains != null)
+                {
+                    if ((bool)contains)
+                        continue;
+                }
+                else
+                {
+                    if (ShouldSkipElement(dictionary, element))
+                        continue;
+                }
+
+                dictionary[element] = null;
+                result.Add(element);
+            }
+
+            return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static StringList GetUniqueElementsViaDefault( /* O(N) */
             StringList list /* in */
             )
         {
             if ((list == null) || (list.Count == 0))
                 return list;
 
-            StringList localList = new StringList();
-            _StringDictionary localNames = new _StringDictionary();
+            StringList result = new StringList();
+            _StringDictionary dictionary = new _StringDictionary();
 
             foreach (string element in list)
             {
-                //
-                // HACK: Any null or empty list element are
-                //       always skipped (and never added).
-                //
-                if (String.IsNullOrEmpty(element))
+                if (ShouldSkipElement(dictionary, element))
                     continue;
 
-                //
-                // NOTE: If this element was seen before,
-                //       skip it now.
-                //
-                if (localNames.ContainsKey(element))
-                    continue;
-
-                //
-                // NOTE: First, mark the element as "seen";
-                //       then, add it to the local list.
-                //
-                localNames[element] = null;
-                localList.Add(element);
+                dictionary[element] = null;
+                result.Add(element);
             }
 
-            return localList;
+            return result;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1287,6 +1426,77 @@ namespace Eagle._Components.Private
                     }
                 }
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IEnumerableClearList<T>(
+            IEnumerable<T> collection
+            )
+        {
+            if (collection == null)
+                return false;
+
+            IList<T> list = collection as IList<T>;
+
+            if (list == null)
+                return false;
+
+            list.Clear();
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IEnumerableAddToList<T>(
+            IEnumerable<T> collection,
+            T item
+            )
+        {
+            if (collection == null)
+                return false;
+
+            IList<T> list = collection as IList<T>;
+
+            if (list == null)
+                return false;
+
+            list.Add(item);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IEnumerableAddRangeToList<T>(
+            IEnumerable<T> collection1,
+            IEnumerable<T> collection2
+            )
+        {
+            if ((collection1 == null) || (collection2 == null))
+                return false;
+
+            List<T> list = collection1 as List<T>;
+
+            if (list == null)
+                return false;
+
+            list.AddRange(collection2);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool IEnumerableSortList<T>(
+            IEnumerable<T> collection
+            )
+        {
+            if (collection == null)
+                return false;
+
+            List<T> list = collection as List<T>;
+
+            list.Sort();
+            return true;
         }
     }
 }

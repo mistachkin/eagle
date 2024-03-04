@@ -82,7 +82,7 @@ namespace Eagle._Commands
                                 // NOTE: Initialize the variable that will hold the supplied option 
                                 //       values, if any.
                                 //
-                                Variant value = null;
+                                IVariant value = null;
 
                                 //
                                 // NOTE: Process the -code option.

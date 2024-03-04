@@ -2210,7 +2210,7 @@ runTest {test framework-1.1 {GetFramework method for general types} -body {
   set result(5) null
 
   set code(5) [object invoke Interpreter.GetActive GetFramework \
-      83d21bd9-be3d-47c4-9506-37e20dedf1c7 "BuiltIn, Static, NonPublic" \
+      1d8b24ad-d959-43bb-92a6-e20bcb369d04 "BuiltIn, Static, NonPublic" \
       result(5)]
 
   lappend results $code(5) [getStringFromObjectHandle $result(5)]
@@ -2218,7 +2218,7 @@ runTest {test framework-1.1 {GetFramework method for general types} -body {
   set result(6) null
 
   set code(6) [object invoke Interpreter.GetActive GetFramework \
-      83d21bd9-be3d-47c4-9506-37e20dedf1c7 "BuiltIn, Instance, NonPublic" \
+      1d8b24ad-d959-43bb-92a6-e20bcb369d04 "BuiltIn, Instance, NonPublic" \
       result(6)]
 
   if {$code(6) eq "Ok"} then {
@@ -2239,7 +2239,7 @@ PublicKeyToken=(?:%publicKeyTokens%)" not available\} Ok\
 "2dacac40-7b18-4fc6-841a-35ffa7550dc9" and flags "BuiltIn, NonPublic, Instance"\
 within assembly "Eagle, Version=\d+\.\d+\.\d+\.\d+, Culture=neutral,\
 PublicKeyToken=(?:%publicKeyTokens%)" not available\} Ok\
-Eagle\._Components\.Public\.Number Ok 12345678$}]}
+Eagle\._Components\.Public\.Variant Ok 12345678$}]}
 
 ###############################################################################
 

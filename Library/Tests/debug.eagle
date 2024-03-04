@@ -45,7 +45,8 @@ proc enableHostRead { interp enable } {
   if {[isDotNetCore] && ([haveConstraint dotNetCore30] || \
       [haveConstraint dotNetCore50] || \
       [haveConstraint dotNetCore60] || \
-      [haveConstraint dotNetCore70])} then {
+      [haveConstraint dotNetCore70] || \
+      [haveConstraint dotNetCore80])} then {
     interp eval $interp [string map [list %enable% $enable] {
       object invoke -flags +NonPublic \
           Interpreter.GetActive.Host hostFlags \

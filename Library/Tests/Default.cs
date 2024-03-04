@@ -5063,13 +5063,13 @@ namespace Eagle._Tests
             else
                 localMilliseconds = PlayKeyboardMilliseconds;
 
-            if (ThreadPool.QueueUserWorkItem(
+            if (ThreadOps.QueueUserWorkItem(
                     new WaitCallback(
                         TestPlayKeyboardStreamThreadStart),
                     new NativeTriplet(
                         true, textReader, new EventTriplet(
                             stopEvent, doneEvent, flags),
-                        localMilliseconds)))
+                        localMilliseconds), false))
             {
                 return ReturnCode.Ok;
             }
@@ -5567,7 +5567,8 @@ namespace Eagle._Tests
             try
             {
                 if (ThreadOps.QueueUserWorkItem(
-                        TestDebugEmergencyBreakWaitCallback, interpreter))
+                        TestDebugEmergencyBreakWaitCallback,
+                        interpreter, false))
                 {
                     return ReturnCode.Ok;
                 }
@@ -5829,6 +5830,8 @@ namespace Eagle._Tests
 
                 scriptFlags |= ScriptFlags.CoreAssemblyOnly;
 
+                ScriptOps.MaybeExactNameOnly(name, ref scriptFlags);
+
                 Result result = null;
 
                 if (fileSystemHost.GetData(
@@ -5974,12 +5977,23 @@ namespace Eagle._Tests
             }
 
             TraceOps.DebugTrace(String.Format(
-                "TestSetQuiet: Quiet mode was {0}, now {1}.",
+                "TestSetQuiet: Value for {0} was {1} now {2}.",
+                FormatOps.InterpreterNoThrow(interpreter, false),
                 oldQuiet ? "enabled" : "disabled",
                 quiet ? "enabled" : "disabled"),
                 typeof(Default).Name, TracePriority.TestDebug2);
 
             return oldQuiet;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void TestSetNoBackgroundError(
+            bool noBackgroundError
+            )
+        {
+            TestSetNoBackgroundError(
+                Interpreter.GetActive(), noBackgroundError);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -5992,7 +6006,20 @@ namespace Eagle._Tests
             if (interpreter == null)
                 return;
 
-            interpreter.SetNoBackgroundError(noBackgroundError);
+            bool oldNoBackgroundError;
+
+            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+            {
+                oldNoBackgroundError = interpreter.HasNoBackgroundError();
+                interpreter.SetNoBackgroundError(noBackgroundError);
+            }
+
+            TraceOps.DebugTrace(String.Format(
+                "TestSetNoBackgroundError: Value for {0} was {1} now {2}.",
+                FormatOps.InterpreterNoThrow(interpreter, false),
+                oldNoBackgroundError ? "enabled" : "disabled",
+                noBackgroundError ? "enabled" : "disabled"),
+                typeof(Default).Name, TracePriority.TestDebug2);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6034,15 +6061,16 @@ namespace Eagle._Tests
         public static ReturnCode TestDisposeInterpreter(
             Interpreter interpreter,
             int timeout,
-            bool asynchronous,
+            QueueFlags flags,
             ref Result error
             )
         {
-            if (asynchronous)
+            if (FlagOps.HasFlags(flags, QueueFlags.Asynchronous, true))
             {
                 if (Engine.QueueWorkItem(
                         new WaitCallback(TestDisposeInterpreterWaitCallback),
-                        new AnyPair<int, Interpreter>(timeout, interpreter)))
+                        new AnyPair<int, Interpreter>(timeout, interpreter),
+                        flags))
                 {
                     return ReturnCode.Ok;
                 }
@@ -7985,6 +8013,192 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode TestAddExprCommand(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in: OPTIONAL */
+            ref long token,          /* in, out */
+            ref Result error         /* in, out */
+            )
+        {
+            Result result = null; /* REUSED */
+
+            if (interpreter.AddExecuteCallback(
+                    "testExpr", TestExprCommandCallback, clientData,
+                    ref token, ref result) == ReturnCode.Ok)
+            {
+                return ReturnCode.Ok;
+            }
+            else
+            {
+                error = result;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestExprCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            string commandName = null;
+            int argumentCount = arguments.Count;
+
+            if (argumentCount > 0)
+                commandName = arguments[0];
+
+            if (commandName == null)
+                commandName = "testExpr";
+
+            if (argumentCount < 3)
+            {
+                result = String.Format(
+                    "wrong # args: should be \"{0} flags arg ?arg ...?\"",
+                    commandName);
+
+                return ReturnCode.Error;
+            }
+
+            ExpressionFlags expressionFlags = interpreter.ExpressionFlags;
+
+            object enumValue = EnumOps.TryParseFlags(interpreter,
+                typeof(ExpressionFlags), expressionFlags.ToString(),
+                arguments[1], interpreter.InternalCultureInfo, true,
+                true, true, ref result);
+
+            if (enumValue is ExpressionFlags)
+                expressionFlags = (ExpressionFlags)enumValue;
+            else
+                return ReturnCode.Error;
+
+            string name = StringList.MakeList("expr");
+
+            ICallFrame frame = interpreter.NewTrackingCallFrame(
+                name, CallFrameFlags.Expression);
+
+            interpreter.PushAutomaticCallFrame(frame);
+
+            try
+            {
+                //
+                // FIXME: The expression parser does not know the line
+                //        where the error happened unless it evaluates
+                //        a command contained within the expression.
+                //
+                Interpreter.SetErrorLine(interpreter, 0);
+
+                ReturnCode code;
+
+                if (argumentCount == 3)
+                {
+                    code = interpreter.EvaluateExpression(
+                        arguments[2], expressionFlags,
+                        ref result);
+                }
+                else
+                {
+                    code = interpreter.EvaluateExpression(
+                        arguments, 2, expressionFlags,
+                        ref result);
+                }
+
+                if (code == ReturnCode.Error)
+                {
+                    Engine.AddErrorInformation(
+                        interpreter, result, String.Format(
+                            "{0}    (\"{1}\" body line {2})",
+                        Environment.NewLine, commandName,
+                        Interpreter.GetErrorLine(interpreter)));
+                }
+
+                return code;
+            }
+            finally
+            {
+                //
+                // NOTE: Pop the original call frame that we pushed above
+                //       and any intervening scope call frames that may be
+                //       leftover (i.e. they were not explicitly closed).
+                //
+                /* IGNORED */
+                interpreter.PopScopeCallFramesAndOneMore();
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestCalcCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount < 2)
+            {
+                result = "wrong # args: should be \"calc arg ?arg ...?\"";
+                return ReturnCode.Error;
+            }
+
+            return interpreter.EvaluateExpression(arguments, 1, ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestAddCalcCommand(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in: OPTIONAL */
+            ref long token,          /* in, out */
+            ref Result error         /* in, out */
+            )
+        {
+            Result result = null; /* REUSED */
+
+            if (interpreter.AddExecuteCallback(
+                    "calc", TestCalcCommandCallback, clientData,
+                    ref token, ref result) == ReturnCode.Ok)
+            {
+                return ReturnCode.Ok;
+            }
+            else
+            {
+                error = result;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static StringList TestParseInteger(
             string text,
             int startIndex,
@@ -9456,6 +9670,7 @@ namespace Eagle._Tests
             {
                 interpreterSettings.MakeSafe();
                 interpreterSettings.RemoveUnsafeOptions();
+                interpreterSettings.RemoveUnsafeTestOptions();
             }
 
             if (namespaces)
@@ -9725,7 +9940,7 @@ namespace Eagle._Tests
                 }
             }
 
-            Variant value = null;
+            IVariant value = null;
             ulong? token = null;
 
             if (options.IsPresent("-token", ref value))
@@ -11061,6 +11276,8 @@ namespace Eagle._Tests
                 error = "no file names were found";
                 return ReturnCode.Error;
             }
+
+            Array.Sort(fileNames); /* O(N) */
 
             if (dictionary == null)
                 dictionary = new RuleSetDictionary();
@@ -13020,8 +13237,8 @@ namespace Eagle._Tests
         {
             CheckDisposed();
 
-            int preDisposeContextCount = 0;
-            int postDisposeContextCount = 0;
+            long preDisposeContextCount = 0;
+            long postDisposeContextCount = 0;
 
             return TestEvaluateAsync(
                 interpreter, text, engineFlags, substitutionFlags, eventFlags,
@@ -13039,8 +13256,8 @@ namespace Eagle._Tests
             EventFlags eventFlags,
             ExpressionFlags expressionFlags,
             int? timeout,
-            ref int preDisposeContextCount,
-            ref int postDisposeContextCount,
+            ref long preDisposeContextCount,
+            ref long postDisposeContextCount,
             ref Result result
             )
         {
@@ -20985,7 +21202,15 @@ namespace Eagle._Tests
 
             private Interpreter interpreter;
             private string pipeName;
+
+#if MONO_BUILD
+#pragma warning disable 414
+#endif
             private bool autoStop;
+#if MONO_BUILD
+#pragma warning restore 414
+#endif
+
             private bool trace;
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -27148,6 +27373,16 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            #region IGetClientData / ISetClientData Members
+            public IClientData ClientData
+            {
+                get { throw new NotImplementedException(); }
+                set { throw new NotImplementedException(); }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             #region IIdentifier Members
             public string Group
             {
@@ -27168,16 +27403,6 @@ namespace Eagle._Tests
 
             #region IGetInterpreter / ISetInterpreter Members
             public Interpreter Interpreter
-            {
-                get { throw new NotImplementedException(); }
-                set { throw new NotImplementedException(); }
-            }
-            #endregion
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
-            #region IGetClientData / ISetClientData Members
-            public IClientData ClientData
             {
                 get { throw new NotImplementedException(); }
                 set { throw new NotImplementedException(); }
@@ -27754,17 +27979,6 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region IGetClientData / ISetClientData Members
-            private IClientData clientData;
-            public IClientData ClientData
-            {
-                get { return clientData; }
-                set { throw new NotImplementedException(); }
-            }
-            #endregion
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
             #region IIdentifierName Members
             private string name;
             public string Name
@@ -27788,6 +28002,17 @@ namespace Eagle._Tests
             public Guid Id
             {
                 get { throw new NotImplementedException(); }
+                set { throw new NotImplementedException(); }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IGetClientData / ISetClientData Members
+            private IClientData clientData;
+            public IClientData ClientData
+            {
+                get { return clientData; }
                 set { throw new NotImplementedException(); }
             }
             #endregion
@@ -27853,12 +28078,18 @@ namespace Eagle._Tests
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IWrapperData Members
+#if MONO_BUILD
+#pragma warning disable 414
+#endif
             private long token;
             public long Token
             {
                 get { throw new NotImplementedException(); }
                 set { token = value; }
             }
+#if MONO_BUILD
+#pragma warning restore 414
+#endif
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -28161,6 +28392,37 @@ namespace Eagle._Tests
                 IClientData clientData,
                 ArgumentList arguments,
                 ref Result result
+                )
+            {
+                throw new NotImplementedException();
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region IExecuteArgument Test Class
+        [ObjectId("65086259-5b6f-4fce-bf39-f8302be35821")]
+        public sealed class ExecuteArgument : IExecuteArgument
+        {
+            #region Public Constructors
+            public ExecuteArgument()
+            {
+                // do nothing.
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IExecute Members
+            /* Eagle._Components.Public.Delegates.ExecuteArgumentCallback */
+            public ReturnCode Execute(
+                Interpreter interpreter,
+                IClientData clientData,
+                ArgumentList arguments,
+                ref Argument value,
+                ref Result error
                 )
             {
                 throw new NotImplementedException();
@@ -28528,17 +28790,6 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region IGetClientData / ISetClientData Members
-            private IClientData clientData;
-            public IClientData ClientData
-            {
-                get { return clientData; }
-                set { throw new NotImplementedException(); }
-            }
-            #endregion
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
             #region IIdentifierName Members
             private string name;
             public string Name
@@ -28562,6 +28813,17 @@ namespace Eagle._Tests
             public Guid Id
             {
                 get { throw new NotImplementedException(); }
+                set { throw new NotImplementedException(); }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IGetClientData / ISetClientData Members
+            private IClientData clientData;
+            public IClientData ClientData
+            {
+                get { return clientData; }
                 set { throw new NotImplementedException(); }
             }
             #endregion
@@ -33958,23 +34220,23 @@ namespace Eagle._Tests
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
-            #region IGetInterpreter / ISetInterpreter Members
-            private Interpreter interpreter;
-            public Interpreter Interpreter
-            {
-                get { CheckDisposed(); return interpreter; }
-                set { CheckDisposed(); interpreter = value; }
-            }
-            #endregion
-
-            ///////////////////////////////////////////////////////////////////////////////////////////
-
             #region IGetClientData / ISetClientData Members
             private IClientData clientData;
             public IClientData ClientData
             {
                 get { CheckDisposed(); return clientData; }
                 set { CheckDisposed(); clientData = value; }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IGetInterpreter / ISetInterpreter Members
+            private Interpreter interpreter;
+            public Interpreter Interpreter
+            {
+                get { CheckDisposed(); return interpreter; }
+                set { CheckDisposed(); interpreter = value; }
             }
             #endregion
 

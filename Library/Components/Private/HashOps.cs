@@ -42,6 +42,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static readonly string Sha512AlgorithmName = "SHA512";
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: *WARNING* Change this value with great care because it may
         //       break external components.
@@ -56,8 +60,24 @@ namespace Eagle._Components.Private
         //       break custom script, file, and stream policies that rely on
         //       the hash result.
         //
-        private static readonly string DefaultBytesAlgorithmName =
+        private static readonly string LegacyBytesAlgorithmName =
             Sha1AlgorithmName;
+
+        private static readonly string ModernBytesAlgorithmName =
+            Sha512AlgorithmName;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: *WARNING* Change this value with great care because it may
+        //       break snippet usage (e.g. by Harpy) that rely on the hash
+        //       result.
+        //
+        private static readonly string LegacySnippetAlgorithmName =
+            Sha1AlgorithmName;
+
+        private static readonly string ModernSnippetAlgorithmName =
+            Sha512AlgorithmName;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -65,7 +85,10 @@ namespace Eagle._Components.Private
         // NOTE: *WARNING* These are subject to change in the future (e.g. to
         //       more secure variants, etc).
         //
-        internal static readonly string DefaultStringAlgorithmName = "SHA512";
+        private static readonly string ModernStringAlgorithmName = "SHA512";
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static readonly string DefaultEncodingName = "utf-8";
         #endregion
 
@@ -1169,7 +1192,86 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Hashing Support Methods
+        private static bool ShouldUseModernAlgorithms(
+            EncodingType encodingType /* in */
+            )
+        {
+            foreach (string envVarName in new string[] {
+                    String.Format(
+                        "{0}{1}{2}",
+                        EnvVars.ForceModernAlgorithms,
+                        Characters.Underscore, encodingType
+                    ),
+                    EnvVars.ForceModernAlgorithms
+                })
+            {
+                if (String.IsNullOrEmpty(envVarName))
+                    continue;
+
+                if (CommonOps.Environment.DoesVariableExist(
+                        envVarName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Public Hashing Support Methods
+        public static string GetAlgorithmName(
+            EncodingType encodingType /* in */
+            )
+        {
+            //
+            // HACK: When the "ForceModernAlgorithms" environment variable
+            //       is set, use more modern hash algorithms like SHA512,
+            //       i.e. not SHA1.  Setting this environment variable may
+            //       break backward compatibility with external plugins,
+            //       e.g. Harpy.
+            //
+            switch (encodingType)
+            {
+                case EncodingType.Binary:
+                    {
+                        if (ShouldUseModernAlgorithms(encodingType))
+                            return ModernBytesAlgorithmName;
+                        else
+                            return LegacyBytesAlgorithmName;
+                    }
+                case EncodingType.Text:
+                    {
+                        //
+                        // NOTE: There was not a legacy hash algorithm
+                        //       that was used in this context.
+                        //
+                        return ModernStringAlgorithmName;
+                    }
+                case EncodingType.Snippet:
+                    {
+                        if (ShouldUseModernAlgorithms(encodingType))
+                            return ModernSnippetAlgorithmName;
+                        else
+                            return LegacySnippetAlgorithmName;
+                    }
+                default:
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "GetAlgorithmName: bad encoding type {0}",
+                            encodingType), typeof(HashOps).Name,
+                            TracePriority.SecurityError);
+
+                        return null;
+                    }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static byte[] HashString(
             string hashAlgorithmName,
             string encodingName,
@@ -1219,6 +1321,21 @@ namespace Eagle._Components.Private
             ref Result error
             )
         {
+            return HashString(
+                hashAlgorithmName, encoding, text, EncodingType.Text,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static byte[] HashString(
+            string hashAlgorithmName,
+            Encoding encoding,
+            string text,
+            EncodingType encodingType,
+            ref Result error
+            )
+        {
             if (encoding == null)
             {
                 error = "invalid encoding";
@@ -1226,7 +1343,7 @@ namespace Eagle._Components.Private
             }
 
             if (hashAlgorithmName == null)
-                hashAlgorithmName = DefaultStringAlgorithmName;
+                hashAlgorithmName = GetAlgorithmName(encodingType);
 
             using (HashAlgorithm hashAlgorithm = CreateAlgorithm(
                     hashAlgorithmName, ref error))
@@ -1278,36 +1395,48 @@ namespace Eagle._Components.Private
             ref Result error
             )
         {
-            if (bytes != null)
-            {
-                if (hashAlgorithmName == null)
-                    hashAlgorithmName = DefaultBytesAlgorithmName;
+            return HashBytes(
+                hashAlgorithmName, bytes, EncodingType.Binary,
+                ref error);
+        }
 
-                using (HashAlgorithm hashAlgorithm = CreateAlgorithm(
-                        hashAlgorithmName, ref error))
-                {
-                    if (hashAlgorithm == null)
-                        return null;
+        ///////////////////////////////////////////////////////////////////////
 
-                    try
-                    {
-                        hashAlgorithm.Initialize(); /* throw */
-
-                        return hashAlgorithm.ComputeHash(
-                            bytes); /* throw */
-                    }
-                    catch (Exception e)
-                    {
-                        error = e;
-                    }
-                }
-            }
-            else
+        public static byte[] HashBytes(
+            string hashAlgorithmName,
+            byte[] bytes,
+            EncodingType encodingType,
+            ref Result error
+            )
+        {
+            if (bytes == null)
             {
                 error = "invalid bytes";
+                return null;
             }
 
-            return null;
+            if (hashAlgorithmName == null)
+                hashAlgorithmName = GetAlgorithmName(encodingType);
+
+            using (HashAlgorithm hashAlgorithm = CreateAlgorithm(
+                    hashAlgorithmName, ref error))
+            {
+                if (hashAlgorithm == null)
+                    return null;
+
+                try
+                {
+                    hashAlgorithm.Initialize(); /* throw */
+
+                    return hashAlgorithm.ComputeHash(
+                        bytes); /* throw */
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                    return null;
+                }
+            }
         }
         #endregion
 
@@ -1368,7 +1497,7 @@ namespace Eagle._Components.Private
                 localBytes.AddRange(hashBytes);
 
             if (hashAlgorithmName == null)
-                hashAlgorithmName = DefaultStringAlgorithmName;
+                hashAlgorithmName = GetAlgorithmName(EncodingType.Text);
 
             using (HashAlgorithm hashAlgorithm = CreateAlgorithm(
                     hashAlgorithmName, ref error))
@@ -1424,7 +1553,7 @@ namespace Eagle._Components.Private
                 localBytes.AddRange(hashBytes);
 
             if (hashAlgorithmName == null)
-                hashAlgorithmName = DefaultStringAlgorithmName;
+                hashAlgorithmName = GetAlgorithmName(EncodingType.Text);
 
             using (HashAlgorithm hashAlgorithm = CreateAlgorithm(
                     hashAlgorithmName, ref error))

@@ -94,24 +94,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Dead Code
-#if DEAD_CODE
         [DebuggerStepThrough()]
         private Result(
-            Number value
-            )
-            : this(ReturnCode.Ok, (value != null) ? value.Value : null)
-        {
-            // do nothing.
-        }
-#endif
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        [DebuggerStepThrough()]
-        private Result(
-            Variant value
+            IGetValue value
             )
             : this(ReturnCode.Ok, (value != null) ? value.Value : null)
         {
@@ -1045,16 +1030,6 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         [DebuggerStepThrough()]
-        private static Result FromVariant(
-            Variant value
-            )
-        {
-            return new Result(value);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        [DebuggerStepThrough()]
         private static Result FromDouble(
             double value
             )
@@ -1341,19 +1316,6 @@ namespace Eagle._Components.Public
         {
             if (value != null)
                 return FromArgument(value);
-            else
-                return null;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        [DebuggerStepThrough()]
-        public static implicit operator Result(
-            Variant value
-            )
-        {
-            if (value != null)
-                return FromVariant(value);
             else
                 return null;
         }

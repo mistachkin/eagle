@@ -129,7 +129,7 @@ namespace Eagle._Commands
                                                     if (noCase)
                                                         objectFlags |= ObjectFlags.NoCase;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Encoding encoding = null;
 
                                                     if (options.IsPresent("-encoding", ref value))
@@ -259,7 +259,7 @@ namespace Eagle._Commands
                                                         out dispose, out alias, out aliasRaw, out aliasAll,
                                                         out aliasReference, out toString);
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     StringDictionary namespaces = null;
 
                                                     if (options.IsPresent("-namespaces", ref value))
@@ -469,7 +469,7 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-verbose"))
                                                         verbose = true;
 
-                                                    Variant value = null;
+                                                    IVariant value = null;
                                                     Encoding encoding = null;
 
                                                     if (options.IsPresent("-encoding", ref value))
