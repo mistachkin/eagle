@@ -292,8 +292,8 @@ namespace Eagle._Hosts
             return new Graphical(new HostData(
                 Name, Group, Description, ClientData, typeof(Graphical).Name,
                 interpreter, ResourceManager, Profile, Utility.GetHostCreateFlags(
-                HostCreateFlags, UseAttach, NoColor, NoTitle, NoIcon, NoProfile,
-                NoCancel)));
+                HostCreateFlags, UseAttach, UseForce, NoColor, NoTitle, NoIcon,
+                NoProfile, NoCancel)));
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

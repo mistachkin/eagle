@@ -101,13 +101,18 @@ namespace Eagle._Components.Private
         private static readonly string DisplayNullString = "<nullString>";
         private static readonly string DisplayEmptyString = "<emptyString>";
         internal static readonly string DisplayEmpty = "<empty>";
+        internal static readonly string DisplayNothing = "<nothing>";
+        internal static readonly string DisplayInvalid = "<invalid>";
         private static readonly string DisplayNullList = "<nullList>";
         private static readonly string DisplayEmptyList = "<emptyList>";
         private static readonly string DisplaySpace = "<space>";
         internal static readonly string DisplayDisposed = "<disposed>";
+        internal static readonly string DisplayDisposedFormat = "<disposed:{0}>";
         internal static readonly string DisplayBusy = "<busy>";
+        internal static readonly string DisplayBusyFormat = "<busy:{0}>";
         private static readonly string DisplayError = "<error>";
-        private static readonly string DisplayError0 = "<error:{0}>";
+        private static readonly string DisplayErrorFormat0 = "<error:{0}>";
+        private static readonly string DisplayErrorFormat1 = "<error:{0}:{1}>";
         internal static readonly string DisplayUnknown = "<unknown>";
         private static readonly string DisplayObfuscated = "<obfuscated>";
         internal static readonly string DisplayPresent = "<present>";
@@ -117,9 +122,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static readonly string DisplayIsEnabled = "<isEnabled>";
-        private static readonly string DisplaySetEnabled = "<setEnabled>";
-        private static readonly string DisplaySetDisabled = "<setDisabled>";
+        private static readonly string DisplayMaybeIsEnabled = "<isEnabled>";
+        private static readonly string DisplayMaybeSetEnabled = "<setEnabled>";
+        private static readonly string DisplayMaybeSetDisabled = "<setDisabled>";
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static readonly string DisplayIsUnknown = "is unknown";
+        private static readonly string DisplayIsEnabled = "is enabled";
+        private static readonly string DisplayIsDisabled = "is disabled";
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static readonly string DisplayWasUnknown = "was unknown";
+        private static readonly string DisplayWasEnabled = "was enabled";
+        private static readonly string DisplayWasDisabled = "was disabled";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -165,8 +182,8 @@ namespace Eagle._Components.Private
         private static int HistoryEllipsisLimit = 78;
 #endif
 
-        private static int DefaultEllipsisLimit = 200;
-        private static int WrapEllipsisLimit = 200;
+        private static int DefaultEllipsisLimit = 512;
+        private static int WrapEllipsisLimit = 512;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -279,6 +296,14 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        private static bool DefaultGetMethodNameAnywhere = false;
+        private static bool DefaultDisplayMethodFullName = false;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
         private static string StackTraceStart = "<stackTrace>";
         private static string StackTraceEnd = "</stackTrace>";
         #endregion
@@ -304,8 +329,8 @@ namespace Eagle._Components.Private
         //       the "correct" method name to use for trace output.
         //
         private static StringList skipNames = new StringList(
-            "DebugTrace", "DebugWrite", "DebugWriteTo", "DebugWriteOrTrace",
-            "DebugTraceUriError");
+            "DebugTrace", "DebugWrite", "MaybeWritePolicyTrace",
+            "MaybeEmitPolicyResults");
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -328,6 +353,20 @@ namespace Eagle._Components.Private
         //       extra trace indicators.
         //
         private static bool seeTraceListeners;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: If this field is non-zero, extended characters are allowed to
+        //       be used to replace line-endings in display strings.
+        //
+        private static bool extendedLineEndings = false;
+
+        //
+        // NOTE: If this field is non-zero, Unicode characters are allowed to
+        //       be used to replace line-endings in display strings.
+        //
+        private static bool unicodeLineEndings = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1064,6 +1103,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static string TestHookPattern(
+            TestHookType type,
+            string pattern
+            )
+        {
+            TestHookType baseType = (type & TestHookType.TypeMask);
+
+            return String.Format("{0}_{1}", EnumOps.FixupEnumString(
+                baseType.ToString()), pattern);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string DisplayRegExMatch(
             Match match
             )
@@ -1223,7 +1275,7 @@ namespace Eagle._Components.Private
                     {
                         Type type = (e != null) ? e.GetType() : null;
 
-                        return String.Format(DisplayError0,
+                        return String.Format(DisplayErrorFormat0,
                             (type != null) ? type.Name : UnknownTypeName);
                     }
                 }
@@ -1629,6 +1681,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static object MaybeNullOrEmpty(
+            object value
+            )
+        {
+            if (value == null)
+                return DisplayNull;
+
+            if (value is string)
+            {
+                int length = ((string)value).Length;
+
+                if (length == 0)
+                    return DisplayEmpty;
+            }
+
+            return value;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string MaybeMilliseconds(
             long? value
             )
@@ -1968,7 +2040,7 @@ namespace Eagle._Components.Private
                 {
                     Type type = (e != null) ? e.GetType() : null;
 
-                    return String.Format(DisplayError0,
+                    return String.Format(DisplayErrorFormat0,
                         (type != null) ? type.Name : UnknownTypeName);
                 }
             }
@@ -2101,16 +2173,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        public static string DumpDictionary(
+        public static void DumpDictionary(
             IEnumerable<KeyValuePair<string, int>> collection,
+            StringBuilder builder,
             string hashAlgorithmName,
             bool raw
             )
         {
-            if (collection == null)
-                return DisplayNull;
-
-            StringBuilder builder = StringBuilderFactory.Create();
+            if ((collection == null) || (builder == null))
+                return;
 
             foreach (KeyValuePair<string, int> pair in collection)
             {
@@ -2138,8 +2209,6 @@ namespace Eagle._Components.Private
                 builder.AppendFormat(
                     "{0}{1}", Characters.HorizontalTab, pair.Value);
             }
-
-            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2513,7 +2582,7 @@ namespace Eagle._Components.Private
             {
                 Type type = (e != null) ? e.GetType() : null;
 
-                return String.Format(DisplayError0,
+                return String.Format(DisplayErrorFormat0,
                     (type != null) ? type.Name : UnknownTypeName);
             }
         }
@@ -2566,7 +2635,7 @@ namespace Eagle._Components.Private
                 {
                     Type type = (e != null) ? e.GetType() : null;
 
-                    return String.Format(DisplayError0,
+                    return String.Format(DisplayErrorFormat0,
                         (type != null) ? type.Name : UnknownTypeName);
                 }
             }
@@ -2916,7 +2985,8 @@ namespace Eagle._Components.Private
 
             StringBuilder builder = StringBuilderFactory.Create(value);
 
-            StringOps.FixupDisplayLineEndings(builder, false);
+            StringOps.FixupDisplayLineEndings(
+                builder, extendedLineEndings, unicodeLineEndings);
 
             return StringBuilderCache.GetStringAndRelease(ref builder);
         }
@@ -3718,6 +3788,15 @@ namespace Eagle._Components.Private
                     //
                     switch (packageType)
                     {
+                        case PackageType.Loader:
+                            {
+                                result = PathOps.GetUnixPath(
+                                    PathOps.CombinePath(null,
+                                    ScriptPaths.LoaderPackage,
+                                    result));
+
+                                break;
+                            }
                         case PackageType.Library:
                             {
                                 result = PathOps.GetUnixPath(
@@ -4253,7 +4332,7 @@ namespace Eagle._Components.Private
 
             byte[] hashValue = HashOps.HashBytes(null, bytes, ref error);
 
-            return (hashValue != null) ? Hash(hashValue) : DisplayError0;
+            return (hashValue != null) ? Hash(hashValue) : DisplayErrorFormat0;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4607,9 +4686,7 @@ namespace Eagle._Components.Private
 
             string[] values = {
                 RuntimeOps.GetAssemblyTextOrSuffix(assembly),
-                ShortImageOrRuntimeVersion(
-                    assembly, CommonOps.Runtime.IsMono(),
-                    CommonOps.Runtime.IsDotNetCore()),
+                ShortImageOrRuntimeVersion(assembly, null, null),
                 AttributeOps.GetAssemblyConfiguration(assembly),
                 PlatformOps.GetPlatformName(),
                 String.Format("{0}-bit",
@@ -4635,10 +4712,16 @@ namespace Eagle._Components.Private
 
         public static string ShortImageOrRuntimeVersion(
             Assembly assembly,
-            bool treatAsMono,
-            bool treatAsDotNetCore
+            bool? treatAsMono,
+            bool? treatAsDotNetCore
             )
         {
+            bool localTreatAsMono = (treatAsMono != null) ?
+                (bool)treatAsMono : CommonOps.Runtime.IsMono();
+
+            bool localTreatAsDotNetCore = (treatAsDotNetCore != null) ?
+                (bool)treatAsDotNetCore : CommonOps.Runtime.IsDotNetCore();
+
             //
             // HACK: The image runtime version is mostly useless for the
             //       (modern) Mono and/or .NET Core runtimes as it will
@@ -4651,7 +4734,7 @@ namespace Eagle._Components.Private
 
             if (SharedStringOps.SystemEquals(assemblyVersion,
                     CommonOps.Runtime.ImageRuntimeVersion4) &&
-                (treatAsMono || treatAsDotNetCore))
+                (localTreatAsMono || localTreatAsDotNetCore))
             {
                 //
                 // NOTE: This is not using the image runtime version,
@@ -5330,7 +5413,7 @@ namespace Eagle._Components.Private
             {
                 Type type = (e != null) ? e.GetType() : null;
 
-                location = String.Format(DisplayError0,
+                location = String.Format(DisplayErrorFormat0,
                     (type != null) ? type.Name : UnknownTypeName);
             }
 
@@ -5347,7 +5430,7 @@ namespace Eagle._Components.Private
             {
                 Type type = (e != null) ? e.GetType() : null;
 
-                codeBase = String.Format(DisplayError0,
+                codeBase = String.Format(DisplayErrorFormat0,
                     (type != null) ? type.Name : UnknownTypeName);
             }
 
@@ -5464,7 +5547,7 @@ namespace Eagle._Components.Private
             return Id(
                 prefix, name, ProcessOps.GetId().ToString(),
                 GlobalState.GetCurrentSystemThreadId().ToString(),
-                AppDomainOps.GetCurrentId().ToString(),
+                AppDomainOps.GetCurrentId().ToString(), /* EXEMPT */
                 (interpreter != null) ?
                     interpreter.IdNoThrow.ToString() : null,
                 Interlocked.Increment(ref nextEventId).ToString(),
@@ -5552,7 +5635,7 @@ namespace Eagle._Components.Private
             bool shortName
             )
         {
-            _TracePriority basePriority = priority & _TracePriority.HasPrioritiesMask;
+            _TracePriority basePriority = TraceOps.MaskTracePriority(priority);
             string name = TraceOps.GetTracePriorityName(basePriority, shortName);
 
             if (baseOnly)
@@ -5589,6 +5672,12 @@ namespace Eagle._Components.Private
                 return DisplayNull;
 
             //
+            // HACK: Always grab the interpreter integer identifier, even if we
+            //       cannot obtain the lock.
+            //
+            long id = interpreter.IdNoThrow;
+
+            //
             // NOTE: The interpreter may have been disposed and we do not want
             //       to throw an exception; therefore, wrap all the interpreter
             //       property access in a try block.
@@ -5603,20 +5692,20 @@ namespace Eagle._Components.Private
                 if (locked) /* TRANSACTIONAL */
                 {
                     if (interpreter.Disposed)
-                        return DisplayDisposed;
+                        return String.Format(DisplayDisposedFormat, id);
 
-                    return interpreter.Id.ToString(); /* EXEMPT */
+                    return id.ToString(); /* EXEMPT */
                 }
                 else
                 {
-                    return DisplayBusy;
+                    return String.Format(DisplayBusyFormat, id);
                 }
             }
             catch (Exception e)
             {
                 Type type = (e != null) ? e.GetType() : null;
 
-                return String.Format(DisplayError0,
+                return String.Format(DisplayErrorFormat1, id,
                     (type != null) ? type.Name : UnknownTypeName);
             }
             finally
@@ -5800,12 +5889,13 @@ namespace Eagle._Components.Private
 
             if (method)
             {
-                bool thisAssembly;
+                bool isThisAssembly;
                 string typeName;
 
                 DebugOps.GetMethodName(
                     0, skipNames, true, false, null,
-                    out thisAssembly, out typeName,
+                    DefaultGetMethodNameAnywhere,
+                    out isThisAssembly, out typeName,
                     out methodName);
 
                 //
@@ -5815,7 +5905,8 @@ namespace Eagle._Components.Private
                 //       ambiguous names like "Default",
                 //       etc.
                 //
-                if (thisAssembly && !StringOps.Match(
+                if ((category == null) && isThisAssembly &&
+                    !StringOps.Match(
                         null, StringOps.DefaultMatchMode,
                         typeName, "Eagle._Components.*",
                         false))
@@ -5827,7 +5918,17 @@ namespace Eagle._Components.Private
                 {
                     if (TraceOps.CanDisplayMethodName(methodName))
                     {
-                        displayMethodName = methodName;
+                        if (DefaultDisplayMethodFullName &&
+                            TraceOps.CanDisplayMethodName(typeName))
+                        {
+                            displayMethodName = String.Format(
+                                "{0}{1}{2}", typeName, Type.Delimiter,
+                                methodName);
+                        }
+                        else
+                        {
+                            displayMethodName = methodName;
+                        }
                     }
                     else
                     {
@@ -5873,8 +5974,7 @@ namespace Eagle._Components.Private
                 DisplayUnavailable,
 #endif
                 (testName != null) ? testName : DisplayNull,
-                (appDomain != null) ? AppDomainOps.GetId(
-                    appDomain).ToString() : DisplayNull,
+                AppDomainOps.GetIdString(appDomain, true),
                 TraceInterpreter(interpreter), (threadId != null) ?
                 threadId.ToString() : DisplayNull, displayMethodName,
                 displayStackTrace, message, Environment.NewLine);
@@ -6122,9 +6222,33 @@ namespace Eagle._Components.Private
             )
         {
             if (enabled == null)
-                return DisplayIsEnabled;
+                return DisplayMaybeIsEnabled;
 
-            return (bool)enabled ? DisplaySetEnabled : DisplaySetDisabled;
+            return (bool)enabled ? DisplayMaybeSetEnabled : DisplayMaybeSetDisabled;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string IsEnabled(
+            bool? enabled
+            )
+        {
+            if (enabled == null)
+                return DisplayIsUnknown;
+
+            return (bool)enabled ? DisplayIsEnabled : DisplayIsDisabled;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string WasEnabled(
+            bool? enabled
+            )
+        {
+            if (enabled == null)
+                return DisplayWasUnknown;
+
+            return (bool)enabled ? DisplayWasEnabled : DisplayWasDisabled;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6550,7 +6674,7 @@ namespace Eagle._Components.Private
             bool success = PolicyOps.IsSuccess(code, decision);
 
             return String.Format(
-                "MaybeEmitPolicyResults: {0} --> {1}, methodFlags = {2}, " +
+                "PolicyResults: {0} --> {1}, methodFlags = {2}, " +
                 "policyFlags = {3}, fileName = {4}, decision = {5}, " +
                 "code = {6}, result = {7}", success ? "SUCCESS" : "FAILURE",
                 success ? WrapOrNull(allPolicies) : WrapOrNull(failedPolicies),
@@ -6894,7 +7018,7 @@ namespace Eagle._Components.Private
 
                     result.AppendFormat(
                         "[id = {0}, default = {1}]",
-                        AppDomainOps.GetId(appDomain),
+                        AppDomainOps.GetIdString(appDomain, true),
                         AppDomainOps.IsDefault(appDomain));
 
                     return StringBuilderCache.GetStringAndRelease(ref result);
@@ -6903,7 +7027,7 @@ namespace Eagle._Components.Private
                 {
                     Type type = (e != null) ? e.GetType() : null;
 
-                    return String.Format(DisplayError0,
+                    return String.Format(DisplayErrorFormat0,
                         (type != null) ? type.Name : UnknownTypeName);
                 }
             }
@@ -7069,12 +7193,8 @@ namespace Eagle._Components.Private
 
                 try
                 {
-                    AppDomain appDomain = pluginData.AppDomain; /* throw */
-
-                    if (appDomain != null)
-                        appDomainId = AppDomainOps.GetId(appDomain).ToString();
-                    else
-                        appDomainId = DisplayNull;
+                    appDomainId = AppDomainOps.GetIdString(
+                        pluginData.AppDomain, true);
                 }
                 catch
                 {

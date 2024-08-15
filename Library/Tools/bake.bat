@@ -188,7 +188,7 @@ SET TOOLS=%TOOLS:~0,-1%
 
 CALL :fn_PrependToPath EAGLEBINDIR
 
-IF "%PROCESSOR_ARCHITECTURE%" == "x86" GOTO set_path_x86
+IF /I "%PROCESSOR_ARCHITECTURE%" == "x86" GOTO set_path_x86
 
 SET INNOSETUPPATH=%ProgramFiles(x86)%\Inno Setup 5
 GOTO set_path_done
@@ -388,7 +388,7 @@ IF NOT DEFINED URL (
   IF DEFINED SIGN_URL (
     SET URL=%SIGN_URL%
   ) ELSE (
-    SET URL=https://eagle.to/
+    SET URL=https://urn.to/r/eagle
   )
 )
 

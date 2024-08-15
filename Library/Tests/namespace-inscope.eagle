@@ -867,60 +867,64 @@ runTest {test namespace-107.1 {info vars, global and namespace} -setup {
   }
 
   interp eval $i [string map \
-      [list %eagle% [isEagle]] {namespace eval ::foo {
-    if {%eagle% && [llength [info commands object]] > 0} then {
-      catch {
-        object invoke -flags +NonPublic Interpreter.GetActive \
-            interpreterFlags [appendArgs [object invoke -flags \
-            +NonPublic Interpreter.GetActive interpreterFlags] \
-            " +InfoVarsMayHaveGlobal"]
-      }
-    }
+      [list %eagle% [isEagle]] {
+    namespace eval ::foo {
+      if {%eagle% && [llength [info commands object]] > 0} then {
+        catch {
+          package require Eagle.Test
 
-    variable notThere
-    variable thereNow 456
-
-    proc bar {} {
-      variable moreNotThere
-      variable thereNowAgain 987
-
-      return [list vars [lsort [info vars]] \
-          globals [uplevel 1 [list checkGlobals]]]
-    }
-
-    proc checkGlobals {} {
-      set result 0; set vars [uplevel 1 [list info vars]]
-
-      foreach global [info globals] {
-        if {[lsearch -exact $vars $global] == -1} then {
-          incr result
+          set savedInterpreterFlags [enableInterpreterFlags]
+          enableInterpreterFlags InfoVarsMayHaveGlobal true
         }
       }
 
-      return [list missing $result]
-    }
-
-    proc splog {} {
       variable notThere
-      variable thereNow
-      variable moreNotThere
-      variable thereNowAgain
+      variable thereNow 456
 
-      set result [list]
+      proc bar {} {
+        variable moreNotThere
+        variable thereNowAgain 987
 
-      foreach varName [list notThere thereNow moreNotThere thereNowAgain] {
-        lappend result $varName
-
-        if {[info exists $varName]} then {
-          lappend result ex 1 val [set $varName]
-        } else {
-          lappend result ex 0 code [catch {set $varName} error] error $error
-        }
+        return [list vars [lsort [info vars]] \
+            globals [uplevel 1 [list checkGlobals]]]
       }
 
-      return $result
+      proc checkGlobals {} {
+        set result 0; set vars [uplevel 1 [list info vars]]
+
+        foreach global [info globals] {
+          if {[lsearch -exact $vars $global] == -1} then {
+            incr result
+          }
+        }
+
+        return [list missing $result]
+      }
+
+      proc splog {} {
+        variable notThere
+        variable thereNow
+        variable moreNotThere
+        variable thereNowAgain
+
+        set result [list]
+
+        foreach varName [list \
+            notThere thereNow moreNotThere thereNowAgain] {
+          lappend result $varName
+
+          if {[info exists $varName]} then {
+            lappend result ex 1 val [set $varName]
+          } else {
+            lappend result ex 0 code \
+                [catch {set $varName} error] error $error
+          }
+        }
+
+        return $result
+      }
     }
-  }}]
+  }]
 } -body {
   list [catch {interp eval $i {
     namespace eval ::foo {
@@ -928,6 +932,17 @@ runTest {test namespace-107.1 {info vars, global and namespace} -setup {
     }
   }} result] $result
 } -cleanup {
+  catch {
+    interp eval $i [string map [list %eagle% [isEagle]] {
+      namespace eval ::foo {
+        if {%eagle% && [llength [info commands object]] > 0} then {
+          enableInterpreterFlags $savedInterpreterFlags
+          unset -nocomplain savedInterpreterFlags
+        }
+      }
+    }]
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain result i

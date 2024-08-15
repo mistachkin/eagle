@@ -163,14 +163,15 @@ if {[isEagle] && [haveConstraint bigLists]} then {
 
     unset -nocomplain output input code error original test
     unset -nocomplain test_log test_channel
-  } -constraints {eagle command.object monoCrash40 monoCrash42 monoCrash44\
-monoCrash46 memoryIntensive compile.TEST Eagle._Tests.Default.TestTwoByteArrays\
-Eagle._Tests.Default.TestReturnByteArray} -isolationLevel Interpreter -result \
+  } -constraints [fixMemoryConstraints {eagle command.object monoCrash40\
+monoCrash42 monoCrash44 monoCrash46 memoryIntensive compile.TEST\
+Eagle._Tests.Default.TestTwoByteArrays\
+Eagle._Tests.Default.TestReturnByteArray}] -isolationLevel Interpreter -result \
 [lrepeat 100000 116 104 105 115 32 105 115 32 97 32 116 101 115 116 46]}
 
   #############################################################################
 
-  catch {purgeAndCleanup $test_channel after}
+  catch {purgeAndCleanup $test_channel between}
 
   #############################################################################
 
@@ -240,10 +241,14 @@ Eagle._Tests.Default.TestReturnByteArray} -isolationLevel Interpreter -result \
 
     unset -nocomplain output input code error original test
     unset -nocomplain test_log test_channel
-  } -constraints {eagle command.object monoCrash40 monoCrash42 memoryIntensive\
-compile.TEST Eagle._Tests.Default.TestTwoByteArrays\
-Eagle._Tests.Default.TestReturnByteArray} -isolationLevel Interpreter -result \
+  } -constraints [fixMemoryConstraints {eagle command.object monoCrash40\
+monoCrash42 memoryIntensive compile.TEST Eagle._Tests.Default.TestTwoByteArrays\
+Eagle._Tests.Default.TestReturnByteArray}] -isolationLevel Interpreter -result \
 [lrepeat 100000 116 104 105 115 32 105 115 32 97 32 116 101 115 116 46]}
+
+  #############################################################################
+
+  catch {purgeAndCleanup $test_channel after}
 
   #############################################################################
 

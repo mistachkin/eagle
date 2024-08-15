@@ -29,6 +29,7 @@ namespace Eagle._Interfaces.Public
         bool IsStrict(OptionDictionary options);
         bool IsNoCase(OptionDictionary options);
         bool IsUnsafe(OptionDictionary options);
+        bool IsRestricted(OptionDictionary options);
         bool IsAllowInteger(OptionDictionary options);
         bool IsIgnored(OptionDictionary options);
         bool MustHaveValue(OptionDictionary options);

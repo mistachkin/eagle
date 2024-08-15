@@ -102,6 +102,7 @@ namespace Eagle._Commands
                                     //
                                     result = enumString;
 
+                                    /* IGNORED */
                                     Engine.AddErrorInformation(interpreter, result,
                                         String.Format("{0}    (while processing open access modes \"{1}\")",
                                             Environment.NewLine, FormatOps.Ellipsis(arguments[2])));

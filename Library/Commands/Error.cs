@@ -23,6 +23,7 @@ namespace Eagle._Commands
     [ObjectGroup("control")]
     internal sealed class Error : Core
     {
+        #region Public Constructors
         public Error(
             ICommandData commandData
             )
@@ -30,6 +31,9 @@ namespace Eagle._Commands
         {
             // do nothing.
         }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
         public override ReturnCode Execute(
@@ -39,86 +43,121 @@ namespace Eagle._Commands
             ref Result result
             )
         {
-            ReturnCode code;
+            bool setLastError = true;
 
-            if (interpreter != null)
+            try
             {
-                if (arguments != null)
+                if (interpreter == null)
                 {
-                    if ((arguments.Count >= 2) && (arguments.Count <= 5))
+                    result = "invalid interpreter";
+                    return ReturnCode.Error;
+                }
+
+                if (arguments == null)
+                {
+                    result = "invalid arguments";
+                    return ReturnCode.Error;
+                }
+
+                int argumentCount = arguments.Count;
+
+                if ((argumentCount < 1) || (argumentCount > 5))
+                {
+                    result = String.Format(
+                        "wrong # args: should be \"{0} ?message? ?errorInfo? ?errorCode? ?returnCode?\"",
+                        this.Name);
+
+                    return ReturnCode.Error;
+                }
+
+                if ((argumentCount >= 3) &&
+                    !String.IsNullOrEmpty(arguments[2]))
+                {
+                    //
+                    // BUGFIX: The error line must be set manually now
+                    //         because the engine itself will not set
+                    //         it once the "error already logged" flag
+                    //         has been set by this command (just below).
+                    //
+                    /* IGNORED */
+                    Engine.SetErrorLine(interpreter, true);
+
+                    //
+                    // BUGFIX: Prevent messing up custom info by passing
+                    //         empty string for the eventual result here.
+                    //
+                    /* IGNORED */
+                    Engine.AddErrorInformation(
+                        interpreter, String.Empty, arguments[2]);
+
+                    /* IGNORED */
+                    Engine.SetErrorAlreadyLogged(interpreter, true);
+                }
+
+                if ((argumentCount >= 4) &&
+                    !String.IsNullOrEmpty(arguments[3]))
+                {
+                    /* IGNORED */
+                    interpreter.SetVariableValue( /* EXEMPT */
+                        Engine.ErrorCodeVariableFlags,
+                        TclVars.Core.ErrorCode,
+                        arguments[3], null);
+
+                    /* IGNORED */
+                    Engine.SetErrorCodeSet(interpreter, true);
+                }
+
+                //
+                // NOTE: Default to the "normal" error return code.
+                //
+                ReturnCode returnCode = ReturnCode.Error;
+
+                if ((argumentCount >= 5) && (Value.GetReturnCode2(
+                        arguments[4], ValueFlags.AnyReturnCode,
+                        interpreter.InternalCultureInfo, ref returnCode,
+                        ref result) != ReturnCode.Ok))
+                {
+                    return ReturnCode.Error;
+                }
+
+                //
+                // NOTE: If we managed to process all arguments correctly,
+                //       set the requested error message and return code.
+                //
+                if (argumentCount > 1)
+                {
+                    Argument error = arguments[1];
+
+                    if (!String.IsNullOrEmpty(error))
                     {
-                        code = ReturnCode.Ok;
-
-                        if ((code == ReturnCode.Ok) && 
-                            (arguments.Count >= 3) && 
-                            !String.IsNullOrEmpty(arguments[2]))
-                        {
-                            //
-                            // BUGFIX: The error line must be set manually now
-                            //         because the engine itself will not set
-                            //         it once the "error already logged" flag
-                            //         has been set by this command (just below).
-                            //
-                            Engine.SetErrorLine(interpreter, true);
-
-                            //
-                            // BUGFIX: Prevent messing up custom errorInfo by passing 
-                            //         an empty string for the eventual result here.
-                            //
-                            Engine.AddErrorInformation(
-                                interpreter, String.Empty, arguments[2]);
-
-                            Engine.SetErrorAlreadyLogged(interpreter, true);
-                        }
-
-                        if ((code == ReturnCode.Ok) && 
-                            (arguments.Count >= 4) && 
-                            !String.IsNullOrEmpty(arguments[3]))
-                        {
-                            /* IGNORED */
-                            interpreter.SetVariableValue( /* EXEMPT */
-                                Engine.ErrorCodeVariableFlags,
-                                TclVars.Core.ErrorCode,
-                                arguments[3], null);
-
-                            Engine.SetErrorCodeSet(interpreter, true);
-                        }
-
-                        ReturnCode returnCode = ReturnCode.Error; /* default to the "normal" error code. */
-                        
-                        if ((code == ReturnCode.Ok) && (arguments.Count >= 5))
-                            code = Value.GetReturnCode2(arguments[4], ValueFlags.AnyReturnCode, 
-                                interpreter.InternalCultureInfo, ref returnCode, ref result);
-
-                        //
-                        // NOTE: If we managed to process all the arguments correctly, 
-                        //       set the requested error message and return code.
-                        //
-                        if (code == ReturnCode.Ok)
-                        {
-                            result = arguments[1];
-                            code = returnCode;
-                        }                        
+                        result = error;
                     }
                     else
                     {
-                        result = "wrong # args: should be \"error message ?errorInfo? ?errorCode? ?returnCode?\"";
-                        code = ReturnCode.Error;
+                        setLastError = false;
+
+                        if (!interpreter.TryUseLastError(ref result))
+                            return ReturnCode.Error;
                     }
                 }
                 else
                 {
-                    result = "invalid argument list";
-                    code = ReturnCode.Error;
+                    setLastError = false;
+
+                    if (!interpreter.TryUseLastError(ref result))
+                        return ReturnCode.Error;
+                }
+
+                return returnCode;
+            }
+            finally
+            {
+                if (setLastError && (interpreter != null))
+                {
+                    /* IGNORED */
+                    interpreter.MaybeSetLastError(result);
                 }
             }
-            else
-            {
-                result = "invalid interpreter";
-                code = ReturnCode.Error;
-            }
-
-            return code;
         }
         #endregion
     }

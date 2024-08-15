@@ -26,7 +26,8 @@ namespace Eagle._Commands
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        ICommand
+        ICommand,
+        IHaveNoCase
     {
         #region Public Constructors
         public Default(
@@ -59,6 +60,10 @@ namespace Eagle._Commands
             callback = null;
             subCommands = null;
             syntax = null;
+
+            ///////////////////////////////////////////////////////////////////
+
+            noCase = FlagOps.HasFlags(flags, CommandFlags.NoCase, true);
         }
         #endregion
 
@@ -188,6 +193,17 @@ namespace Eagle._Commands
         {
             get { return callback; }
             set { callback = value; }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IHaveNoCase Members
+        private bool noCase;
+        public virtual bool NoCase
+        {
+            get { return noCase; }
+            set { noCase = value; }
         }
         #endregion
 

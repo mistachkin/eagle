@@ -79,7 +79,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -725,6 +725,7 @@ namespace Eagle._Commands
 
                                                                             if (code == ReturnCode.Error)
                                                                             {
+                                                                                /* IGNORED */
                                                                                 Engine.AddErrorInformation(
                                                                                     interpreter, result, String.Format(
                                                                                         "{0}    (in scope eval \"{1}\" script line {2})",

@@ -422,6 +422,9 @@ EComP.OptionOriginFlags System.Boolean System.Boolean System.Boolean&\
 System.Boolean& EComP.Result&}} {memberType Method memberName Ready methodType\
 Method methodName Ready callingConvention Standard returnType EComP.ReturnCode\
 parameterTypes {EComP.Interpreter EComP.Result&}} {memberType Method memberName\
+Ready methodType Method methodName Ready callingConvention Standard returnType\
+EComP.ReturnCode parameterTypes {EComP.Interpreter\
+{System.Nullable`1[System.Int32]} EComP.Result&}} {memberType Method memberName\
 ReferenceEquals methodType Method methodName ReferenceEquals callingConvention\
 Standard returnType System.Boolean parameterTypes {System.Object\
 System.Object}} {memberType Method memberName ShellMain methodType Method\

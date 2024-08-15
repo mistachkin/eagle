@@ -16,11 +16,14 @@ using System.ComponentModel;
 using System.Drawing;
 #endif
 
+using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Components.Public.Delegates;
+using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
@@ -69,12 +72,22 @@ namespace Eagle._Components.Private
             bool? @default      /* in */
             )
         {
+            DialogResult? dialogResult;
+
             if (WindowOps.IsInteractive())
             {
-                return MessageBox.Show(
+                dialogResult = MessageBox.Show(
                     owner, text, caption, MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question) == DialogResult.Yes;
+                    MessageBoxIcon.Question);
             }
+            else
+            {
+                dialogResult = GetPromptResultForAutomation(
+                    text, caption, null);
+            }
+
+            if (dialogResult != null)
+                return ((DialogResult)dialogResult) == DialogResult.Yes;
 
             return @default;
         }
@@ -100,13 +113,24 @@ namespace Eagle._Components.Private
             bool? @default      /* in */
             )
         {
+            DialogResult? dialogResult;
+
             if (WindowOps.IsInteractive())
             {
-                DialogResult dialogResult = MessageBox.Show(
-                    owner, text, caption, MessageBoxButtons.YesNoCancel,
+                dialogResult = MessageBox.Show(
+                    owner, text, caption,
+                    MessageBoxButtons.YesNoCancel,
                     MessageBoxIcon.Question);
+            }
+            else
+            {
+                dialogResult = GetPromptResultForAutomation(
+                    text, caption, null);
+            }
 
-                switch (dialogResult)
+            if (dialogResult != null)
+            {
+                switch ((DialogResult)dialogResult)
                 {
                     case DialogResult.Yes:
                         return true;
@@ -141,14 +165,37 @@ namespace Eagle._Components.Private
             DialogResult @default /* in */
             )
         {
+            DialogResult? dialogResult;
+
             if (WindowOps.IsInteractive())
             {
-                return MessageBox.Show(
-                    owner, text, caption, MessageBoxButtons.YesNoCancel,
+                dialogResult = MessageBox.Show(
+                    owner, text, caption,
+                    MessageBoxButtons.YesNoCancel,
                     MessageBoxIcon.Question);
             }
+            else
+            {
+                dialogResult = GetPromptResultForAutomation(
+                    text, caption, null);
+            }
+
+            if (dialogResult != null)
+                return (DialogResult)dialogResult;
 
             return @default;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static DialogResult? GetPromptResultForAutomation(
+            string text,           /* in */
+            string caption,        /* in */
+            DialogResult? @default /* in */
+            )
+        {
+            return WindowOps.GetPromptResultForAutomation<DialogResult>(
+                text, caption, @default, null, AutomationFlags.Default);
         }
 
         ///////////////////////////////////////////////////////////////////////

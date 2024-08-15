@@ -251,7 +251,7 @@ namespace Eagle._Components.Private
                     "IsUsable: found option {0}",
                     FormatOps.WrapOrNull(optionUseHeapApi)),
                     typeof(NativeUtility).Name,
-                    TracePriority.NativeDebug);
+                    TracePriority.NativeDebug4);
 
                 useHeapApi = true;
             }
@@ -687,7 +687,7 @@ namespace Eagle._Components.Private
                     TraceOps.DebugTrace(String.Format(
                         "CompactNativeHeap: largest free block: {0} bytes",
                         size), typeof(NativeUtility).Name,
-                        TracePriority.NativeDebug);
+                        TracePriority.NativeDebug4);
 
                     return true;
                 }
@@ -861,7 +861,7 @@ namespace Eagle._Components.Private
                             "LoadNativeLibrary: using file name {0}",
                             FormatOps.WrapOrNull(fileName)),
                             typeof(NativeUtility).Name,
-                            TracePriority.NativeDebug2);
+                            TracePriority.NativeDebug4);
                     }
                     else
                     {
@@ -934,7 +934,7 @@ namespace Eagle._Components.Private
                                 "successfully loaded",
                                 FormatOps.WrapOrNull(fileName)),
                                 typeof(NativeUtility).Name,
-                                TracePriority.NativeDebug);
+                                TracePriority.NativeDebug4);
 
                             return true;
                         }
@@ -1011,7 +1011,7 @@ namespace Eagle._Components.Private
                         TraceOps.DebugTrace(
                             "UnloadNativeLibrary: successfully unloaded",
                             typeof(NativeUtility).Name,
-                            TracePriority.NativeDebug3);
+                            TracePriority.NativeDebug4);
 
                         return true;
                     }
@@ -1383,7 +1383,7 @@ namespace Eagle._Components.Private
                             TraceOps.DebugTrace(
                                 "IsAvailable: detected Mono runtime, forced " +
                                 "unavailable", typeof(NativeUtility).Name,
-                                TracePriority.NativeDebug);
+                                TracePriority.NativeDebug4);
 
                             return (bool)(isAvailable = false);
                         }
@@ -1873,7 +1873,7 @@ namespace Eagle._Components.Private
                             "SetMemoryHeap: changed from 0x{0:X} to 0x{1:X}",
                             oldHeap.ToInt64(), newHeap.ToInt64()),
                             typeof(NativeUtility).Name,
-                            TracePriority.NativeDebug);
+                            TracePriority.NativeDebug4);
 
                         return ReturnCode.Ok;
                     }

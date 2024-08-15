@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Text;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -273,8 +274,9 @@ namespace Eagle._Components.Private
 
 #if CACHE_DICTIONARY
                 messages.TrimExcess(
-                    Count.Invalid, MaximumMessageCount, Count.Invalid,
-                    Count.Invalid, Count.Invalid, Count.Invalid);
+                    Count.Invalid, MaximumMessageCount,
+                    Count.Invalid, Count.Invalid,
+                    Count.Invalid, Count.Invalid);
 #endif
 
                 int value;
@@ -375,7 +377,7 @@ namespace Eagle._Components.Private
             TracePriority priority /* in */
             )
         {
-            return priority & TracePriority.AnyPriorityMask;
+            return TraceOps.MaskTracePriority(priority);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -716,6 +718,49 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal State Debugging Methods
+        private static string DumpState(
+            string hashAlgorithmName,
+            bool raw
+            )
+        {
+            lock (syncRoot) /* TRANSACTIONAL */
+            {
+                StringBuilder builder = StringBuilderFactory.Create();
+
+                builder.AppendLine("---- messages ----");
+
+                FormatOps.DumpDictionary(
+                    messages, builder, hashAlgorithmName, raw);
+
+                builder.AppendLine();
+                builder.AppendLine();
+                builder.AppendLine("------------------");
+                builder.AppendLine();
+                builder.AppendLine("---- trippedCategories ----");
+
+                FormatOps.DumpDictionary(
+                    trippedCategories, builder, hashAlgorithmName, raw);
+
+                builder.AppendLine();
+                builder.AppendLine();
+                builder.AppendLine("---------------------------");
+                builder.AppendLine();
+                builder.AppendLine("---- trippedPriorities ----");
+
+                FormatOps.DumpDictionary(
+                    trippedPriorities, builder, hashAlgorithmName, raw);
+
+                builder.AppendLine();
+                builder.AppendLine();
+                builder.AppendLine("---------------------------");
+                builder.AppendLine();
+
+                return StringBuilderCache.GetStringAndRelease(ref builder);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static string DumpMessages(
             string hashAlgorithmName,
             bool raw
@@ -723,8 +768,12 @@ namespace Eagle._Components.Private
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                return FormatOps.DumpDictionary(
-                    messages, hashAlgorithmName, raw);
+                StringBuilder builder = StringBuilderFactory.Create();
+
+                FormatOps.DumpDictionary(
+                    messages, builder, hashAlgorithmName, raw);
+
+                return StringBuilderCache.GetStringAndRelease(ref builder);
             }
         }
 
@@ -737,8 +786,12 @@ namespace Eagle._Components.Private
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                return FormatOps.DumpDictionary(
-                    trippedCategories, hashAlgorithmName, raw);
+                StringBuilder builder = StringBuilderFactory.Create();
+
+                FormatOps.DumpDictionary(
+                    trippedCategories, builder, hashAlgorithmName, raw);
+
+                return StringBuilderCache.GetStringAndRelease(ref builder);
             }
         }
 
@@ -751,8 +804,12 @@ namespace Eagle._Components.Private
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                return FormatOps.DumpDictionary(
-                    trippedPriorities, hashAlgorithmName, raw);
+                StringBuilder builder = StringBuilderFactory.Create();
+
+                FormatOps.DumpDictionary(
+                    trippedPriorities, builder, hashAlgorithmName, raw);
+
+                return StringBuilderCache.GetStringAndRelease(ref builder);
             }
         }
         #endregion

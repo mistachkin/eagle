@@ -113,7 +113,7 @@ runTest {test infoPlugin-1.1.1 {info plugin} -body {
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
 name \{Eagle\._Plugins\.Core, %testAsm%, Version=1\.0\.\d+\.\d+,\
 Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\} version 1\.0\.\d+\.\d+\
-uri https://eagle\.to/ description \{\} assemblyName \{%testAsm%,\
+uri https://urn\.to/r/eagle description \{\} assemblyName \{%testAsm%,\
 Version=1\.0\.\d+\.\d+, Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\}\
 fileName \{.*?\\%coreAsmFile%\.(?:dll|exe)\} flags \{(?:(?:None|Default),\
 )?Primary, System, Host, Debugger, Command, Function, Trace, Policy, Resolver,\
@@ -139,7 +139,7 @@ runTest {test infoPlugin-1.1.2 {info plugin} -body {
 [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\
 name \{Eagle\._Plugins\.Core, %testAsm%, Version=1\.0\.\d+\.\d+,\
 Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\} version 1\.0\.\d+\.\d+\
-uri https://eagle\.to/ description \{\} assemblyName \{%testAsm%,\
+uri https://urn\.to/r/eagle description \{\} assemblyName \{%testAsm%,\
 Version=1\.0\.\d+\.\d+, Culture=neutral, PublicKeyToken=(?:%publicKeyTokens%)\}\
 fileName .*?/%coreAsmFile%\.(?:dll|exe) flags \{(?:(?:None|Default),\
 )?Primary, System, Host, Debugger, Command, Function, Trace, Policy, Resolver,\
@@ -364,12 +364,8 @@ proc getNopCommandName {} {
 ###############################################################################
 
 runTest {test infoCommands-1.1 {info commands (only)} -setup {
-  set savedDefaultInterpreterFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive DefaultInterpreterFlags]
-
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      DefaultInterpreterFlags [combineFlags $savedDefaultInterpreterFlags \
-      -TclMathMask]
+  set savedDefaultInterpreterFlags [enableDefaultInterpreterFlags]
+  enableDefaultInterpreterFlags TclMathMask false
 
   set i [interp create]
 } -body {
@@ -378,10 +374,7 @@ runTest {test infoCommands-1.1 {info commands (only)} -setup {
   catch {interp delete $i}
   unset -nocomplain i
 
-  catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        DefaultInterpreterFlags $savedDefaultInterpreterFlags
-  }
+  enableDefaultInterpreterFlags $savedDefaultInterpreterFlags
   unset -nocomplain savedDefaultInterpreterFlags
 } -constraints {eagle} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^(Eagle_Nop )?after append apply\
@@ -399,12 +392,8 @@ variable version vwait while( xml)?$}]}
 ###############################################################################
 
 runTest {test infoCommands-1.2 {info commands (safe)} -setup {
-  set savedDefaultInterpreterFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive DefaultInterpreterFlags]
-
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      DefaultInterpreterFlags [combineFlags $savedDefaultInterpreterFlags \
-      -TclMathMask]
+  set savedDefaultInterpreterFlags [enableDefaultInterpreterFlags]
+  enableDefaultInterpreterFlags TclMathMask false
 
   set i [interp create -safe]
 } -body {
@@ -413,10 +402,7 @@ runTest {test infoCommands-1.2 {info commands (safe)} -setup {
   catch {interp delete $i}
   unset -nocomplain i
 
-  catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        DefaultInterpreterFlags $savedDefaultInterpreterFlags
-  }
+  enableDefaultInterpreterFlags $savedDefaultInterpreterFlags
   unset -nocomplain savedDefaultInterpreterFlags
 } -constraints {eagle} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^(Eagle_Nop )?after append apply\
@@ -431,12 +417,8 @@ throw time truncate try unset update uplevel upvar variable vwait while$}]}
 ###############################################################################
 
 runTest {test infoCommands-1.3 {info commands (-hidden)} -setup {
-  set savedDefaultInterpreterFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive DefaultInterpreterFlags]
-
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      DefaultInterpreterFlags [combineFlags $savedDefaultInterpreterFlags \
-      -TclMathMask]
+  set savedDefaultInterpreterFlags [enableDefaultInterpreterFlags]
+  enableDefaultInterpreterFlags TclMathMask false
 
   set i [interp create]
 } -body {
@@ -445,10 +427,7 @@ runTest {test infoCommands-1.3 {info commands (-hidden)} -setup {
   catch {interp delete $i}
   unset -nocomplain i
 
-  catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        DefaultInterpreterFlags $savedDefaultInterpreterFlags
-  }
+  enableDefaultInterpreterFlags $savedDefaultInterpreterFlags
   unset -nocomplain savedDefaultInterpreterFlags
 } -constraints {eagle} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^(Eagle_Nop )?after append apply\
@@ -466,12 +445,8 @@ variable version vwait while( xml)?$}]}
 ###############################################################################
 
 runTest {test infoCommands-1.4 {info commands (safe / -hidden)} -setup {
-  set savedDefaultInterpreterFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive DefaultInterpreterFlags]
-
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      DefaultInterpreterFlags [combineFlags $savedDefaultInterpreterFlags \
-      -TclMathMask]
+  set savedDefaultInterpreterFlags [enableDefaultInterpreterFlags]
+  enableDefaultInterpreterFlags TclMathMask false
 
   set i [interp create -safe]
 } -body {
@@ -480,10 +455,7 @@ runTest {test infoCommands-1.4 {info commands (safe / -hidden)} -setup {
   catch {interp delete $i}
   unset -nocomplain i
 
-  catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        DefaultInterpreterFlags $savedDefaultInterpreterFlags
-  }
+  enableDefaultInterpreterFlags $savedDefaultInterpreterFlags
   unset -nocomplain savedDefaultInterpreterFlags
 } -constraints {eagle} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^(Eagle_Nop )?after append apply\
@@ -498,12 +470,8 @@ throw time truncate try unset update uplevel upvar variable vwait while$}]}
 ###############################################################################
 
 runTest {test infoCommands-1.5 {info commands (hide / -hidden)} -setup {
-  set savedDefaultInterpreterFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive DefaultInterpreterFlags]
-
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      DefaultInterpreterFlags [combineFlags $savedDefaultInterpreterFlags \
-      -TclMathMask]
+  set savedDefaultInterpreterFlags [enableDefaultInterpreterFlags]
+  enableDefaultInterpreterFlags TclMathMask false
 
   set i [interp create]
 } -body {
@@ -515,10 +483,7 @@ runTest {test infoCommands-1.5 {info commands (hide / -hidden)} -setup {
   catch {interp delete $i}
   unset -nocomplain i
 
-  catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        DefaultInterpreterFlags $savedDefaultInterpreterFlags
-  }
+  enableDefaultInterpreterFlags $savedDefaultInterpreterFlags
   unset -nocomplain savedDefaultInterpreterFlags
 } -constraints {eagle command.object} -match regexp -result [string map \
 [list Eagle_Nop [getNopCommandName]] {^\{(Eagle_Nop )?after append apply\
@@ -635,9 +600,9 @@ runTest {test infoLink-1.1 {info linkedname (TIP #471)} -setup {
   catch {interp delete $i}
 
   unset -nocomplain i
-} -constraints {tip471} -result {1 1 1 1 1 0 ::tcl_platform 0 ::array1 0\
-::tcl_platform(platform) 0 ::element1 0 ::tcl_library 0 ::scalar1 0 ::one::two\
-0 ::nsVar1}}
+} -constraints {tip471} -result {1 1 1 1 1 0 ::tcl_platform 0 ::tcl_platform 0\
+::tcl_platform(platform) 0 ::tcl_platform(platform) 0 ::tcl_library 0\
+::tcl_library 0 ::one::two 0 ::one::two}}
 
 ###############################################################################
 
@@ -771,6 +736,113 @@ for {set k 1} {$k <= 3} {incr k} {
   } -constraints {eagle timeIntensive command.object compile.THREADING} \
       -time true -result {True True True False}}
 }
+
+###############################################################################
+
+runTest {test infoExists-2.1 {link must be followed, inner [upvar]} -setup {
+  proc one { varName } {
+    upvar 1 $varName var
+    return [list [two var] [three var]]
+  }
+
+  proc two { varName } {
+    upvar 1 $varName var
+    return [info exists var]
+  }
+
+  proc three { varName } {
+    upvar 1 $varName var
+    return [info exists var]
+  }
+} -body {
+  one var
+} -cleanup {
+  unset -nocomplain var
+
+  rename three ""
+  rename two ""
+  rename one ""
+} -result {0 0}}
+
+###############################################################################
+
+runTest {test infoExists-2.2 {nested info linkedname} -setup {
+  proc one { varName } {
+    upvar 1 $varName var
+    return [list [two var] [three var]]
+  }
+
+  proc two { varName } {
+    upvar 1 $varName var
+    return [list [info exists var] [info linkedname var]]
+  }
+
+  proc three { varName } {
+    upvar 1 $varName var
+    return [list [info exists var] [info linkedname var] [four var]]
+  }
+
+  proc four { varName } {
+    upvar 1 $varName var
+    return [list [info exists var] [info linkedname var] [five var]]
+  }
+
+  proc five { varName } {
+    upvar 1 $varName var
+    return [list [info exists var] [info linkedname var]]
+  }
+} -body {
+  one var(ele)
+} -cleanup {
+  unset -nocomplain var
+
+  rename five ""
+  rename four ""
+  rename three ""
+  rename two ""
+  rename one ""
+} -constraints {tip471} -result \
+{{0 ::var(ele)} {0 ::var(ele) {0 ::var(ele) {0 ::var(ele)}}}}}
+
+###############################################################################
+
+runTest {test infoExists-2.3 {nested info linkedname} -setup {
+  proc one { varName } {
+    upvar 1 $varName var
+    return [list [two var(ele1b)] [three var(ele1c)]]
+  }
+
+  proc two { varName } {
+    upvar 1 $varName var
+    return [list [info exists var] [info linkedname var]]
+  }
+
+  proc three { varName } {
+    upvar 1 $varName var
+    return [list [info exists var] [info linkedname var] [four var(ele3b)]]
+  }
+
+  proc four { varName } {
+    upvar 1 $varName var
+    return [list [info exists var] [info linkedname var] [five var(ele4b)]]
+  }
+
+  proc five { varName } {
+    upvar 1 $varName var
+    return [list [info exists var] [info linkedname var]]
+  }
+} -body {
+  one var(ele)
+} -cleanup {
+  unset -nocomplain var
+
+  rename five ""
+  rename four ""
+  rename three ""
+  rename two ""
+  rename one ""
+} -constraints {tip471} -result \
+{{0 ::var(ele)} {0 ::var(ele) {0 ::var(ele) {0 ::var(ele)}}}}}
 
 ###############################################################################
 

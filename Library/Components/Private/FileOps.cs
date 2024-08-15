@@ -1146,7 +1146,7 @@ namespace Eagle._Components.Private
                     return false;
 
                 Directory.CreateDirectory(path); /* throw */
-                Directory.Delete(path); /* throw */
+                Directory.Delete(path, true); /* throw */
 
                 return VerifyFileAccess(
                     interpreter, path, FileAccess.Write,
@@ -1179,7 +1179,7 @@ namespace Eagle._Components.Private
                     try
                     {
                         if (Directory.Exists(path))
-                            Directory.Delete(path); /* throw */
+                            Directory.Delete(path, true); /* throw */
                     }
                     catch (Exception e)
                     {
@@ -3103,7 +3103,8 @@ namespace Eagle._Components.Private
 
                     try
                     {
-                        Directory.Delete(subDirectory); /* throw */
+                        Directory.Delete(
+                            subDirectory, false); /* throw */
                     }
                     catch (Exception e2)
                     {
@@ -3113,7 +3114,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                Directory.Delete(directory); /* throw */
+                Directory.Delete(directory, false); /* throw */
                 return true;
             }
             catch (Exception e)
@@ -3324,6 +3325,8 @@ namespace Eagle._Components.Private
         {
             if ((paths != null) && (paths.Count > 0))
             {
+                SearchOption searchOption = GetSearchOption(true);
+
                 for (int index = 0; index < paths.Count; index++)
                 {
                     if (paths[index] != null)
@@ -3354,7 +3357,7 @@ namespace Eagle._Components.Private
                                 {
                                     string[] fileNames = Directory.GetFiles(
                                         path, Characters.Asterisk.ToString(),
-                                        GetSearchOption(true));
+                                        searchOption);
 
                                     if (fileNames != null)
                                     {

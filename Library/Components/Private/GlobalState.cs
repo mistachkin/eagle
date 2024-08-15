@@ -128,6 +128,12 @@ namespace Eagle._Components.Private
 
         #region Package Name Data
         //
+        // NOTE: This package may contain a set of built-in routines for use
+        //       when loading binary plugins.
+        //
+        private static readonly string LoaderPackageName = "Loader";
+
+        //
         // NOTE: This package contains the Eagle [core] script library.  Its
         //       primary contents are script files that are required during
         //       initialization of an interpreter (e.g. the "embed.eagle",
@@ -177,7 +183,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private const string StubOkResult = "ok";
+        private const string StubOkResultFormat = "ok:{0}";
         private const string StubErrorResult = "invalid interpreter";
         #endregion
 
@@ -275,8 +281,7 @@ namespace Eagle._Components.Private
         // TODO: Change this if the XSD schema URI changes.
         //
         private static readonly Uri thisAssemblyNamespaceUri =
-            (thisAssemblyUri != null) ?
-                new Uri(thisAssemblyUri, "2009/schema") : null;
+            SharedAttributeOps.GetAssemblyXmlSchemaUri(thisAssembly);
 
         //
         // NOTE: These are the (cached) plugin flags for the core library
@@ -688,7 +693,7 @@ namespace Eagle._Components.Private
             {
                 /* IGNORED */
                 Interlocked.CompareExchange(
-                    ref lockThreadId, GetCurrentThreadId(), 0);
+                    ref lockThreadId, GetCurrentLockThreadId(), 0);
             }
         }
 
@@ -702,7 +707,7 @@ namespace Eagle._Components.Private
             {
                 /* IGNORED */
                 Interlocked.CompareExchange(
-                    ref lockThreadId, 0, GetCurrentThreadId());
+                    ref lockThreadId, 0, GetCurrentLockThreadId());
             }
         }
         #endregion
@@ -758,6 +763,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool TryLockAndExit(
+            int? timeout
+            )
+        {
+            bool locked = false;
+
+            try
+            {
+                if (timeout != null)
+                    TryLock((int)timeout, ref locked);
+                else
+                    SoftTryLock(ref locked);
+
+                return locked;
+            }
+            finally
+            {
+                ExitLock(ref locked);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Special Timeout Locking Methods
         private static void SoftTryLock(
             ref bool locked
@@ -792,11 +820,15 @@ namespace Eagle._Components.Private
 
         #region Health Support Methods
         public static ReturnCode TryLockForHealth(
+            int? timeout,
             ref bool locked,
             ref ResultList errors
             )
         {
-            SoftTryLock(ref locked);
+            if (timeout != null)
+                TryLock((int)timeout, ref locked);
+            else
+                SoftTryLock(ref locked);
 
             if (locked)
             {
@@ -900,7 +932,23 @@ namespace Eagle._Components.Private
             //       identifier; therefore, any value that can fit within
             //       32-bits is fair game.
             //
-            if ((id < 0) || (id > uint.MaxValue))
+            if (id < 0)
+            {
+                //
+                // HACK: This method may not be able to use the DebugOps
+                //       methods because they may call into us (e.g. the
+                //       Complain method).
+                //
+                if (!noComplain)
+                {
+                    DebugOps.Complain(ReturnCode.Error,
+                        "original identifier is negative");
+                }
+
+                return id;
+            }
+
+            if (id > uint.MaxValue)
             {
                 //
                 // HACK: This method may not be able to use the DebugOps
@@ -910,7 +958,7 @@ namespace Eagle._Components.Private
                 if (!noComplain)
                 {
                     DebugOps.Complain(ReturnCode.Error, String.Format(
-                        "original identifier is negative or greater than {0}",
+                        "original identifier is greater than {0}",
                         uint.MaxValue));
                 }
 
@@ -1358,6 +1406,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static long GetCurrentLockThreadId() /* THREAD-SAFE */
+        {
+            return AppDomain.GetCurrentThreadId(); /* HOT-PATH */
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static long GetCurrentContextThreadId() /* THREAD-SAFE */
         {
 #if NATIVE_THREAD_ID
@@ -1502,11 +1557,6 @@ namespace Eagle._Components.Private
             //
             pinvokeThreadId = CommonOps.Runtime.IsDotNetCore() ||
                 !PlatformOps.IsWindowsOperatingSystem();
-
-            TraceOps.DebugTrace(threadId, String.Format(
-                "SetupPrimaryThread: pinvokeThreadId feature {0}.",
-                pinvokeThreadId ? "enabled" : "disabled"),
-                typeof(GlobalState).Name, TracePriority.StartupDebug);
 #endif
 
             Thread thread = Thread.CurrentThread;
@@ -1521,9 +1571,42 @@ namespace Eagle._Components.Private
                 nextComplaintId, nextInterpreterId, nextScriptThreadId),
                 typeof(GlobalState).Name, TracePriority.StartupDebug);
 
-            SetupPrimaryThreadIds(true); /* LEGACY */
+            /* IGNORED */
+            MaybeSetupPrimaryThreadName(thread);
+
+            /* LEGACY */
+            SetupPrimaryThreadIds(true);
 
             return thread;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MaybeSetupPrimaryThreadName(
+            Thread thread
+            )
+        {
+            if (thread != null)
+            {
+                try
+                {
+                    string name = thread.Name;
+
+                    if (name == null)
+                    {
+                        thread.Name = String.Format(
+                            "primaryThread#{0}", NextId());
+
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // do nothing.
+                }
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3843,7 +3926,7 @@ namespace Eagle._Components.Private
         // NOTE: This method assumes the global lock is held.
         //
         /* ASYNCHRONOUS */
-        private static bool ShouldTryGrabAssemblyPluginFlags(
+        private static bool ShouldTryFastGrabAssemblyPluginFlags(
             PluginDataTriplet anyTriplet /* in */
             )
         {
@@ -3857,7 +3940,7 @@ namespace Eagle._Components.Private
         // NOTE: This method assumes the global lock is held.
         //
         /* SYNCHRONOUS / ASYNCHRONOUS */
-        private static bool TryGrabAssemblyPluginFlags(
+        private static bool TryFastGrabAssemblyPluginFlags(
             out PluginFlags pluginFlags /* out */
             )
         {
@@ -3875,37 +3958,64 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: This method assumes the global lock is held.
+        // NOTE: This method does not require the global lock.
         //
         /* ASYNCHRONOUS */
-        private static void RefreshAssemblyPluginFlags(
-            StringList hashes /* in: OPTIONAL */
+        private static void SomeAssemblyRequired(
+            PluginDataTriplet anyTriplet, /* in: OPTIONAL */
+            out Assembly assembly         /* out */
             )
         {
-            thisAssemblyPluginFlags = RuntimeOps.GetAssemblyPluginFlags(
-                null, hashes, thisAssembly);
+            if (anyTriplet != null)
+            {
+                IPluginData pluginData = anyTriplet.Y;
 
-            TraceOps.DebugTrace(String.Format(
-                "RefreshAssemblyPluginFlags: hashes = {0}, pluginFlags = {1}",
-                FormatOps.WrapOrNull(hashes), FormatOps.WrapOrNull(
-                thisAssemblyPluginFlags)), typeof(GlobalState).Name,
-                TracePriority.StartupDebug2);
+                if ((pluginData != null) &&
+                    !AppDomainOps.IsCross(pluginData))
+                {
+                    try
+                    {
+                        assembly = pluginData.Assembly;
+
+                        if (assembly != null)
+                            return;
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(GlobalState).Name,
+                            TracePriority.SecurityError);
+                    }
+                }
+            }
+
+            assembly = thisAssembly;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // NOTE: This method assumes the global lock is held.
+        // NOTE: This method does not require the global lock.
         //
         /* ASYNCHRONOUS */
-        private static bool RefreshAndTryGrabAssemblyPluginFlags(
+        private static void GetAssemblyPluginFlags(
             StringList hashes,          /* in: OPTIONAL */
+            Assembly assembly,          /* in: OPTIONAL */
             out PluginFlags pluginFlags /* out */
             )
         {
-            RefreshAssemblyPluginFlags(hashes);
+            pluginFlags = RuntimeOps.GetAssemblyPluginFlags(
+                null, hashes, assembly);
 
-            return TryGrabAssemblyPluginFlags(out pluginFlags);
+            TraceOps.DebugTrace(String.Format(
+                "GetAssemblyPluginFlags: " +
+                "hashes = {0}, assembly = {1}, " +
+                "pluginFlags = {2}",
+                FormatOps.WrapOrNull(hashes),
+                FormatOps.WrapOrNull(assembly),
+                FormatOps.WrapOrNull(pluginFlags)),
+                typeof(GlobalState).Name,
+                TracePriority.StartupDebug2);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3931,44 +4041,39 @@ namespace Eagle._Components.Private
                 }
 
                 PluginDataTriplet anyTriplet = state as PluginDataTriplet;
-                bool locked = false;
+                PluginFlags pluginFlags;
 
-                try
+                ///////////////////////////////////////////////////////////////
+
+                //
+                // NOTE: Do the plugin flags for the core library assembly
+                //       need to be calculated and stored, e.g. signature
+                //       checks, etc?
+                //
+                if (!ShouldTryFastGrabAssemblyPluginFlags(anyTriplet) ||
+                    !TryFastGrabAssemblyPluginFlags(out pluginFlags))
                 {
-                    HardTryLock(ref locked); /* TRANSACTIONAL */
+                    Assembly assembly;
 
-                    if (locked)
-                    {
-                        PluginFlags pluginFlags;
+                    /* NO RESULT */
+                    SomeAssemblyRequired(null, out assembly);
 
-                        if (!ShouldTryGrabAssemblyPluginFlags(anyTriplet) ||
-                            !TryGrabAssemblyPluginFlags(out pluginFlags))
-                        {
-                            /* IGNORED */
-                            RefreshAndTryGrabAssemblyPluginFlags(
-                                anyTriplet.X, out pluginFlags);
-                        }
+                    /* NO RESULT */
+                    GetAssemblyPluginFlags(
+                        anyTriplet.X, assembly, out pluginFlags);
 
-                        if (anyTriplet != null)
-                        {
-                            IPluginData pluginData = anyTriplet.Y;
-
-                            if (pluginData != null)
-                                pluginData.Flags |= pluginFlags;
-                        }
-                    }
-                    else
-                    {
-                        TraceOps.LockTrace(
-                            "AssemblyPluginFlagsCallback",
-                            typeof(GlobalState).Name, true,
-                            TracePriority.LockError,
-                            MaybeWhoHasLock());
-                    }
+                    /* IGNORED */
+                    SetAssemblyPluginFlags(pluginFlags);
                 }
-                finally
+
+                ///////////////////////////////////////////////////////////////
+
+                if (anyTriplet != null)
                 {
-                    ExitLock(ref locked); /* TRANSACTIONAL */
+                    IPluginData pluginData = anyTriplet.Y;
+
+                    if (pluginData != null)
+                        pluginData.Flags |= pluginFlags;
                 }
             }
             catch (ThreadAbortException e)
@@ -4015,7 +4120,8 @@ namespace Eagle._Components.Private
                     {
                         PluginFlags pluginFlags;
 
-                        if (TryGrabAssemblyPluginFlags(out pluginFlags))
+                        if (TryFastGrabAssemblyPluginFlags(
+                                out pluginFlags))
                         {
                             pluginData.Flags |= pluginFlags;
                             return true;
@@ -4396,7 +4502,9 @@ namespace Eagle._Components.Private
                         typeof(GlobalState).Name, priority);
 
                     if ((code == ReturnCode.Ok) &&
-                        SharedStringOps.SystemEquals(localResult, StubOkResult))
+                        SharedStringOps.SystemEquals(
+                            localResult, String.Format(StubOkResultFormat,
+                            GetCurrentThreadId())))
                     {
                         //
                         // HACK: If we get to this point, a properly signed
@@ -4964,6 +5072,40 @@ namespace Eagle._Components.Private
             return null;
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool SetAssemblyPluginFlags(
+            PluginFlags pluginFlags /* in */
+            )
+        {
+            bool locked = false;
+
+            try
+            {
+                HardTryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    thisAssemblyPluginFlags = pluginFlags;
+                    return true;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "SetAssemblyPluginFlags",
+                        typeof(GlobalState).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
+                }
+            }
+            finally
+            {
+                ExitLock(ref locked); /* TRANSACTIONAL */
+            }
+
+            return false;
+        }
         #endregion
         #endregion
 
@@ -5444,6 +5586,8 @@ namespace Eagle._Components.Private
         {
             switch (packageType)
             {
+                case PackageType.Loader:
+                    return LoaderPackageName;
                 case PackageType.Library:
                     return LibraryPackageName;
                 case PackageType.Test:
@@ -5995,12 +6139,11 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        TraceOps.DebugTrace(String.Format(
-                            "FetchInterpreterPathsAndFlags: " +
-                            "unable to acquire interpreter {0} lock",
-                            FormatOps.InterpreterNoThrow(interpreter)),
-                            typeof(GlobalState).Name,
-                            TracePriority.LockError);
+                        TraceOps.LockTrace(
+                            "FetchInterpreterPathsAndFlags",
+                            typeof(GlobalState).Name, false,
+                            TracePriority.LockError,
+                            interpreter.MaybeWhoHasLock());
                     }
                 }
                 catch (Exception e)
@@ -6785,12 +6928,14 @@ namespace Eagle._Components.Private
         {
             string result = GetLibraryPath(assembly, pathFlags);
 
-            if (!FlagOps.HasFlags(pathFlags, PathFlags.Absolute, true) ||
+            if (!FlagOps.HasFlags(
+                    pathFlags, PathFlags.Absolute, true) ||
                 !String.IsNullOrEmpty(result))
             {
                 if (!String.IsNullOrEmpty(name))
                 {
-                    result = PathOps.CombinePath(null, result, name);
+                    result = PathOps.CombinePath(
+                            null, result, name);
 
                     if (version != null)
                         result += FormatOps.MajorMinor(version);
@@ -6980,6 +7125,37 @@ namespace Eagle._Components.Private
                 {
                     TraceOps.LockTrace(
                         "GetPackagePeerBinaryPath",
+                        typeof(GlobalState).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasLock());
+                }
+            }
+            finally
+            {
+                ExitLock(ref locked); /* TRANSACTIONAL */
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetPackagePeerAssemblyPath() /* THREAD-SAFE */
+        {
+            bool locked = false;
+
+            try
+            {
+                PathHardTryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    return packagePeerAssemblyPath;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "GetPackagePeerAssemblyPath",
                         typeof(GlobalState).Name, true,
                         TracePriority.LockError,
                         MaybeWhoHasLock());
@@ -8399,6 +8575,9 @@ namespace Eagle._Components.Private
                     //
                     // NOTE: Merge in shared path list into the overall list.
                     //
+                    if (autoPaths == null)
+                        autoPaths = new AutoPathDictionary();
+
                     autoPaths.Add(sharedAutoPathList, true);
 
                     //

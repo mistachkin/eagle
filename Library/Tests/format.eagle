@@ -77,9 +77,7 @@ if {[isEagle]} then {
 ###############################################################################
 
 if {[isEagle]} then {
-  set savedInterpreterFlags [object invoke \
-      -flags +NonPublic Interpreter.GetActive InterpreterFlags]
-
+  set savedInterpreterFlags [enableInterpreterFlags]
   set savedHaveConstraint [haveConstraint eformat]
 
   if {[info exists test_name_prefix]} then {
@@ -89,8 +87,8 @@ if {[isEagle]} then {
   }
 
   try {
-    object invoke -flags +NonPublic Interpreter.GetActive InterpreterFlags \
-        [combineFlags $savedInterpreterFlags -UsePrintfForDouble]
+    enableInterpreterFlags LegacyOctal true
+    enableInterpreterFlags UsePrintfForDouble false
 
     if {![info exists no(eformat)]} then {
       removeConstraint eformat
@@ -101,8 +99,7 @@ if {[isEagle]} then {
     tsource [file join $test_path tcl format.test] false false
 
     if {[haveConstraint native]} then {
-      object invoke -flags +NonPublic Interpreter.GetActive InterpreterFlags \
-          [combineFlags $savedInterpreterFlags +UsePrintfForDouble]
+      enableInterpreterFlags UsePrintfForDouble true
 
       if {![info exists no(eformat)]} then {
         removeConstraint eformat
@@ -129,9 +126,7 @@ if {[isEagle]} then {
 
     unset -nocomplain savedHaveConstraint
 
-    object invoke -flags +NonPublic Interpreter.GetActive InterpreterFlags \
-        $savedInterpreterFlags
-
+    enableInterpreterFlags $savedInterpreterFlags
     unset -nocomplain savedInterpreterFlags
   }
 } else {
@@ -252,14 +247,23 @@ runTest {test format-101.9 {various %g variations} -setup {
   set i [interp create]
 
   interp eval $i {
-    object invoke -flags +NonPublic -objectflags +AutoFlagsEnum \
-        Interpreter.GetActive interpreterFlags -UsePrintfForDouble
+    package require Eagle.Test
+
+    set savedInterpreterFlags [enableInterpreterFlags]
+    enableInterpreterFlags UsePrintfForDouble false
   }
 } -body {
   interp eval $i {
     list [format %.10g 0.000004] [format %#.10g 0.000004]
   }
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -271,14 +275,23 @@ runTest {test format-101.10 {various %g variations} -setup {
   set i [interp create]
 
   interp eval $i {
-    object invoke -flags +NonPublic -objectflags +AutoFlagsEnum \
-        Interpreter.GetActive interpreterFlags -UsePrintfForDouble
+    package require Eagle.Test
+
+    set savedInterpreterFlags [enableInterpreterFlags]
+    enableInterpreterFlags UsePrintfForDouble false
   }
 } -body {
   interp eval $i {
     list [format %.10g 0] [format %#.10g 0] [format %10g 41263.4]
   }
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain i

@@ -28,6 +28,9 @@ using Eagle._Containers.Public;
 using Eagle._Interfaces.Private.Tcl;
 using Eagle._Interfaces.Public;
 
+using TclBridgePair = System.Collections.Generic.KeyValuePair<
+    string, Eagle._Components.Private.Tcl.TclBridge>;
+
 namespace Eagle._Components.Private.Tcl
 {
     [ObjectId("8fb7faec-3d8b-4e44-ad88-3e2b9627eca9")]
@@ -49,7 +52,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
-        private static readonly bool DefaultCommandNoComplain = true;
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool DefaultCommandNoComplain = true;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,8 +68,7 @@ namespace Eagle._Components.Private.Tcl
         private IClientData clientData;
         private int timeout;
         private string name;
-        private bool generic;
-        private bool debug;
+        private TclThreadFlags flags;
 
         private long threadId;
         private Thread thread;
@@ -95,9 +100,7 @@ namespace Eagle._Components.Private.Tcl
             IClientData clientData,
             int timeout,
             string name,
-            bool generic,
-            bool debug,
-            bool start
+            TclThreadFlags flags
             )
         {
             //
@@ -120,8 +123,7 @@ namespace Eagle._Components.Private.Tcl
             this.clientData = clientData;
             this.timeout = timeout;
             this.name = name;
-            this.generic = generic;
-            this.debug = debug;
+            this.flags = flags;
 
             //
             // NOTE: Cache the script cancellation delegate for later use
@@ -161,8 +163,10 @@ namespace Eagle._Components.Private.Tcl
             //
             // NOTE: Create the managed thread for this object.
             //
-            thread = Engine.CreateThread(
-                interpreter, ThreadStart, 0, true, false, true);
+            thread = Engine.CreateThread(interpreter, ThreadStart, 0,
+                FlagOps.HasFlags(flags, TclThreadFlags.UserInterface, true),
+                FlagOps.HasFlags(flags, TclThreadFlags.IsBackground, true),
+                FlagOps.HasFlags(flags, TclThreadFlags.UseActiveStack, true));
 
             if (thread != null)
             {
@@ -174,7 +178,7 @@ namespace Eagle._Components.Private.Tcl
                 //
                 // NOTE: Caller requested that the thread be started now?
                 //
-                if (start)
+                if (FlagOps.HasFlags(flags, TclThreadFlags.Start, true))
                     thread.Start();
             }
             else
@@ -220,6 +224,17 @@ namespace Eagle._Components.Private.Tcl
             PrivateTryLock(ThreadOps.GetTimeout(
                 null, null, TimeoutType.WaitLock),
                 ref locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public void TryLockNoThrow(
+            ref bool locked
+            )
+        {
+            // CheckDisposed(); /* EXEMPT */
+
+            PrivateTryLock(ref locked);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -337,8 +352,17 @@ namespace Eagle._Components.Private.Tcl
 
         public bool IsGeneric
         {
-            get { CheckDisposed(); lock (syncRoot) { return generic; } }
+            get { CheckDisposed(); lock (syncRoot) { return PrivateIsGeneric; } }
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region Private
+        private bool PrivateIsGeneric
+        {
+            get { return FlagOps.HasFlags(flags, TclThreadFlags.Generic, true); }
+        }
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -503,11 +527,19 @@ namespace Eagle._Components.Private.Tcl
             // NOTE: Attempt to shutdown the Tcl interpreter thread now
             //       (if it is still alive).
             //
+            TclThreadFlags localFlags;
+
+            lock (syncRoot)
+            {
+                localFlags = this.flags;
+            }
+
             ReturnCode shutdownCode;
             Result shutdownError = null;
 
             shutdownCode = Shutdown(
-                tclApi, tclBridges, true, true, false, ref shutdownError);
+                tclApi, tclBridges, localFlags | TclThreadFlags.DeleteUse,
+                ref shutdownError);
 
             if (shutdownCode != ReturnCode.Ok)
             {
@@ -608,6 +640,7 @@ namespace Eagle._Components.Private.Tcl
                             //
                             timeout = 0;
                             name = null;
+                            flags = TclThreadFlags.None;
 
                             //
                             // NOTE: Zero out our Tcl interpreter.  We do not
@@ -678,8 +711,7 @@ namespace Eagle._Components.Private.Tcl
             IClientData clientData,
             int timeout,
             string name,
-            bool generic,
-            bool debug,
+            TclThreadFlags flags,
             ref Result error
             )
         {
@@ -705,7 +737,7 @@ namespace Eagle._Components.Private.Tcl
                     {
                         result = new TclThread(
                             interpreter, callback, clientData, timeout, name,
-                            generic, debug, true);
+                            flags);
 
                         //
                         // NOTE: Success, return the newly created [and running]
@@ -986,7 +1018,7 @@ namespace Eagle._Components.Private.Tcl
             long threadId;
             Interpreter interpreter;
             int timeout;
-            bool debug;
+            TclThreadFlags flags;
 
             lock (syncRoot)
             {
@@ -1015,13 +1047,17 @@ namespace Eagle._Components.Private.Tcl
                 timeout = this.timeout;
 
                 //
-                // NOTE: Cache the debug mode value for this object in a local variable.
+                // NOTE: Cache the various flags used within the main loop below.
                 //
-                debug = this.debug;
+                flags = this.flags;
             }
 
             if (interpreter != null)
             {
+                bool noYield = FlagOps.HasFlags(flags, TclThreadFlags.NoYield, true);
+                bool debug = FlagOps.HasFlags(flags, TclThreadFlags.Debug, true);
+                bool noComplain = FlagOps.HasFlags(flags, TclThreadFlags.NoComplain, true);
+
                 EventWaitHandle startEvent = null;
                 EventWaitHandle doneEvent = null;
                 EventWaitHandle idleEvent = null;
@@ -1214,7 +1250,7 @@ namespace Eagle._Components.Private.Tcl
                                 //
                                 if (!DoOneEvent(
                                         this, interpreter, timeout, debug,
-                                        ThreadOps.WasAnyEventTimeout(index), true))
+                                        ThreadOps.WasAnyEventTimeout(index), noComplain))
                                 {
                                     done = true;
                                 }
@@ -1232,7 +1268,7 @@ namespace Eagle._Components.Private.Tcl
                                 // NOTE: If there was some kind of error just report it and
                                 //       continue with the next event.
                                 //
-                                if (eventCode != ReturnCode.Ok) /* RARE */
+                                if (!noComplain && (eventCode != ReturnCode.Ok)) /* RARE */
                                     DebugOps.Complain(interpreter, eventCode, eventError);
 #endif
 
@@ -1255,19 +1291,22 @@ namespace Eagle._Components.Private.Tcl
                             }
 
                             //
-                            // NOTE: Finally, attempt to yield to other running threads.
+                            // NOTE: Finally, maybe attempt to yield to other running threads.
                             //
-                            ReturnCode yieldCode;
-                            Result yieldError = null;
+                            if (!noYield)
+                            {
+                                ReturnCode yieldCode;
+                                Result yieldError = null;
 
-                            yieldCode = HostOps.ThreadYield(ref yieldError);
+                                yieldCode = HostOps.ThreadYield(ref yieldError);
 
-                            //
-                            // NOTE: If there was some kind of error just report it and
-                            //       continue with the next event.
-                            //
-                            if (yieldCode != ReturnCode.Ok) /* RARE */
-                                DebugOps.Complain(interpreter, yieldCode, yieldError);
+                                //
+                                // NOTE: If there was some kind of error just report it and
+                                //       continue with the next event.
+                                //
+                                if (!noComplain && (yieldCode != ReturnCode.Ok)) /* RARE */
+                                    DebugOps.Complain(interpreter, yieldCode, yieldError);
+                            }
                         }
 
                         //
@@ -1302,7 +1341,7 @@ namespace Eagle._Components.Private.Tcl
                             //
                             /* IGNORED */
                             DoOneEvent(
-                                this, interpreter, timeout, debug, index == 0, true);
+                                this, interpreter, timeout, debug, index == 0, noComplain);
                         }
                     }
                 }
@@ -1347,9 +1386,7 @@ namespace Eagle._Components.Private.Tcl
         public ReturnCode Shutdown(
             ITclApi tclApi,
             TclBridgeDictionary tclBridges,
-            bool delete,
-            bool force,
-            bool strict,
+            TclThreadFlags flags,
             ref Result error
             )
         {
@@ -1385,7 +1422,10 @@ namespace Eagle._Components.Private.Tcl
 
             if (interpreter != null)
             {
-                bool noAbort = interpreter.InternalNoThreadAbort;
+                bool delete = FlagOps.HasFlags(flags, TclThreadFlags.Delete, true);
+                bool errorOnDead = FlagOps.HasFlags(flags, TclThreadFlags.ErrorOnDead, true);
+                bool waitForEnd = FlagOps.HasFlags(flags, TclThreadFlags.WaitForEnd, true);
+                bool noAbort = FlagOps.HasFlags(flags, TclThreadFlags.NoAbort, true);
 
                 if (tclApi != null)
                 {
@@ -1494,7 +1534,7 @@ namespace Eagle._Components.Private.Tcl
                             // NOTE: Are we forcing the issue here (i.e. to make sure the
                             //       thread is exited cleanly or aborted)?
                             //
-                            if ((code == ReturnCode.Ok) && force)
+                            if ((code == ReturnCode.Ok) && waitForEnd)
                             {
                                 //
                                 // NOTE: Wait a bit for the thread to exit.
@@ -1524,7 +1564,7 @@ namespace Eagle._Components.Private.Tcl
 
                             return code;
                         }
-                        else if (strict)
+                        else if (errorOnDead)
                         {
                             error = "invalid or dead Tcl interpreter thread";
                         }
@@ -1581,7 +1621,7 @@ namespace Eagle._Components.Private.Tcl
             CheckDisposed();
 
 #if WINDOWS
-            if (!generic && PlatformOps.IsWindowsOperatingSystem())
+            if (!PrivateIsGeneric && PlatformOps.IsWindowsOperatingSystem())
                 return QueueEventWindows(type, flags, data, synchronous, ref result, ref errorLine);
             else
 #endif
@@ -2187,6 +2227,9 @@ namespace Eagle._Components.Private.Tcl
                                     bool noNotify = FlagOps.HasFlags(
                                         eventFlags, EventFlags.NoNotify, true);
 
+                                    bool noComplain = FlagOps.HasFlags(
+                                        eventFlags, EventFlags.NoComplain, true);
+
                                     if (eventDebug)
                                     {
                                         TraceOps.DebugTrace(threadId, String.Format(
@@ -2426,7 +2469,7 @@ namespace Eagle._Components.Private.Tcl
                                                         }
                                                         else
                                                         {
-                                                            result = "invalid object pair";
+                                                            result = "invalid event pair";
                                                             code = ReturnCode.Error;
                                                         }
                                                     }
@@ -2463,7 +2506,7 @@ namespace Eagle._Components.Private.Tcl
                                                         }
                                                         else
                                                         {
-                                                            result = "invalid object triplet";
+                                                            result = "invalid event triplet";
                                                             code = ReturnCode.Error;
                                                         }
                                                     }
@@ -2525,7 +2568,7 @@ namespace Eagle._Components.Private.Tcl
                                                         }
                                                         else
                                                         {
-                                                            result = "invalid object triplet";
+                                                            result = "invalid event triplet";
                                                             code = ReturnCode.Error;
                                                         }
                                                     }
@@ -2643,7 +2686,7 @@ namespace Eagle._Components.Private.Tcl
                                                         }
                                                         else
                                                         {
-                                                            result = "invalid object pair";
+                                                            result = "invalid event pair";
                                                             code = ReturnCode.Error;
                                                         }
                                                     }
@@ -2695,10 +2738,17 @@ namespace Eagle._Components.Private.Tcl
                                                                 ClientData.TryGet(execute, false,
                                                                     out executeClientData);
 
+                                                                TclCommandFlags flags = TclCommandFlags.None;
+
+                                                                if (forceDelete)
+                                                                    flags |= TclCommandFlags.ForceDelete;
+
+                                                                if (DefaultCommandNoComplain)
+                                                                    flags |= TclCommandFlags.NoComplain;
+
                                                                 code = interpreter.AddTclBridge(
                                                                     execute, name, commandName,
-                                                                    executeClientData, forceDelete,
-                                                                    DefaultCommandNoComplain,
+                                                                    executeClientData, flags,
                                                                     ref result);
                                                             }
                                                             else
@@ -2709,7 +2759,7 @@ namespace Eagle._Components.Private.Tcl
                                                         }
                                                         else
                                                         {
-                                                            result = "invalid object triplet";
+                                                            result = "invalid event triplet";
                                                             code = ReturnCode.Error;
                                                         }
                                                     }
@@ -2733,10 +2783,17 @@ namespace Eagle._Components.Private.Tcl
                                                             {
                                                                 string commandName = anyPair.X;
                                                                 bool forceDelete = anyPair.Y;
+                                                                TclCommandFlags flags = TclCommandFlags.None;
+
+                                                                if (forceDelete)
+                                                                    flags |= TclCommandFlags.ForceDelete;
+
+                                                                if (DefaultCommandNoComplain)
+                                                                    flags |= TclCommandFlags.NoComplain;
 
                                                                 code = interpreter.AddStandardTclBridge(
-                                                                    name, commandName, null, forceDelete,
-                                                                    DefaultCommandNoComplain, ref result);
+                                                                    name, commandName, null, flags,
+                                                                    ref result);
                                                             }
                                                             else
                                                             {
@@ -2746,7 +2803,7 @@ namespace Eagle._Components.Private.Tcl
                                                         }
                                                         else
                                                         {
-                                                            result = "invalid object pair";
+                                                            result = "invalid event pair";
                                                             code = ReturnCode.Error;
                                                         }
                                                     }
@@ -2766,7 +2823,8 @@ namespace Eagle._Components.Private.Tcl
                                                             string commandName = eventClientData.Data as string;
 
                                                             code = interpreter.RemoveTclBridge(
-                                                                name, commandName, null, ref result);
+                                                                name, commandName, null, TclCommandFlags.None,
+                                                                ref result);
                                                         }
                                                         else
                                                         {
@@ -2799,7 +2857,7 @@ namespace Eagle._Components.Private.Tcl
 
                                                         if (tclBridges != null)
                                                         {
-                                                            foreach (KeyValuePair<string, TclBridge> pair in tclBridges)
+                                                            foreach (TclBridgePair pair in tclBridges)
                                                             {
                                                                 TclBridge tclBridge = pair.Value;
 
@@ -2881,7 +2939,7 @@ namespace Eagle._Components.Private.Tcl
                                             eventInterpreter, clientData, eventClientData,
                                             @event, code, result, errorLine, ref notifyResult);
 
-                                        if (notifyCode != ReturnCode.Ok)
+                                        if (!noComplain && (notifyCode != ReturnCode.Ok))
                                         {
                                             DebugOps.Complain(
                                                 eventInterpreter, notifyCode, notifyResult);

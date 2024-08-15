@@ -110,6 +110,7 @@ namespace Eagle._Comparers
                     //       are inside of a non-extensible .NET Framework callback interface 
                     //       and therefore have no direct access to our calling interpreter.
                     //
+                    /* IGNORED */
                     Engine.AddErrorInformation(interpreter, result,
                         String.Format("{0}    (-compare command)",
                             Environment.NewLine));

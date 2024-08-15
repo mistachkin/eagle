@@ -25,7 +25,7 @@ namespace Eagle._Components.Public
 {
     [ObjectId("02de061d-be8f-494a-89c1-5c80dc037c6e")]
     public class ScriptClientData :
-            AnyClientData, IHaveStringDictionary, ICloneable, IDisposable
+            AnyClientData, IHaveStringDictionary, ICloneable
     {
         #region Private Data
         private readonly object syncRoot = new object();

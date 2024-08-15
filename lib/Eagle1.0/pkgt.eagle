@@ -93,6 +93,29 @@ namespace eval ::Eagle {
       set tclKitDllUri {${baseUri}/${urn}}
     }
 
+    # NOTE: The URN, relative to the base URI, where the Tcl/Tk DLLs
+    #       for a particular platform may be downloaded.
+    #
+    variable tclTkDllUrn; # DEFAULT: tcltk_dll_${platform}
+
+    if {$cleanup} then {
+      unset -nocomplain tclTkDllUrn
+    } elseif {$force || ![info exists tclTkDllUrn]} then {
+      set tclTkDllUrn {tcltk_dll_${platform}}
+    }
+
+    #
+    # NOTE: The URI where the Tcl/Tk DLLs for a particular platform
+    #       may be downloaded.
+    #
+    variable tclTkDllUri; # DEFAULT: ${baseUri}/${urn}
+
+    if {$cleanup} then {
+      unset -nocomplain tclTkDllUri
+    } elseif {$force || ![info exists tclTkDllUri]} then {
+      set tclTkDllUri {${baseUri}/${urn}}
+    }
+
     #
     # NOTE: The URN, relative to the base URI, where the Harpy and Badge
     #       plugins for a particular build may be downloaded.
@@ -271,7 +294,7 @@ namespace eval ::Eagle {
     set fileName [getTemporaryFileName]
 
     if {[isEagle]} then {
-      uri download $uri $fileName
+      uri download -timeouttype network $uri $fileName
     } else {
       package require Eagle.Tools.Common
 
@@ -337,7 +360,7 @@ namespace eval ::Eagle {
         #       a package index file raises a script error.
         #
         catch {
-          uplevel #0 [list package scan -host -normal -refresh]
+          uplevel #0 [list package scan -host -normal -primary -refresh]
         }
       } else {
         #
@@ -434,18 +457,18 @@ namespace eval ::Eagle {
       if {[catch {
         try {
           if {$isolateSecurity} then {
-            set savedPluginFlags [object invoke -flags +NonPublic \
-                Interpreter.GetActive PluginFlags]
+            package require Eagle.Test
 
-            object invoke -flags +NonPublic Interpreter.GetActive \
-                PluginFlags [combineFlags $savedPluginFlags Isolated]
+            set savedPluginFlags [enablePluginFlags]
+            enablePluginFlags Isolated true
           }
 
           uplevel 1 [list source enableSecurity]
         } finally {
-          if {$isolateSecurity && [info exists savedPluginFlags]} then {
-            object invoke -flags +NonPublic Interpreter.GetActive \
-                PluginFlags [appendArgs = $savedPluginFlags]
+          if {$isolateSecurity && \
+              [info exists savedPluginFlags]} then {
+            enablePluginFlags $savedPluginFlags
+            unset -nocomplain savedPluginFlags
           }
         }
       } error] && $strictSecurity} then {
@@ -462,18 +485,18 @@ namespace eval ::Eagle {
       if {[catch {
         try {
           if {$isolateSecurity} then {
-            set savedPluginFlags [object invoke -flags +NonPublic \
-                Interpreter.GetActive PluginFlags]
+            package require Eagle.Test
 
-            object invoke -flags +NonPublic Interpreter.GetActive \
-                PluginFlags [combineFlags $savedPluginFlags Isolated]
+            set savedPluginFlags [enablePluginFlags]
+            enablePluginFlags Isolated true
           }
 
           uplevel 1 [list debug keyring]
         } finally {
-          if {$isolateSecurity && [info exists savedPluginFlags]} then {
-            object invoke -flags +NonPublic Interpreter.GetActive \
-                PluginFlags [appendArgs = $savedPluginFlags]
+          if {$isolateSecurity && \
+              [info exists savedPluginFlags]} then {
+            enablePluginFlags $savedPluginFlags
+            unset -nocomplain savedPluginFlags
           }
         }
       } error] && $strictSecurity} then {
@@ -487,8 +510,9 @@ namespace eval ::Eagle {
     #       do that now.
     #
     if {[isEagle] && $hookUnknown} then {
-      object invoke -flags +NonPublic -objectflags +AutoFlagsEnum \
-          Interpreter.GetActive interpreterFlags -NoPackageUnknown
+      package require Eagle.Test
+
+      enableInterpreterFlags NoPackageUnknown false
     }
 
     #
@@ -528,7 +552,7 @@ namespace eval ::Eagle {
     set fileName [getTemporaryFileName]
 
     if {[isEagle]} then {
-      uri download $uri $fileName
+      uri download -timeouttype network $uri $fileName
     } else {
       package require Eagle.Tools.Common
 
@@ -547,7 +571,60 @@ namespace eval ::Eagle {
     file delete $fileName
 
     return [lindex [glob -nocomplain \
-        [file join $extractDirectory lib *[info sharedlibextension]]] 0]
+        [file join $extractDirectory lib [appendArgs * \
+        [info sharedlibextension]]]] 0]
+  }
+
+  #
+  # NOTE: This procedure attempts to download and extract a set of native
+  #       Tcl/Tk DLLs for the current platform.  The optional channel
+  #       argument is the output channel where diagnostic information is
+  #       sent.  The optional quiet argument should be non-zero to prevent
+  #       diagnostic information from being emitted.  This procedure may
+  #       raise script errors.  The return value is the full path to the
+  #       native Tcl/Tk DLL files.
+  #
+  proc downloadAndExtractNativeTclTkDlls {
+          {channel stdout} {quiet false} } {
+    setupPackageToolsetVars false
+
+    variable baseUri
+    variable tclTkDllUri
+    variable tclTkDllUrn
+
+    package require Eagle.Test
+    package require Eagle.Unzip
+
+    set platform [machineToPlatform $::tcl_platform(machine) true]
+
+    set extractRootDirectory [getPackageInstallPath \
+        [appendArgs TclTkDll_ $platform] ea-ta-di]
+
+    set urn [subst $tclTkDllUrn]; set uri [subst $tclTkDllUri]
+    set fileName [getTemporaryFileName]
+
+    if {[isEagle]} then {
+      uri download -timeouttype network $uri $fileName
+    } else {
+      package require Eagle.Tools.Common
+
+      namespace import -force \
+          ::Eagle::Tools::Common::getFileViaHttp \
+          ::Eagle::Tools::Common::writeFile
+
+      set data [getFileViaHttp $uri 20 $channel $quiet -binary true]
+
+      writeFile $fileName $data
+    }
+
+    set extractDirectory [extractZipArchive \
+        $fileName $extractRootDirectory true]
+
+    file delete $fileName
+
+    return [lindex [glob -nocomplain [file join \
+        $extractDirectory IronTcl bin [appendArgs * \
+        [info sharedlibextension]]]] 0]
   }
 
   #
@@ -585,7 +662,7 @@ namespace eval ::Eagle {
     set fileName [getTemporaryFileName]
 
     if {[isEagle]} then {
-      uri download $uri $fileName
+      uri download -timeouttype network $uri $fileName
     } else {
       package require Eagle.Tools.Common
 
@@ -647,9 +724,9 @@ namespace eval ::Eagle {
     if {![info exists ::env($varName1)]} then {
       set processFileNames [list]
 
-      foreach processDirectory [findDirectories \
+      foreach processDirectory [findDirectoriesRecursive \
           [appendArgs $processDirectoryPrefix *]] {
-        eval lappend processFileNames [findFiles \
+        eval lappend processFileNames [findFilesRecursive \
             [file join $processDirectory *]]
       }
 
@@ -788,7 +865,7 @@ namespace eval ::Eagle {
     }
 
     if {[isEagle]} then {
-      set data [uri download -inline $uri]
+      set data [uri download -timeouttype network -inline $uri]
     } else {
       package require Eagle.Tools.Common
 
@@ -869,7 +946,8 @@ namespace eval ::Eagle {
     }
 
     if {[isEagle]} then {
-      return [uri upload -inline -data $query $uri]
+      return [uri upload \
+          -timeouttype network -inline -data $query $uri]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -938,7 +1016,7 @@ namespace eval ::Eagle {
             [uri escape data $name] = [uri escape data $value]
       }
 
-      set data [uri download -inline $fullUri]
+      set data [uri download -timeouttype network -inline $fullUri]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -1029,7 +1107,7 @@ namespace eval ::Eagle {
             [uri escape data $name] = [uri escape data $value]
       }
 
-      set data [uri download -inline $fullUri]
+      set data [uri download -timeouttype network -inline $fullUri]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -1143,7 +1221,7 @@ namespace eval ::Eagle {
             [uri escape data $name] = [uri escape data $value]
       }
 
-      set data [uri download -inline $fullUri]
+      set data [uri download -timeouttype network -inline $fullUri]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -1252,7 +1330,8 @@ namespace eval ::Eagle {
             [uri escape data $name] = [uri escape data $value]
       }
 
-      set data [string trim [uri download -inline $fullUri]]
+      set data [string trim [uri download \
+          -timeouttype network -inline $fullUri]]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -1270,7 +1349,7 @@ namespace eval ::Eagle {
       error "request failed without providing error information"
     }
 
-    if {![string is inetaddr -strict $data]} then {
+    if {[isEagle] && ![string is inetaddr -strict $data]} then {
       error [appendArgs \
           "request failed with error information: " $data]
     }

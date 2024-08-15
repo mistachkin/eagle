@@ -6293,7 +6293,8 @@ namespace Eagle._Components.Private
 
                 string[] paths = {
                     GlobalState.GetAssemblyPackageRootPath(),
-                    GlobalState.GetPackagePeerBinaryPath()
+                    GlobalState.GetPackagePeerBinaryPath(),
+                    GlobalState.GetPackagePeerAssemblyPath()
                 };
 
                 foreach (string path in paths)
@@ -7863,7 +7864,7 @@ namespace Eagle._Components.Private
                         "IsSameFile: Windows error = {0}",
                         FormatOps.WrapOrNull(error)),
                         typeof(PathOps).Name,
-                        TracePriority.PathError);
+                        TracePriority.PathError3);
                 }
             }
 #endif
@@ -8809,14 +8810,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         //
-        // HACK: If the last 3 parts of the path are "Library/Tests/<fileName>" -OR- the last 4
-        //       parts of the path are "Library/Tests/<dirName>/<fileName>" with a "<dirName>"
-        //       value of "data" or "tcl", (case-insensitive), then replace the "Library" part
-        //       with "lib" and return the resulting path.  Also, if the "relative" parameter
-        //       is non-zero, return only the final X parts of the path, separated by forward
-        //       slashes (Unix-style), where X will be either 3 or 4 (i.e. X will only be 4 if
-        //       a supported "<dirName>" part exists), .  The returned path may not actually
-        //       exist on the file system -AND- that is perfectly OK.
+        // HACK: If the last three parts of the path are "Library/YYYYY/<fileName>" -OR- the
+        //       last four parts of the path are "Library/YYYYY/<dirName>/<fileName>" where
+        //       "YYYYY" is either "Tests" or "Resources" -AND- with a "<dirName>" value of
+        //       "data" or "tcl", (case-insensitive), then replace the "Library" part with
+        //       "lib", replace the "Resources" part with "Loader1.0", and then return the
+        //       resulting path.  Also, if the "relative" parameter is non-zero, return only
+        //       the final X parts of the path, separated by forward slashes (Unix-style),
+        //       where X will be either three or four (i.e. X will only be four if supported
+        //       "<dirName>" part exists).  The returned path may not actually exist on the
+        //       file system -AND- that is perfectly OK.
         //
         private static string LibraryToLib(
             string path,   /* in */
@@ -8859,8 +8862,8 @@ namespace Eagle._Components.Private
 
             //
             // NOTE: The minimum number of parts must be at least 3, to form
-            //       "Library/Tests/<fileName>".  Instead, there could be 4,
-            //       where they may form "Library/Tests/<dirName>/<fileName>",
+            //       "Library/YYYYY/<fileName>".  Instead, there could be 4,
+            //       where they may form "Library/YYYYY/<dirName>/<fileName>",
             //       where the "<dirName>" may be "data" or "tcl".  However,
             //       the absolute minimum number of parts here is still 3.
             //
@@ -8885,7 +8888,7 @@ namespace Eagle._Components.Private
             //
             // NOTE: Is there a "<dirName>" part equal to "data" or "tcl"?  If
             //       so, skip over it when considering if the remaining parts
-            //       fit the supported pattern of "Library/Tests".
+            //       fit the supported pattern of "Library/YYYYY".
             //
             offset++;
 
@@ -8897,21 +8900,33 @@ namespace Eagle._Components.Private
                 //
                 // NOTE: At this point, we know there are at least 4 parts
                 //       -AND- that the final part is "data" or "tcl".  So,
-                //       skip to the previous part, which should be "Tests".
+                //       skip to the previous part, which should be "YYYYY".
                 //
                 offset++;
             }
 
             //
             // NOTE: The next two parts before that must be exactly "Library"
-            //       and "Tests".  On some systems, the case does not matter
+            //       and "YYYYY".  On some systems, the case does not matter
             //       (e.g. Windows).
             //
+            bool resources = false;
+
+            if (SharedStringOps.Equals(
+                    parts[length - offset], _Path.Resources, ComparisonType))
+            {
+                resources = true;
+            }
+            else if (!SharedStringOps.Equals(
+                    parts[length - offset], _Path.Tests, ComparisonType))
+            {
+                done = false;
+                return path;
+            }
+
             int nextOffset = offset + 1;
 
             if (!SharedStringOps.Equals(
-                    parts[length - offset], _Path.Tests, ComparisonType) ||
-                !SharedStringOps.Equals(
                     parts[length - nextOffset], _Path.Library, ComparisonType))
             {
                 done = false;
@@ -8922,6 +8937,14 @@ namespace Eagle._Components.Private
             // NOTE: Change the "Library" part into "lib".
             //
             parts[length - nextOffset] = TclVars.Path.Lib;
+
+            //
+            // HACK: The only package currently residing in the resources
+            //       directory is the (binary plugin) loader; therefore,
+            //       fix it.
+            //
+            if (resources)
+                parts[length - offset] = _Path.Loader;
 
             //
             // NOTE: If we get to this point, this method is performing a

@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
@@ -94,7 +95,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -718,6 +719,8 @@ namespace Eagle._Commands
                                                             {
                                                                 ObjectOps.TryDisposeOrComplain<IDelegate>(
                                                                     interpreter, ref @delegate);
+
+                                                                @delegate = null;
                                                             }
                                                         }
                                                     }
@@ -858,6 +861,8 @@ namespace Eagle._Commands
                                                 new IOption[] {
                                                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-modulename", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-locked", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
                                                 new Option(typeof(ModuleFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-flags",
                                                     new Variant(ModuleFlags.None)),
                                                 Option.CreateEndOfOptions()
@@ -915,6 +920,14 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-flags", ref value))
                                                             flags = (ModuleFlags)value.Value;
 
+                                                        if (options.IsPresent("-trustedonly"))
+                                                            flags |= ModuleFlags.TrustedOnly;
+
+#if !DEBUG
+                                                        if (options.IsPresent("-maybetrustedonly"))
+                                                            flags |= ModuleFlags.TrustedOnly;
+#endif
+
                                                         //
                                                         // NOTE: Lock the module in place, thereby preventing it from
                                                         //       being unloaded (at least, by us)?
@@ -948,6 +961,8 @@ namespace Eagle._Commands
                                                             {
                                                                 ObjectOps.TryDisposeOrComplain<IModule>(
                                                                     interpreter, ref module);
+
+                                                                module = null;
                                                             }
                                                         }
                                                     }
@@ -990,31 +1005,44 @@ namespace Eagle._Commands
                                         if (arguments.Count == 3)
                                         {
 #if NATIVE && TCL
-                                            Result localError = null;
+                                            string path = arguments[2];
 
-                                            if (FileOps.CheckPeFileArchitecture(
-                                                    arguments[2], ref localError))
+                                            if (File.Exists(path))
                                             {
-                                                if (verify)
+                                                Result localError = null;
+
+                                                if (FileOps.CheckPeFileArchitecture(
+                                                        path, ref localError))
                                                 {
-                                                    result = String.Empty;
+                                                    if (verify)
+                                                    {
+                                                        result = String.Empty;
+                                                    }
+                                                    else
+                                                    {
+                                                        result = true;
+                                                    }
                                                 }
                                                 else
                                                 {
-                                                    result = true;
+                                                    if (verify)
+                                                    {
+                                                        result = localError;
+                                                        code = ReturnCode.Error;
+                                                    }
+                                                    else
+                                                    {
+                                                        result = false;
+                                                    }
                                                 }
                                             }
                                             else
                                             {
-                                                if (verify)
-                                                {
-                                                    result = localError;
-                                                    code = ReturnCode.Error;
-                                                }
-                                                else
-                                                {
-                                                    result = false;
-                                                }
+                                                result = String.Format(
+                                                    "could not read {0}: no such file",
+                                                    FormatOps.WrapOrNull(path));
+
+                                                code = ReturnCode.Error;
                                             }
 #else
                                             result = "not implemented";

@@ -102,7 +102,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -723,10 +723,13 @@ namespace Eagle._Commands
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-preferfilesystem", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-preferhost", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-host", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nohost", null),
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-plugin", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noplugin", null),
 #else
                                                     new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-plugin", null),
+                                                    new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noplugin", null),
 #endif
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-normal", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nonormal", null),
@@ -734,17 +737,17 @@ namespace Eagle._Commands
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-resolve", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-refresh", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-autopath", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-primary", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noprimary", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-tagged", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-notagged", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-temporary", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trace", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-verbose", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-reset", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-whatif", null),
-#if NATIVE
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-notrusted", null),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noverified", null),
-#else
-                                                    new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-notrusted", null),
-                                                    new Option(null, OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noverified", null),
-#endif
                                                     Option.CreateEndOfOptions()
                                                 });
 
@@ -800,10 +803,31 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-host"))
                                                             newFlags |= PackageIndexFlags.Host;
 
+                                                        if (options.IsPresent("-nohost"))
+                                                            newFlags &= ~PackageIndexFlags.Host;
+
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
                                                         if (options.IsPresent("-plugin"))
                                                             newFlags |= PackageIndexFlags.Plugin;
+
+                                                        if (options.IsPresent("-noplugin"))
+                                                            newFlags &= ~PackageIndexFlags.Plugin;
 #endif
+
+                                                        if (options.IsPresent("-temporary"))
+                                                            newFlags |= PackageIndexFlags.Temporary;
+
+                                                        if (options.IsPresent("-primary"))
+                                                            newFlags |= PackageIndexFlags.Primary;
+
+                                                        if (options.IsPresent("-noprimary"))
+                                                            newFlags &= ~PackageIndexFlags.Primary;
+
+                                                        if (options.IsPresent("-tagged"))
+                                                            newFlags |= PackageIndexFlags.Tagged;
+
+                                                        if (options.IsPresent("-notagged"))
+                                                            newFlags &= ~PackageIndexFlags.Tagged;
 
                                                         if (options.IsPresent("-normal"))
                                                             newFlags |= PackageIndexFlags.Normal;
@@ -826,13 +850,11 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-verbose"))
                                                             newFlags |= PackageIndexFlags.Verbose;
 
-#if NATIVE
                                                         if (options.IsPresent("-notrusted"))
                                                             newFlags |= PackageIndexFlags.NoTrusted;
 
                                                         if (options.IsPresent("-noverified"))
                                                             newFlags |= PackageIndexFlags.NoVerified;
-#endif
 
                                                         StringList paths = null;
 
@@ -937,6 +959,17 @@ namespace Eagle._Commands
                                                                         result = String.Empty;
                                                                     }
                                                                 }
+                                                            }
+
+                                                            if (code != ReturnCode.Ok)
+                                                            {
+                                                                TraceOps.DebugTrace(String.Format(
+                                                                    "Execute: SCAN FAILED, interpreter = {0}, " +
+                                                                    "whatIf = {1}, code = {2}, result = {3}",
+                                                                    FormatOps.InterpreterNoThrow(interpreter),
+                                                                    whatIf, code, FormatOps.WrapOrNull(result)),
+                                                                    typeof(Package).Name,
+                                                                    TracePriority.PackageError3);
                                                             }
                                                         }
                                                     }

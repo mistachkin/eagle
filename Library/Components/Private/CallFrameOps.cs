@@ -101,9 +101,26 @@ namespace Eagle._Components.Private
             ICallFrame frame
             )
         {
-            return (frame != null) &&
-                FlagOps.HasFlags(frame.Flags, CallFrameFlags.Fast, true) ?
-                VariableFlags.FastMask : VariableFlags.None;
+            VariableFlags variableFlags = VariableFlags.None;
+
+            if (frame == null)
+                return variableFlags;
+
+            CallFrameFlags callFrameFlags = frame.Flags;
+
+            if (FlagOps.HasFlags(
+                    callFrameFlags, CallFrameFlags.Library, true))
+            {
+                variableFlags |= VariableFlags.FastTraceMask;
+            }
+
+            if (FlagOps.HasFlags(
+                    callFrameFlags, CallFrameFlags.Fast, true))
+            {
+                variableFlags |= VariableFlags.FastMask;
+            }
+
+            return variableFlags;
         }
 
         ///////////////////////////////////////////////////////////////////////

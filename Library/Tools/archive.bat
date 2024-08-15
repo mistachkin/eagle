@@ -118,7 +118,7 @@ IF NOT EXIST Eagle\Releases (
 
 CALL :fn_PrependToPath TOOLS
 
-IF "%PROCESSOR_ARCHITECTURE%" == "x86" GOTO set_path_x86
+IF /I "%PROCESSOR_ARCHITECTURE%" == "x86" GOTO set_path_x86
 
 SET WINRARPATH=%ProgramFiles(x86)%\WinRAR
 GOTO set_path_done

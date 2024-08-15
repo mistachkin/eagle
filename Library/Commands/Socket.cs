@@ -57,6 +57,7 @@ namespace Eagle._Commands
                         {
                             OptionDictionary options = new OptionDictionary(
                                 new IOption[] {
+                                new Option(typeof(TimeoutType), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-timeouttype", null),
                                 new Option(typeof(AddressFamily), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-addressfamily",
                                     new Variant(AddressFamily.InterNetwork)),
                                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-server", null), // server only
@@ -141,7 +142,12 @@ namespace Eagle._Commands
                                     if (options.IsPresent("-writetimeout", ref value))
                                         writeTimeout = (int)value.Value;
 
-                                    int? timeout = WebOps.GetTimeout(interpreter);
+                                    TimeoutType timeoutType = TimeoutType.None;
+
+                                    if (options.IsPresent("-timeouttype", ref value))
+                                        timeoutType = (TimeoutType)value.Value;
+
+                                    int? timeout = WebOps.GetTimeout(interpreter, timeoutType);
 
                                     if (options.IsPresent("-timeout", ref value))
                                         timeout = (int)value.Value;

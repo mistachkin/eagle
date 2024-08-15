@@ -128,7 +128,7 @@ runTest {test socket-1.2 {server sockets} -setup {
   }
 } -body {
   set command [list socket]
-  if {[isDotNetCore]} then {lappend command -noexclusive}
+  lappend command -noexclusive
   lappend command -server serverAccept $test_port
 
   set sock(listen) [eval $command]
@@ -152,6 +152,7 @@ runTest {test socket-1.2 {server sockets} -setup {
           -noArgumentsFileName -noAppSettings \
           -preInitialize [appendArgs \" "set env(NoAutoRecord) true" \"] \
           -preInitialize [appendArgs \" "set env(NoWorkerThread) true" \"] \
+          -preInitialize [appendArgs \" "set env(NoLicensing) true" \"] \
           -preInitialize [appendArgs \" [expr {[haveConstraint quiet] ? \
           "catch {object invoke Eagle._Tests.Default TestSetQuiet}" : ""}] \"] \
           -preInitialize [appendArgs \" "set no(logFileName) 1" \"] \
@@ -300,10 +301,17 @@ runTest {test socket-1.3 {client sockets} -setup {
 #
 if {[isEagle] && [haveConstraint client]} then {
   #
-  # NOTE: Reset the log file, if necessary, so that we do not have a
+  # NOTE: Reset the log file, if necessary, so that we don't have a
   #       race condition with the other (i.e. the "parent") process
-  #       trying to write to it.
+  #       trying to write to it.  Also, just in case external tools
+  #       (e.g. the "watch dog", etc) attempt to setup the test log
+  #       file name again, explicitly forbid that.
   #
+  # TODO: 2024-04-26 Figure out if this is still strictly necessary
+  #       now that the log file is always opened with file sharing.
+  #
+  set no(getDefaultTestLog) 1
+
   if {[info exists test_log]} then {
     set test_log ""
   }

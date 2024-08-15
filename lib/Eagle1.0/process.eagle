@@ -21,6 +21,96 @@
 #
 namespace eval ::Eagle {
   #
+  # NOTE: This procedure attempts to determine the owner of the specified
+  #       process.  The return value may be in the format "DOMAIN\USER",
+  #       an empty string (e.g. for non-Windows), an error message, or the
+  #       literal string "error" if no error message is available.  Script
+  #       errors should not be raised by this procedure.
+  #
+  proc getOwnerForProcess { process {noIntegrity false} {refresh false} } {
+    if {[isWindows] && [llength [info commands object]] > 0} then {
+      if {[catch {
+        set id [$process Id]
+
+        if {!$refresh && \
+            [info exists ::eagle_debugger(processOwner,$id)]} then {
+          return $::eagle_debugger(processOwner,$id); # cache
+        }
+
+        if {[llength \
+            [object assemblies "System.Management, *"]] == 0} then {
+          set assembly [object load System.Management]
+        }
+
+        set query [subst -nocommands -nobackslashes [string trim {
+          SELECT * FROM Win32_Process WHERE ProcessId = $id
+        }]]
+
+        #
+        # BUGBUG: Apparently, (some of?) these System.Management
+        #         related method calls are expensive.
+        #
+        set searcher [object create \
+            -alias System.Management.ManagementObjectSearcher \
+            $query]
+
+        set collection [$searcher Get]
+
+        set args [object invoke \
+            -create -alias Array CreateInstance String 2]
+
+        object foreach -alias item $collection {
+          if {[$item InvokeMethod GetOwner args] == 0} then {
+            #
+            # HACK: Even if we technically own a process, do not return
+            #       it if its integrity level that is too high for us.
+            #
+            set level(1) ""
+            set level(2) ""
+
+            if {$noIntegrity || ([catch {
+              set pid(1) [object create IntPtr $id]
+              set string null
+
+              if {[object invoke -flags +NonPublic \
+                  Eagle._Components.Private.NativeOps \
+                  GetIntegrityLevel $pid(1) string]} then {
+                set level(1) [lindex $string 0]
+              }
+            } level(1)] == 0 && [catch {
+              set pid(2) [object create IntPtr [pid]]
+              set string null
+
+              if {[object invoke -flags +NonPublic \
+                  Eagle._Components.Private.NativeOps \
+                  GetIntegrityLevel $pid(2) string]} then {
+                set level(2) [lindex $string 0]
+              }
+            } level(2)] == 0)} then {
+              if {$level(1) eq $level(2) || ($level(1) >= 0 && \
+                  $level(2) >= 0 && $level(1) <= $level(2))} then {
+                return [set ::eagle_debugger(processOwner,$id) \
+                    [appendArgs [$args GetValue 1] \\ [$args \
+                    GetValue 0]]]
+              }
+            }
+          }
+        }
+      } result] == 2} then {; # NOTE: Success is [return].
+        return $result
+      } else {
+        if {[string length $result] > 0} then {
+          return $result
+        } else {
+          return error
+        }
+      }
+    }
+
+    return ""
+  }
+
+  #
   # NOTE: This procedure returns a list of process Ids matching the specified
   #       name -OR- all process Ids if the specified name is an empty string.
   #
@@ -60,6 +150,15 @@ namespace eval ::Eagle {
     }
 
     #
+    # NOTE: If needed, figure out who I am.
+    #
+    if {[info exists ::no(getOwnerForProcess)]} then {
+      set whoami ""
+    } else {
+      set whoami [info user]
+    }
+
+    #
     # NOTE: For each process in the resulting array, grab the Id.
     #
     for {set index 0} {$index < [$array Length]} {incr index} {
@@ -75,12 +174,23 @@ namespace eval ::Eagle {
       #
       # BUGFIX: Only do this if the process has not exited?
       #
-      if {[catch {
-        $process Refresh; $process HasExited
-      } exited] == 0 && !$exited && [catch {
-        $process Id
-      } id] == 0} then {
-        lappend result $id
+      # HACK: Attempt to skip over processes that do not belong to
+      #       the current user.  This reduces the numer of "Access
+      #       Denied" exceptions; however, there may still be some
+      #       processes that seem to be owned by us that we cannot
+      #       actually access (e.g. "High Integrity", etc).
+      #
+      if {[info exists ::no(getOwnerForProcess)] || \
+          [getOwnerForProcess $process] in [list "" $whoami]} then {
+        if {[catch {
+          $process Refresh; # throw
+        }] == 0 && [catch {
+          $process HasExited; # throw
+        } exited] == 0 && !$exited && [catch {
+          $process Id; # throw
+        } id] == 0} then {
+          lappend result $id
+        }
       }
 
       #
@@ -124,43 +234,54 @@ namespace eval ::Eagle {
     if {$collect} then {debug collect}
 
     #
-    # NOTE: Wait for each process in the list to exit.
+    # NOTE: Attempt to wait for each process in the list to exit.
     #
     foreach id $ids {
-      #
-      # NOTE: Get the process object by its Id.  If it does not exist,
-      #       this will raise an error.
-      #
-      if {[catch {
-        object invoke -alias System.Diagnostics.Process \
-            GetProcessById $id
-      } process] == 0} then {
+      try {
         #
-        # NOTE: Wait a while for the process to exit.
+        # NOTE: Get the process object by its integer identifier.  If
+        #       it does not exist (or we lack access to it), this will
+        #       raise an error.
         #
         if {[catch {
-          $process WaitForExit $timeout
-        } exited] == 0 && $exited} then {
+          object invoke -alias \
+              System.Diagnostics.Process GetProcessById $id
+        } process] == 0} then {
           #
-          # NOTE: Ok, process is now exited.
+          # NOTE: Wait a while for the process to exit.
           #
-          lappend result $id
-        } elseif {$kill} then {
-          #
-          # NOTE: Attempt to kill the process.
-          #
-          catch {
-            $process Refresh; $process Kill
+          if {[catch {
+            $process WaitForExit $timeout; # throw
+          } exited] == 0 && $exited} then {
+            #
+            # NOTE: Ok, process is now exited.
+            #
             lappend result $id
+          } elseif {$kill} then {
+            #
+            # NOTE: Attempt to "refresh" our view
+            #       of the state of the process.
+            #
+            catch {
+              $process Refresh; # throw
+            }
+
+            #
+            # NOTE: Attempt to kill the process.
+            #
+            catch {
+              $process Kill; # throw
+              lappend result $id; # ok
+            }
           }
         }
+      } finally {
+        #
+        # NOTE: Get rid of the process (if we actually obtained it to
+        #       begin with).
+        #
+        unset -nocomplain process; # dispose
       }
-
-      #
-      # NOTE: Get rid of the process (if we actually obtained it to
-      #       begin with).
-      #
-      unset -nocomplain process; # dispose
     }
 
     return $result

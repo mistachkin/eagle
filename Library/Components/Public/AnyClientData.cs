@@ -388,6 +388,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public void TryLockNoThrow(
+            ref bool locked
+            )
+        {
+            // CheckDisposed(); /* EXEMPT */
+
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(syncRoot);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public virtual void TryLock(
             int timeout,    /* in */
             ref bool locked /* out */
@@ -2710,14 +2724,24 @@ namespace Eagle._Components.Public
         #region IMaybeDisposed Members
         public bool Disposed
         {
-            get { return disposed; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return disposed;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public bool Disposing
         {
-            get { throw new NotSupportedException(); }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                throw new NotSupportedException();
+            }
         }
         #endregion
 

@@ -8,7 +8,7 @@
 <command cwd="" doNotOpenOutputWindow="0" env="" icon="../../../Library/Resources/Eagle.ico" id="7ad54493-f2fc-4647-8dea-07486117de9f" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate string in Eagle..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
 "%p\..\..\..\bin\Debug\bin\EagleShell.exe" -eval "%(ask:Script:)"</command>
 <URL icon="../../../Library/Resources/Eagle.ico" id="b491f1be-95b1-4a5a-aca3-1f346f80ce3a" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" keyboard_shortcut="" name="Visit project website...">
-https://eagle.to/</URL>
+https://urn.to/r/eagle</URL>
 <command cwd="" doNotOpenOutputWindow="0" env="" icon="../../../Library/Resources/Eagle.ico" id="f7cd8693-838e-4e33-b7b5-6c076a7b121f" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Start Eagle Shell (release)..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
 "%p\..\..\..\bin\Release\bin\EagleShell.exe"</command>
 <command cwd="" doNotOpenOutputWindow="0" env="" icon="../../../Library/Resources/Tcl.ico" id="c2db7527-0502-4e40-8c8f-e525597f1ff6" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate file in Tcl..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
@@ -28,4 +28,5 @@ https://eagle.to/</URL>
 <file id="5ecfe22a-954e-48f7-99fb-d500474bff88" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_winForms.eagle" url="../../Scripts/ex_winForms.eagle" />
 <file id="44ea6407-1a01-45a4-9edf-3f662f538289" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="ex_xaml.eagle" url="../../Scripts/ex_xaml.eagle" />
 <file id="2a193ed6-a60d-469d-b137-1a7b76078678" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="tetris.tcl" url="../../Scripts/tetris.tcl" />
+<file id="9ee6212d-f63f-414d-ac9e-ee118b97a258" idref="e58f9a81-3541-4657-88d4-85d2f904a9a0" name="tetris.tcl.harpy" url="../../Scripts/tetris.tcl.harpy" />
 </project>

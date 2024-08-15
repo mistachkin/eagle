@@ -35,11 +35,54 @@ using ThreadTriplet = Eagle._Interfaces.Public.IAnyTriplet<
 using FormEventResultTriplet = Eagle._Interfaces.Public.IAnyTriplet<
     bool?, bool?, Eagle._Components.Public.ReturnCode?>;
 
+using SFCD = Eagle._Components.Private.StatusFormOps.StatusFormClientData;
+
 namespace Eagle._Components.Private
 {
     [ObjectId("903b723a-5915-475b-a75b-f6f5ae1879a1")]
     internal static class StatusFormOps
     {
+        #region StatusFormClientData Helper Class
+        [ObjectId("83575c8c-7d93-4679-9427-ce4fbdf613c7")]
+        internal sealed class StatusFormClientData : ClientData, IGetInterpreter
+        {
+            #region Public Constructors
+            public StatusFormClientData(
+                object data,              /* in: OPTIONAL */
+                Interpreter interpreter,  /* in: OPTIONAL */
+                EventWaitHandle doneEvent /* in: OPTIONAL */
+                )
+                : base(data)
+            {
+                this.interpreter = interpreter;
+                this.doneEvent = doneEvent;
+            }
+            #endregion
+
+            //////////////////////////////////////////////////////////////////
+
+            #region Public Properties
+            private EventWaitHandle doneEvent;
+            public EventWaitHandle DoneEvent
+            {
+                get { return doneEvent; }
+            }
+            #endregion
+
+            //////////////////////////////////////////////////////////////////
+
+            #region IGetInterpreter Members
+            private Interpreter interpreter;
+            public Interpreter Interpreter
+            {
+                get { return interpreter; }
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Keyboard Event Handlers Helper Class
         [ObjectId("533e3415-7235-428c-b59a-e5873129d70d")]
         private static class KeyEventCallbacks
@@ -525,6 +568,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool TraceWait = false;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // HACK: These are purposely not read-only.
         //
         private static int DefaultWidth = 600;
@@ -813,10 +863,15 @@ namespace Eagle._Components.Private
 
                 if (form != null)
                 {
-                    interpreter = form.Tag as Interpreter;
+                    SFCD clientData = form.Tag as SFCD;
 
-                    if (interpreter != null)
-                        return interpreter;
+                    if (clientData != null)
+                    {
+                        interpreter = clientData.Interpreter;
+
+                        if (interpreter != null)
+                            return interpreter;
+                    }
                 }
             }
 
@@ -990,7 +1045,7 @@ namespace Eagle._Components.Private
             if (interpreter == null)
                 return;
 
-            StopThreadOrMaybeComplain(interpreter, true);
+            StopThreadOrMaybeComplain(interpreter, true, true);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1077,13 +1132,17 @@ namespace Eagle._Components.Private
                 try
                 {
                     TextBox textBox = null;
+                    SFCD clientData = null;
 
                     try
                     {
+                        clientData = new SFCD(
+                            null, interpreter, doneEvent);
+
                         Result error = null;
 
                         if (Create(
-                                GetText(interpreter), interpreter,
+                                GetText(interpreter), clientData,
                                 DefaultFontSize, canClose, topMost,
                                 true, ref form, ref textBox,
                                 ref error) != ReturnCode.Ok)
@@ -1095,6 +1154,17 @@ namespace Eagle._Components.Private
                                 TracePriority.StatusError);
 
                             return;
+                        }
+
+                        clientData.Data = textBox;
+
+                        if (!interpreter.MaybeSetStatusClientData(
+                                clientData))
+                        {
+                            TraceOps.DebugTrace(
+                                "ThreadStart: cannot set status client data",
+                                typeof(StatusFormOps).Name,
+                                TracePriority.StatusError);
                         }
 
                         if (!interpreter.MaybeSetStatusObject(
@@ -1158,10 +1228,12 @@ namespace Eagle._Components.Private
                                         timedOut = false;
                                         error = null; /* NOT USED */
 
-                                        if ((EventOps.Wait(interpreter,
-                                                ForceStayOpen ? null : doneEvent,
-                                                LoopWaitMicroseconds, null, true,
-                                                false, true, false, ref timedOut,
+                                        if ((EventOps.Wait(
+                                                interpreter, ForceStayOpen ?
+                                                    null : doneEvent,
+                                                LoopWaitMicroseconds, null,
+                                                true, false, true, false,
+                                                TraceWait, ref timedOut,
                                                 ref error) != ReturnCode.Ok) &&
                                             !timedOut)
                                         {
@@ -1218,6 +1290,15 @@ namespace Eagle._Components.Private
                         {
                             TraceOps.DebugTrace(
                                 "ThreadStart: cannot reset status object",
+                                typeof(StatusFormOps).Name,
+                                TracePriority.StatusError);
+                        }
+
+                        if (!interpreter.MaybeResetStatusClientData(
+                                clientData, true))
+                        {
+                            TraceOps.DebugTrace(
+                                "ThreadStart: cannot reset status client data",
                                 typeof(StatusFormOps).Name,
                                 TracePriority.StatusError);
                         }
@@ -1440,7 +1521,7 @@ namespace Eagle._Components.Private
                 long iterations = interpreter.GetStatusIterations();
 
                 if (!MaybeWaitFor(
-                        interpreter, timeout, ref error))
+                        interpreter, timeout, TraceWait, ref error))
                 {
                     return ReturnCode.Error;
                 }
@@ -1948,12 +2029,25 @@ namespace Eagle._Components.Private
             bool synchronous         /* in */
             )
         {
+            /* NO RESULT */
+            StopThreadOrMaybeComplain(
+                interpreter, synchronous, NoComplain);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void StopThreadOrMaybeComplain(
+            Interpreter interpreter, /* in */
+            bool synchronous,        /* in */
+            bool noComplain          /* in */
+            )
+        {
             ReturnCode code;
             Result error = null;
 
             code = StopThread(interpreter, synchronous, ref error);
 
-            if (!NoComplain && (code != ReturnCode.Ok))
+            if (!noComplain && (code != ReturnCode.Ok))
                 DebugOps.Complain(interpreter, code, error);
         }
         #endregion
@@ -1963,13 +2057,14 @@ namespace Eagle._Components.Private
         #region Status Text Handling Methods
         private static bool MaybeWaitFor(
             Interpreter interpreter, /* in */
-            int timeout              /* in */
+            int timeout,             /* in */
+            bool trace               /* in */
             )
         {
             Result error = null;
 
             if (MaybeWaitFor(
-                    interpreter, timeout, ref error))
+                    interpreter, timeout, trace, ref error))
             {
                 return true;
             }
@@ -1990,6 +2085,7 @@ namespace Eagle._Components.Private
         private static bool MaybeWaitFor(
             Interpreter interpreter, /* in */
             int timeout,             /* in */
+            bool trace,              /* in */
             ref Result error         /* out */
             )
         {
@@ -1997,7 +2093,7 @@ namespace Eagle._Components.Private
             {
                 if (EventOps.Wait(interpreter, null,
                         PerformanceOps.GetMicrosecondsFromMilliseconds(
-                        timeout), null, true, false, false, false,
+                        timeout), null, true, false, false, false, trace,
                         ref error) != ReturnCode.Ok)
                 {
                     return false;
@@ -2054,7 +2150,7 @@ namespace Eagle._Components.Private
 
                 /* NO RESULT */
                 MaybeWaitFor(interpreter, Interlocked.CompareExchange(
-                    ref RequestWaitMilliseconds, 0, 0));
+                    ref RequestWaitMilliseconds, 0, 0), TraceWait);
             }
         }
 
@@ -2106,7 +2202,7 @@ namespace Eagle._Components.Private
 
                 /* NO RESULT */
                 MaybeWaitFor(interpreter, Interlocked.CompareExchange(
-                    ref RequestWaitMilliseconds, 0, 0));
+                    ref RequestWaitMilliseconds, 0, 0), TraceWait);
             }
         }
         #endregion

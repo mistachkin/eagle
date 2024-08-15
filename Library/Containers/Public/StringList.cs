@@ -457,6 +457,32 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Contains Methods
+        public bool ContainsKey(
+            string key,
+            StringComparison comparisonType
+            )
+        {
+            int count = base.Count;
+
+            if (count == 0)
+                return false;
+
+            for (int index = 0; index < count; index += 2)
+            {
+                if (SharedStringOps.Equals(
+                        base[index], key, comparisonType))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Get Methods
         public string GetItem(
             int index
@@ -1201,7 +1227,12 @@ namespace Eagle._Containers.Public
             StringComparison comparisonType
             )
         {
-            for (int index = 0; index < base.Count; index++)
+            int count = base.Count;
+
+            if (count == 0)
+                return false;
+
+            for (int index = 0; index < count; index++)
             {
                 if (SharedStringOps.Equals(
                         base[index], item, comparisonType))

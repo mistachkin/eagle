@@ -87,75 +87,83 @@
               supported by WiX version 3.5 or higher.
     -->
     <?pragma eagle.EvaluateScript
-      #
-      # NOTE: This demonstrates how to load a binary plugin into an isolated
-      #       application domain when the default application domain exists
-      #       in a completely unrelated directory.
-      #
-      if {[catch {
-        #
-        # NOTE: First, modify the plugin flags for the interpreter to force
-        #       isolated mode to be enabled for all newly loaded plugins.  If
-        #       the isolated plugins feature is missing, the error will be
-        #       caught by the surrounding [catch] and the bulk of this script
-        #       will be skipped.
-        #
-        object invoke -flags +NonPublic Interpreter.GetActive \
-            PluginFlags [appendArgs [object invoke -flags +NonPublic \
-            Interpreter.GetActive PluginFlags] " +Isolated -VerifyCoreAssembly"]
+      package require Eagle.Test
 
-        #
-        # NOTE: Next, double-check that the plugin flags have been modified
-        #       using a convenience method in the dedicated test class.  If
-        #       the class or method is missing, the error will be caught by
-        #       the surrounding [catch] and the bulk of this script will be
-        #       skipped.
-        #
-        object invoke Eagle._Tests.Default TestArePluginsIsolated ""
-      } result] == 0 && $result} then {
-        #
-        # NOTE: This procedure is designed to resolve the Eagle core library
-        #       assembly in the default load context.  This is needed because
-        #       the isolated plugin makes various cross-domain calls back to
-        #       the default application domain that refer to types contained
-        #       in the Eagle core library assembly, which was loaded by WiX
-        #       into the LoadFrom context.  Unfortunately, this cross-domain
-        #       remoting appears to require the Eagle core library assembly
-        #       to be loaded in the default load context, which is normally
-        #       "impossible" because it does not exist inside of the default
-        #       application domain base directory (i.e. the WiX installation
-        #       directory).
-        #
-        proc assemblyResolve { sender e } {
-          if {[isNonNullObjectHandle $e]} then {
-            if {[$e Name] eq [lindex [info assembly] 0]} then {
-              set assembly [object invoke -flags +NonPublic \
-                  Eagle._Components.Private.GlobalState GetAssembly]
+      set savedPluginFlags [enablePluginFlags]
 
-              return $assembly
+      try {
+        #
+        # NOTE: This demonstrates how to load a binary plugin into an isolated
+        #       application domain when the default application domain exists
+        #       in a completely unrelated directory.
+        #
+        if {[catch {
+          #
+          # NOTE: First, modify the plugin flags for the interpreter to force
+          #       isolated mode to be enabled for all newly loaded plugins.
+          #       If the isolated plugins feature is missing, the error will be
+          #       caught by the surrounding [catch] and the bulk of this script
+          #       will be skipped.
+          #
+          enablePluginFlags Isolated true
+          enablePluginFlags VerifyCoreAssembly false
+
+          #
+          # NOTE: Next, double-check that the plugin flags have been modified
+          #       using a convenience method in the dedicated test class.  If
+          #       the class or method is missing, the error will be caught by
+          #       the surrounding [catch] and the bulk of this script will be
+          #       skipped.
+          #
+          object invoke Eagle._Tests.Default TestArePluginsIsolated ""
+        } result] == 0 && $result} then {
+          #
+          # NOTE: This procedure is designed to resolve the Eagle core library
+          #       assembly in the default load context.  This is needed because
+          #       the isolated plugin makes various cross-domain calls back to
+          #       the default application domain that refer to types contained
+          #       in the Eagle core library assembly, which was loaded by WiX
+          #       into the LoadFrom context.  Unfortunately, this cross-domain
+          #       remoting appears to require the Eagle core library assembly
+          #       to be loaded in the default load context, which is normally
+          #       "impossible" because it does not exist inside of the default
+          #       application domain base directory (i.e. the WiX installation
+          #       directory).
+          #
+          proc assemblyResolve { sender e } {
+            if {[isNonNullObjectHandle $e]} then {
+              if {[$e Name] eq [lindex [info assembly] 0]} then {
+                set assembly [object invoke -flags +NonPublic \
+                    Eagle._Components.Private.GlobalState GetAssembly]
+
+                return $assembly
+              }
             }
+
+            return null
           }
 
-          return null
+          #
+          # NOTE: Add our AssemblyResolve event handler.  For this to actually
+          #       work, the added ability to marshal arbitrary delegate types
+          #       is required (e.g. Beta 34+) because this event handler type
+          #       has a return type (i.e. because it does not strictly conform
+          #       to the EventHandler delegate method signature).
+          #
+          object invoke -marshalflags +DynamicCallback \
+              AppDomain.CurrentDomain add_AssemblyResolve assemblyResolve
+
+          #
+          # NOTE: Attempt to load the "Sample.Class3" plugin.  This may fail,
+          #       for a number of different reasons.  If it succeeds, add the
+          #       output of [info loaded] to the WiX object file.
+          #
+          package require Sample.Class3
+          makeProperty BuildInfoLoaded [info loaded]; # define a WiX property
         }
-
-        #
-        # NOTE: Add our AssemblyResolve event handler.  For this to actually
-        #       work, the added ability to marshal arbitrary delegate types
-        #       is required (e.g. Beta 34+) because this event handler type
-        #       has a return type (i.e. because it does not strictly conform
-        #       to the EventHandler delegate method signature).
-        #
-        object invoke -marshalflags +DynamicCallback \
-            AppDomain.CurrentDomain add_AssemblyResolve assemblyResolve
-
-        #
-        # NOTE: Attempt to load the "Sample.Class3" plugin.  This may fail,
-        #       for a number of different reasons.  If it succeeds, add the
-        #       output of [info loaded] to the WiX object file.
-        #
-        package require Sample.Class3
-        makeProperty BuildInfoLoaded [info loaded]; # define a WiX property
+      } finally {
+        enablePluginFlags $savedPluginFlags
+        unset -nocomplain savedPluginFlags
       }
     ?>
   </Product>

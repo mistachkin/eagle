@@ -3250,6 +3250,8 @@ namespace Eagle._Components.Public
             string varName,
             long microseconds,
             int limit,
+            ref bool notReady,
+            ref bool timedOut,
             ref bool changed,
             ref Result error
             )
@@ -3280,7 +3282,8 @@ namespace Eagle._Components.Public
             return interpreter.WaitVariable(
                 eventWaitFlags, eventVariableFlags, varName,
                 microseconds, null, limit, wakeUpEvent,
-                ref changed, ref error);
+                ref notReady, ref timedOut, ref changed,
+                ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3469,10 +3472,13 @@ namespace Eagle._Components.Public
 
                             if (varName != null)
                             {
+                                bool notReady = false;
+                                bool timedOut = false;
                                 bool changed = false;
 
                                 code = WaitVariable(
                                     interpreter, varName, 0, 0,
+                                    ref notReady, ref timedOut,
                                     ref changed, ref result);
 
                                 if (code != ReturnCode.Ok)
@@ -3670,10 +3676,13 @@ namespace Eagle._Components.Public
 
                         if (varName != null)
                         {
+                            bool notReady = false;
+                            bool timedOut = false;
                             bool changed = false;
 
                             code = WaitVariable(
                                 interpreter, varName, 0, 0,
+                                ref notReady, ref timedOut,
                                 ref changed, ref result);
 
                             if (code != ReturnCode.Ok)

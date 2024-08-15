@@ -69,7 +69,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -87,7 +87,7 @@ namespace Eagle._Commands
 
                                             int argumentIndex = Index.Invalid;
 
-                                            code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
+                                            code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, false, ref argumentIndex, ref result);
 
                                             if (code == ReturnCode.Ok)
                                             {
@@ -158,7 +158,7 @@ namespace Eagle._Commands
 
                                             int argumentIndex = Index.Invalid;
 
-                                            code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, true, ref argumentIndex, ref result);
+                                            code = interpreter.GetOptions(options, arguments, 0, 2, Index.Invalid, false, ref argumentIndex, ref result);
 
                                             if (code == ReturnCode.Ok)
                                             {

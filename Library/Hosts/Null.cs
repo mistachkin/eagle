@@ -2513,6 +2513,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////
 
+        private bool useForce;
+        public bool UseForce
+        {
+            get { CheckDisposed(); return useForce; }
+            set { CheckDisposed(); useForce = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private bool noTitle;
         public bool NoTitle
         {
@@ -2724,14 +2733,24 @@ namespace Eagle._Hosts
         #region IMaybeDisposed Members
         public bool Disposed
         {
-            get { return disposed; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return disposed;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public bool Disposing
         {
-            get { throw new NotImplementedException(); }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                throw new NotImplementedException();
+            }
         }
         #endregion
 

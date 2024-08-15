@@ -31,11 +31,10 @@ runTest {test load-1.1.1 {load/unload isolated plugin assembly} -setup {
   #       temporarily set them to "Isolated".  The saved flags will
   #       be restored during test cleanup.
   #
-  set savedPluginFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive PluginFlags]
+  package require Eagle.Test
 
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      PluginFlags [combineFlags $savedPluginFlags Isolated]
+  set savedPluginFlags [enablePluginFlags]
+  enablePluginFlags Isolated true
 } -body {
   set file [file nativename [file join $core_lib_path Plugin1.0 \
       [getDotNetCoreLibPathDirectoryNameOnly Plugin1.0] Plugin.dll]]
@@ -46,10 +45,10 @@ runTest {test load-1.1.1 {load/unload isolated plugin assembly} -setup {
 } -cleanup {
   unset -nocomplain file
 
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      PluginFlags [appendArgs = $savedPluginFlags]
-
-  unset -nocomplain savedPluginFlags
+  catch {
+    enablePluginFlags $savedPluginFlags
+    unset -nocomplain savedPluginFlags
+  }
 } -constraints [fixConstraints {eagle command.object compile.ISOLATED_PLUGINS\
 file_Plugin.dll}] -match glob -result [list $load_count {{Sample.Class3,\
 Plugin, *} *} [expr {$load_count + 1}] {{Sample.Class3, Plugin, *} *} \
@@ -102,11 +101,10 @@ runTest {test load-1.2.1 {load/unload isolated plugin assembly} -setup {
   #       be restored during test cleanup.
   #
   interp eval $interp {
-    set savedPluginFlags [object invoke -flags +NonPublic \
-        Interpreter.GetActive PluginFlags]
+    package require Eagle.Test
 
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        PluginFlags [combineFlags $savedPluginFlags Isolated]
+    set savedPluginFlags [enablePluginFlags]
+    enablePluginFlags Isolated true
   }
 } -body {
   set file [file nativename [file join $core_lib_path Plugin1.0 \
@@ -120,11 +118,11 @@ runTest {test load-1.2.1 {load/unload isolated plugin assembly} -setup {
 } -cleanup {
   unset -nocomplain file
 
-  interp eval $interp {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        PluginFlags [appendArgs = $savedPluginFlags]
-
-    unset -nocomplain savedPluginFlags
+  catch {
+    interp eval $interp {
+      enablePluginFlags $savedPluginFlags
+      unset -nocomplain savedPluginFlags
+    }
   }
 } -constraints [fixConstraints {eagle command.object compile.ISOLATED_PLUGINS\
 file_Plugin.dll}] -match glob -result [list $load_count {{Sample.Class3,\
@@ -275,8 +273,7 @@ PublicKeyToken=(?:%publicKeyTokens%)\} 1\.0\.\d+\.\d+\} Sample#Class3#\d+\
 ###############################################################################
 
 runTest {test load-1.7 {load plugin via bytes (isolated)} -setup [subst {
-  unset -nocomplain code result token plugin fileName haveCasPolicy \
-      savedPluginFlags
+  unset -nocomplain code result token plugin fileName haveCasPolicy
 
   set haveCasPolicy [haveConstraint compile.CAS_POLICY]
 
@@ -288,11 +285,11 @@ runTest {test load-1.7 {load plugin via bytes (isolated)} -setup [subst {
   #       temporarily set them to "Isolated".  The saved flags will
   #       be restored during test cleanup.
   #
-  set savedPluginFlags \[object invoke -flags +NonPublic \
-      Interpreter.GetActive PluginFlags\]
+  package require Eagle.Test
 
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      PluginFlags \[combineFlags \$savedPluginFlags Isolated\]
+  unset -nocomplain savedPluginFlags
+  set savedPluginFlags \[enablePluginFlags\]
+  enablePluginFlags Isolated true
 }] -body {
   set plugin null; set token 0; set result null
 
@@ -309,11 +306,12 @@ runTest {test load-1.7 {load plugin via bytes (isolated)} -setup [subst {
   list $code [expr {[string length $result] > 0 ? [$result ToString] : ""}] \
       $plugin $token
 } -cleanup {
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      PluginFlags [appendArgs = $savedPluginFlags]
+  catch {
+    enablePluginFlags $savedPluginFlags
+    unset -nocomplain savedPluginFlags
+  }
 
-  unset -nocomplain code result token plugin fileName haveCasPolicy \
-      savedPluginFlags
+  unset -nocomplain code result token plugin fileName haveCasPolicy
 } -constraints {eagle command.object compile.ISOLATED_PLUGINS compile.TEST\
 file_Plugin.dll Eagle._Tests.Default.TestLoadPluginViaBytes\
 strongName.official} -isolationLevel Maximum -match regexp -result [string \
@@ -527,7 +525,8 @@ runTest {test load-3.1 {two plugins from assembly} -setup [subst {
   # NOTE: Set the plugin flags for the interpreter so that we can know for
   #       certain we are NOT in isolated mode.
   #
-  object invoke -flags +NonPublic Interpreter.GetActive PluginFlags None
+  set savedPluginFlags \[enablePluginFlags\]
+  enablePluginFlags Isolated false
 
   unset -nocomplain code result results fileName
 
@@ -554,6 +553,11 @@ runTest {test load-3.1 {two plugins from assembly} -setup [subst {
 
   set results
 } -cleanup {
+  catch {
+    enablePluginFlags $savedPluginFlags
+    unset -nocomplain savedPluginFlags
+  }
+
   unset -nocomplain code result results fileName
   unset -nocomplain test_log test_channel
 } -constraints {eagle command.object compile.ISOLATED_INTERPRETERS\
@@ -603,7 +607,8 @@ runTest {test load-3.2 {two isolated plugins from assembly} -setup [subst {
   # NOTE: Set the plugin flags for the interpreter so that we can know for
   #       certain we ARE in isolated mode.
   #
-  object invoke -flags +NonPublic Interpreter.GetActive PluginFlags Isolated
+  set savedPluginFlags \[enablePluginFlags\]
+  enablePluginFlags Isolated true
 
   unset -nocomplain code result results fileName
 
@@ -630,6 +635,11 @@ runTest {test load-3.2 {two isolated plugins from assembly} -setup [subst {
 
   set results
 } -cleanup {
+  catch {
+    enablePluginFlags $savedPluginFlags
+    unset -nocomplain savedPluginFlags
+  }
+
   unset -nocomplain code result results fileName
   unset -nocomplain test_log test_channel
 } -constraints [fixConstraints {eagle command.object\

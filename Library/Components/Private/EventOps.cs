@@ -363,24 +363,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode Wait(
-            Interpreter interpreter,
-            EventWaitHandle @event,
+        private static TracePriority GetTracePriority(
             long? waitMicroseconds,
-            long? readyMicroseconds,
-            bool timeout,
-            bool noWindows,
-            bool noCancel,
-            bool noGlobalCancel,
-            ref Result error
-            ) /* THREAD-SAFE */
+            double outerElapsedMicroseconds
+            )
         {
-            bool timedOut = false;
+            if ((waitMicroseconds == null) ||
+                (outerElapsedMicroseconds <= (double)waitMicroseconds) ||
+                (outerElapsedMicroseconds < WaitTraceMinimumTime))
+            {
+                return TracePriority.EventDebug3;
+            }
 
-            return Wait(
-                interpreter, @event, waitMicroseconds, readyMicroseconds,
-                timeout, noWindows, noCancel, noGlobalCancel, ref timedOut,
-                ref error);
+            return TracePriority.EventDebug2;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -394,6 +389,30 @@ namespace Eagle._Components.Private
             bool noWindows,
             bool noCancel,
             bool noGlobalCancel,
+            bool trace,
+            ref Result error
+            ) /* THREAD-SAFE */
+        {
+            bool timedOut = false;
+
+            return Wait(
+                interpreter, @event, waitMicroseconds, readyMicroseconds,
+                timeout, noWindows, noCancel, noGlobalCancel, trace,
+                ref timedOut, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode Wait(
+            Interpreter interpreter,
+            EventWaitHandle @event,
+            long? waitMicroseconds,
+            long? readyMicroseconds,
+            bool timeout,
+            bool noWindows,
+            bool noCancel,
+            bool noGlobalCancel,
+            bool trace,
             ref bool timedOut,
             ref Result error
             ) /* THREAD-SAFE */
@@ -580,12 +599,13 @@ namespace Eagle._Components.Private
                             //       interpreter lock in time.
                             //
                             double totalWaitMilliseconds = 0.0;
+                            bool notReady; /* NOT USED */
 
                             while (((code = Interpreter.EventReady(
                                     interpreter, timeout ?
-                                        readyMilliseconds : _Timeout.Infinite,
-                                    noCancel, noGlobalCancel, out timedOut,
-                                    ref error)) == ReturnCode.Ok) &&
+                                        (int?)readyMilliseconds : null,
+                                    noCancel, noGlobalCancel, out notReady,
+                                    out timedOut, ref error)) == ReturnCode.Ok) &&
                                 !PerformanceOps.HasElapsed(
                                     innerStartCount, ref innerStopCount,
                                     localWaitMicroseconds, slopMicroseconds))
@@ -639,38 +659,41 @@ namespace Eagle._Components.Private
                                 iterations++;
                             }
 
-                            double innerElapsedMicroseconds =
-                                PerformanceOps.GetMicrosecondsFromCount(
-                                    innerStartCount, innerStopCount, 1,
-                                    false); /* EXEMPT */
+                            if (trace)
+                            {
+                                double innerElapsedMicroseconds =
+                                    PerformanceOps.GetMicrosecondsFromCount(
+                                        innerStartCount, innerStopCount, 1,
+                                        false); /* EXEMPT */
 
-                            TraceOps.DebugTrace(String.Format(
-                                "Wait: interpreter = {0}, event = {1}, " +
-                                "code = {2}, iterations = {3}, " +
-                                "waitMicroseconds = {4}, " +
-                                "readyMicroseconds = {5}, timeout = {6}, " +
-                                "noWindows = {7}, noCancel = {8}, " +
-                                "elapsedMicroseconds = {9}, " +
-                                "waitMilliseconds = {10}, " +
-                                "readyMilliseconds = {11}, " +
-                                "slopMicroseconds = {12}, " +
-                                "differenceMicroseconds = {13}, " +
-                                "totalWaitMilliseconds = {14}, " +
-                                "waitCount = {15}, error = {16}",
-                                FormatOps.InterpreterNoThrow(interpreter),
-                                FormatOps.WrapOrNull(@event), code,
-                                iterations, localWaitMicroseconds,
-                                localReadyMicroseconds, timeout, noWindows,
-                                noCancel, innerElapsedMicroseconds,
-                                waitMilliseconds, readyMilliseconds,
-                                slopMicroseconds, innerElapsedMicroseconds -
-                                (double)localWaitMicroseconds,
-                                FormatOps.PerformanceMilliseconds(
-                                    totalWaitMilliseconds),
-                                waitCount, FormatOps.WrapOrNull(
-                                    true, true, error)),
-                                typeof(EventOps).Name,
-                                TracePriority.EventDebug);
+                                TraceOps.DebugTrace(String.Format(
+                                    "Wait: interpreter = {0}, event = {1}, " +
+                                    "code = {2}, iterations = {3}, " +
+                                    "waitMicroseconds = {4}, " +
+                                    "readyMicroseconds = {5}, timeout = {6}, " +
+                                    "noWindows = {7}, noCancel = {8}, " +
+                                    "elapsedMicroseconds = {9}, " +
+                                    "waitMilliseconds = {10}, " +
+                                    "readyMilliseconds = {11}, " +
+                                    "slopMicroseconds = {12}, " +
+                                    "differenceMicroseconds = {13}, " +
+                                    "totalWaitMilliseconds = {14}, " +
+                                    "waitCount = {15}, error = {16}",
+                                    FormatOps.InterpreterNoThrow(interpreter),
+                                    FormatOps.WrapOrNull(@event), code,
+                                    iterations, localWaitMicroseconds,
+                                    localReadyMicroseconds, timeout, noWindows,
+                                    noCancel, innerElapsedMicroseconds,
+                                    waitMilliseconds, readyMilliseconds,
+                                    slopMicroseconds, innerElapsedMicroseconds -
+                                    (double)localWaitMicroseconds,
+                                    FormatOps.PerformanceMilliseconds(
+                                        totalWaitMilliseconds),
+                                    waitCount, FormatOps.WrapOrNull(
+                                        true, true, error)),
+                                    typeof(EventOps).Name,
+                                    TracePriority.EventDebug);
+                            }
                         }
 
                         /* IGNORED */
@@ -720,28 +743,31 @@ namespace Eagle._Components.Private
                 {
                     ObjectOps.DisposeOrTrace<IAnyClientData>(
                         interpreter, ref clientData);
+
+                    clientData = null;
                 }
             }
             finally
             {
                 outerStopCount = PerformanceOps.GetCount();
 
-                double outerElapsedMicroseconds =
-                    PerformanceOps.GetMicrosecondsFromCount(
-                        outerStartCount, outerStopCount, 1,
-                        false); /* EXEMPT */
+                if (trace)
+                {
+                    double outerElapsedMicroseconds =
+                        PerformanceOps.GetMicrosecondsFromCount(
+                            outerStartCount, outerStopCount, 1,
+                            false); /* EXEMPT */
 
-                TracePriority priority = (waitMicroseconds != null) &&
-                    (outerElapsedMicroseconds > (double)waitMicroseconds) &&
-                    (outerElapsedMicroseconds > WaitTraceMinimumTime) ?
-                        TracePriority.EventDebug2 : TracePriority.EventDebug3;
+                    TracePriority priority = GetTracePriority(
+                        waitMicroseconds, outerElapsedMicroseconds);
 
-                TraceOps.DebugTrace(String.Format(
-                    "Wait: {0} for interpreter {1}",
-                    FormatOps.PerformanceMicroseconds(
-                        outerElapsedMicroseconds),
-                    FormatOps.InterpreterNoThrow(interpreter)),
-                    typeof(EventOps).Name, priority);
+                    TraceOps.DebugTrace(String.Format(
+                        "Wait: {0} for interpreter {1}",
+                        FormatOps.PerformanceMicroseconds(
+                            outerElapsedMicroseconds),
+                        FormatOps.InterpreterNoThrow(interpreter)),
+                        typeof(EventOps).Name, priority);
+                }
             }
         }
 

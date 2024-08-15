@@ -28,6 +28,8 @@ using Eagle._Components.Public.Delegates;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
+using SDD = System.Diagnostics.Debugger;
 
 #if TEST
 using IBufferedTraceListener = Eagle._Tests.Default.IBufferedTraceListener;
@@ -44,8 +46,7 @@ namespace Eagle._Components.Private
     internal static class DebugOps
     {
         #region Public Constants
-        public static readonly string DefaultCategory =
-            System.Diagnostics.Debugger.DefaultCategory;
+        public static readonly string DefaultCategory = SDD.DefaultCategory;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -303,25 +304,122 @@ namespace Eagle._Components.Private
         //       all active trace listeners.
         //
         private static bool ForceToListeners = false;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: Which thread currently holds the static lock?
+        //
+        private static long lockThreadId = 0;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Threading Cooperative Locking Diagnostic Methods
+        private static long MaybeWhoHasLock()
+        {
+            return Interlocked.CompareExchange(
+                ref lockThreadId, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeSomebodyHasLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref lockThreadId,
+                    GlobalState.GetCurrentLockThreadId(), 0);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeNobodyHasLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref lockThreadId,
+                    0, GlobalState.GetCurrentLockThreadId());
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Threading Cooperative Locking Methods
+        private static void TryLock(
+            ref bool locked
+            )
+        {
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(syncRoot);
+            MaybeSomebodyHasLock(locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ExitLock(
+            ref bool locked
+            )
+        {
+            if (syncRoot == null)
+                return;
+
+            if (locked)
+            {
+                MaybeNobodyHasLock(locked);
+                Monitor.Exit(syncRoot);
+                locked = false;
+            }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Stack Trace Methods
-        private static bool ContainsMethodName(
+        private static bool MatchAnyMethodName(
+            string methodName,
             StringList skipNames,
-            string name
+            bool anywhere
             )
         {
-            if (skipNames == null)
+            if ((methodName == null) || (skipNames == null))
                 return false;
 
-            //
-            // TODO: *PERF* Should this take into account case?  If not,
-            //       the alternative Contains method overload could be
-            //       used; however, it will not perform as well.
-            //
-            return skipNames.Contains(name);
+            int length = methodName.Length;
+
+            foreach (string skipName in skipNames)
+            {
+                if (String.IsNullOrEmpty(skipName))
+                    continue;
+
+                int index = methodName.IndexOf(skipName);
+
+                if (index == Index.Invalid)
+                    continue;
+
+                if (anywhere) /* e.g. Contains */
+                    return true;
+
+                if (index == 0) /* e.g. StartsWith */
+                    return true;
+
+                int skipLength = skipName.Length;
+
+                if (index == (length - skipLength)) /* e.g. EndsWith */
+                    return true;
+            }
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -387,10 +485,23 @@ namespace Eagle._Components.Private
             if (methodBase == null)
                 return true;
 
+            if (methodBase.IsSpecialName)
+                return true;
+
             Type localMethodType = methodBase.DeclaringType;
 
             if (localMethodType == null)
                 return true;
+
+            string namespaceName = localMethodType.Namespace;
+
+            if (SharedStringOps.SystemEquals(namespaceName, "Microsoft") ||
+                SharedStringOps.SystemStartsWith(namespaceName, "Microsoft.") ||
+                SharedStringOps.SystemEquals(namespaceName, "System") ||
+                SharedStringOps.SystemStartsWith(namespaceName, "System."))
+            {
+                return true;
+            }
 
             if (skipDebug)
             {
@@ -419,40 +530,58 @@ namespace Eagle._Components.Private
             StringList skipNames,     /* in */
             Type methodType,          /* in */
             string methodBaseName,    /* in */
+            bool anywhere,            /* in */
             ref string methodFullName /* out */
             )
         {
-            //
-            // NOTE: Format the method name with its full type name,
-            //       with and without the namespace name.
-            //
-            string localMethodFullName;
-            string localMethodName;
+            bool sameAssembly = FormatOps.IsSameAssembly(
+                methodType);
 
-            if (FormatOps.IsSameAssembly(methodType))
+            string localMethodFullName;
+
+            if (sameAssembly)
             {
                 localMethodFullName = methodBaseName;
-                localMethodName = methodBaseName;
             }
             else
             {
-                localMethodFullName = FormatOps.MethodQualifiedFullName(
-                    methodType, methodBaseName);
-
-                localMethodName = FormatOps.MethodQualifiedName(
-                    methodType, methodBaseName);
+                localMethodFullName =
+                    FormatOps.MethodQualifiedFullName(
+                        methodType, methodBaseName);
             }
 
-            //
-            // NOTE: Does the method name, using any of the formats
-            //       we have, match something in the skip list?
-            //
-            if ((skipNames != null) &&
-                (ContainsMethodName(skipNames, methodBaseName) ||
-                ContainsMethodName(skipNames, localMethodFullName) ||
-                ContainsMethodName(skipNames, localMethodName)))
+            if (skipNames != null)
             {
-                return true;
+                if (MatchAnyMethodName(
+                        methodBaseName, skipNames, anywhere))
+                {
+                    return true;
+                }
+
+                if (MatchAnyMethodName(
+                        localMethodFullName, skipNames, anywhere))
+                {
+                    return true;
+                }
+
+                string localMethodName;
+
+                if (sameAssembly)
+                {
+                    localMethodName = methodBaseName;
+                }
+                else
+                {
+                    localMethodName =
+                        FormatOps.MethodQualifiedName(
+                            methodType, methodBaseName);
+                }
+
+                if (MatchAnyMethodName(
+                        localMethodName, skipNames, anywhere))
+                {
+                    return true;
+                }
             }
 
             methodFullName = localMethodFullName;
@@ -461,18 +590,71 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void GetMethodName(
-            int skipFrames,        /* in */
-            StringList skipNames,  /* in */
-            bool skipDebug,        /* in */
-            bool nameOnly,         /* in */
-            string defaultName,    /* in */
-            out bool thisAssembly, /* out */
-            out string typeName,   /* out */
-            out string methodName  /* out */
+        private static void PopulateMethodName(
+            Type methodType,         /* in */
+            string defaultName,      /* in */
+            string methodBaseName,   /* in */
+            string methodFullName,   /* in */
+            bool emptyOnly,          /* in */
+            bool nameOnly,           /* in */
+            out bool isThisAssembly, /* out */
+            out string typeName,     /* out */
+            out string methodName    /* out */
             )
         {
+            if (emptyOnly)
+            {
+                isThisAssembly = false;
+                typeName = null;
+                methodName = defaultName;
+            }
+            else
+            {
+                //
+                // NOTE: Return only the bare method name
+                //       -OR- the method name formatted
+                //       with its declaring type.
+                //
+                if (methodType != null)
+                {
+                    isThisAssembly = GlobalState.IsAssembly(
+                        methodType.Assembly);
+
+                    typeName = methodType.FullName;
+                }
+                else
+                {
+                    isThisAssembly = false;
+                    typeName = null;
+                }
+
+                if (nameOnly)
+                    methodName = methodBaseName;
+                else
+                    methodName = methodFullName;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void GetMethodName(
+            int skipFrames,          /* in */
+            StringList skipNames,    /* in */
+            bool skipDebug,          /* in */
+            bool nameOnly,           /* in */
+            string defaultName,      /* in */
+            bool anywhere,           /* in */
+            out bool isThisAssembly, /* out */
+            out string typeName,     /* out */
+            out string methodName    /* out */
+            )
+        {
+            PopulateMethodName(
+                null, defaultName, null, null, true,
+                nameOnly, out isThisAssembly, out typeName,
+                out methodName);
+
             try
             {
                 //
@@ -482,13 +664,7 @@ namespace Eagle._Components.Private
                 StackTrace stackTrace = GetStackTrace(0);
 
                 if (stackTrace == null)
-                {
-                    thisAssembly = false;
-                    typeName = null;
-                    methodName = defaultName;
-
                     return;
-                }
 
                 //
                 // NOTE: Always skip this method (i.e. we start with at
@@ -498,18 +674,11 @@ namespace Eagle._Components.Private
 
                 for (int index = skipFrames + 1; index < count; index++)
                 {
-                    //
-                    // NOTE: Get the stack frame for the current index.
-                    //
                     StackFrame stackFrame = stackTrace.GetFrame(index);
 
                     if (stackFrame == null)
                         continue;
 
-                    //
-                    // NOTE: Skip this method (based on its declaring
-                    //       type)?
-                    //
                     Type methodType = null;
                     string methodBaseName = null;
 
@@ -520,41 +689,20 @@ namespace Eagle._Components.Private
                         continue;
                     }
 
-                    //
-                    // NOTE: Skip this method (based on the name and/or
-                    //       the type qualified method name)?
-                    //
                     string methodFullName = null;
 
                     if (ShouldSkipMethodName(
                             skipNames, methodType, methodBaseName,
-                            ref methodFullName))
+                            anywhere, ref methodFullName))
                     {
                         continue;
                     }
 
-                    //
-                    // NOTE: Return only the bare method name -OR- the
-                    //       method name formatted with its declaring
-                    //       type.
-                    //
-                    if (methodType != null)
-                    {
-                        thisAssembly = GlobalState.IsAssembly(
-                            methodType.Assembly);
-
-                        typeName = methodType.FullName;
-                    }
-                    else
-                    {
-                        thisAssembly = false;
-                        typeName = null;
-                    }
-
-                    if (nameOnly)
-                        methodName = methodBaseName;
-                    else
-                        methodName = methodFullName;
+                    PopulateMethodName(
+                        methodType, defaultName, methodBaseName,
+                        methodFullName, false, nameOnly,
+                        out isThisAssembly, out typeName,
+                        out methodName);
 
                     return;
                 }
@@ -563,10 +711,6 @@ namespace Eagle._Components.Private
             {
                 // do nothing.
             }
-
-            thisAssembly = false;
-            typeName = null;
-            methodName = defaultName;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -592,13 +736,13 @@ namespace Eagle._Components.Private
             // NOTE: We are doing this on behalf of the direct caller;
             //       therefore, skip this method AND the calling method.
             //
-            bool thisAssembly; /* NOT USED */
+            bool isThisAssembly; /* NOT USED */
             string typeName; /* NOT USED */
             string methodName;
 
             GetMethodName(
-                2, skipNames, true, false, defaultName, out thisAssembly,
-                out typeName, out methodName);
+                2, skipNames, true, false, defaultName, false,
+                out isThisAssembly, out typeName, out methodName);
 
             return methodName;
         }
@@ -1742,7 +1886,8 @@ namespace Eagle._Components.Private
             //       is almost certainly very wrong.  Make sure that we end
             //       up with a full stack trace (see just below).
             //
-            bool nullResult = (result == null);
+            Result localResult = result;
+            bool nullResult = (localResult == null);
 
             ComplainCallback callback = SafeGetComplainCallback(interpreter);
 
@@ -1752,6 +1897,29 @@ namespace Eagle._Components.Private
                 GetDefaultTraceStack(SafeGetDefaultTraceStack(interpreter)));
 
             string stackTrace = stack ? GetStackTraceString() : null;
+
+            if (stackTrace == null)
+            {
+                //
+                // HACK: Since there is no stack trace for us to use, try
+                //       very hard to obtain a method name for the final
+                //       complaint.
+                //
+                string methodName = GetMethodName(null, null);
+
+                if (methodName != null)
+                {
+                    if (localResult != null)
+                    {
+                        localResult = String.Format(
+                            "[{0}]: {1}", methodName, localResult);
+                    }
+                    else
+                    {
+                        localResult = methodName;
+                    }
+                }
+            }
 
             bool viaTrace = SafeGetComplainViaTrace(interpreter, false);
             bool viaTest = SafeGetComplainViaTest(interpreter, false);
@@ -1763,7 +1931,7 @@ namespace Eagle._Components.Private
 
             Complain(
                 callback, interpreter, SafeGetDebugTextWriter(interpreter),
-                SafeGetHost(interpreter), id, code, result, stackTrace,
+                SafeGetHost(interpreter), id, code, localResult, stackTrace,
                 viaTrace, viaTest, quiet, ref disposed);
 
             if (disposed)
@@ -4512,7 +4680,7 @@ namespace Eagle._Components.Private
         #region Framework Wrapper Methods
         public static bool IsAttached()
         {
-            return System.Diagnostics.Debugger.IsAttached;
+            return SDD.IsAttached;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4563,7 +4731,7 @@ namespace Eagle._Components.Private
             string message
             )
         {
-            System.Diagnostics.Debugger.Log(level, DefaultCategory, message);
+            SDD.Log(level, DefaultCategory, message);
         }
 #endif
         #endregion
@@ -4574,7 +4742,7 @@ namespace Eagle._Components.Private
             string message
             )
         {
-            System.Diagnostics.Debugger.Log(0, DefaultCategory, message);
+            SDD.Log(0, DefaultCategory, message);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4585,7 +4753,7 @@ namespace Eagle._Components.Private
             string message
             )
         {
-            System.Diagnostics.Debugger.Log(level, category, message);
+            SDD.Log(level, category, message);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4594,10 +4762,7 @@ namespace Eagle._Components.Private
             object value
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Debug.Write(value); /* throw */
-            }
+            Debug.Write(value); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4606,10 +4771,7 @@ namespace Eagle._Components.Private
             string message
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Debug.Write(message); /* throw */
-            }
+            Debug.Write(message); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4619,13 +4781,10 @@ namespace Eagle._Components.Private
             string category
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                if (category != null)
-                    Debug.Write(message, category); /* throw */
-                else
-                    Debug.Write(message); /* throw */
-            }
+            if (category != null)
+                Debug.Write(message, category); /* throw */
+            else
+                Debug.Write(message); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4634,10 +4793,7 @@ namespace Eagle._Components.Private
             object value
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Debug.WriteLine(value); /* throw */
-            }
+            Debug.WriteLine(value); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4646,10 +4802,7 @@ namespace Eagle._Components.Private
             string message
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Debug.WriteLine(message); /* throw */
-            }
+            Debug.WriteLine(message); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4659,23 +4812,17 @@ namespace Eagle._Components.Private
             string category
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                if (category != null)
-                    Debug.WriteLine(message, category); /* throw */
-                else
-                    Debug.WriteLine(message); /* throw */
-            }
+            if (category != null)
+                Debug.WriteLine(message, category); /* throw */
+            else
+                Debug.WriteLine(message); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         private static void DebugFlush()
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Debug.Flush();
-            }
+            Debug.Flush();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4686,7 +4833,12 @@ namespace Eagle._Components.Private
             // NOTE: If the "ForceToListeners" field is non-zero, ALWAYS
             //       emit trace messages to all active trace listeners.
             //
-            if (GetForceToListeners())
+            bool? forceToListeners = GetForceToListeners();
+
+            if (forceToListeners == null)
+                return false;
+
+            if ((bool)forceToListeners)
                 return true;
 
             //
@@ -4708,11 +4860,22 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by TraceOps.QueryStatus only.
         //
-        public static bool GetForceToListeners()
+        public static bool? GetForceToListeners()
         {
-            lock (syncRoot)
+            bool locked = false;
+
+            try
             {
-                return ForceToListeners;
+                TryLock(ref locked);
+
+                if (locked)
+                    return ForceToListeners;
+                else
+                    return null;
+            }
+            finally
+            {
+                ExitLock(ref locked);
             }
         }
 
@@ -4721,13 +4884,29 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by TraceOps.ForceEnabledOrDisabled only.
         //
-        public static void SetForceToListeners(
+        public static bool SetForceToListeners(
             bool enabled /* in */
             )
         {
-            lock (syncRoot)
+            bool locked = false;
+
+            try
             {
-                ForceToListeners = enabled;
+                TryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    ForceToListeners = enabled;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            finally
+            {
+                ExitLock(ref locked); /* TRANSACTIONAL */
             }
         }
 
@@ -4736,11 +4915,27 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by TraceOps.ResetStatus only.
         //
-        public static void ResetForceToListeners()
+        public static bool ResetForceToListeners()
         {
-            lock (syncRoot)
+            bool locked = false;
+
+            try
             {
-                ForceToListeners = false;
+                TryLock(ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    ForceToListeners = false;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            finally
+            {
+                ExitLock(ref locked); /* TRANSACTIONAL */
             }
         }
 
@@ -4769,10 +4964,7 @@ namespace Eagle._Components.Private
             object value
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Trace.Write(value); /* throw */
-            }
+            Trace.Write(value); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4781,10 +4973,7 @@ namespace Eagle._Components.Private
             string message
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Trace.Write(message); /* throw */
-            }
+            Trace.Write(message); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4890,13 +5079,10 @@ namespace Eagle._Components.Private
             string category
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                if (category != null)
-                    Trace.Write(message, category); /* throw */
-                else
-                    Trace.Write(message); /* throw */
-            }
+            if (category != null)
+                Trace.Write(message, category); /* throw */
+            else
+                Trace.Write(message); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4905,10 +5091,7 @@ namespace Eagle._Components.Private
             object value
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Trace.WriteLine(value); /* throw */
-            }
+            Trace.WriteLine(value); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4917,10 +5100,7 @@ namespace Eagle._Components.Private
             string message
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Trace.WriteLine(message); /* throw */
-            }
+            Trace.WriteLine(message); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4930,13 +5110,10 @@ namespace Eagle._Components.Private
             string category
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                if (category != null)
-                    Trace.WriteLine(message, category); /* throw */
-                else
-                    Trace.WriteLine(message); /* throw */
-            }
+            if (category != null)
+                Trace.WriteLine(message, category); /* throw */
+            else
+                Trace.WriteLine(message); /* throw */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4957,10 +5134,7 @@ namespace Eagle._Components.Private
 
         public static void TraceFlush()
         {
-            lock (syncRoot) /* TRANSACTIONAL */
-            {
-                Trace.Flush();
-            }
+            Trace.Flush();
         }
         #endregion
 
@@ -5017,7 +5191,7 @@ namespace Eagle._Components.Private
                 return;
             }
 
-            System.Diagnostics.Debugger.Break();
+            SDD.Break();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5030,8 +5204,8 @@ namespace Eagle._Components.Private
                 return;
             }
 
-            if (System.Diagnostics.Debugger.IsAttached)
-                System.Diagnostics.Debugger.Break();
+            if (SDD.IsAttached)
+                SDD.Break();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5046,10 +5220,10 @@ namespace Eagle._Components.Private
                 return;
             }
 
-            if (System.Diagnostics.Debugger.IsAttached)
+            if (SDD.IsAttached)
             {
-                System.Diagnostics.Debugger.Log(0, DefaultCategory, message);
-                System.Diagnostics.Debugger.Break();
+                SDD.Log(0, DefaultCategory, message);
+                SDD.Break();
             }
         }
 
@@ -5065,11 +5239,8 @@ namespace Eagle._Components.Private
 
             WriteWithoutFail(formatted);
 
-            if (System.Diagnostics.Debugger.IsAttached)
-            {
-                System.Diagnostics.Debugger.Log(
-                    0, DefaultCategory, formatted);
-            }
+            if (SDD.IsAttached)
+                SDD.Log(0, DefaultCategory, formatted);
         }
         #endregion
 
@@ -5086,7 +5257,7 @@ namespace Eagle._Components.Private
                     "DumpAppDomain: Id = {0}, FriendlyName = {1}, " +
                     "BaseDirectory = {2}, RelativeSearchPath = {3}, " +
                     "DynamicDirectory = {4}, ShadowCopyFiles = {5}",
-                    AppDomainOps.GetId(appDomain),
+                    AppDomainOps.GetIdString(appDomain, true),
                     FormatOps.WrapOrNull(appDomain.FriendlyName),
                     FormatOps.WrapOrNull(appDomain.BaseDirectory),
                     FormatOps.WrapOrNull(appDomain.RelativeSearchPath),

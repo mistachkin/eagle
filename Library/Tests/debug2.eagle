@@ -56,31 +56,89 @@ runTest {test debug-2.35 {IScriptLocation stack balance} -setup {
 
 ###############################################################################
 
-runTest {test debug-2.86 {ScriptArguments stack balance} -setup {
+if {[isEagle]} then {
+  set debugStatus(before) [string map \
+      [list \r\n \n] [debug emergency status]]
+
+  tputs $test_channel [appendArgs \
+      "---- debug status before: \{\n\t" [string map \
+      [list \n \n\t] [string trim $debugStatus(before)]] \
+      \n\}\n]
+}
+
+###############################################################################
+
+runTest {test debug-2.86.1 {ScriptArguments stack balance} -setup {
   set i [interp create]
 } -body {
   string map [list \r\n \n] [interp eval $i {
     debug emergency {full -break}
   }]
 } -cleanup {
+  catch {
+    debug emergency {
+      :Reset PopulateResultStack IncludeResultStack
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain i
 } -constraints {eagle command.object compile.SCRIPT_ARGUMENTS} -result \
-{emergency mode now enabled
+{emergency mode now is enabled
 debugger created
+populate result stack traces is enabled
+include result stack traces is enabled
 script cancellation not reset
 interpreter halt state not reset
 debugger types are missing
 debugger types added
 debugger is enabled
-debugger break-on-token enabled
-interactive mode enabled
-script locations enabled
-argument locations enabled
-script arguments enabled
+debugger break-on-token is enabled
+interactive mode is enabled
+script locations is enabled
+argument locations is enabled
+script arguments is enabled
 interactive loop hooked
 }}
+
+###############################################################################
+
+if {[isEagle]} then {
+  set debugStatus(after) [string map \
+      [list \r\n \n] [debug emergency status]]
+
+  tputs $test_channel [appendArgs \
+      "---- debug status after: \{\n\t" [string map \
+      [list \n \n\t] [string trim $debugStatus(after)]] \
+      \n\}\n]
+}
+
+###############################################################################
+
+runTest {test debug-2.86.2 {verify debug status match} -body {
+  if {[info exists debugStatus(before)] && \
+      [info exists debugStatus(after)]} then {
+    list [expr {
+      $debugStatus(before) eq $debugStatus(after)
+    }]
+  } else {
+    list False
+  }
+} -cleanup {
+  unset -nocomplain debugStatus
+} -constraints {eagle compile.DEBUGGER compile.DEBUGGER_BREAKPOINTS} -result \
+{True}}
+
+###############################################################################
+
+catch {unset -nocomplain debugStatus}
+
+###############################################################################
+
+if {[isEagle]} then {
+  catch {purgeAndCleanup $test_channel post-debug-2.86}
+}
 
 ###############################################################################
 

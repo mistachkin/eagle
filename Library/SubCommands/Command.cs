@@ -212,6 +212,7 @@ namespace Eagle._SubCommands
 
             if (code == ReturnCode.Error)
             {
+                /* IGNORED */
                 Engine.AddErrorInformation(interpreter, result,
                     String.Format("{0}    (\"{1}\" body line {2})",
                         Environment.NewLine, GetCommandName(),

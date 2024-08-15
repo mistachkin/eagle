@@ -40,8 +40,8 @@
 #define START_BRIDGE_VAR_NAME				"::startBridge"
 #define STOP_CLR_VAR_NAME				"::stopClr"
 #define USE_MINIMUM_CLR_VAR_NAME			"::useMinimumClr"
-#define USE_ISOLATION					"::useIsolation"
-#define USE_SAFE_INTERP					"::useSafeInterp"
+#define USE_ISOLATION_VAR_NAME				"::useIsolation"
+#define USE_SAFE_INTERP_VAR_NAME			"::useSafeInterp"
 
 /*
  * NOTE: These are the public functions exported by this library.

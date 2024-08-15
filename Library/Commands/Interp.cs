@@ -54,7 +54,7 @@ namespace Eagle._Commands
             "create", "delete", "enabled", "eval", "eventlimit", "exists", "expose", "exposed",
             "expr", "finallytimeout", "hide", "hidden", "immutable", "invokehidden",
             "isolated", "issafe", "issdk", "isstandard", "iterationlimit", "makesafe", "makestandard",
-            "marktrusted", "namespacelimit", "nopolicy", "parent", "policy", "proclimit",
+            "marktrusted", "maybereadorgetscriptfile", "namespacelimit", "nopolicy", "parent", "policy", "proclimit",
             "queue", "readonly", "readorgetscriptfile", "readylimit", "recursionlimit",
             "rename", "resetcancel", "resultlimit", "scopelimit", "service", "set",
             "shareinterp", "shareobject", "sleeptime", "source", "stub",
@@ -107,10 +107,12 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
+                            bool maybeReadOrGetScriptFile = false;
+
                             switch (subCommand)
                             {
                                 case "addcommands":
@@ -770,6 +772,7 @@ namespace Eagle._Commands
                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nofunctions", null),
                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nonamespaces", null),
                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-novariables", null),
+                                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noloader", null),
                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noinitialize", null),
                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-alias", null),
                                             new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-safe", null),
@@ -868,6 +871,11 @@ namespace Eagle._Commands
 
                                                         if (options.IsPresent("-nonamespaces"))
                                                             namespaces = false;
+
+                                                        bool loader = true;
+
+                                                        if (options.IsPresent("-noloader"))
+                                                            loader = false;
 
                                                         bool initialize = true;
 
@@ -1002,6 +1010,16 @@ namespace Eagle._Commands
                                                             createFlags |= CreateFlags.UseNamespaces;
                                                         else
                                                             createFlags &= ~CreateFlags.UseNamespaces;
+
+                                                        //
+                                                        // NOTE: Disable the core binary plugin loader
+                                                        //       if requested.
+                                                        //
+                                                        if (!loader)
+                                                        {
+                                                            createFlags |= CreateFlags.NoLoader;
+                                                            initializeFlags &= ~InitializeFlags.Loader;
+                                                        }
 
                                                         //
                                                         // NOTE: Initialize the script library?
@@ -1267,8 +1285,10 @@ namespace Eagle._Commands
 
                                                 if (code == ReturnCode.Error)
                                                 {
+                                                    /* IGNORED */
                                                     Engine.CopyErrorInformation(childInterpreter, interpreter, result);
 
+                                                    /* IGNORED */
                                                     Engine.AddErrorInformation(interpreter, result,
                                                         String.Format("{0}    (in interp eval \"{1}\" script line {2})",
                                                             Environment.NewLine, path, Interpreter.GetErrorLine(childInterpreter)));
@@ -1448,6 +1468,7 @@ namespace Eagle._Commands
                                                 //        the error happened unless it evaluates a command
                                                 //        contained within the expression.
                                                 //
+                                                /* IGNORED */
                                                 Interpreter.SetErrorLine(childInterpreter, 0);
 
                                                 if (arguments.Count == 4)
@@ -1456,9 +1477,12 @@ namespace Eagle._Commands
                                                     code = childInterpreter.EvaluateExpression(arguments, 3, ref result);
 
                                                 if (code == ReturnCode.Error)
+                                                {
+                                                    /* IGNORED */
                                                     Engine.AddErrorInformation(interpreter, result,
                                                         String.Format("{0}    (in interp expr \"{1}\" script line {2})",
                                                             Environment.NewLine, path, Interpreter.GetErrorLine(childInterpreter)));
+                                                }
 
                                                 //
                                                 // NOTE: Pop the original call frame that we pushed above and
@@ -2177,6 +2201,11 @@ namespace Eagle._Commands
                                         }
                                         break;
                                     }
+                                case "maybereadorgetscriptfile":
+                                    {
+                                        maybeReadOrGetScriptFile = true;
+                                        goto case "readorgetscriptfile";
+                                    }
                                 case "namespacelimit":
                                     {
                                         if ((arguments.Count == 3) || (arguments.Count == 4))
@@ -2547,6 +2576,8 @@ namespace Eagle._Commands
                                                 new IOption[] {
                                                 new Option(null, OptionFlags.MustHaveEncodingValue,
                                                     Index.Invalid, Index.Invalid, "-encoding", null),
+                                                new Option(null, OptionFlags.MustHaveValue,
+                                                    Index.Invalid, Index.Invalid, "-variable", null),
                                                 scriptFlagsOption,
                                                 engineFlagsOption,
                                                 Option.CreateEndOfOptions()
@@ -2609,6 +2640,11 @@ namespace Eagle._Commands
                                                                     if (options.IsPresent("-engineflags", ref value))
                                                                         newEngineFlags = (EngineFlags)value.Value;
 
+                                                                    string varName = null;
+
+                                                                    if (options.IsPresent("-variable", ref value))
+                                                                        varName = value.ToString();
+
                                                                     string fileName = arguments[getArgumentIndex + 1];
 
                                                                     if (!String.IsNullOrEmpty(fileName))
@@ -2630,7 +2666,43 @@ namespace Eagle._Commands
                                                                             ref expressionFlags, ref text, ref result);
 
                                                                         if (code == ReturnCode.Ok)
-                                                                            result = text;
+                                                                        {
+                                                                            if (maybeReadOrGetScriptFile)
+                                                                            {
+                                                                                if (varName != null)
+                                                                                {
+                                                                                    code = interpreter.SetVariableValue(varName, text, ref result);
+
+                                                                                    if (code == ReturnCode.Ok)
+                                                                                        result = true;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    result = true;
+                                                                                }
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                if (varName != null)
+                                                                                {
+                                                                                    code = interpreter.SetVariableValue(varName, text, ref result);
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    result = text;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        else if (maybeReadOrGetScriptFile)
+                                                                        {
+                                                                            result = false;
+                                                                            code = ReturnCode.Ok;
+                                                                        }
+                                                                    }
+                                                                    else if (maybeReadOrGetScriptFile)
+                                                                    {
+                                                                        result = false;
+                                                                        code = ReturnCode.Ok;
                                                                     }
                                                                     else
                                                                     {
@@ -2653,6 +2725,11 @@ namespace Eagle._Commands
                                                             }
                                                         }
                                                     }
+                                                    else if (maybeReadOrGetScriptFile)
+                                                    {
+                                                        result = false;
+                                                        code = ReturnCode.Ok;
+                                                    }
                                                 }
                                                 else
                                                 {
@@ -2664,7 +2741,9 @@ namespace Eagle._Commands
                                                     }
                                                     else
                                                     {
-                                                        result = "wrong # args: should be \"interp readorgetscriptfile ?options? path fileName\"";
+                                                        result = String.Format(
+                                                            "wrong # args: should be \"{0} {1} ?options? path fileName\"",
+                                                            this.Name, subCommand);
                                                     }
 
                                                     code = ReturnCode.Error;
@@ -2673,7 +2752,10 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            result = "wrong # args: should be \"interp readorgetscriptfile ?options? path fileName\"";
+                                            result = String.Format(
+                                                "wrong # args: should be \"{0} {1} ?options? path fileName\"",
+                                                this.Name, subCommand);
+
                                             code = ReturnCode.Error;
                                         }
                                         break;
@@ -3194,9 +3276,9 @@ namespace Eagle._Commands
                                                             if (EventOps.ManagerIsOk(eventManager))
                                                             {
                                                                 code = eventManager.ServiceEvents(
-                                                                    eventFlags, priority, threadId, limit, noCancel,
-                                                                    noGlobalCancel, stopOnError, errorOnEmpty,
-                                                                    userInterface, ref result);
+                                                                    eventFlags, priority, threadId, null, limit, noCancel,
+                                                                    noGlobalCancel, stopOnError, errorOnEmpty, userInterface,
+                                                                    ref result);
                                                             }
                                                             else
                                                             {
@@ -3866,9 +3948,12 @@ namespace Eagle._Commands
                                                             arguments[argumentIndex + 1], substitutionFlags, ref result);
 
                                                         if (code == ReturnCode.Error)
+                                                        {
+                                                            /* IGNORED */
                                                             Engine.AddErrorInformation(interpreter, result,
                                                                 String.Format("{0}    (in interp subst \"{1}\" script line {2})",
                                                                     Environment.NewLine, path, Interpreter.GetErrorLine(childInterpreter)));
+                                                        }
 
                                                         //
                                                         // NOTE: Pop the original call frame that we pushed above and

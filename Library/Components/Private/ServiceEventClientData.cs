@@ -90,6 +90,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private int? timeout;
+        public int? Timeout
+        {
+            get { return timeout; }
+            set { timeout = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private EventPriority priority;
         public EventPriority Priority
         {

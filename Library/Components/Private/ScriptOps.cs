@@ -55,6 +55,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool SubCommandNoCase = false;
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Default Shell Executable File Names
         private static readonly string DefaultShellFileName =
             "EagleShell" + FileExtension.Executable;
@@ -166,8 +173,6 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
-        private static int HealthTimeout = 1000;
-
         private static string HealthScript =
             "string is list [list [expr {2 + 2}] a b c]";
 
@@ -437,6 +442,8 @@ namespace Eagle._Components.Private
                 FormatOps.WrapOrNull(autoPathList)),
                 typeof(ScriptOps).Name, TracePriority.PackageDebug4);
 
+            SearchOption searchOption = FileOps.GetSearchOption(true);
+
             foreach (string path in autoPathList)
             {
                 if (String.IsNullOrEmpty(path))
@@ -444,7 +451,7 @@ namespace Eagle._Components.Private
 
                 string[] fileNames = Directory.GetFiles(
                     PathOps.GetNativePath(path), indexFileName,
-                    FileOps.GetSearchOption(true));
+                    searchOption);
 
                 if ((fileNames == null) || (fileNames.Length == 0))
                     continue;
@@ -575,23 +582,24 @@ namespace Eagle._Components.Private
                     return ReturnCode.Ok;
 
                 PackageIndexFlags savedPackageIndexFlags =
-                    interpreter.PackageIndexFlags;
+                    interpreter.ContextPackageIndexFlags;
 
                 try
                 {
-                    interpreter.PackageIndexFlags =
+                    interpreter.ContextPackageIndexFlags =
                         PackageIndexFlags.SecurityPackage;
 
-                    PackageFlags savedPackageFlags = interpreter.PackageFlags;
+                    PackageFlags savedPackageFlags =
+                        interpreter.ContextPackageFlags;
 
                     try
                     {
-                        interpreter.PackageFlags |=
+                        interpreter.ContextPackageFlags |=
                             PackageFlags.SecurityPackageMask;
 
                         if (PackageOps.FindAll(
                                 interpreter, paths,
-                                interpreter.PackageIndexFlags,
+                                interpreter.ContextPackageIndexFlags,
                                 interpreter.PathComparisonType,
                                 ref packageIndexes,
                                 ref error) != ReturnCode.Ok)
@@ -601,12 +609,14 @@ namespace Eagle._Components.Private
                     }
                     finally
                     {
-                        interpreter.PackageFlags = savedPackageFlags;
+                        interpreter.ContextPackageFlags = 
+                            savedPackageFlags;
                     }
                 }
                 finally
                 {
-                    interpreter.PackageIndexFlags = savedPackageIndexFlags;
+                    interpreter.ContextPackageIndexFlags =
+                        savedPackageIndexFlags;
                 }
 
                 interpreter.PackageIndexes = packageIndexes;
@@ -1376,24 +1386,386 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Procedure Support Methods
+        public static string FormatAnnotation(
+            string annotation
+            )
+        {
+            return String.Format(
+                "{0}{0}{1}{2}{2}", Characters.LessThanSign,
+                annotation, Characters.GreaterThanSign);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode HaveAnnotation(
+            StringDictionary annotations,
+            string name,
+            CultureInfo cultureInfo,
+            ref bool value,
+            ref ResultList errors
+            )
+        {
+            if (annotations == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid annotations");
+                return ReturnCode.Error;
+            }
+
+            if (name == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid annotation name");
+                return ReturnCode.Error;
+            }
+
+            string stringValue;
+
+            if (annotations.TryGetValue(name, out stringValue))
+            {
+                if (!String.IsNullOrEmpty(stringValue))
+                {
+                    bool boolValue = false;
+                    Result localError = null;
+
+                    if (Value.GetBoolean2(
+                            stringValue, ValueFlags.AnyBoolean,
+                            cultureInfo, ref boolValue,
+                            ref localError) != ReturnCode.Ok)
+                    {
+                        if (localError != null)
+                        {
+                            if (errors == null)
+                                errors = new ResultList();
+
+                            errors.Add(localError);
+                        }
+
+                        return ReturnCode.Error;
+                    }
+
+                    value = boolValue;
+                }
+                else
+                {
+                    value = true;
+                }
+            }
+            else
+            {
+                value = false; /* REDUNDANT? */
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void ShouldProcedureHaveFlags(
+            Interpreter interpreter,
+            string name,
+            string text,
+            CultureInfo cultureInfo,
+            out bool isLibrary,
+            out bool isFast,
+            out bool isAtomic,
+#if ARGUMENT_CACHE || PARSE_CACHE
+            out bool isNonCaching,
+#endif
+            out bool isMatchTypes
+            )
+        {
+            bool isPrivate; /* NOT USED */
+
+            ShouldProcedureHaveFlags(
+                interpreter, name, text, cultureInfo,
+                out isLibrary, out isPrivate, out isFast,
+                out isAtomic,
+#if ARGUMENT_CACHE || PARSE_CACHE
+                out isNonCaching,
+#endif
+                out isMatchTypes);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This procedure is used to determine if a procedure body
+        //       passed to the [proc] command should be "Private", which
+        //       means that procedure may only be called from within its
+        //       own namespace (i.e. external callers, including global,
+        //       are disallowed).  Here is an example:
+        //
+        //       namespace eval ::Examples {
+        //         proc example1 {} {; # <<private>>
+        //           #
+        //           # NOTE: This procedure is private.
+        //           #
+        //           puts stdout "Did something private."
+        //         }
+        //
+        //         proc example2 {} {; # <<private:0>>
+        //           #
+        //           # NOTE: This procedure is private.
+        //           #
+        //           puts stdout "Doing something public..."
+        //           return [example1]
+        //         }
+        //       }
+        //
+        //       namespace eval ::Other {
+        //         proc other1 {} {
+        //           return [::Examples::example1]; # wrong namespace
+        //         }
+        //       }
+        //
+        //       ::Examples::example1; # cannot be called globally
+        //       ::Examples::example2; # ok, also, can call example1
+        //       ::Other::other1;      # cross-namespace disallowed
+        //
+        //       When annotation is present with no value, that is the
+        //       treated the same as an explicit non-zero value, e.g.:
+        //
+        //       ANNOTATION_NOT_FOUND ==> false
+        //
+        //       ANNOTATION_WAS_FOUND <<private>> ==> true
+        //
+        //       ANNOTATION_WAS_FOUND <<private:false>> ==> false
+        //       ANNOTATION_WAS_FOUND <<private:0>> ==> false
+        //
+        //       ANNOTATION_WAS_FOUND <<private:true>> ==> true
+        //       ANNOTATION_WAS_FOUND <<private:1>> ==> true
+        //
+        public static void ShouldProcedureHaveFlags(
+            Interpreter interpreter,
+            string name,
+            string text,
+            CultureInfo cultureInfo,
+            out bool isLibrary,
+            out bool isPrivate,
+            out bool isFast,
+            out bool isAtomic,
+#if ARGUMENT_CACHE || PARSE_CACHE
+            out bool isNonCaching,
+#endif
+            out bool isMatchTypes
+            )
+        {
+            ResultList errors = null;
+
+            if ((interpreter != null) && FlagOps.HasFlags(
+                    interpreter.ProcedureFlags,
+                    ProcedureFlags.Library, true))
+            {
+                isLibrary = true;
+            }
+            else
+            {
+                isLibrary = false;
+            }
+
+            isPrivate = false;
+            isFast = false;
+            isAtomic = false;
+
+#if ARGUMENT_CACHE || PARSE_CACHE
+            isNonCaching = false;
+#endif
+
+            isMatchTypes = false;
+
+            try
+            {
+                StringDictionary annotations = null;
+                Result error = null;
+
+                if (Value.ExtractAnnotations(
+                        text, ref annotations,
+                        ref error) != ReturnCode.Ok)
+                {
+                    if (error != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(error);
+                    }
+
+                    return;
+                }
+
+                if (annotations != null)
+                {
+                    /* IGNORED */
+                    HaveAnnotation(
+                        annotations, Annotations.Private,
+                        cultureInfo, ref isPrivate,
+                        ref errors);
+
+                    /* IGNORED */
+                    HaveAnnotation(
+                        annotations, Annotations.Fast,
+                        cultureInfo, ref isFast,
+                        ref errors);
+
+                    /* IGNORED */
+                    HaveAnnotation(
+                        annotations, Annotations.Atomic,
+                        cultureInfo, ref isAtomic,
+                        ref errors);
+
+#if ARGUMENT_CACHE || PARSE_CACHE
+                    /* IGNORED */
+                    HaveAnnotation(
+                        annotations, Annotations.NonCaching,
+                        cultureInfo, ref isNonCaching,
+                        ref errors);
+#endif
+
+                    /* IGNORED */
+                    HaveAnnotation(
+                        annotations, Annotations.MatchTypes,
+                        cultureInfo, ref isMatchTypes,
+                        ref errors);
+                }
+
+                return; /* REDUNDANT */
+            }
+            catch (Exception e) // TODO: Remove before beta 56.
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(e);
+            }
+            finally
+            {
+                if (errors != null)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "ShouldProcedureHaveFlags: errors = {0}",
+                        FormatOps.WrapOrNull(true, false, errors)),
+                        typeof(ScriptOps).Name,
+                        TracePriority.AnnotationError);
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode MaybeCheckProcedureCaller(
+            Interpreter interpreter,
+            IProcedure procedure,
+            ref ProcedureFlags procedureFlags,
+            ref Result error
+            )
+        {
+            if (interpreter == null) /* REDUNDANT? */
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (procedure == null) /* REDUNDANT? */
+            {
+                error = "invalid procedure";
+                return ReturnCode.Error;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: If there is no "Private" flag for the procedure,
+            //       always allow it, at least from the perspective of
+            //       this method.
+            //
+            procedureFlags = procedure.Flags;
+
+            if (!FlagOps.HasFlags(
+                    procedureFlags, ProcedureFlags.Private, true))
+            {
+                return ReturnCode.Ok;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            //
+            // NOTE: The "Private" flag is unsupported (and ignored)
+            //       when namespace support has not been enabled for
+            //       the interpreter.
+            //
+            if (!interpreter.AreNamespacesEnabled())
+                return ReturnCode.Ok;
+
+            ICallFrame frame = null;
+
+            if (interpreter.GetVariableFrameViaResolvers(
+                    LookupFlags.Default, ref frame,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            string name = procedure.Name;
+
+            INamespace currentNamespace = NamespaceOps.GetCurrent(
+                interpreter, frame);
+
+            if (!NamespaceOps.IsQualifiedName(name) &&
+                ((currentNamespace == null) ||
+                    interpreter.IsGlobalNamespace(currentNamespace)))
+            {
+                error = "global procedures cannot be private";
+                return ReturnCode.Error;
+            }
+
+            INamespace procedureNamespace = NamespaceOps.LookupParent(
+                interpreter, name, true, true, false, ref error);
+
+            if (procedureNamespace == null)
+                return ReturnCode.Error;
+
+            if ((currentNamespace == null) || !NamespaceOps.IsSame(
+                    procedureNamespace, currentNamespace))
+            {
+                error = String.Format(
+                    "procedure {0} cannot be called from namespace {1}",
+                    FormatOps.WrapOrNull(name),
+                    FormatOps.WrapOrNull(
+                        EntityOps.GetName(currentNamespace)));
+
+                return ReturnCode.Error;
+            }
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Location Support Methods
         public static ReturnCode GetAndCheckProcedureLocation(
             Interpreter interpreter,
             IProcedure procedure,
+            ProcedureFlags procedureFlags,
             ref IScriptLocation location,
             ref Result error
             )
         {
-            ReturnCode code = GetProcedureLocation(
-                interpreter, procedure, ref location, ref error);
-
-            if (code != ReturnCode.Ok)
-                return code;
-
-            ProcedureFlags procedureFlags = procedure.Flags;
+            if (GetProcedureLocation(
+                    interpreter, procedure, ref location,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
 
             if (!FlagOps.HasFlags(
-                    procedureFlags, ProcedureFlags.Private, true))
+                    procedureFlags, ProcedureFlags.Internal, true))
             {
                 return ReturnCode.Ok;
             }
@@ -1422,11 +1794,12 @@ namespace Eagle._Components.Private
                 //
                 // NOTE: No active procedure, use script scope.
                 //
-                code = GetLocation(
-                    interpreter, true, ref scriptLocation, ref error);
-
-                if (code != ReturnCode.Ok)
-                    return code;
+                if (GetLocation(
+                        interpreter, true, ref scriptLocation,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
             }
 
             IScriptLocation procedureLocation = (location != null) &&
@@ -2167,6 +2540,19 @@ namespace Eagle._Components.Private
             ref InterpreterFlags interpreterFlags /* in, out */
             )
         {
+            //
+            // HACK: Disable all [package unknown] handling for interpreters
+            //       created by this subsystem as they are unnecessary -AND-
+            //       can cause downstream issues.  There is an override for
+            //       this; however, it should not be used.
+            //
+            if (!FlagOps.HasFlags(
+                    flags, ScriptDataFlags.AllowPackageUnknown, true))
+            {
+                interpreterFlags |= InterpreterFlags.NoPackageFallback;
+                interpreterFlags |= InterpreterFlags.NoPackageUnknown;
+            }
+
             if (FlagOps.HasFlags(
                     flags, ScriptDataFlags.NoThreadAbort, true))
             {
@@ -2177,6 +2563,16 @@ namespace Eagle._Components.Private
                 interpreter.InternalNoThreadAbort)
             {
                 interpreterFlags |= InterpreterFlags.NoThreadAbort;
+            }
+
+            //
+            // HACK: Disable all use of temporary packages as these
+            //       can interfere with the Harpy key ring loader.
+            //
+            if (!FlagOps.HasFlags(
+                    flags, ScriptDataFlags.AllowTemporaryPackages, true))
+            {
+                interpreterFlags &= ~InterpreterFlags.TemporaryPackages;
             }
         }
 
@@ -2566,6 +2962,15 @@ namespace Eagle._Components.Private
 #endif
                 );
 
+            bool enableSecurity = FlagOps.HasFlags(
+                flags, ScriptDataFlags.EnableSecurity, true);
+
+            if (enableSecurity)
+            {
+                initializeFlags |= InitializeFlags.Scan;
+                initializeFlags |= InitializeFlags.Security;
+            }
+
             bool disableSecurity = FlagOps.HasFlags(
                 flags, ScriptDataFlags.DisableSecurity, true);
 
@@ -2574,9 +2979,6 @@ namespace Eagle._Components.Private
                 initializeFlags &= ~InitializeFlags.Scan;
                 initializeFlags &= ~InitializeFlags.Security;
             }
-
-            bool useIsolated = FlagOps.HasFlags(
-                flags, ScriptDataFlags.UseIsolatedInterpreter, true);
 
             bool noStartup = FlagOps.HasFlags(
                 flags, ScriptDataFlags.NoStartup, true);
@@ -2593,9 +2995,9 @@ namespace Eagle._Components.Private
                 interpreter, flags, ref interpreterFlags);
 
             //
-            // HACK: If requested by the caller, set special plugin flags to
-            //       prevent potential conflicts between the settings loader
-            //       and plugin isolation.
+            // HACK: If requested by the caller, set special plugin flags
+            //       to prevent potential conflicts between the settings
+            //       loader and plugin isolation.
             //
             MaybeEnablePluginFlags(flags, ref pluginFlags);
 
@@ -2606,6 +3008,9 @@ namespace Eagle._Components.Private
 
             try
             {
+                bool useIsolated = FlagOps.HasFlags(
+                    flags, ScriptDataFlags.UseIsolatedInterpreter, true);
+
                 if (useIsolated)
                 {
                     if (interpreter == null)
@@ -2706,6 +3111,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool IsFileForPackageIndexPending(
+            Interpreter interpreter /* in */
+            )
+        {
+            if (interpreter == null)
+                return false;
+
+            return interpreter.PackageIndexLevels > 0;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool IsFileForSettingsPending(
             Interpreter interpreter /* in */
             )
@@ -2741,7 +3158,7 @@ namespace Eagle._Components.Private
             {
                 if (trusted)
                 {
-                    UpdateOps.TryLock(ref locked);
+                    UpdateOps.TryTrustedLock(ref locked);
 
                     if (!locked)
                     {
@@ -2753,7 +3170,7 @@ namespace Eagle._Components.Private
                 }
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
-                        true, ref error) != ReturnCode.Ok))
+                        trusted, ref error) != ReturnCode.Ok))
                 {
                     return ReturnCode.Error;
                 }
@@ -2812,7 +3229,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                UpdateOps.ExitLock(ref locked);
+                UpdateOps.ExitTrustedLock(ref locked);
             }
 #endif
         }
@@ -2902,11 +3319,23 @@ namespace Eagle._Components.Private
 
                     IVariable variable;
 
-                    if (!variables.TryGetValue(varName, out variable) ||
-                        (variable == null))
-                    {
+                    if (!variables.TryGetValue(varName, out variable))
                         continue;
-                    }
+
+                    if (variable == null)
+                        continue;
+
+                    //
+                    // BUGFIX: Do *NOT* use any undefined variables here;
+                    //         lack of this was causing failures of tests
+                    //         "interp-1.37" and "interp-1.43", once the
+                    //         undefined "tag" global variable was present
+                    //         in newly created interpreters, due to the
+                    //         binary plugin loader being used by various
+                    //         EEE package index files.
+                    //
+                    if (EntityOps.IsUndefined(variable))
+                        continue;
 
                     //
                     // NOTE: A setting with this name may or may not already
@@ -2970,6 +3399,18 @@ namespace Eagle._Components.Private
                     IVariable variable = pair.Value;
 
                     if (variable == null)
+                        continue;
+
+                    //
+                    // BUGFIX: Do *NOT* use any undefined variables here;
+                    //         lack of this was causing failures of tests
+                    //         "interp-1.37" and "interp-1.43", once the
+                    //         undefined "tag" global variable was present
+                    //         in newly created interpreters, due to the
+                    //         binary plugin loader being used by various
+                    //         EEE package index files.
+                    //
+                    if (EntityOps.IsUndefined(variable))
                         continue;
 
                     //
@@ -3392,6 +3833,8 @@ namespace Eagle._Components.Private
                                 disposeCode = ObjectOps.TryDispose<Interpreter>(
                                     ref localInterpreter, ref disposeError);
 
+                                localInterpreter = null;
+
                                 if (disposeCode != ReturnCode.Ok)
                                 {
                                     TraceOps.DebugTrace(String.Format(
@@ -3761,12 +4204,14 @@ namespace Eagle._Components.Private
             ref ResultList errors
             )
         {
+            ScriptFlags localScriptFlags = scriptFlags;
             Result localResult = null;
 
             if (GetFile(
-                    interpreter, directory, name, ref scriptFlags,
+                    interpreter, directory, name, ref localScriptFlags,
                     ref clientData, ref localResult) == ReturnCode.Ok)
             {
+                scriptFlags = localScriptFlags;
                 result = localResult;
 
                 return ReturnCode.Ok;
@@ -3786,13 +4231,15 @@ namespace Eagle._Components.Private
             if (!FlagOps.HasFlags(
                     scriptFlags, ScriptFlags.NoLibraryFileNameOnly, true))
             {
+                localScriptFlags = scriptFlags;
                 localResult = null;
 
                 if (PathOps.HasDirectory(name) && (GetFile(
                         interpreter, directory, PathOps.ScriptFileNameOnly(
-                        name), ref scriptFlags, ref clientData,
+                        name), ref localScriptFlags, ref clientData,
                         ref localResult) == ReturnCode.Ok))
                 {
+                    scriptFlags = localScriptFlags;
                     result = localResult;
 
                     return ReturnCode.Ok;
@@ -3821,6 +4268,7 @@ namespace Eagle._Components.Private
             ref Result result
             )
         {
+            ScriptFlags localScriptFlags; /* REUSED */
             ResultList errors = null;
             Result localResult = null;
 
@@ -3836,27 +4284,32 @@ namespace Eagle._Components.Private
             if (FlagOps.HasFlags(
                     scriptFlags, ScriptFlags.PreferFileSystem, true))
             {
+                localScriptFlags = scriptFlags;
                 localResult = null;
 
                 if (GetLibraryFile(interpreter,
-                        directory, name, ref scriptFlags, ref clientData,
+                        directory, name, ref localScriptFlags, ref clientData,
                         ref localResult, ref errors) == ReturnCode.Ok)
                 {
+                    scriptFlags = localScriptFlags;
                     result = localResult;
 
                     return ReturnCode.Ok;
                 }
                 else
                 {
-                    MaybeExactNameOnly(name, ref scriptFlags);
+                    localScriptFlags = scriptFlags;
+
+                    MaybeExactNameOnly(name, ref localScriptFlags);
 
                     localResult = null;
 
                     if (HostOps.GetScript(
                             interpreter, fileSystemHost, name,
-                            direct, ref scriptFlags, ref clientData,
+                            direct, ref localScriptFlags, ref clientData,
                             ref localResult) == ReturnCode.Ok)
                     {
+                        scriptFlags = localScriptFlags;
                         result = localResult;
 
                         return ReturnCode.Ok;
@@ -3872,15 +4325,18 @@ namespace Eagle._Components.Private
             }
             else
             {
-                MaybeExactNameOnly(name, ref scriptFlags);
+                localScriptFlags = scriptFlags;
+
+                MaybeExactNameOnly(name, ref localScriptFlags);
 
                 localResult = null;
 
                 if (HostOps.GetScript(
                         interpreter, fileSystemHost, name,
-                        direct, ref scriptFlags, ref clientData,
+                        direct, ref localScriptFlags, ref clientData,
                         ref localResult) == ReturnCode.Ok)
                 {
+                    scriptFlags = localScriptFlags;
                     result = localResult;
 
                     return ReturnCode.Ok;
@@ -3895,12 +4351,14 @@ namespace Eagle._Components.Private
                         errors.Add(localResult);
                     }
 
+                    localScriptFlags = scriptFlags;
                     localResult = null;
 
                     if (GetLibraryFile(interpreter,
-                            directory, name, ref scriptFlags, ref clientData,
+                            directory, name, ref localScriptFlags, ref clientData,
                             ref localResult, ref errors) == ReturnCode.Ok)
                     {
+                        scriptFlags = localScriptFlags;
                         result = localResult;
 
                         return ReturnCode.Ok;
@@ -3925,15 +4383,18 @@ namespace Eagle._Components.Private
             ref ResultList errors
             )
         {
-            MaybeExactNameOnly(name, ref scriptFlags);
+            ScriptFlags localScriptFlags = scriptFlags;
+
+            MaybeExactNameOnly(name, ref localScriptFlags);
 
             Result localResult = null;
 
             if (HostOps.GetScript(
                     interpreter, fileSystemHost, name,
-                    direct, ref scriptFlags, ref clientData,
+                    direct, ref localScriptFlags, ref clientData,
                     ref localResult) == ReturnCode.Ok)
             {
+                scriptFlags = localScriptFlags;
                 result = localResult;
 
                 return ReturnCode.Ok;
@@ -3956,17 +4417,21 @@ namespace Eagle._Components.Private
                 {
                     string localName = localResult;
 
-                    MaybeExactNameOnly(localName, ref scriptFlags);
+                    localScriptFlags = scriptFlags;
+
+                    MaybeExactNameOnly(localName, ref localScriptFlags);
 
                     localResult = null;
 
                     if (HostOps.GetScript(
                             interpreter, fileSystemHost, localName,
-                            direct, ref scriptFlags, ref clientData,
+                            direct, ref localScriptFlags, ref clientData,
                             ref localResult) == ReturnCode.Ok)
                     {
+                        scriptFlags = localScriptFlags;
+
                         if (FlagOps.HasFlags(
-                                scriptFlags, ScriptFlags.File, true) &&
+                                localScriptFlags, ScriptFlags.File, true) &&
                             !PathOps.IsRemoteUri(localResult))
                         {
                             result = PathOps.ResolveFullPath(
@@ -4184,12 +4649,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static bool GetNoCase(
+            IEnsemble ensemble,
+            bool? noCase
+            )
+        {
+            if (noCase != null)
+                return (bool)noCase;
+
+            if (ensemble != null)
+            {
+                IHaveNoCase haveNoCase = ensemble as IHaveNoCase;
+
+                if (haveNoCase != null)
+                    return haveNoCase.NoCase;
+            }
+
+            return SubCommandNoCase;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode SubCommandFromEnsemble(
             Interpreter interpreter,    /* in */
             IEnsemble ensemble,         /* in: OPTIONAL */
             string type,                /* in */
             bool strict,                /* in */
-            bool noCase,                /* in */
+            bool? noCase,               /* in */
             ref string name,            /* in, out */
             ref ISubCommand subCommand, /* out */
             ref Result error            /* out */
@@ -4208,7 +4694,7 @@ namespace Eagle._Components.Private
             SubCommandFilterCallback callback, /* in */
             string type,                       /* in */
             bool strict,                       /* in */
-            bool noCase,                       /* in */
+            bool? noCase,                      /* in */
             ref string name                    /* in, out */
             )
         {
@@ -4227,7 +4713,7 @@ namespace Eagle._Components.Private
             SubCommandFilterCallback callback, /* in */
             string type,                       /* in */
             bool strict,                       /* in */
-            bool noCase,                       /* in */
+            bool? noCase,                      /* in */
             ref string name,                   /* in, out */
             ref Result error                   /* out */
             )
@@ -4247,7 +4733,7 @@ namespace Eagle._Components.Private
             SubCommandFilterCallback callback, /* in */
             string type,                       /* in */
             bool strict,                       /* in */
-            bool noCase,                       /* in */
+            bool? noCase,                      /* in */
             ref string name,                   /* in, out */
             ref ISubCommand subCommand,        /* out */
             ref Result error                   /* out */
@@ -4266,7 +4752,7 @@ namespace Eagle._Components.Private
             EnsembleDictionary subCommands, /* in */
             string type,                    /* in */
             bool strict,                    /* in */
-            bool noCase,                    /* in */
+            bool? noCase,                   /* in */
             ref string name,                /* in, out */
             ref Result error                /* out */
             )
@@ -4285,7 +4771,7 @@ namespace Eagle._Components.Private
             SubCommandFilterCallback callback, /* in */
             string type,                       /* in */
             bool strict,                       /* in */
-            bool noCase,                       /* in */
+            bool? noCase,                      /* in */
             ref string name,                   /* in, out */
             ref Result error                   /* out */
             )
@@ -4307,7 +4793,7 @@ namespace Eagle._Components.Private
             SubCommandFilterCallback callback, /* in: OPTIONAL */
             string type,                       /* in */
             bool strict,                       /* in */
-            bool noCase,                       /* in */
+            bool? noCase,                      /* in */
             ref string name,                   /* in, out */
             ref ISubCommand subCommand,        /* out */
             ref Result error                   /* out */
@@ -4367,9 +4853,10 @@ namespace Eagle._Components.Private
                 new List<KeyValuePair<string, ISubCommand>>();
 
             int nameLength = name.Length;
+            bool localNoCase = GetNoCase(ensemble, noCase);
 
             StringComparison comparisonType =
-                SharedStringOps.GetSystemComparisonType(noCase);
+                SharedStringOps.GetSystemComparisonType(localNoCase);
 
             foreach (KeyValuePair<string, ISubCommand> pair in subCommands)
             {
@@ -4413,7 +4900,7 @@ namespace Eagle._Components.Private
                         //       "exact" match requires a comparison
                         //       type of case-sensitive.
                         //
-                        exact = !noCase;
+                        exact = !localNoCase;
 
                         //
                         // NOTE: Always stop on the first exact match.
@@ -4669,7 +5156,7 @@ namespace Eagle._Components.Private
             IClientData clientData,  /* in */
             ArgumentList arguments,  /* in */
             bool strict,             /* in */
-            bool noCase,             /* in */
+            bool? noCase,            /* in: OPTIONAL */
             ref string name,         /* in, out */
             ref bool tried,          /* out */
             ref Result result        /* out */
@@ -4691,7 +5178,7 @@ namespace Eagle._Components.Private
             ArgumentList arguments,     /* in */
             string type,                /* in */
             bool strict,                /* in */
-            bool noCase,                /* in */
+            bool? noCase,               /* in: OPTIONAL */
             ref string name,            /* in, out */
             ref ISubCommand subCommand, /* in, out */
             ref bool tried,             /* out */
@@ -6513,9 +7000,9 @@ namespace Eagle._Components.Private
                     }
 
                     //
-                    // NOTE: If the local variable has been flagged as undefined
-                    //       then go ahead and allow them to use it (it was not
-                    //       purged?).
+                    // NOTE: If local variable has been flagged as undefined
+                    //       then go ahead and allow them to use it (it was
+                    //       not purged?).
                     //
                     if (!EntityOps.IsUndefined(localVariable))
                     {
@@ -6564,11 +7051,13 @@ namespace Eagle._Components.Private
                     }
 
                     IVariable targetVariable = otherVariable;
+                    string targetVarIndex = otherVarIndex;
 
                     if (EntityOps.IsLink(targetVariable))
                     {
                         targetVariable = EntityOps.FollowLinks(
-                            otherVariable, VariableFlags.None, ref error);
+                            otherVariable, VariableFlags.None,
+                            0, ref targetVarIndex, ref error);
 
                         if (targetVariable == null)
                             return ReturnCode.Error;
@@ -6584,6 +7073,14 @@ namespace Eagle._Components.Private
                         error = "can't upvar from variable to itself";
                         return ReturnCode.Error;
                     }
+
+                    //
+                    // BUGFIX: The final target for the link must be used to
+                    //         create the link, e.g. since the link will not
+                    //         be correctly used by [info exists], et al.
+                    //
+                    otherVariable = targetVariable;
+                    otherVarIndex = targetVarIndex;
 
                     //
                     // BUGFIX: If the other variable is currently undefined,
@@ -6603,6 +7100,8 @@ namespace Eagle._Components.Private
                         otherVariable.Flags =
                             CallFrameOps.GetNewVariableFlags(otherFrame) |
                             interpreter.GetNewVariableFlags(isGlobalCallFrame);
+
+                        interpreter.MaybeSetQualifiedName(otherVariable);
 
                         if (isGlobalCallFrame)
                             EntityOps.SetGlobal(otherVariable, true);
@@ -6789,6 +7288,7 @@ namespace Eagle._Components.Private
                         Vars.Platform.Configuration,
                         Vars.Platform.InterpreterTimeStamp,
                         Vars.Platform.PatchLevel,
+                        Vars.Platform.RuntimeName,
                         Vars.Platform.Suffix,
                         Vars.Platform.TextOrSuffix,
                         Vars.Platform.Version,
@@ -7185,6 +7685,7 @@ namespace Eagle._Components.Private
 
                         if (code != ReturnCode.Ok)
                         {
+                            /* IGNORED */
                             Engine.AddErrorInformation(interpreter, result,
                                 String.Format(
                                     "{0}    (setting {1} loop variable \"{2}\")",
@@ -7221,6 +7722,7 @@ namespace Eagle._Components.Private
                     }
                     else if (code == ReturnCode.Error)
                     {
+                        /* IGNORED */
                         Engine.AddErrorInformation(interpreter, localResult,
                             String.Format(
                                 "{0}    (\"{1}\" body line {2})",
@@ -7554,6 +8056,7 @@ namespace Eagle._Components.Private
 
                         if (code != ReturnCode.Ok)
                         {
+                            /* IGNORED */
                             Engine.AddErrorInformation(interpreter, result,
                                 String.Format(
                                     "{0}    (setting {1} {2} loop variable \"{3}\")",
@@ -7590,6 +8093,7 @@ namespace Eagle._Components.Private
                     }
                     else if (code == ReturnCode.Error)
                     {
+                        /* IGNORED */
                         Engine.AddErrorInformation(interpreter, localResult,
                             String.Format(
                                 "{0}    (\"{1} {2}\" body line {3})",
@@ -7887,6 +8391,7 @@ namespace Eagle._Components.Private
 
                 if (code != ReturnCode.Ok)
                 {
+                    /* IGNORED */
                     Engine.AddErrorInformation(interpreter, result,
                         String.Format(
                             "{0}    (getting {1} {2} loop variable \"{3}\")",
@@ -7902,6 +8407,7 @@ namespace Eagle._Components.Private
 
                 if (code != ReturnCode.Ok)
                 {
+                    /* IGNORED */
                     Engine.AddErrorInformation(interpreter, result,
                         String.Format(
                             "{0}    (setting {1} {2} loop name variable \"{3}\")",
@@ -7920,6 +8426,7 @@ namespace Eagle._Components.Private
 
                     if (code != ReturnCode.Ok)
                     {
+                        /* IGNORED */
                         Engine.AddErrorInformation(interpreter, result,
                             String.Format(
                                 "{0}    (setting {1} {2} loop value variable \"{3}\")",
@@ -7955,6 +8462,7 @@ namespace Eagle._Components.Private
                     }
                     else if (code == ReturnCode.Error)
                     {
+                        /* IGNORED */
                         Engine.AddErrorInformation(interpreter, localResult,
                             String.Format(
                                 "{0}    (\"{1} {2}\" body line {3})",
@@ -8092,8 +8600,28 @@ namespace Eagle._Components.Private
 
         #region Health Support Methods
 #if THREADING
+        public static void GetHealthWaitTimeout(
+            Interpreter interpreter,
+            int? timeout,
+            out int effectiveTimeout
+            )
+        {
+            //
+            // HACK: Use the default event timeout since waiting
+            //       forever in this method is somewhat useless.
+            //
+            effectiveTimeout = ThreadOps.GetDefaultTimeout(
+                interpreter, TimeoutType.Health);
+
+            if (timeout != null)
+                effectiveTimeout = (int)timeout;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode TryLockForHealth(
             Interpreter interpreter,
+            int? timeout,
             ref bool locked,
             ref ResultList errors
             )
@@ -8116,8 +8644,16 @@ namespace Eagle._Components.Private
                 if (profiler != null)
                     profiler.Start();
 
-                interpreter.InternalTryLock(
-                    HealthTimeout, ref locked);
+                if (timeout != null)
+                {
+                    interpreter.InternalTryLock(
+                        (int)timeout, ref locked);
+                }
+                else
+                {
+                    interpreter.InternalSoftTryLock(
+                        ref locked);
+                }
 
                 if (locked)
                 {
@@ -8271,7 +8807,7 @@ namespace Eagle._Components.Private
 
 #if TEST
             if (WebOps.SetSecurityProtocol(
-                    false, ref error) != ReturnCode.Ok)
+                    false, false, ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
@@ -8281,7 +8817,7 @@ namespace Eagle._Components.Private
 
             if (WebOps.DownloadData(
                     interpreter, clientData, uri,
-                    timeout, false, ref bytes,
+                    null, timeout, null, ref bytes,
                     ref error) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
@@ -8373,7 +8909,7 @@ namespace Eagle._Components.Private
                     {
 #if TEST
                         if (WebOps.SetSecurityProtocol(
-                                false, ref error) != ReturnCode.Ok)
+                                false, false, ref error) != ReturnCode.Ok)
                         {
                             return ReturnCode.Error;
                         }
@@ -8391,7 +8927,7 @@ namespace Eagle._Components.Private
 
                         if (WebOps.DownloadFile(
                                 interpreter, clientData, uri,
-                                unzipFileName, null, false,
+                                unzipFileName, null, null, null,
                                 ref error) != ReturnCode.Ok)
                         {
                             return ReturnCode.Error;
@@ -8643,7 +9179,7 @@ namespace Eagle._Components.Private
             {
 #if TEST
                 if (WebOps.SetSecurityProtocol(
-                        false, ref error) != ReturnCode.Ok)
+                        false, false, ref error) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;
                 }
@@ -8664,7 +9200,7 @@ namespace Eagle._Components.Private
 
                 if (WebOps.DownloadFile(
                         interpreter, clientData, uri,
-                        downloadFileName, null, false,
+                        downloadFileName, null, null, null,
                         ref error) != ReturnCode.Ok)
                 {
                     return ReturnCode.Error;

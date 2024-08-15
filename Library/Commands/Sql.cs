@@ -12,6 +12,7 @@
 using System;
 using System.Data;
 using System.Globalization;
+using System.Reflection;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
@@ -99,7 +100,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -304,6 +305,7 @@ namespace Eagle._Commands
                                                         DateTimeBehavior dateTimeBehavior;
                                                         DateTimeKind dateTimeKind;
                                                         DateTimeStyles dateTimeStyles;
+                                                        ICallback changedCallback;
                                                         string rowsVarName;
                                                         string timeVarName;
                                                         string valueFormat;
@@ -327,12 +329,12 @@ namespace Eagle._Commands
                                                             null, null, null, out cultureInfo, out commandType,
                                                             out commandBehavior, out executeType, out resultFormat,
                                                             out valueFlags, out dateTimeBehavior, out dateTimeKind,
-                                                            out dateTimeStyles, out rowsVarName, out timeVarName,
-                                                            out valueFormat, out dateTimeFormat, out numberFormat,
-                                                            out nullValue, out dbNullValue, out errorValue,
-                                                            out commandTimeout, out limit, out nested,
-                                                            out allowNull, out pairs, out names, out time,
-                                                            out verbatim, out noFixup);
+                                                            out dateTimeStyles, out changedCallback, out rowsVarName,
+                                                            out timeVarName, out valueFormat, out dateTimeFormat,
+                                                            out numberFormat, out nullValue, out dbNullValue,
+                                                            out errorValue, out commandTimeout, out limit,
+                                                            out nested, out allowNull, out pairs, out names,
+                                                            out time, out verbatim, out noFixup);
 
                                                         if (rowsVarName == null)
                                                             rowsVarName = Vars.ResultSet.Rows;
@@ -371,156 +373,196 @@ namespace Eagle._Commands
                                                             {
                                                                 if (connection != null)
                                                                 {
-                                                                    IDbCommand command = null;
-
-                                                                    try
+                                                                    if (changedCallback != null)
                                                                     {
-                                                                        command = connection.CreateCommand();
+                                                                        Type connectionType = connection.GetType();
 
-                                                                        //
-                                                                        // NOTE: Set command text itself to the value of the second
-                                                                        //       arguemnt after the options.
-                                                                        //
-                                                                        command.CommandText = arguments[argumentIndex + 1];
-
-                                                                        //
-                                                                        // NOTE: If the timeout was supplied, set the timeout value
-                                                                        //       now; otherwise, leave it alone to retain the default
-                                                                        //       for the underlying provider.
-                                                                        //
-                                                                        if (commandTimeout != null)
-                                                                            command.CommandTimeout = (int)commandTimeout;
-
-                                                                        //
-                                                                        // NOTE: Set the command type to the value specified in the
-                                                                        //       option (or the default if none was supplied).
-                                                                        //
-                                                                        command.CommandType = commandType;
-
-                                                                        //
-                                                                        // NOTE: Setup the transaction for this query.  If this is set
-                                                                        //       to null, default transaction semantics may be used by
-                                                                        //       the underlying data provider.
-                                                                        //
-                                                                        command.Transaction = transaction; /* throw */
-
-                                                                        //
-                                                                        // NOTE: Add any supplied parameters to this command.
-                                                                        //
-                                                                        if ((argumentIndex + 2) < argumentCount)
+                                                                        if (connectionType != null)
                                                                         {
-                                                                            code = DataOps.GetParameters(
-                                                                                interpreter, cultureInfo, valueFormat, valueFlags,
-                                                                                dateTimeKind, dateTimeStyles, command, arguments,
-                                                                                argumentIndex + 2, Index.Invalid, verbatim,
-                                                                                ref result);
-                                                                        }
+                                                                            EventInfo eventInfo = connectionType.GetEvent(
+                                                                                "Changed");
 
-                                                                        //
-                                                                        // NOTE: Make sure we succeeded parsing optional parameters,
-                                                                        //       if any were provided.
-                                                                        //
-                                                                        if (code == ReturnCode.Ok)
-                                                                        {
-                                                                            //
-                                                                            // NOTE: These variables are used to measure performance
-                                                                            //       if the -time option is enabled.
-                                                                            //
-                                                                            IProfilerState profiler = null;
-                                                                            bool disposeProfiler = true;
-
-                                                                            try
+                                                                            if (eventInfo != null)
                                                                             {
-                                                                                if (time)
+                                                                                Delegate @delegate = changedCallback.Delegate;
+
+                                                                                if (@delegate != null)
                                                                                 {
-                                                                                    profiler = ProfilerState.Create(
-                                                                                        interpreter, ref disposeProfiler);
+                                                                                    eventInfo.AddEventHandler(
+                                                                                        connection, @delegate); /* throw */
                                                                                 }
-
-                                                                                //
-                                                                                // NOTE: Always prepare the statement, even though
-                                                                                //       it may result in a no-op.
-                                                                                //
-                                                                                if (profiler != null)
-                                                                                    profiler.Start();
-
-                                                                                command.Prepare();
-
-                                                                                if (profiler != null)
+                                                                                else
                                                                                 {
-                                                                                    profiler.Stop();
-
-                                                                                    ReturnCode setCode;
-                                                                                    Result setError = null;
-
-                                                                                    setCode = interpreter.SetVariableValue2(
-                                                                                        VariableFlags.None, timeVarName,
-                                                                                        Vars.ResultSet.Prepare,
-                                                                                        profiler.ToString(), ref setError);
-
-                                                                                    if (setCode != ReturnCode.Ok)
-                                                                                        DebugOps.Complain(interpreter, setCode, setError);
-
-                                                                                    profiler.Start();
-                                                                                }
-
-                                                                                code = DataOps.ExecuteCommandAndGetResults(
-                                                                                    interpreter, interpreter.InternalBinder,
-                                                                                    cultureInfo, command, options, executeType,
-                                                                                    commandBehavior, resultFormat, rowsVarName,
-                                                                                    dateTimeBehavior, dateTimeKind,
-                                                                                    dateTimeFormat, numberFormat, nullValue,
-                                                                                    dbNullValue, errorValue, limit, nested,
-                                                                                    allowNull, pairs, names, returnType,
-                                                                                    objectFlags, objectName, interpName,
-                                                                                    create, disposeReader, alias, aliasRaw,
-                                                                                    aliasAll, aliasReference, toString,
-                                                                                    noFixup, ref result);
-
-                                                                                if (profiler != null)
-                                                                                {
-                                                                                    profiler.Stop();
-
-                                                                                    ReturnCode setCode;
-                                                                                    Result setError = null;
-
-                                                                                    setCode = interpreter.SetVariableValue2(
-                                                                                        VariableFlags.None, timeVarName,
-                                                                                        Vars.ResultSet.Execute,
-                                                                                        profiler.ToString(), ref setError);
-
-                                                                                    if (setCode != ReturnCode.Ok)
-                                                                                        DebugOps.Complain(interpreter, setCode, setError);
+                                                                                    result = "invalid changed event delegate";
+                                                                                    code = ReturnCode.Error;
                                                                                 }
                                                                             }
-                                                                            finally
+                                                                            else
                                                                             {
-                                                                                if (profiler != null)
+                                                                                result = "invalid changed event info";
+                                                                                code = ReturnCode.Error;
+                                                                            }
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            result = "invalid connection type";
+                                                                            code = ReturnCode.Error;
+                                                                        }
+                                                                    }
+
+                                                                    if (code == ReturnCode.Ok)
+                                                                    {
+                                                                        IDbCommand command = null;
+
+                                                                        try
+                                                                        {
+                                                                            command = connection.CreateCommand();
+
+                                                                            //
+                                                                            // NOTE: Set command text itself to the value of the second
+                                                                            //       arguemnt after the options.
+                                                                            //
+                                                                            command.CommandText = arguments[argumentIndex + 1];
+
+                                                                            //
+                                                                            // NOTE: If the timeout was supplied, set the timeout value
+                                                                            //       now; otherwise, leave it alone to retain the default
+                                                                            //       for the underlying provider.
+                                                                            //
+                                                                            if (commandTimeout != null)
+                                                                                command.CommandTimeout = (int)commandTimeout;
+
+                                                                            //
+                                                                            // NOTE: Set the command type to the value specified in the
+                                                                            //       option (or the default if none was supplied).
+                                                                            //
+                                                                            command.CommandType = commandType;
+
+                                                                            //
+                                                                            // NOTE: Setup the transaction for this query.  If this is set
+                                                                            //       to null, default transaction semantics may be used by
+                                                                            //       the underlying data provider.
+                                                                            //
+                                                                            command.Transaction = transaction; /* throw */
+
+                                                                            //
+                                                                            // NOTE: Add any supplied parameters to this command.
+                                                                            //
+                                                                            if ((argumentIndex + 2) < argumentCount)
+                                                                            {
+                                                                                code = DataOps.GetParameters(
+                                                                                    interpreter, cultureInfo, valueFormat, valueFlags,
+                                                                                    dateTimeKind, dateTimeStyles, command, arguments,
+                                                                                    argumentIndex + 2, Index.Invalid, verbatim,
+                                                                                    ref result);
+                                                                            }
+
+                                                                            //
+                                                                            // NOTE: Make sure we succeeded parsing optional parameters,
+                                                                            //       if any were provided.
+                                                                            //
+                                                                            if (code == ReturnCode.Ok)
+                                                                            {
+                                                                                //
+                                                                                // NOTE: These variables are used to measure performance
+                                                                                //       if the -time option is enabled.
+                                                                                //
+                                                                                IProfilerState profiler = null;
+                                                                                bool disposeProfiler = true;
+
+                                                                                try
                                                                                 {
-                                                                                    if (disposeProfiler)
+                                                                                    if (time)
                                                                                     {
-                                                                                        ObjectOps.TryDisposeOrComplain<IProfilerState>(
-                                                                                            interpreter, ref profiler);
+                                                                                        profiler = ProfilerState.Create(
+                                                                                            interpreter, ref disposeProfiler);
                                                                                     }
 
-                                                                                    profiler = null;
+                                                                                    //
+                                                                                    // NOTE: Always prepare the statement, even though
+                                                                                    //       it may result in a no-op.
+                                                                                    //
+                                                                                    if (profiler != null)
+                                                                                        profiler.Start();
+
+                                                                                    command.Prepare();
+
+                                                                                    if (profiler != null)
+                                                                                    {
+                                                                                        profiler.Stop();
+
+                                                                                        ReturnCode setCode;
+                                                                                        Result setError = null;
+
+                                                                                        setCode = interpreter.SetVariableValue2(
+                                                                                            VariableFlags.None, timeVarName,
+                                                                                            Vars.ResultSet.Prepare,
+                                                                                            profiler.ToString(), ref setError);
+
+                                                                                        if (setCode != ReturnCode.Ok)
+                                                                                            DebugOps.Complain(interpreter, setCode, setError);
+
+                                                                                        profiler.Start();
+                                                                                    }
+
+                                                                                    code = DataOps.ExecuteCommandAndGetResults(
+                                                                                        interpreter, interpreter.InternalBinder,
+                                                                                        cultureInfo, command, options, executeType,
+                                                                                        commandBehavior, resultFormat, rowsVarName,
+                                                                                        dateTimeBehavior, dateTimeKind,
+                                                                                        dateTimeFormat, numberFormat, nullValue,
+                                                                                        dbNullValue, errorValue, limit, nested,
+                                                                                        allowNull, pairs, names, returnType,
+                                                                                        objectFlags, objectName, interpName,
+                                                                                        create, disposeReader, alias, aliasRaw,
+                                                                                        aliasAll, aliasReference, toString,
+                                                                                        noFixup, ref result);
+
+                                                                                    if (profiler != null)
+                                                                                    {
+                                                                                        profiler.Stop();
+
+                                                                                        ReturnCode setCode;
+                                                                                        Result setError = null;
+
+                                                                                        setCode = interpreter.SetVariableValue2(
+                                                                                            VariableFlags.None, timeVarName,
+                                                                                            Vars.ResultSet.Execute,
+                                                                                            profiler.ToString(), ref setError);
+
+                                                                                        if (setCode != ReturnCode.Ok)
+                                                                                            DebugOps.Complain(interpreter, setCode, setError);
+                                                                                    }
+                                                                                }
+                                                                                finally
+                                                                                {
+                                                                                    if (profiler != null)
+                                                                                    {
+                                                                                        if (disposeProfiler)
+                                                                                        {
+                                                                                            ObjectOps.TryDisposeOrComplain<IProfilerState>(
+                                                                                                interpreter, ref profiler);
+                                                                                        }
+
+                                                                                        profiler = null;
+                                                                                    }
                                                                                 }
                                                                             }
                                                                         }
-                                                                    }
-                                                                    catch (Exception e)
-                                                                    {
-                                                                        Engine.SetExceptionErrorCode(interpreter, e);
-
-                                                                        result = e;
-                                                                        code = ReturnCode.Error;
-                                                                    }
-                                                                    finally
-                                                                    {
-                                                                        if (command != null)
+                                                                        catch (Exception e)
                                                                         {
-                                                                            command.Dispose();
-                                                                            command = null;
+                                                                            Engine.SetExceptionErrorCode(interpreter, e);
+
+                                                                            result = e;
+                                                                            code = ReturnCode.Error;
+                                                                        }
+                                                                        finally
+                                                                        {
+                                                                            if (command != null)
+                                                                            {
+                                                                                command.Dispose();
+                                                                                command = null;
+                                                                            }
                                                                         }
                                                                     }
                                                                 }
@@ -642,6 +684,7 @@ namespace Eagle._Commands
                                                         DateTimeBehavior dateTimeBehavior;
                                                         DateTimeKind dateTimeKind;
                                                         DateTimeStyles dateTimeStyles;
+                                                        ICallback changedCallback;
                                                         string rowsVarName;
                                                         string timeVarName;
                                                         string valueFormat;
@@ -665,12 +708,12 @@ namespace Eagle._Commands
                                                             null, null, null, out cultureInfo, out commandType,
                                                             out commandBehavior, out executeType, out resultFormat,
                                                             out valueFlags, out dateTimeBehavior, out dateTimeKind,
-                                                            out dateTimeStyles, out rowsVarName, out timeVarName,
-                                                            out valueFormat, out dateTimeFormat, out numberFormat,
-                                                            out nullValue, out dbNullValue, out errorValue,
-                                                            out commandTimeout, out limit, out nested,
-                                                            out allowNull, out pairs, out names, out time,
-                                                            out verbatim, out noFixup);
+                                                            out dateTimeStyles, out changedCallback, out rowsVarName,
+                                                            out timeVarName, out valueFormat, out dateTimeFormat,
+                                                            out numberFormat, out nullValue, out dbNullValue,
+                                                            out errorValue, out commandTimeout, out limit,
+                                                            out nested, out allowNull, out pairs, out names,
+                                                            out time, out verbatim, out noFixup);
 
                                                         if (rowsVarName == null)
                                                             rowsVarName = Vars.ResultSet.Row;
@@ -709,158 +752,198 @@ namespace Eagle._Commands
                                                             {
                                                                 if (connection != null)
                                                                 {
-                                                                    IDbCommand command = null;
-
-                                                                    try
+                                                                    if (changedCallback != null)
                                                                     {
-                                                                        command = connection.CreateCommand();
+                                                                        Type connectionType = connection.GetType();
 
-                                                                        //
-                                                                        // NOTE: Set command text itself to the value of the second
-                                                                        //       arguemnt after the options.
-                                                                        //
-                                                                        command.CommandText = arguments[argumentIndex + 1];
-
-                                                                        //
-                                                                        // NOTE: If the timeout was supplied, set the timeout value
-                                                                        //       now; otherwise, leave it alone to retain the default
-                                                                        //       for the underlying provider.
-                                                                        //
-                                                                        if (commandTimeout != null)
-                                                                            command.CommandTimeout = (int)commandTimeout;
-
-                                                                        //
-                                                                        // NOTE: Set the command type to the value specified in the
-                                                                        //       option (or the default if none was supplied).
-                                                                        //
-                                                                        command.CommandType = commandType;
-
-                                                                        //
-                                                                        // NOTE: Setup the transaction for this query.  If this is set
-                                                                        //       to null, default transaction semantics may be used by
-                                                                        //       the underlying data provider.
-                                                                        //
-                                                                        command.Transaction = transaction; /* throw */
-
-                                                                        //
-                                                                        // NOTE: Add any supplied parameters to this command.
-                                                                        //
-                                                                        if ((argumentIndex + 3) < argumentCount)
+                                                                        if (connectionType != null)
                                                                         {
-                                                                            code = DataOps.GetParameters(
-                                                                                interpreter, cultureInfo, valueFormat, valueFlags,
-                                                                                dateTimeKind, dateTimeStyles, command, arguments,
-                                                                                argumentIndex + 2, Index.Invalid, verbatim,
-                                                                                ref result);
-                                                                        }
+                                                                            EventInfo eventInfo = connectionType.GetEvent(
+                                                                                "Changed");
 
-                                                                        //
-                                                                        // NOTE: Make sure we succeeded parsing optional parameters,
-                                                                        //       if any were provided.
-                                                                        //
-                                                                        if (code == ReturnCode.Ok)
-                                                                        {
-                                                                            //
-                                                                            // NOTE: These variables are used to measure performance
-                                                                            //       if the -time option is enabled.
-                                                                            //
-                                                                            IProfilerState profiler = null;
-                                                                            bool disposeProfiler = true;
-
-                                                                            try
+                                                                            if (eventInfo != null)
                                                                             {
-                                                                                if (time)
+                                                                                Delegate @delegate = changedCallback.Delegate;
+
+                                                                                if (@delegate != null)
                                                                                 {
-                                                                                    profiler = ProfilerState.Create(
-                                                                                        interpreter, ref disposeProfiler);
+                                                                                    eventInfo.AddEventHandler(
+                                                                                        connection, @delegate); /* throw */
                                                                                 }
-
-                                                                                //
-                                                                                // NOTE: Always prepare the statement, even though
-                                                                                //       it may result in a no-op.
-                                                                                //
-                                                                                if (profiler != null)
-                                                                                    profiler.Start();
-
-                                                                                command.Prepare();
-
-                                                                                if (profiler != null)
+                                                                                else
                                                                                 {
-                                                                                    profiler.Stop();
-
-                                                                                    ReturnCode setCode;
-                                                                                    Result setError = null;
-
-                                                                                    setCode = interpreter.SetVariableValue2(
-                                                                                        VariableFlags.None, timeVarName,
-                                                                                        Vars.ResultSet.Prepare,
-                                                                                        profiler.ToString(), ref setError);
-
-                                                                                    if (setCode != ReturnCode.Ok)
-                                                                                        DebugOps.Complain(interpreter, setCode, setError);
-
-                                                                                    profiler.Start();
-                                                                                }
-
-                                                                                Argument body = arguments[argumentCount - 1];
-
-                                                                                code = DataOps.ExecuteCommandAndEvaluateBody(
-                                                                                    interpreter, interpreter.InternalBinder,
-                                                                                    cultureInfo, command, options, executeType,
-                                                                                    commandBehavior, resultFormat, this.Name,
-                                                                                    rowsVarName, body, body, dateTimeBehavior,
-                                                                                    dateTimeKind, dateTimeFormat, numberFormat,
-                                                                                    nullValue, dbNullValue, errorValue, limit,
-                                                                                    nested, allowNull, pairs, names, returnType,
-                                                                                    objectFlags, objectName, interpName, create,
-                                                                                    disposeReader, alias, aliasRaw, aliasAll,
-                                                                                    aliasReference, toString, noFixup,
-                                                                                    ref result);
-
-                                                                                if (profiler != null)
-                                                                                {
-                                                                                    profiler.Stop();
-
-                                                                                    ReturnCode setCode;
-                                                                                    Result setError = null;
-
-                                                                                    setCode = interpreter.SetVariableValue2(
-                                                                                        VariableFlags.None, timeVarName,
-                                                                                        Vars.ResultSet.Execute,
-                                                                                        profiler.ToString(), ref setError);
-
-                                                                                    if (setCode != ReturnCode.Ok)
-                                                                                        DebugOps.Complain(interpreter, setCode, setError);
+                                                                                    result = "invalid changed event delegate";
+                                                                                    code = ReturnCode.Error;
                                                                                 }
                                                                             }
-                                                                            finally
+                                                                            else
                                                                             {
-                                                                                if (profiler != null)
+                                                                                result = "invalid changed event info";
+                                                                                code = ReturnCode.Error;
+                                                                            }
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            result = "invalid connection type";
+                                                                            code = ReturnCode.Error;
+                                                                        }
+                                                                    }
+
+                                                                    if (code == ReturnCode.Ok)
+                                                                    {
+                                                                        IDbCommand command = null;
+
+                                                                        try
+                                                                        {
+                                                                            command = connection.CreateCommand();
+
+                                                                            //
+                                                                            // NOTE: Set command text itself to the value of the second
+                                                                            //       arguemnt after the options.
+                                                                            //
+                                                                            command.CommandText = arguments[argumentIndex + 1];
+
+                                                                            //
+                                                                            // NOTE: If the timeout was supplied, set the timeout value
+                                                                            //       now; otherwise, leave it alone to retain the default
+                                                                            //       for the underlying provider.
+                                                                            //
+                                                                            if (commandTimeout != null)
+                                                                                command.CommandTimeout = (int)commandTimeout;
+
+                                                                            //
+                                                                            // NOTE: Set the command type to the value specified in the
+                                                                            //       option (or the default if none was supplied).
+                                                                            //
+                                                                            command.CommandType = commandType;
+
+                                                                            //
+                                                                            // NOTE: Setup the transaction for this query.  If this is set
+                                                                            //       to null, default transaction semantics may be used by
+                                                                            //       the underlying data provider.
+                                                                            //
+                                                                            command.Transaction = transaction; /* throw */
+
+                                                                            //
+                                                                            // NOTE: Add any supplied parameters to this command.
+                                                                            //
+                                                                            if ((argumentIndex + 3) < argumentCount)
+                                                                            {
+                                                                                code = DataOps.GetParameters(
+                                                                                    interpreter, cultureInfo, valueFormat, valueFlags,
+                                                                                    dateTimeKind, dateTimeStyles, command, arguments,
+                                                                                    argumentIndex + 2, Index.Invalid, verbatim,
+                                                                                    ref result);
+                                                                            }
+
+                                                                            //
+                                                                            // NOTE: Make sure we succeeded parsing optional parameters,
+                                                                            //       if any were provided.
+                                                                            //
+                                                                            if (code == ReturnCode.Ok)
+                                                                            {
+                                                                                //
+                                                                                // NOTE: These variables are used to measure performance
+                                                                                //       if the -time option is enabled.
+                                                                                //
+                                                                                IProfilerState profiler = null;
+                                                                                bool disposeProfiler = true;
+
+                                                                                try
                                                                                 {
-                                                                                    if (disposeProfiler)
+                                                                                    if (time)
                                                                                     {
-                                                                                        ObjectOps.TryDisposeOrComplain<IProfilerState>(
-                                                                                            interpreter, ref profiler);
+                                                                                        profiler = ProfilerState.Create(
+                                                                                            interpreter, ref disposeProfiler);
                                                                                     }
 
-                                                                                    profiler = null;
+                                                                                    //
+                                                                                    // NOTE: Always prepare the statement, even though
+                                                                                    //       it may result in a no-op.
+                                                                                    //
+                                                                                    if (profiler != null)
+                                                                                        profiler.Start();
+
+                                                                                    command.Prepare();
+
+                                                                                    if (profiler != null)
+                                                                                    {
+                                                                                        profiler.Stop();
+
+                                                                                        ReturnCode setCode;
+                                                                                        Result setError = null;
+
+                                                                                        setCode = interpreter.SetVariableValue2(
+                                                                                            VariableFlags.None, timeVarName,
+                                                                                            Vars.ResultSet.Prepare,
+                                                                                            profiler.ToString(), ref setError);
+
+                                                                                        if (setCode != ReturnCode.Ok)
+                                                                                            DebugOps.Complain(interpreter, setCode, setError);
+
+                                                                                        profiler.Start();
+                                                                                    }
+
+                                                                                    Argument body = arguments[argumentCount - 1];
+
+                                                                                    code = DataOps.ExecuteCommandAndEvaluateBody(
+                                                                                        interpreter, interpreter.InternalBinder,
+                                                                                        cultureInfo, command, options, executeType,
+                                                                                        commandBehavior, resultFormat, this.Name,
+                                                                                        rowsVarName, body, body, dateTimeBehavior,
+                                                                                        dateTimeKind, dateTimeFormat, numberFormat,
+                                                                                        nullValue, dbNullValue, errorValue, limit,
+                                                                                        nested, allowNull, pairs, names, returnType,
+                                                                                        objectFlags, objectName, interpName, create,
+                                                                                        disposeReader, alias, aliasRaw, aliasAll,
+                                                                                        aliasReference, toString, noFixup,
+                                                                                        ref result);
+
+                                                                                    if (profiler != null)
+                                                                                    {
+                                                                                        profiler.Stop();
+
+                                                                                        ReturnCode setCode;
+                                                                                        Result setError = null;
+
+                                                                                        setCode = interpreter.SetVariableValue2(
+                                                                                            VariableFlags.None, timeVarName,
+                                                                                            Vars.ResultSet.Execute,
+                                                                                            profiler.ToString(), ref setError);
+
+                                                                                        if (setCode != ReturnCode.Ok)
+                                                                                            DebugOps.Complain(interpreter, setCode, setError);
+                                                                                    }
+                                                                                }
+                                                                                finally
+                                                                                {
+                                                                                    if (profiler != null)
+                                                                                    {
+                                                                                        if (disposeProfiler)
+                                                                                        {
+                                                                                            ObjectOps.TryDisposeOrComplain<IProfilerState>(
+                                                                                                interpreter, ref profiler);
+                                                                                        }
+
+                                                                                        profiler = null;
+                                                                                    }
                                                                                 }
                                                                             }
                                                                         }
-                                                                    }
-                                                                    catch (Exception e)
-                                                                    {
-                                                                        Engine.SetExceptionErrorCode(interpreter, e);
-
-                                                                        result = e;
-                                                                        code = ReturnCode.Error;
-                                                                    }
-                                                                    finally
-                                                                    {
-                                                                        if (command != null)
+                                                                        catch (Exception e)
                                                                         {
-                                                                            command.Dispose();
-                                                                            command = null;
+                                                                            Engine.SetExceptionErrorCode(interpreter, e);
+
+                                                                            result = e;
+                                                                            code = ReturnCode.Error;
+                                                                        }
+                                                                        finally
+                                                                        {
+                                                                            if (command != null)
+                                                                            {
+                                                                                command.Dispose();
+                                                                                command = null;
+                                                                            }
                                                                         }
                                                                     }
                                                                 }

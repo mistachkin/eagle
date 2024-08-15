@@ -65,11 +65,10 @@ if {[isEagle]} then {
 ###############################################################################
 
 runTest {test error-1.4 {error flags get properly reset} -setup {
-  set savedFlags [object invoke -flags +NonPublic Interpreter.GetActive \
-      interpreterTestFlags]
+  package require Eagle.Test
 
-  object invoke -flags +NonPublic Interpreter.GetActive interpreterTestFlags \
-      [appendArgs $savedFlags " -WriteData"]
+  set savedInterpreterTestFlags [enableInterpreterTestFlags]
+  enableInterpreterTestFlags WriteData false
 
   set savedVerbose $eagle_tests(Verbose)
   set eagle_tests(Verbose) Default
@@ -81,9 +80,10 @@ runTest {test error-1.4 {error flags get properly reset} -setup {
   set eagle_tests(Verbose) $savedVerbose
   unset -nocomplain savedVerbose
 
-  object invoke -flags +NonPublic Interpreter.GetActive interpreterTestFlags \
-      $savedFlags
-  unset -nocomplain savedFlags
+  catch {
+    enableInterpreterTestFlags $savedInterpreterTestFlags
+    unset -nocomplain savedInterpreterTestFlags
+  }
 } -constraints {eagle command.object} -result \
 [string map [list \n $newLine] {
 ==== error-1.4.1 body and cleanup errors FAILED

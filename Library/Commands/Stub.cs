@@ -71,7 +71,7 @@ namespace Eagle._Commands
 
             code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                 interpreter, this, clientData, arguments, false,
-                false, ref subCommand, ref tried, ref result);
+                null, ref subCommand, ref tried, ref result);
 
             if ((code == ReturnCode.Ok) && !tried)
             {

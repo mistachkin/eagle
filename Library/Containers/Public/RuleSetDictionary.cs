@@ -319,6 +319,8 @@ namespace Eagle._Containers.Public
                 {
                     ObjectOps.TryDisposeOrTrace<IRuleSet>(
                         ref newRuleSet);
+
+                    newRuleSet = null;
                 }
             }
         }

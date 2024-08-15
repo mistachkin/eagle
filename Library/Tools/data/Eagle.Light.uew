@@ -1,4 +1,4 @@
-/L20"Eagle" Line Comment = # String Chars = " Escape Char = \ DisableMLS File Extensions = EAGLE RULESET
+/L20"Eagle Light" Line Comment = # String Chars = " Escape Char = \ DisableMLS File Extensions = EAGLE RULESET
 /Delimiters = ~!@%^&*()+=|\/{}[]:;"'	<> ,?#
 /Function String = "^{proc^}^{nproc^} ^([a-zA-Z_0-9]++ {[ a-zA-Z_0-9{}]++^)"
 /Indent Strings = "{"
@@ -48,32 +48,32 @@ xml
 /C3"Eagle Procedures" STYLE_COMMAND
 addRuntimeOption addToPath appendArgs appendFile appendLogFile appendSharedFile appendSharedLogFile
 canGetManagedType canUseComSpecDir checkForEngine checkForPlugin checkForUpdate combineFlags compileCSharp compileViaCSharpCodeProvider compileViaDotNetCoreCSharp compilerParameterToArguments copyFilesRecursive csharpLog
-doesCompileCSharpWork downloadAndExtractNativeTclKitDll downloadAndExtractPackageClientToolset downloadAndExtractSecurityToolset downloadAndExtractUpdate downloadExampleScript downloadPackageIndexScript
+determineDotNetStandardVersion doesCompileCSharpWork downloadAndExtractNativeTclKitDll downloadAndExtractNativeTclTkDlls downloadAndExtractPackageClientToolset downloadAndExtractSecurityToolset downloadAndExtractUpdate downloadExampleScript downloadPackageIndexScript
 escapeUpdateNotes evalAsync evaluateInRemoteSandbox execShell exportAndImportPackageCommands extractCSharpErrors extractCSharpWarnings extractZipArchive
 fetchUpdate fileDirNameForFind fileNormalizeForGlob fileTailForFind filter filterForGlob findDirectories findDirectoriesRecursive findFiles findFilesRecursive findViaComSpecDir findViaGlob formatCompilerArgument
-getAuxiliaryBaseUri getBasePath getColumnValue getCompileInfo getCSharpCompilerOptions getCSharpTestProgram getDefaultValue getDictionaryValue getDirResultPath getDotNetCoreCSharpCommandArgs getDotNetCoreSdkPath getDotNetStandardReferencePath getDownloadBaseUri getEnvironmentVariable getExternalIpAddress getFetchUpdateArgs getHostSize getLengthModifier getPackageInstallPath getPlatformInfo getPluginFlags getPluginName getPluginPath getProcesses getReturnType getRowColumnValue getRuntimeCommandLine getScriptBaseUri getShellExecutableName getStringFromObjectHandle getUpdateBaseUri getUpdateData getUpdateFileName getUpdatePathAndQuery getUpdateScriptData
+getAuxiliaryBaseUri getBasePath getColumnValue getCompileInfo getCSharpCompilerOptions getCSharpTestProgram getDefaultValue getDictionaryValue getDirResultPath getDotNetCoreCSharpCommandArgs getDotNetCoreSdkPath getDotNetStandardReferencePath getDownloadBaseUri getEnvironmentVariable getExternalIpAddress getFetchUpdateArgs getHostSize getLengthModifier getOwnerForProcess getPackageInstallPath getPlatformInfo getPluginFlags getPluginName getPluginPath getProcesses getReturnType getRowColumnValue getRuntimeCommandLine getScriptBaseUri getShellExecutableName getStringFromObjectHandle getUpdateBaseUri getUpdateData getUpdateFileName getUpdatePathAndQuery getUpdateScriptData
 hasRuntimeOption haveGaruda
 isAdministrator isDotNetCore isEagle isInteractive isManagedType isMono isNonNullObjectHandle isObjectHandle isSameFileName isTclThread isUpdateInstalled isWindows
-lappendArgs ldifference listExampleScripts listRuntimeOptions loadPackageClientToolset loadScripts lshuffle
+lappendArgs ldifference listExampleScripts listRuntimeOptions loadGarudaForUseByEagle loadPackageClientToolset loadScripts lshuffle
 makeAsciiChannel makeBinaryChannel makeLogChannel makeProcedureFast makeUnicodeBinaryChannel makeUnicodeChannel makeUpdateId makeUtf8Channel makeVariableFast map markUpdateInstalled matchEngineCulture matchEngineName matchEnginePublicKeyToken matchUpdateCulture matchUpdateName matchUpdatePublicKeyToken maybeAppendPathResult maybeGetExitCode maybeLoadScripts
-parray pdict performGlob populateTypesForComSpecDir populateTypesForGlob pwdForDirResultPath
+parray pdict performGlob populateDotNetStandardReferenceDirectories populateTypesForComSpecDir populateTypesForGlob pwdForDirResultPath
 readAsciiFile readFile readSharedFile readUnicodeBinaryFile readUnicodeFile readUtf8File reduce regexpEscapeAll removeFromPath removeRuntimeOption requestLicenseCertificate runDotNetCSharpCommand runUpdateAndExit
 setupPackageToolsetVars setupUnzipVars sourceWithInfo
 tcl::tm::UnknownHandler tclLog tclLogForCommand tclPkgUnknown tcl_endOfWord tcl_startOfNextWord tcl_startOfPreviousWord tcl_wordBreakAfter tcl_wordBreakBefore test toggleRuntimeOption tqlog tqputs
 unescapeUpdateNotes unknown unknownObjectInvoke unzipMustBeInstalled
 vwaitLocked
 waitForProcesses writeAsciiFile writeFile writeUnicodeBinaryFile writeUnicodeFile writeUtf8File
-/C4"Tcl Variables" STYLE_VARIABLE
+/C4"Tcl Variables" STYLE_VARIABLE Font Style = 3
 argc argv argv0 auto_index auto_path
 env errorCode errorInfo
 tcl_interactive tcl_library tcl_nonwordchars tcl_patchLevel tcl_platform tcl_precision tcl_rcFileName tcl_version tcl_wordchars
-/C5"Eagle Variables" STYLE_VARIABLE
+/C5"Eagle Variables" STYLE_VARIABLE Font Style = 3
 auto_source_path
 eagle_debugger eagle_paths eagle_platform eagle_shell eagle_tests
 null
 tcl_interactiveLoops tcl_shellLibrary
 whatIfArgc whatIfArgv
-/C6"Variables" STYLE_VARIABLE
+/C6"Variables" STYLE_VARIABLE Font Style = 3
 ** $
 /C7"Expression Operators" STYLE_OPERATOR
 !

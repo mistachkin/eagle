@@ -89,6 +89,7 @@ proc runOtherShellAndGetResult { fileName script } {
 
       return [execShell [list \
           -success Success -nocarriagereturns -trimall] -quiet true \
+          -preInitialize [appendArgs \" [list set ::no(NoLicensing) 1] \"] \
           -file [appendArgs \" [file nativename $scriptFileName] \"]]
     } finally {
       rename getShellExecutableName ""

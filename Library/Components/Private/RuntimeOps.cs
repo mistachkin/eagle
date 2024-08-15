@@ -120,6 +120,7 @@ namespace Eagle._Components.Private
 
         #region Compile Options Constants
         private const string ThreadingDefineName = "THREADING";
+        private const string NativeDefineName = "NATIVE";
         #endregion
         #endregion
 
@@ -172,7 +173,7 @@ namespace Eagle._Components.Private
         #region Interpreter Locking
 #if DEBUG
         //
-        // HACK: This is not read-only.
+        // HACK: This is purposely not read-only.
         //
         private static bool CheckDisposedOnExitLock = false;
 #endif
@@ -1843,7 +1844,7 @@ namespace Eagle._Components.Private
                         FormatOps.WrapOrNull(fileName),
                         CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
-                        TracePriority.SecurityDebug2);
+                        TracePriority.SecurityDebug4);
 
                     return true;
                 }
@@ -1884,7 +1885,7 @@ namespace Eagle._Components.Private
                         FormatOps.WrapOrNull(fileName),
                         CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
-                        TracePriority.SecurityDebug2);
+                        TracePriority.SecurityDebug4);
 
                     return true;
                 }
@@ -1919,7 +1920,7 @@ namespace Eagle._Components.Private
                     FormatOps.WrapOrNull(fileName),
                     CommonOps.Runtime.GetRuntimeNameAndVMajorMinor(false),
                     clrVersion), typeof(RuntimeOps).Name,
-                    TracePriority.SecurityDebug2);
+                    TracePriority.SecurityDebug4);
 
                 return true;
             }
@@ -2148,6 +2149,8 @@ namespace Eagle._Components.Private
             )
         {
             #region .NET Core Support
+            bool forceTrustedHashes = ShouldForceTrustedHashes();
+
 #if !NATIVE
             bool treatAsDotNetCore = false;
 
@@ -2155,14 +2158,14 @@ namespace Eagle._Components.Private
 #endif
 
             if (
-                ShouldForceTrustedHashes() ||
+                forceTrustedHashes ||
 #if !NATIVE
                 treatAsDotNetCore ||
 #endif
                 CommonOps.Runtime.IsDotNetCore())
             {
 #if NATIVE
-                if (!ShouldForceTrustedHashes() &&
+                if (!forceTrustedHashes &&
                     PlatformOps.IsWindowsOperatingSystem())
                 {
                     goto native;
@@ -2179,7 +2182,7 @@ namespace Eagle._Components.Private
                         FormatOps.WrapOrNull(fileName),
                         CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
-                        TracePriority.SecurityDebug2);
+                        TracePriority.SecurityDebug4);
 
                     return true;
                 }
@@ -2217,7 +2220,7 @@ namespace Eagle._Components.Private
                         FormatOps.WrapOrNull(fileName),
                         CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                         typeof(RuntimeOps).Name,
-                        TracePriority.SecurityDebug2);
+                        TracePriority.SecurityDebug4);
 
                     return true;
                 }
@@ -2251,7 +2254,7 @@ namespace Eagle._Components.Private
                     FormatOps.WrapOrNull(fileName),
                     CommonOps.Runtime.GetRuntimeNameAndVMajorMinor()),
                     typeof(RuntimeOps).Name,
-                    TracePriority.SecurityDebug2);
+                    TracePriority.SecurityDebug4);
 
                 return true;
             }
@@ -4094,13 +4097,14 @@ namespace Eagle._Components.Private
             {
                 format = Vars.Platform.UpdatePathAndQueryFormat;
 
-                bool thisAssembly; /* NOT USED */
+                bool isThisAssembly; /* NOT USED */
                 string typeName; /* NOT USED */
                 string methodName;
 
                 DebugOps.GetMethodName(
-                    1, null, false, true, null, out thisAssembly,
-                    out typeName, out methodName);
+                    1, null, false, true, null, false,
+                    out isThisAssembly, out typeName,
+                    out methodName);
 
                 return String.Format("{1}{0}", String.Format(
                     format, version, suffix), methodName);
@@ -4360,6 +4364,18 @@ namespace Eagle._Components.Private
             )
         {
             return HaveDefineConstant(ThreadingDefineName);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: For use by the Utility class only.
+        //
+        public static bool HaveNative(
+            Interpreter interpreter /* in: NOT USED */
+            )
+        {
+            return HaveDefineConstant(NativeDefineName);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -8773,6 +8789,164 @@ namespace Eagle._Components.Private
             }
 
             return true;
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Trusted Update Support Methods
+#if NETWORK
+        private static void RefreshTrustedUpdateStatus(
+            bool needResult,        /* in */
+            out bool? wasTrusted,   /* out */
+            out bool? wasExclusive, /* out */
+            ref int errorCount,     /* in, out */
+            ref ResultList results  /* in, out */
+            )
+        {
+            wasTrusted = UpdateOps.IsTrusted();
+
+            if (wasTrusted == null)
+            {
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(
+                    "software update certificate trusted status is unknown");
+
+                errorCount++;
+            }
+
+            wasExclusive = UpdateOps.IsExclusive();
+
+            if (wasExclusive == null)
+            {
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(
+                    "software update certificate exclusive mode is unknown");
+
+                errorCount++;
+            }
+
+            if (needResult && (wasTrusted != null) && (wasExclusive != null))
+            {
+                if (results == null)
+                    results = new ResultList();
+
+                results.Add(String.Format(
+                    "software update certificate is {0}{1}",
+                    (bool)wasTrusted ? "trusted" : "untrusted",
+                    (bool)wasExclusive ? " exclusively" : String.Empty));
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetOrSetTrustedUpdateStatus(
+            bool? trusted,         /* in */
+            bool? exclusive,       /* in */
+            ref ResultList results /* in, out */
+            )
+        {
+            int errorCount; /* REUSED */
+            bool? wasTrusted; /* REUSED */
+            bool? wasExclusive; /* REUSED */
+
+            errorCount = 0;
+
+            RefreshTrustedUpdateStatus(
+                false, out wasTrusted, out wasExclusive, ref errorCount,
+                ref results);
+
+            if (errorCount > 0)
+                return ReturnCode.Error;
+
+            ///////////////////////////////////////////////////////////////////
+
+            Result error; /* REUSED */
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (trusted != null)
+            {
+                if ((bool)trusted != wasTrusted)
+                {
+                    error = null;
+
+                    if (UpdateOps.SetTrusted(
+                            (bool)trusted, ref error) != ReturnCode.Ok)
+                    {
+                        if (results == null)
+                            results = new ResultList();
+
+                        results.Add(error);
+                        errorCount++;
+                    }
+                }
+                else
+                {
+                    if (results == null)
+                        results = new ResultList();
+
+                    results.Add(String.Format(
+                        "software update certificate is already {0}{1}",
+                        (bool)wasTrusted ? "TRUSTED" : "UNTRUSTED",
+                        (bool)wasExclusive ? " exclusively" : String.Empty));
+
+                    errorCount++;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (exclusive != null)
+            {
+                if ((bool)exclusive != wasExclusive)
+                {
+                    error = null;
+
+                    if (UpdateOps.SetExclusive(
+                            (bool)exclusive, ref error) != ReturnCode.Ok)
+                    {
+                        if (results == null)
+                            results = new ResultList();
+
+                        results.Add(error);
+                        errorCount++;
+                    }
+                }
+                else
+                {
+                    if (results == null)
+                        results = new ResultList();
+
+                    results.Add(String.Format(
+                        "software update certificate is already {0}{1}",
+                        (bool)wasTrusted ? "trusted" : "untrusted",
+                        (bool)wasExclusive ? " EXCLUSIVELY" : String.Empty));
+
+                    errorCount++;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            if (errorCount > 0)
+                return ReturnCode.Error;
+
+            ///////////////////////////////////////////////////////////////////
+
+            RefreshTrustedUpdateStatus(
+                true, out wasTrusted, out wasExclusive, ref errorCount,
+                ref results);
+
+            if (errorCount > 0)
+                return ReturnCode.Error;
+            else
+                return ReturnCode.Ok;
         }
 #endif
         #endregion

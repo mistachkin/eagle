@@ -68,6 +68,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static bool HasFlags(
+            AutomationFlags flags,
+            AutomationFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != AutomationFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
             Base26FormattingOption flags,
             Base26FormattingOption hasFlags,
             bool all
@@ -227,6 +241,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if THREADING
+        public static bool HasFlags(
+            CheckStatus flags,
+            CheckStatus hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != CheckStatus.None);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool HasFlags(
             CloneFlags flags,
             CloneFlags hasFlags,
@@ -280,6 +310,22 @@ namespace Eagle._Components.Private
                 return ((flags & hasFlags) == hasFlags);
             else
                 return ((flags & hasFlags) != (ConsoleModifiers)0);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NETWORK
+        public static bool HasFlags(
+            ContextIdType flags,
+            ContextIdType hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != ContextIdType.None);
         }
 #endif
 
@@ -1725,6 +1771,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool HasFlags(
+            SwapFlags flags,
+            SwapFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != SwapFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if NATIVE && TCL
         public static bool HasFlags(
             Tcl_VarFlags flags,
@@ -1737,7 +1797,65 @@ namespace Eagle._Components.Private
             else
                 return ((flags & hasFlags) != Tcl_VarFlags.TCL_VAR_NONE);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            TclCreateFlags flags,
+            TclCreateFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != TclCreateFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            TclCommandFlags flags,
+            TclCommandFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != TclCommandFlags.None);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if TCL_THREADS
+        public static bool HasFlags(
+            TclThreadFlags flags,
+            TclThreadFlags hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != TclThreadFlags.None);
+        }
 #endif
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            TestHookType flags,
+            TestHookType hasFlags,
+            bool all
+            )
+        {
+            if (all)
+                return ((flags & hasFlags) == hasFlags);
+            else
+                return ((flags & hasFlags) != TestHookType.None);
+        }
 
         ///////////////////////////////////////////////////////////////////////
 

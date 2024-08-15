@@ -36,6 +36,7 @@ namespace Eagle._Components.Public
     {
         #region Public Constants
         public static readonly string NoValue = null;
+        public static readonly string NoFullString = null;
         public static readonly IClientData NoClientData = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -55,11 +56,20 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         //
-        // HACK: This is purposely not read-only.
+        // HACK: These are purposely not read-only.
         //
-        // WARNING: Setting this to true could be very expensive.
+        private static bool AnyReturnCodeStackTrace = false;
+        private static bool AnyErrorLineStackTrace = false;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        // WARNING: Setting these to true could be very expensive.
         //
         private static bool? PopulateStackTrace = null;
+        private static bool? IncludeStackTrace = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -69,12 +79,7 @@ namespace Eagle._Components.Public
         private Result()
         {
             Reset(); /* NOTE: Well-known state. */
-
-            if (ShouldPopulateStackTrace())
-            {
-                stackTrace = DebugOps.GetStackTraceString();
-                SetFlags(ResultFlags.StackTrace);
-            }
+            MaybePopulateStackTrace();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -265,6 +270,7 @@ namespace Eagle._Components.Public
         [DebuggerStepThrough()]
         private void Reset()
         {
+            ///////////////////////////////////////////////////////////////////
             //
             // NOTE: For this object, we always null out the fields (i.e.
             //       the NoValue and NoClientData constants are defined
@@ -280,14 +286,25 @@ namespace Eagle._Components.Public
             //          will convert to an empty string (i.e. unlike the
             //          Argument object).
             //
+            ///////////////////////////////////////////////////////////////////
+
             value = NoValue;
-            clientData = NoClientData;
 
 #if CACHE_RESULT_TOSTRING
             InvalidateCachedString(false);
 #endif
 
             UnsetFlags(ResultFlags.String);
+
+            ///////////////////////////////////////////////////////////////////
+
+            fullString = NoFullString;
+            UnsetFlags(ResultFlags.FullString);
+
+            ///////////////////////////////////////////////////////////////////
+
+            clientData = NoClientData;
+            UnsetFlags(ResultFlags.ClientData);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -332,6 +349,12 @@ namespace Eagle._Components.Public
                 stackTrace = null;
                 UnsetFlags(ResultFlags.StackTrace);
             }
+
+            if (FlagOps.HasFlags(flags, ResultFlags.FullString, true))
+            {
+                fullString = null;
+                UnsetFlags(ResultFlags.FullString);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -359,6 +382,11 @@ namespace Eagle._Components.Public
                 // NOTE: We now have a string result.
                 //
                 SetFlags(ResultFlags.String);
+
+                //
+                // NOTE: If necessary, include the stack trace(s).
+                //
+                MaybeIncludeFullString(this);
             }
             else if (this.value is Exception)
             {
@@ -372,6 +400,11 @@ namespace Eagle._Components.Public
                 // NOTE: We now have an exception result.
                 //
                 SetFlags(ResultFlags.Exception);
+
+                //
+                // NOTE: If necessary, reset the stack trace(s).
+                //
+                ResetFullString();
             }
         }
 
@@ -499,6 +532,14 @@ namespace Eagle._Components.Public
                     this.stackTrace = result.stackTrace;
                     SetFlags(ResultFlags.StackTrace);
                 }
+
+                ///////////////////////////////////////////////////////////////
+
+                if (FlagOps.HasFlags(flags, ResultFlags.FullString, true))
+                {
+                    this.fullString = result.fullString;
+                    SetFlags(ResultFlags.FullString);
+                }
             }
         }
         #endregion
@@ -537,11 +578,159 @@ namespace Eagle._Components.Public
             result.Value = value;
             return true;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        public static string WithStackTraces(
+            Result result,
+            bool anyReturnCode,
+            bool anyErrorLine
+            )
+        {
+            if (result == null)
+                return null;
+
+            StringBuilder builder = StringBuilderFactory.Create();
+            object value = result.value;
+
+            if (value != null) /* NOTE: Maybe "System.String"? */
+            {
+                MaybeAddLinesTo(builder, true);
+
+                builder.AppendLine("CONTAINED VALUE:");
+                builder.AppendLine();
+                builder.Append(FormatOps.DisplayString(value.ToString()));
+            }
+
+#if CACHE_RESULT_TOSTRING
+            string @string = result.@string;
+
+            if (@string != null)
+            {
+                MaybeAddLinesTo(builder, true);
+
+                builder.AppendLine("CACHED STRING:");
+                builder.AppendLine();
+                builder.Append(FormatOps.DisplayString(@string));
+            }
+#endif
+
+            ReturnCode returnCode = result.returnCode;
+
+            if (anyReturnCode || (returnCode != ReturnCode.Ok))
+            {
+                MaybeAddLinesTo(builder, true);
+
+                builder.AppendLine("RETURN CODE:");
+                builder.AppendLine();
+                builder.Append(returnCode);
+            }
+
+            int errorLine = result.errorLine;
+
+            if (anyErrorLine || (errorLine != 0))
+            {
+                MaybeAddLinesTo(builder, true);
+
+                builder.AppendLine("ERROR LINE:");
+                builder.AppendLine();
+                builder.Append(errorLine);
+            }
+
+            string errorCode = result.errorCode;
+
+            if (errorCode != null)
+            {
+                MaybeAddLinesTo(builder, true);
+
+                builder.AppendLine("SCRIPT ERROR CODE:");
+                builder.AppendLine();
+                builder.Append(FormatOps.DisplayString(errorCode));
+            }
+
+            string errorInfo = result.errorInfo;
+
+            if (errorInfo != null)
+            {
+                MaybeAddLinesTo(builder, true);
+
+                builder.AppendLine("SCRIPT STACK TRACE:");
+                builder.AppendLine();
+                builder.Append(FormatOps.DisplayString(errorInfo));
+            }
+
+            string stackTrace = result.stackTrace;
+
+            if (stackTrace != null)
+            {
+                MaybeAddLinesTo(builder, true);
+
+                builder.AppendLine("MANAGED STACK TRACE:");
+                builder.AppendLine();
+
+                //
+                // HACK: Normalize all directory separators to
+                //       be forward slashes.
+                //
+                builder.Append(
+                    FormatOps.DisplayString(PathOps.GetUnixPath(
+                    stackTrace)));
+            }
+
+            Exception exception = result.exception;
+            int exceptionCount = 0;
+
+            while (exception != null)
+            {
+                MaybeAddLinesTo(builder, true);
+
+                builder.AppendLine(String.Format(
+                    "MANAGED EXCEPTION (level {0}):", exceptionCount));
+
+                builder.AppendLine();
+
+                //
+                // HACK: Normalize all directory separators to
+                //       be forward slashes.
+                //
+                builder.Append(
+                    FormatOps.DisplayString(PathOps.GetUnixPath(
+                    exception.ToString())));
+
+                exception = exception.InnerException;
+                exceptionCount++;
+            }
+
+            return StringBuilderCache.GetStringAndRelease(ref builder);
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Static Stack Trace Helpers
+        [DebuggerStepThrough()]
+        private static void MaybeIncludeFullString(
+            Result result
+            )
+        {
+            if (result != null)
+            {
+                if (ShouldIncludeStackTrace(result))
+                {
+                    result.fullString = WithStackTraces(result);
+                    result.SetFlags(ResultFlags.FullString);
+                }
+                else
+                {
+                    result.fullString = null;
+                    result.UnsetFlags(ResultFlags.FullString);
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         [DebuggerStepThrough()]
         private static bool ShouldPopulateStackTrace()
         {
@@ -550,7 +739,11 @@ namespace Eagle._Components.Public
                 bool stackTrace;
 
                 if (CommonOps.Environment.DoesVariableExist(
-                        EnvVars.ResultStack))
+                        EnvVars.PopulateResultStack) ||
+                    CommonOps.Environment.DoesVariableExist(
+                        String.Format(
+                            "{0}_{1}", EnvVars.PopulateResultStack,
+                            GlobalState.GetCurrentThreadId())))
                 {
                     stackTrace = true;
                 }
@@ -563,6 +756,163 @@ namespace Eagle._Components.Public
             }
 
             return (bool)PopulateStackTrace;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private static bool ShouldIncludeStackTrace()
+        {
+            if (IncludeStackTrace == null)
+            {
+                bool stackTrace;
+
+                if (CommonOps.Environment.DoesVariableExist(
+                        EnvVars.IncludeResultStack) ||
+                    CommonOps.Environment.DoesVariableExist(
+                        String.Format(
+                            "{0}_{1}", EnvVars.IncludeResultStack,
+                            GlobalState.GetCurrentThreadId())))
+                {
+                    stackTrace = true;
+                }
+                else
+                {
+                    stackTrace = false;
+                }
+
+                IncludeStackTrace = stackTrace;
+            }
+
+            return (bool)IncludeStackTrace;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private static bool ShouldIncludeStackTrace(
+            Result result
+            )
+        {
+            if (result == null)
+                return false;
+
+            if (!AnyReturnCodeStackTrace &&
+                (result.returnCode != ReturnCode.Error))
+            {
+                return false;
+            }
+
+            if (result.stackTrace == null)
+                return false;
+
+            return ShouldIncludeStackTrace();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private static void MaybeAddLinesTo(
+            StringBuilder builder,
+            bool maybeExtraLine
+            )
+        {
+            if (builder != null)
+            {
+                int length = builder.Length;
+
+                if (length > 0)
+                {
+                    if (maybeExtraLine &&
+                        !Parser.IsLineTerminator(builder[length - 1]))
+                    {
+                        builder.AppendLine();
+                    }
+
+                    builder.AppendLine();
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        internal static void ResetPopulateStackTrace()
+        {
+            PopulateStackTrace = null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        internal static void ResetIncludeStackTrace()
+        {
+            IncludeStackTrace = null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        internal static bool? EnablePopulateStackTrace(
+            bool? enable
+            )
+        {
+            if (enable != null)
+                PopulateStackTrace = enable;
+
+            return PopulateStackTrace;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        internal static bool? EnableIncludeStackTrace(
+            bool? enable
+            )
+        {
+            if (enable != null)
+                IncludeStackTrace = enable;
+
+            return IncludeStackTrace;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        internal static string WithStackTraces(
+            Result result
+            )
+        {
+            return WithStackTraces(result,
+                AnyReturnCodeStackTrace, AnyErrorLineStackTrace);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Stack Trace Helpers
+        [DebuggerStepThrough()]
+        private void MaybePopulateStackTrace()
+        {
+            if (ShouldPopulateStackTrace())
+            {
+                stackTrace = DebugOps.GetStackTraceString();
+                SetFlags(ResultFlags.StackTrace);
+            }
+            else
+            {
+                stackTrace = null;
+                UnsetFlags(ResultFlags.StackTrace);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private void ResetFullString()
+        {
+            fullString = null;
+            UnsetFlags(ResultFlags.FullString);
         }
         #endregion
 
@@ -692,7 +1042,7 @@ namespace Eagle._Components.Public
             if (!ValueEquals(left.value, right.value))
                 return false;
 
-            if (left.flags != right.flags)
+            if (!FlagsEquals(left.flags, right.flags))
                 return false;
 
             if (left.returnCode != right.returnCode)
@@ -737,6 +1087,20 @@ namespace Eagle._Components.Public
             {
                 return Object.Equals(left, right);
             }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        [DebuggerStepThrough()]
+        private static bool FlagsEquals(
+            ResultFlags left,
+            ResultFlags right
+            )
+        {
+            left &= ~ResultFlags.InternalMask;
+            right &= ~ResultFlags.InternalMask;
+
+            return (left == right);
         }
         #endregion
 
@@ -787,6 +1151,8 @@ namespace Eagle._Components.Public
                     @string = value.ToString();
                     result.@string = @string;
 
+                    MaybeIncludeFullString(result);
+
                     if (@string != null)
                         return @string.Length;
                     else
@@ -795,6 +1161,8 @@ namespace Eagle._Components.Public
                 else
 #endif
                 {
+                    MaybeIncludeFullString(value as Result);
+
                     return value.ToString().Length;
                 }
             }
@@ -830,11 +1198,15 @@ namespace Eagle._Components.Public
                     @string = value.ToString();
                     result.@string = @string;
 
+                    MaybeIncludeFullString(result);
+
                     return @string;
                 }
                 else
 #endif
                 {
+                    MaybeIncludeFullString(value as Result);
+
                     return value.ToString();
                 }
             }
@@ -1867,6 +2239,11 @@ namespace Eagle._Components.Public
                     // NOTE: We now have a string result.
                     //
                     SetFlags(ResultFlags.String);
+
+                    //
+                    // NOTE: If necessary, include the stack trace(s).
+                    //
+                    MaybeIncludeFullString(this);
                 }
                 else
                 {
@@ -1881,6 +2258,11 @@ namespace Eagle._Components.Public
                     // NOTE: We no longer have a string result.
                     //
                     UnsetFlags(ResultFlags.String);
+
+                    //
+                    // NOTE: If necessary, reset the stack trace(s).
+                    //
+                    ResetFullString();
                 }
             }
         }
@@ -2158,6 +2540,15 @@ namespace Eagle._Components.Public
         {
             [DebuggerStepThrough()]
             get { return stackTrace; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private string fullString;
+        internal string FullString
+        {
+            [DebuggerStepThrough()]
+            get { return fullString; }
         }
         #endregion
     }

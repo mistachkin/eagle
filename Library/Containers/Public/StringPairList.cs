@@ -248,6 +248,37 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Contains Methods
+        public bool ContainsKey(
+            string key,
+            StringComparison comparisonType
+            )
+        {
+            int count = base.Count;
+
+            if (count == 0)
+                return false;
+
+            for (int index = 0; index < count; index++)
+            {
+                IPair<string> pair = base[index];
+
+                if (pair == null)
+                    continue;
+
+                if (SharedStringOps.Equals(
+                        pair.X, key, comparisonType))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Get Methods
         public string GetItem(
             int index

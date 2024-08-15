@@ -71,9 +71,12 @@ namespace Eagle._Commands
                             tryCode = interpreter.EvaluateScript(arguments[1], ref tryResult);
 
                             if (tryCode == ReturnCode.Error)
+                            {
+                                /* IGNORED */
                                 Engine.AddErrorInformation(interpreter, tryResult,
                                     String.Format("{0}    (\"try\" body line {1})",
                                         Environment.NewLine, Interpreter.GetErrorLine(interpreter)));
+                            }
 
                             //
                             // NOTE: Pop the original call frame that we pushed above and 
@@ -108,9 +111,12 @@ namespace Eagle._Commands
                                 //       information.
                                 //
                                 if (tryCode == ReturnCode.Error)
+                                {
+                                    /* IGNORED */
                                     Engine.AddErrorInformation(interpreter, null,
                                         String.Format("{0}    ... continued ...",
                                             Environment.NewLine));
+                                }
 
                                 //
                                 // NOTE: If the appropriate flag is set, call into the
@@ -226,9 +232,12 @@ namespace Eagle._Commands
                                 }
 
                                 if (finallyCode == ReturnCode.Error)
+                                {
+                                    /* IGNORED */
                                     Engine.AddErrorInformation(interpreter, finallyResult,
                                         String.Format("{0}    (\"finally\" body line {1})",
                                             Environment.NewLine, Interpreter.GetErrorLine(interpreter)));
+                                }
 
                                 //
                                 // NOTE: Restore normal result reset semantics.

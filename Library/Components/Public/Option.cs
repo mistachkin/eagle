@@ -253,6 +253,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public bool IsRestricted(
+            OptionDictionary options /* NOT USED */
+            )
+        {
+            return HasFlags(OptionFlags.Restricted, true);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public bool IsAllowInteger(
             OptionDictionary options /* NOT USED */
             )

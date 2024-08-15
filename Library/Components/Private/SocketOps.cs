@@ -1078,7 +1078,7 @@ namespace Eagle._Components.Private
             if (Interlocked.CompareExchange(ref offlineLevels, 0, 0) > 0)
             {
                 error = String.Format(
-                    "cannot resolve {0} IP address {1} while offline",
+                    "cannot resolve {0} address {1} while offline",
                     FormatOps.WrapOrNull(addressFamily),
                     FormatOps.NetworkHostAndPort(hostNameOrAddress, null));
 
@@ -1139,7 +1139,7 @@ namespace Eagle._Components.Private
                             if (result == null)
                             {
                                 localError = String.Format(
-                                    "no {0} IP address was found for {1}",
+                                    "no {0} address was found for {1}",
                                     FormatOps.WrapOrNull(addressFamily),
                                     FormatOps.NetworkHostAndPort(
                                         hostNameOrAddress, null));
@@ -1148,7 +1148,7 @@ namespace Eagle._Components.Private
                         else
                         {
                             localError = String.Format(
-                                "no IP addresses were found for {0}",
+                                "no addresses were found for {0}",
                                 FormatOps.NetworkHostAndPort(
                                     hostNameOrAddress, null));
                         }
@@ -1162,7 +1162,7 @@ namespace Eagle._Components.Private
             else if (strict)
             {
                 if (localError == null)
-                    localError = "invalid host name or IP address";
+                    localError = "invalid host name or address";
             }
             else
             {

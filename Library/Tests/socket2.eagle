@@ -96,6 +96,13 @@ Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" $b] != -1)}] \
 #
 runTest {test socket-2.2 {client/server sockets with threads} -setup {
   #
+  # HACK: Perform some pointless make-work for a bit, delaying as necessary.
+  #
+  proc hurryUpAndWaitFor { milliseconds } {
+    nop; after $milliseconds; update; host result Continue .
+  }
+
+  #
   # HACK: Wait for the server listener thread to finish setting up.  This is
   #       needed to avoid a very subtle race condition on some systems.
   #
@@ -108,14 +115,14 @@ runTest {test socket-2.2 {client/server sockets with threads} -setup {
     #
     # NOTE: Determine when we should stop waiting for the other thread.
     #
-    set stop [expr {[clock seconds] + 5}]
+    set stop [expr {[clock seconds] + 600}]; # five minutes
 
     #
     # NOTE: Keep waiting for X seconds -OR- until the specified global
     #       variable (i.e. the one being used as a signal) has been set.
     #
     while {[clock seconds] < $stop && ![info exists ::listening]} {
-      nop
+      hurryUpAndWaitFor 1000
     }
 
     #
@@ -143,14 +150,14 @@ runTest {test socket-2.2 {client/server sockets with threads} -setup {
     #
     # NOTE: Determine when we should stop waiting for the other thread.
     #
-    set stop [expr {[clock seconds] + 5}]
+    set stop [expr {[clock seconds] + 600}]; # five minutes
 
     #
     # NOTE: Keep waiting for X seconds -OR- until the specified global
     #       variable (i.e. the one being used as a signal) has been set.
     #
     while {[clock seconds] < $stop && ![info exists ::sock(client)]} {
-      nop
+      hurryUpAndWaitFor 1000
     }
 
     #
@@ -176,10 +183,19 @@ runTest {test socket-2.2 {client/server sockets with threads} -setup {
 
   proc serverListen { port } {
     set command [list socket]
-    if {[isDotNetCore]} then {lappend command -noexclusive}
+    lappend command -noexclusive
     lappend command -server serverAccept $port
 
-    set ::listening [set ::sock(listen) [eval $command]]
+    while {[catch {
+      #
+      # HACK: Workaround for .NET runtime closing the listen
+      #       socket way too slowly.  This was an issue that
+      #       broke the release build.  Thanks Microsoft.
+      #
+      set ::listening [set ::sock(listen) [eval $command]]
+    }]} {
+      hurryUpAndWaitFor 1000
+    }
 
     vwait ::y
   }
@@ -220,9 +236,10 @@ runTest {test socket-2.2 {client/server sockets with threads} -setup {
   #       correct thread (i.e. the same one that started the listener and calls
   #       [vwait], not the client thread).
   #
-  set interp [object invoke -alias Interpreter GetActive]
-  set queueEventFlags [$interp -flags +NonPublic queueEventFlags]
-  $interp -flags +NonPublic queueEventFlags =After
+  package require Eagle.Test
+
+  set savedQueueEventFlags [enableQueueEventFlags]
+  enableQueueEventFlags After; # SET
 } -body {
   set thread(listen) [createThread [list serverListen $test_port]]
   set thread(client) [createThread [list clientSend localhost $test_port]]
@@ -242,7 +259,11 @@ runTest {test socket-2.2 {client/server sockets with threads} -setup {
   }
 } -cleanup {
   cleanupAfterEvents
-  catch {$interp -flags +NonPublic queueEventFlags $queueEventFlags}
+
+  catch {
+    enableQueueEventFlags $savedQueueEventFlags
+    unset -nocomplain savedQueueEventFlags
+  }
 
   if {[info exists sock(client)]} then {catch {close $sock(client)}}
   if {[info exists sock(server)]} then {catch {close $sock(server)}}
@@ -260,9 +281,10 @@ runTest {test socket-2.2 {client/server sockets with threads} -setup {
   rename stopServerListen ""
   rename waitForClientSocket ""
   rename waitForServerListen ""
+  rename hurryUpAndWaitFor ""
 
-  unset -nocomplain listening sock thread x y queueEventFlags interp
-} -constraints [fixConstraints {eagle command.object command.socket\
+  unset -nocomplain listening sock thread x y
+} -constraints [fixTimingConstraints {eagle command.object command.socket\
 compile.NETWORK compile.THREADING dotNetCoreOrShell !mono28 !mono210 !mono33\
 !mono34 !monoDebugger}] -constraintExpression {[haveConstraint windows] || \
 [haveConstraint dotNetCoreBug22]} -match regexp -result [appendArgs \

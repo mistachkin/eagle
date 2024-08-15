@@ -136,12 +136,12 @@ namespace Eagle._Interfaces.Public
             bool userInterface, ref int eventCount, ref Result result);
 
         ReturnCode ServiceEvents(EventFlags eventFlags, EventPriority priority,
-            long? threadId, int limit, bool noCancel, bool noGlobalCancel,
+            long? threadId, int? timeout, int limit, bool noCancel, bool noGlobalCancel,
             bool stopOnError, bool errorOnEmpty, bool userInterface,
             ref Result result);
 
         ReturnCode ServiceEvents(EventFlags eventFlags, EventPriority priority,
-            long? threadId, int limit, bool noCancel, bool noGlobalCancel,
+            long? threadId, int? timeout, int limit, bool noCancel, bool noGlobalCancel,
             bool stopOnError, bool errorOnEmpty, bool userInterface,
             ref int eventCount, ref Result result);
 

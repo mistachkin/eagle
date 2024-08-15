@@ -1437,18 +1437,26 @@
               well.  The "supported", yet sub-optimal, alternative appears to
               be using the TargetFrameworkSDKToolsDirectory variable.
     -->
-    <GetFrameworkSDKPath Condition="'$(SDK35ToolsPath)' == '' And
+    <GetFrameworkSDKPath Condition="'$(MtToolDir)' == '' And
+                                    '$(SDK35ToolsPath)' == '' And
                                     '$(WindowsSDK80Path)' == ''">
       <Output TaskParameter="Path"
               PropertyName="DirForManifestTool" />
     </GetFrameworkSDKPath>
 
-    <Exec Condition="'$(SDK35ToolsPath)' != '' And
+    <Exec Condition="'$(MtToolDir)' != '' And
+                     HasTrailingSlash('$(MtToolDir)') And
+                     Exists('$(MtToolDir)mt.exe')"
+          Command="&quot;$(MtToolDir)mt.exe&quot; -manifest &quot;$(MSBuildProjectDirectory)\Resources\manifest.xml&quot; -outputresource:&quot;$(TargetPath)&quot;;1" />
+
+    <Exec Condition="'$(MtToolDir)' == '' And
+                     '$(SDK35ToolsPath)' != '' And
                      HasTrailingSlash('$(SDK35ToolsPath)') And
                      Exists('$(SDK35ToolsPath)mt.exe')"
           Command="&quot;$(SDK35ToolsPath)mt.exe&quot; -manifest &quot;$(MSBuildProjectDirectory)\Resources\manifest.xml&quot; -outputresource:&quot;$(TargetPath)&quot;;1" />
 
-    <Exec Condition="('$(SDK35ToolsPath)' == '' Or
+    <Exec Condition="'$(MtToolDir)' == '' And
+                     ('$(SDK35ToolsPath)' == '' Or
                       !HasTrailingSlash('$(SDK35ToolsPath)') Or
                       !Exists('$(SDK35ToolsPath)mt.exe')) And
                      '$(WindowsSDK80Path)' == '' And
@@ -1457,7 +1465,8 @@
                      Exists('$(DirForManifestTool)bin\mt.exe')"
           Command="&quot;$(DirForManifestTool)bin\mt.exe&quot; -manifest &quot;$(MSBuildProjectDirectory)\Resources\manifest.xml&quot; -outputresource:&quot;$(TargetPath)&quot;;1" />
 
-    <Exec Condition="('$(SDK35ToolsPath)' == '' Or
+    <Exec Condition="'$(MtToolDir)' == '' And
+                     ('$(SDK35ToolsPath)' == '' Or
                       !HasTrailingSlash('$(SDK35ToolsPath)') Or
                       !Exists('$(SDK35ToolsPath)mt.exe')) And
                      '$(WindowsSDK80Path)' != '' And
@@ -2709,7 +2718,9 @@
                          ..\lib\Eagle1.0\test.eagle;
                          ..\lib\Eagle1.0\vendor.eagle;
                          ..\lib\Eagle1.0\word.tcl;
-                         ..\lib\Eagle1.0\pkgIndex.eagle">
+                         ..\lib\Eagle1.0\pkgIndex.eagle;
+                         ..\Example\Scripts\tetris.tcl;
+                         ..\Example\Scripts\tetris.tcl.harpy">
       <Output ItemName="LibraryResourceFilesItem" TaskParameter="Include" />
     </CreateItem>
   </Target>
@@ -3097,7 +3108,8 @@
                              Exists('$(EagleLibraryDir)Tools\lockBuild.eagle') And
                              '$(EagleTaskPath)' != '' And
                              HasTrailingSlash('$(EagleTaskPath)') And
-                             Exists('$(EagleTaskPath)EagleShell.exe')"
+                             Exists('$(EagleTaskPath)EagleShell.exe') And
+                             !Exists('$(EagleLibraryDir)..\Service\bin\LOCKED')"
                   Args="true" Text="$(EagleLibraryDir)Tools\lockBuild.eagle">
       <Output TaskParameter="Code" PropertyName="LockBuildOutputCode" />
       <Output TaskParameter="Result" PropertyName="LockBuildOutputResult" />

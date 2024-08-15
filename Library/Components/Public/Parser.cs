@@ -930,7 +930,7 @@ namespace Eagle._Components.Public
             }
 
             return Interpreter.ParserReady(
-                interpreter, readyFlags, ref error);
+                interpreter, null, readyFlags, ref error);
         }
         #endregion
 
@@ -1178,14 +1178,25 @@ namespace Eagle._Components.Public
                         characterType = CharacterType.Brace;
                         break;
                     }
+                //
+                // HACK: *PERF* Previously, there was a "default"
+                //       case here with a call to the IsWhiteSpace
+                //       method here; however, that was too slow.
+                //
+                case Characters.HorizontalTab:
+                case Characters.VerticalTab:
+                case Characters.FormFeed:
+                case Characters.CarriageReturn:
+                case Characters.Space:
+                    {
+                        characterType = CharacterType.Space;
+                        break;
+                    }
                 default:
                     {
-                        if (IsWhiteSpace(character))
-                            characterType = CharacterType.Space;
-                        else
-                            characterType = CharacterType.None;
+                        characterType = CharacterType.None;
+                        break;
                     }
-                    break;
             }
 
             return characterType;
@@ -4113,19 +4124,28 @@ namespace Eagle._Components.Public
 
             int lastIndex = startIndex + length;
             int index = startIndex;
+            char character; /* REUSED */
 
-            if ((index == lastIndex) ||
-                (text[index] == Characters.OpenBrace) ||
-                (text[index] == Characters.QuotationMark))
+            if (index == lastIndex)
             {
                 flags |= ListElementFlags.UseBraces;
+            }
+            else
+            {
+                character = text[index];
+
+                if ((character == Characters.OpenBrace) ||
+                    (character == Characters.QuotationMark))
+                {
+                    flags |= ListElementFlags.UseBraces;
+                }
             }
 
             int nestingLevel = 0;
 
             for (; index < lastIndex; index++)
             {
-                char character = text[index];
+                character = text[index];
 
                 switch (character)
                 {
@@ -4163,30 +4183,36 @@ namespace Eagle._Components.Public
                             }
                             break;
                         }
-                    case Characters.OpenBracket:
+                    case Characters.OpenBracket:   /* FALL-THROUGH */
                     case Characters.DollarSign:
                     case Characters.SemiColon:
+                    //
+                    // HACK: *PERF* Previously, there was a "default"
+                    //       case here with a call to the IsWhiteSpace
+                    //       method here; however, that was too slow.
+                    //
+                    case Characters.HorizontalTab: /* FALL-THROUGH */
+                    case Characters.LineFeed:
+                    case Characters.VerticalTab:
+                    case Characters.FormFeed:
+                    case Characters.CarriageReturn:
+                    case Characters.Space:
                         {
                             flags |= ListElementFlags.UseBraces;
-                            break;
-                        }
-                    default:
-                        {
-                            if (IsWhiteSpace(character))
-                                flags |= ListElementFlags.UseBraces;
-
                             break;
                         }
                 }
             }
 
             if (nestingLevel != 0)
+            {
                 flags |= ListElementFlags.DontUseBraces |
                     ListElementFlags.BracesUnmatched;
+            }
 
             /*
-             * Allow enough space to backslash every character plus leave two spaces
-             * for braces.
+             * Allow enough space to backslash every character plus
+             * leave two spaces for braces.
              */
 
             return ((2 * (index - startIndex)) + 2);
@@ -4510,13 +4536,17 @@ namespace Eagle._Components.Public
                     case Characters.OpenBrace:
                         {
                             if (openBraces != 0)
+                            {
                                 openBraces++;
+                            }
                             break;
                         }
                     case Characters.CloseBrace:
                         {
                             if (openBraces > 1)
+                            {
                                 openBraces--;
+                            }
                             else if (openBraces == 1)
                             {
                                 localLength = (index - elementStartIndex);
@@ -4579,15 +4609,22 @@ namespace Eagle._Components.Public
                             }
                             break;
                         }
-                    default:
+                    //
+                    // HACK: *PERF* Previously, there was a "default"
+                    //       case here with a call to the IsWhiteSpace
+                    //       method here; however, that was too slow.
+                    //
+                    case Characters.HorizontalTab:
+                    case Characters.LineFeed:
+                    case Characters.VerticalTab:
+                    case Characters.FormFeed:
+                    case Characters.CarriageReturn:
+                    case Characters.Space:
                         {
-                            if (IsWhiteSpace(text[index]))
+                            if ((openBraces == 0) && !inQuotes)
                             {
-                                if ((openBraces == 0) && !inQuotes)
-                                {
-                                    localLength = (index - elementStartIndex);
-                                    goto done;
-                                }
+                                localLength = (index - elementStartIndex);
+                                goto done;
                             }
                             break;
                         }
@@ -4722,9 +4759,11 @@ namespace Eagle._Components.Public
                         }
                         else
                         {
-                            TraceOps.DebugTrace(
-                                "StringMatch: could not lock interpreter",
-                                typeof(Parser).Name, TracePriority.LockWarning);
+                            TraceOps.LockTrace(
+                                "StringMatch",
+                                typeof(Parser).Name, false,
+                                TracePriority.LockWarning,
+                                interpreter.MaybeWhoHasLock());
                         }
                     }
                     finally

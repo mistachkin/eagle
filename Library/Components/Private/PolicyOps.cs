@@ -146,7 +146,6 @@ namespace Eagle._Components.Private
             "indexes", "relativefilename", "reset", "scan", "vloaded"
         }, true, false);
 
-
         ///////////////////////////////////////////////////////////////////////
 
         //
@@ -1268,6 +1267,7 @@ namespace Eagle._Components.Private
             ref IPolicyContext policyContext, /* in, out */
             ref Encoding encoding,            /* out */
             ref IScript script,               /* out */
+            ref int? timeout,                 /* out */
             ref Result error                  /* out */
             )
         {
@@ -1295,6 +1295,8 @@ namespace Eagle._Components.Private
             }
 
             encoding = policyContext.Encoding;
+            timeout = policyContext.Timeout;
+
             return ReturnCode.Ok;
         }
 
@@ -1305,6 +1307,7 @@ namespace Eagle._Components.Private
             IClientData clientData,           /* in */
             ref IPolicyContext policyContext, /* in, out */
             ref string fileName,              /* out */
+            ref int? timeout,                 /* out */
             ref Result error                  /* out */
             )
         {
@@ -1330,6 +1333,8 @@ namespace Eagle._Components.Private
                 error = "invalid file name";
                 return ReturnCode.Error;
             }
+
+            timeout = policyContext.Timeout;
 
             return ReturnCode.Ok;
         }

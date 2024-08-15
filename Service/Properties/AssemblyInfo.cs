@@ -57,4 +57,4 @@ using Eagle._Components.Shared;
 
 [assembly: AssemblyTag("beta")]
 [assembly: AssemblyLicense(License.Summary, License.Text)]
-[assembly: AssemblyUri("https://eagle.to/")]
+[assembly: AssemblyUri("https://urn.to/r/eagle")]

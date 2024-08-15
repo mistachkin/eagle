@@ -138,8 +138,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool CheckAndMaybeModifyReferenceCount(
-            bool? increment,       /* in: OPTIONAL */
-            out int referenceCount /* out */
+            bool? increment,        /* in: OPTIONAL */
+            out long referenceCount /* out */
             )
         {
             ReturnCode code;
@@ -168,7 +168,7 @@ namespace Eagle._Components.Private
 
         public static bool IsSetup()
         {
-            int referenceCount;
+            long referenceCount;
 
             return CheckAndMaybeModifyReferenceCount(
                 null, out referenceCount) && (referenceCount > 0);
@@ -178,7 +178,7 @@ namespace Eagle._Components.Private
 
         public static bool IsShared()
         {
-            int referenceCount;
+            long referenceCount;
 
             return CheckAndMaybeModifyReferenceCount(
                 null, out referenceCount) && (referenceCount > 1);
@@ -190,7 +190,7 @@ namespace Eagle._Components.Private
             bool setup /* in */
             )
         {
-            int referenceCount;
+            long referenceCount;
 
             if (!CheckAndMaybeModifyReferenceCount(
                     setup, out referenceCount))

@@ -13,7 +13,12 @@ using System;
 
 #if NATIVE && WINDOWS
 using System.Collections.Generic;
+#endif
+
+using System.Globalization;
 using System.IO;
+
+#if NATIVE && WINDOWS
 using System.Runtime.CompilerServices;
 #endif
 
@@ -27,10 +32,12 @@ using System.Security.Permissions;
 #endif
 
 using System.Text;
-using System.Threading;
 #endif
 
+using System.Text.RegularExpressions;
+
 #if NATIVE && WINDOWS
+using System.Threading;
 using Microsoft.Win32.SafeHandles;
 #endif
 
@@ -42,8 +49,13 @@ using Eagle._Components.Private.Delegates;
 #endif
 
 using Eagle._Constants;
+using Eagle._Containers.Public;
 
 #if NATIVE && WINDOWS
+using SBF = Eagle._Components.Private.StringBuilderFactory;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
+using UNM = Eagle._Components.Private.WindowOps.UnsafeNativeMethods;
+
 using WindowDictionary = System.Collections.Generic.Dictionary<
     Eagle._Components.Public.AnyPair<System.IntPtr, long>,
     Eagle._Components.Public.Pair<string>>;
@@ -66,6 +78,20 @@ namespace Eagle._Components.Private
     internal static class WindowOps
     {
         #region Private Static Data
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static string DialogsDirectory = GlobalState.GetAssemblyPath();
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static string DialogsFileNameOnly = "dialogs.tsv";
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if NATIVE && WINDOWS
         #region Windows Terminal (Cascadia) Support
         //
@@ -178,6 +204,14 @@ namespace Eagle._Components.Private
         [ObjectId("b8dd6936-cd78-4a1f-b51e-e34b254e66bd")]
         internal static class UnsafeNativeMethods
         {
+            internal const uint GW_HWNDFIRST = 0;
+            internal const uint GW_HWNDLAST = 1;
+            internal const uint GW_HWNDNEXT = 2;
+            internal const uint GW_HWNDPREV = 3;
+            internal const uint GW_OWNER = 4;
+            internal const uint GW_CHILD = 5;
+            internal const uint GW_ENABLEDPOPUP = 6;
+
             internal const int SW_HIDE = 0;
             internal const int SW_SHOW = 5;
 
@@ -342,6 +376,17 @@ namespace Eagle._Components.Private
                 CharSet = CharSet.Auto,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
+            internal static extern IntPtr GetWindow(
+                IntPtr hWnd,
+                uint command
+            );
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.User32,
+                CharSet = CharSet.Auto,
+                CallingConvention = CallingConvention.Winapi,
+                SetLastError = true)]
             internal static extern IntPtr FindWindow(
                 string className,
                 string windowName
@@ -472,14 +517,12 @@ namespace Eagle._Components.Private
         {
             try
             {
-                IntPtr hMenu = UnsafeNativeMethods.GetSystemMenu(
-                    hWnd, false);
+                IntPtr hMenu = UNM.GetSystemMenu(hWnd, false);
 
                 if (hMenu != IntPtr.Zero)
                 {
-                    if(UnsafeNativeMethods.DeleteMenu(
-                            hMenu, UnsafeNativeMethods.SC_CLOSE,
-                            UnsafeNativeMethods.MF_BYCOMMAND))
+                    if (UNM.DeleteMenu(
+                            hMenu, UNM.SC_CLOSE, UNM.MF_BYCOMMAND))
                     {
                         return true;
                     }
@@ -533,7 +576,7 @@ namespace Eagle._Components.Private
 #if WINFORMS
             return FormOps.YesOrNo(text, caption, @default);
 #else
-            return @default;
+            return GetPromptResultForAutomation(text, caption, @default);
 #endif
         }
 
@@ -548,8 +591,159 @@ namespace Eagle._Components.Private
 #if WINFORMS
             return FormOps.YesOrNoOrCancel(text, caption, @default);
 #else
-            return @default;
+            return GetPromptResultForAutomation(text, caption, @default);
 #endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if TEST || !WINFORMS
+        //
+        // HACK: Include TEST in the list of compile-options that
+        //       enable this method, for use by unit tests, etc.
+        //
+        public static bool? GetPromptResultForAutomation(
+            string text,    /* in */
+            string caption, /* in: NOT USED */
+            bool? @default  /* in: OPTIONAL */
+            )
+        {
+            return GetPromptResultForAutomation<bool>(
+                text, caption, @default, null, AutomationFlags.Default);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // TODO: Consider caching parsed dialogs file and its created regular expressions?
+        //
+        public static T? GetPromptResultForAutomation<T>(
+            string text,                    /* in */
+            string caption,                 /* in: NOT USED */
+            T? @default,                    /* in: OPTIONAL */
+            CultureInfo cultureInfo,        /* in: OPTIONAL */
+            AutomationFlags automationFlags /* in */
+            ) where T : struct /* e.g. System.Windows.Forms.DialogResult */
+        {
+            Result error = null; /* REUSED */
+
+            try
+            {
+                string fileName = Path.Combine(
+                    DialogsDirectory, DialogsFileNameOnly);
+
+                if (!File.Exists(fileName))
+                    return @default; /* SUCCESS */
+
+                StringPairList list = null;
+
+                error = null;
+
+                if (Value.ExtractMappings(
+                        File.ReadAllText(fileName),
+                        automationFlags, ref list,
+                        ref error) != ReturnCode.Ok)
+                {
+                    return @default; /* FAILURE */
+                }
+
+                bool isTypeOfBool = typeof(T) == typeof(bool);
+
+                bool ignoreValueError = FlagOps.HasFlags(
+                    automationFlags, AutomationFlags.IgnoreValueError, true);
+
+                foreach (StringPair pair in list)
+                {
+                    Regex regEx = RegExOps.Create(pair.X);
+
+                    if (!regEx.Match(text).Success)
+                        continue;
+
+                    string value = pair.Y;
+
+                    if (String.IsNullOrEmpty(value))
+                        return @default; /* SUCCESS */
+
+                    Result localError;
+
+                    if (isTypeOfBool)
+                    {
+                        bool? boolValue = null;
+
+                        localError = null;
+
+                        if (Value.GetNullableBoolean2(
+                                value, ValueFlags.AnyBoolean,
+                                cultureInfo, ref boolValue,
+                                ref localError) != ReturnCode.Ok)
+                        {
+                            if (ignoreValueError)
+                            {
+                                continue;
+                            }
+                            else
+                            {
+                                error = localError;
+                                break;
+                            }
+                        }
+
+                        //
+                        // HACK: Yes, this happened.  Is
+                        //       there a better way here?
+                        //
+                        return (T)(object)boolValue; /* SUCCESS */
+                    }
+                    else
+                    {
+                        object enumValue;
+
+                        localError = null;
+
+                        enumValue = EnumOps.TryParse(
+                            typeof(T), value, true, true,
+                            ref localError);
+
+                        if (!(enumValue is T))
+                        {
+                            if (ignoreValueError)
+                            {
+                                continue;
+                            }
+                            else
+                            {
+                                error = localError;
+                                break;
+                            }
+                        }
+
+                        return (T)enumValue; /* SUCCESS */
+                    }
+                }
+
+                return @default; /* FAILURE */
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return @default; /* FAILURE */
+            }
+            finally
+            {
+                //
+                // HACK: Normally, errors in a method like this
+                //       would not be serious enough to merit a
+                //       formal complaint; however, any type of
+                //       error in this method should be *quite*
+                //       rare (and this method may be called
+                //       from code that is not fault tolerant),
+                //       which means that a formal complaint
+                //       here is probably a really good idea.
+                //
+                if (error != null)
+                    DebugOps.Complain(ReturnCode.Error, error);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -795,9 +989,8 @@ namespace Eagle._Components.Private
         {
             try
             {
-                if (UnsafeNativeMethods.PostThreadMessage(
-                        ConversionOps.ToInt(threadId),
-                        UnsafeNativeMethods.WM_NULL,
+                if (UNM.PostThreadMessage(
+                        ConversionOps.ToInt(threadId), UNM.WM_NULL,
                         UIntPtr.Zero, IntPtr.Zero))
                 {
                     return true;
@@ -806,7 +999,7 @@ namespace Eagle._Components.Private
                 {
                     int lastError = Marshal.GetLastWin32Error();
 
-                    if (lastError == UnsafeNativeMethods.ERROR_INVALID_THREAD_ID)
+                    if (lastError == UNM.ERROR_INVALID_THREAD_ID)
                         return false;
 
                     error = NativeOps.GetErrorMessage(lastError);
@@ -860,9 +1053,9 @@ namespace Eagle._Components.Private
                             GlobalState.GetCurrentNativeThreadId(),
                             ref error))
                     {
-                        uint flags = UnsafeNativeMethods.QS_ALLINPUT;
+                        uint flags = UNM.QS_ALLINPUT;
 
-                        if (UnsafeNativeMethods.GetQueueStatus(flags) != 0)
+                        if (UNM.GetQueueStatus(flags) != 0)
 #endif
                             FormOps.DoEvents();
 #if NATIVE && WINDOWS
@@ -905,9 +1098,58 @@ namespace Eagle._Components.Private
         #region Windows Terminal (Cascadia) Support
         public static bool IsWindowsTerminal()
         {
-            return CommonOps.Environment.DoesVariableExist(
-                EnvVars.WindowsTerminalSession);
+            if (CommonOps.Environment.DoesVariableExist(
+                    EnvVars.WindowsTerminalSession))
+            {
+                return true;
+            }
+
+#if NATIVE && WINDOWS
+            if (!PlatformOps.IsWindowsOperatingSystem())
+                return false;
+
+            IntPtr hWnd = NativeConsole.GetWindow();
+
+            if (IsWindowsTerminalClass(hWnd))
+                return true;
+
+            IntPtr hWndOwner = UNM.GetWindow(hWnd, UNM.GW_OWNER);
+
+            if (IsWindowsTerminalClass(hWndOwner))
+                return true;
+#endif
+
+            return false;
         }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NATIVE && WINDOWS
+        private static bool IsWindowsTerminalClass(
+            IntPtr hWnd /* in */
+            )
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            StringBuilder buffer = SBF.CreateNoCache(
+                null, UNM.MAX_CLASS_NAME); /* EXEMPT */
+
+            if (UNM.GetClassName(
+                    hWnd, buffer, UNM.MAX_CLASS_NAME) <= 0)
+            {
+                return false;
+            }
+
+            if (SharedStringOps.SystemEquals(
+                    buffer.ToString(), CascadiaClassName1))
+            {
+                return true;
+            }
+
+            return false;
+        }
+#endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1063,6 +1305,31 @@ namespace Eagle._Components.Private
                 if (!force && (handle != IntPtr.Zero))
                     return handle;
 
+                handle = NativeConsole.GetWindow(ref error);
+
+                if (handle == IntPtr.Zero)
+                    return IntPtr.Zero;
+
+                if (IsWindowsTerminalClass(handle))
+                {
+                    /* IGNORED */
+                    Interlocked.CompareExchange(
+                        ref hWndCascadiaMain, handle, IntPtr.Zero);
+
+                    return handle;
+                }
+
+                handle = UNM.GetWindow(handle, UNM.GW_OWNER);
+
+                if (IsWindowsTerminalClass(handle))
+                {
+                    /* IGNORED */
+                    Interlocked.CompareExchange(
+                        ref hWndCascadiaMain, handle, IntPtr.Zero);
+
+                    return handle;
+                }
+
                 WindowEnumerator windowEnumerator = new WindowEnumerator();
                 bool returnValue = false;
 
@@ -1087,7 +1354,13 @@ namespace Eagle._Components.Private
                     handle = key.X;
 
                     if (handle != IntPtr.Zero)
+                    {
+                        /* IGNORED */
+                        Interlocked.CompareExchange(
+                            ref hWndCascadiaMain, handle, IntPtr.Zero);
+
                         return handle;
+                    }
                 }
 
                 error = String.Format(
@@ -1124,7 +1397,7 @@ namespace Eagle._Components.Private
 
                 string className = CascadiaClassName2;
 
-                handle = UnsafeNativeMethods.FindWindowEx(
+                handle = UNM.FindWindowEx(
                     handle, IntPtr.Zero, className, null);
 
                 if (handle == IntPtr.Zero)
@@ -1132,7 +1405,7 @@ namespace Eagle._Components.Private
 
                 className = CascadiaClassName3;
 
-                handle = UnsafeNativeMethods.FindWindowEx(
+                handle = UNM.FindWindowEx(
                     handle, IntPtr.Zero, className, null);
 
                 if (handle == IntPtr.Zero)
@@ -1185,15 +1458,15 @@ namespace Eagle._Components.Private
                 if (hWnd != IntPtr.Zero)
                 {
                     /* IGNORED */
-                    smallIcon = UnsafeNativeMethods.SendMessage(
-                        hWnd, UnsafeNativeMethods.WM_GETICON,
-                        new UIntPtr(UnsafeNativeMethods.ICON_SMALL),
+                    smallIcon = UNM.SendMessage(
+                        hWnd, UNM.WM_GETICON,
+                        new UIntPtr(UNM.ICON_SMALL),
                         IntPtr.Zero);
 
                     /* IGNORED */
-                    bigIcon = UnsafeNativeMethods.SendMessage(
-                        hWnd, UnsafeNativeMethods.WM_GETICON,
-                        new UIntPtr(UnsafeNativeMethods.ICON_BIG),
+                    bigIcon = UNM.SendMessage(
+                        hWnd, UNM.WM_GETICON,
+                        new UIntPtr(UNM.ICON_BIG),
                         IntPtr.Zero);
 
                     return true;
@@ -1219,21 +1492,30 @@ namespace Eagle._Components.Private
             IntPtr hIcon
             )
         {
+            return SetIcons(hWnd, hIcon, hIcon);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool SetIcons(
+            IntPtr hWnd,
+            IntPtr hSmallIcon,
+            IntPtr hBigIcon
+            )
+        {
             try
             {
                 if (hWnd != IntPtr.Zero)
                 {
                     /* IGNORED */
-                    UnsafeNativeMethods.SendMessage(
-                        hWnd, UnsafeNativeMethods.WM_SETICON,
-                        new UIntPtr(UnsafeNativeMethods.ICON_SMALL),
-                        hIcon);
+                    UNM.SendMessage(hWnd,
+                        UNM.WM_SETICON, new UIntPtr(
+                        UNM.ICON_SMALL), hSmallIcon);
 
                     /* IGNORED */
-                    UnsafeNativeMethods.SendMessage(
-                        hWnd, UnsafeNativeMethods.WM_SETICON,
-                        new UIntPtr(UnsafeNativeMethods.ICON_BIG),
-                        hIcon);
+                    UNM.SendMessage(hWnd,
+                        UNM.WM_SETICON, new UIntPtr(
+                        UNM.ICON_BIG), hBigIcon);
 
                     return true;
                 }
@@ -1259,13 +1541,13 @@ namespace Eagle._Components.Private
         {
             try
             {
-                UnsafeNativeMethods.LASTINPUTINFO lastInputInfo =
-                    new UnsafeNativeMethods.LASTINPUTINFO();
+                UNM.LASTINPUTINFO lastInputInfo =
+                    new UNM.LASTINPUTINFO();
 
                 lastInputInfo.cbSize = (uint)Marshal.SizeOf(
-                    typeof(UnsafeNativeMethods.LASTINPUTINFO));
+                    typeof(UNM.LASTINPUTINFO));
 
-                if (UnsafeNativeMethods.GetLastInputInfo(
+                if (UNM.GetLastInputInfo(
                         ref lastInputInfo))
                 {
                     result = lastInputInfo.dwTime;
@@ -1427,15 +1709,15 @@ namespace Eagle._Components.Private
                 try
                 {
                     string text = null;
-                    int length = UnsafeNativeMethods.GetWindowTextLength(hWnd);
+                    int length = UNM.GetWindowTextLength(hWnd);
 
                     if (length > 0)
                     {
                         length++; /* NUL terminator */
 
-                        buffer = StringBuilderFactory.CreateNoCache(buffer, length); /* EXEMPT */
+                        buffer = SBF.CreateNoCache(buffer, length); /* EXEMPT */
 
-                        if (UnsafeNativeMethods.GetWindowText(
+                        if (UNM.GetWindowText(
                                 hWnd, buffer, length) > 0)
                         {
                             text = buffer.ToString();
@@ -1443,11 +1725,11 @@ namespace Eagle._Components.Private
                     }
 
                     string @class = null;
-                    length = UnsafeNativeMethods.MAX_CLASS_NAME;
+                    length = UNM.MAX_CLASS_NAME;
 
-                    buffer = StringBuilderFactory.CreateNoCache(buffer, length); /* EXEMPT */
+                    buffer = SBF.CreateNoCache(buffer, length); /* EXEMPT */
 
-                    if (UnsafeNativeMethods.GetClassName(
+                    if (UNM.GetClassName(
                             hWnd, buffer, length) > 0)
                     {
                         @class = buffer.ToString();
@@ -1456,8 +1738,7 @@ namespace Eagle._Components.Private
                     int processId = 0;
 
                     /* IGNORED */
-                    UnsafeNativeMethods.GetWindowThreadProcessId(
-                        hWnd, ref processId);
+                    UNM.GetWindowThreadProcessId(hWnd, ref processId);
 
                     windows[new AnyPair<IntPtr, long>(hWnd, processId)] =
                         new Pair<string>(@class, text);
@@ -1492,7 +1773,7 @@ namespace Eagle._Components.Private
             {
                 try
                 {
-                    returnValue = UnsafeNativeMethods.EnumWindows(
+                    returnValue = UNM.EnumWindows(
                         EnumWindowCallback, IntPtr.Zero);
 
                     if (!returnValue)
@@ -1589,9 +1870,8 @@ namespace Eagle._Components.Private
             {
                 if (handle != IntPtr.Zero)
                 {
-                    returnValue = UnsafeNativeMethods.ShowWindow(
-                        handle, show ? UnsafeNativeMethods.SW_SHOW :
-                        UnsafeNativeMethods.SW_HIDE);
+                    returnValue = UNM.ShowWindow(
+                        handle, show ? UNM.SW_SHOW : UNM.SW_HIDE);
 
                     return ReturnCode.Ok;
                 }
@@ -1627,9 +1907,9 @@ namespace Eagle._Components.Private
             {
                 if (handle != IntPtr.Zero)
                 {
-                    IntPtr result = UnsafeNativeMethods.SendMessage(
-                        handle, UnsafeNativeMethods.WM_CLOSE,
-                        UIntPtr.Zero, IntPtr.Zero);
+                    IntPtr result = UNM.SendMessage(
+                        handle, UNM.WM_CLOSE, UIntPtr.Zero,
+                        IntPtr.Zero);
 
                     returnValue = (result == IntPtr.Zero);
 
@@ -1667,15 +1947,15 @@ namespace Eagle._Components.Private
         {
             try
             {
-                int length = UnsafeNativeMethods.GetWindowTextLength(handle);
+                int length = UNM.GetWindowTextLength(handle);
 
                 if (length > 0)
                 {
                     length++; /* NUL terminator */
 
-                    StringBuilder buffer = StringBuilderFactory.Create(length);
+                    StringBuilder buffer = SBF.Create(length);
 
-                    if (UnsafeNativeMethods.GetWindowText(
+                    if (UNM.GetWindowText(
                             handle, buffer, length) > 0)
                     {
                         return StringBuilderCache.GetStringAndRelease(ref buffer);
@@ -1713,7 +1993,7 @@ namespace Eagle._Components.Private
                     int localThreadId;
                     int localProcessId = 0;
 
-                    localThreadId = UnsafeNativeMethods.GetWindowThreadProcessId(
+                    localThreadId = UNM.GetWindowThreadProcessId(
                         handle, ref localProcessId);
 
                     if (localThreadId != 0)
@@ -1771,16 +2051,15 @@ namespace Eagle._Components.Private
             {
                 if (handle != IntPtr.Zero)
                 {
-                    UIntPtr virtualKey = new UIntPtr(
-                        UnsafeNativeMethods.VK_RETURN);
+                    UIntPtr virtualKey = new UIntPtr(UNM.VK_RETURN);
 
-                    if (UnsafeNativeMethods.PostMessage(
-                            handle, UnsafeNativeMethods.WM_KEYDOWN,
-                            virtualKey, IntPtr.Zero))
+                    if (UNM.PostMessage(
+                            handle, UNM.WM_KEYDOWN, virtualKey,
+                            IntPtr.Zero))
                     {
-                        if (UnsafeNativeMethods.PostMessage(
-                                handle, UnsafeNativeMethods.WM_KEYUP,
-                                virtualKey, IntPtr.Zero))
+                        if (UNM.PostMessage(
+                                handle, UNM.WM_KEYUP, virtualKey,
+                                IntPtr.Zero))
                         {
                             return ReturnCode.Ok;
                         }
@@ -1957,15 +2236,15 @@ namespace Eagle._Components.Private
 
                 if (userInterface)
                 {
-                    uint wakeMask = UnsafeNativeMethods.QS_ALLINPUT;
-                    uint flags = UnsafeNativeMethods.MWMO_DEFAULT;
+                    uint wakeMask = UNM.QS_ALLINPUT;
+                    uint flags = UNM.MWMO_DEFAULT;
 
-                    returnValue = UnsafeNativeMethods.MsgWaitForMultipleObjectsEx(
+                    returnValue = UNM.MsgWaitForMultipleObjectsEx(
                         1, handles, (uint)timeout, wakeMask, flags);
                 }
                 else
                 {
-                    returnValue = UnsafeNativeMethods.WaitForMultipleObjectsEx(
+                    returnValue = UNM.WaitForMultipleObjectsEx(
                         1, handles, false, (uint)timeout, true);
                 }
 
@@ -2173,24 +2452,26 @@ namespace Eagle._Components.Private
                 IntPtr[] handles;
 
                 if (!DangerousGetHandles(
-                        waitHandles, out length, out safeWaitHandles, out successes,
-                        out handles, ref error))
+                        waitHandles, out length, out safeWaitHandles,
+                        out successes, out handles, ref error))
                 {
                     return ReturnCode.Error;
                 }
 
                 if (userInterface)
                 {
-                    uint wakeMask = UnsafeNativeMethods.QS_ALLINPUT;
-                    uint flags = UnsafeNativeMethods.MWMO_DEFAULT;
+                    uint wakeMask = UNM.QS_ALLINPUT;
+                    uint flags = UNM.MWMO_DEFAULT;
 
-                    returnValue = UnsafeNativeMethods.MsgWaitForMultipleObjectsEx(
-                        (uint)length, handles, (uint)timeout, wakeMask, flags);
+                    returnValue = UNM.MsgWaitForMultipleObjectsEx(
+                        (uint)length, handles, (uint)timeout,
+                        wakeMask, flags);
                 }
                 else
                 {
-                    returnValue = UnsafeNativeMethods.WaitForMultipleObjectsEx(
-                        (uint)length, handles, false, (uint)timeout, true);
+                    returnValue = UNM.WaitForMultipleObjectsEx(
+                        (uint)length, handles, false, (uint)timeout,
+                        true);
                 }
 
                 return ReturnCode.Ok;

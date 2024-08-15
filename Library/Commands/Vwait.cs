@@ -93,6 +93,8 @@ namespace Eagle._Commands
                                 Index.Invalid, "-nocomplain", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid,
                                 Index.Invalid, "-leaveresult", null),
+                            new Option(null, OptionFlags.Unsafe | OptionFlags.Restricted,
+                                Index.Invalid, Index.Invalid, "-resetcancel", null),
                             new Option(null,
                                 OptionFlags.MustHaveValue | OptionFlags.Unsafe,
                                 Index.Invalid, Index.Invalid, "-locked", null),
@@ -168,6 +170,11 @@ namespace Eagle._Commands
                                     if (options.IsPresent("-nocomplain"))
                                         noComplain = true;
 
+                                    bool resetCancel = false;
+
+                                    if (options.IsPresent("-resetcancel"))
+                                        resetCancel = true;
+
                                     bool leaveResult = false;
 
                                     if (options.IsPresent("-leaveresult"))
@@ -230,6 +237,7 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Error)
                                                     {
+                                                        /* IGNORED */
                                                         Engine.AddErrorInformation(
                                                             interpreter, result, String.Format(
                                                                 "{0}    (\"vwait -locked\" body line {1})",
@@ -276,11 +284,33 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            code = interpreter.WaitVariable(eventWaitFlags,
-                                                variableFlags, arguments[argumentIndex],
+                                            bool notReady = false;
+                                            bool timedOut = false; /* NOT USED */ /* TODO: New option? */
+
+                                            code = interpreter.WaitVariable(
+                                                eventWaitFlags, variableFlags, arguments[argumentIndex],
                                                 PerformanceOps.GetMicrosecondsFromMilliseconds(timeout),
-                                                threadId, limit, @event, ref changed,
-                                                ref result);
+                                                threadId, limit, @event, ref notReady, ref timedOut,
+                                                ref changed, ref result);
+
+                                            //
+                                            // HACK: *MAJOR* Upon a failure only, if the (restricted)
+                                            //       "reset cancel" flag was specified via script and
+                                            //       the wait operation was stopped due to interpreter
+                                            //       readiness issues, then forcibly reset the script
+                                            //       cancellation state.  This flag is designed for a
+                                            //       scenario where top-level scripts wish to permit
+                                            //       child scripts to be canceled without completely
+                                            //       bailing out of the process, e.g. "hotKey.eagle".
+                                            //
+                                            // TODO: Perhaps there is a more elegant solution to this
+                                            //       situation?
+                                            //
+                                            if ((code != ReturnCode.Ok) && resetCancel && notReady)
+                                            {
+                                                code = interpreter.ResetCancel(
+                                                    CancelFlags.Vwait, ref result);
+                                            }
                                         }
 
                                         if ((code != ReturnCode.Ok) && noComplain)

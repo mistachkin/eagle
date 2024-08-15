@@ -6,6 +6,7 @@
 *\*.cd
 *\*.crc
 *\*.csv
+*\*.DESKTOP-*
 *\*.dgml
 *\*.docstates
 *\*.done

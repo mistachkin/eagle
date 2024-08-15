@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Specialized;
+using System.IO;
 using Eagle._Attributes;
 using Eagle._Containers.Public;
 
@@ -29,7 +30,8 @@ namespace Eagle._Components.Public
             byte[] rawData,              /* in */
             NameValueCollection data,    /* in */
             int? timeout,                /* in */
-            bool trusted,                /* in */
+            bool? trusted,               /* in */
+            Stream stream,               /* in */
             byte[] bytes,                /* in */
             bool viaClient               /* in */
             )
@@ -44,6 +46,7 @@ namespace Eagle._Components.Public
             this.data = data;
             this.timeout = timeout;
             this.trusted = trusted;
+            this.stream = stream;
             this.bytes = bytes;
             this.viaClient = viaClient;
         }
@@ -134,11 +137,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        private bool trusted;
-        public bool Trusted
+        private bool? trusted;
+        public bool? Trusted
         {
             get { CheckDisposed(); return trusted; }
             set { CheckDisposed(); trusted = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private Stream stream;
+        public Stream Stream
+        {
+            get { CheckDisposed(); return stream; }
+            set { CheckDisposed(); stream = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -169,7 +181,8 @@ namespace Eagle._Components.Public
 
             return new WebClientData(
                 arguments, callbackFlags, uri, method, fileName,
-                rawData, data, timeout, trusted, bytes, viaClient);
+                rawData, data, timeout, trusted, stream, bytes,
+                viaClient);
         }
         #endregion
 
@@ -180,8 +193,12 @@ namespace Eagle._Components.Public
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
-            if (disposed && Engine.IsThrowOnDisposed(null, false))
-                throw new ObjectDisposedException(typeof(WebClientData).Name);
+            if (disposed &&
+                Engine.IsThrowOnDisposed(null, false))
+            {
+                throw new ObjectDisposedException(
+                    typeof(WebClientData).Name);
+            }
 #endif
         }
 
@@ -210,6 +227,7 @@ namespace Eagle._Components.Public
                         data = null;
                         timeout = null;
                         trusted = false;
+                        stream = null;
                         bytes = null;
                         viaClient = false;
                     }

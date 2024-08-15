@@ -72,6 +72,8 @@ namespace Eagle._Components.Private
 #if SHELL
         public static InteractiveLoopFlags InteractiveLoopFlags =
             InteractiveLoopFlags.Default;
+
+        public static PromptFlags PromptFlags = PromptFlags.Default;
 #endif
 
         ///////////////////////////////////////////////////////////////////////

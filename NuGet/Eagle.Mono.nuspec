@@ -7,7 +7,7 @@
     <authors>Eagle Development Team</authors>
     <description>An implementation of the Tcl scripting language.  This package is built with options that make it more suitable for use with Mono.  Features specific to Windows and/or the .NET Framework will be unavailable.</description>
     <language>en-US</language>
-    <projectUrl>https://eagle.to/</projectUrl>
+    <projectUrl>https://urn.to/r/eagle</projectUrl>
     <iconUrl>https://eagle.to/images/eagle128.png</iconUrl>
     <licenseUrl>https://eagle.to/enterprise/license.html</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>

@@ -20,31 +20,31 @@ using Eagle._Attributes;
 ///////////////////////////////////////////////////////////////////////////////
 
 #if PATCHLEVEL
-[assembly: AssemblyVersion("1.0.8613.27347")]
+[assembly: AssemblyVersion("1.0.8734.30319")]
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #if STATIC && ASSEMBLY_DATETIME
-[assembly: AssemblyDateTime("2023.11.30T00:00:00.000 +0000")]
+[assembly: AssemblyDateTime("2024.07.20T00:00:00.000 +0000")]
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #if STATIC && ASSEMBLY_RELEASE
-[assembly: AssemblyRelease("Fire Dragon Series, Beta 54")]
+[assembly: AssemblyRelease("Fire DRAGON Series, Beta 55")]
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #if STATIC && SOURCE_ID
-[assembly: AssemblySourceId("687511caf5977ca1c8261dba4d77e6bbcf444161")]
+[assembly: AssemblySourceId("29187b7247d15136ccc8142f89e70b0406be61cf")]
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #if STATIC && SOURCE_TIMESTAMP
-[assembly: AssemblySourceTimeStamp("2024-02-29 17:27:11 UTC")]
+[assembly: AssemblySourceTimeStamp("2024-08-13 17:22:12 UTC")]
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////

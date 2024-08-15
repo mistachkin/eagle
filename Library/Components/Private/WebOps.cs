@@ -13,7 +13,18 @@ using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Net;
+
+#if WEB
+using System.Web;
+
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
+using Microsoft.Extensions.Primitives;
+using Microsoft.AspNetCore.Http;
+#endif
+#endif
+
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
@@ -22,6 +33,7 @@ using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
+using PerfOps = Eagle._Components.Private.PerformanceOps;
 
 using SecurityProtocolType = System.Net.SecurityProtocolType;
 
@@ -54,6 +66,10 @@ using UploadFileTriplet = Eagle._Components.Public.AnyTriplet<
     System.Net.WebClient, System.Uri, Eagle._Components.Public.AnyPair<
         string, string>>;
 
+#if NET_STANDARD_21
+using Index = Eagle._Constants.Index;
+#endif
+
 namespace Eagle._Components.Private
 {
     [ObjectId("47133ca0-868a-4403-8788-530721d2f302")]
@@ -65,7 +81,21 @@ namespace Eagle._Components.Private
         //       this class will fail, preventing any network access using
         //       the WebClient class.
         //
+        // HACK: This is purposely not read-only.
+        //
         private static int offlineLevels = 0;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: *MAJOR* If this is non-zero, all requests may be retried
+        //       UP TO this number of retries.  By default, this is zero,
+        //       because there may be significant unintended consequences
+        //       to this aggressive retry behavior.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static int maximumRetries = 0;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -81,30 +111,139 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
+        // NOTE: The default timeout for a sleep, which is normally used
+        //       only between retrying a specific request.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static int? DefaultSleepTime = null; /* milliseconds */
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // HACK: This is purposely not read-only.
         //
         private static bool DefaultViaClient = false;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool DefaultNoProtocol = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region TimeoutWebClient Helper Class
+        #region TagAndTimeoutWebClient Helper Class
         [ObjectId("c0cfe212-92b3-47f9-a1b6-fa0f69f6ff04")]
-        private sealed class TimeoutWebClient : WebClient
+        private sealed class TagAndTimeoutWebClient : WebClient
         {
-            #region Private Data
-            private int? timeout;
-            #endregion
-
-            ///////////////////////////////////////////////////////////////////
-
             #region Public Constructors
-            public TimeoutWebClient(
+            public TagAndTimeoutWebClient(
+                string tag,  /* in */
                 int? timeout /* in */
                 )
                 : base()
             {
+                this.tag = tag;
                 this.timeout = timeout;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////
+
+            #region Public Properties
+            private string tag;
+            public string Tag
+            {
+                get { return tag; }
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            private int? timeout;
+            public int? Timeout
+            {
+                get { return timeout; }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////
+
+            #region Private Methods
+            private static void MaybeSetTagHeader(
+                WebRequest webRequest, /* in */
+                string tag             /* in */
+                )
+            {
+                if (String.IsNullOrEmpty(tag))
+                    return;
+
+                if (webRequest == null)
+                    return;
+
+                WebHeaderCollection headers = webRequest.Headers;
+
+                if (headers == null)
+                    return;
+
+                headers[WebHeaders.Tag] = tag;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            private static void MaybeSetVersionHeader(
+                WebRequest webRequest /* in */
+                )
+            {
+                string version = RuntimeOps.GetVersion(
+                    VersionFlags.Default);
+
+                if (String.IsNullOrEmpty(version))
+                    return;
+
+                if (webRequest == null)
+                    return;
+
+                WebHeaderCollection headers = webRequest.Headers;
+
+                if (headers == null)
+                    return;
+
+                headers[WebHeaders.Version] = version;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            private static void MaybeSetUserAgent(
+                WebRequest webRequest, /* in */
+                string tag             /* in */
+                )
+            {
+                if (String.IsNullOrEmpty(tag))
+                    return;
+
+                HttpWebRequest httpWebRequest =
+                    webRequest as HttpWebRequest;
+
+                if (httpWebRequest == null)
+                    return;
+
+                string value = httpWebRequest.UserAgent;
+
+                if (value != null)
+                {
+                    value = String.Format(
+                        "{0}{1}{2}", value,
+                        Characters.Space, tag);
+                }
+                else
+                {
+                    value = tag;
+                }
+
+                httpWebRequest.UserAgent = value;
             }
             #endregion
 
@@ -116,6 +255,10 @@ namespace Eagle._Components.Private
                 )
             {
                 WebRequest webRequest = base.GetWebRequest(address);
+
+                MaybeSetTagHeader(webRequest, tag);
+                MaybeSetVersionHeader(webRequest);
+                MaybeSetUserAgent(webRequest, tag);
 
                 if (timeout != null)
                     webRequest.Timeout = (int)timeout;
@@ -142,9 +285,17 @@ namespace Eagle._Components.Private
 
             bool empty = HostOps.HasEmptyContent(detailFlags);
             StringPairList localList = new StringPairList();
+            int count; /* REUSED */
 
-            if (empty || (offlineLevels != 0))
-                localList.Add("OfflineLevels", offlineLevels.ToString());
+            count = Interlocked.CompareExchange(ref offlineLevels, 0, 0);
+
+            if (empty || (count != 0))
+                localList.Add("OfflineLevels", count.ToString());
+
+            count = Interlocked.CompareExchange(ref maximumRetries, 0, 0);
+
+            if (empty || (count != 0))
+                localList.Add("MaximumRetries", count.ToString());
 
             if (empty || (DefaultTimeout != null))
             {
@@ -164,14 +315,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region Private Error Helper Methods
+        private static void MaybeAddError(
+            ref ResultList errors, /* in, out */
+            Result error           /* in: OPTIONAL */
+            )
+        {
+            if (error != null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                //
+                // NOTE: Avoid duplicates here by first
+                //       checking for an existing exact
+                //       match.
+                //
+                if (errors.Find(error) == Index.Invalid)
+                    errors.Add(error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static Result PrepareErrors(
+            ResultList errors, /* in */
+            int retries        /* in */
+            )
+        {
+            if (errors != null)
+            {
+                if (retries > 0)
+                    retries--;
+
+                errors.Insert(0, String.Format(
+                    "Retried web request {0} time(s).",
+                    retries));
+            }
+
+            return errors;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Event Helper Methods
         private static StringList GetAsyncCompletedArguments(
-            Uri uri,                          /* in */
-            string method,                    /* in */
-            byte[] rawData,                   /* in */
-            NameValueCollection data,         /* in */
-            string fileName,                  /* in */
-            AsyncCompletedEventArgs eventArgs /* in */
+            Uri uri,                          /* in: OPTIONAL */
+            string method,                    /* in: OPTIONAL */
+            byte[] rawData,                   /* in: OPTIONAL */
+            NameValueCollection data,         /* in: OPTIONAL */
+            string fileName,                  /* in: OPTIONAL */
+            AsyncCompletedEventArgs eventArgs /* in: OPTIONAL */
             )
         {
             StringList result = new StringList();
@@ -226,6 +421,689 @@ namespace Eagle._Components.Private
             }
 
             return result;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region HTTPS Security Protocol Helper Methods
+#if TEST
+        public static ReturnCode ProbeSecurityProtocol(
+            ref StringList list, /* out */
+            ref Result error     /* out */
+            )
+        {
+            _SecurityProtocolType? protocol =
+                _Tests.Default.TestProbeSecurityProtocol(ref error);
+
+            if (protocol == null)
+                return ReturnCode.Error;
+
+            if (list == null)
+                list = new StringList();
+
+            list.Add("probedOk");
+            list.Add(((_SecurityProtocolType)protocol).ToString());
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode GetSecurityProtocol(
+            ref StringList list, /* out */
+            ref Result error     /* out */
+            )
+        {
+            SecurityProtocolType protocol;
+
+            try
+            {
+                protocol = ServicePointManager.SecurityProtocol;
+            }
+            catch (Exception e)
+            {
+                error = e;
+                return ReturnCode.Error;
+            }
+
+            ResultList results = null;
+
+            if (_Tests.Default.TestGetSecurityProtocol(
+                    ref results) != ReturnCode.Ok)
+            {
+                error = results;
+                return ReturnCode.Error;
+            }
+
+            if (list == null)
+                list = new StringList();
+
+            list.Add("managerOk");
+
+            list.Add(_Tests.Default.TestSecurityProtocolToString(
+                (_SecurityProtocolType)protocol, null, true));
+
+            list.Add("bestOk");
+            list.Add(results);
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode SetSecurityProtocol(
+            bool force,      /* in */
+            bool obsolete,   /* in */
+            ref Result error /* out */
+            )
+        {
+            ReturnCode code = ReturnCode.Error;
+            ResultList results = null; /* REUSED */
+
+            if ((_Tests.Default.TestSetupSecurityProtocol(
+                    force, !obsolete, ref results) == ReturnCode.Ok) &&
+                (_Tests.Default.TestSetSecurityProtocol(
+                    ref results) == ReturnCode.Ok))
+            {
+                code = ReturnCode.Ok;
+            }
+
+            TraceOps.DebugTrace(
+                "SetSecurityProtocol", null, typeof(WebOps).Name,
+                TracePriority.NetworkDebug, false, "code", code,
+                "results", results);
+
+            if (code != ReturnCode.Ok)
+                error = results;
+
+            return code;
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Engine Helper Methods
+        //
+        // WARNING: This method is called directly by the engine.
+        //
+        public static Stream OpenScriptStream(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in */
+            Uri uri,                 /* in */
+            int? maximumRetries,     /* in: OPTIONAL */
+            int? timeout,            /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Stream stream;
+                Result localError = null;
+
+                stream = OpenScriptStreamOnce(
+                    interpreter, clientData, uri, timeout,
+                    ref localError);
+
+                if (stream != null)
+                    return stream;
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.OpenScriptStream;
+
+                    object result = null;
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                return result as Stream;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return null;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                return new MemoryStream();
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static Stream OpenScriptStreamOnce(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            Uri uri,                 /* in */
+            int? timeout,            /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Uri = uri;
+                webClientData.Timeout = timeout;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.OpenScriptStream;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return webClientData.Stream;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+
+            viaClient:
+
+                return OpenScriptStreamViaClient(
+                    interpreter, clientData, uri, timeout, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static Stream OpenScriptStreamViaClient(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            Uri uri,                 /* in */
+            int? timeout,            /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            try
+            {
+                Result localError = null;
+
+                using (WebClient webClient = CreateClient(
+                        interpreter, "OpenScriptStream",
+                        clientData, timeout, ref localError))
+                {
+                    if (webClient != null)
+                    {
+                        return webClient.OpenRead(uri);
+                    }
+                    else if (localError != null)
+                    {
+                        error = localError;
+                    }
+                    else
+                    {
+                        error = "could not create web client";
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(WebOps).Name,
+                    TracePriority.NetworkError);
+
+                error = e;
+            }
+
+            return null;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Web Download / Upload Helper Methods
+        private static WebTransferCallback GetTransferCallback(
+            Interpreter interpreter /* in: OPTIONAL */
+            )
+        {
+            return (interpreter != null) ?
+                interpreter.WebTransferCallback : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode InvokeTransferCallback(
+            WebTransferCallback callback, /* in */
+            Interpreter interpreter,      /* in: OPTIONAL */
+            WebFlags webFlags,            /* in */
+            IClientData clientData,       /* in: OPTIONAL */
+            ref Result error              /* out */
+            )
+        {
+            try
+            {
+                TraceOps.DebugTrace("InvokeTransferCallback", null,
+                    typeof(WebOps).Name, TracePriority.NetworkDebug2,
+                    true, "callback", callback, "interpreter",
+                    interpreter, "webFlags", webFlags, "clientData",
+                    clientData, "error", error);
+
+                if (callback == null)
+                {
+                    error = "invalid web transfer callback";
+                    return ReturnCode.Error;
+                }
+
+                return callback( /* throw */
+                    interpreter, webFlags, clientData, ref error);
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(WebOps).Name,
+                    TracePriority.NetworkError);
+
+                error = e;
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static WebErrorCallback GetErrorCallback(
+            Interpreter interpreter /* in: OPTIONAL */
+            )
+        {
+            return (interpreter != null) ?
+                interpreter.WebErrorCallback : null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode InvokeErrorCallback(
+            WebErrorCallback callback, /* in */
+            Interpreter interpreter,   /* in */
+            IClientData clientData,    /* in */
+            Uri uri,                   /* in */
+            WebFlags webFlags,         /* in */
+            int retries,               /* in */
+            int? timeout,              /* in */
+            int? maximumRetries,       /* in */
+            ref object result,         /* in, out */
+            ref ResultList errors      /* in, out */
+            )
+        {
+            try
+            {
+                TraceOps.DebugTrace("InvokeErrorCallback", null,
+                    typeof(WebOps).Name, TracePriority.NetworkDebug2,
+                    true, "callback", callback, "interpreter",
+                    interpreter, "webFlags", webFlags, "retries",
+                    retries, "clientData", clientData, "uri", uri,
+                    "timeout", timeout, "maximumRetries",
+                    maximumRetries, "result", result, "errors",
+                    errors);
+
+                if (callback == null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add("invalid web error callback");
+                    return ReturnCode.Error;
+                }
+
+                return callback( /* throw */
+                    interpreter, clientData, uri, webFlags,
+                    retries, timeout, maximumRetries, ref result,
+                    ref errors);
+            }
+            catch (Exception e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(WebOps).Name,
+                    TracePriority.NetworkError);
+
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add(e);
+                return ReturnCode.Error;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int? GetTimeout(
+            WebClient webClient /* in: OPTIONAL */
+            )
+        {
+            if (webClient == null)
+                return null;
+
+            TagAndTimeoutWebClient localWebClient =
+                webClient as TagAndTimeoutWebClient;
+
+            if (localWebClient == null)
+                return null;
+
+            return localWebClient.Timeout;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int GetMillisecondsForRetry(
+            int retries,            /* in */
+            int maximumMilliseconds /* in */
+            )
+        {
+            int milliseconds = (DefaultSleepTime != null) ?
+                (int)DefaultSleepTime :            /* e.g. 500ms */
+                4 * EventManager.MinimumSleepTime; /* e.g. 200ms */
+
+            milliseconds *= retries;
+
+            if (milliseconds < 0)
+                milliseconds = 0;
+
+            if (milliseconds > maximumMilliseconds)
+                milliseconds = maximumMilliseconds;
+
+            return milliseconds;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetTagEnvVarName(
+            Interpreter interpreter, /* in: OPTIONAL */
+            ContextIdType type       /* in */
+            )
+        {
+            long id;
+
+            switch (type & ContextIdType.TypeMask)
+            {
+                case ContextIdType.ParentProcess:
+                    {
+                        id = ProcessOps.GetParentId();
+                        break;
+                    }
+                case ContextIdType.Process:
+                    {
+                        id = ProcessOps.GetId();
+                        break;
+                    }
+                case ContextIdType.AppDomain:
+                    {
+                        id = AppDomainOps.GetCurrentId();
+                        break;
+                    }
+                case ContextIdType.Thread:
+                    {
+                        id = GlobalState.GetCurrentSystemThreadId();
+                        break;
+                    }
+                case ContextIdType.Interpreter:
+                    {
+                        if (interpreter != null)
+                        {
+                            id = interpreter.IdNoThrow;
+                            break;
+                        }
+                        goto default;
+                    }
+                case ContextIdType.Context:
+                    {
+                        if (interpreter != null)
+                        {
+                            Result context = null;
+
+                            if (interpreter.InternalGetContext(
+                                    ref context) == ReturnCode.Ok)
+                            {
+                                id = (long)context.Value;
+                                break;
+                            }
+                        }
+                        goto default;
+                    }
+                default:
+                    {
+                        return null;
+                    }
+            }
+
+            return String.Format(EnvVars.WebClientTagFormat, id);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool UnsetTagEnvVarValue(
+            Interpreter interpreter, /* in: OPTIONAL */
+            ContextIdType type       /* in */
+            )
+        {
+            return CommonOps.Environment.UnsetVariable(
+                GetTagEnvVarName(interpreter, type));
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Web Download / Upload Helper Methods
+        public static string GetTagEnvVarValue(
+            Interpreter interpreter /* in: OPTIONAL */
+            )
+        {
+            foreach (string envVarName in new string[] {
+                    GetTagEnvVarName(
+                        interpreter, ContextIdType.Thread),
+                    GetTagEnvVarName(
+                        interpreter, ContextIdType.Process),
+                    GetTagEnvVarName(
+                        interpreter, ContextIdType.ParentProcess)
+                })
+            {
+                string tag = CommonOps.Environment.GetVariable(
+                    envVarName);
+
+                if (String.IsNullOrEmpty(tag))
+                    continue;
+
+                return tag;
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetTagEnvVarValue(
+            Interpreter interpreter, /* in: OPTIONAL */
+            ContextIdType type       /* in */
+            )
+        {
+            return CommonOps.Environment.GetVariable(
+                GetTagEnvVarName(interpreter, type));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SetTagEnvVarValue(
+            Interpreter interpreter, /* in: OPTIONAL */
+            ContextIdType type,      /* in */
+            string tag               /* in: OPTIONAL */
+            )
+        {
+            return CommonOps.Environment.SetVariable(
+                GetTagEnvVarName(interpreter, type), tag);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if WEB
+        public static bool TrySetTagEnvVarValue(
+            Interpreter interpreter, /* in: OPTIONAL */
+            HttpRequest request,     /* in */
+            ContextIdType type       /* in */
+            )
+        {
+            bool maybeUnset = FlagOps.HasFlags(
+                type, ContextIdType.MaybeUnset, true);
+
+            if (request == null)
+            {
+                if (maybeUnset)
+                    return UnsetTagEnvVarValue(interpreter, type);
+
+                return false;
+            }
+
+#if NET_STANDARD_20
+            IHeaderDictionary headers = request.Headers;
+#else
+            NameValueCollection headers = request.Headers;
+#endif
+
+            if (headers == null)
+            {
+                if (maybeUnset)
+                    return UnsetTagEnvVarValue(interpreter, type);
+
+                return false;
+            }
+
+            string tag = headers[WebHeaders.Tag];
+
+            if (String.IsNullOrEmpty(tag))
+            {
+                if (maybeUnset)
+                    return UnsetTagEnvVarValue(interpreter, type);
+
+                return false;
+            }
+
+            return SetTagEnvVarValue(interpreter, type, tag);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void SleepForRetry(
+            Interpreter interpreter, /* in: OPTIONAL */
+            EventWaitHandle @event,  /* in: OPTIONAL */
+            int retries              /* in */
+            )
+        {
+            int milliseconds = GetMillisecondsForRetry(retries,
+                GetTimeoutOrDefault(interpreter, TimeoutType.Network));
+
+            if (interpreter != null)
+            {
+                long microseconds =
+                    PerfOps.GetMicrosecondsFromMilliseconds(
+                        milliseconds);
+
+                Result error = null;
+
+                if (EventOps.Wait(
+                        interpreter, @event, microseconds,
+                        microseconds, true, false, false,
+                        false, false, ref error) != ReturnCode.Ok)
+                {
+                    TraceOps.DebugTrace(String.Format(
+                        "SleepForRetry: milliseconds = {0}, " +
+                        "error = {1}", milliseconds,
+                        FormatOps.WrapOrNull(
+                            true, false, error)),
+                        typeof(WebOps).Name,
+                        TracePriority.NetworkError);
+                }
+            }
+            else
+            {
+                /* NO RESULT */
+                HostOps.ThreadSleep(milliseconds);
+            }
         }
         #endregion
 
@@ -350,158 +1228,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region HTTPS Security Protocol Helper Methods
-#if TEST
-        public static ReturnCode ProbeSecurityProtocol(
-            ref StringList list, /* out */
-            ref Result error     /* out */
-            )
-        {
-            _SecurityProtocolType? protocol =
-                _Tests.Default.TestProbeSecurityProtocol(ref error);
-
-            if (protocol == null)
-                return ReturnCode.Error;
-
-            if (list == null)
-                list = new StringList();
-
-            list.Add("probedOk");
-            list.Add(((_SecurityProtocolType)protocol).ToString());
-
-            return ReturnCode.Ok;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static ReturnCode GetSecurityProtocol(
-            ref StringList list, /* out */
-            ref Result error     /* out */
-            )
-        {
-            SecurityProtocolType protocol;
-
-            try
-            {
-                protocol = ServicePointManager.SecurityProtocol;
-            }
-            catch (Exception e)
-            {
-                error = e;
-                return ReturnCode.Error;
-            }
-
-            ResultList results = null;
-
-            if (_Tests.Default.TestGetSecurityProtocol(
-                    ref results) != ReturnCode.Ok)
-            {
-                error = results;
-                return ReturnCode.Error;
-            }
-
-            if (list == null)
-                list = new StringList();
-
-            list.Add("managerOk");
-
-            list.Add(_Tests.Default.TestSecurityProtocolToString(
-                (_SecurityProtocolType)protocol, null, true));
-
-            list.Add("bestOk");
-            list.Add(results);
-
-            return ReturnCode.Ok;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static ReturnCode SetSecurityProtocol(
-            bool obsolete,   /* in */
-            ref Result error /* out */
-            )
-        {
-            ReturnCode code = ReturnCode.Error;
-            ResultList results = null; /* REUSED */
-
-            if ((_Tests.Default.TestSetupSecurityProtocol(
-                    false, !obsolete, ref results) == ReturnCode.Ok) &&
-                (_Tests.Default.TestSetSecurityProtocol(
-                    ref results) == ReturnCode.Ok))
-            {
-                code = ReturnCode.Ok;
-            }
-
-            TraceOps.DebugTrace(
-                "SetSecurityProtocol", null, typeof(WebOps).Name,
-                TracePriority.NetworkDebug, false, "code", code,
-                "results", results);
-
-            if (code != ReturnCode.Ok)
-                error = results;
-
-            return code;
-        }
-#endif
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Private Web Download / Upload Helper Methods
-        private static WebTransferCallback GetTransferCallback(
-            Interpreter interpreter /* in */
-            )
-        {
-            return (interpreter != null) ?
-                interpreter.WebTransferCallback : null;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static ReturnCode InvokeTransferCallback(
-            WebTransferCallback callback, /* in */
-            Interpreter interpreter,      /* in */
-            WebFlags webFlags,            /* in */
-            IClientData clientData,       /* in */
-            ref Result error              /* out */
-            )
-        {
-            try
-            {
-                TraceOps.DebugTrace("InvokeTransferCallback", null,
-                    typeof(WebOps).Name, TracePriority.NetworkDebug2,
-                    true, "callback", callback, "interpreter",
-                    interpreter, "webFlags", webFlags, "clientData",
-                    clientData, "error", error);
-
-                if (callback == null)
-                {
-                    error = "invalid web transfer callback";
-                    return ReturnCode.Error;
-                }
-
-                return callback(
-                    interpreter, webFlags, clientData,
-                    ref error); /* throw */
-            }
-            catch (Exception e)
-            {
-                TraceOps.DebugTrace(
-                    e, typeof(WebOps).Name,
-                    TracePriority.NetworkError);
-
-                error = e;
-                return ReturnCode.Error;
-            }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region Public Web Download Methods
         #region WebClient Support Methods
         public static WebClient CreateClient(
             string argument, /* in */
+            int? timeout,    /* in */
+            ref Result error /* out */
+            )
+        {
+            return CreateClient(
+                argument, GetTagEnvVarValue(null),
+                timeout, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static WebClient CreateClient(
+            string argument, /* in */
+            string tag,      /* in */
             int? timeout,    /* in */
             ref Result error /* out */
             )
@@ -514,23 +1258,50 @@ namespace Eagle._Components.Private
 
                 return null;
             }
-            else if (timeout != null)
-            {
-                return new TimeoutWebClient(timeout);
-            }
             else
             {
-                return new WebClient();
+                if ((tag != null) || (timeout != null))
+                {
+                    TraceOps.DebugTrace("CreateClient",
+                        null, typeof(WebOps).Name,
+                        TracePriority.NetworkDebug,
+                        true, "argument", argument,
+                        "tag", tag, "timeout", timeout);
+
+                    return new TagAndTimeoutWebClient(
+                        tag, timeout);
+                }
+                else
+                {
+                    return new WebClient();
+                }
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static WebClient CreateClient(
-            Interpreter interpreter, /* in */
-            string argument,         /* in */
-            IClientData clientData,  /* in */
-            int? timeout,            /* in */
+            Interpreter interpreter, /* in: OPTIONAL */
+            string argument,         /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            int? timeout,            /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            return CreateClient(
+                interpreter, argument, clientData,
+                GetTagEnvVarValue(interpreter),
+                timeout, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static WebClient CreateClient(
+            Interpreter interpreter, /* in: OPTIONAL */
+            string argument,         /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            string tag,              /* in: OPTIONAL */
+            int? timeout,            /* in: OPTIONAL */
             ref Result error         /* out */
             )
         {
@@ -542,7 +1313,8 @@ namespace Eagle._Components.Private
                 if (preCallback != null)
                 {
                     if (preCallback(
-                            interpreter, argument, clientData,
+                            interpreter, ref  argument,
+                            ref clientData, ref timeout,
                             ref error) != ReturnCode.Ok)
                     {
                         return null;
@@ -574,7 +1346,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            return CreateClient(argument, timeout, ref error);
+            return CreateClient(argument, tag, timeout, ref error);
         }
         #endregion
 
@@ -582,11 +1354,508 @@ namespace Eagle._Components.Private
 
         #region Download Data Methods
         public static ReturnCode DownloadData(
-            Interpreter interpreter, /* in */
-            IClientData clientData,  /* in */
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
             Uri uri,                 /* in */
-            int? timeout,            /* in */
-            bool trusted,            /* in */
+            int? maximumRetries,     /* in: OPTIONAL */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
+            ref byte[] bytes,        /* out */
+            ref Result error         /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (DownloadDataOnce(
+                        interpreter, clientData, uri,
+                        timeout, trusted, ref bytes,
+                        ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadData;
+
+                    object result = null;
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                bytes = result as byte[];
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                bytes = new byte[0];
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode DownloadDataAsync(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            int? maximumRetries,         /* in: OPTIONAL */
+            int? timeout,                /* in: OPTIONAL */
+            ref Result error             /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (DownloadDataAsyncOnce(
+                        interpreter, clientData, arguments,
+                        callbackFlags, uri, timeout,
+                        ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadDataAsynchronous;
+
+                    object result = null; /* NOT USED */
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Download File Methods
+        public static ReturnCode DownloadFile(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            Uri uri,                 /* in */
+            string fileName,         /* in */
+            int? maximumRetries,     /* in: OPTIONAL */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (DownloadFileOnce(
+                        interpreter, clientData, uri,
+                        fileName, timeout, trusted,
+                        ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadFile;
+
+                    object result = null; /* NOT USED */
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode DownloadFileAsync(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string fileName,             /* in */
+            int? maximumRetries,         /* in: OPTIONAL */
+            int? timeout,                /* in: OPTIONAL */
+            ref Result error             /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (DownloadFileAsyncOnce(
+                        interpreter, clientData, arguments,
+                        callbackFlags, uri, fileName, timeout,
+                        ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadFileAsynchronous;
+
+                    object result = null; /* NOT USED */
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+        #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Web Download Methods
+        #region Download Data Via Client Methods
+        private static ReturnCode DownloadDataOnce(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            Uri uri,                 /* in */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
             ref byte[] bytes,        /* out */
             ref Result error         /* out */
             )
@@ -634,13 +1903,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode DownloadDataAsync(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
+        private static ReturnCode DownloadDataAsyncOnce(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
             CallbackFlags callbackFlags, /* in */
             Uri uri,                     /* in */
-            int? timeout,                /* in */
+            int? timeout,                /* in: OPTIONAL */
             ref Result error             /* out */
             )
         {
@@ -684,130 +1953,15 @@ namespace Eagle._Components.Private
                     webClientData.Timeout, ref error);
             }
         }
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Download File Methods
-        public static ReturnCode DownloadFile(
-            Interpreter interpreter, /* in */
-            IClientData clientData,  /* in */
-            Uri uri,                 /* in */
-            string fileName,         /* in */
-            int? timeout,            /* in */
-            bool trusted,            /* in */
-            ref Result error         /* out */
-            )
-        {
-            using (WebClientData webClientData = new WebClientData())
-            {
-                webClientData.ClientData = clientData;
-                webClientData.Uri = uri;
-                webClientData.FileName = fileName;
-                webClientData.Timeout = timeout;
-                webClientData.Trusted = trusted;
-                webClientData.ViaClient = DefaultViaClient;
-
-                WebTransferCallback callback = GetTransferCallback(
-                    interpreter);
-
-                if (callback != null)
-                {
-                    WebFlags webFlags = WebFlags.DownloadFile;
-
-                    if (InvokeTransferCallback(
-                            callback, interpreter,
-                            webFlags, webClientData,
-                            ref error) == ReturnCode.Ok)
-                    {
-                        if (webClientData.ViaClient)
-                            goto viaClient;
-
-                        return ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        return ReturnCode.Error;
-                    }
-                }
-
-            viaClient:
-
-                return DownloadFileViaClient(interpreter,
-                    webClientData.ClientData, webClientData.Uri,
-                    webClientData.FileName, webClientData.Timeout,
-                    webClientData.Trusted, ref error);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static ReturnCode DownloadFileAsync(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
-            CallbackFlags callbackFlags, /* in */
-            Uri uri,                     /* in */
-            string fileName,             /* in */
-            int? timeout,                /* in */
-            ref Result error             /* out */
-            )
-        {
-            using (WebClientData webClientData = new WebClientData())
-            {
-                webClientData.ClientData = clientData;
-                webClientData.Arguments = arguments;
-                webClientData.CallbackFlags = callbackFlags;
-                webClientData.Uri = uri;
-                webClientData.FileName = fileName;
-                webClientData.Timeout = timeout;
-                webClientData.ViaClient = DefaultViaClient;
-
-                WebTransferCallback callback = GetTransferCallback(
-                    interpreter);
-
-                if (callback != null)
-                {
-                    WebFlags webFlags = WebFlags.DownloadFileAsynchronous;
-
-                    if (InvokeTransferCallback(
-                            callback, interpreter,
-                            webFlags, webClientData,
-                            ref error) == ReturnCode.Ok)
-                    {
-                        if (webClientData.ViaClient)
-                            goto viaClient;
-
-                        return ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        return ReturnCode.Error;
-                    }
-                }
-
-            viaClient:
-
-                return DownloadFileAsyncViaClient(interpreter,
-                    webClientData.ClientData, webClientData.Arguments,
-                    webClientData.CallbackFlags, webClientData.Uri,
-                    webClientData.FileName, webClientData.Timeout,
-                    ref error);
-            }
-        }
-        #endregion
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Private Web Download Methods
-        #region Download Data Via Client Methods
         private static ReturnCode DownloadDataViaClient(
-            Interpreter interpreter, /* in */
-            IClientData clientData,  /* in */
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
             Uri uri,                 /* in */
-            int? timeout,            /* in */
-            bool trusted,            /* in */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
             ref byte[] bytes,        /* out */
             ref Result error         /* out */
             )
@@ -817,9 +1971,9 @@ namespace Eagle._Components.Private
 
             try
             {
-                if (trusted)
+                if (trusted != null)
                 {
-                    UpdateOps.TryLock(ref locked);
+                    UpdateOps.TryTrustedLock(ref locked);
 
                     if (!locked)
                     {
@@ -837,7 +1991,7 @@ namespace Eagle._Components.Private
                     "trusted", trusted, "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
-                        true, ref error) != ReturnCode.Ok))
+                        (bool)trusted, ref error) != ReturnCode.Ok))
                 {
                     return ReturnCode.Error;
                 }
@@ -887,7 +2041,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                UpdateOps.ExitLock(ref locked);
+                UpdateOps.ExitTrustedLock(ref locked);
             }
 
             return ReturnCode.Error;
@@ -896,12 +2050,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode DownloadDataAsyncViaClient(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
             CallbackFlags callbackFlags, /* in */
             Uri uri,                     /* in */
-            int? timeout,                /* in */
+            int? timeout,                /* in: OPTIONAL */
             ref Result error             /* out */
             )
         {
@@ -971,6 +2125,8 @@ namespace Eagle._Components.Private
                 {
                     ObjectOps.TryDisposeOrComplain<WebClient>(
                         interpreter, ref webClient);
+
+                    webClient = null;
                 }
             }
 
@@ -981,13 +2137,122 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Download File Via Client Methods
-        private static ReturnCode DownloadFileViaClient(
-            Interpreter interpreter, /* in */
-            IClientData clientData,  /* in */
+        private static ReturnCode DownloadFileOnce(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
             Uri uri,                 /* in */
             string fileName,         /* in */
-            int? timeout,            /* in */
-            bool trusted,            /* in */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
+            ref Result error         /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Uri = uri;
+                webClientData.FileName = fileName;
+                webClientData.Timeout = timeout;
+                webClientData.Trusted = trusted;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadFile;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return DownloadFileViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Uri,
+                    webClientData.FileName, webClientData.Timeout,
+                    webClientData.Trusted, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode DownloadFileAsyncOnce(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string fileName,             /* in */
+            int? timeout,                /* in: OPTIONAL */
+            ref Result error             /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Arguments = arguments;
+                webClientData.CallbackFlags = callbackFlags;
+                webClientData.Uri = uri;
+                webClientData.FileName = fileName;
+                webClientData.Timeout = timeout;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.DownloadFileAsynchronous;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return DownloadFileAsyncViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Arguments,
+                    webClientData.CallbackFlags, webClientData.Uri,
+                    webClientData.FileName, webClientData.Timeout,
+                    ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode DownloadFileViaClient(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            Uri uri,                 /* in */
+            string fileName,         /* in */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
             ref Result error         /* out */
             )
         {
@@ -996,9 +2261,9 @@ namespace Eagle._Components.Private
 
             try
             {
-                if (trusted)
+                if (trusted != null)
                 {
-                    UpdateOps.TryLock(ref locked);
+                    UpdateOps.TryTrustedLock(ref locked);
 
                     if (!locked)
                     {
@@ -1017,7 +2282,7 @@ namespace Eagle._Components.Private
                     "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
-                        true, ref error) != ReturnCode.Ok))
+                        (bool)trusted, ref error) != ReturnCode.Ok))
                 {
                     return ReturnCode.Error;
                 }
@@ -1069,7 +2334,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                UpdateOps.ExitLock(ref locked);
+                UpdateOps.ExitTrustedLock(ref locked);
             }
 
             return ReturnCode.Error;
@@ -1078,13 +2343,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode DownloadFileAsyncViaClient(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
             CallbackFlags callbackFlags, /* in */
             Uri uri,                     /* in */
             string fileName,             /* in */
-            int? timeout,                /* in */
+            int? timeout,                /* in: OPTIONAL */
             ref Result error             /* out */
             )
         {
@@ -1157,6 +2422,8 @@ namespace Eagle._Components.Private
                 {
                     ObjectOps.TryDisposeOrComplain<WebClient>(
                         interpreter, ref webClient);
+
+                    webClient = null;
                 }
             }
 
@@ -1370,13 +2637,771 @@ namespace Eagle._Components.Private
         #region Public Web Upload Methods
         #region Upload Data Methods
         public static ReturnCode UploadData(
-            Interpreter interpreter, /* in */
-            IClientData clientData,  /* in */
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
             Uri uri,                 /* in */
             string method,           /* in */
             byte[] rawData,          /* in */
-            int? timeout,            /* in */
-            bool trusted,            /* in */
+            int? maximumRetries,     /* in: OPTIONAL */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
+            ref byte[] bytes,        /* out */
+            ref Result error         /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (UploadDataOnce(
+                        interpreter, clientData, uri, method,
+                        rawData, timeout, trusted, ref bytes,
+                        ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadData;
+
+                    object result = null;
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                bytes = result as byte[];
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                bytes = new byte[0];
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode UploadDataAsync(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            byte[] rawData,              /* in */
+            int? maximumRetries,         /* in: OPTIONAL */
+            int? timeout,                /* in: OPTIONAL */
+            ref Result error             /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (UploadDataAsyncOnce(
+                        interpreter, clientData, arguments,
+                        callbackFlags, uri, method, rawData,
+                        timeout, ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadDataAsynchronous;
+
+                    object result = null; /* NOT USED */
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Upload Values Methods
+        public static ReturnCode UploadValues(
+            Interpreter interpreter,  /* in: OPTIONAL */
+            IClientData clientData,   /* in: OPTIONAL */
+            Uri uri,                  /* in */
+            string method,            /* in */
+            NameValueCollection data, /* in */
+            int? maximumRetries,      /* in: OPTIONAL */
+            int? timeout,             /* in: OPTIONAL */
+            bool? trusted,            /* in: OPTIONAL */
+            ref byte[] bytes,         /* out */
+            ref Result error          /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (UploadValuesOnce(
+                        interpreter, clientData, uri,
+                        method, data, timeout, trusted,
+                        ref bytes, ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadValues;
+
+                    object result = null;
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                bytes = result as byte[];
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                bytes = new byte[0];
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode UploadValuesAsync(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            NameValueCollection data,    /* in */
+            int? maximumRetries,         /* in: OPTIONAL */
+            int? timeout,                /* in: OPTIONAL */
+            ref Result error             /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (UploadValuesAsyncOnce(
+                        interpreter, clientData, arguments,
+                        callbackFlags, uri, method, data,
+                        timeout, ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadValuesAsynchronous;
+
+                    object result = null; /* NOT USED */
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Upload File Methods
+        public static ReturnCode UploadFile(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            Uri uri,                 /* in */
+            string method,           /* in */
+            string fileName,         /* in */
+            int? maximumRetries,     /* in: OPTIONAL */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
+            ref byte[] bytes,        /* out */
+            ref Result error         /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (UploadFileOnce(
+                        interpreter, clientData, uri, method,
+                        fileName, timeout, trusted, ref bytes,
+                        ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadFile;
+
+                    object result = null;
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                bytes = result as byte[];
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                bytes = new byte[0];
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode UploadFileAsync(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            string fileName,             /* in */
+            int? maximumRetries,         /* in: OPTIONAL */
+            int? timeout,                /* in: OPTIONAL */
+            ref Result error             /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                Result localError = null;
+
+                if (UploadFileAsyncOnce(
+                        interpreter, clientData, arguments,
+                        callbackFlags, uri, method, fileName,
+                        timeout, ref localError) == ReturnCode.Ok)
+                {
+                    return ReturnCode.Ok;
+                }
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadFileAsynchronous;
+
+                    object result = null; /* NOT USED */
+
+                    switch (InvokeErrorCallback(
+                            callback, interpreter, clientData,
+                            uri, webFlags, retries, timeout,
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return ReturnCode.Error;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                return ReturnCode.Ok;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return ReturnCode.Error;
+        }
+        #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Web Upload Methods
+        #region Upload Data Via Client Methods
+        private static ReturnCode UploadDataOnce(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            Uri uri,                 /* in */
+            string method,           /* in */
+            byte[] rawData,          /* in */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
             ref byte[] bytes,        /* out */
             ref Result error         /* out */
             )
@@ -1427,15 +3452,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static ReturnCode UploadDataAsync(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
+        private static ReturnCode UploadDataAsyncOnce(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
             CallbackFlags callbackFlags, /* in */
             Uri uri,                     /* in */
             string method,               /* in */
             byte[] rawData,              /* in */
-            int? timeout,                /* in */
+            int? timeout,                /* in: OPTIONAL */
             ref Result error             /* out */
             )
         {
@@ -1482,255 +3507,17 @@ namespace Eagle._Components.Private
                     webClientData.Timeout, ref error);
             }
         }
-        #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Upload Values Methods
-        public static ReturnCode UploadValues(
-            Interpreter interpreter,  /* in */
-            IClientData clientData,   /* in */
-            Uri uri,                  /* in */
-            string method,            /* in */
-            NameValueCollection data, /* in */
-            int? timeout,             /* in */
-            bool trusted,             /* in */
-            ref byte[] bytes,         /* out */
-            ref Result error          /* out */
-            )
-        {
-            using (WebClientData webClientData = new WebClientData())
-            {
-                webClientData.ClientData = clientData;
-                webClientData.Uri = uri;
-                webClientData.Method = method;
-                webClientData.Data = data;
-                webClientData.Timeout = timeout;
-                webClientData.Trusted = trusted;
-                webClientData.ViaClient = DefaultViaClient;
-
-                WebTransferCallback callback = GetTransferCallback(
-                    interpreter);
-
-                if (callback != null)
-                {
-                    WebFlags webFlags = WebFlags.UploadValues;
-
-                    if (InvokeTransferCallback(
-                            callback, interpreter,
-                            webFlags, webClientData,
-                            ref error) == ReturnCode.Ok)
-                    {
-                        if (webClientData.ViaClient)
-                            goto viaClient;
-
-                        bytes = webClientData.Bytes;
-                        return ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        return ReturnCode.Error;
-                    }
-                }
-
-            viaClient:
-
-                return UploadValuesViaClient(interpreter,
-                    webClientData.ClientData, webClientData.Uri,
-                    webClientData.Method, webClientData.Data,
-                    webClientData.Timeout, webClientData.Trusted,
-                    ref bytes, ref error);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static ReturnCode UploadValuesAsync(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
-            CallbackFlags callbackFlags, /* in */
-            Uri uri,                     /* in */
-            string method,               /* in */
-            NameValueCollection data,    /* in */
-            int? timeout,                /* in */
-            ref Result error             /* out */
-            )
-        {
-            using (WebClientData webClientData = new WebClientData())
-            {
-                webClientData.ClientData = clientData;
-                webClientData.Arguments = arguments;
-                webClientData.CallbackFlags = callbackFlags;
-                webClientData.Uri = uri;
-                webClientData.Method = method;
-                webClientData.Data = data;
-                webClientData.Timeout = timeout;
-                webClientData.ViaClient = DefaultViaClient;
-
-                WebTransferCallback callback = GetTransferCallback(
-                    interpreter);
-
-                if (callback != null)
-                {
-                    WebFlags webFlags = WebFlags.UploadValuesAsynchronous;
-
-                    if (InvokeTransferCallback(
-                            callback, interpreter,
-                            webFlags, webClientData,
-                            ref error) == ReturnCode.Ok)
-                    {
-                        if (webClientData.ViaClient)
-                            goto viaClient;
-
-                        return ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        return ReturnCode.Error;
-                    }
-                }
-
-            viaClient:
-
-                return UploadValuesAsyncViaClient(interpreter,
-                    webClientData.ClientData, webClientData.Arguments,
-                    webClientData.CallbackFlags, webClientData.Uri,
-                    webClientData.Method, webClientData.Data,
-                    webClientData.Timeout, ref error);
-            }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Upload File Methods
-        public static ReturnCode UploadFile(
-            Interpreter interpreter, /* in */
-            IClientData clientData,  /* in */
-            Uri uri,                 /* in */
-            string method,           /* in */
-            string fileName,         /* in */
-            int? timeout,            /* in */
-            bool trusted,            /* in */
-            ref Result error         /* out */
-            )
-        {
-            using (WebClientData webClientData = new WebClientData())
-            {
-                webClientData.ClientData = clientData;
-                webClientData.Uri = uri;
-                webClientData.Method = method;
-                webClientData.FileName = fileName;
-                webClientData.Timeout = timeout;
-                webClientData.Trusted = trusted;
-                webClientData.ViaClient = DefaultViaClient;
-
-                WebTransferCallback callback = GetTransferCallback(
-                    interpreter);
-
-                if (callback != null)
-                {
-                    WebFlags webFlags = WebFlags.UploadFile;
-
-                    if (InvokeTransferCallback(
-                            callback, interpreter,
-                            webFlags, webClientData,
-                            ref error) == ReturnCode.Ok)
-                    {
-                        if (webClientData.ViaClient)
-                            goto viaClient;
-
-                        return ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        return ReturnCode.Error;
-                    }
-                }
-
-            viaClient:
-
-                return UploadFileViaClient(interpreter,
-                    webClientData.ClientData, webClientData.Uri,
-                    webClientData.Method, webClientData.FileName,
-                    webClientData.Timeout, webClientData.Trusted,
-                    ref error);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static ReturnCode UploadFileAsync(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
-            CallbackFlags callbackFlags, /* in */
-            Uri uri,                     /* in */
-            string method,               /* in */
-            string fileName,             /* in */
-            int? timeout,                /* in */
-            ref Result error             /* out */
-            )
-        {
-            using (WebClientData webClientData = new WebClientData())
-            {
-                webClientData.ClientData = clientData;
-                webClientData.Arguments = arguments;
-                webClientData.CallbackFlags = callbackFlags;
-                webClientData.Uri = uri;
-                webClientData.Method = method;
-                webClientData.FileName = fileName;
-                webClientData.Timeout = timeout;
-                webClientData.ViaClient = DefaultViaClient;
-
-                WebTransferCallback callback = GetTransferCallback(
-                    interpreter);
-
-                if (callback != null)
-                {
-                    WebFlags webFlags = WebFlags.UploadFileAsynchronous;
-
-                    if (InvokeTransferCallback(
-                            callback, interpreter,
-                            webFlags, webClientData,
-                            ref error) == ReturnCode.Ok)
-                    {
-                        if (webClientData.ViaClient)
-                            goto viaClient;
-
-                        return ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        return ReturnCode.Error;
-                    }
-                }
-
-            viaClient:
-
-                return UploadFileAsyncViaClient(interpreter,
-                    webClientData.ClientData, webClientData.Arguments,
-                    webClientData.CallbackFlags, webClientData.Uri,
-                    webClientData.Method, webClientData.FileName,
-                    webClientData.Timeout, ref error);
-            }
-        }
-        #endregion
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Private Web Upload Methods
-        #region Upload Data Via Client Methods
         private static ReturnCode UploadDataViaClient(
-            Interpreter interpreter, /* in */
-            IClientData clientData,  /* in */
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
             Uri uri,                 /* in */
             string method,           /* in */
             byte[] rawData,          /* in */
-            int? timeout,            /* in */
-            bool trusted,            /* in */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
             ref byte[] bytes,        /* out */
             ref Result error         /* out */
             )
@@ -1740,9 +3527,9 @@ namespace Eagle._Components.Private
 
             try
             {
-                if (trusted)
+                if (trusted != null)
                 {
-                    UpdateOps.TryLock(ref locked);
+                    UpdateOps.TryTrustedLock(ref locked);
 
                     if (!locked)
                     {
@@ -1762,7 +3549,7 @@ namespace Eagle._Components.Private
                     trusted, "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
-                        true, ref error) != ReturnCode.Ok))
+                        (bool)trusted, ref error) != ReturnCode.Ok))
                 {
                     return ReturnCode.Error;
                 }
@@ -1814,7 +3601,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                UpdateOps.ExitLock(ref locked);
+                UpdateOps.ExitTrustedLock(ref locked);
             }
 
             return ReturnCode.Error;
@@ -1823,14 +3610,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode UploadDataAsyncViaClient(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
             CallbackFlags callbackFlags, /* in */
             Uri uri,                     /* in */
             string method,               /* in */
             byte[] rawData,              /* in */
-            int? timeout,                /* in */
+            int? timeout,                /* in: OPTIONAL */
             ref Result error             /* out */
             )
         {
@@ -1904,6 +3691,8 @@ namespace Eagle._Components.Private
                 {
                     ObjectOps.TryDisposeOrComplain<WebClient>(
                         interpreter, ref webClient);
+
+                    webClient = null;
                 }
             }
 
@@ -1914,14 +3703,130 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Upload Values Via Client Methods
-        private static ReturnCode UploadValuesViaClient(
-            Interpreter interpreter,  /* in */
-            IClientData clientData,   /* in */
+        private static ReturnCode UploadValuesOnce(
+            Interpreter interpreter,  /* in: OPTIONAL */
+            IClientData clientData,   /* in: OPTIONAL */
             Uri uri,                  /* in */
             string method,            /* in */
             NameValueCollection data, /* in */
-            int? timeout,             /* in */
-            bool trusted,             /* in */
+            int? timeout,             /* in: OPTIONAL */
+            bool? trusted,            /* in */
+            ref byte[] bytes,         /* out */
+            ref Result error          /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.Data = data;
+                webClientData.Timeout = timeout;
+                webClientData.Trusted = trusted;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadValues;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        bytes = webClientData.Bytes;
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadValuesViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Uri,
+                    webClientData.Method, webClientData.Data,
+                    webClientData.Timeout, webClientData.Trusted,
+                    ref bytes, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode UploadValuesAsyncOnce(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            NameValueCollection data,    /* in */
+            int? timeout,                /* in: OPTIONAL */
+            ref Result error             /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Arguments = arguments;
+                webClientData.CallbackFlags = callbackFlags;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.Data = data;
+                webClientData.Timeout = timeout;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadValuesAsynchronous;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadValuesAsyncViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Arguments,
+                    webClientData.CallbackFlags, webClientData.Uri,
+                    webClientData.Method, webClientData.Data,
+                    webClientData.Timeout, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode UploadValuesViaClient(
+            Interpreter interpreter,  /* in: OPTIONAL */
+            IClientData clientData,   /* in: OPTIONAL */
+            Uri uri,                  /* in */
+            string method,            /* in */
+            NameValueCollection data, /* in */
+            int? timeout,             /* in: OPTIONAL */
+            bool? trusted,            /* in */
             ref byte[] bytes,         /* out */
             ref Result error          /* out */
             )
@@ -1931,9 +3836,9 @@ namespace Eagle._Components.Private
 
             try
             {
-                if (trusted)
+                if (trusted != null)
                 {
-                    UpdateOps.TryLock(ref locked);
+                    UpdateOps.TryTrustedLock(ref locked);
 
                     if (!locked)
                     {
@@ -1952,7 +3857,7 @@ namespace Eagle._Components.Private
                     "timeout", timeout, "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
-                        true, ref error) != ReturnCode.Ok))
+                        (bool)trusted, ref error) != ReturnCode.Ok))
                 {
                     return ReturnCode.Error;
                 }
@@ -2004,7 +3909,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                UpdateOps.ExitLock(ref locked);
+                UpdateOps.ExitTrustedLock(ref locked);
             }
 
             return ReturnCode.Error;
@@ -2013,14 +3918,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode UploadValuesAsyncViaClient(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
             CallbackFlags callbackFlags, /* in */
             Uri uri,                     /* in */
             string method,               /* in */
             NameValueCollection data,    /* in */
-            int? timeout,                /* in */
+            int? timeout,                /* in: OPTIONAL */
             ref Result error             /* out */
             )
         {
@@ -2094,6 +3999,8 @@ namespace Eagle._Components.Private
                 {
                     ObjectOps.TryDisposeOrComplain<WebClient>(
                         interpreter, ref webClient);
+
+                    webClient = null;
                 }
             }
 
@@ -2104,14 +4011,131 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Upload File Via Client Methods
-        private static ReturnCode UploadFileViaClient(
-            Interpreter interpreter, /* in */
-            IClientData clientData,  /* in */
+        private static ReturnCode UploadFileOnce(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
             Uri uri,                 /* in */
             string method,           /* in */
             string fileName,         /* in */
-            int? timeout,            /* in */
-            bool trusted,            /* in */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
+            ref byte[] bytes,        /* out */
+            ref Result error         /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.FileName = fileName;
+                webClientData.Timeout = timeout;
+                webClientData.Trusted = trusted;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadFile;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        bytes = webClientData.Bytes;
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadFileViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Uri,
+                    webClientData.Method, webClientData.FileName,
+                    webClientData.Timeout, webClientData.Trusted,
+                    ref bytes, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode UploadFileAsyncOnce(
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
+            CallbackFlags callbackFlags, /* in */
+            Uri uri,                     /* in */
+            string method,               /* in */
+            string fileName,             /* in */
+            int? timeout,                /* in: OPTIONAL */
+            ref Result error             /* out */
+            )
+        {
+            using (WebClientData webClientData = new WebClientData())
+            {
+                webClientData.ClientData = clientData;
+                webClientData.Arguments = arguments;
+                webClientData.CallbackFlags = callbackFlags;
+                webClientData.Uri = uri;
+                webClientData.Method = method;
+                webClientData.FileName = fileName;
+                webClientData.Timeout = timeout;
+                webClientData.ViaClient = DefaultViaClient;
+
+                WebTransferCallback callback = GetTransferCallback(
+                    interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.UploadFileAsynchronous;
+
+                    if (InvokeTransferCallback(
+                            callback, interpreter,
+                            webFlags, webClientData,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        if (webClientData.ViaClient)
+                            goto viaClient;
+
+                        return ReturnCode.Ok;
+                    }
+                    else
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+
+            viaClient:
+
+                return UploadFileAsyncViaClient(interpreter,
+                    webClientData.ClientData, webClientData.Arguments,
+                    webClientData.CallbackFlags, webClientData.Uri,
+                    webClientData.Method, webClientData.FileName,
+                    webClientData.Timeout, ref error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode UploadFileViaClient(
+            Interpreter interpreter, /* in: OPTIONAL */
+            IClientData clientData,  /* in: OPTIONAL */
+            Uri uri,                 /* in */
+            string method,           /* in */
+            string fileName,         /* in */
+            int? timeout,            /* in: OPTIONAL */
+            bool? trusted,           /* in: OPTIONAL */
+            ref byte[] bytes,        /* out */
             ref Result error         /* out */
             )
         {
@@ -2120,9 +4144,9 @@ namespace Eagle._Components.Private
 
             try
             {
-                if (trusted)
+                if (trusted != null)
                 {
-                    UpdateOps.TryLock(ref locked);
+                    UpdateOps.TryTrustedLock(ref locked);
 
                     if (!locked)
                     {
@@ -2141,7 +4165,7 @@ namespace Eagle._Components.Private
                     "trusted", trusted, "wasTrusted", wasTrusted);
 
                 if ((wasTrusted != null) && (UpdateOps.SetTrusted(
-                        true, ref error) != ReturnCode.Ok))
+                        (bool)trusted, ref error) != ReturnCode.Ok))
                 {
                     return ReturnCode.Error;
                 }
@@ -2156,8 +4180,7 @@ namespace Eagle._Components.Private
                     {
                         if (webClient != null)
                         {
-                            /* NO RESULT */
-                            webClient.UploadFile(
+                            bytes = webClient.UploadFile(
                                 uri, method, fileName);
 
                             return ReturnCode.Ok;
@@ -2194,7 +4217,7 @@ namespace Eagle._Components.Private
                     }
                 }
 
-                UpdateOps.ExitLock(ref locked);
+                UpdateOps.ExitTrustedLock(ref locked);
             }
 
             return ReturnCode.Error;
@@ -2203,14 +4226,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static ReturnCode UploadFileAsyncViaClient(
-            Interpreter interpreter,     /* in */
-            IClientData clientData,      /* in */
-            StringList arguments,        /* in */
+            Interpreter interpreter,     /* in: OPTIONAL */
+            IClientData clientData,      /* in: OPTIONAL */
+            StringList arguments,        /* in: OPTIONAL */
             CallbackFlags callbackFlags, /* in */
             Uri uri,                     /* in */
             string method,               /* in */
             string fileName,             /* in */
-            int? timeout,                /* in */
+            int? timeout,                /* in: OPTIONAL */
             ref Result error             /* out */
             )
         {
@@ -2283,6 +4306,8 @@ namespace Eagle._Components.Private
                 {
                     ObjectOps.TryDisposeOrComplain<WebClient>(
                         interpreter, ref webClient);
+
+                    webClient = null;
                 }
             }
 
@@ -2327,6 +4352,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool GetDefaultNoProtocol()
+        {
+            return DefaultNoProtocol;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int GetMaximumRetries()
+        {
+            return Interlocked.CompareExchange(ref maximumRetries, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int SetMaximumRetries(
+            int retries /* in */
+            )
+        {
+            return Interlocked.Exchange(ref maximumRetries, retries);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static void SetOfflineMode(
             bool offline /* in */
             )
@@ -2340,25 +4388,42 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static int? GetTimeout(
-            Interpreter interpreter /* in: OPTIONAL */
+            Interpreter interpreter, /* in: OPTIONAL */
+            TimeoutType timeoutType, /* in */
+            int? timeout             /* in: OPTIONAL */
+            )
+        {
+            if (timeout != null)
+            {
+                int localTimeout = (int)timeout;
+
+                if (IsGoodTimeout(localTimeout, true))
+                    return localTimeout;
+            }
+
+            return GetTimeout(interpreter, timeoutType);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int? GetTimeout(
+            Interpreter interpreter, /* in: OPTIONAL */
+            TimeoutType timeoutType  /* in */
             )
         {
             int timeout; /* REUSED */
 
             if (interpreter != null)
             {
-                lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                int? localTimeout = interpreter.InternalGetTimeout(
+                    timeoutType); /* OPTIONAL */
+
+                if (localTimeout != null)
                 {
-                    int? localTimeout = interpreter.InternalGetTimeout(
-                        TimeoutType.Network); /* OPTIONAL */
+                    timeout = (int)localTimeout;
 
-                    if (localTimeout != null)
-                    {
-                        timeout = (int)localTimeout;
-
-                        if (IsGoodTimeout(timeout, true))
-                            return timeout;
-                    }
+                    if (IsGoodTimeout(timeout, true))
+                        return timeout;
                 }
             }
 
@@ -2388,10 +4453,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static int GetTimeoutOrDefault(
-            Interpreter interpreter /* in: OPTIONAL */
+            Interpreter interpreter, /* in: OPTIONAL */
+            TimeoutType timeoutType  /* in */
             )
         {
-            int? timeout = GetTimeout(interpreter);
+            int? timeout = GetTimeout(interpreter, timeoutType);
 
             if (timeout != null)
             {
@@ -2410,10 +4476,147 @@ namespace Eagle._Components.Private
 
         #region Public Wrapper Methods
         public static object MakeRequest(
+            Interpreter interpreter,  /* in: OPTIONAL */
+            WebClient webClient,      /* in */
+            Uri uri,                  /* in */
+            int? maximumRetries,      /* in: OPTIONAL */
+            NameValueCollection data, /* in: OPTIONAL */
+            IProfilerState profiler,  /* in: OPTIONAL */
+            bool raw,                 /* in */
+            ref Result error          /* out */
+            )
+        {
+            int localMaximumRetries = (maximumRetries != null) ?
+                (int)maximumRetries : GetMaximumRetries();
+
+            int retries = 0;
+            ResultList errors = null;
+
+            while (true)
+            {
+                //
+                // TODO: If timedOut when check if TLS is
+                //       broken due to Windows 11, etc, and retry?
+                //
+                object stringOrBytes;
+                Result localError = null;
+
+                stringOrBytes = MakeRequestOnce(
+                    interpreter, webClient, uri, data,
+                    profiler, raw, ref localError);
+
+                if (stringOrBytes != null)
+                    return stringOrBytes;
+
+                MaybeAddError(ref errors, localError);
+
+                WebErrorCallback callback = GetErrorCallback(interpreter);
+
+                if (callback != null)
+                {
+                    WebFlags webFlags = WebFlags.MakeRequest;
+
+                    if (data != null)
+                        webFlags |= WebFlags.Values;
+                    else
+                        webFlags |= WebFlags.String;
+
+                    object result = null;
+
+                    switch (InvokeErrorCallback(callback,
+                            interpreter, new ClientData(data),
+                            uri, webFlags, 0, GetTimeout(webClient),
+                            maximumRetries, ref result, ref errors))
+                    {
+                        case ReturnCode.Ok:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that the callback says
+                                //       it succeeded and valid
+                                //       data is being returned.
+                                //
+                                return result;
+                            }
+                        case ReturnCode.Error:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fail right now
+                                //       by returning null and
+                                //       the error collection.
+                                //
+                                error = errors;
+                                return null;
+                            }
+                        case ReturnCode.Return:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we fake "success"
+                                //       by returning an empty
+                                //       result.
+                                //
+                                // NOTE: When asynchronous, it
+                                //       this will be the same
+                                //       as "Ok".
+                                //
+                                return raw ?
+                                    (object)new byte[0] :
+                                    (object)String.Empty;
+                            }
+                        case ReturnCode.Break:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       that we bump the retry
+                                //       count and continue with
+                                //       default handling.
+                                //
+                                retries++;
+                                break;
+                            }
+                        case ReturnCode.Continue:
+                            {
+                                //
+                                // NOTE: This return code means
+                                //       the callback didn't do
+                                //       anything substantive
+                                //       and we should continue
+                                //       with default handling.
+                                //
+                                break;
+                            }
+                    }
+                }
+
+                if ((localMaximumRetries <= 0) ||
+                    (++retries > localMaximumRetries))
+                {
+                    break;
+                }
+
+                /* NO RESULT */
+                SleepForRetry(interpreter, null, retries);
+            }
+
+            if (errors != null)
+                error = PrepareErrors(errors, retries);
+
+            return null;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Wrapper Methods
+        private static object MakeRequestOnce(
+            Interpreter interpreter,  /* in: NOT USED */
             WebClient webClient,      /* in */
             Uri uri,                  /* in */
             NameValueCollection data, /* in: OPTIONAL */
             IProfilerState profiler,  /* in: OPTIONAL */
+            bool raw,                 /* in */
             ref Result error          /* out */
             )
         {
@@ -2430,6 +4633,8 @@ namespace Eagle._Components.Private
             {
                 if (data != null)
                     return webClient.UploadValues(uri, data);
+                else if (raw)
+                    return webClient.DownloadData(uri);
                 else
                     return webClient.DownloadString(uri);
             }

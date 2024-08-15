@@ -922,6 +922,12 @@ namespace Eagle._Components.Public
                 return true;
             }
 
+            //
+            // NOTE: This is the slow path.  It is somewhat rare
+            //       and is not generally hit when dealing with
+            //       with typical mathematical expressions that
+            //       arise for [if], [while], etc.
+            //
             if (type == typeof(ReturnCode))
             {
                 ReturnCode code = ReturnCode.Ok;

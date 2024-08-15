@@ -372,7 +372,7 @@ namespace Eagle._Objects
                     Result error = null;
 
                     while ((tries == 0) || (Interpreter.EngineReady(
-                            interpreter, ReadyFlags.ViaObject,
+                            interpreter, null, ReadyFlags.ViaObject,
                             ref error) == ReturnCode.Ok))
                     {
                         if (TryRemoveReferences(

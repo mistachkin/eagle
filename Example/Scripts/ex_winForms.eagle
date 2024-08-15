@@ -14,7 +14,7 @@ proc centerButton {} {
 object load -import System.Windows.Forms
 set form [object create -alias Form]
 
-$form Text "[info engine] Test Form Title"
+$form Text "[info engine] Test 'ex_winForms.eagle' Form Title"
 $form TopMost true
 $form Show
 

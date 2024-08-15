@@ -1,0 +1,554 @@
+###############################################################################
+#
+# loader.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Eagle Binary Plugin Loader Package File
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::Eagle {
+  #
+  # NOTE: This procedure emulates the behavior of the native Tcl [tclLog]
+  #       command.  This procedure CANNOT use core library commands and/or
+  #       sub-commands that are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc tclLogForLoader { string } {
+    if {[llength [info commands tclLog]] > 0} then {
+      return [tclLog $string]
+    }
+
+    #
+    # NOTE: This should work properly in both Tcl and Eagle.
+    #
+    catch {puts stderr $string}
+  }
+
+  #
+  # NOTE: This procedure accepts an any number of arguments.  The arguments
+  #       are appended into one big string, verbatim.  The resulting string
+  #       is returned.  Normally, this procedure is used to avoid undesired
+  #       string interpolation operations.  The same procedure is also
+  #       defined in the "auxiliary.eagle" file.  This procedure CANNOT use
+  #       core library commands and/or sub-commands that are marked as being
+  #       "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc appendArgsForLoader { args } {
+    if {[llength [info commands appendArgs]] > 0} then {
+      return [eval appendArgs $args]
+    }
+
+    set result ""; eval append result $args
+  }
+
+  #
+  # NOTE: This procedure is used to dump state information known to the
+  #       loader that may impact built [package ifneeded] scripts.  It is
+  #       designed for internal diagnostic and test use only.  This
+  #       procedure CANNOT use core library commands and/or sub-commands
+  #       that are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc maybeDumpForLoader { where {result ""} } {
+    if {[string is true -strict \
+        [maybeInvokeForLoader ::shouldDumpForLoader]] || \
+        [info exists ::env(shouldDumpForLoader)]} then {; # HOOK
+      set message \n
+
+      append message [lindex [info level [info level]] 0]
+
+      if {[string length $where] > 0} then {
+        append message " \[" $where \]
+      }
+
+      append message ": \{"
+
+      append message \n\t \
+          "haveIsEagle ==> " \t\t \
+          [expr {[llength [info commands isEagle]] > 0}]
+
+      append message \n\t \
+          "haveIsMono ==> " \t\t\t \
+          [expr {[llength [info commands isMono]] > 0}]
+
+      append message \n\t \
+          "haveIsDotNetCore ==> " \t\t \
+          [expr {[llength [info commands isDotNetCore]] > 0}]
+
+      append message \n\t \
+          "haveIsWindows ==> " \t\t \
+          [expr {[llength [info commands isWindows]] > 0}]
+
+      append message \n\t \
+          "haveGetPatchLevel ==> " \t\t \
+          [expr {[llength [info commands getPatchLevel]] > 0}]
+
+      append message \n\t \
+          "haveGetBuildType ==> " \t\t \
+          [expr {[llength [info commands getBuildType]] > 0}]
+
+      append message \n\t \
+          "isSafe ==> " \t\t\t [interp issafe]
+
+      append message \n\t \
+          "isEagleForLoader ==> " \t\t [isEagleForLoader]
+
+      append message \n\t \
+          "isMonoForLoader ==> " \t\t [isMonoForLoader]
+
+      append message \n\t \
+          "isDotNetCoreForLoader ==> " \t [isDotNetCoreForLoader]
+
+      append message \n\t \
+          "isWindowsForLoader ==> " \t\t [isWindowsForLoader]
+
+      append message \n\t \
+          "getPatchLevelForLoader ==> " \t [getPatchLevelForLoader]
+
+      append message \n\t \
+          "getBuildTypeForLoader ==> " \t [getBuildTypeForLoader]
+
+      append message \n\}
+
+      if {[string length $result] > 0} then {
+        append message " ==> \{\n"
+
+        regsub -all -line -- {^  } $result "\t  " result
+        regsub -all -line -- {^::package} $result "\t::package" result
+        regsub -all -line -- {^\}} $result "\t\}" result
+
+        append message $result \n\}
+      }
+
+      append message \n
+
+      maybeInvokeForLoader ::dumpForLoader; # HOOK
+
+      return [tclLogForLoader $message]
+    } else {
+      return 1; # "error" (i.e. nothing was dumped)
+    }
+  }
+
+  #
+  # NOTE: This is the procedure that detects whether or not we are running
+  #       in Eagle (otherwise, it is assumed that we are running in vanilla
+  #       Tcl).  This procedure must work correctly in both Tcl and Eagle
+  #       and must return non-zero only when running in Eagle.  The same
+  #       procedure is also defined in the "init.eagle" file.  This
+  #       procedure CANNOT use core library commands and/or sub-commands
+  #       that are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc isEagleForLoader {} {
+    if {[llength [info commands isEagle]] > 0} then {
+      return [isEagle]
+    }
+
+    return [expr {[info exists ::tcl_platform(engine)] && \
+        [string compare -nocase eagle $::tcl_platform(engine)] == 0}]
+  }
+
+  #
+  # NOTE: This is the procedure that detects whether or not we are running
+  #       in Eagle on Mono (i.e. otherwise, we are running in Tcl or in Eagle
+  #       on the .NET Framework or .NET Core).  This procedure must function
+  #       correctly in both Tcl and Eagle and must return non-zero only when
+  #       running in Eagle on Mono.  The same procedure is also defined in
+  #       the "platform.eagle" file.  This procedure CANNOT use core library
+  #       commands and/or sub-commands that are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc isMonoForLoader {} {
+    if {[llength [info commands isMono]] > 0} then {
+      return [isMono]
+    }
+
+    return [expr {[info exists ::eagle_platform(runtime)] && \
+        [string compare -nocase mono $::eagle_platform(runtime)] == 0}]
+  }
+
+  #
+  # NOTE: This is the procedure that detects whether or not we are running
+  #       in Eagle on .NET Core (i.e. otherwise, we are running in Tcl or in
+  #       Eagle on the .NET Framework or Mono).  This procedure must function
+  #       correctly in both Tcl and Eagle and must return non-zero only when
+  #       running in Eagle on .NET Core.  For the purposes of this procedure,
+  #       the ".NET 5" and later runtimes are still treated as .NET Core.
+  #       The same procedure is also defined in the "platform.eagle" file.
+  #       This procedure CANNOT use core library commands and/or sub-commands
+  #       that are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc isDotNetCoreForLoader {} {
+    if {[llength [info commands isDotNetCore]] > 0} then {
+      return [isDotNetCore]
+    }
+
+    return [expr {[info exists ::eagle_platform(runtime)] && \
+        ([string compare -nocase ".net core" $::eagle_platform(runtime)] == 0 \
+      || [string compare -nocase ".net" $::eagle_platform(runtime)] == 0)}]
+  }
+
+  #
+  # NOTE: This is the procedure that detects whether or not we are running
+  #       on Windows (otherwise, it is assumed that we are running on some
+  #       flavor of Unix).  This procedure must function correctly in both
+  #       Tcl and Eagle and must return non-zero only when on Windows.  The
+  #       same procedure is also defined in the "platform.eagle" file.  This
+  #       procedure CANNOT use core library commands and/or sub-commands that
+  #       are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc isWindowsForLoader {} {
+    if {[llength [info commands isWindows]] > 0} then {
+      return [isWindows]
+    }
+
+    return [expr {[info exists ::tcl_platform(platform)] && \
+        $::tcl_platform(platform) eq "windows"}]
+  }
+
+  #
+  # NOTE: This is the procedure that detects and returns the patch level for
+  #       the Eagle core library.  This procedure should not raise any script
+  #       errors.  This procedure CANNOT use core library commands and/or
+  #       sub-commands that are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc getPatchLevelForLoader {} {
+    if {[llength [info commands getPatchLevel]] > 0} then {
+      return [getPatchLevel]
+    }
+
+    if {[info exists ::eagle_platform(patchLevel)] && [catch {
+      info engine PatchLevel
+    } patchLevel] == 0} then {
+      return $patchLevel
+    }
+
+    return 1.0
+  }
+
+  #
+  # NOTE: This is the procedure that detects and returns the "build type" for
+  #       the Eagle core library.  This procedure should not raise any script
+  #       errors.  This procedure CANNOT use core library commands and/or
+  #       sub-commands that are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc getBuildTypeForLoader {} {
+    if {[llength [info commands getBuildType]] > 0} then {
+      return [getBuildType]
+    }
+
+    if {[info exists ::eagle_platform(textOrSuffix)] && [catch {
+      info engine TextOrSuffix
+    } textOrSuffix] == 0} then {
+      return $textOrSuffix
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure attempts to invoke the specified procedure, if it
+  #       is available.  This procedure CANNOT use core library commands
+  #       and/or sub-commands that are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc maybeInvokeForLoader { name } {
+    if {[llength [info commands maybeInvoke]] > 0} then {
+      return [uplevel 1 [list maybeInvoke $name]]
+    }
+
+    if {[llength [info commands $name]] > 0} then {
+      if {[catch {
+        uplevel 1 [list $name]
+      } result] == 0} then {
+        return $result
+      } else {
+        tclLogForLoader [appendArgsForLoader \
+            "LOADER INVOKE ERROR: " $result]
+      }
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure returns a list of argument (names) for the [apply]
+  #       command used to load a binary plugin, dynamically figuring out if
+  #       the optional tag argument is available.  This procedure CANNOT use
+  #       core library commands and/or sub-commands that are marked as being
+  #       "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc getApplyArgumentNames { tagVarName } {
+    upvar 1 $tagVarName tag
+
+    set result [list dir]
+    if {[info exists tag]} then {lappend result tag}
+    lappend result args
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure returns a list of argument (values) for the [apply]
+  #       command used to load a binary plugin, dynamically figuring out if
+  #       the optional tag argument is available.  This procedure CANNOT use
+  #       core library commands and/or sub-commands that are marked as being
+  #       "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc getApplyArgumentValues { dir tagVarName } {
+    upvar 1 $tagVarName tag
+
+    set result [list $dir]
+    if {[info exists tag]} then {lappend result $tag}
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure constructs and returns a script command that uses
+  #       the [load] command to load the specified binary plugin.  This
+  #       procedure CANNOT use core library commands and/or sub-commands
+  #       that are marked as being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc createLoadCommand { {name ""} {tag ""} } {
+    set result [list ::load]
+
+    if {[string length $tag] > 0} then {
+      lappend result -publickeytoken [appendArgsForLoader 0x $tag]
+    }
+
+    #
+    # HACK: *SPECIAL* Permit the special environment variable for Harpy
+    #       to bypass primary thread restrictions.
+    #
+    if {[string is true -strict \
+        [maybeInvokeForLoader ::pluginAllowAnyThread]] || \
+        [info exists ::env(HarpyAllowAnyThread)]} then {; # HOOK
+      lappend result -anythread
+    }
+
+    #
+    # NOTE: Grab the build type for the running core library.  It should
+    #       be an empty string -OR- one of the "well-known" build types
+    #       defined within the "Eagle/Targets/Eagle.Builds.targets" file.
+    #
+    set buildType [getBuildTypeForLoader]
+
+    #
+    # HACK: *SPECIAL* The "Bare" build type cannot handle strong name
+    #       verification due to not being compiled with support for
+    #       using P/Invoke.
+    #
+    # HACK: *SPECIAL* The "MonoOnUnix" build type cannot handle strong
+    #       name verification unless it is also running on Mono.
+    #
+    if {$buildType ni [list Bare] && \
+        ($buildType ni [list MonoOnUnix] || [isMonoForLoader])} then {
+      lappend result -maybeverifiedonly
+    }
+
+    #
+    # HACK: *SPECIAL* The "Bare" build type cannot handle Authenticode
+    #       due to not being compiled with support for using P/Invoke.
+    #
+    if {$buildType ni [list Bare]} then {
+      #
+      # HACK: *SPECIAL* The "MonoOnUnix" build type cannot handle
+      #       Authenticode when not running on Mono -OR- when running
+      #       on Windows due to not be compiled with support for Win32
+      #       integration using P/Invoke.
+      #
+      if {$buildType ni [list MonoOnUnix] || \
+          ([isMonoForLoader] && ![isWindowsForLoader])} then {
+        lappend result -maybetrustedonly
+      }
+    }
+
+    lappend result --
+    lappend result %fileName%
+
+    if {[string length $name] > 0} then {
+      lappend result $name
+    }
+
+    set result [string map [list %fileName% \$fileName] $result]
+
+    maybeInvokeForLoader ::previewLoadCommand; # HOOK
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure constructs and returns a script command that uses
+  #       the [package ifneeded] sub-command to provide the specified binary
+  #       plugin as an available package.  This procedure CANNOT use core
+  #       library commands and/or sub-commands that are marked as being
+  #       "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc createPackageIfNeededCommand {
+          name {version ""} {script ""} } {
+    set result [list ::package]
+
+    lappend result ifneeded $name
+
+    if {[string length $version] > 0} then {
+      lappend result $version
+    } elseif {[isEagleForLoader]} then {
+      lappend result [info engine Version]
+    } elseif {[info exists ::tcl_version]} then {
+      lappend result $::tcl_version
+    } else {
+      lappend result 0.0
+    }
+
+    if {[string length $script] > 0} then {
+      lappend result $script
+      lappend result +Locked
+    }
+
+    maybeInvokeForLoader ::previewPackageIfNeededCommand; # HOOK
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure constructs and returns a [package ifneeded] script
+  #       argument (value) that makes use of the [apply] command to provide
+  #       a binary plugin as an available package, dynamically figuring out
+  #       if the optional tag argument is available.  This procedure CANNOT
+  #       use core library commands and/or sub-commands that are marked as
+  #       being "unsafe".
+  #
+  # <loader>
+  # <private>
+  proc createPackageIfNeededScriptArgument { dir tagVarName } {
+    upvar 1 $tagVarName tag
+
+    #
+    # HACK: Attempt making the [package ifneeded] script look nicer.
+    #
+    set indent(from) {      # }
+    set indent(to) {  }
+
+    set result [list apply \
+        [list [getApplyArgumentNames tag] [string map \
+        [list $indent(from) $indent(to)] [string trimright {
+      # foreach fileNameOnly {%fileNamesOnly%} {
+      #   set fileName [file join $dir $fileNameOnly]
+      # 
+      #   if {[file exists $fileName]} then {
+      #     maybeInvokeForLoader ::preLoadPlugin; # HOOK
+      # 
+      #     try {
+      #       return [%command%]
+      #     } finally {
+      #       maybeInvokeForLoader ::postLoadPlugin; # HOOK
+      #     }
+      #   }
+      # }
+    }]]]]
+
+    eval lappend result [getApplyArgumentValues $dir tag]
+
+    maybeInvokeForLoader ::previewPackageIfNeededScriptArgument; # HOOK
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure constructs and returns a script command that uses
+  #       the [package ifneeded] sub-command to provide the specified binary
+  #       plugin as an available package.  This procedure may not raise any
+  #       script errors; however, it may return an empty string, e.g. none
+  #       of the specified binary plugin files exist in the specified target
+  #       directory.  This procedure CANNOT use core library commands and/or
+  #       sub-commands that are marked as being "unsafe".
+  #
+  # <loader>
+  # <public>
+  proc maybeCreatePackageIfNeededCommand {
+          name dir fileNamesOnly tagVarName {version ""} } {
+    upvar 1 $tagVarName tag
+
+    set result ""; # NOTE: Need file name before building script...
+
+    maybeInvokeForLoader ::preCreatePackageIfNeededCommand; # HOOK
+
+    try {
+      maybeDumpForLoader [appendArgsForLoader "PRE-CREATE " \
+          [info level [info level]]]; # DEBUG
+
+      try {
+        foreach fileNameOnly $fileNamesOnly {
+          set fileName [file join $dir $fileNameOnly]
+
+          if {[interp issafe] || [file exists $fileName]} then {
+            maybeInvokeForLoader ::selectedPackageFileName; # HOOK
+
+            set metaCommand [list createLoadCommand $name]
+            if {[info exists tag]} then {lappend metaCommand $tag}
+
+            set result [string map \
+                [list %command% [eval $metaCommand] \
+                %fileNamesOnly% $fileNamesOnly \}\}\} \}\}\n\}] \
+                [createPackageIfNeededCommand $name $version \
+                [createPackageIfNeededScriptArgument $dir tag]]]
+
+            break
+          }
+        }
+
+        return $result
+      } finally {
+        maybeDumpForLoader [appendArgsForLoader "POST-CREATE " \
+            [info level [info level]]] $result; # DEBUG
+      }
+    } finally {
+      maybeInvokeForLoader ::postCreatePackageIfNeededCommand; # HOOK
+    }
+  }
+
+  #
+  # NOTE: Provide the Eagle "loader" package to the interpreter.
+  #
+  package provide Eagle.Loader \
+    [expr {[isEagleForLoader] ? [getPatchLevelForLoader] : "1.0"}]
+}
+

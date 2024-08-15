@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -84,6 +85,60 @@ namespace Eagle._Components.Private
             }
         }
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SplitOnOne<T>(
+            T[] array,    /* in */
+            T split,      /* in */
+            out T[] left, /* out */
+            out T[] right /* out */
+            ) where T : IComparable<T>
+        {
+            left = null;
+            right = null;
+
+            if (array == null)
+                return false;
+
+            if (split == null)
+                return false;
+
+            int length = array.Length;
+
+            if (length <= 0)
+                return false;
+
+            for (int index = 0; index < length; index++)
+            {
+                T element = array[index];
+
+                if (element == null)
+                    continue;
+
+                if (element.CompareTo(split) == 0)
+                {
+                    int leftStartIndex = 0;
+                    int leftLength = index;
+
+                    int rightStartIndex = index + 1;
+                    int rightLength = length - rightStartIndex;
+
+                    left = new T[leftLength];
+                    right = new T[rightLength];
+
+                    Array.Copy(
+                        array, leftStartIndex, left, 0, leftLength);
+
+                    Array.Copy(
+                        array, rightStartIndex, right, 0, rightLength);
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -1227,6 +1282,25 @@ namespace Eagle._Components.Private
                 result = result.ToUpperInvariant();
 
             return result;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string ToRawString(
+            byte[] array
+            )
+        {
+            if (array == null)
+                return null;
+
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            int length = array.Length;
+
+            for (int index = 0; index < length; index++)
+                builder.Append(ConversionOps.ToChar(array[index]));
+
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////

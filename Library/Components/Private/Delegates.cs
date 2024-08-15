@@ -124,6 +124,7 @@ namespace Eagle._Components.Private.Delegates
         Interpreter interpreter, // TODO: Change to use the IInterpreter type.
         string path,
         string fileName,
+        string tag,
         ref PackageIndexFlags flags,
         ref IClientData clientData,
         ref Result error

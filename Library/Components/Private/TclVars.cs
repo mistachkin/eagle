@@ -88,13 +88,17 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             //
-            // NOTE: This is a transient (temporary) global variable only
+            // NOTE: These are transient (temporary) global variables only
             //       for use when evaluating package index files.  Do NOT
-            //       use it for any other purpose.  It will contain the
-            //       fully qualified name of the directory containing the
-            //       package index file being evaluated.
+            //       use them for any other purpose.  The "dir" variable
+            //       will contain the fully qualified name of the directory
+            //       containing the package index file being evaluated and
+            //       the "tag" variable will contain a 16 digit hexadecimal
+            //       tag value, which generally represents the associated
+            //       public key token, if any.
             //
             public static readonly string Directory = "dir";
+            public static readonly string Tag = "tag";
 
             ///////////////////////////////////////////////////////////////////
 

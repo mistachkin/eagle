@@ -105,7 +105,7 @@ namespace Eagle._Components.Private
         //       parameter specifiers:
         //
         //       0. The trace category, if any; if this is null, only the
-        //          trace message itself will be emitted.  It should be
+        //          trace message itself will be written.  It should be
         //          noted that an empty string is technically valid here.
         //
         //       1. The trace message itself.
@@ -243,6 +243,8 @@ namespace Eagle._Components.Private
             "Highest"
         };
 
+        private static readonly string AlwaysTracePriorityFullName = "Always";
+
         ///////////////////////////////////////////////////////////////////////
 
         //
@@ -260,6 +262,8 @@ namespace Eagle._Components.Private
             "H2",
             "H1"
         };
+
+        private static readonly string AlwaysTracePriorityShortName = "A1";
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -533,7 +537,7 @@ namespace Eagle._Components.Private
         private static int isTraceToInterpreterHost = 0;
 
         //
-        // NOTE: This is the number of nesting levels for emitting traces to
+        // NOTE: This is the number of nesting levels for writing traces to
         //       the interpreter host, if applicable.  It is used to prevent
         //       any reentrancy into the interpreter host redirection code.
         //
@@ -625,19 +629,19 @@ namespace Eagle._Components.Private
 
         //
         // NOTE: This is the total number of trace messages that have NOT been
-        //       emitted due to the subsystem not being (fully?) usable.
+        //       written due to the subsystem not being (fully?) usable.
         //
         private static long traceImpossible = 0;
 
         //
         // NOTE: This is the total number of trace messages that have NOT been
-        //       emitted due to having an excluded priority and/or category.
+        //       written due to having an excluded priority and/or category.
         //
         private static long traceDisabled = 0;
 
         //
         // NOTE: This is the total number of trace messages that have NOT been
-        //       emitted due to being too noisy, duplicates, etc.
+        //       written due to being too noisy, duplicates, etc.
         //
         private static long traceTripped = 0;
 
@@ -656,9 +660,9 @@ namespace Eagle._Components.Private
 
         //
         // NOTE: This is the total number of trace messages that have been
-        //       emitted (ever).
+        //       written to the listeners (ever).
         //
-        private static long traceEmitted = 0;
+        private static long traceWritten = 0;
 
         //
         // NOTE: This is the total number of trace messages that have been
@@ -683,7 +687,51 @@ namespace Eagle._Components.Private
         //       seen due to lock errors.
         //
         private static long traceLockErrors = 0;
+
+        //
+        // NOTE: This is the integer identifier for the thread that holds
+        //       the static lock, if any.
+        //
+        private static long lockThreadId = 0;
         #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Threading Cooperative Locking Diagnostic Methods
+        private static long MaybeWhoHasLock()
+        {
+            return Interlocked.CompareExchange(
+                ref lockThreadId, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeSomebodyHasLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref lockThreadId,
+                    GlobalState.GetCurrentLockThreadId(), 0);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeNobodyHasLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref lockThreadId,
+                    0, GlobalState.GetCurrentLockThreadId());
+            }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -697,6 +745,7 @@ namespace Eagle._Components.Private
                 return;
 
             locked = Monitor.TryEnter(syncRoot);
+            MaybeSomebodyHasLock(locked);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -710,6 +759,7 @@ namespace Eagle._Components.Private
 
             if (locked)
             {
+                MaybeNobodyHasLock(locked);
                 Monitor.Exit(syncRoot);
                 locked = false;
             }
@@ -784,8 +834,8 @@ namespace Eagle._Components.Private
                 //       initial trace categories mask, trace priorities
                 //       mask, and the default trace priority.  If this
                 //       initialization is not done, some trace messages
-                //       may be blocked or emitted when they should have
-                //       been emitted or blocked, respectively.
+                //       may be blocked or written when they should have
+                //       been written or blocked, respectively.
                 //
                 ForceInitialize(false, true);
             }
@@ -1115,10 +1165,10 @@ namespace Eagle._Components.Private
                         traceException.ToString());
                 }
 
-                if (empty || (traceEmitted != 0))
+                if (empty || (traceWritten != 0))
                 {
-                    localList.Add("TraceEmitted",
-                        traceEmitted.ToString());
+                    localList.Add("TraceWritten",
+                        traceWritten.ToString());
                 }
 
                 if (empty || (traceLogged != 0))
@@ -1179,8 +1229,10 @@ namespace Eagle._Components.Private
                 list.Add("isInitialized", (Interlocked.CompareExchange(
                     ref isTraceInitialized, 0, 0) > 0).ToString());
 
-                list.Add("forceToListeners",
-                    DebugOps.GetForceToListeners().ToString());
+                bool? forceToListeners = DebugOps.GetForceToListeners();
+
+                list.Add("forceToListeners", (forceToListeners != null) ?
+                    ((bool)forceToListeners).ToString() : false.ToString());
 
                 list.Add("isEnabled", (isTraceEnabled != null) ?
                     ((bool)isTraceEnabled).ToString() : null);
@@ -1195,6 +1247,9 @@ namespace Eagle._Components.Private
 
                 list.Add("priorities",
                     GetTracePriorities().ToString());
+
+                list.Add("globalPriorities",
+                    GetGlobalPriorities().ToString());
 
                 categories = ListTraceCategories(
                     TraceCategoryType.Enabled);
@@ -1276,7 +1331,7 @@ namespace Eagle._Components.Private
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                /* NO RESULT */
+                /* IGNORED */
                 DebugOps.ResetForceToListeners();
 
                 /* NO RESULT */
@@ -1391,10 +1446,8 @@ namespace Eagle._Components.Private
                 if (FlagOps.HasFlags(
                         stateType, TraceStateType.ForceListeners, true))
                 {
-                    /* NO RESULT */
-                    DebugOps.SetForceToListeners(enabled);
-
-                    result |= TraceStateType.ForceListeners;
+                    if (DebugOps.SetForceToListeners(enabled))
+                        result |= TraceStateType.ForceListeners;
                 }
 
                 ///////////////////////////////////////////////////////////////
@@ -2727,7 +2780,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static int FindTraceCategory(
+        private static int FindAnyTraceCategory(
             TracePriority priorities,     /* in */
             string[] categories,          /* in */
             IntDictionary traceCategories /* in */
@@ -2773,6 +2826,18 @@ namespace Eagle._Components.Private
             }
 
             return Index.Invalid;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool MatchAnyTraceCategory(
+            TracePriority priorities,     /* in */
+            string[] categories,          /* in */
+            IntDictionary traceCategories /* in */
+            )
+        {
+            return FindAnyTraceCategory(priorities,
+                categories, traceCategories) != Index.Invalid;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2829,6 +2894,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static TracePriority MaskTracePriority(
+            TracePriority priority /* in */
+            )
+        {
+            return priority & TracePriority.AnyPriorityMask;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void ChangeTracePriority(
+            ref TracePriority priority,   /* in, out */
+            TracePriority newBasePriority /* in */
+            )
+        {
+            TracePriority basePriority = MaskTracePriority(
+                newBasePriority);
+
+            if (FlagOps.HasFlags(basePriority,
+                    TracePriority.AnyPriorityMask, false))
+            {
+                priority &= ~TracePriority.AnyPriorityMask;
+                priority |= basePriority;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string GetTracePriorityName(
             TracePriority priority, /* in */
             bool shortName          /* in */
@@ -2836,29 +2928,39 @@ namespace Eagle._Components.Private
         {
             lock (syncRoot) /* TRANSACTIONAL */
             {
-                int index = FindTracePriority(priority, false);
-
-                if (index == Index.Invalid)
-                    return null;
-
-                if (shortName)
+                if (FlagOps.HasFlags(priority, TracePriority.Always, true))
                 {
-                    if (TracePriorityShortNames != null)
-                    {
-                        int length = TracePriorityShortNames.Length;
-
-                        if (length > 0)
-                            return TracePriorityShortNames[index];
-                    }
+                    if (shortName)
+                        return AlwaysTracePriorityShortName;
+                    else
+                        return AlwaysTracePriorityFullName;
                 }
                 else
                 {
-                    if (TracePriorityFullNames != null)
-                    {
-                        int length = TracePriorityFullNames.Length;
+                    int index = FindTracePriority(priority, false);
 
-                        if (length > 0)
-                            return TracePriorityFullNames[index];
+                    if (index == Index.Invalid)
+                        return null;
+
+                    if (shortName)
+                    {
+                        if (TracePriorityShortNames != null)
+                        {
+                            int length = TracePriorityShortNames.Length;
+
+                            if (length > 0)
+                                return TracePriorityShortNames[index];
+                        }
+                    }
+                    else
+                    {
+                        if (TracePriorityFullNames != null)
+                        {
+                            int length = TracePriorityFullNames.Length;
+
+                            if (length > 0)
+                                return TracePriorityFullNames[index];
+                        }
                     }
                 }
 
@@ -2882,7 +2984,8 @@ namespace Eagle._Components.Private
             )
         {
             return FlagOps.HasFlags(
-                flags, hasFlags & TracePriority.HasPrioritiesMask, all);
+                flags, hasFlags & TracePriority.HasPrioritiesMask,
+                all); /* EXEMPT */
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3014,8 +3117,6 @@ namespace Eagle._Components.Private
             params string[] categories /* in */
             )
         {
-            bool result;
-
             lock (syncRoot) /* TRANSACTIONAL */
             {
                 //
@@ -3040,7 +3141,7 @@ namespace Eagle._Components.Private
                 //
                 // NOTE: Determine if tracing is globally enabled or disabled.
                 //
-                result = (bool)isTraceEnabled;
+                bool result = (bool)isTraceEnabled;
 
                 //
                 // NOTE: If tracing has been globally disabled, do not bother
@@ -3050,6 +3151,13 @@ namespace Eagle._Components.Private
                 {
                     /* NO RESULT */
                     MaybeInitialize();
+
+                    //
+                    // NOTE: Cache the configured trace priority masks used by
+                    //       this method.
+                    //
+                    TracePriority tracePriorities = GetTracePriorities();
+                    TracePriority globalPriorities = GetGlobalPriorities();
 
                     //
                     // NOTE: Initially, there are no priority adjustments; they
@@ -3100,13 +3208,16 @@ namespace Eagle._Components.Private
                         //
                         if ((categoryBonus == 0) &&
                             (bonusTraceCategories != null) &&
+                            (bonusTraceCategories.Count > 0) &&
                             FlagOps.HasFlags(tracePriorities,
-                                TracePriority.CategoryBonus, true) &&
-                            (FindTraceCategory(tracePriorities, categories,
-                                bonusTraceCategories) != Index.Invalid))
+                                    TracePriority.CategoryBonus, true) &&
+                            MatchAnyTraceCategory(tracePriorities,
+                                    categories, bonusTraceCategories))
                         {
                             categoryBonus = DefaultCategoryBonus;
-                            goto retry;
+
+                            if (categoryBonus != 0)
+                                goto retry;
                         }
 
                         result = false;
@@ -3120,13 +3231,16 @@ namespace Eagle._Components.Private
                         //
                         if ((categoryPenalty == 0) &&
                             (penaltyTraceCategories != null) &&
+                            (penaltyTraceCategories.Count > 0) &&
                             FlagOps.HasFlags(tracePriorities,
-                                TracePriority.CategoryPenalty, true) &&
-                            (FindTraceCategory(tracePriorities, categories,
-                                penaltyTraceCategories) != Index.Invalid))
+                                    TracePriority.CategoryPenalty, true) &&
+                            MatchAnyTraceCategory(tracePriorities,
+                                    categories, penaltyTraceCategories))
                         {
                             categoryPenalty = DefaultCategoryPenalty;
-                            goto retry;
+
+                            if (categoryPenalty != 0)
+                                goto retry;
                         }
 
                         //
@@ -3135,7 +3249,8 @@ namespace Eagle._Components.Private
                         //       enabled (i.e. all trace categories are
                         //       allowed), always allow the message through.
                         //
-                        if ((categories != null) && (categories.Length > 0))
+                        if (result &&
+                            (categories != null) && (categories.Length > 0))
                         {
                             if (result &&
                                 (enabledTraceCategories != null) &&
@@ -3150,8 +3265,9 @@ namespace Eagle._Components.Private
                                 //       otherwise, the trace message is not
                                 //       allowed through.
                                 //
-                                if (FindTraceCategory(tracePriorities, categories,
-                                        enabledTraceCategories) == Index.Invalid)
+                                if (!MatchAnyTraceCategory(
+                                        tracePriorities, categories,
+                                        enabledTraceCategories))
                                 {
                                     result = false;
                                 }
@@ -3169,8 +3285,9 @@ namespace Eagle._Components.Private
                                 //       values must be zero; otherwise, the
                                 //       trace message is not allowed through.
                                 //
-                                if (FindTraceCategory(tracePriorities, categories,
-                                        disabledTraceCategories) != Index.Invalid)
+                                if (MatchAnyTraceCategory(
+                                        tracePriorities, categories,
+                                        disabledTraceCategories))
                                 {
                                     result = false;
                                 }
@@ -3178,11 +3295,11 @@ namespace Eagle._Components.Private
                         }
                     }
                 }
+
+            done:
+
+                return result;
             }
-
-        done:
-
-            return result;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3384,7 +3501,7 @@ namespace Eagle._Components.Private
                 //
                 // HACK: Attempt to invoke the trace filter callback.  If
                 //       it throws an exception, we ignore it -AND- allow
-                //       the trace to be emitted.  Exceptions here cannot
+                //       the trace to be written.  Exceptions here cannot
                 //       be allowed to escape this method because that may
                 //       cause this class to be called again to report the
                 //       exception.
@@ -5520,7 +5637,7 @@ namespace Eagle._Components.Private
                     //
                     // NOTE: If the trace-to-host flag is non-zero -AND-
                     //       a valid interpreter host is available, use
-                    //       that to emit the trace message; otherwise,
+                    //       that to write the trace message; otherwise,
                     //       fallback to the previous default handling.
                     //
                     if (GetTraceToInterpreterHost())
@@ -5572,7 +5689,7 @@ namespace Eagle._Components.Private
                     if (DebugOps.TraceWrite(
                             interpreter, message, category)) /* throw */
                     {
-                        Interlocked.Increment(ref traceEmitted);
+                        Interlocked.Increment(ref traceWritten);
                         return true;
                     }
                 }
@@ -5599,7 +5716,7 @@ namespace Eagle._Components.Private
                     //       when the IBufferedTraceListener instances,
                     //       if any, should be flushed.
                     //
-                    Interlocked.Increment(ref traceEmitted);
+                    Interlocked.Increment(ref traceWritten);
                     return true;
                 }
             }
@@ -6024,7 +6141,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void DebugTraceAlways(
+        private static void DebugTraceAlways(
             long? threadId,        /* in */
             Exception exception,   /* in */
             string category,       /* in */
@@ -6084,7 +6201,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void DebugTraceAlways(
+        private static void DebugTraceAlways(
             Exception exception,   /* in */
             string category,       /* in */
             string prefix,         /* in */
@@ -6432,6 +6549,12 @@ namespace Eagle._Components.Private
                 ellipsis = true;
             }
 
+            if (ellipsis && FlagOps.HasFlags(
+                    priority, TracePriority.NoEllipsis, true))
+            {
+                ellipsis = false;
+            }
+
             if (FlagOps.HasFlags(
                     priority, TracePriority.SimpleFormatting, true))
             {
@@ -6594,7 +6717,7 @@ namespace Eagle._Components.Private
 
         #region Policy Tracing Methods
 #if POLICY_TRACE
-        private static bool ShouldEmitPolicyTrace(
+        private static bool ShouldWritePolicyTrace(
             Interpreter interpreter /* in: OPTIONAL */
             )
         {
@@ -6613,17 +6736,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void MaybeEmitPolicyTrace(
+        public static void MaybeWritePolicyTrace(
             string methodName,         /* in */
             Interpreter interpreter,   /* in */
             bool ellipsis,             /* in */
             params object[] parameters /* in */
             )
         {
-            bool didEmit = false;
+            bool didWrite;
 
-            MaybeEmitPolicyTrace(
-                methodName, interpreter, ellipsis, ref didEmit, parameters);
+            MaybeWritePolicyTrace(
+                methodName, interpreter, ellipsis, out didWrite,
+                parameters);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -6633,17 +6757,17 @@ namespace Eagle._Components.Private
         //          only.
         //
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void MaybeEmitPolicyTrace(
+        public static void MaybeWritePolicyTrace(
             string methodName,         /* in */
             Interpreter interpreter,   /* in */
             bool ellipsis,             /* in */
-            ref bool didEmit,          /* out */
+            out bool didWrite,         /* out */
             params object[] parameters /* in */
             )
         {
-            didEmit = false;
+            didWrite = false;
 
-            if (ShouldEmitPolicyTrace(interpreter))
+            if (ShouldWritePolicyTrace(interpreter))
             {
                 StringBuilder builder = StringBuilderFactory.Create();
 
@@ -6657,7 +6781,7 @@ namespace Eagle._Components.Private
                     if (!String.IsNullOrEmpty(methodName))
                         localMethodName = methodName;
                     else
-                        localMethodName = "MaybeEmitPolicyTrace";
+                        localMethodName = "MaybeWritePolicyTrace";
 
                     DebugTraceAlways(String.Format(
                         "{0}: interpreter = {1}, {2}", localMethodName,
@@ -6672,7 +6796,7 @@ namespace Eagle._Components.Private
                     //         priority (too low, etc), disabled category,
                     //         throttle limits, etc.
                     //
-                    didEmit = true;
+                    didWrite = true;
                 }
 
                 StringBuilderCache.Release(ref builder);

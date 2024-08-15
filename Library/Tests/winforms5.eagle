@@ -54,7 +54,9 @@ runTest {test winForms-5.1 {create and show a form with proc event} -setup {
   set assembly [object load -import System.Windows.Forms]
   set form [object create -alias Form]
 
-  $form Text [appendArgs [info engine] " Test Form Title"]
+  $form Text [appendArgs \
+      [info engine] " Test '" $eagle_tests(CurrentName) "' Form Title"]
+
   $form Show
 
   set button [object create -alias System.Windows.Forms.Button]
@@ -109,7 +111,9 @@ runTest {test winForms-5.2 {create/show threaded cancel form} -setup {
     # NOTE: Set the caption of the form and make the form is visible on the
     #       screen.
     #
-    $form Text [appendArgs [info engine] " Test Form Title"]
+    $form Text [appendArgs \
+        [info engine] " Test '" $::eagle_tests(CurrentName) "' Form Title"]
+
     $form Show
 
     #
@@ -125,7 +129,7 @@ runTest {test winForms-5.2 {create/show threaded cancel form} -setup {
     #
     # NOTE: Set the caption of the button and add a click event handler.
     #
-    $button Text "Cancel"
+    $button Text Cancel
     $button add_Click handleClickEvent
 
     #

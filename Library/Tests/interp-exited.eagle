@@ -124,6 +124,10 @@ runTest {test interp-1.4.1 {create and use interpreter alias} -setup {
 
 ###############################################################################
 
+#
+# TODO: Update the expected result of this test if any "system aliases" are
+#       added and/or removed from the "init.eagle" core library script file.
+#
 runTest {test interp-1.4.2 {create and use interpreter alias} -setup {
   proc newPwd {} {
     return [expr {int([file exists [pwd]])}]
@@ -147,8 +151,9 @@ runTest {test interp-1.4.2 {create and use interpreter alias} -setup {
 
   rename newPwd ""
 } -constraints {eagle} -match regexp -result {^(?:interp)?\d+ safePwd\
-\{::tcltest::testConstraint testConstraint\} safePwd 1 \{\}\
-\{::tcltest::testConstraint testConstraint\} \{\} \{\}$}}
+\{::tcltest::testConstraint(?: iga igap mrogsf oip reader rogsf scalar)?\
+testConstraint\} safePwd 1 \{\} \{::tcltest::testConstraint(?: iga igap mrogsf\
+oip reader rogsf scalar)? testConstraint\} \{\} \{\}$}}
 
 ###############################################################################
 
@@ -932,7 +937,11 @@ runTest {test interp-1.12 {interpreter disposal via destructor} -body {
   #       garbage collection.
   #
   if {[isMono] || [haveConstraint officialStableReleaseInProgress]} then {
-    set count(maximum) [expr {$test_timeout * 99 / 1000}]
+    #
+    # HACK: Be extremely aggressive with the retries because Mono seems to
+    #       be quite buggy with respect to garbage collection.
+    #
+    set count(maximum) [expr {int($test_timeout * 10000 / 1000.0)}]
     set count(start) [clock seconds]
 
     while {true} {
@@ -1558,13 +1567,11 @@ runTest {test interp-1.31 {try/finally without Engine.ResetCancel} -setup {
 
   interp eval $i {
     catch {
-      #
-      # HACK: Just in case it is actually the default, force the necessary
-      #       interpreter flags to be disabled for the created interpreter.
-      #
-      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
-          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags] " -FinallyResetCancel FinallyRestoreCancel"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags FinallyResetCancel false
+      enableInterpreterFlags FinallyRestoreCancel false
     }
   }
 } -body {
@@ -1593,6 +1600,13 @@ runTest {test interp-1.31 {try/finally without Engine.ResetCancel} -setup {
 
   interp set $i x
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -1605,14 +1619,11 @@ runTest {test interp-1.32 {try/finally with Engine.ResetCancel} -setup {
 
   interp eval $i {
     catch {
-      #
-      # HACK: Just in case it is not actually the default, force the
-      #       necessary interpreter flags to be enabled for the created
-      #       interpreter.
-      #
-      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
-          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags] " +FinallyResetCancel FinallyRestoreCancel"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags FinallyResetCancel true
+      enableInterpreterFlags FinallyRestoreCancel true
     }
   }
 } -body {
@@ -1641,6 +1652,13 @@ runTest {test interp-1.32 {try/finally with Engine.ResetCancel} -setup {
 
   interp set $i x
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -1883,13 +1901,11 @@ runTest {test interp-1.39 {try/finally without reset exit} -setup {
 
   interp eval $i {
     catch {
-      #
-      # HACK: Just in case it is actually the default, force the necessary
-      #       interpreter flags to be disabled for the created interpreter.
-      #
-      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
-          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags] " -FinallyResetExit FinallyRestoreExit"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags FinallyResetExit false
+      enableInterpreterFlags FinallyRestoreExit false
     }
   }
 } -body {
@@ -1918,6 +1934,13 @@ runTest {test interp-1.39 {try/finally without reset exit} -setup {
 
   interp set $i x
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -1930,14 +1953,11 @@ runTest {test interp-1.40 {try/finally with reset exit} -setup {
 
   interp eval $i {
     catch {
-      #
-      # HACK: Just in case it is not actually the default, force the
-      #       necessary interpreter flags to be enabled for the created
-      #       interpreter.
-      #
-      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
-          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags] " +FinallyResetExit FinallyRestoreExit"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags FinallyResetExit true
+      enableInterpreterFlags FinallyRestoreExit true
     }
   }
 } -body {
@@ -1966,6 +1986,13 @@ runTest {test interp-1.40 {try/finally with reset exit} -setup {
 
   interp set $i x
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -2575,13 +2602,11 @@ runTest {test interp-1.76 {not reset cancel on outermost catch} -setup {
 
   interp eval $i {
     catch {
-      #
-      # HACK: Just in case it is actually the default, force the necessary
-      #       interpreter flags to be disabled for the created interpreter.
-      #
-      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
-          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags] " -CatchResetCancel CatchResetGlobalCancel"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags CatchResetCancel false
+      enableInterpreterFlags CatchResetGlobalCancel false
     }
   }
 } -body {
@@ -2601,6 +2626,13 @@ runTest {test interp-1.76 {not reset cancel on outermost catch} -setup {
   }} result] $result [interp resetcancel $i -global] \
       [catch {interp eval $i {set x}} result] $result
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -2620,9 +2652,11 @@ runTest {test interp-1.77 {reset cancel on outermost catch} -setup {
 
   interp eval $i {
     catch {
-      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
-          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags] " +CatchResetCancel CatchResetGlobalCancel"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags CatchResetCancel true
+      enableInterpreterFlags CatchResetGlobalCancel true
     }
   }
 } -body {
@@ -2641,6 +2675,13 @@ runTest {test interp-1.77 {reset cancel on outermost catch} -setup {
     incr x
   }} result] $result [catch {interp eval $i {set x}} result] $result
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain result i
@@ -2660,13 +2701,10 @@ runTest {test interp-1.78 {not reset exit on outermost catch} -setup {
 
   interp eval $i {
     catch {
-      #
-      # HACK: Just in case it is actually the default, force the necessary
-      #       interpreter flags to be disabled for the created interpreter.
-      #
-      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
-          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags] " -CatchResetExit"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags CatchResetExit false
     }
   }
 } -body {
@@ -2685,6 +2723,13 @@ runTest {test interp-1.78 {not reset exit on outermost catch} -setup {
     incr x
   }} result] $result [catch {interp eval $i {set x}} result] $result
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -2704,9 +2749,10 @@ runTest {test interp-1.79 {reset exit on outermost catch} -setup {
 
   interp eval $i {
     catch {
-      object invoke -flags +NonPublic Interpreter.GetActive interpreterFlags \
-          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags] " +CatchResetExit"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags CatchResetExit true
     }
   }
 } -body {
@@ -2725,6 +2771,13 @@ runTest {test interp-1.79 {reset exit on outermost catch} -setup {
     incr x
   }} result] $result [catch {interp eval $i {set x}} result] $result
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $i}
 
   unset -nocomplain result i
@@ -2777,16 +2830,17 @@ loaded locals modules nameofexecutable newline nprocs objects operands\
 operators os patchlevel path pid plugin pluginflags policies ppid previouspid\
 processors procs programextension ptid runtime runtimeversion script setup\
 sharedlibextension shelllibrary source subcommands syntax sysvars tclversion\
-tid transactions user varlinks vars whitespace windows windowtext} {addcommands\
-alias aliases bgerror callbacklimit cancel childlimit children create delete\
-enabled eval eventlimit exists expose exposed expr finallytimeout hide hidden\
-immutable invokehidden isolated issafe issdk isstandard iterationlimit makesafe\
-makestandard marktrusted namespacelimit nopolicy parent policy proclimit queue\
-readonly readorgetscriptfile readylimit recursionlimit rename resetcancel\
-resultlimit scopelimit service set shareinterp shareobject sleeptime source\
-stub subcommand subst target timeout unset varlimit watchdog} {addreference\
-alias aliasnamespaces assemblies callbackflags certificate cleanup create\
-declare dispose exists flags foreach fromvar get hash import interfaces invoke\
+tid transactions undefined user varlinks vars whitespace windows windowtext}\
+{addcommands alias aliases bgerror callbacklimit cancel childlimit children\
+create delete enabled eval eventlimit exists expose exposed expr finallytimeout\
+hide hidden immutable invokehidden isolated issafe issdk isstandard\
+iterationlimit makesafe makestandard marktrusted maybereadorgetscriptfile\
+namespacelimit nopolicy parent policy proclimit queue readonly\
+readorgetscriptfile readylimit recursionlimit rename resetcancel resultlimit\
+scopelimit service set shareinterp shareobject sleeptime source stub subcommand\
+subst target timeout unset varlimit watchdog} {addreference alias\
+aliasnamespaces assemblies callbackflags certificate cleanup create declare\
+dispose exists flags foreach fromvar get hash import interfaces invoke\
 invokeall invokeraw isnull isoftype list lmap load members namespaces\
 referencecount removecallback removereference resolve search strongname type\
 types unalias unaliasnamespace undeclare unimport untype verifyall} {absent\
@@ -3090,13 +3144,14 @@ newline, nprocs, objects, operands, operators, os, patchlevel, path, pid,\
 plugin, pluginflags, policies, ppid, previouspid, processors, procs,\
 programextension, ptid, runtime, runtimeversion, script, setup,\
 sharedlibextension, shelllibrary, source, subcommands, syntax, sysvars,\
-tclversion, tid, transactions, user, varlinks, vars, whitespace, windows, or\
-windowtext} 1 {ambiguous option "b": must be base, binary, bindertypes, or\
-body} 1 {ambiguous option "a": must be active, administrator, appdomain, args,\
-or assembly} 1 {ambiguous option "co": must be commands, complete, connections,\
-or context} 1 {wrong # args: should be "info modules ?pattern?"} 1 {ambiguous\
-option "w": must be whitespace, windows, or windowtext} 1 {ambiguous option\
-"fr": must be frame, framework, or frameworkextra}}}
+tclversion, tid, transactions, undefined, user, varlinks, vars, whitespace,\
+windows, or windowtext} 1 {ambiguous option "b": must be base, binary,\
+bindertypes, or body} 1 {ambiguous option "a": must be active, administrator,\
+appdomain, args, or assembly} 1 {ambiguous option "co": must be commands,\
+complete, connections, or context} 1 {wrong # args: should be "info modules\
+?pattern?"} 1 {ambiguous option "w": must be whitespace, windows, or\
+windowtext} 1 {ambiguous option "fr": must be frame, framework, or\
+frameworkextra}}}
 
 ###############################################################################
 
@@ -3696,10 +3751,10 @@ runTest {test interp-1.700 {stop on per-thread complaint} -setup {
 
   interp eval $interp {
     catch {
-      object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags [appendArgs [object invoke -flags \
-          +NonPublic Interpreter.GetActive interpreterFlags] \
-          " +IgnoreBgErrorFailure"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags IgnoreBgErrorFailure true
     }
   }
 } -body {
@@ -3717,12 +3772,19 @@ runTest {test interp-1.700 {stop on per-thread complaint} -setup {
 
   list $code $result
 } -cleanup {
+  catch {
+    interp eval $interp {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $interp}
 
   unset -nocomplain result code interp
 } -constraints [fixConstraints {eagle command.object !quiet}] -match regexp \
 -result {^1 \{\{count of complaints increased from \d+ to \d+\} \{-?\d+\
-\(\d+\): Error: some kind of error\}\}$}}
+\(\d+\): Error: \[Execute\]: some kind of error\}\}$}}
 
 ###############################################################################
 
@@ -3731,10 +3793,10 @@ runTest {test interp-1.701 {stop on per-AppDomain complaint} -setup {
 
   interp eval $interp {
     catch {
-      object invoke -flags +NonPublic Interpreter.GetActive \
-          interpreterFlags [appendArgs [object invoke -flags \
-          +NonPublic Interpreter.GetActive interpreterFlags] \
-          " +IgnoreBgErrorFailure"]
+      package require Eagle.Test
+
+      set savedInterpreterFlags [enableInterpreterFlags]
+      enableInterpreterFlags IgnoreBgErrorFailure true
     }
   }
 } -body {
@@ -3752,13 +3814,20 @@ runTest {test interp-1.701 {stop on per-AppDomain complaint} -setup {
 
   list $code $result
 } -cleanup {
+  catch {
+    interp eval $interp {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $interp}
 
   unset -nocomplain result code interp
 } -constraints [fixConstraints {eagle command.object !quiet compile.EMIT\
 compile.THREADING}] -match regexp -result {^1 \{\{count of global complaints\
-increased from \d+ to \d+\} \{-?\d+ \(\d+\): Error: some kind of global\
-error\}\}$}}
+increased from \d+ to \d+\} \{-?\d+ \(\d+\): Error: \[Execute\]: some kind of\
+global error\}\}$}}
 
 ###############################################################################
 
@@ -4253,10 +4322,10 @@ runTest {test interp-1.1002 {callback limit} -setup {
   }
 } -body {
   set script(disable) {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags [combineFlags [object invoke -flags \
-        +NonPublic Interpreter.GetActive SharedEngineFlags] \
-        +NoCallbackQueue]
+    package require Eagle.Test
+
+    set savedSharedEngineFlags [enableSharedEngineFlags]
+    enableSharedEngineFlags NoCallbackQueue true
 
     expr {
       "NoCallbackQueue" in [split [object invoke -flags +NonPublic \
@@ -4268,10 +4337,7 @@ runTest {test interp-1.1002 {callback limit} -setup {
     object invoke -flags +NonPublic Eagle._Components.Private.DebugOps \
         SafeUnsetComplaint ""
 
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags [combineFlags [object invoke -flags \
-        +NonPublic Interpreter.GetActive SharedEngineFlags] \
-        -NoCallbackQueue]
+    enableSharedEngineFlags NoCallbackQueue false
 
     expr {
       "NoCallbackQueue" in [split [object invoke -flags +NonPublic \
@@ -4400,7 +4466,8 @@ would be exceeded\} 1 \{callback queue limit would be exceeded\} 1 \{callback\
 queue limit would be exceeded\} 1 \{callback queue limit would be exceeded\} 0\
 False 0 \{ok 1\} 0 \{\} \{callback 0\} 0 True 0 0 0 \{\} 0 \{\} 0 \{\} 0 \{\} 0\
 \{\} 0 \{\} 0 \{\} 0 \{\} 0 \{\} \{callback 2\} 0 False 0 \{ok 1\} 0 \{\d+\
-\(\d+\): Error: callback limit would be exceeded\} \{callback 2\}$}}
+\(\d+\): Error: \[ExecuteCallbackQueue\]: callback limit would be exceeded\}\
+\{callback 2\}$}}
 
 ###############################################################################
 
@@ -4473,19 +4540,13 @@ runTest {test interp-1.9999 {try/finally thread affinity} -setup {
     }
   }
 
-  set savedReadyFlags [object invoke \
-      -flags +NonPublic Interpreter.GetActive readyFlags]
+  package require Eagle.Test
 
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      readyFlags [appendArgs $savedReadyFlags \
-      " NoGlobalResetCancel"]
+  set savedReadyFlags [enableReadyFlags]
+  enableReadyFlags NoGlobalResetCancel true
 
-  set savedEngineFlags [object invoke \
-      -flags +NonPublic Interpreter.GetActive ContextEngineFlags]
-
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      ContextEngineFlags [appendArgs $savedEngineFlags \
-      " NoGlobalCancel"]
+  set savedContextEngineFlags [enableContextEngineFlags]
+  enableContextEngineFlags NoGlobalCancel true
 } -body {
   set ::x [list]
 
@@ -4513,16 +4574,16 @@ runTest {test interp-1.9999 {try/finally thread affinity} -setup {
   cleanupAfterEvents
 
   catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        ContextEngineFlags $savedEngineFlags
+    enableContextEngineFlags $savedContextEngineFlags
+    unset -nocomplain savedContextEngineFlags
   }
 
   catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        readyFlags $savedReadyFlags
+    enableReadyFlags $savedReadyFlags
+    unset -nocomplain savedReadyFlags
   }
 
-  unset -nocomplain t x savedEngineFlags savedReadyFlags
+  unset -nocomplain t x
 
   catch {object removecallback threadStart2}
   catch {object removecallback threadStart1}
@@ -4554,7 +4615,12 @@ runTest {test interp-1.33333 {foreign InterpreterHelper} -body {
   $appDomainSetup ApplicationBase $temporaryPath
 
   set appDomain [object invoke -alias \
-      AppDomain CreateDomain "Test Other" null $appDomainSetup]
+      AppDomain CreateDomain $eagle_tests(CurrentName) null \
+      $appDomainSetup]
+
+  object invoke -flags +NonPublic \
+      Eagle._Components.Private.AppDomainOps AnotherOneCreated \
+      [$appDomain -type AppDomain Id]
 
   set location [object invoke Utility GetAssemblyLocation]
   set args [object create Object\[\] 0]
@@ -4634,7 +4700,12 @@ runTest {test interp-1.33334 {foreign TestCrossAppDomainHelper} -body {
   $appDomainSetup ApplicationBase $temporaryPath
 
   set appDomain [object invoke -alias \
-      AppDomain CreateDomain "Test Other" null $appDomainSetup]
+      AppDomain CreateDomain $eagle_tests(CurrentName) null \
+      $appDomainSetup]
+
+  object invoke -flags +NonPublic \
+      Eagle._Components.Private.AppDomainOps AnotherOneCreated \
+      [$appDomain -type AppDomain Id]
 
   set result null
 
@@ -5236,6 +5307,13 @@ when a kiosk} 1 {cannot exit when a kiosk} 1 {cannot exit when a kiosk}}}
 
 ###############################################################################
 
+if {[isEagle]} then {
+  set savedInterpreterFlags [enableInterpreterFlags]
+  enableInterpreterFlags NoNullArgument true
+}
+
+###############################################################################
+
 runTest {test interp-1.60002 {file search w/NullOnNotFound} -setup {
   unset -nocomplain flags
   set flags {Standard +NullOnNotFound}
@@ -5247,6 +5325,13 @@ runTest {test interp-1.60002 {file search w/NullOnNotFound} -setup {
 } -cleanup {
   unset -nocomplain flags
 } -constraints {eagle command.object} -result {True True}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  enableInterpreterFlags $savedInterpreterFlags
+  unset -nocomplain savedInterpreterFlags
+}
 
 ###############################################################################
 

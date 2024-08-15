@@ -7,7 +7,7 @@
     <authors>Eagle Development Team</authors>
     <description>An implementation of the Tcl scripting language.  This package contains the MSBuild tasks and PowerShell cmdlets that enable integration [with Eagle] as well as the command-line shell [for Eagle].</description>
     <language>en-US</language>
-    <projectUrl>https://eagle.to/</projectUrl>
+    <projectUrl>https://urn.to/r/eagle</projectUrl>
     <iconUrl>https://eagle.to/images/eagle128.png</iconUrl>
     <licenseUrl>https://eagle.to/enterprise/license.html</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>

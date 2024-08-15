@@ -410,6 +410,7 @@ namespace Eagle._Components.Public
         //
         //          EngineContext (constructor)
         //          StringOps.GetArgumentFromObject
+        //          Interpreter.ClearArgumentCache
         //
         /* INTERNAL STATIC OK */
         [DebuggerStepThrough()]

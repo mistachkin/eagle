@@ -49,6 +49,7 @@ namespace Eagle._Hosts
         private const string DefaultPackagesResourceBaseName = "packages";
         private const string DefaultKitResourceBaseName = "kit";
         private const string DefaultApplicationResourceBaseName = "application";
+        private const string DefaultResourceNameSuffix = ".resources";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -104,6 +105,9 @@ namespace Eagle._Hosts
 
             if (HasCreateFlags(HostCreateFlags.ResourceManager, true))
             {
+                /* IGNORED */
+                SetupResourceAssembly(GlobalState.GetAssembly());
+
                 /* IGNORED */
                 SetupLibraryResourceManager();
 
@@ -294,6 +298,7 @@ namespace Eagle._Hosts
             out bool skipNonFileNameOnly, /* out */
             out bool skipLibraryToLib,    /* out */
             out bool skipTestsToLib,      /* out */
+            out bool loaderPackage,       /* out */
             out bool libraryPackage,      /* out */
             out bool testPackage,         /* out */
             out bool kitPackage,          /* out */
@@ -327,6 +332,9 @@ namespace Eagle._Hosts
 
             skipTestsToLib = FlagOps.HasFlags(
                 scriptFlags, ScriptFlags.SkipTestsToLib, true);
+
+            loaderPackage = FlagOps.HasFlags(
+                scriptFlags, ScriptFlags.LoaderPackage, true);
 
             libraryPackage = FlagOps.HasFlags(
                 scriptFlags, ScriptFlags.LibraryPackage, true);
@@ -425,12 +433,16 @@ namespace Eagle._Hosts
 
         private static void ExtractResourceNamePackageTypes(
             PackageType packageType,      /* in */
+            out bool haveLoaderPackage,   /* out */
             out bool haveLibraryPackage,  /* out */
             out bool haveTestPackage,     /* out */
             out bool haveKitPackage,      /* out */
             out bool haveAutomaticPackage /* out */
             )
         {
+            haveLoaderPackage = FlagOps.HasFlags(
+                packageType, PackageType.Loader, true);
+
             haveLibraryPackage = FlagOps.HasFlags(
                 packageType, PackageType.Library, true);
 
@@ -832,6 +844,12 @@ namespace Eagle._Hosts
             {
                 string unixName = PathOps.GetUnixPath(name);
 
+                if (unixName.IndexOf(ScriptPaths.LoaderPackage,
+                        SharedStringOps.SystemComparisonType) != Index.Invalid)
+                {
+                    packageType |= PackageType.Loader;
+                }
+
                 if (unixName.IndexOf(ScriptPaths.LibraryPackage,
                         SharedStringOps.SystemComparisonType) != Index.Invalid)
                 {
@@ -848,6 +866,36 @@ namespace Eagle._Hosts
                         SharedStringOps.SystemComparisonType) != Index.Invalid)
                 {
                     packageType |= PackageType.Kit;
+                }
+
+                string libName = PathOps.MaybeToLib(unixName, false, false, false);
+
+                if ((libName != null) &&
+                    !SharedStringOps.SystemEquals(libName, unixName))
+                {
+                    if (libName.IndexOf(ScriptPaths.LoaderPackage,
+                            SharedStringOps.SystemComparisonType) != Index.Invalid)
+                    {
+                        packageType |= PackageType.Loader;
+                    }
+
+                    if (libName.IndexOf(ScriptPaths.LibraryPackage,
+                            SharedStringOps.SystemComparisonType) != Index.Invalid)
+                    {
+                        packageType |= PackageType.Library;
+                    }
+
+                    if (libName.IndexOf(ScriptPaths.TestPackage,
+                            SharedStringOps.SystemComparisonType) != Index.Invalid)
+                    {
+                        packageType |= PackageType.Test;
+                    }
+
+                    if (libName.IndexOf(ScriptPaths.KitPackage,
+                            SharedStringOps.SystemComparisonType) != Index.Invalid)
+                    {
+                        packageType |= PackageType.Kit;
+                    }
                 }
             }
 
@@ -878,6 +926,7 @@ namespace Eagle._Hosts
             bool skipNonFileNameOnly;
             bool skipLibraryToLib;
             bool skipTestsToLib;
+            bool loaderPackage;
             bool libraryPackage;
             bool testPackage;
             bool kitPackage;
@@ -885,14 +934,19 @@ namespace Eagle._Hosts
             bool preferDeepFileNames;
 
             ExtractResourceNameScriptFlags(
-                scriptFlags, out skipQualified, out skipNonQualified,
-                out skipRelative, out skipRawName, out skipFileName,
+                scriptFlags, out skipQualified,
+                out skipNonQualified, out skipRelative,
+                out skipRawName, out skipFileName,
                 out skipFileNameOnly, out skipNonFileNameOnly,
                 out skipLibraryToLib, out skipTestsToLib,
-                out libraryPackage, out testPackage, out kitPackage,
+                out loaderPackage, out libraryPackage,
+                out testPackage, out kitPackage,
                 out automaticPackage, out preferDeepFileNames);
 
             PackageType packageType = PackageType.None;
+
+            if (loaderPackage)
+                packageType |= PackageType.Loader;
 
             if (libraryPackage)
                 packageType |= PackageType.Library;
@@ -906,21 +960,24 @@ namespace Eagle._Hosts
             if (automaticPackage)
                 packageType |= PackageType.Automatic;
 
-            packageType = GetPackageTypeForResourceName(interpreter,
-                name, dataFlags, scriptFlags, packageType);
+            packageType = GetPackageTypeForResourceName(
+                interpreter, name, dataFlags, scriptFlags,
+                packageType);
 
+            bool haveLoaderPackage;
             bool haveLibraryPackage;
             bool haveTestPackage;
             bool haveKitPackage;
             bool haveAutomaticPackage;
 
-            ExtractResourceNamePackageTypes(
-                packageType, out haveLibraryPackage, out haveTestPackage,
-                out haveKitPackage, out haveAutomaticPackage);
+            ExtractResourceNamePackageTypes(packageType,
+                out haveLoaderPackage, out haveLibraryPackage,
+                out haveTestPackage, out haveKitPackage,
+                out haveAutomaticPackage);
 
             string[] fileNames = {
                 null, null, null, null, null, null, null, null,
-                null, null, null, null
+                null, null, null, null, null, null, null, null
             };
 
             if ((name != null) &&
@@ -928,10 +985,10 @@ namespace Eagle._Hosts
             {
                 if (!skipNonFileNameOnly)
                 {
-                    if (haveLibraryPackage || haveAutomaticPackage)
+                    if (haveLoaderPackage || haveAutomaticPackage)
                     {
                         fileNames[0] = FormatOps.ScriptTypeToFileName(
-                            name, PackageType.Library, false, true);
+                            name, PackageType.Loader, false, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -941,10 +998,10 @@ namespace Eagle._Hosts
                         }
                     }
 
-                    if (haveTestPackage || haveAutomaticPackage)
+                    if (haveLibraryPackage || haveAutomaticPackage)
                     {
                         fileNames[2] = FormatOps.ScriptTypeToFileName(
-                            name, PackageType.Test, false, true);
+                            name, PackageType.Library, false, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -954,10 +1011,10 @@ namespace Eagle._Hosts
                         }
                     }
 
-                    if (haveKitPackage || haveAutomaticPackage)
+                    if (haveTestPackage || haveAutomaticPackage)
                     {
                         fileNames[4] = FormatOps.ScriptTypeToFileName(
-                            name, PackageType.Kit, false, true);
+                            name, PackageType.Test, false, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -966,14 +1023,11 @@ namespace Eagle._Hosts
                                 skipTestsToLib, false);
                         }
                     }
-                }
 
-                if (!skipFileNameOnly)
-                {
-                    if (haveLibraryPackage || haveAutomaticPackage)
+                    if (haveKitPackage || haveAutomaticPackage)
                     {
                         fileNames[6] = FormatOps.ScriptTypeToFileName(
-                            name, PackageType.Library, true, true);
+                            name, PackageType.Kit, false, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -982,11 +1036,14 @@ namespace Eagle._Hosts
                                 skipTestsToLib, false);
                         }
                     }
+                }
 
-                    if (haveTestPackage || haveAutomaticPackage)
+                if (!skipFileNameOnly)
+                {
+                    if (haveLoaderPackage || haveAutomaticPackage)
                     {
                         fileNames[8] = FormatOps.ScriptTypeToFileName(
-                            name, PackageType.Test, true, true);
+                            name, PackageType.Loader, true, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -996,15 +1053,41 @@ namespace Eagle._Hosts
                         }
                     }
 
-                    if (haveKitPackage || haveAutomaticPackage)
+                    if (haveLibraryPackage || haveAutomaticPackage)
                     {
                         fileNames[10] = FormatOps.ScriptTypeToFileName(
-                            name, PackageType.Kit, true, true);
+                            name, PackageType.Library, true, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
                             fileNames[11] = PathOps.MaybeToLib(
                                 fileNames[10], skipLibraryToLib,
+                                skipTestsToLib, false);
+                        }
+                    }
+
+                    if (haveTestPackage || haveAutomaticPackage)
+                    {
+                        fileNames[12] = FormatOps.ScriptTypeToFileName(
+                            name, PackageType.Test, true, true);
+
+                        if (!skipLibraryToLib || !skipTestsToLib)
+                        {
+                            fileNames[13] = PathOps.MaybeToLib(
+                                fileNames[12], skipLibraryToLib,
+                                skipTestsToLib, false);
+                        }
+                    }
+
+                    if (haveKitPackage || haveAutomaticPackage)
+                    {
+                        fileNames[14] = FormatOps.ScriptTypeToFileName(
+                            name, PackageType.Kit, true, true);
+
+                        if (!skipLibraryToLib || !skipTestsToLib)
+                        {
+                            fileNames[15] = PathOps.MaybeToLib(
+                                fileNames[14], skipLibraryToLib,
                                 skipTestsToLib, false);
                         }
                     }
@@ -1018,17 +1101,17 @@ namespace Eagle._Hosts
 
             string[] baseFileNames = {
                 null, null, null, null, null, null, null, null,
-                null, null, null, null
+                null, null, null, null, null, null, null, null
             };
 
             if ((baseName != null) && !skipNonQualified && !skipFileName)
             {
                 if (!skipNonFileNameOnly)
                 {
-                    if (haveLibraryPackage || haveAutomaticPackage)
+                    if (haveLoaderPackage || haveAutomaticPackage)
                     {
                         baseFileNames[0] = FormatOps.ScriptTypeToFileName(
-                            baseName, PackageType.Library, false, true);
+                            baseName, PackageType.Loader, false, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -1038,10 +1121,10 @@ namespace Eagle._Hosts
                         }
                     }
 
-                    if (haveTestPackage || haveAutomaticPackage)
+                    if (haveLibraryPackage || haveAutomaticPackage)
                     {
                         baseFileNames[2] = FormatOps.ScriptTypeToFileName(
-                            baseName, PackageType.Test, false, true);
+                            baseName, PackageType.Library, false, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -1051,10 +1134,10 @@ namespace Eagle._Hosts
                         }
                     }
 
-                    if (haveKitPackage || haveAutomaticPackage)
+                    if (haveTestPackage || haveAutomaticPackage)
                     {
                         baseFileNames[4] = FormatOps.ScriptTypeToFileName(
-                            baseName, PackageType.Kit, false, true);
+                            baseName, PackageType.Test, false, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -1063,14 +1146,11 @@ namespace Eagle._Hosts
                                 skipTestsToLib, false);
                         }
                     }
-                }
 
-                if (!skipFileNameOnly)
-                {
-                    if (haveLibraryPackage || haveAutomaticPackage)
+                    if (haveKitPackage || haveAutomaticPackage)
                     {
                         baseFileNames[6] = FormatOps.ScriptTypeToFileName(
-                            baseName, PackageType.Library, true, true);
+                            baseName, PackageType.Kit, false, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -1079,11 +1159,14 @@ namespace Eagle._Hosts
                                 skipTestsToLib, false);
                         }
                     }
+                }
 
-                    if (haveTestPackage || haveAutomaticPackage)
+                if (!skipFileNameOnly)
+                {
+                    if (haveLoaderPackage || haveAutomaticPackage)
                     {
                         baseFileNames[8] = FormatOps.ScriptTypeToFileName(
-                            baseName, PackageType.Test, true, true);
+                            baseName, PackageType.Loader, true, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
@@ -1093,15 +1176,41 @@ namespace Eagle._Hosts
                         }
                     }
 
-                    if (haveKitPackage || haveAutomaticPackage)
+                    if (haveLibraryPackage || haveAutomaticPackage)
                     {
                         baseFileNames[10] = FormatOps.ScriptTypeToFileName(
-                            baseName, PackageType.Kit, true, true);
+                            baseName, PackageType.Library, true, true);
 
                         if (!skipLibraryToLib || !skipTestsToLib)
                         {
                             baseFileNames[11] = PathOps.MaybeToLib(
                                 baseFileNames[10], skipLibraryToLib,
+                                skipTestsToLib, false);
+                        }
+                    }
+
+                    if (haveTestPackage || haveAutomaticPackage)
+                    {
+                        baseFileNames[12] = FormatOps.ScriptTypeToFileName(
+                            baseName, PackageType.Test, true, true);
+
+                        if (!skipLibraryToLib || !skipTestsToLib)
+                        {
+                            baseFileNames[13] = PathOps.MaybeToLib(
+                                baseFileNames[12], skipLibraryToLib,
+                                skipTestsToLib, false);
+                        }
+                    }
+
+                    if (haveKitPackage || haveAutomaticPackage)
+                    {
+                        baseFileNames[14] = FormatOps.ScriptTypeToFileName(
+                            baseName, PackageType.Kit, true, true);
+
+                        if (!skipLibraryToLib || !skipTestsToLib)
+                        {
+                            baseFileNames[15] = PathOps.MaybeToLib(
+                                baseFileNames[14], skipLibraryToLib,
                                 skipTestsToLib, false);
                         }
                     }
@@ -1139,10 +1248,6 @@ namespace Eagle._Hosts
                         PathOps.MaybeToLib(name, skipLibraryToLib,
                             skipTestsToLib, false) : null,
                 !skipQualified && !skipFileName && !skipNonFileNameOnly ?
-                    fileNames[0] : null,
-                !skipQualified && !skipFileName && !skipNonFileNameOnly &&
-                    !skipLibraryToLib ? fileNames[1] : null,
-                !skipQualified && !skipFileName && !skipNonFileNameOnly ?
                     fileNames[2] : null,
                 !skipQualified && !skipFileName && !skipNonFileNameOnly &&
                     !skipLibraryToLib ? fileNames[3] : null,
@@ -1150,14 +1255,18 @@ namespace Eagle._Hosts
                     fileNames[4] : null,
                 !skipQualified && !skipFileName && !skipNonFileNameOnly &&
                     !skipLibraryToLib ? fileNames[5] : null,
-                !skipQualified && !skipFileName && !skipFileNameOnly ?
+                !skipQualified && !skipFileName && !skipNonFileNameOnly ?
                     fileNames[6] : null,
-                !skipQualified && !skipFileName && !skipFileNameOnly &&
+                !skipQualified && !skipFileName && !skipNonFileNameOnly &&
                     !skipLibraryToLib ? fileNames[7] : null,
                 !skipQualified && !skipFileName && !skipFileNameOnly ?
-                    fileNames[8] : null,
+                    fileNames[10] : null,
                 !skipQualified && !skipFileName && !skipFileNameOnly &&
-                    !skipLibraryToLib ? fileNames[9] : null,
+                    !skipLibraryToLib ? fileNames[11] : null,
+                !skipQualified && !skipFileName && !skipFileNameOnly ?
+                    fileNames[12] : null,
+                !skipQualified && !skipFileName && !skipFileNameOnly &&
+                    !skipLibraryToLib ? fileNames[13] : null,
 
                 ///////////////////////////////////////////////////////////////
                 // STEP #2
@@ -1172,29 +1281,15 @@ namespace Eagle._Hosts
                             skipTestsToLib, true) : null,
                 !skipRelative && !skipFileName && !skipNonFileNameOnly ?
                     PackageOps.GetRelativeFileName(interpreter,
-                        fileNames[0], pathComparisonType, verbose) : null,
-                !skipRelative && !skipFileName && !skipNonFileNameOnly &&
-                    (!skipLibraryToLib || !skipTestsToLib) ?
-                        PathOps.MaybeToLib(fileNames[0], skipLibraryToLib,
-                            skipTestsToLib, true) : null,
-                !skipRelative && !skipFileName && !skipNonFileNameOnly ?
-                    PackageOps.GetRelativeFileName(interpreter,
-                        fileNames[1], pathComparisonType, verbose) : null,
-                !skipRelative && !skipFileName && !skipNonFileNameOnly &&
-                    (!skipLibraryToLib || !skipTestsToLib) ?
-                        PathOps.MaybeToLib(fileNames[1], skipLibraryToLib,
-                            skipTestsToLib, true) : null,
-                !skipRelative && !skipFileName && !skipFileNameOnly ?
-                    PackageOps.GetRelativeFileName(interpreter,
                         fileNames[2], pathComparisonType, verbose) : null,
-                !skipRelative && !skipFileName && !skipFileNameOnly &&
+                !skipRelative && !skipFileName && !skipNonFileNameOnly &&
                     (!skipLibraryToLib || !skipTestsToLib) ?
                         PathOps.MaybeToLib(fileNames[2], skipLibraryToLib,
                             skipTestsToLib, true) : null,
-                !skipRelative && !skipFileName && !skipFileNameOnly ?
+                !skipRelative && !skipFileName && !skipNonFileNameOnly ?
                     PackageOps.GetRelativeFileName(interpreter,
                         fileNames[3], pathComparisonType, verbose) : null,
-                !skipRelative && !skipFileName && !skipFileNameOnly &&
+                !skipRelative && !skipFileName && !skipNonFileNameOnly &&
                     (!skipLibraryToLib || !skipTestsToLib) ?
                         PathOps.MaybeToLib(fileNames[3], skipLibraryToLib,
                             skipTestsToLib, true) : null,
@@ -1212,6 +1307,20 @@ namespace Eagle._Hosts
                     (!skipLibraryToLib || !skipTestsToLib) ?
                         PathOps.MaybeToLib(fileNames[5], skipLibraryToLib,
                             skipTestsToLib, true) : null,
+                !skipRelative && !skipFileName && !skipFileNameOnly ?
+                    PackageOps.GetRelativeFileName(interpreter,
+                        fileNames[6], pathComparisonType, verbose) : null,
+                !skipRelative && !skipFileName && !skipFileNameOnly &&
+                    (!skipLibraryToLib || !skipTestsToLib) ?
+                        PathOps.MaybeToLib(fileNames[6], skipLibraryToLib,
+                            skipTestsToLib, true) : null,
+                !skipRelative && !skipFileName && !skipFileNameOnly ?
+                    PackageOps.GetRelativeFileName(interpreter,
+                        fileNames[7], pathComparisonType, verbose) : null,
+                !skipRelative && !skipFileName && !skipFileNameOnly &&
+                    (!skipLibraryToLib || !skipTestsToLib) ?
+                        PathOps.MaybeToLib(fileNames[7], skipLibraryToLib,
+                            skipTestsToLib, true) : null,
 
                 ///////////////////////////////////////////////////////////////
                 // STEP #3
@@ -1223,10 +1332,6 @@ namespace Eagle._Hosts
                         PathOps.MaybeToLib(baseName, skipLibraryToLib,
                             skipTestsToLib, false) : null,
                 !skipNonQualified && !skipFileName && !skipNonFileNameOnly ?
-                    baseFileNames[0] : null,
-                !skipNonQualified && !skipFileName && !skipNonFileNameOnly &&
-                    !skipLibraryToLib ? baseFileNames[1] : null,
-                !skipNonQualified && !skipFileName && !skipNonFileNameOnly ?
                     baseFileNames[2] : null,
                 !skipNonQualified && !skipFileName && !skipNonFileNameOnly &&
                     !skipLibraryToLib ? baseFileNames[3] : null,
@@ -1234,18 +1339,22 @@ namespace Eagle._Hosts
                     baseFileNames[4] : null,
                 !skipNonQualified && !skipFileName && !skipNonFileNameOnly &&
                     !skipLibraryToLib ? baseFileNames[5] : null,
-                !skipNonQualified && !skipFileName && !skipFileNameOnly ?
+                !skipNonQualified && !skipFileName && !skipNonFileNameOnly ?
                     baseFileNames[6] : null,
-                !skipNonQualified && !skipFileName && !skipFileNameOnly &&
+                !skipNonQualified && !skipFileName && !skipNonFileNameOnly &&
                     !skipLibraryToLib ? baseFileNames[7] : null,
-                !skipNonQualified && !skipFileName && !skipFileNameOnly ?
-                    baseFileNames[8] : null,
-                !skipNonQualified && !skipFileName && !skipFileNameOnly &&
-                    !skipLibraryToLib ? baseFileNames[9] : null,
                 !skipNonQualified && !skipFileName && !skipFileNameOnly ?
                     baseFileNames[10] : null,
                 !skipNonQualified && !skipFileName && !skipFileNameOnly &&
-                    !skipLibraryToLib ? baseFileNames[11] : null
+                    !skipLibraryToLib ? baseFileNames[11] : null,
+                !skipNonQualified && !skipFileName && !skipFileNameOnly ?
+                    baseFileNames[12] : null,
+                !skipNonQualified && !skipFileName && !skipFileNameOnly &&
+                    !skipLibraryToLib ? baseFileNames[13] : null,
+                !skipNonQualified && !skipFileName && !skipFileNameOnly ?
+                    baseFileNames[14] : null,
+                !skipNonQualified && !skipFileName && !skipFileNameOnly &&
+                    !skipLibraryToLib ? baseFileNames[15] : null
             };
         }
 
@@ -1756,7 +1865,7 @@ namespace Eagle._Hosts
 
                                     clientData = new GetScriptClientData(
                                         null, name, null, null, new ByteList(
-                                        bytes), plugin, "GetStream",
+                                        bytes), !verbose, plugin, "GetStream",
                                         pluginUniqueResourceName, isolated);
 
                                     result = bytes;
@@ -1841,7 +1950,7 @@ namespace Eagle._Hosts
 
                                 clientData = new GetScriptClientData(
                                     null, name, null, null, new ByteList(
-                                    bytes), plugin, "GetStream",
+                                    bytes), !verbose, plugin, "GetStream",
                                     uniqueResourceName, isolated);
 
                                 result = bytes;
@@ -1950,7 +2059,7 @@ namespace Eagle._Hosts
 
                                     clientData = new GetScriptClientData(
                                         null, name, originalText, text,
-                                        null, plugin, "GetString",
+                                        null, !verbose, plugin, "GetString",
                                         pluginUniqueResourceName, isolated);
 
                                     result = text;
@@ -2044,7 +2153,7 @@ namespace Eagle._Hosts
 
                                 clientData = new GetScriptClientData(
                                     null, name, originalText, text,
-                                    null, plugin, "GetString",
+                                    null, !verbose, plugin, "GetString",
                                     uniqueResourceName, isolated);
 
                                 result = text;
@@ -2168,7 +2277,7 @@ namespace Eagle._Hosts
 
                                     clientData = new GetScriptClientData(
                                         null, name, null, null, new ByteList(
-                                        bytes), resourceManagerAnyPair.X,
+                                        bytes), !verbose, resourceManagerAnyPair.X,
                                         MaybeGetResourceManager(
                                             resourceManager, isolated),
                                         "GetStream", uniqueResourceName,
@@ -2274,7 +2383,7 @@ namespace Eagle._Hosts
 
                                         clientData = new GetScriptClientData(
                                             null, name, originalText, text,
-                                            null, resourceManagerAnyPair.X,
+                                            null, !verbose, resourceManagerAnyPair.X,
                                             MaybeGetResourceManager(
                                                 resourceManager, isolated),
                                             "GetStream", uniqueResourceName,
@@ -2401,7 +2510,7 @@ namespace Eagle._Hosts
 
                                     clientData = new GetScriptClientData(
                                         null, name, originalText, text,
-                                        null, resourceManagerAnyPair.X,
+                                        null, !verbose, resourceManagerAnyPair.X,
                                         MaybeGetResourceManager(
                                             resourceManager, isolated),
                                         "GetString", uniqueResourceName,
@@ -2520,7 +2629,7 @@ namespace Eagle._Hosts
 
                                     clientData = new GetScriptClientData(
                                         null, name, null, null, new ByteList(
-                                        bytes), MaybeGetAssembly(
+                                        bytes), !verbose, MaybeGetAssembly(
                                             assembly, isolated), "GetStream",
                                         uniqueResourceName, isolated);
 
@@ -2614,7 +2723,7 @@ namespace Eagle._Hosts
 
                                     clientData = new GetScriptClientData(
                                         null, name, originalText, text,
-                                        null, MaybeGetAssembly(
+                                        null, !verbose, MaybeGetAssembly(
                                             assembly, isolated), "GetStream",
                                         uniqueResourceName, isolated);
 
@@ -2749,6 +2858,24 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Properties
+        private Assembly resourceAssembly;
+        protected virtual Assembly ResourceAssembly
+        {
+            get { return resourceAssembly; }
+            set { SetupResourceNames(value); resourceAssembly = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private StringDictionary resourceNames;
+        protected virtual StringDictionary ResourceNames
+        {
+            get { return resourceNames; }
+            set { resourceNames = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private string libraryResourceBaseName;
         protected internal virtual string LibraryResourceBaseName
         {
@@ -2836,30 +2963,88 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Script Resource Support
+        private bool SetupResourceAssembly(
+            Assembly assembly
+            )
+        {
+            if ((assembly != null) && SetupResourceNames(assembly))
+            {
+                resourceAssembly = assembly;
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool SetupResourceNames(
+            Assembly assembly
+            )
+        {
+            if (assembly == null)
+                return false;
+
+            string assemblyString = assembly.ToString();
+
+            resourceNames = new StringDictionary();
+
+            foreach (string name in assembly.GetManifestResourceNames())
+                resourceNames[name] = assembly.ToString();
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private bool HaveResourceBaseName(
+            string resourceBaseName
+            )
+        {
+            if (String.IsNullOrEmpty(resourceBaseName))
+                return false;
+
+            if (resourceNames == null)
+                return false;
+
+            string resourceName = String.Format("{0}{1}",
+                resourceBaseName, DefaultResourceNameSuffix);
+
+            return resourceNames.ContainsKey(resourceName);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private bool SetupLibraryResourceManager()
         {
             try
             {
-                //
-                // NOTE: Create a resource manager for the embedded core script
-                //       library, if any.
-                //
-                libraryResourceManager = new ResourceManager(
-                    LibraryResourceBaseName, GlobalState.GetAssembly());
+                string resourceBaseName = LibraryResourceBaseName;
 
-                //
-                // NOTE: Now, since creating it will pretty much always succeed,
-                //       we need to test it to make sure it is really available.
-                //
-                /* IGNORED */
-                libraryResourceManager.GetString(
-                    NotFoundResourceName); /* throw */
+                if (HaveResourceBaseName(resourceBaseName))
+                {
+                    //
+                    // NOTE: Create a resource manager for the embedded core
+                    //       script library, if any.
+                    //
+                    libraryResourceManager = new ResourceManager(
+                        resourceBaseName, ResourceAssembly);
 
-                //
-                // NOTE: If we get this far, the resource manager is created and
-                //       functional.
-                //
-                return true;
+                    //
+                    // NOTE: Now, since creating it will pretty much always
+                    //       succeed, we need to test it to make sure it is
+                    //       really available.
+                    //
+                    /* IGNORED */
+                    libraryResourceManager.GetString(
+                        NotFoundResourceName); /* throw */
+
+                    //
+                    // NOTE: If we get this far, the resource manager is
+                    //       created and functional.
+                    //
+                    return true;
+                }
             }
             catch (Exception e)
             {
@@ -2884,26 +3069,32 @@ namespace Eagle._Hosts
         {
             try
             {
-                //
-                // NOTE: Create a resource manager for the embedded core script
-                //       packages, if any.
-                //
-                packagesResourceManager = new ResourceManager(
-                    PackagesResourceBaseName, GlobalState.GetAssembly());
+                string resourceBaseName = PackagesResourceBaseName;
 
-                //
-                // NOTE: Now, since creating it will pretty much always succeed,
-                //       we need to test it to make sure it is really available.
-                //
-                /* IGNORED */
-                packagesResourceManager.GetString(
-                    NotFoundResourceName); /* throw */
+                if (HaveResourceBaseName(resourceBaseName))
+                {
+                    //
+                    // NOTE: Create a resource manager for the embedded core
+                    //       script packages, if any.
+                    //
+                    packagesResourceManager = new ResourceManager(
+                        resourceBaseName, ResourceAssembly);
 
-                //
-                // NOTE: If we get this far, the resource manager is created and
-                //       functional.
-                //
-                return true;
+                    //
+                    // NOTE: Now, since creating it will pretty much always
+                    //       succeed, we need to test it to make sure it is
+                    //       really available.
+                    //
+                    /* IGNORED */
+                    packagesResourceManager.GetString(
+                        NotFoundResourceName); /* throw */
+
+                    //
+                    // NOTE: If we get this far, the resource manager is
+                    //       created and functional.
+                    //
+                    return true;
+                }
             }
             catch (Exception e)
             {
@@ -2928,26 +3119,32 @@ namespace Eagle._Hosts
         {
             try
             {
-                //
-                // NOTE: Create a resource manager for the embedded kit packages,
-                //       if any.
-                //
-                kitResourceManager = new ResourceManager(
-                    KitResourceBaseName, GlobalState.GetAssembly());
+                string resourceBaseName = KitResourceBaseName;
 
-                //
-                // NOTE: Now, since creating it will pretty much always succeed,
-                //       we need to test it to make sure it is really available.
-                //
-                /* IGNORED */
-                kitResourceManager.GetString(
-                    NotFoundResourceName); /* throw */
+                if (HaveResourceBaseName(resourceBaseName))
+                {
+                    //
+                    // NOTE: Create a resource manager for the embedded kit
+                    //       packages, if any.
+                    //
+                    kitResourceManager = new ResourceManager(
+                        resourceBaseName, ResourceAssembly);
 
-                //
-                // NOTE: If we get this far, the resource manager is created and
-                //       functional.
-                //
-                return true;
+                    //
+                    // NOTE: Now, since creating it will pretty much always
+                    //       succeed, we need to test it to make sure it is
+                    //       really available.
+                    //
+                    /* IGNORED */
+                    kitResourceManager.GetString(
+                        NotFoundResourceName); /* throw */
+
+                    //
+                    // NOTE: If we get this far, the resource manager is
+                    //       created and functional.
+                    //
+                    return true;
+                }
             }
             catch (Exception e)
             {
@@ -3000,26 +3197,32 @@ namespace Eagle._Hosts
         {
             try
             {
-                //
-                // NOTE: Create a resource manager for the embedded application
-                //       scripts, if any.
-                //
-                applicationResourceManager = new ResourceManager(
-                    ApplicationResourceBaseName, GlobalState.GetAssembly());
+                string resourceBaseName = ApplicationResourceBaseName;
 
-                //
-                // NOTE: Now, since creating it will pretty much always succeed,
-                //       we need to test it to make sure it is really available.
-                //
-                /* IGNORED */
-                applicationResourceManager.GetString(
-                    NotFoundResourceName); /* throw */
+                if (HaveResourceBaseName(resourceBaseName))
+                {
+                    //
+                    // NOTE: Create a resource manager for the embedded vendor
+                    //       packages, if any.
+                    //
+                    applicationResourceManager = new ResourceManager(
+                        resourceBaseName, ResourceAssembly);
 
-                //
-                // NOTE: If we get this far, the resource manager is created and
-                //       functional.
-                //
-                return true;
+                    //
+                    // NOTE: Now, since creating it will pretty much always
+                    //       succeed, we need to test it to make sure it is
+                    //       really available.
+                    //
+                    /* IGNORED */
+                    applicationResourceManager.GetString(
+                        NotFoundResourceName); /* throw */
+
+                    //
+                    // NOTE: If we get this far, the resource manager is
+                    //       created and functional.
+                    //
+                    return true;
+                }
             }
 #if (DEBUG || FORCE_TRACE) && VERBOSE
             catch (Exception e)
@@ -3538,7 +3741,7 @@ namespace Eagle._Hosts
                 if (!FlagOps.HasFlags(
                         scriptFlags, ScriptFlags.NoAssemblyManifest, true))
                 {
-                    Assembly assembly = GlobalState.GetAssembly();
+                    Assembly assembly = ResourceAssembly;
 
                     if (assembly != null)
                         @checked[9] = true;

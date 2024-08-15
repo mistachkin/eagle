@@ -1000,6 +1000,13 @@ namespace Eagle._Components.Private
 
                 return parameterizedThreadStart.Method;
             }
+            else if (ConversionOps.LooksLikeWaitCallback(delegateType))
+            {
+                if (waitCallback == null)
+                    waitCallback = new WaitCallback(FireWaitCallback);
+
+                return waitCallback.Method;
+            }
             else if (!isDelegate &&
                 ConversionOps.LooksLikeThreadStart(delegateType))
             {
@@ -1214,7 +1221,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private bool IsOriginalDelegateThreadStart()
+        private bool IsOriginalDelegateForThread()
         {
             Type delegateType = this.originalDelegateType;
 
@@ -1222,6 +1229,9 @@ namespace Eagle._Components.Private
                 return true;
 
             if (ConversionOps.IsParameterizedThreadStart(delegateType))
+                return true;
+
+            if (ConversionOps.IsWaitCallback(delegateType))
                 return true;
 
             return false;
@@ -1605,7 +1615,7 @@ namespace Eagle._Components.Private
             //       used in place of a thread-start delegate.
             //
             if ((interpreter != null) &&
-                (disposeThread || IsOriginalDelegateThreadStart()))
+                (disposeThread || IsOriginalDelegateForThread()))
             {
                 /* IGNORED */
                 interpreter.MaybeDisposeThread();
@@ -1821,6 +1831,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private WaitCallback waitCallback;
+        public WaitCallback WaitCallback
+        {
+            get { CheckDisposed(); return waitCallback; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private GenericCallback genericCallback;
         public GenericCallback GenericCallback
         {
@@ -1880,10 +1898,24 @@ namespace Eagle._Components.Private
             CheckDisposed();
 
             if (parameterizedThreadStart == null)
-                parameterizedThreadStart =
-                    new ParameterizedThreadStart(FireParameterizedThreadStart);
+            {
+                parameterizedThreadStart = new ParameterizedThreadStart(
+                    FireParameterizedThreadStart);
+            }
 
             return parameterizedThreadStart;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public WaitCallback GetWaitCallback()
+        {
+            CheckDisposed();
+
+            if (waitCallback == null)
+                waitCallback = new WaitCallback(FireWaitCallback);
+
+            return waitCallback;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2084,6 +2116,7 @@ namespace Eagle._Components.Private
         {
             CheckDisposed();
 
+            /* NO RESULT */
             FireAsyncCallback(ar, null);
         }
 
@@ -2237,6 +2270,7 @@ namespace Eagle._Components.Private
         {
             CheckDisposed();
 
+            /* NO RESULT */
             FireEventHandler(sender, e, null);
         }
 
@@ -2414,6 +2448,7 @@ namespace Eagle._Components.Private
 
             try
             {
+                /* NO RESULT */
                 FireThreadStart(null);
             }
             catch (ThreadAbortException e)
@@ -2444,6 +2479,241 @@ namespace Eagle._Components.Private
         {
             CheckDisposed();
 
+            /* NO RESULT */
+            FireWithoutParameters(arguments);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void FireParameterizedThreadStart(
+            object obj
+            ) /* System.Threading.ParameterizedThreadStart */
+        {
+            CheckDisposed();
+
+            bool shouldCatchInterrupt = ShouldCatchInterrupt(callbackFlags);
+
+            try
+            {
+                /* NO RESULT */
+                FireParameterizedThreadStart(obj, null);
+            }
+            catch (ThreadAbortException e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(CommandCallback).Name,
+                    TracePriority.ThreadError2);
+
+                if (shouldCatchInterrupt)
+                    Thread.ResetAbort();
+            }
+            catch (ThreadInterruptedException e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(CommandCallback).Name,
+                    TracePriority.ThreadError2);
+
+                if (!shouldCatchInterrupt)
+                    throw;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void FireParameterizedThreadStart(
+            object obj,
+            StringList arguments
+            )
+        {
+            CheckDisposed();
+
+            /* NO RESULT */
+            FireWithOneParameter(obj, arguments);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void FireWaitCallback(
+            object state
+            ) /* System.Threading.WaitCallback */
+        {
+            CheckDisposed();
+
+            bool shouldCatchInterrupt = ShouldCatchInterrupt(callbackFlags);
+
+            try
+            {
+                /* NO RESULT */
+                FireWithOneParameter(state, null);
+            }
+            catch (ThreadAbortException e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(CommandCallback).Name,
+                    TracePriority.ThreadError2);
+
+                if (shouldCatchInterrupt)
+                    Thread.ResetAbort();
+            }
+            catch (ThreadInterruptedException e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(CommandCallback).Name,
+                    TracePriority.ThreadError2);
+
+                if (!shouldCatchInterrupt)
+                    throw;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void FireWaitCallback(
+            object state,
+            StringList arguments
+            )
+        {
+            CheckDisposed();
+
+            /* NO RESULT */
+            FireWithOneParameter(state, arguments);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.GenericCallback */
+        public void FireGenericCallback()
+        {
+            CheckDisposed();
+
+            bool shouldCatchInterrupt = ShouldCatchInterrupt(callbackFlags);
+
+            try
+            {
+                /* NO RESULT */
+                FireGenericCallback(null);
+            }
+            catch (ThreadAbortException e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(CommandCallback).Name,
+                    TracePriority.ThreadError2);
+
+                if (shouldCatchInterrupt)
+                    Thread.ResetAbort();
+            }
+            catch (ThreadInterruptedException e)
+            {
+                TraceOps.DebugTrace(
+                    e, typeof(CommandCallback).Name,
+                    TracePriority.ThreadError2);
+
+                if (!shouldCatchInterrupt)
+                    throw;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void FireGenericCallback(
+            StringList arguments
+            )
+        {
+            CheckDisposed();
+
+            /* NO RESULT */
+            FireWithoutParameters(arguments);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /* System.Delegate.DynamicInvoke */
+        public object FireDynamicInvokeCallback(
+            params object[] args
+            )
+        {
+            CheckDisposed();
+
+            return FireDynamicInvokeCallback(args, null);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public object FireDynamicInvokeCallback(
+            object[] args,
+            StringList arguments
+            )
+        {
+            CheckDisposed();
+
+            return FireWithParameters(args, arguments);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode Invoke(
+            StringList arguments,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
+            int errorLine = 0;
+
+            return Invoke(arguments, ref result, ref errorLine);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ReturnCode Invoke(
+            StringList arguments,
+            ref Result result,
+            ref int errorLine
+            )
+        {
+            CheckDisposed();
+
+            bool useOwner;
+            bool mustResetCancel;
+            bool resetCancel;
+            bool asynchronous;
+            bool asynchronousIfBusy;
+
+            ProcessCallbackFlags(
+                callbackFlags, out useOwner, out resetCancel,
+                out mustResetCancel, out asynchronous, out asynchronousIfBusy);
+
+            return Invoke(
+                interpreter, arguments, useOwner, resetCancel,
+                mustResetCancel, asynchronous, asynchronousIfBusy,
+                ref result, ref errorLine);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IExecute Members
+        public ReturnCode Execute(
+            Interpreter interpreter,
+            IClientData clientData, /* NOT USED */
+            ArgumentList arguments,
+            ref Result result
+            )
+        {
+            CheckDisposed();
+
+            return Invoke(interpreter, (arguments != null) ?
+                new StringList(arguments) : null, ref result);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Methods
+        private void FireWithoutParameters(
+            StringList arguments
+            )
+        {
             //
             // NOTE: Process the configured callback flags to figure out if
             //       we should complain about failures that would otherwise
@@ -2539,47 +2809,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        public void FireParameterizedThreadStart(
-            object obj
-            ) /* System.Threading.ParameterizedThreadStart */
-        {
-            CheckDisposed();
-
-            bool shouldCatchInterrupt = ShouldCatchInterrupt(callbackFlags);
-
-            try
-            {
-                FireParameterizedThreadStart(obj, null);
-            }
-            catch (ThreadAbortException e)
-            {
-                TraceOps.DebugTrace(
-                    e, typeof(CommandCallback).Name,
-                    TracePriority.ThreadError2);
-
-                if (shouldCatchInterrupt)
-                    Thread.ResetAbort();
-            }
-            catch (ThreadInterruptedException e)
-            {
-                TraceOps.DebugTrace(
-                    e, typeof(CommandCallback).Name,
-                    TracePriority.ThreadError2);
-
-                if (!shouldCatchInterrupt)
-                    throw;
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public void FireParameterizedThreadStart(
+        private void FireWithOneParameter(
             object obj,
             StringList arguments
             )
         {
-            CheckDisposed();
-
             //
             // NOTE: Process the configured callback flags into the various
             //       boolean flags.
@@ -2714,136 +2948,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        /* Eagle._Components.Public.Delegates.GenericCallback */
-        public void FireGenericCallback()
-        {
-            CheckDisposed();
-
-            FireGenericCallback(null);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public void FireGenericCallback(
-            StringList arguments
-            )
-        {
-            CheckDisposed();
-
-            //
-            // NOTE: Process the configured callback flags to figure out if
-            //       we should complain about failures that would otherwise
-            //       be unreportable -AND- if we should attempt to dispose
-            //       thread-specific data after completion of the specified
-            //       script.
-            //
-            bool useOwner;
-            bool resetCancel;
-            bool mustResetCancel;
-            bool asynchronous;
-            bool asynchronousIfBusy;
-            bool fireAndForget;
-            bool complain;
-            bool disposeThread;
-            bool throwOnError;
-
-            ProcessCallbackFlags(
-                callbackFlags, out useOwner, out resetCancel,
-                out mustResetCancel, out asynchronous, out asynchronousIfBusy,
-                out fireAndForget, out complain, out disposeThread,
-                out throwOnError);
-
-            Interpreter interpreter = this.Interpreter;
-
-            try
-            {
-                ReturnCode code;
-                Result result = null;
-
-                //
-                // NOTE: If the interpreter cannot currently be used for
-                //       script evaluation, bail out now.
-                //
-                if (!CheckInterpreter(interpreter, ref result))
-                {
-                    code = ReturnCode.Error;
-                    goto done;
-                }
-
-                StringList localArguments = null;
-
-                //
-                // NOTE: Were any extra arguments supplied by the caller?
-                //       If so, add them now.
-                //
-                AddArguments(arguments, ref localArguments);
-
-                //
-                // NOTE: Invoke the callback (i.e. evaluate the script).
-                //
-                code = Invoke(
-                    interpreter, localArguments, useOwner, resetCancel,
-                    mustResetCancel, asynchronous, asynchronousIfBusy,
-                    ref result);
-
-            done:
-
-                try
-                {
-                    if (code != ReturnCode.Ok)
-                    {
-                        if (complain)
-                            DebugOps.Complain(interpreter, code, result);
-
-                        if (throwOnError)
-                            throw new ScriptException(code, result);
-                    }
-                }
-                finally
-                {
-                    if (fireAndForget)
-                    {
-                        ReturnCode removeCode;
-                        Result removeResult = null;
-
-                        removeCode = interpreter.RemoveCallback(
-                            name, _ClientData.Empty, ref removeResult);
-
-                        if (complain && (removeCode != ReturnCode.Ok))
-                        {
-                            DebugOps.Complain(
-                                interpreter, removeCode, removeResult);
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                MaybeDisposeThread(interpreter, disposeThread);
-            }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        /* System.Delegate.DynamicInvoke */
-        public object FireDynamicInvokeCallback(
-            params object[] args
-            )
-        {
-            CheckDisposed();
-
-            return FireDynamicInvokeCallback(args, null);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public object FireDynamicInvokeCallback(
+        private object FireWithParameters(
             object[] args,
             StringList arguments
             )
         {
-            CheckDisposed();
-
             //
             // NOTE: Process the configured callback flags into the various
             //       boolean flags.
@@ -3067,63 +3176,6 @@ namespace Eagle._Components.Private
             {
                 MaybeDisposeThread(interpreter, disposeThread);
             }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public ReturnCode Invoke(
-            StringList arguments,
-            ref Result result
-            )
-        {
-            CheckDisposed();
-
-            int errorLine = 0;
-
-            return Invoke(arguments, ref result, ref errorLine);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public ReturnCode Invoke(
-            StringList arguments,
-            ref Result result,
-            ref int errorLine
-            )
-        {
-            CheckDisposed();
-
-            bool useOwner;
-            bool mustResetCancel;
-            bool resetCancel;
-            bool asynchronous;
-            bool asynchronousIfBusy;
-
-            ProcessCallbackFlags(
-                callbackFlags, out useOwner, out resetCancel,
-                out mustResetCancel, out asynchronous, out asynchronousIfBusy);
-
-            return Invoke(
-                interpreter, arguments, useOwner, resetCancel,
-                mustResetCancel, asynchronous, asynchronousIfBusy,
-                ref result, ref errorLine);
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region IExecute Members
-        public ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData, /* NOT USED */
-            ArgumentList arguments,
-            ref Result result
-            )
-        {
-            CheckDisposed();
-
-            return Invoke(interpreter, (arguments != null) ?
-                new StringList(arguments) : null, ref result);
         }
         #endregion
 

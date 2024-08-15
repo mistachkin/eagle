@@ -16,6 +16,7 @@ using Eagle._Components.Public;
 using Eagle._Constants;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+using Alias = Eagle._Commands.Alias;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -74,6 +75,9 @@ namespace Eagle._Containers.Private
                         if (command == null)
                             continue;
 
+                        if (Alias.IsSystemAlias(command))
+                            continue;
+
                         inputList.Add(StringList.MakeList(
                             command.Flags.ToString(),
                             pair.Key));
@@ -93,6 +97,9 @@ namespace Eagle._Containers.Private
                     ICommand command = pair.Value;
 
                     if (command == null)
+                        continue;
+
+                    if (Alias.IsSystemAlias(command))
                         continue;
 
                     CommandFlags flags = command.Flags;

@@ -98,7 +98,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -389,10 +389,18 @@ namespace Eagle._Commands
 
                                                                         if (code == ReturnCode.Ok)
                                                                         {
+                                                                            TclCommandFlags flags = TclCommandFlags.None;
+
+                                                                            if (forceDelete)
+                                                                                flags |= TclCommandFlags.ForceDelete;
+
+                                                                            if (noComplain)
+                                                                                flags |= TclCommandFlags.NoComplain;
+
                                                                             code = interpreter.AddTclBridge(
                                                                                 execute, arguments[argumentIndex + 1],
                                                                                 arguments[argumentIndex + 2], null,
-                                                                                forceDelete, noComplain, ref result);
+                                                                                flags, ref result);
                                                                         }
                                                                     }
                                                                     else
@@ -426,7 +434,8 @@ namespace Eagle._Commands
                                                             //
                                                             if (arguments.Count == 5)
                                                             {
-                                                                code = interpreter.RemoveTclBridge(arguments[3], arguments[4], null, ref result);
+                                                                code = interpreter.RemoveTclBridge(
+                                                                    arguments[3], arguments[4], null, TclCommandFlags.None, ref result);
                                                             }
                                                             else
                                                             {
@@ -627,9 +636,20 @@ namespace Eagle._Commands
 
                                                     if (!bridge || interpreter.InternalHasTclBridges(ref result))
                                                     {
+                                                        TclCreateFlags createFlags = TclCreateFlags.None;
+
+                                                        if (initialize)
+                                                            createFlags |= TclCreateFlags.Initialize;
+
+                                                        if (memory)
+                                                            createFlags |= TclCreateFlags.Memory;
+
+                                                        if (safe)
+                                                            createFlags |= TclCreateFlags.Safe;
+
                                                         string interpName = null;
 
-                                                        code = interpreter.CreateTclInterpreter(initialize, memory, safe, ref result);
+                                                        code = interpreter.CreateTclInterpreter(createFlags, ref result);
 
                                                         if (code == ReturnCode.Ok)
                                                         {
@@ -653,9 +673,16 @@ namespace Eagle._Commands
                                                             //
                                                             if ((code == ReturnCode.Ok) && bridge)
                                                             {
+                                                                TclCommandFlags commandFlags = TclCommandFlags.None;
+
+                                                                if (forceDelete)
+                                                                    commandFlags |= TclCommandFlags.ForceDelete;
+
+                                                                if (noComplain)
+                                                                    commandFlags |= TclCommandFlags.NoComplain;
+
                                                                 code = interpreter.AddStandardTclBridge(
-                                                                    interpName, null, null, forceDelete, noComplain,
-                                                                    ref result);
+                                                                    interpName, null, null, commandFlags, ref result);
                                                             }
 
                                                             //
@@ -993,7 +1020,8 @@ namespace Eagle._Commands
                                                     new Variant(interpreter.TclFindFlags)),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-robustify", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-architecture", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trusted", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
                                                 new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-minimumversion", null),
                                                 new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-maximumversion", null),
                                                 new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-unknownversion", null),
@@ -1041,8 +1069,13 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-architecture"))
                                                         flags |= FindFlags.FindArchitecture | FindFlags.GetArchitecture;
 
-                                                    if (options.IsPresent("-trusted"))
+                                                    if (options.IsPresent("-trustedonly"))
                                                         flags |= FindFlags.TrustedOnly;
+
+#if !DEBUG
+                                                    if (options.IsPresent("-maybetrustedonly"))
+                                                        flags |= FindFlags.TrustedOnly;
+#endif
 
                                                     if (options.IsPresent("-verbose"))
                                                         flags |= FindFlags.VerboseMask;
@@ -1301,8 +1334,12 @@ namespace Eagle._Commands
                                                     new Option(typeof(LoadFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-loadflags",
                                                         new Variant(interpreter.TclLoadFlags)),
                                                     new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-robustify", null),
-                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trusted", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
                                                     new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-eval", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-bridge", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-noforcedelete", null),
+                                                    new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-nocomplain", null),
                                                     new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-minimumversion", null),
                                                     new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-maximumversion", null),
                                                     new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-unknownversion", null),
@@ -1345,8 +1382,13 @@ namespace Eagle._Commands
                                                             loadFlags |= LoadFlags.SetDllDirectory;
                                                         }
 
-                                                        if (options.IsPresent("-trusted"))
+                                                        if (options.IsPresent("-trustedonly"))
                                                             findFlags |= FindFlags.TrustedOnly;
+
+#if !DEBUG
+                                                        if (options.IsPresent("-maybetrustedonly"))
+                                                            findFlags |= FindFlags.TrustedOnly;
+#endif
 
                                                         string text = null;
 
@@ -1359,6 +1401,21 @@ namespace Eagle._Commands
 
                                                             findFlags |= FindFlags.EvaluateScript;
                                                         }
+
+                                                        bool bridge = false; /* TODO: Good default? */
+
+                                                        if (options.IsPresent("-bridge"))
+                                                            bridge = true;
+
+                                                        bool forceDelete = true; /* TODO: Good default? */
+
+                                                        if (options.IsPresent("-noforcedelete"))
+                                                            forceDelete = false;
+
+                                                        bool noComplain = false; /* TODO: Good default? */
+
+                                                        if (options.IsPresent("-nocomplain"))
+                                                            noComplain = true;
 
                                                         Version minimumVersion = TclWrapper.GetDefaultMinimumVersion(findFlags);
 
@@ -1413,6 +1470,8 @@ namespace Eagle._Commands
                                                             }
                                                         }
 
+                                                        string interpName = null;
+
                                                         if (code == ReturnCode.Ok)
                                                         {
                                                             code = interpreter.LoadTcl(
@@ -1420,6 +1479,31 @@ namespace Eagle._Commands
                                                                 (path != null) ? new StringList(path) : null,
                                                                 text, minimumVersion, maximumVersion, unknownVersion,
                                                                 clientData, ref result);
+
+                                                            if (code == ReturnCode.Ok)
+                                                                interpName = result;
+                                                        }
+
+                                                        //
+                                                        // NOTE: Add a bridged eval command to the Tcl interpreter?
+                                                        //
+                                                        if ((code == ReturnCode.Ok) && bridge)
+                                                        {
+                                                            TclCommandFlags commandFlags = TclCommandFlags.None;
+
+                                                            if (forceDelete)
+                                                                commandFlags |= TclCommandFlags.ForceDelete;
+
+                                                            if (noComplain)
+                                                                commandFlags |= TclCommandFlags.NoComplain;
+
+                                                            Result localResult = null;
+
+                                                            code = interpreter.AddStandardTclBridge(
+                                                                interpName, null, null, commandFlags, ref localResult);
+
+                                                            if (code != ReturnCode.Ok)
+                                                                result = localResult;
                                                         }
                                                     }
                                                     else
@@ -1937,7 +2021,8 @@ namespace Eagle._Commands
                                                     new Variant(interpreter.TclFindFlags)),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-robustify", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-architecture", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trusted", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-verbose", null),
                                                 new Option(null, OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-eval", null),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-allerrors", null),
@@ -1979,8 +2064,13 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-architecture"))
                                                         flags |= FindFlags.Architecture;
 
-                                                    if (options.IsPresent("-trusted"))
+                                                    if (options.IsPresent("-trustedonly"))
                                                         flags |= FindFlags.TrustedOnly;
+
+#if !DEBUG
+                                                    if (options.IsPresent("-maybetrustedonly"))
+                                                        flags |= FindFlags.TrustedOnly;
+#endif
 
                                                     if (options.IsPresent("-verbose"))
                                                         flags |= FindFlags.VerboseMask;
@@ -2526,7 +2616,8 @@ namespace Eagle._Commands
                                                 new Option(typeof(FindFlags), OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-flags",
                                                     new Variant(interpreter.TclFindFlags)),
                                                 new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-robustify", null),
-                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trusted", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
+                                                new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-trustedonly", null),
                                                 new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-minimumversion", null),
                                                 new Option(null, OptionFlags.MustHaveVersionValue, Index.Invalid, Index.Invalid, "-maximumversion", null),
                                                 new Option(null, OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-majorincrement", null),
@@ -2563,8 +2654,13 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-robustify"))
                                                         flags &= ~FindFlags.OtherNamePatternList;
 
-                                                    if (options.IsPresent("-trusted"))
+                                                    if (options.IsPresent("-trustedonly"))
                                                         flags |= FindFlags.TrustedOnly;
+
+#if !DEBUG
+                                                    if (options.IsPresent("-maybetrustedonly"))
+                                                        flags |= FindFlags.TrustedOnly;
+#endif
 
                                                     Version minimumVersion = TclWrapper.GetDefaultMinimumVersion(flags);
 

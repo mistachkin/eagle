@@ -102,7 +102,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -320,6 +320,8 @@ namespace Eagle._Commands
 #if NETWORK
                                             OptionDictionary options = new OptionDictionary(
                                                 new IOption[] {
+                                                new Option(typeof(TimeoutType), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-timeouttype", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-retries", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-callback", null),
                                                 new Option(typeof(CallbackFlags), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid,
@@ -328,12 +330,15 @@ namespace Eagle._Commands
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noinline", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-trusted", null),
 #if TEST
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-yesprotocol", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noprotocol", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-obsolete", null),
 #else
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-yesprotocol", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noprotocol", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-obsolete", null),
 #endif
+                                                new Option(typeof(EncodingType), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-encodingtype", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-webclientdata", null),
                                                 Option.CreateEndOfOptions()
@@ -370,7 +375,17 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
-                                                        int? timeout = WebOps.GetTimeout(interpreter);
+                                                        TimeoutType timeoutType = TimeoutType.None;
+
+                                                        if (options.IsPresent("-timeouttype", ref value))
+                                                            timeoutType = (TimeoutType)value.Value;
+
+                                                        int? retries = null;
+
+                                                        if (options.IsPresent("-retries", ref value))
+                                                            retries = (int)value.Value;
+
+                                                        int? timeout = WebOps.GetTimeout(interpreter, timeoutType);
 
                                                         if (options.IsPresent("-timeout", ref value))
                                                             timeout = (int)value.Value;
@@ -393,13 +408,16 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-noinline"))
                                                             inline = false;
 
-                                                        bool trusted = false;
+                                                        bool? trusted = null;
 
                                                         if (options.IsPresent("-trusted"))
                                                             trusted = true;
 
 #if TEST
-                                                        bool noProtocol = false;
+                                                        bool noProtocol = WebOps.GetDefaultNoProtocol();
+
+                                                        if (options.IsPresent("-yesprotocol"))
+                                                            noProtocol = false;
 
                                                         if (options.IsPresent("-noprotocol"))
                                                             noProtocol = true;
@@ -409,6 +427,11 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-obsolete"))
                                                             obsolete = true;
 #endif
+
+                                                        EncodingType encodingType = EncodingType.RemoteUri;
+
+                                                        if (options.IsPresent("-encodingtype", ref value))
+                                                            encodingType = (EncodingType)value.Value;
 
                                                         Encoding encoding = null;
 
@@ -453,11 +476,17 @@ namespace Eagle._Commands
 
 #if TEST
                                                                 if ((code == ReturnCode.Ok) && !noProtocol)
-                                                                    code = WebOps.SetSecurityProtocol(obsolete, ref result);
+                                                                    code = WebOps.SetSecurityProtocol(false, obsolete, ref result);
 #endif
 
                                                                 if (code == ReturnCode.Ok)
                                                                 {
+                                                                    if (timeoutType != TimeoutType.None)
+                                                                    {
+                                                                        timeout = ThreadOps.GetTimeout(
+                                                                            interpreter, timeout, timeoutType);
+                                                                    }
+
                                                                     if (inline)
                                                                     {
                                                                         //
@@ -472,11 +501,11 @@ namespace Eagle._Commands
                                                                             //       and after (i.e. to allow for proper saving
                                                                             //       and restoring of the current trust setting).
                                                                             //
-                                                                            if (!trusted)
+                                                                            if (trusted == null)
                                                                             {
                                                                                 code = WebOps.DownloadDataAsync(
                                                                                     interpreter, localClientData, callbackArguments,
-                                                                                    callbackFlags, uri, timeout, ref result);
+                                                                                    callbackFlags, uri, retries, timeout, ref result);
                                                                             }
                                                                             else
                                                                             {
@@ -489,8 +518,8 @@ namespace Eagle._Commands
                                                                             byte[] responseBytes = null;
 
                                                                             code = WebOps.DownloadData(
-                                                                                interpreter, localClientData, uri, timeout, trusted,
-                                                                                ref responseBytes, ref result);
+                                                                                interpreter, localClientData, uri, retries, timeout,
+                                                                                trusted, ref responseBytes, ref result);
 
                                                                             if (code == ReturnCode.Ok)
                                                                             {
@@ -498,8 +527,8 @@ namespace Eagle._Commands
 
                                                                                 code = StringOps.GetString(
                                                                                     encoding, responseBytes,
-                                                                                    EncodingType.RemoteUri,
-                                                                                    ref stringValue, ref result);
+                                                                                    encodingType, ref stringValue,
+                                                                                    ref result);
 
                                                                                 if (code == ReturnCode.Ok)
                                                                                     result = stringValue;
@@ -520,11 +549,12 @@ namespace Eagle._Commands
                                                                             //       and after (i.e. to allow for proper saving
                                                                             //       and restoring of the current trust setting).
                                                                             //
-                                                                            if (!trusted)
+                                                                            if (trusted == null)
                                                                             {
                                                                                 code = WebOps.DownloadFileAsync(
                                                                                     interpreter, localClientData, callbackArguments,
-                                                                                    callbackFlags, uri, argument, timeout, ref result);
+                                                                                    callbackFlags, uri, argument, retries, timeout,
+                                                                                    ref result);
                                                                             }
                                                                             else
                                                                             {
@@ -535,8 +565,8 @@ namespace Eagle._Commands
                                                                         else
                                                                         {
                                                                             code = WebOps.DownloadFile(
-                                                                                interpreter, localClientData, uri, argument, timeout,
-                                                                                trusted, ref result);
+                                                                                interpreter, localClientData, uri, argument, retries,
+                                                                                timeout, trusted, ref result);
                                                                         }
                                                                     }
                                                                 }
@@ -827,7 +857,7 @@ namespace Eagle._Commands
 
                                                         code = WebOps.DownloadData(
                                                             interpreter, clientData, uri,
-                                                            timeout, false, ref bytes,
+                                                            null, timeout, null, ref bytes,
                                                             ref result);
 
                                                         if (code == ReturnCode.Ok)
@@ -907,7 +937,8 @@ namespace Eagle._Commands
                                             list.Add(WebOps.InOfflineMode().ToString());
 
                                             list.Add("timeout");
-                                            list.Add(WebOps.GetTimeout(interpreter).ToString());
+                                            list.Add(WebOps.GetTimeout(
+                                                interpreter, TimeoutType.Network).ToString());
 
 #if TEST
                                             Result error; /* REUSED */
@@ -949,72 +980,34 @@ namespace Eagle._Commands
                                         if ((arguments.Count >= 2) && (arguments.Count <= 4))
                                         {
 #if NETWORK
-                                            if (arguments.Count == 2)
+                                            bool? trusted = null;
+
+                                            if ((code == ReturnCode.Ok) && (arguments.Count >= 3))
                                             {
-                                                code = ReturnCode.Ok;
+                                                code = Value.GetNullableBoolean2(
+                                                    arguments[2], ValueFlags.AnyBoolean,
+                                                    interpreter.InternalCultureInfo, ref trusted,
+                                                    ref result);
                                             }
-                                            else
+
+                                            bool? exclusive = null;
+
+                                            if ((code == ReturnCode.Ok) && (arguments.Count >= 4))
                                             {
-                                                bool trusted = false;
-
-                                                if (code == ReturnCode.Ok)
-                                                {
-                                                    code = Value.GetBoolean2(
-                                                        arguments[2], ValueFlags.AnyBoolean,
-                                                        interpreter.InternalCultureInfo, ref trusted,
-                                                        ref result);
-                                                }
-
-                                                bool exclusive = false;
-
-                                                if ((code == ReturnCode.Ok) && (arguments.Count >= 4))
-                                                {
-                                                    code = Value.GetBoolean2(
-                                                        arguments[3], ValueFlags.AnyBoolean,
-                                                        interpreter.InternalCultureInfo, ref exclusive,
-                                                        ref result);
-                                                }
-
-                                                if (code == ReturnCode.Ok)
-                                                {
-                                                    bool wasTrusted = UpdateOps.IsTrusted();
-                                                    bool wasExclusive = UpdateOps.IsExclusive();
-
-                                                    if ((trusted != wasTrusted) ||
-                                                        (exclusive != wasExclusive))
-                                                    {
-                                                        if ((code == ReturnCode.Ok) &&
-                                                            (trusted != wasTrusted))
-                                                        {
-                                                            code = UpdateOps.SetTrusted(
-                                                                trusted, ref result);
-                                                        }
-
-                                                        if ((code == ReturnCode.Ok) &&
-                                                            (exclusive != wasExclusive))
-                                                        {
-                                                            code = UpdateOps.SetExclusive(
-                                                                exclusive, ref result);
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        result = String.Format(
-                                                            "software update certificate is already {0}{1}",
-                                                            wasTrusted ? "trusted" : "untrusted",
-                                                            wasExclusive ? " exclusively" : String.Empty);
-
-                                                        code = ReturnCode.Error;
-                                                    }
-                                                }
+                                                code = Value.GetNullableBoolean2(
+                                                    arguments[3], ValueFlags.AnyBoolean,
+                                                    interpreter.InternalCultureInfo, ref exclusive,
+                                                    ref result);
                                             }
 
                                             if (code == ReturnCode.Ok)
                                             {
-                                                result = String.Format(
-                                                    "software update certificate is {0}{1}",
-                                                    UpdateOps.IsTrusted() ? "trusted" : "untrusted",
-                                                    UpdateOps.IsExclusive() ? " exclusively" : String.Empty);
+                                                ResultList results = null;
+
+                                                code = RuntimeOps.GetOrSetTrustedUpdateStatus(
+                                                    trusted, exclusive, ref results);
+
+                                                result = results; /* UNCONDITIONAL */
                                             }
 #else
                                             result = "not implemented";
@@ -1038,7 +1031,8 @@ namespace Eagle._Commands
 
                                             if (ScriptOps.QueryRemoteTime(
                                                     interpreter, clientData, null, WebOps.GetTimeout(
-                                                    interpreter), ref response, ref result) == ReturnCode.Ok)
+                                                    interpreter, TimeoutType.Network), ref response,
+                                                    ref result) == ReturnCode.Ok)
                                             {
                                                 StringList list = null;
 
@@ -1136,6 +1130,8 @@ namespace Eagle._Commands
 #if NETWORK
                                             OptionDictionary options = new OptionDictionary(
                                                 new IOption[] {
+                                                new Option(typeof(TimeoutType), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-timeouttype", null),
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-retries", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveIntegerValue, Index.Invalid, Index.Invalid, "-timeout", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveValue, Index.Invalid, Index.Invalid, "-method", null),
                                                 new Option(null, OptionFlags.MustHaveListValue, Index.Invalid, Index.Invalid, "-data", null),
@@ -1147,12 +1143,15 @@ namespace Eagle._Commands
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-raw", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-trusted", null),
 #if TEST
+                                                new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-yesprotocol", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noprotocol", null),
                                                 new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-obsolete", null),
 #else
+                                                new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-yesprotocol", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-noprotocol", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.Unsupported, Index.Invalid, Index.Invalid, "-obsolete", null),
 #endif
+                                                new Option(typeof(EncodingType), OptionFlags.Unsafe | OptionFlags.MustHaveEnumValue, Index.Invalid, Index.Invalid, "-encodingtype", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveEncodingValue, Index.Invalid, Index.Invalid, "-encoding", null),
                                                 new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveObjectValue, Index.Invalid, Index.Invalid, "-webclientdata", null),
                                                 Option.CreateEndOfOptions()
@@ -1189,7 +1188,17 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
-                                                        int? timeout = WebOps.GetTimeout(interpreter);
+                                                        TimeoutType timeoutType = TimeoutType.None;
+
+                                                        if (options.IsPresent("-timeouttype", ref value))
+                                                            timeoutType = (TimeoutType)value.Value;
+
+                                                        int? retries = null;
+
+                                                        if (options.IsPresent("-retries", ref value))
+                                                            retries = (int)value.Value;
+
+                                                        int? timeout = WebOps.GetTimeout(interpreter, timeoutType);
 
                                                         if (options.IsPresent("-timeout", ref value))
                                                             timeout = (int)value.Value;
@@ -1227,13 +1236,16 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-raw"))
                                                             raw = true;
 
-                                                        bool trusted = false;
+                                                        bool? trusted = null;
 
                                                         if (options.IsPresent("-trusted"))
                                                             trusted = true;
 
 #if TEST
-                                                        bool noProtocol = false;
+                                                        bool noProtocol = WebOps.GetDefaultNoProtocol();
+
+                                                        if (options.IsPresent("-yesprotocol"))
+                                                            noProtocol = false;
 
                                                         if (options.IsPresent("-noprotocol"))
                                                             noProtocol = true;
@@ -1243,6 +1255,11 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-obsolete"))
                                                             obsolete = true;
 #endif
+
+                                                        EncodingType encodingType = EncodingType.RemoteUri;
+
+                                                        if (options.IsPresent("-encodingtype", ref value))
+                                                            encodingType = (EncodingType)value.Value;
 
                                                         Encoding encoding = null;
 
@@ -1287,11 +1304,17 @@ namespace Eagle._Commands
 
 #if TEST
                                                                 if ((code == ReturnCode.Ok) && !noProtocol)
-                                                                    code = WebOps.SetSecurityProtocol(obsolete, ref result);
+                                                                    code = WebOps.SetSecurityProtocol(false, obsolete, ref result);
 #endif
 
                                                                 if (code == ReturnCode.Ok)
                                                                 {
+                                                                    if (timeoutType != TimeoutType.None)
+                                                                    {
+                                                                        timeout = ThreadOps.GetTimeout(
+                                                                            interpreter, timeout, timeoutType);
+                                                                    }
+
                                                                     if (inline)
                                                                     {
                                                                         //
@@ -1306,7 +1329,7 @@ namespace Eagle._Commands
                                                                             //       and after (i.e. to allow for proper saving
                                                                             //       and restoring of the current trust setting).
                                                                             //
-                                                                            if (!trusted)
+                                                                            if (trusted == null)
                                                                             {
                                                                                 if (raw)
                                                                                 {
@@ -1320,8 +1343,8 @@ namespace Eagle._Commands
                                                                                     {
                                                                                         code = WebOps.UploadDataAsync(
                                                                                             interpreter, localClientData, callbackArguments,
-                                                                                            callbackFlags, uri, method, requestBytes, timeout,
-                                                                                            ref result);
+                                                                                            callbackFlags, uri, method, requestBytes, retries,
+                                                                                            timeout, ref result);
 
                                                                                     }
                                                                                 }
@@ -1332,7 +1355,7 @@ namespace Eagle._Commands
                                                                                         callbackFlags, uri, method,
                                                                                         ListOps.ToNameValueCollection(
                                                                                             listData, new NameValueCollection()),
-                                                                                        timeout, ref result);
+                                                                                        retries, timeout, ref result);
                                                                                 }
                                                                             }
                                                                             else
@@ -1357,8 +1380,8 @@ namespace Eagle._Commands
                                                                                 {
                                                                                     code = WebOps.UploadData(
                                                                                         interpreter, localClientData, uri, method,
-                                                                                        requestBytes, timeout, trusted, ref responseBytes,
-                                                                                        ref result);
+                                                                                        requestBytes, retries, timeout, trusted,
+                                                                                        ref responseBytes, ref result);
                                                                                 }
                                                                             }
                                                                             else
@@ -1367,7 +1390,8 @@ namespace Eagle._Commands
                                                                                     interpreter, localClientData, uri, method,
                                                                                     ListOps.ToNameValueCollection(
                                                                                         listData, new NameValueCollection()),
-                                                                                    timeout, trusted, ref responseBytes, ref result);
+                                                                                    retries, timeout, trusted, ref responseBytes,
+                                                                                    ref result);
                                                                             }
 
                                                                             if (code == ReturnCode.Ok)
@@ -1376,8 +1400,8 @@ namespace Eagle._Commands
 
                                                                                 code = StringOps.GetString(
                                                                                     encoding, responseBytes,
-                                                                                    EncodingType.RemoteUri,
-                                                                                    ref stringValue, ref result);
+                                                                                    encodingType, ref stringValue,
+                                                                                    ref result);
 
                                                                                 if (code == ReturnCode.Ok)
                                                                                     result = stringValue;
@@ -1398,12 +1422,12 @@ namespace Eagle._Commands
                                                                             //       and after (i.e. to allow for proper saving
                                                                             //       and restoring of the current trust setting).
                                                                             //
-                                                                            if (!trusted)
+                                                                            if (trusted == null)
                                                                             {
                                                                                 code = WebOps.UploadFileAsync(
                                                                                     interpreter, localClientData, callbackArguments,
                                                                                     callbackFlags, uri, method,
-                                                                                    argument, timeout, ref result);
+                                                                                    argument, retries, timeout, ref result);
                                                                             }
                                                                             else
                                                                             {
@@ -1413,9 +1437,24 @@ namespace Eagle._Commands
                                                                         }
                                                                         else
                                                                         {
+                                                                            byte[] responseBytes = null;
+
                                                                             code = WebOps.UploadFile(
                                                                                 interpreter, localClientData, uri, method, argument,
-                                                                                timeout, trusted, ref result);
+                                                                                retries, timeout, trusted, ref responseBytes, ref result);
+
+                                                                            if (code == ReturnCode.Ok)
+                                                                            {
+                                                                                string stringValue = null;
+
+                                                                                code = StringOps.GetString(
+                                                                                    encoding, responseBytes,
+                                                                                    encodingType, ref stringValue,
+                                                                                    ref result);
+
+                                                                                if (code == ReturnCode.Ok)
+                                                                                    result = stringValue;
+                                                                            }
                                                                         }
                                                                     }
                                                                 }

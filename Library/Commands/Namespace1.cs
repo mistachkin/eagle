@@ -90,7 +90,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -303,9 +303,12 @@ namespace Eagle._Commands
                                                 code = interpreter.EvaluateScript(arguments, 3, ref result);
 
                                             if (code == ReturnCode.Error)
+                                            {
+                                                /* IGNORED */
                                                 Engine.AddErrorInformation(interpreter, result,
                                                     String.Format("{0}    (in namespace eval \"{1}\" script line {2})",
                                                         Environment.NewLine, arguments[2], Interpreter.GetErrorLine(interpreter)));
+                                            }
 
                                             //
                                             // NOTE: Pop the original call frame that we pushed above and
@@ -469,9 +472,12 @@ namespace Eagle._Commands
                                                             location, ref result);
 
                                                         if (code == ReturnCode.Error)
+                                                        {
+                                                            /* IGNORED */
                                                             Engine.AddErrorInformation(interpreter, result,
                                                                 String.Format("{0}    (in namespace inscope \"{1}\" script line {2})",
                                                                     Environment.NewLine, arguments[2], Interpreter.GetErrorLine(interpreter)));
+                                                        }
 
                                                         //
                                                         // NOTE: Pop the original call frame that we pushed above and
@@ -494,9 +500,12 @@ namespace Eagle._Commands
                                                     code = interpreter.EvaluateScript(arguments[3], ref result);
 
                                                     if (code == ReturnCode.Error)
+                                                    {
+                                                        /* IGNORED */
                                                         Engine.AddErrorInformation(interpreter, result,
                                                             String.Format("{0}    (in namespace inscope \"{1}\" script line {2})",
                                                                 Environment.NewLine, arguments[2], Interpreter.GetErrorLine(interpreter)));
+                                                    }
 
                                                     //
                                                     // NOTE: Pop the original call frame that we pushed above and

@@ -72,7 +72,19 @@ namespace Eagle._Commands
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noprovide", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-noresources", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-verifiedonly", null),
+                            //
+                            // HACK: The "-maybeverifiedonly" option is allowed in "safe" interpreters due
+                            //       to its lack of a value, its relative harmlessness, and because the
+                            //       core library binary plugin loader uses it, e.g. for HotKey, et al.
+                            //
+                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybeverifiedonly", null),
                             new Option(null, OptionFlags.Unsafe, Index.Invalid, Index.Invalid, "-trustedonly", null),
+                            //
+                            // HACK: The "-maybetrustedonly" option is allowed in "safe" interpreters due
+                            //       to its lack of a value, its relative harmlessness, and because the
+                            //       core library binary plugin loader uses it, e.g. for HotKey, et al.
+                            //
+                            new Option(null, OptionFlags.None, Index.Invalid, Index.Invalid, "-maybetrustedonly", null),
                             new Option(null, OptionFlags.Unsafe | OptionFlags.MustHaveValue, Index.Invalid,
                                 Index.Invalid, "-publickeytoken", null),
 #if ISOLATED_PLUGINS
@@ -284,8 +296,18 @@ namespace Eagle._Commands
                                             if (options.IsPresent("-verifiedonly"))
                                                 pluginFlags |= PluginFlags.VerifiedOnly;
 
+#if !DEBUG
+                                            if (options.IsPresent("-maybeverifiedonly"))
+                                                pluginFlags |= PluginFlags.VerifiedOnly;
+#endif
+
                                             if (options.IsPresent("-trustedonly"))
                                                 pluginFlags |= PluginFlags.TrustedOnly;
+
+#if !DEBUG
+                                            if (options.IsPresent("-maybetrustedonly"))
+                                                pluginFlags |= PluginFlags.TrustedOnly;
+#endif
 
                                             bool viaResource = false;
 

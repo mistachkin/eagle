@@ -35,10 +35,12 @@ namespace Eagle._Interfaces.Private
         StringDictionary Breakpoints { get; set; }
 #endif
 
+        StringDictionary Hooks { get; set; }
         IComparer<string> Comparer { get; set; }
         string Path { get; set; }
         TestOutputType Verbose { get; set; }
         int RepeatCount { get; set; }
+        string Previous { get; set; }
         string Current { get; set; }
     }
 }

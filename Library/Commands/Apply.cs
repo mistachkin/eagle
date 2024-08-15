@@ -86,6 +86,29 @@ namespace Eagle._Commands
                         {
                             if ((lambdaExpr.Count == 2) || (lambdaExpr.Count == 3))
                             {
+                                bool isLibrary = false;
+                                bool isFast = false;
+                                bool isAtomic = false;
+
+#if ARGUMENT_CACHE || PARSE_CACHE
+                                bool isNonCaching = false;
+#endif
+
+                                bool isMatchTypes = false;
+
+                                if (!interpreter.InternalIsSafe())
+                                {
+                                    ScriptOps.ShouldProcedureHaveFlags(
+                                        interpreter, null, lambdaExpr[1],
+                                        interpreter.InternalCultureInfo,
+                                        out isLibrary, out isFast,
+                                        out isAtomic,
+#if ARGUMENT_CACHE || PARSE_CACHE
+                                        out isNonCaching,
+#endif
+                                        out isMatchTypes);
+                                }
+
                                 byte[] hashValue = arguments[1].GetHashValue(ref result);
 
                                 if (hashValue != null)
@@ -191,9 +214,21 @@ namespace Eagle._Commands
 
                                                     try
                                                     {
+                                                        CallFrameFlags callFrameFlags =
+                                                            CallFrameFlags.Procedure | CallFrameFlags.Lambda;
+
+                                                        if (isLibrary)
+                                                            callFrameFlags |= CallFrameFlags.Library;
+
+                                                        if (isFast)
+                                                            callFrameFlags |= CallFrameFlags.Fast;
+
+                                                        if (isMatchTypes)
+                                                            callFrameFlags |= CallFrameFlags.MatchTypes;
+
                                                         frame = interpreter.NewProcedureCallFrame(
-                                                            name, CallFrameFlags.Procedure | CallFrameFlags.Lambda,
-                                                            new ClientData(hashValue), this, arguments);
+                                                            name, callFrameFlags, new ClientData(hashValue),
+                                                            this, arguments);
 
                                                         StringDictionary alreadySet = new StringDictionary();
                                                         ArgumentList frameProcedureArguments = new ArgumentList();
@@ -320,10 +355,65 @@ namespace Eagle._Commands
 
                                                                 if (code == ReturnCode.Ok)
                                                                 {
-                                                                    interpreter.ReturnCode = ReturnCode.Ok;
+                                                                    bool locked = false;
 
-                                                                    code = interpreter.EvaluateScript(
-                                                                        lambdaExpr[1], (IScriptLocation)arguments[1], ref result);
+                                                                    try
+                                                                    {
+                                                                        if (isAtomic)
+                                                                            interpreter.InternalHardTryLock(ref locked); /* TRANSACTIONAL */
+
+                                                                        if (!isAtomic || locked)
+                                                                        {
+#if ARGUMENT_CACHE || PARSE_CACHE
+                                                                            EngineFlags savedEngineFlags = EngineFlags.None;
+
+                                                                            if (isNonCaching)
+                                                                            {
+                                                                                interpreter.BeginProcedureBodyNoCaching(
+                                                                                    ref savedEngineFlags);
+                                                                            }
+#endif
+
+                                                                            try
+                                                                            {
+                                                                                interpreter.ReturnCode = ReturnCode.Ok;
+
+                                                                                code = interpreter.EvaluateScript(
+                                                                                    lambdaExpr[1], (IScriptLocation)arguments[1],
+                                                                                    ref result);
+                                                                            }
+                                                                            catch (Exception e)
+                                                                            {
+                                                                                result = e;
+                                                                                code = ReturnCode.Error;
+                                                                            }
+#if ARGUMENT_CACHE || PARSE_CACHE
+                                                                            finally
+                                                                            {
+                                                                                if (isNonCaching)
+                                                                                {
+                                                                                    interpreter.EndProcedureBodyNoCaching(
+                                                                                        ref savedEngineFlags);
+                                                                                }
+                                                                            }
+#endif
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            TraceOps.LockTrace(
+                                                                                "Execute",
+                                                                                typeof(Apply).Name, false,
+                                                                                TracePriority.LockError,
+                                                                                interpreter.MaybeWhoHasLock());
+
+                                                                            result = "could not lock interpreter";
+                                                                            code = ReturnCode.Error;
+                                                                        }
+                                                                    }
+                                                                    finally
+                                                                    {
+                                                                        interpreter.InternalExitLock(ref locked); /* TRANSACTIONAL */
+                                                                    }
 
 #if DEBUGGER && DEBUGGER_EXECUTE
                                                                     if (DebuggerOps.CanHitBreakpoints(interpreter,
@@ -348,12 +438,17 @@ namespace Eagle._Commands
                                                                     }
 
                                                                     if (code == ReturnCode.Return)
+                                                                    {
                                                                         code = Engine.UpdateReturnInformation(interpreter);
+                                                                    }
                                                                     else if (code == ReturnCode.Error)
+                                                                    {
+                                                                        /* IGNORED */
                                                                         Engine.AddErrorInformation(interpreter, result,
                                                                             String.Format("{0}    (lambda term \"{1}\" line {2})",
                                                                                 Environment.NewLine, FormatOps.Ellipsis(arguments[1]),
                                                                                 Interpreter.GetErrorLine(interpreter)));
+                                                                    }
                                                                 }
                                                             }
                                                             finally

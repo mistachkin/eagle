@@ -833,6 +833,7 @@ namespace Eagle._Components.Private
             bool merge                     /* in */
             )
         {
+#if DEBUG && VERBOSE
             string traceDescription = null;
 
             lock (syncRoot) /* TRANSACTIONAL */
@@ -847,6 +848,7 @@ namespace Eagle._Components.Private
                     "GetAppSettingsViaXmlFiles: using cached {0}",
                     traceDescription), TracePriority.StartupDebug2);
             }
+#endif
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
@@ -874,6 +876,7 @@ namespace Eagle._Components.Private
 
                     if (appSettings != null)
                     {
+#if DEBUG && VERBOSE
                         traceDescription = GetTraceDescription(
                             appSettings);
 
@@ -883,6 +886,7 @@ namespace Eagle._Components.Private
                             "using", traceDescription,
                             FormatOps.WrapOrNull(fileName)),
                             TracePriority.StartupDebug);
+#endif
 
                         lock (syncRoot) /* TRANSACTIONAL */
                         {
@@ -919,6 +923,7 @@ namespace Eagle._Components.Private
 
                 if (merge)
                 {
+#if DEBUG && VERBOSE
                     lock (syncRoot) /* TRANSACTIONAL */
                     {
                         traceDescription = GetTraceDescription(
@@ -928,6 +933,7 @@ namespace Eagle._Components.Private
                     DebugTrace(String.Format(
                         "GetAppSettingsViaXmlFiles: using merged {0}",
                         traceDescription), TracePriority.StartupDebug);
+#endif
 
                     lock (syncRoot)
                     {
@@ -936,6 +942,7 @@ namespace Eagle._Components.Private
                 }
             }
 
+#if DEBUG && VERBOSE
             //
             // NOTE: This is not an error.  Just return no settings
             //       because no XML configuration files are present.
@@ -943,6 +950,7 @@ namespace Eagle._Components.Private
             DebugTrace(
                 "GetAppSettingsViaXmlFiles: skipping files because " +
                 "they did not exist", TracePriority.StartupDebug);
+#endif
 
             return null;
         }
@@ -971,7 +979,7 @@ namespace Eagle._Components.Private
 
             NameValueCollection appSettings = ConfigurationManager.AppSettings;
 
-#if false
+#if DEBUG && VERBOSE
             DebugTrace(String.Format(
                 "GetAppSettingsViaManager: using built-in {0}",
                 GetTraceDescription(appSettings)),
@@ -980,7 +988,7 @@ namespace Eagle._Components.Private
 
             return appSettings;
 #else
-#if false
+#if DEBUG && VERBOSE
             DebugTrace(
                 "GetAppSettingsViaManager: built-in settings unavailable",
                 TracePriority.StartupDebug2);
@@ -1068,6 +1076,7 @@ namespace Eagle._Components.Private
 
         private static NameValueCollection GetAppSettingsViaAny()
         {
+#if DEBUG && VERBOSE
             string traceDescription = null;
 
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1085,6 +1094,7 @@ namespace Eagle._Components.Private
                     "GetAppSettingsViaAny: using overridden {0}",
                     traceDescription), TracePriority.StartupDebug);
             }
+#endif
 
             lock (syncRoot) /* TRANSACTIONAL */
             {
@@ -1104,6 +1114,7 @@ namespace Eagle._Components.Private
 
                 if (ShouldMergeAllAppSettings())
                 {
+#if DEBUG && VERBOSE
                     traceDescription = null;
 
                     lock (syncRoot) /* TRANSACTIONAL */
@@ -1121,6 +1132,7 @@ namespace Eagle._Components.Private
                             "GetAppSettingsViaAny: using cached merged {0}",
                             traceDescription), TracePriority.StartupDebug2);
                     }
+#endif
 
                     lock (syncRoot) /* TRANSACTIONAL */
                     {

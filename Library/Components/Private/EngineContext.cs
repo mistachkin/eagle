@@ -57,8 +57,12 @@ namespace Eagle._Components.Private
             maximumLevels = 0;
 
             trustedLevels = 0;
+
             scriptLevels = 0;
             maximumScriptLevels = 0;
+
+            scriptFileLevels = 0;
+            maximumScriptFileLevels = 0;
 
             parserLevels = 0;
             maximumParserLevels = 0;
@@ -74,8 +78,13 @@ namespace Eagle._Components.Private
             subCommandLevels = 0;
             settingLevels = 0;
             packageLevels = 0;
+            packageIndexLevels = 0;
 
             interpreterStateFlags = InterpreterStateFlags.None;
+
+            packageFlags = PackageFlags.None;
+            packageIndexFlags = PackageIndexFlags.None;
+            procedureFlags = ProcedureFlags.None;
 
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
             cacheFlags = CacheFlags.None;
@@ -109,6 +118,8 @@ namespace Eagle._Components.Private
             fileFinalDecision = PolicyDecision.None;
             streamFinalDecision = PolicyDecision.None;
 
+            readyTimeout = null;
+
             cancel = false;
             unwind = false;
             halt = false;
@@ -139,6 +150,7 @@ namespace Eagle._Components.Private
             previousResult = null;
 #endif
 
+            lastError = null;
             engineFlags = EngineFlags.None;
 
             parseState = null;
@@ -176,14 +188,24 @@ namespace Eagle._Components.Private
         #region IMaybeDisposed Members
         public bool Disposed
         {
-            get { return disposed; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return disposed;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public bool Disposing
         {
-            get { return false; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return false;
+            }
         }
         #endregion
 
@@ -334,6 +356,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private int scriptFileLevels;
+        public int ScriptFileLevels
+        {
+            get { CheckDisposed(); return scriptFileLevels; }
+            set { CheckDisposed(); scriptFileLevels = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private int maximumScriptFileLevels;
+        public int MaximumScriptFileLevels
+        {
+            get { CheckDisposed(); return maximumScriptFileLevels; }
+            set { CheckDisposed(); maximumScriptFileLevels = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private int parserLevels;
         public int ParserLevels
         {
@@ -442,11 +482,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private int packageIndexLevels;
+        public int PackageIndexLevels
+        {
+            get { CheckDisposed(); return packageIndexLevels; }
+            set { CheckDisposed(); packageIndexLevels = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private InterpreterStateFlags interpreterStateFlags;
         public InterpreterStateFlags InterpreterStateFlags
         {
             get { CheckDisposed(); return interpreterStateFlags; }
             set { CheckDisposed(); interpreterStateFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private PackageFlags packageFlags;
+        public PackageFlags PackageFlags
+        {
+            get { CheckDisposed(); return packageFlags; }
+            set { CheckDisposed(); packageFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private PackageIndexFlags packageIndexFlags;
+        public PackageIndexFlags PackageIndexFlags
+        {
+            get { CheckDisposed(); return packageIndexFlags; }
+            set { CheckDisposed(); packageIndexFlags = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private ProcedureFlags procedureFlags;
+        public ProcedureFlags ProcedureFlags
+        {
+            get { CheckDisposed(); return procedureFlags; }
+            set { CheckDisposed(); procedureFlags = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -612,6 +688,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private int? readyTimeout;
+        public int? ReadyTimeout
+        {
+            get { CheckDisposed(); return readyTimeout; }
+            set { CheckDisposed(); readyTimeout = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private bool cancel;
         public bool Cancel
         {
@@ -696,6 +781,15 @@ namespace Eagle._Components.Private
             set { CheckDisposed(); previousResult = value; }
         }
 #endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private Result lastError;
+        public Result LastError
+        {
+            get { CheckDisposed(); return lastError; }
+            set { CheckDisposed(); lastError = value; }
+        }
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -974,8 +1068,12 @@ namespace Eagle._Components.Private
                     maximumLevels = 0;
 
                     trustedLevels = 0;
+
                     scriptLevels = 0;
                     maximumScriptLevels = 0;
+
+                    scriptFileLevels = 0;
+                    maximumScriptFileLevels = 0;
 
                     parserLevels = 0;
                     maximumParserLevels = 0;
@@ -991,8 +1089,13 @@ namespace Eagle._Components.Private
                     subCommandLevels = 0;
                     settingLevels = 0;
                     packageLevels = 0;
+                    packageIndexLevels = 0;
 
                     interpreterStateFlags = InterpreterStateFlags.None;
+
+                    packageFlags = PackageFlags.None;
+                    packageIndexFlags = PackageIndexFlags.None;
+                    procedureFlags = ProcedureFlags.None;
 
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
                     cacheFlags = CacheFlags.None;
@@ -1026,6 +1129,8 @@ namespace Eagle._Components.Private
                     fileFinalDecision = PolicyDecision.None;
                     streamFinalDecision = PolicyDecision.None;
 
+                    readyTimeout = null;
+
                     cancel = false;
                     unwind = false;
                     halt = false;
@@ -1058,6 +1163,7 @@ namespace Eagle._Components.Private
                     previousResult = null;
 #endif
 
+                    lastError = null;
                     engineFlags = EngineFlags.None;
                     parseState = null;
                     returnCode = ReturnCode.Ok;

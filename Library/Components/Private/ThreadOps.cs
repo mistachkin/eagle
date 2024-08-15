@@ -39,6 +39,15 @@ namespace Eagle._Components.Private
     [ObjectId("b81d425a-8049-4404-92c7-d106402b6bba")]
     internal static class ThreadOps
     {
+        #region Private Cached Data
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool isMono = CommonOps.Runtime.IsMono();
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Thread Creation Data
         //
         // NOTE: These static fields are used to keep track of how many
@@ -562,6 +571,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
+        // NOTE: This is the default multiplier to apply to all timeouts
+        //       and wait times.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static int? defaultMultiplier = null;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // NOTE: This is the multiplier used for "wait" locks to be acquired,
         //       when running on Mono or the .NET Framework.
         //
@@ -572,6 +591,17 @@ namespace Eagle._Components.Private
 #endif
 
         private static int defaultDotNetWaitLockMultiplier = 2;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is the multiplier used for timeouts when the waiting is
+        //       being done from a thread that is NOT the PRIMARY THREAD for
+        //       the target interpreter.
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static int defaultBackgroundMultiplier = 5;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -590,6 +620,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
+        // NOTE: This is the multiplier used for engine locks to be acquired,
+        //       when running on Mono or the .NET Framework.
+        //
+        // HACK: These are purposely not read-only.
+        //
+#if MONO || MONO_HACKS
+        private static int defaultMonoEngineLockMultiplier = 1;
+#endif
+
+        private static int defaultDotNetEngineLockMultiplier = 1;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // NOTE: This is the number of milliseconds to wait until a lock can
         //       be acquired, when running on Mono or the .NET Framework.
         //
@@ -600,6 +644,37 @@ namespace Eagle._Components.Private
 #endif
 
         private static int defaultDotNetLockTimeout = 1000;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is the default number of milliseconds to wait before
+        //       a readiness operation will fail due to being unable to
+        //       acquire the interpreter lock, when running on Mono or the
+        //       .NET Framework.
+        //
+        // HACK: These are purposely not read-only.
+        //
+#if MONO || MONO_HACKS
+        private static int defaultMonoReadyTimeout = 4000;
+#endif
+
+        private static int defaultDotNetReadyTimeout = 2000;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This is the number of milliseconds for the engine to wait
+        //       until a lock can be acquired, when running on Mono or the
+        //       .NET Framework.
+        //
+        // HACK: These are purposely not read-only.
+        //
+#if MONO || MONO_HACKS
+        private static int defaultMonoEngineLockTimeout = 120000;
+#endif
+
+        private static int defaultDotNetEngineLockTimeout = 60000;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -701,10 +776,10 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
-        private static int defaultMonoNetworkTimeout = 10000;
+        private static int defaultMonoNetworkTimeout = 4000;
 #endif
 
-        private static int defaultDotNetNetworkTimeout = 5000;
+        private static int defaultDotNetNetworkTimeout = 2000;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
@@ -801,7 +876,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultWaitLockMultiplier()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoWaitLockMultiplier;
 #endif
 
@@ -813,7 +888,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultHardLockMultiplier()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoHardLockMultiplier;
 #endif
 
@@ -822,10 +897,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static int GetDefaultEngineLockMultiplier()
+        {
+#if MONO || MONO_HACKS
+            if (isMono)
+                return defaultMonoEngineLockMultiplier;
+#endif
+
+            return defaultDotNetEngineLockMultiplier;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int GetDefaultBackgroundMultiplier()
+        {
+            return defaultBackgroundMultiplier;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static int GetDefaultLockTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoLockTimeout;
 #endif
 
@@ -834,10 +928,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private static int GetDefaultReadyTimeout()
+        {
+#if MONO || MONO_HACKS
+            if (isMono)
+                return defaultMonoReadyTimeout;
+#endif
+
+            return defaultDotNetReadyTimeout;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int GetDefaultEngineTimeout()
+        {
+#if MONO || MONO_HACKS
+            if (isMono)
+                return defaultMonoEngineLockTimeout;
+#endif
+
+            return defaultDotNetEngineLockTimeout;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private static int GetDefaultEventTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoEventTimeout;
 #endif
 
@@ -850,7 +968,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultHealthTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoHealthTimeout;
 #endif
 
@@ -863,7 +981,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultScriptTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoScriptTimeout;
 #endif
 
@@ -875,7 +993,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultStartTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoStartTimeout;
 #endif
 
@@ -887,7 +1005,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultInterruptTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoInterruptTimeout;
 #endif
 
@@ -899,7 +1017,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultJoinTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoJoinTimeout;
 #endif
 
@@ -912,7 +1030,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultNetworkTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoNetworkTimeout;
 #endif
 
@@ -925,7 +1043,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultUnsafeFinallyTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoUnsafeFinallyTimeout;
 #endif
 
@@ -937,7 +1055,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultSafeFinallyTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoSafeFinallyTimeout;
 #endif
 
@@ -949,7 +1067,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultDisposeTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoDisposeTimeout;
 #endif
 
@@ -961,7 +1079,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultFallbackTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoFallbackTimeout;
 #endif
 
@@ -973,7 +1091,7 @@ namespace Eagle._Components.Private
         private static int GetDefaultUnknownTimeout()
         {
 #if MONO || MONO_HACKS
-            if (CommonOps.Runtime.IsMono())
+            if (isMono)
                 return defaultMonoUnknownTimeout;
 #endif
 
@@ -1046,6 +1164,7 @@ namespace Eagle._Components.Private
                 case TimeoutType.FirmLock:
                 case TimeoutType.WaitLock:
                 case TimeoutType.HardLock:
+                case TimeoutType.EngineLock:
                     {
                         return defaultLockRetries;
                     }
@@ -1070,78 +1189,144 @@ namespace Eagle._Components.Private
             TimeoutType timeoutType  /* in */
             )
         {
-            switch (TranslateTimeoutType(
-                    interpreter, BaseTimeoutType(timeoutType)))
+            TimeoutType localTimeoutType = TranslateTimeoutType(
+                interpreter, BaseTimeoutType(timeoutType));
+
+            int multiplier = 1;
+
+            if (!FlagOps.HasFlags(
+                    timeoutType, TimeoutType.NoMultiplier, true))
+            {
+                if (defaultMultiplier != null)
+                {
+                    multiplier = (int)defaultMultiplier;
+                }
+                else
+                {
+                    if ((interpreter != null) &&
+                        !interpreter.IsPrimarySystemThread())
+                    {
+                        multiplier *= GetDefaultBackgroundMultiplier();
+                    }
+
+                    switch (localTimeoutType)
+                    {
+                        case TimeoutType.WaitLock:
+                            {
+                                multiplier *= GetDefaultWaitLockMultiplier();
+                                break;
+                            }
+                        case TimeoutType.HardLock:
+                            {
+                                multiplier *= GetDefaultHardLockMultiplier();
+                                break;
+                            }
+                        case TimeoutType.EngineLock:
+                            {
+                                multiplier *= GetDefaultEngineLockMultiplier();
+                                break;
+                            }
+                    }
+                }
+            }
+
+            int timeout;
+
+            switch (localTimeoutType)
             {
                 case TimeoutType.Fallback:
                     {
-                        return GetDefaultFallbackTimeout();
+                        timeout = GetDefaultFallbackTimeout();
+                        break;
                     }
                 case TimeoutType.SoftLock:
                     {
-                        return 0; // TODO: No waiting, hard-coded.
+                        timeout = 0; // TODO: No waiting, hard-coded.
+                        break;
                     }
                 case TimeoutType.FirmLock:
                     {
-                        return GetDefaultLockTimeout();
+                        timeout = GetDefaultLockTimeout();
+                        break;
+                    }
+                case TimeoutType.Ready:
+                    {
+                        timeout = GetDefaultReadyTimeout();
+                        break;
                     }
                 case TimeoutType.WaitLock:
                     {
-                        return GetDefaultWaitLockMultiplier() *
-                            GetDefaultLockTimeout();
+                        timeout = GetDefaultLockTimeout();
+                        break;
                     }
                 case TimeoutType.HardLock:
                     {
-                        return GetDefaultHardLockMultiplier() *
-                            GetDefaultLockTimeout();
+                        timeout = GetDefaultLockTimeout();
+                        break;
+                    }
+                case TimeoutType.EngineLock:
+                    {
+                        timeout = GetDefaultEngineTimeout();
+                        break;
                     }
                 case TimeoutType.Event:
                     {
-                        return GetDefaultEventTimeout();
+                        timeout = GetDefaultEventTimeout();
+                        break;
                     }
 #if THREADING
                 case TimeoutType.Health:
                     {
-                        return GetDefaultHealthTimeout();
+                        timeout = GetDefaultHealthTimeout();
+                        break;
                     }
 #endif
                 case TimeoutType.Script:
                     {
-                        return GetDefaultScriptTimeout();
+                        timeout = GetDefaultScriptTimeout();
+                        break;
                     }
                 case TimeoutType.Start:
                     {
-                        return GetDefaultStartTimeout();
+                        timeout = GetDefaultStartTimeout();
+                        break;
                     }
                 case TimeoutType.Interrupt:
                     {
-                        return GetDefaultInterruptTimeout();
+                        timeout = GetDefaultInterruptTimeout();
+                        break;
                     }
                 case TimeoutType.Join:
                     {
-                        return GetDefaultJoinTimeout();
+                        timeout = GetDefaultJoinTimeout();
+                        break;
                     }
 #if NETWORK
                 case TimeoutType.Network:
                     {
-                        return GetDefaultNetworkTimeout();
+                        timeout = GetDefaultNetworkTimeout();
+                        break;
                     }
 #endif
                 case TimeoutType.UnsafeFinally:
                     {
-                        return GetDefaultUnsafeFinallyTimeout();
+                        timeout = GetDefaultUnsafeFinallyTimeout();
+                        break;
                     }
                 case TimeoutType.SafeFinally:
                     {
-                        return GetDefaultSafeFinallyTimeout();
+                        timeout = GetDefaultSafeFinallyTimeout();
+                        break;
                     }
                 case TimeoutType.Dispose:
                     {
-                        return GetDefaultDisposeTimeout();
+                        timeout = GetDefaultDisposeTimeout();
+                        break;
                     }
                 case TimeoutType.Unknown:
                     {
-                        return GetDefaultUnknownTimeout();
+                        timeout = GetDefaultUnknownTimeout();
+                        break;
                     }
                 default:
                     {
@@ -1150,11 +1335,15 @@ namespace Eagle._Components.Private
                             timeoutType), typeof(ThreadOps).Name,
                             TracePriority.ThreadDebug);
 
+                        timeout = GetDefaultUnknownTimeout();
                         break;
                     }
             }
 
-            return GetDefaultUnknownTimeout();
+            if (timeout > 0)
+                timeout *= multiplier;
+
+            return timeout;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1279,6 +1468,12 @@ namespace Eagle._Components.Private
                             typeof(ThreadOps).Name, false,
                             TracePriority.LockWarning2,
                             interpreter.MaybeWhoHasLock());
+
+                        if (!FlagOps.HasFlags(
+                                timeoutType, TimeoutType.NoFailSafe, true))
+                        {
+                            localTimeout = interpreter.InternalFallbackTimeout;
+                        }
                     }
                 }
                 finally

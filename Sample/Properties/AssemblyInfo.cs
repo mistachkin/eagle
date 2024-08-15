@@ -83,7 +83,7 @@ using Eagle._Components.Shared;
 #endif
 
 [assembly: AssemblyLicense(License.Summary, License.Text)]
-[assembly: AssemblyUri("https://eagle.to/")]
+[assembly: AssemblyUri("https://urn.to/r/eagle")]
 [assembly: AssemblyUri("update", "https://urn.to/r/update_sample")]
 [assembly: AssemblyUri("license", "https://urn.to/r/license")]
 [assembly: AssemblyUri("provision", "https://urn.to/r/provision")]

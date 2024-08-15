@@ -533,6 +533,8 @@ namespace Eagle._Components.Private
                         disposeCode = ObjectOps.TryDispose<object>(
                             ref @object, ref disposeError);
 
+                        @object = null;
+
                         if (disposeCode != ReturnCode.Ok)
                         {
                             if (errors == null)
@@ -2334,6 +2336,7 @@ namespace Eagle._Components.Private
                         }
                         else if (code == ReturnCode.Error)
                         {
+                            /* IGNORED */
                             Engine.AddErrorInformation(
                                 interpreter, localResult,
                                 String.Format(

@@ -63,10 +63,10 @@ namespace eval ::Eagle::Tools::GetEagle {
     #
     # NOTE: The base URI for the Eagle distribution web site.
     #
-    variable baseUri; # DEFAULT: https://eagle.to/
+    variable baseUri; # DEFAULT: https://urn.to/r/eagle
 
     if {$force || ![info exists baseUri]} then {
-      set baseUri https://eagle.to/
+      set baseUri https://urn.to/r/eagle
     }
 
     #

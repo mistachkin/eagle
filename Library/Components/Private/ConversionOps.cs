@@ -119,6 +119,9 @@ namespace Eagle._Components.Private
             if (LooksLikeParameterizedThreadStart(type))
                 return true;
 
+            if (LooksLikeWaitCallback(type))
+                return true;
+
             if (useGenericCallback && LooksLikeGenericCallback(type))
                 return true;
 
@@ -214,6 +217,16 @@ namespace Eagle._Components.Private
             /* System.Threading.ParameterizedThreadStart */
             public void NullParameterizedThreadStart(
                 object obj
+                )
+            {
+                // do nothing.
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////
+
+            /* System.Threading.WaitCallback */
+            public void NullWaitCallback(
+                object state
                 )
             {
                 // do nothing.
@@ -438,6 +451,52 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        public static bool IsWaitCallback(Type type)
+        {
+            return type == typeof(WaitCallback);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool LooksLikeWaitCallback(Type type)
+        {
+            if (IsWaitCallback(type))
+                return true;
+
+            if (IsDelegateType(type, false))
+            {
+                try
+                {
+                    //
+                    // NOTE: We need an instance of the delegate so that we can
+                    //       get the method signature (i.e. MethodInfo) for it.
+                    //
+                    DelegateMethods delegateMethods = new DelegateMethods();
+
+                    WaitCallback waitCallback = new WaitCallback(
+                        delegateMethods.NullWaitCallback);
+
+                    //
+                    // NOTE: Attempt to create delegate with a compatible method
+                    //       signature.
+                    //
+                    Delegate @delegate = Delegate.CreateDelegate(type, null,
+                        waitCallback.Method, false);
+
+                    if (@delegate != null)
+                        return true;
+                }
+                catch
+                {
+                    // do nothing.
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////
+
         private static bool IsGenericCallback(Type type)
         {
             return type == typeof(GenericCallback);
@@ -645,7 +704,7 @@ namespace Eagle._Components.Private
 
         public static bool ToBool(_Public.Boolean X) /* SAFE */
         {
-            return X != _Public.Boolean.False ? true : false;
+            return (X != _Public.Boolean.False) ? true : false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////

@@ -71,9 +71,12 @@ namespace Eagle._Commands
                 code = interpreter.EvaluateScript(arguments, 1, ref result);
 
             if (code == ReturnCode.Error)
+            {
+                /* IGNORED */
                 Engine.AddErrorInformation(interpreter, result,
                     String.Format("{0}    (\"downlevel\" body line {1})",
                         Environment.NewLine, Interpreter.GetErrorLine(interpreter)));
+            }
 
             //
             // NOTE: Pop the original call frame that we pushed above and

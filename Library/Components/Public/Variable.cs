@@ -196,7 +196,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
-        internal bool HasTracesWithSideEffects(
+        //
+        // TODO: Why does this method exist?
+        //
+        internal bool HasTracesWithSideEffects( /* NOT USED */
             Interpreter interpreter
             )
         {
@@ -357,6 +360,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        private bool ResetMarks()
+        {
+            if ((tags == null) || (tags.Count > 0))
+                return false;
+
+            tags = null;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: Assumes the interpreter lock is already held.
+        //
+        private bool IsLockedByThisThread()
+        {
+            //
+            // HACK: This method purposely does not care about the
+            //       undefined flag.  Generally, a variable cannot
+            //       be locked while undefined; however, we do not
+            //       enforce that here.
+            //
+            long? localMaybeThreadId = this.threadId;
+
+            if (localMaybeThreadId == null)
+                return false;
+
+            long localThreadId = (long)localMaybeThreadId;
+
+            if (localThreadId != GlobalState.GetCurrentSystemThreadId())
+                return false;
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // WARNING: Assumes the interpreter lock is already held.
         //
@@ -392,13 +432,103 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        private bool ResetMarks()
+        private bool PrivateUnlock(
+            bool errorOnUnlocked,
+            ref Result error
+            )
         {
-            if ((tags == null) || (tags.Count > 0))
-                return false;
+            //
+            // HACK: This method does care about the undefined flag.
+            //       If a variable is undefined, unlocking it cannot
+            //       fail when it is already unlocked.
+            //
+            long? localMaybeThreadId = threadId;
 
-            tags = null;
+            if (localMaybeThreadId == null)
+            {
+                if (HasFlags(VariableFlags.Undefined, true))
+                {
+                    //
+                    // HACK: The variable is now (?) dead;
+                    //       therefore, permit unlocking.
+                    //
+                    return true;
+                }
+                else
+                {
+                    //
+                    // NOTE: It is possible that another
+                    //       thread [unset] the variable
+                    //       and then recreated it (i.e.
+                    //       it is actually a different
+                    //       variable now, technically).
+                    //
+                    if (errorOnUnlocked)
+                    {
+                        error = "variable already unlocked";
+                        return false;
+                    }
+                    else
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            long localThreadId = (long)localMaybeThreadId;
+
+            if (localThreadId != GlobalState.GetCurrentSystemThreadId())
+            {
+                error = String.Format(
+                    "variable locked by other thread {0}",
+                    FormatOps.WrapOrNull(localThreadId));
+
+                return false;
+            }
+
+            threadId = null;
             return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private long PrivateLevels
+        {
+            get { return Interlocked.CompareExchange(ref levels, 0, 0); }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private long PrivateEnterLevel()
+        {
+            return Interlocked.Increment(ref levels);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private long PrivateExitLevel()
+        {
+            return Interlocked.Decrement(ref levels);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void BeginNoTrace(
+            out VariableFlags savedFlags
+            )
+        {
+            savedFlags = flags;
+            flags |= VariableFlags.NoTrace;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private void EndNoTrace(
+            ref VariableFlags savedFlags
+            )
+        {
+            flags = savedFlags;
+            savedFlags = VariableFlags.None;
         }
         #endregion
 
@@ -484,6 +614,16 @@ namespace Eagle._Components.Public
         //
         // WARNING: Assumes the interpreter lock is already held.
         //
+        public bool IsLocked()
+        {
+            return IsLockedByThisThread();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: Assumes the interpreter lock is already held.
+        //
         public bool Lock(
             ref Result error
             )
@@ -518,50 +658,19 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
-            //
-            // HACK: This method does care about the undefined flag.
-            //       If a variable is undefined, unlocking it cannot
-            //       fail when it is already unlocked.
-            //
-            long? localMaybeThreadId = threadId;
+            return PrivateUnlock(true, ref error);
+        }
 
-            if (localMaybeThreadId == null)
-            {
-                if (HasFlags(VariableFlags.Undefined, true))
-                {
-                    //
-                    // HACK: The variable is now (?) dead;
-                    //       therefore, permit unlocking.
-                    //
-                    return true;
-                }
-                else
-                {
-                    //
-                    // NOTE: It is possible that another
-                    //       thread [unset] the variable
-                    //       and then recreated it (i.e.
-                    //       it is actually a different
-                    //       variable now, technically).
-                    //
-                    error = "variable already unlocked";
-                    return false;
-                }
-            }
+        ///////////////////////////////////////////////////////////////////////
 
-            long localThreadId = (long)localMaybeThreadId;
-
-            if (localThreadId != GlobalState.GetCurrentSystemThreadId())
-            {
-                error = String.Format(
-                    "variable locked by other thread {0}",
-                    FormatOps.WrapOrNull(localThreadId));
-
-                return false;
-            }
-
-            threadId = null;
-            return true;
+        //
+        // WARNING: Assumes the interpreter lock is already held.
+        //
+        public bool MaybeUnlock(
+            ref Result error
+            )
+        {
+            return PrivateUnlock(false, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -607,6 +716,30 @@ namespace Eagle._Components.Public
                 FormatOps.WrapOrNull(localMaybeThreadId));
 
             return false;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region IHaveLevels Members
+        private long levels;
+        public long Levels
+        {
+            get { return PrivateLevels; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public long EnterLevel()
+        {
+            return PrivateEnterLevel();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public long ExitLevel()
+        {
+            return PrivateExitLevel();
         }
         #endregion
 
@@ -846,7 +979,7 @@ namespace Eagle._Components.Public
                 newValues = null;
             }
 
-            if (!Lock(ref error))
+            if (!IsLocked() && !Lock(ref error))
                 return ReturnCode.Error;
 
             bool success = false;
@@ -875,7 +1008,7 @@ namespace Eagle._Components.Public
             }
             finally
             {
-                success = Unlock(ref error);
+                success = MaybeUnlock(ref error);
             }
 
             return success ? ReturnCode.Ok : ReturnCode.Error;
@@ -1327,99 +1460,84 @@ namespace Eagle._Components.Public
             ref Result result
             )
         {
-            ReturnCode code = ReturnCode.Ok;
+            if (traces == null)
+                return ReturnCode.Ok;
 
-            if (traces != null)
+            long levels = PrivateEnterLevel();
+
+            try
             {
-                //
-                // NOTE: Save the current variable flags.
-                //
-                VariableFlags savedFlags = flags;
-
-                //
-                // NOTE: Prevent endless trace recursion.
-                //
-                flags |= VariableFlags.NoTrace;
-
-                try
+                if (levels == 1)
                 {
-                    //
-                    // NOTE: Process each trace (as long as they all continue
-                    //       to succeed).
-                    //
-                    foreach (ITrace trace in traces)
+                    VariableFlags savedFlags;
+
+                    BeginNoTrace(out savedFlags);
+
+                    try
                     {
-                        if ((trace != null) && !EntityOps.IsDisabled(trace))
+                        foreach (ITrace trace in traces)
                         {
-                            //
-                            // NOTE: If possible, set the Trace property of the
-                            //       TraceInfo to the one we are about to execute.
-                            //
+                            if (trace == null)
+                                continue;
+
+                            if (EntityOps.IsDisabled(trace))
+                                continue;
+
                             if (traceInfo != null)
                                 traceInfo.Trace = trace;
 
-                            //
-                            // NOTE: Since variable traces can basically do anything
-                            //       they want, we wrap them in a try block to prevent
-                            //       exceptions from escaping.
-                            //
+                            ReturnCode code;
+
+                            /* IGNORED */
                             interpreter.EnterTraceLevel();
 
                             try
                             {
                                 code = trace.Execute(
-                                    breakpointType, interpreter, traceInfo, ref result);
+                                    breakpointType, interpreter,
+                                    traceInfo, ref result);
                             }
                             catch (Exception e)
                             {
-                                //
-                                // NOTE: Translate exceptions to a failure return.
-                                //
                                 result = String.Format(
-                                    "caught exception while firing variable trace: {0}",
+                                    "caught exception while " +
+                                    "firing variable trace: {0}",
                                     e);
 
                                 code = ReturnCode.Error;
                             }
                             finally
                             {
+                                /* IGNORED */
                                 interpreter.ExitTraceLevel();
                             }
 
-                            //
-                            // NOTE: Check for exception results specially because we
-                            //       treat "Break" different from other return codes.
-                            //
                             if (code == ReturnCode.Break)
-                            {
-                                //
-                                // NOTE: Success; however, skip processing further
-                                //       traces for this variable operation.
-                                //
-                                code = ReturnCode.Ok;
-                                break;
-                            }
+                                return ReturnCode.Ok;
                             else if (code != ReturnCode.Ok)
-                            {
-                                //
-                                // NOTE: Some type of failure (or exception), stop
-                                //       processing for this variable operation.
-                                //
-                                break;
-                            }
+                                return ReturnCode.Error;
                         }
+
+                        return ReturnCode.Ok;
+                    }
+                    finally
+                    {
+                        EndNoTrace(ref savedFlags);
                     }
                 }
-                finally
+                else
                 {
-                    //
-                    // NOTE: Restore the saved variable flags.
-                    //
-                    flags = savedFlags;
+                    result = String.Format(
+                        "cannot fire traces, variable {0} is busy",
+                        FormatOps.VariableName(name, null));
+
+                    return ReturnCode.Error;
                 }
             }
-
-            return code;
+            finally
+            {
+                PrivateExitLevel();
+            }
         }
         #endregion
 

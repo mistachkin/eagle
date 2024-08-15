@@ -1,6 +1,157 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
+BUGFIX: fix and/or address Coverity issues from #353085 to #399157.
+
+BUGFIX: when the Interpreter.GetStartup method calls the HostOps.GetScript
+        method, it must make sure to propagate the resulting script flags
+        to the caller.
+
+BUGFIX: pending variable traces on the current thread should not cause nested
+        variable traces to be skipped, e.g. trace write for ::errorInfo while
+        dealing with ::auto_path changes.
+
+BUGFIX: skip all undefined variables when copying into the final settings list
+        for callers to the ScriptOps.LoadSettingsViaFile method.
+
+BUGFIX: the SwapCommands method should clear the IExecute caches when support
+        for them has been included in the core library.
+
+BUGFIX: avoid a NullReferenceException from the GlobalState.GetAutoPathList
+        method.
+
+BUGFIX: the [getExternalIpAddress] core script library procedure should not
+        attempt to use the [string is inetaddr] sub-command when running in
+        native Tcl.
+
+BUGFIX: fix typo that could lead to a script error in the core script library
+        helper procedure [doesCompileCSharpWork].
+
+BUGFIX: make sure current test name value is propagated to all created test
+        interpreters.  robustness fixes for tests processIsolation-1.1 and
+        xaml-1.*.
+
+BUGFIX: stop direct assignments of the context engine flags during procedure
+        execution; this was preventing any procedure from changing the flags
+        within the engine context in such a way that they would persist after
+        it returns.  instead, each non-saved context engine flags bit must be
+        backed out.
+
+BUGFIX: *MAJOR* nested use of the [upvar] command against the same variable
+        must follow existing links for the other variable prior to setting up
+        the new link.
+
+BUGFIX: *MAJOR* fix event queue handling so that higher priority events that
+        should happen in the future do not prevent lower priority events that
+        should happen right now.
+
+BUGFIX: *MAJOR* the ScriptTraceListener class must use cooperative locking on
+        all overridden TraceListener methods to avoid deadlocks when getting
+        the interpreter lock.
+
+BUGFIX: *MAJOR* the DebugOps subsystem cannot make use of blocking locks, to
+        avoid deadlocks when custom trace listeners are present in case those
+        trace listeners need to use blocking locks, e.g. the interpreter lock.
+
+BUGFIX: *MAJOR* the MaybePopulateResultErrorProperties method must acquire the
+        interpreter lock and check for disposal.
+
+REFACTOR: enhance the diagnostics emitted by the [checkForUpdate] core script
+          library procedure.
+
+REFACTOR: heavily fortify network related methods against transient errors.
+
+REFACTOR: add preliminary support for the .NET 9.0 runtime.
+
+REFACTOR: *BREAKING CHANGE* be more aggressive about locking in the default
+          interpreter host.
+
+REFACTOR: *BREAKING CHANGE* change HealthCallback delegate to make the status
+          flags parameter input / output.
+
+REFACTOR: *BREAKING CHANGE* add UseForce property to the IHost and IHostData
+          interfaces and add a UseForce flag to the CreateFlags enumeration.
+          also, support the UseForce environment variable.
+
+REFACTOR: *BREAKING CHANGE* remove excess bool parameters from methods of the
+          ITclEntityManager interface.
+
+FEATURE: add the [debug null] and [debug result] sub-commands for test use.
+
+FEATURE: make the message argument to the [error] command optional.  when not
+         specified, the last script error on the current thread will be used.
+
+FEATURE: add -nopreviousprocessid option to the [exec] command.
+
+FEATURE: add WebErrorCallback property that allows the web download / upload
+         error handling functionality for an interpreter to be customized.
+
+FEATURE: add -changed option to the [sql execute] sub-command.  this will be
+         used to hook the Changed event on the connection type -OR- instance,
+         if applicable.
+
+FEATURE: add TestCommands environment variable, which can be used to forcibly
+         add all test commands to all created interpreters.
+
+FEATURE: add the TryLockNoThrow method to the ISynchronize interface.
+
+FEATURE: add experimental support for annotating procedures declared inside
+         of non-global namespaces as "private".  private procedures may not
+         be called from anywhere outside of their parent namespace.
+
+FEATURE: improve SwapCommands method so it can swap out all normal and hidden
+         commands, including those implemented by a bare IExecute.
+
+FEATURE: add the ExtractAnnotations method to the Value class.
+
+FEATURE: add the FormatAppDomainId, GetAppDomainCounts, IsCurrentAppDomain,
+         CreateWebClient, GetWebMaximumRetries, SetWebMaximumRetries,
+         SleepForWebRetry, and TryLockAndExit methods to the Utility class.
+
+FEATURE: add the WatchdogStatus property and the TryLockAndExit method to the
+         IInterpreter interface.
+
+FEATURE: add support for automatically loading package index files from the
+         directory containing a script file being evaluated.  please note
+         that this only applies to package index files in the same directory
+         as the script file being evaluated -AND- having a file name matching
+         the regular expression "^pkgIndex_([0-9A-F]{16})\.eagle$".  Standard
+         package index files are excluded, i.e. those named "pkgIndex.eagle".
+
+FEATURE: add the -bridge, -noforcedelete, and -nocomplain options to the
+         [tcl load] sub-command.
+
+FEATURE: add -trustedonly and -maybetrustedonly options to the [library load]
+         sub-command.
+
+FEATURE: add -maybeverifiedonly option to the [load] command and [object load]
+         sub-command.
+
+FEATURE: *MAJOR* Add Tetris.  Why?  Because I wanted it.  Hi Jeff, and thanks
+         for the code.
+
+FEATURE: *BREAKING CHANGE* rename the ResultStack environment variable to
+         PopulateResultStack -AND- add the IncludeResultStack environment
+         variable to force inclusion of all stack trace information when
+         converting to a string.
+
+FEATURE: *BREAKING CHANGE* rename the -trusted option to various the [tcl]
+         sub-commands to -trustedonly and add the -maybetrustedonly option.
+
+FEATURE: *BREAKING CHANGE* modify the Utility.ExtractPolicyContextAndScript and
+         Utility.ExtractPolicyContextAndFileName methods to accept an integer
+         timeout parameter.
+
+FEATURE: *BREAKING CHANGE* add integer Timeout property to the IPolicyContext
+         interface.
+
+FEATURE: *BREAKING CHANGE* add LockCallback property to IInterpreter interface.
+
+FEATURE: *BREAKING CHANGE* add two boolean output parameters to WaitVariable
+         method of the IVariableManager interface.
+
+************************* Beta 1.0.8613.27347 RELEASE *************************
+
 BUGFIX: fix and/or address Coverity issues from #330323 to #342758.
 
 BUGFIX: add preliminary support for the .NET 8.0 runtime.

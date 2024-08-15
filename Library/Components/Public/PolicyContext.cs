@@ -73,6 +73,7 @@ namespace Eagle._Components.Public
             byte[] bytes,
             string text,
             Encoding encoding,
+            int? timeout,
             byte[] hashValue,
             string hashAlgorithmName,
             IClientData clientData,
@@ -92,6 +93,7 @@ namespace Eagle._Components.Public
             this.bytes = bytes;
             this.text = text;
             this.encoding = encoding;
+            this.timeout = timeout;
             this.hashValue = hashValue;
             this.hashAlgorithmName = hashAlgorithmName;
             this.clientData = clientData;
@@ -122,6 +124,7 @@ namespace Eagle._Components.Public
             byte[] bytes,
             string text,
             Encoding encoding,
+            int? timeout,
             byte[] hashValue,
             string hashAlgorithmName,
             IClientData clientData,
@@ -132,9 +135,9 @@ namespace Eagle._Components.Public
         {
             return new PolicyContext(
                 flags, assemblyName, typeName, execute, arguments,
-                script, fileName, bytes, text, encoding, hashValue,
-                hashAlgorithmName, clientData, interpreter, plugin,
-                originalDecision);
+                script, fileName, bytes, text, encoding, timeout,
+                hashValue, hashAlgorithmName, clientData, interpreter,
+                plugin, originalDecision);
         }
         #endregion
 
@@ -325,6 +328,9 @@ namespace Eagle._Components.Public
             if (encoding != null)
                 list.Add("encoding", encoding.ToString());
 
+            if (timeout != null)
+                list.Add("timeout", ((int)timeout).ToString());
+
             if (hashValue != null)
                 list.Add("hashValue", ArrayOps.ToHexadecimalString(hashValue));
 
@@ -476,6 +482,14 @@ namespace Eagle._Components.Public
         public Encoding Encoding
         {
             get { return encoding; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private int? timeout;
+        public int? Timeout
+        {
+            get { return timeout; }
         }
 
         ///////////////////////////////////////////////////////////////////////

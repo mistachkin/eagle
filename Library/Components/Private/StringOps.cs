@@ -75,6 +75,7 @@ namespace Eagle._Components.Private
         internal static readonly string XmlEncodingName = "xmlDefault";
         internal static readonly string SnippetEncodingName = "snippetEncoding";
 
+        private static readonly Encoding NullEncoding = null;
         private static readonly Encoding SystemEncoding = new UnicodeEncoding(false, false);
 
         //
@@ -713,7 +714,8 @@ namespace Eagle._Components.Private
             if (value == null)
                 return null;
 
-            StringBuilder result = new StringBuilder(value.Length);
+            StringBuilder result = StringBuilderFactory.Create(
+                value.Length);
 
             result.Append(value);
 
@@ -1141,6 +1143,8 @@ namespace Eagle._Components.Private
         {
             switch (type)
             {
+                case EncodingType.Null:
+                    return NullEncoding;
                 case EncodingType.System:
                     return SystemEncoding;
                 case EncodingType.Default:
@@ -1282,15 +1286,13 @@ namespace Eagle._Components.Private
             if (encoding == null)
                 encoding = GetEncoding(type);
 
-            if (encoding == null)
-            {
-                error = "invalid encoding";
-                return ReturnCode.Error;
-            }
-
             try
             {
-                bytes = encoding.GetBytes(value);
+                if (encoding != null)
+                    bytes = encoding.GetBytes(value);
+                else
+                    bytes = Convert.FromBase64String(value);
+
                 return ReturnCode.Ok;
             }
             catch (Exception e)
@@ -1326,15 +1328,18 @@ namespace Eagle._Components.Private
             if (encoding == null)
                 encoding = GetEncoding(type);
 
-            if (encoding == null)
-            {
-                error = "invalid encoding";
-                return ReturnCode.Error;
-            }
-
             try
             {
-                value = encoding.GetString(bytes);
+                if (encoding != null)
+                {
+                    value = encoding.GetString(bytes);
+                }
+                else
+                {
+                    value = Convert.ToBase64String(bytes,
+                        Base64FormattingOptions.InsertLineBreaks);
+                }
+
                 return ReturnCode.Ok;
             }
             catch (Exception e)
@@ -2213,6 +2218,7 @@ namespace Eagle._Components.Private
 
         public static void FixupDisplayLineEndings(
             StringBuilder builder,
+            bool extended,
             bool unicode
             )
         {
@@ -2236,17 +2242,29 @@ namespace Eagle._Components.Private
                 builder.Replace(
                     Characters.CarriageReturn, Characters.LeftwardsArrow);
             }
-            else
+            else if (extended)
             {
                 //
-                // NOTE: Otherwise (non-Unicode), just use the pilcrow
-                //       character to replace each line-ending character.
+                // NOTE: Otherwise (non-Unicode), just use the extended
+                //       characters to replace each line-ending character.
                 //
                 builder.Replace(
                     Characters.LineFeed, Characters.SectionSign);
 
                 builder.Replace(
                     Characters.CarriageReturn, Characters.PilcrowSign);
+            }
+            else
+            {
+                //
+                // NOTE: Otherwise (nothing?), fallback to using the space
+                //       character to replace each line-ending character.
+                //
+                builder.Replace(
+                    Characters.LineFeed, Characters.Space);
+
+                builder.Replace(
+                    Characters.CarriageReturn, Characters.Space);
             }
         }
 

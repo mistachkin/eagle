@@ -17,23 +17,34 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 
 ###############################################################################
 
-proc isHostReadEnabled { interp } {
-  return [expr {![interp eval $interp {
-    object invoke -flags +NonPublic Interpreter \
-        IsReadLineDisabled "" true
-  }]}]
+proc restoreHostRead { interp } {
+  interp eval $interp {
+    if {[info exists savedHostFlags]} then {
+      package require Eagle.Test
+
+      enableHostFlags $savedHostFlags
+      unset -nocomplain savedHostFlags
+    }
+  }
+
+  interp eval $interp {
+    if {[info exists savedInterpreterStateFlags]} then {
+      package require Eagle.Test
+
+      enableInterpreterStateFlags $savedInterpreterStateFlags
+      unset -nocomplain savedInterpreterStateFlags
+    }
+  }
 }
 
 ###############################################################################
 
 proc enableHostRead { interp enable } {
   interp eval $interp [string map [list %enable% $enable] {
-    object invoke -flags +NonPublic \
-        Interpreter.GetActive interpreterStateFlags \
-        [appendArgs [object invoke -flags +NonPublic \
-        Interpreter.GetActive interpreterStateFlags] \
-        [appendArgs " " [expr {%enable% ? "-" : "+"}] \
-        ReadLineDisabled]]
+    package require Eagle.Test
+
+    set savedInterpreterStateFlags [enableInterpreterStateFlags]
+    enableInterpreterStateFlags ReadLineDisabled {%enable%}
   }]
 
   #
@@ -46,14 +57,13 @@ proc enableHostRead { interp enable } {
       [haveConstraint dotNetCore50] || \
       [haveConstraint dotNetCore60] || \
       [haveConstraint dotNetCore70] || \
-      [haveConstraint dotNetCore80])} then {
+      [haveConstraint dotNetCore80] || \
+      [haveConstraint dotNetCore90])} then {
     interp eval $interp [string map [list %enable% $enable] {
-      object invoke -flags +NonPublic \
-          Interpreter.GetActive.Host hostFlags \
-          [appendArgs [object invoke -flags +NonPublic \
-          Interpreter.GetActive.Host hostFlags] \
-          [appendArgs " " [expr {%enable% ? "+" : "-"}] \
-          Positioning]]
+      package require Eagle.Test
+
+      set savedHostFlags [enableHostFlags]
+      enableHostFlags Positioning {%enable%}
     }]
   }
 
@@ -149,6 +159,13 @@ OK|argument two "test2" OK|invalid test argument "foo"|} Success 1}}
 
 ###############################################################################
 
+if {[isEagle]} then {
+  set savedInterpreterFlags [enableInterpreterFlags]
+  enableInterpreterFlags TraceStack false
+}
+
+###############################################################################
+
 runTest {test debug-1.4.1 {debug text writer} -setup {
   set savedDebugTextWriter \
     [object invoke Interpreter.GetActive DebugTextWriter]
@@ -181,8 +198,8 @@ runTest {test debug-1.4.1 {debug text writer} -setup {
 
   object unimport -importpattern System.IO
 } -constraints [fixConstraints {eagle command.object monoBug30 !quiet}] \
--match regexp -result {^-?\d+ \(\d+\): Error: test of something bad\
-happening\.$}}
+-match regexp -result {^-?\d+ \(\d+\): Error: \[Execute\]: test of something\
+bad happening\.$}}
 
 ###############################################################################
 
@@ -191,8 +208,9 @@ set test_log_if [expr {[info exists test_log] ? $test_log : ""}]
 
 ###############################################################################
 
-runTest {test debug-1.4.2 {debug text writer isolated} -setup [subst \
-    -nocommands {
+runTest {test debug-1.4.2 {debug text writer isolated} -setup [string map \
+    [list %enableInterpreterFlags% [makeProcedureCommand \
+    enableInterpreterFlags]] [subst -nocommands {
   #
   # NOTE: Set the channel to use for test output, if necessary.
   #
@@ -222,7 +240,12 @@ runTest {test debug-1.4.2 {debug text writer isolated} -setup [subst \
   }
 
   object import System.IO; # StreamWriter
-}] -body {
+
+  %enableInterpreterFlags%
+
+  set savedInterpreterFlags [enableInterpreterFlags]
+  enableInterpreterFlags TraceStack false
+}]] -body {
   set fileName [file join [getTemporaryPath] [appendArgs [file tail \
       [getShellExecutableName]] [getTestLogId] .complaint. [pid] .log]]
 
@@ -240,6 +263,9 @@ runTest {test debug-1.4.2 {debug text writer isolated} -setup [subst \
 
   string trim [readSharedFile $fileName]
 } -cleanup {
+  enableInterpreterFlags $savedInterpreterFlags
+  unset -nocomplain savedInterpreterFlags
+
   unset -nocomplain textWriter
   catch {file delete $fileName}
   unset -nocomplain fileName
@@ -251,8 +277,8 @@ runTest {test debug-1.4.2 {debug text writer isolated} -setup [subst \
 
   object unimport -importpattern System.IO
 } -constraints [fixConstraints {eagle command.object monoBug30 !quiet}] \
--isolationLevel Interpreter -match regexp -result \
-{^-?\d+ \(\d+\): Error: another test of something bad happening\.$}}
+-isolationLevel Interpreter -match regexp -result {^-?\d+ \(\d+\): Error:\
+\[Execute\]: another test of something bad happening\.$}}
 
 ###############################################################################
 
@@ -307,6 +333,7 @@ runTest {test debug-1.6.1 {debug shell sub-command w/reconfigure XML} -setup {
         "debug icommand exit"
   }
 } -cleanup {
+  catch {restoreHostRead $i}
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -326,6 +353,7 @@ runTest {test debug-1.6.2 {debug shell sub-command w/reconfigure INI} -setup {
         "debug icommand exit"
   }
 } -cleanup {
+  catch {restoreHostRead $i}
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -344,6 +372,7 @@ runTest {test debug-1.7.1 {debug shell sub-command w/reconfigure XML} -setup {
         "debug icommand exit"; list true
   }
 } -cleanup {
+  catch {restoreHostRead $i}
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -363,6 +392,7 @@ runTest {test debug-1.7.2 {debug shell sub-command w/reconfigure INI} -setup {
         "debug icommand exit"; list true
   }
 } -cleanup {
+  catch {restoreHostRead $i}
   catch {interp delete $i}
 
   unset -nocomplain i
@@ -403,6 +433,7 @@ runTest {test debug-1.8 {per-thread TraceInfo object w/watchpoint} -setup {
   }}; set x
 } -cleanup {
   catch {interp eval $i {cleanupAfterEvents}}
+  catch {restoreHostRead $i}
   catch {interp delete $i}
 
   unset -nocomplain i x
@@ -443,6 +474,7 @@ runTest {test debug-1.9 {per-thread TraceInfo object w/watchpoint} -setup {
   }}; set x
 } -cleanup {
   catch {interp eval $i {cleanupAfterEvents}}
+  catch {restoreHostRead $i}
   catch {interp delete $i}
 
   unset -nocomplain i x
@@ -483,6 +515,7 @@ runTest {test debug-1.10 {interactive commands via command queue} -setup {
   }}; set x
 } -cleanup {
   catch {interp eval $i {cleanupAfterEvents}}
+  catch {restoreHostRead $i}
   catch {interp delete $i}
 
   unset -nocomplain i x
@@ -520,7 +553,8 @@ runTest {test debug-1.80 {host read cancellation} -setup {
       after 2000; host cancel; after 2000
 
       setp cancelCount(2) [object invoke \
-          -flags +NonPublic Interpreter.GetActive cancelViaConsole.GetValue 1]
+          -flags +NonPublic Interpreter.GetActive \
+          cancelViaConsole.GetValue 1]
 
       after 2000; set done false
 
@@ -588,8 +622,8 @@ runTest {test debug-1.98 {complain callback with exception} -setup {
 } -constraints {eagle command.object compile.TEST\
 Eagle._Tests.Default.TestSetComplainCallback\
 Eagle._Tests.Default.TestComplainCallbackThrow} -match regexp -result {\{retry\
-0 levels 1 formatted \{(?:-)?\d+ \((?:-)?\d+\): Error: this is test complaint\
-#1\.\}\} \{\}}}
+0 levels 1 formatted \{(?:-)?\d+ \((?:-)?\d+\): Error: \[Execute\]: this is\
+test complaint #1\.\}\} \{\}}}
 
 ###############################################################################
 
@@ -611,8 +645,16 @@ runTest {test debug-1.99 {complain callback without exception} -setup {
 } -constraints {eagle command.object compile.TEST\
 Eagle._Tests.Default.TestSetComplainCallback\
 Eagle._Tests.Default.TestComplainCallbackNoThrow} -match regexp -result \
-{\{retry 0 levels 1 formatted \{(?:-)?\d+ \((?:-)?\d+\): Error: this is test\
-complaint #2.\}\} \{(?:-)?\d+ \(\d+\): Error: this is test complaint #2\.\}}}
+{\{retry 0 levels 1 formatted \{(?:-)?\d+ \((?:-)?\d+\): Error: \[Execute\]:\
+this is test complaint #2\.\}\} \{(?:-)?\d+ \(\d+\): Error: \[Execute\]: this\
+is test complaint #2\.\}}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  enableInterpreterFlags $savedInterpreterFlags
+  unset -nocomplain savedInterpreterFlags
+}
 
 ###############################################################################
 
@@ -959,7 +1001,6 @@ if {[isEagle] && [llength [info commands object]] > 0} then {
 ###############################################################################
 
 runTest {test debug-7.1 {debug break} -setup {
-  set savedReadLine [isHostReadEnabled ""]
   enableHostRead "" false
 } -body {
   debug icommand #go
@@ -967,11 +1008,9 @@ runTest {test debug-7.1 {debug break} -setup {
 
   object invoke -flags +NonPublic Interpreter.GetActive TotalInteractiveLoops
 } -cleanup {
-  enableHostRead "" $savedReadLine
-  unset -nocomplain savedReadLine
-} -constraints \
-{eagle command.object interactive compile.DEBUGGER interactiveCommand.go} \
--result [expr {$loops + 1}]}
+  catch {restoreHostRead ""}
+} -constraints {eagle monoBug612 command.object interactive compile.DEBUGGER\
+interactiveCommand.go} -result [expr {$loops + 1}]}
 
 ###############################################################################
 
@@ -980,7 +1019,6 @@ unset -nocomplain loops
 ###############################################################################
 
 runTest {test debug-8.1 {interactive script evaluation} -setup {
-  set savedReadLine [isHostReadEnabled ""]
   enableHostRead "" false
 } -body {
   debug iqueue {set x 8.1}
@@ -989,12 +1027,11 @@ runTest {test debug-8.1 {interactive script evaluation} -setup {
 
   set x
 } -cleanup {
-  enableHostRead "" $savedReadLine
-  unset -nocomplain savedReadLine
+  catch {restoreHostRead ""}
 
   unset -nocomplain x
-} -constraints {eagle interactive compile.DEBUGGER interactiveCommand.go} \
--result {8.1}}
+} -constraints {eagle monoBug612 interactive compile.DEBUGGER\
+interactiveCommand.go} -result {8.1}}
 
 ###############################################################################
 
@@ -1247,7 +1284,7 @@ unset -nocomplain finalTotalInteractiveInputs firstTotalInteractiveInputs
 ###############################################################################
 
 rename enableHostRead ""
-rename isHostReadEnabled ""
+rename restoreHostRead ""
 
 ###############################################################################
 

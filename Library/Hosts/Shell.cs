@@ -233,6 +233,12 @@ namespace Eagle._Hosts
                 flags |= PromptFlags.Interpreter;
 
             //
+            // NOTE: Grab the count of the total interactive inputs for use
+            //       in the prompt.
+            //
+            int count = localInterpreter.TotalInteractiveInputs;
+
+            //
             // BUGFIX: Always bypass the interpreter readiness checks here;
             //         otherwise, we can get into very nasty situations (e.g.
             //         infinite recursion for [debug oncancel], etc).
@@ -270,6 +276,7 @@ namespace Eagle._Hosts
                     //
                     // NOTE: Add error information to the interpreter.
                     //
+                    /* IGNORED */
                     _Engine.AddErrorInformation(
                         localInterpreter, result, String.Format(
                             "{0}    (script that generates prompt, line {1})",
@@ -303,7 +310,7 @@ namespace Eagle._Hosts
                 // NOTE: Now, we need to fallback to the default
                 //       prompt.
                 //
-                string prompt = HostOps.GetDefaultPrompt(type, flags, id);
+                string prompt = HostOps.GetDefaultPrompt(type, flags, id, count);
 
                 //
                 // NOTE: If we got a valid default prompt for this

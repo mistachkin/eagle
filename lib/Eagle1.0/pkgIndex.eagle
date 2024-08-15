@@ -91,3 +91,8 @@ package ifneeded Eagle.Unzip 1.0 \
 
 package ifneeded Eagle.Update 1.0 \
     [list sourceWithInfo [file join $dir update.eagle]]
+
+package ifneeded Eagle.Loader 1.0 \
+    [list sourceWithInfo [file join lib Loader1.0 loader.eagle]]
+
+package ifneeded Garuda 1.0 [list loadGarudaForUseByEagle]

@@ -624,6 +624,7 @@
     <Compile Include="Interfaces\Public\BaseClientData.cs" />
     <Compile Include="Interfaces\Public\Binder.cs" />
     <Compile Include="Interfaces\Public\BoxHost.cs" />
+    <Compile Include="Interfaces\Public\CacheManager.cs" />
     <Compile Include="Interfaces\Public\Callback.cs" />
     <Compile Include="Interfaces\Public\CallbackData.cs" />
     <Compile Include="Interfaces\Public\CallFrame.cs" />
@@ -677,6 +678,8 @@
     <Compile Include="Interfaces\Public\HaveExecutionPolicy.cs" />
     <Compile Include="Interfaces\Public\HaveFileName.cs" />
     <Compile Include="Interfaces\Public\HaveInterpreter.cs" />
+    <Compile Include="Interfaces\Public\HaveLevels.cs" />
+    <Compile Include="Interfaces\Public\HaveNoCase.cs" />
     <Compile Include="Interfaces\Public\HaveObjectFlags.cs" />
     <Compile Include="Interfaces\Public\HaveOwner.cs" />
     <Compile Include="Interfaces\Public\HavePlugin.cs" />
@@ -764,7 +767,9 @@
     <Compile Include="Interfaces\Public\StringTransformCallback.cs" />
     <Compile Include="Interfaces\Public\SubCommand.cs" />
     <Compile Include="Interfaces\Public\SubCommandData.cs" />
+    <Compile Include="Interfaces\Public\SupportVariable.cs" />
     <Compile Include="Interfaces\Public\Synchronize.cs" />
+    <Compile Include="Interfaces\Public\SynchronizeAll.cs" />
     <Compile Include="Interfaces\Public\SynchronizeBase.cs" />
     <Compile Include="Interfaces\Public\SynchronizeSimple.cs" />
     <Compile Include="Interfaces\Public\SynchronizeStatic.cs" />
@@ -902,14 +907,6 @@
                         '$(EagleTypeCache)' != 'false' Or
                         '$(EagleComTypeCache)' != 'false'">
     <Compile Include="Components\Private\CacheConfiguration.cs" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(EagleArgumentCache)' != 'false' Or
-                        '$(EagleListCache)' != 'false' Or
-                        '$(EagleParseCache)' != 'false' Or
-                        '$(EagleExecuteCache)' != 'false' Or
-                        '$(EagleTypeCache)' != 'false' Or
-                        '$(EagleComTypeCache)' != 'false'">
-    <Compile Include="Interfaces\Public\CacheManager.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleHistory)' != 'false'">
     <Compile Include="Components\Private\HistoryClientData.cs" />
@@ -1405,7 +1402,9 @@
   <ItemGroup Condition="'$(EagleNetwork)' != 'false' And
                         ('$(EagleIsolatedInterpreters)' != 'false' Or
                          '$(EagleIsolatedPlugins)' != 'false')">
+    <Compile Include="Components\Public\WebErrorCallbackBridge.cs" />
     <Compile Include="Components\Public\WebTransferCallbackBridge.cs" />
+    <Compile Include="Interfaces\Public\WebErrorCallback.cs" />
     <Compile Include="Interfaces\Public\WebTransferCallback.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(EagleNetwork)' != 'false' And
@@ -1583,6 +1582,9 @@
     <EmbeddedResource Include="Resources\WellKnownAssemblyFilePluginNames.tsv">
       <LogicalName>WellKnownAssemblyFilePluginNames.tsv</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="Resources\loader.eagle">
+      <LogicalName>lib/Loader1.0/loader.eagle</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="Resources\messages.resources">
       <LogicalName>Eagle.resources</LogicalName>
     </EmbeddedResource>
@@ -1638,14 +1640,17 @@
     <None Include="Tools\clean.bat" />
     <None Include="Tools\data\chkRefs.lst" />
     <None Include="Tools\data\db.sql" />
+    <None Include="Tools\data\dialogs.tsv" />
     <None Include="Tools\data\Dockerfile-release" />
     <None Include="Tools\data\Dockerfile-trunk" />
     <None Include="Tools\data\Eagle.FxCop" />
     <None Include="Tools\data\Eagle.kpf" />
-    <None Include="Tools\data\Eagle.uew" />
+    <None Include="Tools\data\Eagle.Dark.uew" />
+    <None Include="Tools\data\Eagle.Light.uew" />
     <None Include="Tools\data\MDADisable.reg" />
     <None Include="Tools\data\MDAEnable.reg" />
     <None Include="Tools\data\SigCheck.txt" />
+    <None Include="Tools\data\security.eagle" />
     <None Include="Tools\data\strongName.reg" />
     <None Include="Tools\data\strongName_wow64.reg" />
     <None Include="Tools\data\symbols2008.vssettings" />
@@ -1662,6 +1667,7 @@
     <None Include="Tools\db.bat" />
     <None Include="Tools\deploy.bat" />
     <None Include="Tools\flight.bat" />
+    <None Include="Tools\GetFile.bat" />
     <None Include="Tools\netFx20Sp.bat" />
     <None Include="Tools\preFlight.bat" />
     <None Include="Tools\release.bat" />
@@ -2071,6 +2077,7 @@
     <None Include="Tests\data\read3.eagle" />
     <None Include="Tests\data\read4.eagle" />
     <None Include="Tests\data\script.eagle" />
+    <None Include="Tests\data\settings.eagle" />
     <None Include="Tests\data\settings.ini" />
     <None Include="Tests\data\settings.xml" />
     <None Include="Tests\data\showArgv.eagle" />

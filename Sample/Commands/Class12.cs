@@ -241,7 +241,7 @@ namespace Sample
             //       "tried" parameter to true, and return its result.
             //
             code = Utility.TryExecuteSubCommandFromEnsemble(interpreter, this,
-                clientData, arguments, true, false, ref subCommand, ref tried,
+                clientData, arguments, true, null, ref subCommand, ref tried,
                 ref result);
 
             //
@@ -399,7 +399,7 @@ namespace Sample
 
                 code = Utility.TryExecuteSubCommandFromEnsemble(
                     interpreter, this, clientData, arguments, true,
-                    false, ref subCommand, ref tried, ref result);
+                    null, ref subCommand, ref tried, ref result);
 
                 if ((code == ReturnCode.Ok) && !tried)
                 {

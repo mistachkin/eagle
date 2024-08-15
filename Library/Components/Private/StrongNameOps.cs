@@ -17,7 +17,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Security;
 
-#if !NET_40
+#if !NET_40 || MONO_BUILD
 using System.Security.Permissions;
 #endif
 
@@ -25,14 +25,14 @@ using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Constants;
 
-#if NET_40 && !MONO
+#if NET_40 && !MONO_BUILD
 using System.Runtime.CompilerServices;
 using IClrStrongName = Eagle._Components.Private.StrongNameOps.UnsafeNativeMethods.IClrStrongName;
 #endif
 
 namespace Eagle._Components.Private
 {
-#if NET_40
+#if NET_40 && !MONO_BUILD
     [SecurityCritical()]
 #else
     [SecurityPermission(SecurityAction.LinkDemand, UnmanagedCode = true)]
@@ -49,7 +49,7 @@ namespace Eagle._Components.Private
         [ObjectId("c02693d7-a96b-42e5-983e-b98c3d973771")]
         internal static class UnsafeNativeMethods
         {
-#if WINDOWS && !MONO
+#if WINDOWS
             #region Private Methods
             [DllImport(DllName.MsCorEe,
                 CallingConvention = CallingConvention.StdCall,
@@ -65,7 +65,7 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
-#if NET_40 && !MONO
+#if NET_40 && !MONO_BUILD
             #region Private Constants
             internal static readonly Guid CLSID_CLRStrongName = new Guid(
                 "b79b0acd-f5cd-409b-b5a5-a16244610b92");
@@ -144,6 +144,7 @@ namespace Eagle._Components.Private
             bool verified; /* REUSED */
             Result error; /* REUSED */
 
+#if NET_40 && !MONO_BUILD
             if (CommonOps.Runtime.IsFramework40())
             {
                 clrVersion = 4;
@@ -164,6 +165,7 @@ namespace Eagle._Components.Private
                 }
             }
             else
+#endif
             {
                 clrVersion = 2;
                 returnValue = false;
@@ -202,7 +204,14 @@ namespace Eagle._Components.Private
                 goto done;
             }
 
-#if WINDOWS && !MONO
+            if (CommonOps.Runtime.IsMono() ||
+                CommonOps.Runtime.IsDotNetCore())
+            {
+                error = "not supported on this platform";
+                goto done;
+            }
+
+#if WINDOWS
             if (!PlatformOps.IsWindowsOperatingSystem())
             {
                 error = "not supported on this operating system";
@@ -260,7 +269,7 @@ namespace Eagle._Components.Private
                 goto done;
             }
 
-#if NET_40 && !MONO
+#if NET_40 && !MONO_BUILD
             try
             {
                 Guid clsId = UnsafeNativeMethods.CLSID_CLRStrongName;

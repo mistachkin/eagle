@@ -105,6 +105,7 @@ set eagle_manifests(source) {
   Eagle/Example/Scripts/ex_winForms.eagle
   Eagle/Example/Scripts/ex_xaml.eagle
   Eagle/Example/Scripts/tetris.tcl
+  Eagle/Example/Scripts/tetris.tcl.harpy
   Eagle/Example/Tools/data/Example.kpf
   Eagle/images/about.png
   Eagle/images/banner.png
@@ -599,6 +600,7 @@ set eagle_manifests(source) {
   Eagle/Library/Components/Public/Variable.cs
   Eagle/Library/Components/Public/Variant.cs
   Eagle/Library/Components/Public/WebClientData.cs
+  Eagle/Library/Components/Public/WebErrorCallbackBridge.cs
   Eagle/Library/Components/Public/WebTransferCallbackBridge.cs
   Eagle/Library/Components/Shared/AttributeOps.cs
   Eagle/Library/Components/Shared/Enumerations.cs
@@ -920,6 +922,8 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/HaveExecutionPolicy.cs
   Eagle/Library/Interfaces/Public/HaveFileName.cs
   Eagle/Library/Interfaces/Public/HaveInterpreter.cs
+  Eagle/Library/Interfaces/Public/HaveLevels.cs
+  Eagle/Library/Interfaces/Public/HaveNoCase.cs
   Eagle/Library/Interfaces/Public/HaveObjectFlags.cs
   Eagle/Library/Interfaces/Public/HaveOwner.cs
   Eagle/Library/Interfaces/Public/HavePlugin.cs
@@ -1025,7 +1029,9 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/StringTransformCallback.cs
   Eagle/Library/Interfaces/Public/SubCommand.cs
   Eagle/Library/Interfaces/Public/SubCommandData.cs
+  Eagle/Library/Interfaces/Public/SupportVariable.cs
   Eagle/Library/Interfaces/Public/Synchronize.cs
+  Eagle/Library/Interfaces/Public/SynchronizeAll.cs
   Eagle/Library/Interfaces/Public/SynchronizeBase.cs
   Eagle/Library/Interfaces/Public/SynchronizeSimple.cs
   Eagle/Library/Interfaces/Public/SynchronizeStatic.cs
@@ -1052,6 +1058,7 @@ set eagle_manifests(source) {
   Eagle/Library/Interfaces/Public/Variable.cs
   Eagle/Library/Interfaces/Public/VariableManager.cs
   Eagle/Library/Interfaces/Public/Variant.cs
+  Eagle/Library/Interfaces/Public/WebErrorCallback.cs
   Eagle/Library/Interfaces/Public/WebTransferCallback.cs
   Eagle/Library/Interfaces/Public/Wrapper.cs
   Eagle/Library/Interfaces/Public/WrapperData.cs
@@ -1136,6 +1143,7 @@ set eagle_manifests(source) {
   Eagle/Library/Resources/Tcl2.ico
   Eagle/Library/Resources/library.resources
   Eagle/Library/Resources/library.resx
+  Eagle/Library/Resources/loader.eagle
   Eagle/Library/Resources/manifest.xml
   Eagle/Library/Resources/messages.resources
   Eagle/Library/Resources/messages.resx
@@ -1185,6 +1193,7 @@ set eagle_manifests(source) {
   Eagle/Library/Tests/data/read3.eagle
   Eagle/Library/Tests/data/read4.eagle
   Eagle/Library/Tests/data/script.eagle
+  Eagle/Library/Tests/data/settings.eagle
   Eagle/Library/Tests/data/settings.ini
   Eagle/Library/Tests/data/settings.xml
   Eagle/Library/Tests/data/showArgv.eagle
@@ -1350,16 +1359,18 @@ set eagle_manifests(source) {
   Eagle/Library/Tools/bake.bat
   Eagle/Library/Tools/build.bat
   Eagle/Library/Tools/clean.bat
-  Eagle/Library/Tools/data/chkRefs.lst
   Eagle/Library/Tools/data/Dockerfile-release
   Eagle/Library/Tools/data/Dockerfile-trunk
   Eagle/Library/Tools/data/Eagle.kpf
-  Eagle/Library/Tools/data/Eagle.uew
+  Eagle/Library/Tools/data/Eagle.Dark.uew
+  Eagle/Library/Tools/data/Eagle.Light.uew
   Eagle/Library/Tools/data/MDADisable.reg
   Eagle/Library/Tools/data/MDAEnable.reg
   Eagle/Library/Tools/data/SigCheck.txt
   Eagle/Library/Tools/data/TclTk.uew
+  Eagle/Library/Tools/data/chkRefs.lst
   Eagle/Library/Tools/data/db.sql
+  Eagle/Library/Tools/data/dialogs.tsv
   Eagle/Library/Tools/data/security.eagle
   Eagle/Library/Tools/data/strongName.reg
   Eagle/Library/Tools/data/strongName_wow64.reg
@@ -1376,6 +1387,7 @@ set eagle_manifests(source) {
   Eagle/Library/Tools/db.bat
   Eagle/Library/Tools/deploy.bat
   Eagle/Library/Tools/flight.bat
+  Eagle/Library/Tools/GetFile.bat
   Eagle/Library/Tools/lockBuild.eagle
   Eagle/Library/Tools/netFx20Sp.bat
   Eagle/Library/Tools/preFlight.bat
@@ -1651,6 +1663,7 @@ set eagle_manifests(source) {
   Eagle/Shell/Configurations/dotNet/6.0/EagleShell.runtimeconfig.json
   Eagle/Shell/Configurations/dotNet/7.0/EagleShell.runtimeconfig.json
   Eagle/Shell/Configurations/dotNet/8.0/EagleShell.runtimeconfig.json
+  Eagle/Shell/Configurations/dotNet/9.0/EagleShell.runtimeconfig.json
   Eagle/Shell/Configurations/netFx/EagleShell.exe.config
   Eagle/Shell/Configurations/netFx/EagleShell.exe.mda.config
   Eagle/Shell/EagleShell.csproj
@@ -1794,6 +1807,7 @@ set eagle_manifests(tool) {
   Eagle/Library/Tools/SetErrorLevel.exe
   Eagle/Library/Tools/SetIcon.exe
   Eagle/Library/Tools/src/BinaryEditor.cs
+  Eagle/Library/Tools/src/GetFile.cs
   Eagle/Library/Tools/src/GetRefs.cs
   Eagle/Library/Tools/src/innoextract-1.9.tar.gz
   Eagle/Library/Tools/src/innounp050src.rar
@@ -2075,6 +2089,7 @@ set eagle_manifests(binaryTests) {
   Eagle/Tests/data/read3.eagle
   Eagle/Tests/data/read4.eagle
   Eagle/Tests/data/script.eagle
+  Eagle/Tests/data/settings.eagle
   Eagle/Tests/data/settings.ini
   Eagle/Tests/data/settings.xml
   Eagle/Tests/data/showArgv.eagle
@@ -2480,6 +2495,7 @@ set eagle_manifests(setupFull) {
   {{app}\tests\data\read3.eagle}
   {{app}\tests\data\read4.eagle}
   {{app}\tests\data\script.eagle}
+  {{app}\tests\data\settings.eagle}
   {{app}\tests\data\settings.ini}
   {{app}\tests\data\settings.xml}
   {{app}\tests\data\showArgv.eagle}
@@ -3440,6 +3456,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Components/Public/Variable.cs
   src/Library/Components/Public/Variant.cs
   src/Library/Components/Public/WebClientData.cs
+  src/Library/Components/Public/WebErrorCallbackBridge.cs
   src/Library/Components/Public/WebTransferCallbackBridge.cs
   src/Library/Components/Shared/AttributeOps.cs
   src/Library/Components/Shared/Enumerations.cs
@@ -3747,6 +3764,8 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/HaveExecutionPolicy.cs
   src/Library/Interfaces/Public/HaveFileName.cs
   src/Library/Interfaces/Public/HaveInterpreter.cs
+  src/Library/Interfaces/Public/HaveLevels.cs
+  src/Library/Interfaces/Public/HaveNoCase.cs
   src/Library/Interfaces/Public/HaveObjectFlags.cs
   src/Library/Interfaces/Public/HaveOwner.cs
   src/Library/Interfaces/Public/HavePlugin.cs
@@ -3852,7 +3871,9 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/StringTransformCallback.cs
   src/Library/Interfaces/Public/SubCommand.cs
   src/Library/Interfaces/Public/SubCommandData.cs
+  src/Library/Interfaces/Public/SupportVariable.cs
   src/Library/Interfaces/Public/Synchronize.cs
+  src/Library/Interfaces/Public/SynchronizeAll.cs
   src/Library/Interfaces/Public/SynchronizeBase.cs
   src/Library/Interfaces/Public/SynchronizeSimple.cs
   src/Library/Interfaces/Public/SynchronizeStatic.cs
@@ -3879,6 +3900,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Interfaces/Public/Variable.cs
   src/Library/Interfaces/Public/VariableManager.cs
   src/Library/Interfaces/Public/Variant.cs
+  src/Library/Interfaces/Public/WebErrorCallback.cs
   src/Library/Interfaces/Public/WebTransferCallback.cs
   src/Library/Interfaces/Public/Wrapper.cs
   src/Library/Interfaces/Public/WrapperData.cs

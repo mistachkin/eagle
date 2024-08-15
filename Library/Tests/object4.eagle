@@ -766,9 +766,9 @@ StateCallback Eagle\._Cmdlets\.Script\+WriteCallback ParameterCallback\
 Eagle\._Cmdlets\.Script\+WriteCallback Listener\
 System\.Diagnostics\.DefaultTraceListener PreInitialize \{\} CreateFlags\
 (?:EmbeddedUse|Default) EngineFlags None SubstitutionFlags Default EventFlags\
-Service ExpressionFlags Default Console False Unsafe True Standard False Force\
-False Exceptions False Policies False Deny False MetaCommand True Text \{cmdlet\
-status\} Interpreter \d+ Tokens \d+ CommandRuntime\
+(?:Service|Default) ExpressionFlags Default Console False Unsafe True Standard\
+False Force False Exceptions False Policies False Deny False MetaCommand True\
+Text \{cmdlet status\} Interpreter \d+ Tokens \d+ CommandRuntime\
 (?:Invoke-EagleScript|Evaluate-EagleScript) Stopping False\}$}}
 
 ###############################################################################

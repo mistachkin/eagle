@@ -28,11 +28,12 @@ namespace Eagle._Components.Private
             string originalText,       /* in */
             string text,               /* in */
             ByteList bytes,            /* in */
+            bool silent,               /* in */
             string resourceMethodName, /* in */
             string resourceName,       /* in */
             bool isolated              /* in */
             )
-            : base(data, scriptFileName, originalText, text, bytes)
+            : base(data, scriptFileName, originalText, text, bytes, silent)
         {
             this.resourceMethodName = resourceMethodName;
             this.resourceName = resourceName;
@@ -49,13 +50,14 @@ namespace Eagle._Components.Private
             string originalText,            /* in */
             string text,                    /* in */
             ByteList bytes,                 /* in */
+            bool silent,                    /* in */
             IPluginData resourcePluginData, /* in */
             string resourceMethodName,      /* in */
             string resourceName,            /* in */
             bool isolated                   /* in */
             )
             : this(data, scriptFileName, originalText, text, bytes,
-                   resourceMethodName, resourceName, isolated)
+                   silent, resourceMethodName, resourceName, isolated)
         {
             this.resourcePluginData = resourcePluginData;
         }
@@ -68,6 +70,7 @@ namespace Eagle._Components.Private
             string originalText,             /* in */
             string text,                     /* in */
             ByteList bytes,                  /* in */
+            bool silent,                     /* in */
             string resourceFileName,         /* in */
             ResourceManager resourceManager, /* in */
             string resourceMethodName,       /* in */
@@ -75,7 +78,7 @@ namespace Eagle._Components.Private
             bool isolated                    /* in */
             )
             : this(data, scriptFileName, originalText, text, bytes,
-                   resourceMethodName, resourceName, isolated)
+                   silent, resourceMethodName, resourceName, isolated)
         {
             this.resourceFileName = resourceFileName;
             this.resourceManager = resourceManager;
@@ -89,13 +92,14 @@ namespace Eagle._Components.Private
             string originalText,       /* in */
             string text,               /* in */
             ByteList bytes,            /* in */
+            bool silent,               /* in */
             Assembly resourceAssembly, /* in */
             string resourceMethodName, /* in */
             string resourceName,       /* in */
             bool isolated              /* in */
             )
             : this(data, scriptFileName, originalText, text, bytes,
-                   resourceMethodName, resourceName, isolated)
+                   silent, resourceMethodName, resourceName, isolated)
         {
             this.resourceAssembly = resourceAssembly;
         }

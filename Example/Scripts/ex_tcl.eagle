@@ -21,12 +21,14 @@
 #                                                              #
 # 4. All trailing spaces have been removed.                    #
 #                                                              #
+# 5. The block size has been multiplied by three.              #
+#                                                              #
 ################################################################
 #                                                              #
 # These are the SHA1 hashes:                                   #
 #                                                              #
 # original -- 42d6a1620b6ce2626ffe54256297cb050de58caa         #
-# modified -- 443fd98648c091ade327b87aabd01a93be04b928         #
+# modified -- 1628cd7af0b4a47699f1d99c70dde222fa725e99         #
 #                                                              #
 ################################################################
 
@@ -34,21 +36,40 @@ set path [file normalize [file dirname [info script]]]
 
 if {![tcl ready]} then {
   #
-  # HACK: Avoid using any ActiveTcl "BaseKits" here in case they
-  #       do not embed Tk correctly.  Also, make sure the Win32
-  #       SetDllDirectory API gets called prior to attempting to
-  #       load the native Tcl library; otherwise, the inability
-  #       of "tcl*.dll" to load "zlib1.dll" could cause issues.
+  # HACK: Avoid using any ActiveTcl "BaseKits" here in
+  #       case they do not embed Tk correctly.  Also,
+  #       make sure the Win32 SetDllDirectory API gets
+  #       called prior to attempting to load the native
+  #       Tcl library; otherwise, the inability of the
+  #       "tcl*.dll" library to locate the "zlib1.dll"
+  #       library could cause issues.
   #
-  tcl load -findflags -OtherNamePatternList -loadflags +SetDllDirectory
+  # HACK: The minimum version that should be used here
+  #       is 8.6, due to its support for TIP #285, e.g.
+  #       [interp cancel], et al.  Also, do not bother
+  #       using Tcl 9.x, which is broken by design.
+  #
+  tcl load -maybetrustedonly -bridge -robustify \
+      -minimumversion 8.6 -maximumversion 8.9
+
   set loaded 1
 }
 
-tcl set [tcl primary] path $path
+################################################################
+
+tcl set [tcl primary] ::path $path
+
+################################################################
 
 if {[catch {
   tcl eval [tcl primary] {
-    set argv {}
+    if {[info exists ::argv]} then {
+      set ::savedArgv $::argv
+    } else {
+      unset -nocomplain ::savedArgv
+    }
+    set ::argv [list]
+    rename exit __exit
     proc exit { args } {
       set ai [after info]
       if {[llength $ai] > 0} then {
@@ -59,12 +80,32 @@ if {[catch {
     }
     package require Tk; # may error, no Tk?
     wm protocol . WM_DELETE_WINDOW exit
-    source [file join $path tetris.tcl]
-    after 0 list; vwait forever; unset -nocomplain forever
+    source [file join $::path tetris.tcl]; unset ::path
+    after 0 list; vwait ::forever
   }
 } error] != 0} then {
-  puts stdout [appendArgs "Tcl error: " $error]
+  puts stdout [appendArgs "Tcl setup error: " $error]
 }
 
+################################################################
+
+if {[catch {
+  tcl eval [tcl primary] {
+    unset -nocomplain ::forever
+    rename exit ""; rename __exit exit
+    if {[info exists ::savedArgv]} then {
+      set ::argv $::savedArgv
+    } else {
+      unset -nocomplain ::argv
+    }
+    unset -nocomplain ::savedArgv
+  }
+} error] != 0} then {
+  puts stdout [appendArgs "Tcl cleanup error: " $error]
+}
+
+################################################################
+
+unset -nocomplain error
 if {[info exists loaded] && $loaded} then {tcl unload}
-unset -nocomplain error loaded path
+unset -nocomplain loaded

@@ -6060,10 +6060,10 @@ namespace Eagle._Components.Private
                 int maximumCount = 0;
                 Result error = null; /* REUSED */
 
-                if (useParameterCounts && GetParameterCounts(
+                if (useParameterCounts && (GetParameterCounts(
                         parameterInfo, args, useArgumentCounts,
                         ref minimumCount, ref maximumCount,
-                        ref error) != ReturnCode.Ok)
+                        ref error) != ReturnCode.Ok))
                 {
                     if (errors == null)
                         errors = new ResultList();
@@ -6114,11 +6114,11 @@ namespace Eagle._Components.Private
 
                 error = null;
 
-                if (useTypeDepths && CalculateTypeDepths(
+                if (useTypeDepths && (CalculateTypeDepths(
                         parameterInfo, args, stringDepth,
                         useParameterTypes, useSubTypeDepths,
                         useValueTypeDepths, useByRefTypeDepths,
-                        ref depths, ref error) != ReturnCode.Ok)
+                        ref depths, ref error) != ReturnCode.Ok))
                 {
                     if (errors == null)
                         errors = new ResultList();
@@ -9388,6 +9388,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static ReturnCode ConvertValueToString(
+            IScriptBinder scriptBinder, /* in */
+            CultureInfo cultureInfo,    /* in */
+            object value,               /* in */
+            ref Result result           /* out */
+            )
+        {
+            return ConvertValueToString(
+                scriptBinder, cultureInfo, AppDomainOps.MaybeGetType(
+                value), ObjectOps.GetInvokeOptions(), value, false,
+                ref result);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static ReturnCode ConvertValueToString(
             IScriptBinder scriptBinder, /* in */
             CultureInfo cultureInfo,    /* in */
@@ -10507,14 +10522,18 @@ namespace Eagle._Components.Private
                                                             if (interpName != null)
                                                             {
 #if NATIVE && TCL
+                                                                TclCommandFlags tclCommandFlags = TclCommandFlags.None;
+
+                                                                if (FlagOps.HasFlags(objectFlags, ObjectFlags.ForceDelete, true))
+                                                                    tclCommandFlags |= TclCommandFlags.ForceDelete;
+
+                                                                if (FlagOps.HasFlags(objectFlags, ObjectFlags.NoComplain, true))
+                                                                    tclCommandFlags |= TclCommandFlags.NoComplain;
+
                                                                 code = interpreter.AddTclBridge(
                                                                     newAlias as IExecute, interpName,
                                                                     localObjectName, ClientData.Empty,
-                                                                    FlagOps.HasFlags(objectFlags,
-                                                                        ObjectFlags.ForceDelete, true),
-                                                                    FlagOps.HasFlags(objectFlags,
-                                                                        ObjectFlags.NoComplain, true),
-                                                                    ref result);
+                                                                    tclCommandFlags, ref result);
 #else
                                                                 result = "option \"-tcl\" not supported for this platform";
                                                                 code = ReturnCode.Error;
@@ -10653,9 +10672,11 @@ namespace Eagle._Components.Private
                 //       to dispose the object since it will otherwise be lost.
                 //
                 ObjectOps.TryDisposeOrComplain<object>(interpreter, ref value);
+
+                value = null;
             }
 
-            goto done;
+            goto done; /* REDUNDANT */
 
         done:
 
@@ -12566,6 +12587,15 @@ namespace Eagle._Components.Private
             )
         {
             return FormatOps.MemberName(memberInfo);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static string GetErrorTypeName(
+            object value
+            )
+        {
+            return GetErrorTypeName(AppDomainOps.MaybeGetType(value));
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

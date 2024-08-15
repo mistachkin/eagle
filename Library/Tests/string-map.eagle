@@ -2107,6 +2107,7 @@ runTest {test encoding-100.1 {encoding names (built-in)} -setup {
               [haveConstraint dotNetCore60] || \
               [haveConstraint dotNetCore70] || \
               [haveConstraint dotNetCore80] || \
+              [haveConstraint dotNetCore90] || \
           [lsearch -exact -- $names utf-7] != -1}] \
       [expr {[lsearch -exact -- $names utf-8] != -1}] \
       [expr {[lsearch -exact -- $names utf-16] != -1}] \
@@ -2293,7 +2294,8 @@ runTest {test hash-1.1.2 {hash algorithms (.NET Core before 7)} -body {
   lsort $result
 } -cleanup {
   unset -nocomplain name type pair result text
-} -constraints [fixConstraints {eagle dotNetCore !dotNetCore70 !dotNetCore80}] \
+} -constraints \
+[fixConstraints {eagle dotNetCore !dotNetCore70 !dotNetCore80 !dotNetCore90}] \
 -result "\{mac HMACMD5 55CD9EE051258D537966F6914B2907CB\} \{mac HMACSHA1\
 457B0A2E4834FF8AA0F9BFAD83F7CA51EA9272B5\} \{mac HMACSHA256\
 F4BB7209D8015710EC185E78F36C26B143DE6E891D42B0C83038BBA7EB65FE06\} \{mac\
@@ -2455,13 +2457,22 @@ runTest {test stringMatch-101.4 {Tcl SF bug #219233, fixed} -setup {
   set interp [interp create]
 } -body {
   interp eval $interp {
-    object invoke -flags +NonPublic -objectflags +AutoFlagsEnum \
-        Interpreter.GetActive interpreterFlags +FixFor219233
+    package require Eagle.Test
+
+    set savedInterpreterFlags [enableInterpreterFlags]
+    enableInterpreterFlags FixFor219233 true
 
     list [expr {int([string match {[a-z0-9_/-]} \\])}] \
         [expr {int([string match {[a-z0-9_/]} \\])}]
   }
 } -cleanup {
+  catch {
+    interp eval $interp {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $interp}
 
   unset -nocomplain interp
@@ -2482,13 +2493,22 @@ runTest {test stringMatch-101.5 {stack checking with [string match]} -setup {
   set interp [interp create]
 } -body {
   interp eval $interp {
-    object invoke -flags +NonPublic -objectflags +AutoFlagsEnum \
-        Interpreter.GetActive interpreterFlags +StringMatchStackChecking
+    package require Eagle.Test
+
+    set savedInterpreterFlags [enableInterpreterFlags]
+    enableInterpreterFlags StringMatchStackChecking true
 
     string match [appendArgs f [string repeat *o 200000]] \
         [appendArgs f [string repeat o 200000]]
   }
 } -cleanup {
+  catch {
+    interp eval $interp {
+      enableInterpreterFlags $savedInterpreterFlags
+      unset -nocomplain savedInterpreterFlags
+    }
+  }
+
   catch {interp delete $interp}
 
   unset -nocomplain interp
@@ -2531,9 +2551,9 @@ runTest {test stringRepeat-1.1 {result limits with [string repeat]} -setup {
   catch {interp delete $interp}
 
   unset -nocomplain result code interp
-} -constraints {eagle command.object memoryIntensive compile.RESULT_LIMITS} \
--result {0 {execute 2000 nested 2000} 0 {} 1 {cannot exceed length of 2000\
-characters (2001)}}}
+} -constraints [fixMemoryConstraints {eagle command.object memoryIntensive\
+compile.RESULT_LIMITS}] -result {0 {execute 2000 nested 2000} 0 {} 1 {cannot\
+exceed length of 2000 characters (2001)}}}
 
 ###############################################################################
 
@@ -2570,15 +2590,22 @@ runTest {test listRepeat-1.1 {result limits with [lrepeat]} -setup {
   catch {interp delete $interp}
 
   unset -nocomplain result code interp
-} -constraints {eagle command.object memoryIntensive compile.RESULT_LIMITS} \
--result {0 {execute 2000 nested 2000} 0 {} 1 {cannot exceed length of 2000\
-characters (2002)} 1 {cannot exceed length of 2000 characters (3000)}}}
+} -constraints [fixMemoryConstraints {eagle command.object memoryIntensive\
+compile.RESULT_LIMITS}] -result {0 {execute 2000 nested 2000} 0 {} 1 {cannot\
+exceed length of 2000 characters (2002)} 1 {cannot exceed length of 2000\
+characters (3000)}}}
 
 ###############################################################################
 
 runTest {test split-100.1 {[split] with empty string} -body {
   list [split ""] [split "" ""] [split "" ", "]
 } -result {{} {} {}}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  catch {purgeAndCleanup $test_channel after}
+}
 
 ###############################################################################
 

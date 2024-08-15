@@ -17,6 +17,13 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 
 ###############################################################################
 
+if {[isEagle]} then {
+  set savedInterpreterFlags [enableInterpreterFlags]
+  enableInterpreterFlags DoesAnythingExist true
+}
+
+###############################################################################
+
 runTest {test object-97.0.1 {honor NoDispose with -tostring} -body {
   set x [object invoke -tostring Interpreter.GetActive Host]
   object invoke -flags +NonPublic Interpreter.GetActive.Host disposed
@@ -34,6 +41,13 @@ runTest {test object-97.0.2 {honor NoDispose with -alias fail} -body {
   unset -nocomplain x
 } -constraints {eagle command.object} -isolationLevel Interpreter -result \
 {False {can't add "host": something already exists}}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  enableInterpreterFlags $savedInterpreterFlags
+  unset -nocomplain savedInterpreterFlags
+}
 
 ###############################################################################
 

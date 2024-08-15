@@ -308,6 +308,15 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
+            if (FlagOps.HasFlags(
+                    flags, ModuleFlags.TrustedOnly, true) &&
+                !RuntimeOps.IsFileTrusted(
+                    interpreter, null, fileName, IntPtr.Zero))
+            {
+                error = "module file is not Authenticode signed or cannot be trusted";
+                return ReturnCode.Error;
+            }
+
             if (module != null)
             {
                 error = "cannot overwrite valid native module";

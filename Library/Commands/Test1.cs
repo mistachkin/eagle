@@ -115,6 +115,9 @@ namespace Eagle._Commands
                             bool noChangeReturnCode = ScriptOps.HasFlags(interpreter,
                                 InterpreterTestFlags.NoChangeReturnCode, true);
 
+                            bool stopOnHookError = ScriptOps.HasFlags(interpreter,
+                                InterpreterTestFlags.StopOnHookError, true);
+
                             ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if TEST
@@ -159,6 +162,7 @@ namespace Eagle._Commands
                                         //
                                         // NOTE: Are we going to skip this test?
                                         //
+                                        bool failure = false;
                                         bool skip = false;
                                         bool fail = true;
                                         bool ignore = false;
@@ -167,21 +171,156 @@ namespace Eagle._Commands
 
                                         code = TestOps.CheckConstraints(
                                             interpreter, testLevels, name, constraints,
-                                            false, false, testData, ref skip, ref fail,
-                                            ref whatIf, ref knownBug, ref result);
+                                            false, false, testData, ref skip,
+                                            ref fail, ref whatIf, ref knownBug, ref result);
 
-                                        //
-                                        // NOTE: Track the fact that we handled this test.
-                                        //
-                                        long[] testStatistics = null;
+                                        long[] statistics = interpreter.TestStatistics;
+                                        TestResultType resultType = TestResultType.Pending;
+                                        ArgumentList hookArguments; /* REUSED */
+                                        TestHookType hookType = TestHookType.None; /* REUSED */
+                                        StringList hookList; /* REUSED */
+                                        ReturnCode hookCode = ReturnCode.Ok; /* REUSED */
+                                        ResultList hookResults; /* REUSED */
+                                        Result hookResult = null; /* REUSED */
 
                                         if (code == ReturnCode.Ok)
                                         {
-                                            testStatistics = interpreter.TestStatistics;
+                                            hookType = TestHookType.Before | TestHookType.AnyMatch;
+                                            hookList = null;
 
-                                            if ((testStatistics != null) && (testLevels == 1) && skip)
+                                            if (interpreter.HasTestHooks(
+                                                    hookType, name, ref hookList) == ReturnCode.Ok)
                                             {
-                                                Interlocked.Increment(ref testStatistics[
+                                                hookArguments = null;
+
+                                                /* NO RESULT */
+                                                interpreter.PrepareTestHooksArguments(
+                                                    hookType, resultType, name, description,
+                                                    constraints, skip, fail, ignore, whatIf,
+                                                    knownBug, null, null, ref hookArguments
+                                                );
+
+                                                hookResults = null;
+
+                                                hookCode = interpreter.EvaluateScripts(
+                                                    hookList, hookArguments, true,
+                                                    stopOnHookError, ref hookResults);
+
+                                                hookResult = hookResults;
+
+                                                bool hookSkip = false;
+
+                                                switch (hookCode)
+                                                {
+                                                    case ReturnCode.Ok:
+                                                        {
+                                                            //
+                                                            // NOTE: Normal case, let the
+                                                            //       test run normally.
+                                                            //
+                                                            break;
+                                                        }
+                                                    case ReturnCode.Error:
+                                                        {
+                                                            //
+                                                            // NOTE: Error case, stop the
+                                                            //       test from running and
+                                                            //       return the error.
+                                                            //
+                                                            result = hookResult;
+                                                            code = hookCode; /* Error */
+                                                            break;
+                                                        }
+                                                    case ReturnCode.Break:
+                                                        {
+                                                            //
+                                                            // NOTE: Return from the test,
+                                                            //       skipping it and just
+                                                            //       indicate success.
+                                                            //
+                                                            hookSkip = true;
+                                                            break;
+                                                        }
+                                                    case ReturnCode.Continue:
+                                                        {
+                                                            //
+                                                            // NOTE: Run the test; however,
+                                                            //       do not allow it to be
+                                                            //       counted as a failure.
+                                                            //
+                                                            fail = false;
+                                                            break;
+                                                        }
+                                                    case ReturnCode.WhatIf:
+                                                        {
+                                                            //
+                                                            // NOTE: Force "what-if" mode
+                                                            //       to be enabled now.
+                                                            //
+                                                            whatIf = true;
+                                                            break;
+                                                        }
+                                                    case ReturnCode.Exception:
+                                                        {
+                                                            //
+                                                            // NOTE: Force the test to fail
+                                                            //       even if it actually is
+                                                            //       successful.
+                                                            //
+                                                            failure = true;
+                                                            break;
+                                                        }
+                                                    default: /* NOTE: Same code as ReturnCode.Error. */
+                                                        {
+                                                            //
+                                                            // NOTE: No idea, just error.
+                                                            //
+                                                            result = hookResult;
+                                                            code = hookCode; /* ????? */
+                                                            break;
+                                                        }
+                                                }
+
+                                                TestOps.AppendFormat(
+                                                    interpreter, testData, TestOutputType.Hook,
+                                                    "---- {0} hook ({1}) ==> {2}: {3}", name,
+                                                    hookType, hookCode, FormatOps.WrapOrNull(
+                                                    true, true, hookResult));
+
+                                                TestOps.AppendLine(
+                                                    interpreter, testData, TestOutputType.Hook);
+
+                                                if (hookSkip)
+                                                {
+                                                    skip = true;
+
+                                                    if ((statistics != null) && (testLevels == 1))
+                                                    {
+                                                        Interlocked.Increment(ref statistics[
+                                                            (int)TestInformationType.Skipped]);
+                                                    }
+
+                                                    TestOps.AddSkippedTestData(
+                                                        interpreter, testData, name,
+                                                        new StringList("userSpecifiedHook"));
+                                                }
+
+                                                if (code != ReturnCode.Ok)
+                                                {
+                                                    if ((statistics != null) && (testLevels == 1) && skip)
+                                                    {
+                                                        Interlocked.Increment(ref statistics[
+                                                                (int)TestInformationType.Total]);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if (code == ReturnCode.Ok)
+                                        {
+                                            if ((statistics != null) && (testLevels == 1) && skip)
+                                            {
+                                                Interlocked.Increment(ref statistics[
                                                     (int)TestInformationType.Total]);
                                             }
                                         }
@@ -196,8 +335,8 @@ namespace Eagle._Commands
                                         if ((code == ReturnCode.Ok) && !skip)
                                         {
                                             code = TestOps.RecordInformation(
-                                                interpreter, TestInformationType.CurrentName, name,
-                                                null, true, ref result);
+                                                interpreter, TestInformationType.PreviousAndCurrentName,
+                                                name, null, true, ref result);
                                         }
 
                                         if ((code == ReturnCode.Ok) && knownBug)
@@ -279,9 +418,11 @@ namespace Eagle._Commands
                                                         }
 
                                                         if (bodyCode == ReturnCode.Error)
+                                                        {
                                                             /* IGNORED */
                                                             interpreter.InternalCopyErrorInformation(
                                                                 VariableFlags.None, false, ref bodyResult);
+                                                        }
                                                     }
                                                     finally
                                                     {
@@ -339,38 +480,38 @@ namespace Eagle._Commands
                                             //
                                             // NOTE: If any of the important things failed, the test fails.
                                             //
-                                            if (!(codeFailure || scriptFailure))
+                                            if (!(failure || codeFailure || scriptFailure))
                                             {
                                                 //
                                                 // PASS: Test ran with no errors and the results match
                                                 //       what we expected.
                                                 //
-                                                if ((testStatistics != null) && (testLevels == 1))
+                                                if ((statistics != null) && (testLevels == 1))
                                                 {
                                                     if (whatIf)
                                                     {
                                                         if (knownBug)
                                                         {
-                                                            Interlocked.Increment(ref testStatistics[
+                                                            Interlocked.Increment(ref statistics[
                                                                     (int)TestInformationType.DisabledBug]);
                                                         }
 
-                                                        Interlocked.Increment(ref testStatistics[
+                                                        Interlocked.Increment(ref statistics[
                                                                 (int)TestInformationType.Disabled]);
                                                     }
                                                     else
                                                     {
                                                         if (knownBug)
                                                         {
-                                                            Interlocked.Increment(ref testStatistics[
+                                                            Interlocked.Increment(ref statistics[
                                                                     (int)TestInformationType.PassedBug]);
                                                         }
 
-                                                        Interlocked.Increment(ref testStatistics[
+                                                        Interlocked.Increment(ref statistics[
                                                                 (int)TestInformationType.Passed]);
                                                     }
 
-                                                    Interlocked.Increment(ref testStatistics[
+                                                    Interlocked.Increment(ref statistics[
                                                             (int)TestInformationType.Total]);
                                                 }
 
@@ -381,6 +522,9 @@ namespace Eagle._Commands
 
                                                 TestOps.AppendLine(
                                                     interpreter, testData, TestOutputType.Pass);
+
+                                                resultType = whatIf ?
+                                                    TestResultType.Disabled : TestResultType.Passed;
                                             }
                                             else
                                             {
@@ -388,20 +532,20 @@ namespace Eagle._Commands
                                                 // FAIL: Test ran with errors or the result does not match
                                                 //       what we expected.
                                                 //
-                                                if ((testStatistics != null) && (testLevels == 1))
+                                                if ((statistics != null) && (testLevels == 1))
                                                 {
                                                     if (fail)
                                                     {
                                                         if (knownBug)
                                                         {
-                                                            Interlocked.Increment(ref testStatistics[
+                                                            Interlocked.Increment(ref statistics[
                                                                     (int)TestInformationType.FailedBug]);
                                                         }
 
-                                                        Interlocked.Increment(ref testStatistics[
+                                                        Interlocked.Increment(ref statistics[
                                                                 (int)TestInformationType.Failed]);
 
-                                                        Interlocked.Increment(ref testStatistics[
+                                                        Interlocked.Increment(ref statistics[
                                                                 (int)TestInformationType.Total]);
                                                     }
                                                 }
@@ -424,11 +568,14 @@ namespace Eagle._Commands
                                                     "==== {0} {1} {2}", name, description.Trim(),
                                                     fail ? "FAILED" : "IGNORED");
 
-                                                if (!fail)
-                                                    ignore = true;
-
                                                 TestOps.AppendLine(
                                                     interpreter, testData, TestOutputType.Fail);
+
+                                                resultType = fail ?
+                                                    TestResultType.Failed : TestResultType.Ignored;
+
+                                                if (!fail)
+                                                    ignore = true;
 
                                                 if (body != null)
                                                 {
@@ -551,15 +698,37 @@ namespace Eagle._Commands
                                                     }
                                                 }
 
+                                                if (failure)
+                                                {
+                                                    TestOps.AppendFormat(
+                                                        interpreter, testData, TestOutputType.Reason,
+                                                        "---- Forced failure via hooks ({0}) ==> {1}",
+                                                        hookType, hookCode);
+
+                                                    TestOps.AppendLine(
+                                                        interpreter, testData, TestOutputType.Reason);
+
+                                                    TestOps.Append(
+                                                        interpreter, testData, TestOutputType.Error,
+                                                        "---- errors(hooks): ");
+
+                                                    TestOps.AppendLine(
+                                                        interpreter, testData, TestOutputType.Error,
+                                                        hookResult);
+                                                }
+
                                                 TestOps.AppendFormat(
                                                     interpreter, testData, TestOutputType.Fail,
                                                     "==== {0} {1}", name, fail ? "FAILED" : "IGNORED");
 
-                                                if (!fail)
-                                                    ignore = true;
-
                                                 TestOps.AppendLine(
                                                     interpreter, testData, TestOutputType.Fail);
+
+                                                resultType = fail ?
+                                                    TestResultType.Failed : TestResultType.Ignored;
+
+                                                if (!fail)
+                                                    ignore = true;
                                             }
                                         }
 
@@ -590,18 +759,90 @@ namespace Eagle._Commands
                                                     code = ReturnCode.WhatIf;
                                             }
 
+                                            bool keepResult = false;
+
+                                            hookType = TestHookType.After | TestHookType.AnyMatch;
+                                            hookList = null;
+
+                                            if (interpreter.HasTestHooks(
+                                                    hookType, name, ref hookList) == ReturnCode.Ok)
+                                            {
+                                                hookArguments = null;
+
+                                                /* NO RESULT */
+                                                interpreter.PrepareTestHooksArguments(
+                                                    hookType, resultType, name, description,
+                                                    constraints, skip, fail, ignore, whatIf,
+                                                    knownBug, code, result, ref hookArguments
+                                                );
+
+                                                hookResults = null;
+
+                                                hookCode = interpreter.EvaluateScripts(
+                                                    hookList, hookArguments, true,
+                                                    stopOnHookError, ref hookResults);
+
+                                                hookResult = hookResults;
+
+                                                switch (hookCode)
+                                                {
+                                                    case ReturnCode.Ok:
+                                                        {
+                                                            //
+                                                            // NOTE: Normal case, let the
+                                                            //       test run normally.
+                                                            //
+                                                            break;
+                                                        }
+                                                    case ReturnCode.Error:
+                                                        {
+                                                            //
+                                                            // NOTE: Error case, stop the
+                                                            //       test from passing and
+                                                            //       return the error.
+                                                            //
+                                                            keepResult = true;
+                                                            result = hookResult;
+                                                            code = hookCode; /* Error */
+                                                            break;
+                                                        }
+                                                    default: /* NOTE: Same code as ReturnCode.Error. */
+                                                        {
+                                                            //
+                                                            // NOTE: No idea, just error.
+                                                            //
+                                                            keepResult = true;
+                                                            result = hookResult;
+                                                            code = hookCode; /* ????? */
+                                                            break;
+                                                        }
+                                                }
+
+                                                TestOps.AppendFormat(
+                                                    interpreter, testData, TestOutputType.Hook,
+                                                    "---- {0} hook ({1}) ==> {2}: {3}", name,
+                                                    hookType, hookCode, FormatOps.WrapOrNull(
+                                                    true, true, hookResult));
+
+                                                TestOps.AppendLine(
+                                                    interpreter, testData, TestOutputType.Hook);
+                                            }
+
                                             //
                                             // NOTE: The result is the complete output produced by the
                                             //       entire test.
                                             //
-                                            if (testData != null)
+                                            if (!keepResult)
                                             {
-                                                result = StringBuilderCache.GetStringAndRelease(
-                                                    ref testData);
-                                            }
-                                            else
-                                            {
-                                                result = String.Empty;
+                                                if (testData != null)
+                                                {
+                                                    result = StringBuilderCache.GetStringAndRelease(
+                                                        ref testData);
+                                                }
+                                                else
+                                                {
+                                                    result = String.Empty;
+                                                }
                                             }
                                         }
                                     }

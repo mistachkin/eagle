@@ -19,6 +19,29 @@ namespace Eagle._Components.Private
     [ObjectId("4f9aa772-b73f-479f-92d9-0d4eb32a1910")]
     internal class ReadScriptClientData : ClientData, IHaveText
     {
+        #region Private Constants
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static bool DefaultSilent = false;
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Static Helper Methods
+        public static bool IsSilent(
+            ReadScriptClientData clientData /* in */
+            )
+        {
+            if (clientData != null)
+                return clientData.Silent;
+
+            return DefaultSilent;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Private Constructors
         private ReadScriptClientData(
             object data
@@ -35,7 +58,8 @@ namespace Eagle._Components.Private
             string scriptFileName, /* in */
             string originalText,   /* in */
             string text,           /* in */
-            ByteList bytes         /* in */
+            ByteList bytes,        /* in */
+            bool silent            /* in */
             )
             : this(data)
         {
@@ -43,6 +67,7 @@ namespace Eagle._Components.Private
             this.originalText = originalText;
             this.text = text;
             this.bytes = bytes;
+            this.silent = silent;
         }
         #endregion
 
@@ -60,9 +85,10 @@ namespace Eagle._Components.Private
             string scriptFileName, /* in */
             string originalText,   /* in */
             string text,           /* in */
-            ByteList bytes         /* in */
+            ByteList bytes,        /* in */
+            bool silent            /* in */
             )
-            : this(bytes, scriptFileName, originalText, text, bytes)
+            : this(bytes, scriptFileName, originalText, text, bytes, silent)
         {
             // do nothing.
         }
@@ -94,6 +120,7 @@ namespace Eagle._Components.Private
                 this.originalText = getScriptClientData.OriginalText;
                 this.text = getScriptClientData.Text;
                 this.bytes = getScriptClientData.Bytes;
+                this.silent = getScriptClientData.Silent;
             }
 
             if (scriptFileName != null)
@@ -139,6 +166,15 @@ namespace Eagle._Components.Private
             get { return bytes; }
             set { bytes = value; }
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool silent;
+        public bool Silent
+        {
+            get { return silent; }
+            set { silent = value; }
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -163,6 +199,8 @@ namespace Eagle._Components.Private
 
             if (bytes != null)
                 list.Add("Bytes", bytes.ToString());
+
+            list.Add("Silent", silent.ToString());
 
             return list;
         }

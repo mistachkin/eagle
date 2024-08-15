@@ -139,6 +139,8 @@ namespace Eagle._Interfaces.Public
             long? threadId,
             int limit,
             EventWaitHandle @event,
+            ref bool notReady,
+            ref bool timedOut,
             ref bool changed,
             ref Result error
             );

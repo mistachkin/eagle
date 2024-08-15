@@ -42,6 +42,158 @@ namespace eval ::Eagle {
   }
 
   #
+  # NOTE: This procedure is designed to load a selected native Tcl library,
+  #       enable command bridging, and then attempt to load the Eagle Native
+  #       Package for Tcl (Garuda) package.  This can fail in a wide variety
+  #       of ways, e.g. native Tcl and/or its Garuda package not available,
+  #       etc.
+  #
+  # <bootstrap>
+  proc loadGarudaForUseByEagle {
+          {machine ""} {configuration ""} {suffix ""} {methodFlags true}
+          {noNormalize true} {quiet false} } {
+    set level [lindex [info level [info level]] 0]
+
+    if {[info exists ::eagle_debugger(garudaScript)]} then {
+      set script $::eagle_debugger(garudaScript)
+    } else {
+      set script {package require Garuda}
+    }
+
+    if {[isEagle]} then {
+      package require Eagle.Test
+
+      if {![tcl ready]} then {
+        #
+        # HACK: Avoid using any ActiveTcl "BaseKits" here in
+        #       case they do not embed Tk correctly.  Also,
+        #       make sure the Win32 SetDllDirectory API gets
+        #       called prior to attempting to load the native
+        #       Tcl library; otherwise, the inability of the
+        #       "tcl*.dll" library to locate the "zlib1.dll"
+        #       library could cause issues.
+        #
+        tcl load -maybetrustedonly -bridge -robustify \
+            -minimumversion [getTclMinimumVersion] \
+            -maximumversion [getTclMaximumVersion] --
+      }
+
+      if {[string length $machine] == 0 && \
+          [info exists ::tcl_platform(machine)]} then {
+        set machine $::tcl_platform(machine)
+      }
+
+      if {[string length $configuration] == 0 && \
+          [info exists ::eagle_platform(configuration)]} then {
+        set configuration $::eagle_platform(configuration)
+      }
+
+      if {[string length $suffix] == 0} then {
+        set suffix [getTestSuffix]; # Eagle.Test
+      }
+
+      set platform1 [machineToPlatform $machine true]; # Eagle.Test
+      if {$platform1 eq "unknown"} then {set platform1 ""}
+
+      set platform2 [machineToPlatform $machine false]; # Eagle.Test
+      if {$platform2 eq "unknown"} then {set platform2 ""}
+
+      set directory [file normalize [file join \
+          [info base] bin $platform1 [appendArgs \
+          $configuration Dll $suffix]]]
+
+      if {![file isdirectory $directory]} then {
+        set directory [file normalize [file join \
+            [info base] bin $platform2 [appendArgs \
+            $configuration Dll $suffix]]]
+      }
+
+      if {![file isdirectory $directory]} then {
+        set directory [file normalize [file join \
+            [info base] bin $machine [appendArgs \
+            $configuration Dll $suffix]]]
+      }
+
+      if {![file isdirectory $directory]} then {
+        set directory [file normalize [file join \
+            [info binary] $platform1]]
+      }
+
+      if {![file isdirectory $directory]} then {
+        set directory [file normalize [file join \
+            [info binary] $platform2]]
+      }
+
+      if {![file isdirectory $directory]} then {
+        set directory [file normalize [file join \
+            [info binary] $machine]]
+      }
+
+      if {!$quiet} then {
+        catch {
+          tclLog [appendArgs \
+              $level ": Tcl auto-path directory: " $directory]
+        }
+      }
+
+      if {[file isdirectory $directory]} then {
+        tcl eval [tcl primary] [list lappend ::auto_path $directory]
+      }
+
+      if {[string length $methodFlags] > 0} then {
+        if {[regexp -nocase -- {^0x[0-9A-F]+$} $methodFlags]} then {
+          tcl eval [tcl primary] namespace eval ::Garuda \
+              [string map [list %methodFlags% $methodFlags] {
+            set methodFlags {%methodFlags%}; # NOTE: Use custom.
+          }]
+        } elseif {[string is true -strict $methodFlags]} then {
+          tcl eval [tcl primary] namespace eval ::Garuda {
+            set methodFlags 0x40; # NOTE: Use METHOD_PROTOCOL_V1R2.
+          }
+        } elseif {[string is false -strict $methodFlags]} then {
+          tcl eval [tcl primary] namespace eval ::Garuda {
+            set methodFlags 0x0; # NOTE: Use METHOD_NONE (default).
+          }
+        } else {
+          error [appendArgs \
+              "unsupported Garuda method flags: " $methodFlags]
+        }
+      }
+
+      if {[string length $noNormalize] > 0} then {
+        if {[string is true -strict $noNormalize]} then {
+          tcl eval [tcl primary] namespace eval ::Garuda {
+            set noNormalize true; # NOTE: Avoid Tcl junction bug...
+          }
+        } elseif {[string is false -strict $noNormalize]} then {
+          tcl eval [tcl primary] namespace eval ::Garuda {
+            set noNormalize false; # NOTE: Maybe this bug got fixed?
+          }
+        } else {
+          error [appendArgs \
+              "unsupported Garuda normalize setting: " $noNormalize]
+        }
+      }
+
+      tcl eval [tcl primary] $script; # NOTE: Go to native Tcl.
+      interp alias {} garuda {} tcl eval [tcl primary] garuda
+      package provide Garuda 1.0; # NOTE: Eagle package, not Tcl.
+    } else {
+      eval $script; # NOTE: Already in native Tcl.
+    }
+
+    if {!$quiet} then {
+      catch {
+        tclLog [appendArgs \
+            $level ": Tcl loaded: " [garuda packageid] ", " \
+            [garuda dumpstate]]
+      }
+    }
+
+    return ""
+  }
+
+  #
   # NOTE: This procedure is designed to "load" (i.e. [source]) other script
   #       files that logically belong to the package defined in this script
   #       file.  Upon success, an empty string will be returned.  A script
@@ -188,6 +340,66 @@ namespace eval ::Eagle {
         maybeLoadScripts [file dirname [info script]] [list shim.eagle]
       }
     }
+
+    #
+    # NOTE: Create system aliases (i.e. using [interp]) unless forbidden
+    #       from doing so.
+    #
+    # HACK: *SPECIAL* The command or procedure [setupSystemAliases] may
+    #       be defined in order to be notified about this process -AND-
+    #       to possibly customize it.
+    #
+    if {[isEagle]} then {
+      if {![info exists ::no(systemAliases,engine)] && \
+          ![info exists ::no(systemAliases,eagle)]} then {
+        if {![info exists ::no(setupSystemAliases,engine)] && \
+            ![info exists ::no(setupSystemAliases,eagle)] && \
+            [llength [info commands ::setupSystemAliases]] > 0} then {
+          catch {::setupSystemAliases before}
+        }
+
+        interp alias {} igap {} \
+            object invoke -flags +NonPublic Interpreter.GetActive
+
+        interp alias {} iga {} object invoke Interpreter.GetActive
+        interp alias {} mrogsf {} interp maybereadorgetscriptfile
+        interp alias {} rogsf {} interp readorgetscriptfile
+        interp alias {} oip {} object invoke -flags +NonPublic
+        interp alias {} scalar {} sql execute -execute scalar -format list
+        interp alias {} reader {} sql execute -execute reader -format list
+
+        if {![info exists ::no(setupSystemAliases,engine)] && \
+            ![info exists ::no(setupSystemAliases,eagle)] && \
+            [llength [info commands ::setupSystemAliases]] > 0} then {
+          catch {::setupSystemAliases after}
+        }
+      }
+    } else {
+      if {![info exists ::no(systemAliases,engine)] && \
+          ![info exists ::no(systemAliases,tcl)]} then {
+        if {![info exists ::no(setupSystemAliases,engine)] && \
+            ![info exists ::no(setupSystemAliases,tcl)] && \
+            [llength [info commands ::setupSystemAliases]] > 0} then {
+          catch {::setupSystemAliases before}
+        }
+
+        interp alias {} igap {} \
+            eagle object invoke -flags +NonPublic Interpreter.GetActive
+
+        interp alias {} iga {} eagle object invoke Interpreter.GetActive
+        interp alias {} mrogsf {} eagle interp maybereadorgetscriptfile
+        interp alias {} rogsf {} eagle interp readorgetscriptfile
+        interp alias {} oip {} eagle object invoke -flags +NonPublic
+        interp alias {} scalar {} eagle sql execute -execute scalar -format list
+        interp alias {} reader {} eagle sql execute -execute reader -format list
+
+        if {![info exists ::no(setupSystemAliases,engine)] && \
+            ![info exists ::no(setupSystemAliases,tcl)] && \
+            [llength [info commands ::setupSystemAliases]] > 0} then {
+          catch {::setupSystemAliases after}
+        }
+      }
+    }
   }
 
   if {[isEagle]} then {
@@ -214,7 +426,7 @@ namespace eval ::Eagle {
           set savedInterpreterStateFlags None
 
           object invoke -flags +NonPublic Interpreter.GetActive \
-              BeginArgumentLocation savedInterpreterStateFlags
+              BeginArgumentLocation null savedInterpreterStateFlags
         }
 
         try {
@@ -336,7 +548,7 @@ namespace eval ::Eagle {
       #       the global scope so that the special global variable 'dir'
       #       set by the package index loading subsystem can be accessed.
       #
-      uplevel #0 [list package scan -host -normal -refresh]
+      uplevel #0 [list package scan -host -normal -primary -refresh]
     }
 
     #
@@ -392,14 +604,14 @@ namespace eval ::Eagle {
     #
     if {[llength [info commands exportAndImportPackageCommands]] > 0} then {
       exportAndImportPackageCommands [namespace current] [list \
-          isEagle loadScripts maybeLoadScripts isWindows isInteractive \
-          haveGaruda isTclThread isMono isDotNetCore isSameFileName \
-          getEnvironmentVariable combineFlags getCompileInfo getPlatformInfo \
-          getPluginName getPluginPath getPackageInstallPath appendArgs \
-          lappendArgs getDictionaryValue getColumnValue getRowColumnValue \
-          vwaitLocked tqputs tqlog makeBinaryChannel makeAsciiChannel \
-          makeUnicodeBinaryChannel makeUnicodeChannel makeUtf8Channel \
-          makeLogChannel readFile readSharedFile writeFile \
+          isEagle loadGarudaForUseByEagle loadScripts maybeLoadScripts \
+          isWindows isInteractive haveGaruda isTclThread isMono isDotNetCore \
+          isSameFileName getEnvironmentVariable combineFlags getCompileInfo \
+          getPlatformInfo getPluginName getPluginPath getPackageInstallPath \
+          appendArgs lappendArgs getDictionaryValue getColumnValue \
+          getRowColumnValue vwaitLocked tqputs tqlog makeBinaryChannel \
+          makeAsciiChannel makeUnicodeBinaryChannel makeUnicodeChannel \
+          makeUtf8Channel makeLogChannel readFile readSharedFile writeFile \
           appendFile appendLogFile appendSharedFile appendSharedLogFile \
           readAsciiFile writeAsciiFile readUnicodeBinaryFile readUnicodeFile \
           readUtf8File writeUnicodeBinaryFile writeUnicodeFile writeUtf8File \

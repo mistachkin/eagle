@@ -96,12 +96,13 @@ if {[isEagle]} then {
     }
 
     #
-    # NOTE: If the test failed with an actual error (i.e. not just a
-    #       test failure), make sure we do not obscure the error
+    # NOTE: If the test failed with an actual error (i.e. not just
+    #       a test failure), make sure we do not obscure the error
     #       message with test suite output.
     #
     if {$error} then {
-      tputs $test_channel \n; # emit a blank line.
+      thostresult $code \n; # emit a blank line.
+      tlog \n; # log a blank line.
     }
 
     #
@@ -113,6 +114,8 @@ if {[isEagle]} then {
     if {$code != 0 && [isStopOnFailure]} then {
       tresult Error "OVERALL RESULT: STOP-ON-FAILURE\n"
 
+      unset -nocomplain ::test_suite_running
+      if {[isEagle]} then {igap MaybeResetLastError}
       error ""; # no message
     }
 

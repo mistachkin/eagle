@@ -35,7 +35,7 @@ runTest {test nested-2.1 {nested package index prevention} -setup {
   writeFile $fileName(1) {
     set w 1
     package ifneeded Package1 1.0 [list one]
-    package scan -normal -- [file join [file dirname $dir] two]
+    package scan -normal -primary -- [file join [file dirname $dir] two]
     set x 1
   }
   file mkdir [file dirname $fileName(2)]

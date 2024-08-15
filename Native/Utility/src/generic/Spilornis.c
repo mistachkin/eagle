@@ -283,7 +283,10 @@ EagleMemorySize(
     }
 #endif
 
-    return (SIZE_T)MemorySizeWrapper(pMemory);
+    if (pMemory != NULL)
+	return (SIZE_T)MemorySizeWrapper(pMemory);
+
+    return 0;
 }
 
 /*
@@ -321,7 +324,9 @@ EagleFreeMemory(
     }
 #endif
 
-    FreeMemoryWrapper(pMemory);
+    if (pMemory != NULL)
+	FreeMemoryWrapper(pMemory);
+
     return;
 }
 #endif
@@ -364,8 +369,10 @@ EagleWcharStrToUshortStr(
 	    if (sstr[i] == 0) break;
 	    i++;
 	}
+
 	return i + 1;
     }
+
     return 0;
 }
 #endif

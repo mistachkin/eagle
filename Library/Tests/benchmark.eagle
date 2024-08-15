@@ -379,8 +379,8 @@ proc resetCaches { {enable true} } {
       [llength [info commands object]] > 0 && \
       ![info exists ::no(resetCaches)]} then {
     set cacheFlags [list \
-        TypicalMask Reset Clear ZeroCounts \
-        MaybeSetProperties]
+        TypicalMask Reset Clear PreSetup \
+        ZeroCounts MaybeSetProperties]
 
     if {$enable} then {
       lappend cacheFlags Lock

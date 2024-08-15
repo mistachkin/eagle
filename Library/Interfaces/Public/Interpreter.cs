@@ -129,6 +129,8 @@ namespace Eagle._Interfaces.Public
         // HOST & SCRIPT ENVIRONMENT
         ///////////////////////////////////////////////////////////////////////
 
+        int? ReadyTimeout { get; set; }
+
         //
         // NOTE: The default script flags used by the engine (i.e. in the
         //       EvaluateFile method) when requesting a script from the
@@ -156,6 +158,10 @@ namespace Eagle._Interfaces.Public
         bool PolicyTrace { get; set; }
 #endif
 
+        LockCallback LockCallback { get; set; }
+        int LockRetries { get; set; }
+        int LockLevel { get; set; }
+
         TraceFilterCallback TraceFilterCallback { get; set; }
         NewCommandCallback NewCommandCallback { get; set; }
         NewProcedureCallback NewProcedureCallback { get; set; }
@@ -169,6 +175,7 @@ namespace Eagle._Interfaces.Public
         PreWebClientCallback PreWebClientCallback { get; set; }
         NewWebClientCallback NewWebClientCallback { get; set; }
         WebTransferCallback WebTransferCallback { get; set; }
+        WebErrorCallback WebErrorCallback { get; set; }
 #endif
 
 #if THREADING
@@ -308,6 +315,12 @@ namespace Eagle._Interfaces.Public
         ///////////////////////////////////////////////////////////////////////
         // WATCHDOG SUPPORT
         ///////////////////////////////////////////////////////////////////////
+
+        bool TryLockAndExit(int? timeout);
+
+#if THREADING
+        CheckStatus? WatchdogStatus { get; set; }
+#endif
 
         ReturnCode WatchdogControl(
             WatchdogType watchdogType,

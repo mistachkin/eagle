@@ -352,29 +352,25 @@ if {[isEagle]} then {debug vout stdout true}
 #       it can have such an impact on SSL certificate validations.
 #
 runTest {test basic-1.24 {source https ".eagle" failure} -setup {
-  set savedEngineFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive SharedEngineFlags]
+  package require Eagle.Test
 
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      SharedEngineFlags [combineFlags $savedEngineFlags \
-      NoDefaultError]
+  set savedSharedEngineFlags [enableSharedEngineFlags]
+  enableSharedEngineFlags NoDefaultError true
 } -body {
-  list [uri softwareupdates] [catch {
+  list [catch {uri softwareupdates} error(1)] $error(1) [catch {
     source [appendArgs https:// $test_host /scripts/secureTest.eagle]
-  } error] $error
+  } error(2)] $error(2)
 } -cleanup {
   unset -nocomplain error
   catch {rename helloWorld ""}
 
-  catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags $savedEngineFlags
-  }
-  unset -nocomplain savedEngineFlags
+  enableSharedEngineFlags $savedSharedEngineFlags
+  unset -nocomplain savedSharedEngineFlags
 } -constraints [fixConstraints {eagle command.object internet_eagle.to tlsOk\
-!security.enabled}] -once true -match regexp -result {^\{software update\
-certificate is untrusted\} (?:0 \{\}|1 \{caught exception getting script\
-stream: System\.Net\.WebException: .*\})$}}
+!security.enabled}] -once true -match regexp -result {^(?:0|1) \{(?:software\
+update certificate trusted status is unknown|software update certificate is\
+untrusted)\} (?:0 \{\}|1 \{caught exception getting script stream:\
+System\.Net\.WebException: .*\})$}}
 
 ###############################################################################
 
@@ -400,29 +396,25 @@ if {[isEagle]} then {
 #       it can have such an impact on SSL certificate validations.
 #
 runTest {test basic-1.25 {source https ".xml" failure} -setup {
-  set savedEngineFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive SharedEngineFlags]
+  package require Eagle.Test
 
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      SharedEngineFlags [combineFlags $savedEngineFlags \
-      NoDefaultError]
+  set savedSharedEngineFlags [enableSharedEngineFlags]
+  enableSharedEngineFlags NoDefaultError true
 } -body {
-  list [uri softwareupdates] [catch {
+  list [catch {uri softwareupdates} error(1)] $error(1) [catch {
     source [appendArgs https:// $test_host /scripts/secureTest.xml]
-  } error] $error
+  } error(2)] $error(2)
 } -cleanup {
   unset -nocomplain error
   catch {rename helloWorld ""}
 
-  catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags $savedEngineFlags
-  }
-  unset -nocomplain savedEngineFlags
+  enableSharedEngineFlags $savedSharedEngineFlags
+  unset -nocomplain savedSharedEngineFlags
 } -constraints [fixConstraints {eagle command.object internet_eagle.to tlsOk\
-!security.enabled}] -once true -match regexp -result {^\{software update\
-certificate is untrusted\} (?:0 \{\}|1 \{caught exception getting script\
-stream: System\.Net\.WebException: .*\})$}}
+!security.enabled}] -once true -match regexp -result {^(?:0|1) \{(?:software\
+update certificate trusted status is unknown|software update certificate is\
+untrusted)\} (?:0 \{\}|1 \{caught exception getting script stream:\
+System\.Net\.WebException: .*\})$}}
 
 ###############################################################################
 
@@ -1118,8 +1110,9 @@ runTest {test basic-1.34 {external command execution} -body {
   list $x $code $result [getStringFromObjectHandle $result]
 } -cleanup {
   unset -nocomplain result arguments x script code error execute
-} -constraints {eagle command.object} -match regexp -result {^12346 Return\
-Result#\d+ \{12346 \{FullStackMask, ExternalExecution\}\}$}}
+} -constraints {eagle command.object} -match regexp -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 1]] {^12346 Return Result#\d+ \{12346\
+\{FullStackMask, ExternalExecution%engineFlags%\}\}$}]}
 
 ###############################################################################
 
@@ -1159,17 +1152,17 @@ runTest {test basic-1.36 {top-level script cancellation} -setup {
     #
     # NOTE: Use the tested commands-per-second for this machine.
     #
-    set c [expr {int($::test_cops * 10)}]
+    set c [expr {int($::test_cops * 100)}]
   } elseif {[info exists ::test_base_cops]} then {
     #
     # NOTE: Use the hard-coded baseline commands-per-second.
     #
-    set c [expr {int($::test_base_cops * 10)}]
+    set c [expr {int($::test_base_cops * 100)}]
   } else {
     #
     # NOTE: Use a reasonable default value.
     #
-    set c 100000
+    set c 1000000
   }
 
   tputs $test_channel [appendArgs "---- attempting to execute: " $c \
@@ -1192,8 +1185,9 @@ runTest {test basic-1.36 {top-level script cancellation} -setup {
 
   catch {interp delete $i}
   unset -nocomplain x c i
-} -constraints {eagle command.object tip285 globalTip285 compile.TEST\
-Eagle._Tests.Default.TestSetQuiet} -match regexp -result {^\d+ True$}}
+} -constraints [fixTimingConstraints {eagle command.object tip285 globalTip285\
+compile.TEST Eagle._Tests.Default.TestSetQuiet}] -match regexp -result \
+{^\d+ True$}}
 
 ###############################################################################
 
@@ -1721,14 +1715,12 @@ runTest {test basic-1.54 {callback queue} -setup {
   set i [interp create]
 } -body {
   list [interp eval $i {
-    set savedEngineFlags [object invoke -flags +NonPublic \
-        Interpreter.GetActive SharedEngineFlags]
+    package require Eagle.Test
 
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags NoCallbackQueue
+    set savedSharedEngineFlags [enableSharedEngineFlags]
+    enableSharedEngineFlags NoCallbackQueue true
 
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags
+    enableSharedEngineFlags
   }] [interp eval $i {
     set result(1) [list]
 
@@ -1758,11 +1750,10 @@ runTest {test basic-1.54 {callback queue} -setup {
   }] [interp eval $i {
     callback enqueue set y 1
 
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags $savedEngineFlags
+    enableSharedEngineFlags $savedSharedEngineFlags
+    unset -nocomplain savedSharedEngineFlags
 
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags
+    enableSharedEngineFlags
   }] [interp eval $i {nop}] [interp eval $i {set y}]
 } -cleanup {
   catch {interp delete $i}
@@ -2332,11 +2323,11 @@ runTest {test basic-1.71 {callback queue error handling} -setup {
   }
 
   list [interp eval $i {
-    set savedEngineFlags [object invoke -flags +NonPublic \
-        Interpreter.GetActive SharedEngineFlags]
+    package require Eagle.Test
 
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags +NoCallbackQueue
+    set savedSharedEngineFlags [enableSharedEngineFlags]
+    enableSharedEngineFlags NoCallbackQueue true
+    list; # empty result
   }] [interp eval $i {
     set result(1) [list]
 
@@ -2356,8 +2347,8 @@ runTest {test basic-1.71 {callback queue error handling} -setup {
 
     set result(1)
   }] [interp eval $i {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags -NoCallbackQueue
+    enableSharedEngineFlags NoCallbackQueue false
+    list; # empty result
   }] [catch {interp eval $i {
     #
     # NOTE: This command will *NOT* be executed.  When the engine
@@ -2380,8 +2371,8 @@ runTest {test basic-1.71 {callback queue error handling} -setup {
     set result(2)
   }] [object invoke -flags +NonPublic $interpreter callbackQueue.Count] \
   [interp eval $i {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags $savedEngineFlags
+    enableSharedEngineFlags $savedSharedEngineFlags
+    unset -nocomplain savedSharedEngineFlags
   }]
 } -cleanup {
   catch {interp delete $i}
@@ -2405,8 +2396,11 @@ runTest {test basic-1.72 {callback queue disposal handling} -setup {
   }
 
   list [interp eval $i {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags +NoCallbackQueue
+    package require Eagle.Test
+
+    set savedSharedEngineFlags [enableSharedEngineFlags]
+    enableSharedEngineFlags NoCallbackQueue true
+    list; # empty result
   }] [interp eval $i {
     set result(1) [list]
 
@@ -2429,8 +2423,8 @@ runTest {test basic-1.72 {callback queue disposal handling} -setup {
 
     set result(1)
   }] [interp eval $i {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags -NoCallbackQueue
+    enableSharedEngineFlags NoCallbackQueue false
+    list; # empty result
   }] [catch {interp eval $i {
     #
     # NOTE: This command will *NOT* be executed.  When the engine
@@ -2444,6 +2438,13 @@ runTest {test basic-1.72 {callback queue disposal handling} -setup {
   }} error] $error \
   [object invoke -flags +NonPublic $interpreter callbackQueue]
 } -cleanup {
+  catch {
+    interp eval $i {
+      enableSharedEngineFlags $savedSharedEngineFlags
+      unset -nocomplain savedSharedEngineFlags
+    }
+  }
+
   catch {interp delete $i}
   unset -nocomplain error code interpreter i
 } -constraints {eagle command.object command.callback compile.CALLBACK_QUEUE} \
@@ -2468,19 +2469,17 @@ runTest {test basic-1.73 {EvaluateFile with "file" call frame} -setup {
   list [interp eval $i {
     source $fileName
   }] [interp eval $i {
-    set savedEngineFlags [object invoke -flags +NonPublic \
-        Interpreter.GetActive SharedEngineFlags]
+    package require Eagle.Test
 
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags ExtraCallFrame
+    set savedSharedEngineFlags [enableSharedEngineFlags]
+    enableSharedEngineFlags ExtraCallFrame true
 
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags
+    enableSharedEngineFlags
   }] [interp eval $i {
     source $fileName
   }] [interp eval $i {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        SharedEngineFlags $savedEngineFlags
+    enableSharedEngineFlags $savedSharedEngineFlags
+    unset -nocomplain savedSharedEngineFlags
   }]
 } -cleanup {
   catch {interp delete $i}
@@ -2932,11 +2931,19 @@ runTest {test basic-1.101 {checkForUpdate script library procedure} -setup {
   unset -nocomplain savedPatchLevel
 
   unset -nocomplain patchLevel dummy data host
-} -constraints {eagle command.object compile.NETWORK network_update.eagle.to\
-tlsOk strongName.official osVersion.WindowsNT_6.0_OrHigher} \
--constraintExpression {[haveConstraint buildType.Default] || \
-[haveConstraint buildType.NetFx20]} -match regexp -result [string map [list \
-%host% $host] {^\{\{(?:stable|latest) build \d+\.\d+\.\d+\.\d+, dated\
+} -constraints [fixTimingConstraints {eagle command.object compile.NETWORK\
+network_update.eagle.to tlsOk strongName.official\
+osVersion.WindowsNT_6.0_OrHigher}] -constraintExpression \
+{[haveConstraint buildType.Default] || \
+[haveConstraint buildType.NetFx20] || \
+[haveConstraint buildType.NetFx40] || \
+[haveConstraint buildType.NetFx48] || \
+[haveConstraint buildType.NetStandard20] || \
+[haveConstraint buildType.NetStandard21] || \
+[haveConstraint buildType.LeanAndMean] || \
+[haveConstraint buildType.Database] || \
+[haveConstraint buildType.MonoOnUnix]} -match regexp -result [string map \
+[list %host% $host] {^\{\{(?:stable|latest) build \d+\.\d+\.\d+\.\d+, dated\
 \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}, is newer than the running build\
 1\.0\.0\.0, dated \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}, based on the data from\
 %host%\} \{uri %host% patchLevel \d+\.\d+\.\d+\.\d+ notes \{\} md5 [0-9a-f]{32}\
@@ -3185,7 +3192,7 @@ runTest {test basic-10.2007 {[getKnownEagleVersions] procedure} -setup {
 1.0.6781.49000} {43 1.0.6781.49042} {44 1.0.6848.11041} {45 1.0.7213.50727} {46\
 1.0.7790.43198} {47 1.0.7897.33333} {48 1.0.7900.33333} {49 1.0.7945.33333} {50\
 1.0.8192.54321} {51 1.0.8251.52012} {52 1.0.8369.11942} {53 1.0.8503.24499} {54\
-1.0.8613.27347} {55 1.0.8734.30319}}}
+1.0.8613.27347} {55 1.0.8734.30319} {56 1.0.9001.43210}}}
 
 ###############################################################################
 
@@ -3326,7 +3333,7 @@ runTest {test basic-1.109 {SimulateKeyboardString method} -setup {
 
   unset -nocomplain event forever fileName stream code error
   unset -nocomplain debugger milliseconds
-} -constraints {eagle native windows command.object compile.NATIVE\
+} -constraints {eagle monoBug612 native windows command.object compile.NATIVE\
 compile.WINDOWS compile.TEST Eagle._Tests.Default.TestStartKeyboardStream\
 interactive hostIsOpen userInteraction interactiveFocus} \
 -constraintExpression {[haveConstraint hostType.Eagle__Hosts_Console] || \
@@ -3339,7 +3346,7 @@ runTest {test basic-1.110 {script evaluation in remote sandbox} -setup {
 } -body {
   set result [evaluateInRemoteSandbox [string map \
       [list %test_run_id% [getTestRunId]] {
-    # test basic-1.110 (%test_run_id%)
+    # test basic-1.110 (TEST-RUN %test_run_id%)
     set eagle_platform(interpreterTimeStamp)
   }]]
 
@@ -3349,7 +3356,7 @@ runTest {test basic-1.110 {script evaluation in remote sandbox} -setup {
   setupPackageToolsetVars false true; # cleanup
 
   unset -nocomplain result
-} -constraints {eagle tlsOk} -match regexp -result \
+} -constraints [fixTimingConstraints {eagle tlsOk}] -match regexp -result \
 {^Ok \{\d{4}\.\d{2}\.\d{2}T\d{2}:\d{2}:\d{2}\.\d{1,3} \+\d{4}\}$}}
 
 ###############################################################################

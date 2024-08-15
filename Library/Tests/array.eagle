@@ -164,9 +164,10 @@ runTest {test array-1.14 {eagle_tests array searches} -setup {
 } -constraints {eagle} -match regexp -result \
 {^(?:\{Breakpoints 1\} )?\{Constraints 1\} \{Counts 1\} \{CurrentName 1\}\
 \{Disabled 1\} \{DisabledBug 1\} \{Failed 1\} \{FailedBug 1\} \{FailedNames 1\}\
-\{Interpreter 1\} \{KnownBugs 1\} \{Level 1\} \{MatchNames 1\} \{Passed 1\}\
-\{PassedBug 1\} \{RepeatCount 1\} \{SkipNames 1\} \{Skipped 1\} \{SkippedBug\
-1\} \{SkippedNames 1\} \{Total 1\} \{Verbose 1\} \{foo 0\}$}}
+\{Hooks 1\} \{Interpreter 1\} \{KnownBugs 1\} \{Level 1\} \{MatchNames 1\}\
+\{Passed 1\} \{PassedBug 1\} \{PreviousName 1\} \{RepeatCount 1\} \{SkipNames\
+1\} \{Skipped 1\} \{SkippedBug 1\} \{SkippedNames 1\} \{Total 1\} \{Verbose 1\}\
+\{foo 0\}$}}
 
 ###############################################################################
 

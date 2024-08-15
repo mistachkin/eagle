@@ -19,8 +19,9 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 
 runTest {test parser-5.1 {scripting of expression parser} -body {
   parse expression {2 + (2 / 1) ** 3 + [clock seconds]}
-} -constraints {eagle} -match regexp -result {^\{NotReady False\} \{IsImmutable\
-False\} \{EngineFlags None\} \{SubstitutionFlags (?:All|Default)\} \{FileName\
+} -constraints {eagle} -match regexp -result [string map [list %engineFlags% \
+[getEngineFlagsForTest 3]] {^\{NotReady False\} \{IsImmutable False\}\
+\{EngineFlags %engineFlags%\} \{SubstitutionFlags (?:All|Default)\} \{FileName\
 \{\}\} \{CurrentLine 1\} \{CommentStart -1\} \{CommentLength 0\} \{CommandStart\
 -1\} \{CommandLength 0\} \{CommandWords 0\} \{Tokens 18\} \{Lexeme\
 (?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
@@ -83,14 +84,15 @@ None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
 \{IsImmutable False\} \{Type Command\} \{SyntaxType None\} \{Flags None\}\
 \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\} \{ViaSource False\} \{Start\
 19\} \{Length 15\} \{Components 0\} \{Text \{\[clock seconds\]\}\} \{ClientData\
-\{\}\}$}}
+\{\}\}$}]}
 
 ###############################################################################
 
 runTest {test parser-5.2 {scripting of expression parser} -body {
   parse expression {2 + 2}
-} -constraints {eagle} -match regexp -result {^\{NotReady False\} \{IsImmutable\
-False\} \{EngineFlags None\} \{SubstitutionFlags (?:All|Default)\} \{FileName\
+} -constraints {eagle} -match regexp -result [string map [list %engineFlags% \
+[getEngineFlagsForTest 3]] {^\{NotReady False\} \{IsImmutable False\}\
+\{EngineFlags %engineFlags%\} \{SubstitutionFlags (?:All|Default)\} \{FileName\
 \{\}\} \{CurrentLine 1\} \{CommentStart -1\} \{CommentLength 0\} \{CommandStart\
 -1\} \{CommandLength 0\} \{CommandWords 0\} \{Tokens 6\} \{Lexeme\
 (?:Unknown|Minimum)\} \{IsImmutable False\} \{Type SubExpression\} \{SyntaxType\
@@ -112,7 +114,7 @@ None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine 1\}\
 \{ClientData \{\}\} \{Lexeme Literal\} \{IsImmutable False\} \{Type Text\}\
 \{SyntaxType None\} \{Flags None\} \{FileName \{\}\} \{StartLine 1\} \{EndLine\
 1\} \{ViaSource False\} \{Start 4\} \{Length 1\} \{Components 0\} \{Text 2\}\
-\{ClientData \{\}\}$}}
+\{ClientData \{\}\}$}]}
 
 ###############################################################################
 

@@ -53,7 +53,9 @@ namespace Eagle._Commands
             {
                 if (arguments != null)
                 {
-                    if (arguments.Count >= 2)
+                    int argumentCount = arguments.Count;
+
+                    if (argumentCount >= 2)
                     {
                         OptionDictionary options = new OptionDictionary(
                             new IOption[] {
@@ -67,7 +69,7 @@ namespace Eagle._Commands
 
                         if (code == ReturnCode.Ok)
                         {
-                            if ((argumentIndex != Index.Invalid) && ((argumentIndex + 2) >= arguments.Count))
+                            if ((argumentIndex != Index.Invalid) && ((argumentIndex + 2) >= argumentCount))
                             {
                                 bool useObject = false;
 
@@ -81,7 +83,7 @@ namespace Eagle._Commands
 
                                 string channelId = Channel.StdOut;
 
-                                if ((argumentIndex + 1) < arguments.Count)
+                                if ((argumentIndex + 1) < argumentCount)
                                     channelId = arguments[argumentIndex];
 
                                 IChannel channel = interpreter.InternalGetChannel(channelId, ref result);
@@ -92,12 +94,13 @@ namespace Eagle._Commands
 
                                     if (channel.NullEncoding || (encoding != null))
                                     {
+                                        int outputIndex = argumentCount - 1;
                                         string output;
 
                                         if (newLine)
                                         {
                                             StringBuilder builder = StringBuilderFactory.Create(
-                                                arguments[arguments.Count - 1]);
+                                                arguments[outputIndex]);
 
                                             builder.Append(
                                                 ConversionOps.ToChar(ChannelOps.NewLine));
@@ -107,7 +110,7 @@ namespace Eagle._Commands
                                         }
                                         else
                                         {
-                                            output = arguments[arguments.Count - 1];
+                                            output = arguments[outputIndex];
                                         }
 
                                         try

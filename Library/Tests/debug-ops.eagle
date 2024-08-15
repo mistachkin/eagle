@@ -17,6 +17,13 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 
 ###############################################################################
 
+if {[isEagle]} then {
+  set savedInterpreterFlags [enableInterpreterFlags]
+  enableInterpreterFlags TraceStack false
+}
+
+###############################################################################
+
 runTest {test debugOps-1.1 {complain} -setup {
   object import Eagle._Components.Private
 } -body {
@@ -31,7 +38,14 @@ runTest {test debugOps-1.1 {complain} -setup {
 
   unset -nocomplain result interp
 } -constraints {eagle command.object} -match regexp -result \
-{\d+ \(\d+\): you will see this}}
+{\d+ \(\d+\): \[Execute\]: you will see this}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  enableInterpreterFlags $savedInterpreterFlags
+  unset -nocomplain savedInterpreterFlags
+}
 
 ###############################################################################
 

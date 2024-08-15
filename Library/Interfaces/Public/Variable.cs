@@ -17,7 +17,7 @@ using Eagle._Containers.Public;
 namespace Eagle._Interfaces.Public
 {
     [ObjectId("5336d290-4d0c-45a0-a956-f56f3384e0cb")]
-    public interface IVariable : IIdentifier, IThreadLock
+    public interface IVariable : IIdentifier, IThreadLock, IHaveLevels
     {
         ICallFrame Frame { get; set; }
         VariableFlags Flags { get; set; }

@@ -94,6 +94,7 @@ namespace Eagle._Commands
 
                                 if (code == ReturnCode.Error)
                                 {
+                                    /* IGNORED */
                                     Engine.AddErrorInformation(interpreter, result,
                                         String.Format("{0}    (\"for\" body line {1})",
                                             Environment.NewLine, Interpreter.GetErrorLine(interpreter)));
@@ -112,13 +113,17 @@ namespace Eagle._Commands
 
                                 if (code == ReturnCode.Error)
                                 {
+                                    /* IGNORED */
                                     Engine.AddErrorInformation(interpreter, result,
                                         String.Format("{0}    (\"for\" loop-end command)",
                                             Environment.NewLine));
+
                                     break;
                                 }
                                 else if (code != ReturnCode.Ok) // TEST: What about break and continue here?
+                                {
                                     break;
+                                }
 
                                 if ((iterationLimit != Limits.Unlimited) &&
                                     (++iterationCount > iterationLimit))
@@ -138,6 +143,7 @@ namespace Eagle._Commands
 
                                 if (code == ReturnCode.Error)
                                 {
+                                    /* IGNORED */
                                     Engine.AddErrorInformation(interpreter, result,
                                         String.Format("{0}    (\"for\" final command)",
                                             Environment.NewLine));
@@ -148,10 +154,14 @@ namespace Eagle._Commands
                                 code = ReturnCode.Ok;
 
                             if (code == ReturnCode.Ok)
+                            {
+                                /* IGNORED */
                                 Engine.ResetResult(interpreter, ref result);
+                            }
                         }
                         else if (code == ReturnCode.Error)
                         {
+                            /* IGNORED */
                             Engine.AddErrorInformation(interpreter, result,
                                 String.Format("{0}    (\"for\" initial command)",
                                     Environment.NewLine));

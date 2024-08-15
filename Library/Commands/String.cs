@@ -203,7 +203,7 @@ namespace Eagle._Commands
 
                             code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                                 interpreter, this, clientData, arguments, true,
-                                false, ref subCommand, ref tried, ref result);
+                                null, ref subCommand, ref tried, ref result);
 
                             if ((code == ReturnCode.Ok) && !tried)
                             {
@@ -2108,6 +2108,7 @@ namespace Eagle._Commands
                                                 if (code == ReturnCode.Ok)
                                                 {
 #if RESULT_LIMITS
+                                                    /* NO RESULT */
                                                     Engine.CheckResultAgainstLimits(
                                                         interpreter, (value != null) ? value.Length : 0,
                                                         count, ref code, ref result);

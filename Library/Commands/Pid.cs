@@ -16,6 +16,7 @@ using Eagle._Components.Public;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
+using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Commands
 {
@@ -51,20 +52,33 @@ namespace Eagle._Commands
                         if (arguments.Count == 2)
                         {
                             string channelId = arguments[1];
-                            IChannel channel = interpreter.InternalGetChannel(channelId, ref result);
 
-                            if (channel != null)
+                            if (SharedStringOps.SystemEquals(channelId, "previous"))
                             {
-                                //
-                                // STUB: This does not actually work.
-                                //
-                                result = String.Empty; 
+                                result = interpreter.PreviousProcessId;
                                 code = ReturnCode.Ok;
                             }
                             else
                             {
-                                code = ReturnCode.Error;
+                                IChannel channel = interpreter.InternalGetChannel(
+                                    channelId, ref result);
+
+                                if (channel != null)
+                                {
+                                    //
+                                    // STUB: This does not work like native Tcl
+                                    //       because we do not support Unix-style
+                                    //       command pipelines.
+                                    //
+                                    result = String.Empty;
+                                    code = ReturnCode.Ok;
+                                }
+                                else
+                                {
+                                    code = ReturnCode.Error;
+                                }
                             }
+
                         }
                         else
                         {

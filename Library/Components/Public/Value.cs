@@ -12,8 +12,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using Eagle._Attributes;
 using Eagle._Components.Private;
@@ -79,6 +81,33 @@ namespace Eagle._Components.Public
             countName + "|\\d+){1}([\\+\\-\\*\\/\\%]{1})(" +
             noneName + "|" + startName + "|" + endName + "|" +
             countName + "|\\d+)$", RegexOptions.CultureInvariant);
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: These are purposely not read-only.
+        //
+        private static string annotationsPattern1 = "#\\s+<<(\\w+)>>\\s+";
+        private static string annotationsPattern2 = "#\\s+<<(\\w+):(\\w+)>>\\s+";
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static Regex versionRegEx = RegExOps.Create(
+            "^\\d+\\.\\d+(?:\\.\\d+){0,2}$", RegexOptions.CultureInvariant);
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        private static Regex guidRegEx = RegExOps.Create(
+            "^(?:[0-9A-F]{32}|[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}" +
+            "|\\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}|" +
+            "\\([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\))$",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -781,6 +810,337 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Special Value Helper Methods
+        public static ReturnCode ExtractMappings(
+            string text,                     /* in */
+            AutomationFlags automationFlags, /* in */
+            ref StringPairList list,         /* in, out */
+            ref Result error                 /* out */
+            )
+        {
+            if (text == null)
+            {
+                error = "invalid text";
+                return ReturnCode.Error;
+            }
+
+            text = StringOps.NormalizeLineEndings(text);
+
+            string[] lines = text.Split(Characters.LineFeed);
+
+            if (lines == null)
+            {
+                error = "could not split text";
+                return ReturnCode.Error;
+            }
+
+            bool allowNullValue = FlagOps.HasFlags(
+                automationFlags, AutomationFlags.AllowNullValue, true);
+
+            bool uniqueKeys = FlagOps.HasFlags(
+                automationFlags, AutomationFlags.UniqueKeys, true);
+
+            bool ignoreDuplicateKey = FlagOps.HasFlags(
+                automationFlags, AutomationFlags.IgnoreDuplicateKey, true);
+
+            StringPairList localList = new StringPairList();
+            int lineNumber = 0;
+
+            foreach (string line in lines)
+            {
+                lineNumber++;
+
+                int length;
+
+                if (StringOps.IsNullOrEmpty(line, out length))
+                    continue;
+
+                if ((length >= 3) && /* PREFIX: ";#;" */
+                    (line[0] == Characters.SemiColon) &&
+                    (line[1] == Characters.NumberSign) &&
+                    (line[2] == Characters.SemiColon))
+                {
+                    //
+                    // NOTE: This is a comment line, skip it.
+                    //
+                    continue;
+                }
+
+                //
+                // NOTE: Search for a literal horizontal tab
+                //       character.  If a regular expression
+                //       needs to contain a horizontal tab
+                //       character, please use "\t" (as this
+                //       is normal for regular expressions).
+                //
+                int index = line.IndexOf(Characters.HorizontalTab);
+
+                if (index == Index.Invalid)
+                {
+                    error = String.Format(
+                        "missing tab, line {0}", lineNumber);
+
+                    return ReturnCode.Error;
+                }
+
+                //
+                // NOTE: This conditional will be true if there
+                //       is more than one horizontal tab character
+                //       in the line.
+                //
+                if (index != line.LastIndexOf(Characters.HorizontalTab))
+                {
+                    error = String.Format(
+                        "extra tab, line {0}", lineNumber);
+
+                    return ReturnCode.Error;
+                }
+
+                //
+                // HACK: Even though the underlying data structure
+                //       being returned (i.e. List<T>) supports it,
+                //       do not allow null keys here just in case
+                //       we wish to switch to using some kind of
+                //       dictionary later.
+                //
+                string key = line.Substring(0, index);
+
+                if (String.IsNullOrEmpty(key))
+                {
+                    error = String.Format(
+                        "invalid key, line {0}", lineNumber);
+
+                    return ReturnCode.Error;
+                }
+
+                string value = line.Substring(index + 1);
+
+                if (String.IsNullOrEmpty(value))
+                {
+                    if (allowNullValue)
+                    {
+                        //
+                        // HACK: Convert emtpy to null.
+                        //
+                        value = null;
+                    }
+                    else
+                    {
+                        error = String.Format(
+                            "invalid value, line {0}",
+                            lineNumber);
+
+                        return ReturnCode.Error;
+                    }
+                }
+
+                if (uniqueKeys && localList.ContainsKey(
+                        key, StringComparison.Ordinal))
+                {
+                    if (ignoreDuplicateKey)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        error = String.Format(
+                            "duplicate key, line {0}",
+                            lineNumber);
+
+                        return ReturnCode.Error;
+                    }
+                }
+
+                localList.Add(key, value);
+            }
+
+            list = localList;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ExtractScript(
+            string fileName,      /* in */
+            Encoding encoding,    /* in: OPTIONAL */
+            ref string text,      /* out */
+            ref byte[] signature, /* out */
+            ref byte[] data,      /* out */
+            ref Result error      /* out */
+            )
+        {
+            if (String.IsNullOrEmpty(fileName))
+            {
+                error = "invalid file name";
+                return ReturnCode.Error;
+            }
+
+            if (!File.Exists(fileName))
+            {
+                error = String.Format(
+                    "script file {0} does not exist",
+                    FormatOps.WrapOrNull(fileName));
+
+                return ReturnCode.Error;
+            }
+
+            try
+            {
+                return ExtractScript(
+                    File.ReadAllBytes(fileName), /* throw */
+                    encoding, ref text, ref signature, ref data,
+                    ref error);
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ExtractScript(
+            byte[] bytes,         /* in */
+            Encoding encoding,    /* in: OPTIONAL */
+            ref string text,      /* out */
+            ref byte[] signature, /* out */
+            ref byte[] data,      /* out */
+            ref Result error      /* out */
+            )
+        {
+            if (bytes == null)
+            {
+                error = "invalid bytes";
+                return ReturnCode.Error;
+            }
+
+            if (bytes.Length == 0)
+            {
+                error = "no bytes";
+                return ReturnCode.Error;
+            }
+
+            if (encoding == null)
+                encoding = StringOps.GetEncoding(EncodingType.Binary);
+
+            byte[] localTextData;
+            byte[] localOtherData;
+
+            if (!ArrayOps.SplitOnOne<byte>(bytes,
+                    ConversionOps.ToByte(Characters.EndOfFile),
+                    out localTextData, out localOtherData))
+            {
+                error = "invalid or missing soft end-of-file";
+                return ReturnCode.Error;
+            }
+
+            string localText = encoding.GetString(localTextData);
+            int localTextLength = localText.Length;
+
+            string annotation = ScriptOps.FormatAnnotation(
+                Annotations.Signature);
+
+            if (annotation == null)
+            {
+                error = "invalid signature annotation";
+                return ReturnCode.Error;
+            }
+
+            int signatureIndex = localText.IndexOf(annotation, 0);
+
+            if (signatureIndex == Index.Invalid)
+            {
+                error = "missing signature";
+                return ReturnCode.Error;
+            }
+
+            if ((signatureIndex < 0) ||
+                (signatureIndex >= localTextLength))
+            {
+                error = "malformed signature block";
+                return ReturnCode.Error;
+            }
+
+            int annotationLength = annotation.Length;
+
+            string localSignatureText = localText.Substring(
+                signatureIndex + annotationLength);
+
+            localText = localText.Substring(0, signatureIndex);
+
+            if (!StringOps.IsBase64(localSignatureText))
+            {
+                error = "signature not base64";
+                return ReturnCode.Error;
+            }
+
+            //
+            // HACK: In theory, this call can throw; however,
+            //       it should not since the signature block
+            //       was just checked above using a regular
+            //       expression (which is still cheaper than
+            //       throwing an exception?).
+            //
+            byte[] localSignature = Convert.FromBase64String(
+                localSignatureText); /* throw */
+
+            text = localText;
+            signature = localSignature;
+            data = localOtherData;
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ExtractAnnotations(
+            string text,                      /* in */
+            ref StringDictionary annotations, /* in, out */
+            ref Result error                  /* out */
+            )
+        {
+            if (text == null)
+            {
+                error = "invalid text";
+                return ReturnCode.Error;
+            }
+
+            foreach (string pattern in new string[] {
+                    annotationsPattern1, annotationsPattern2
+                })
+            {
+                if (pattern == null)
+                    continue;
+
+                MatchCollection matches = Regex.Matches(
+                    text, pattern, RegexOptions.IgnoreCase);
+
+                if ((matches == null) || (matches.Count == 0))
+                    continue;
+
+                foreach (Match match in matches)
+                {
+                    string name = RegExOps.GetMatchValue(match, 1);
+                    string value = RegExOps.GetMatchValue(match, 2);
+
+                    if (name == null)
+                        continue;
+
+                    if (annotations == null)
+                        annotations = new StringDictionary();
+
+                    annotations[name] = value;
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static bool TryLookupNamedSingle(
             string text,
             ref float value
@@ -1331,6 +1691,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static bool LooksLikeVersion(
+            string text
+            )
+        {
+            if (String.IsNullOrEmpty(text))
+                return false;
+
+            Regex regEx = versionRegEx;
+
+            if (regEx == null)
+                return false;
+
+            Match match = regEx.Match(text);
+
+            if (match == null)
+                return false;
+
+            return match.Success;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal static ReturnCode GetVersion(
             string text,
             CultureInfo cultureInfo,
@@ -1369,7 +1751,7 @@ namespace Eagle._Components.Public
         {
             try
             {
-                if (!String.IsNullOrEmpty(text))
+                if (LooksLikeVersion(text))
                 {
                     //
                     // FIXME: *COMPAT* This is not 100% Tcl
@@ -1378,7 +1760,6 @@ namespace Eagle._Components.Public
                     // TODO: No TryParse, eh?
                     //
                     value = new Version(text);
-
                     return ReturnCode.Ok;
                 }
             }
@@ -1612,6 +1993,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static bool LooksLikeGuid(
+            string text
+            )
+        {
+            if (String.IsNullOrEmpty(text))
+                return false;
+
+            Regex regEx = guidRegEx;
+
+            if (regEx == null)
+                return false;
+
+            Match match = regEx.Match(text);
+
+            if (match == null)
+                return false;
+
+            return match.Success;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal static ReturnCode GetGuid(
             string text,
             CultureInfo cultureInfo,
@@ -1651,13 +2054,12 @@ namespace Eagle._Components.Public
         {
             try
             {
-                if (!String.IsNullOrEmpty(text))
+                if (LooksLikeGuid(text))
                 {
                     //
                     // TODO: No TryParse, eh?
                     //
                     value = new Guid(text);
-
                     return ReturnCode.Ok;
                 }
             }
@@ -2317,6 +2719,12 @@ namespace Eagle._Components.Public
                 }
                 else
                 {
+                    TraceOps.LockTrace(
+                        "GetAnyTypeViaCallback",
+                        typeof(Value).Name, false,
+                        TracePriority.LockError,
+                        interpreter.MaybeWhoHasLock());
+
                     if (errors == null)
                         errors = new ResultList();
 
@@ -5463,29 +5871,29 @@ namespace Eagle._Components.Public
                 {
                     INumber number = new Variant(innerValue);
 
-                    if (number.IsIntegral() &&
-                        number.ToWideInteger(ref value))
+                    if (number.IsIntegral())
                     {
-                        return ReturnCode.Ok;
-                    }
-                    else
-                    {
-                        error = MaybeInvokeErrorCallback(String.Format(
-                            "could not convert {0} to wide integer",
-                            FormatOps.WrapOrNull(innerValue)));
+                        if (number.ToWideInteger(ref value))
+                        {
+                            return ReturnCode.Ok;
+                        }
+                        else
+                        {
+                            error = MaybeInvokeErrorCallback(String.Format(
+                                "could not convert {0} to wide integer",
+                                FormatOps.WrapOrNull(innerValue)));
 
-                        return ReturnCode.Error;
+                            return ReturnCode.Error;
+                        }
                     }
                 }
-                else
-                {
-                    //
-                    // NOTE: Defer to normal string processing.
-                    //
-                    return GetWideInteger2(
-                        getValue.String, flags, cultureInfo,
-                        ref value, ref error, ref exception);
-                }
+
+                //
+                // NOTE: Defer to normal string processing.
+                //
+                return GetWideInteger2(
+                    getValue.String, flags, cultureInfo,
+                    ref value, ref error, ref exception);
             }
             else
             {
@@ -7382,9 +7790,11 @@ namespace Eagle._Components.Public
                     }
                     else
                     {
-                        TraceOps.DebugTrace(
-                            "GetNestedMember: could not lock interpreter",
-                            typeof(Value).Name, TracePriority.LockWarning);
+                        TraceOps.LockTrace(
+                            "GetNestedMember",
+                            typeof(Value).Name, false,
+                            TracePriority.LockWarning,
+                            interpreter.MaybeWhoHasLock());
                     }
                 }
                 finally
@@ -7740,6 +8150,12 @@ namespace Eagle._Components.Public
                 }
                 else
                 {
+                    TraceOps.LockTrace(
+                        "GetNestedMember",
+                        typeof(Value).Name, false,
+                        TracePriority.LockError,
+                        interpreter.MaybeWhoHasLock());
+
                     error = MaybeInvokeErrorCallback(
                         "could not lock interpreter");
                 }
@@ -7897,9 +8313,11 @@ namespace Eagle._Components.Public
                     }
                     else
                     {
-                        TraceOps.DebugTrace(
-                            "GetNestedObject: could not lock interpreter",
-                            typeof(Value).Name, TracePriority.LockWarning);
+                        TraceOps.LockTrace(
+                            "GetNestedObject",
+                            typeof(Value).Name, false,
+                            TracePriority.LockWarning,
+                            interpreter.MaybeWhoHasLock());
                     }
                 }
                 finally
@@ -7931,7 +8349,7 @@ namespace Eagle._Components.Public
                 if (interpreter != null)
                     interpreter.InternalHardTryLock(ref locked); /* TRANSACTIONAL */
 
-                if (locked)
+                if (locked || (interpreter == null))
                 {
                     //
                     // NOTE: *WARNING* Empty opaque object handle names are allowed,
@@ -8556,6 +8974,12 @@ namespace Eagle._Components.Public
                 }
                 else
                 {
+                    TraceOps.LockTrace(
+                        "GetNestedObject",
+                        typeof(Value).Name, false,
+                        TracePriority.LockError,
+                        interpreter.MaybeWhoHasLock());
+
                     error = MaybeInvokeErrorCallback(
                         "could not lock interpreter");
                 }
@@ -9476,9 +9900,11 @@ namespace Eagle._Components.Public
                     }
                     else
                     {
-                        TraceOps.DebugTrace(
-                            "MaybeGetDateTimeParameters: could not lock interpreter",
-                            typeof(Value).Name, TracePriority.LockWarning);
+                        TraceOps.LockTrace(
+                            "MaybeGetDateTimeParameters",
+                            typeof(Value).Name, false,
+                            TracePriority.LockWarning,
+                            interpreter.MaybeWhoHasLock());
                     }
                 }
                 finally

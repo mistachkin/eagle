@@ -28,22 +28,31 @@ namespace Eagle._Interfaces.Public
 
         AsyncCallback GetAsyncCallback();
         EventHandler GetEventHandler();
+
         ThreadStart GetThreadStart();
         ParameterizedThreadStart GetParameterizedThreadStart();
+        WaitCallback GetWaitCallback();
+
         GenericCallback GetGenericCallback();
         DynamicInvokeCallback GetDynamicInvokeCallback();
 
         void FireAsyncCallback(IAsyncResult ar); /* System.AsyncCallback */
         void FireEventHandler(object sender, EventArgs e); /* System.EventHandler */
+
         void FireThreadStart(); /* System.Threading.ThreadStart */
         void FireParameterizedThreadStart(object obj); /* System.Threading.ParameterizedThreadStart */
+        void FireWaitCallback(object state); /* System.Threading.WaitCallback */
+
         void FireGenericCallback(); /* Eagle._Components.Public.Delegates.GenericCallback */
         object FireDynamicInvokeCallback(params object[] args); /* System.Delegate.DynamicInvoke */
 
         void FireAsyncCallback(IAsyncResult ar, StringList arguments);
         void FireEventHandler(object sender, EventArgs e, StringList arguments);
+
         void FireThreadStart(StringList arguments);
         void FireParameterizedThreadStart(object obj, StringList arguments);
+        void FireWaitCallback(object state, StringList arguments);
+
         void FireGenericCallback(StringList arguments);
         object FireDynamicInvokeCallback(object[] args, StringList arguments);
 

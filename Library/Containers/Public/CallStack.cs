@@ -128,14 +128,24 @@ namespace Eagle._Containers.Public
         #region IMaybeDisposed Members
         public bool Disposed
         {
-            get { return disposed; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return disposed;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public bool Disposing
         {
-            get { return false; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return false;
+            }
         }
         #endregion
 

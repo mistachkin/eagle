@@ -1052,12 +1052,12 @@ namespace Eagle._Components.Private
             result["flags"].Add("ntypes");
 #endif
 
-            result["flags"].Add("paflags");
             result["flags"].Add("pflags");
-            result["flags"].Add("prflags");
             result["flags"].Add("scflags");
             result["flags"].Add("seflags");
             result["flags"].Add("sflags");
+            result["flags"].Add("spaflags");
+            result["flags"].Add("sprflags");
 
             result["flags"].Sort();
             #endregion
@@ -1087,6 +1087,7 @@ namespace Eagle._Components.Private
             result["host"].Add("rehash");
             result["host"].Add("style");
             result["host"].Add("useattach");
+            result["host"].Add("useforce");
 
             result["host"].Sort();
             #endregion
@@ -2579,10 +2580,6 @@ namespace Eagle._Components.Private
                 new StringPair("?options?",
                     "Sets the local result to the specified value.  The global result is untouched."));
 
-            result.Add("paflags",
-                new StringPair("?flags?",
-                    "Displays or sets the package creation flags for the interactive interpreter.  " + packageFlagsHelpItem));
-
             result.Add("pause",
                 new StringPair("?threadId? ?appDomainId? ?microseconds?",
                     "Pauses the specified interactive debuggging session."));
@@ -2601,10 +2598,6 @@ namespace Eagle._Components.Private
                 new StringPair(null,
                     "Sets the local result to the previous result for the interactive interpreter.  The global result is untouched."));
 #endif
-
-            result.Add("prflags",
-                new StringPair("?flags?",
-                    "Displays or sets the procedure creation flags for the interactive interpreter.  " + procedureFlagsHelpItem));
 
             result.Add("ptest",
                 new StringPair("?pattern? ?all? ?extraPath?",
@@ -2687,6 +2680,14 @@ namespace Eagle._Components.Private
             result.Add("seflags",
                 new StringPair("?flags?",
                     "Displays or sets the shared engine flags for the interactive interpreter.  " + engineFlagsHelpItem));
+
+            result.Add("spaflags",
+                new StringPair("?flags?",
+                    "Displays or sets the shared package creation flags for the interactive interpreter.  " + packageFlagsHelpItem));
+
+            result.Add("sprflags",
+                new StringPair("?flags?",
+                    "Displays or sets the shared procedure creation flags for the interactive interpreter.  " + procedureFlagsHelpItem));
 
             /* LOCAL/GLOBAL RESULT */
             result.Add("setr",
@@ -2811,6 +2812,10 @@ namespace Eagle._Components.Private
             result.Add("useattach",
                 new StringPair(null,
                     "Toggles whether an attempt will be made by the interpreter host to use an existing interface, if any."));
+
+            result.Add("useforce",
+                new StringPair(null,
+                    "Toggles whether the status of the existing interface will be ignored."));
 
             result.Add("version",
                 new StringPair("?banner? ?legalese? ?source? ?update? ?context? ?plugins? ?certificate? ?options? ?compactMode?",
@@ -3849,8 +3854,7 @@ namespace Eagle._Components.Private
                             displayHost.WriteLine(String.Format(
                                 "{0}-{1} : Copies the interpreter settings from the interpreter,\n" +
                                 "{0}            recreates the interpreter based (mostly) on the old\n" +
-                                "{0}            settings, and then continues processing\n"+
-                                "{0}            arguments.",
+                                "{0}            settings, and then continues processing arguments.\n",
                                 Characters.HorizontalTab, CommandLineOption.Recreate));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
@@ -4003,6 +4007,12 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab));
                             displayHost.WriteLine();
                             WriteSectionHeader(displayHost, "Environment Variables", UsageWidth);
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything],\n" +
+                                "{0}plugins may be loaded on any thread; otherwise, they may be loaded\n" +
+                                "{0}only on the primary thread for the associated interpreter.",
+                                Characters.HorizontalTab, EnvVars.AllowAnyThread));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything],\n" +
@@ -4203,6 +4213,12 @@ namespace Eagle._Components.Private
                                 "{0}the value cannot be converted to host creation flags, it will be\n"+
                                 "{0}ignored.",
                                 Characters.HorizontalTab, EnvVars.HostCreateFlags));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything],\n" +
+                                "{0}created result objects will include managed call stack information in\n" +
+                                "{0}their string representations.",
+                                Characters.HorizontalTab, EnvVars.IncludeResultStack));
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set, its value will be\n" +
@@ -4477,6 +4493,11 @@ namespace Eagle._Components.Private
                             displayHost.WriteLine();
 #endif
                             displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything],\n" +
+                                "{0}created result objects will capture managed call stack information.",
+                                Characters.HorizontalTab, EnvVars.PopulateResultStack));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], the\n" +
                                 "{0}interpreter host will attempt to load the specified profile.",
                                 Characters.HorizontalTab, EnvVars.Profile));
@@ -4499,11 +4520,6 @@ namespace Eagle._Components.Private
                                 Characters.HorizontalTab, EnvVars.RefreshAppSettings));
                             displayHost.WriteLine();
 #endif
-                            displayHost.WriteLine(String.Format(
-                                "{0}If the \"{1}\" environment variable is set [to anything], created\n" +
-                                "{0}result objects will capture managed call stack information.",
-                                Characters.HorizontalTab, EnvVars.ResultStack));
-                            displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], enable \"safe\"\n" +
                                 "{0}mode for the interpreter (all \"unsafe\" commands will be hidden).",
@@ -4577,6 +4593,14 @@ namespace Eagle._Components.Private
                                 "{0}interpreted as the name of the directory containing the stub assembly.",
                                 Characters.HorizontalTab, EnvVars.StubPath));
                             displayHost.WriteLine();
+#if TEST
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], extra\n" +
+                                "{0}commands, functions, etc, may be added by the test plugin to all\n" +
+                                "{0}created interpreters.",
+                                Characters.HorizontalTab, EnvVars.TestCommands));
+                            displayHost.WriteLine();
+#endif
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], unhandled\n" +
                                 "{0}exceptions are rethrown after being reported.",
@@ -4679,6 +4703,11 @@ namespace Eagle._Components.Private
                             displayHost.WriteLine();
                             displayHost.WriteLine(String.Format(
                                 "{0}If the \"{1}\" environment variable is set [to anything], the\n" +
+                                "{0}existing console status will be ignored.",
+                                Characters.HorizontalTab, EnvVars.UseForce));
+                            displayHost.WriteLine();
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" environment variable is set [to anything], the\n" +
                                 "{0}internal wrapper class will be used for named events.",
                                 Characters.HorizontalTab, EnvVars.UseNamedEvents));
                             displayHost.WriteLine();
@@ -4714,6 +4743,16 @@ namespace Eagle._Components.Private
                                 "{0}process.",
                                 Characters.HorizontalTab, EnvVars.Verbose));
                             displayHost.WriteLine();
+#if NETWORK
+                            displayHost.WriteLine(String.Format(
+                                "{0}If the \"{1}\" -OR- \"{2}\" environment\n" +
+                                "{0}variables are set [to anything], the first value will be included\n" +
+                                "{0}within library created HTTP/1.0 \"User-Agent\" header values.",
+                                Characters.HorizontalTab, String.Format(EnvVars.WebClientTagFormat,
+                                GlobalState.GetCurrentSystemThreadId()), String.Format(
+                                EnvVars.WebClientTagFormat, ProcessOps.GetId())));
+                            displayHost.WriteLine();
+#endif
                         }
 
                         result = String.Empty;
@@ -5170,9 +5209,10 @@ namespace Eagle._Components.Private
 
                             string[] appDomainContexts = {
                                 "primary=" +
-                                    AppDomainOps.GetIdString(interpreter.GetAppDomain()),
+                                    AppDomainOps.GetIdString(
+                                        interpreter.GetAppDomain(), true),
                                 "current=" +
-                                    AppDomainOps.GetCurrentId().ToString()
+                                    AppDomainOps.GetIdString(true)
                             };
 
                             Interpreter parentInterpreter =

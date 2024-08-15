@@ -30,6 +30,8 @@ namespace Eagle._Interfaces.Public
 
         int Count { get; }
 
+        bool ContainsKey(string key, StringComparison comparisonType);
+
         string GetItem(int index);
         IPair<string> GetPair(int index);
 

@@ -242,23 +242,26 @@ runTest {test function-2.16 {flags function} -setup {
   object invoke -flags +NonPublic \
       Interpreter.GetActive ExpressionLevels 0
 
-  set savedFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive ExpressionFlags]
+  package require Eagle.Test
 
-  object invoke -flags +NonPublic \
-      Interpreter.GetActive ExpressionFlags Default
+  set savedExpressionFlags [enableExpressionFlags]
+  enableExpressionFlags Default; # SET
 } -body {
   list [expr {1 == 0}] [expr {1 == 1}] [expr {flags("+BooleanToInteger")}] \
       [expr {1 == 0}] [expr {1 == 1}] [expr {flags("-BooleanToInteger")}] \
       [expr {1 == 0}] [expr {1 == 1}]
 } -cleanup {
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      ExpressionFlags [appendArgs = $savedFlags]
+  catch {
+    enableExpressionFlags $savedExpressionFlags
+    unset -nocomplain savedExpressionFlags
+  }
 
-  object invoke -flags +NonPublic \
-      Interpreter.GetActive ExpressionLevels $savedLevels
+  catch {
+    object invoke -flags +NonPublic \
+        Interpreter.GetActive ExpressionLevels $savedLevels
 
-  unset -nocomplain savedFlags savedLevels
+    unset -nocomplain savedLevels
+  }
 } -constraints {eagle command.object dotNetOrDotNetCore\
 compile.EXPRESSION_FLAGS} -result {False True {Default, BooleanToInteger} 0 1\
 Default False True}}

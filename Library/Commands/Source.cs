@@ -166,7 +166,7 @@ namespace Eagle._Commands
                         if (withInfo)
                         {
                             interpreter.BeginArgumentLocation(
-                                out savedInterpreterStateFlags);
+                                null, out savedInterpreterStateFlags);
                         }
                         else
                         {

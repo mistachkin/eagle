@@ -698,7 +698,9 @@ namespace eval ::Eagle {
     #       file security information.
     #
     if {[lsearch -exact $options -nocopyopts] == -1} then {
-      lappend command /E
+      if {[lsearch -exact $options -nosubdirs] == -1} then {
+        lappend command /E
+      }
 
       if {[isEagle] && [isAdministrator]} then {
         lappend command /ZB /COPYALL

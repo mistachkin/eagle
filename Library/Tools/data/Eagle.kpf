@@ -9,7 +9,7 @@
 <command cwd="" doNotOpenOutputWindow="0" env="" icon="../../Resources/Eagle.ico" id="7ad54493-f2fc-4647-8dea-07486117de9f" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate string with Eagle (debug)..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
 "%p\..\..\..\bin\Debug\bin\EagleShell.exe" -evaluate "%(ask:Script:)"</command>
 <URL icon="../../Resources/Eagle.ico" id="b491f1be-95b1-4a5a-aca3-1f346f80ce3a" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" keyboard_shortcut="" name="Visit Eagle website...">
-https://eagle.to/</URL>
+https://urn.to/r/eagle</URL>
 <command cwd="" doNotOpenOutputWindow="0" env="" icon="../../Resources/Eagle.ico" id="f7cd8693-838e-4e33-b7b5-6c076a7b121f" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Start Eagle Shell (release)..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
 "%p\..\..\..\bin\Release\bin\EagleShell.exe"</command>
 <command cwd="" doNotOpenOutputWindow="0" env="" icon="../../Resources/Tcl.ico" id="c2db7527-0502-4e40-8c8f-e525597f1ff6" idref="3ced8182-f3e0-4bc1-a066-361336a9aa7c" insertOutput="0" keyboard_shortcut="" name="Evaluate file with Tcl..." operateOnSelection="0" parseOutput="0" parseRegex="" runIn="new-console" showParsedOutputList="0">
@@ -238,6 +238,7 @@ https://eagle.to/</URL>
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="read3.eagle" url="../../Tests/data/read3.eagle" id="30b2bd88-2111-443f-aae4-18735db4d8b5" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="read4.eagle" url="../../Tests/data/read4.eagle" id="8cf41845-ab0b-4c0c-b96c-3aa2c20b4df5" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="script.eagle" url="../../Tests/data/script.eagle" id="071bb374-1572-44e0-9a90-c24338af96cf" />
+<file idref="72843424-6633-4032-b941-e68f1d5281aa" name="settings.eagle" url="../../Tests/data/settings.eagle" id="5e075fc4-cdb8-4ca8-9d95-f68d176f0a54" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="settings.ini" url="../../Tests/data/settings.ini" id="affb48d7-9b5e-4c0b-adba-538a6d40197a" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="settings.xml" url="../../Tests/data/settings.xml" id="730e9b55-1cf3-46b3-884f-e0e9d0ad088b" />
 <file idref="72843424-6633-4032-b941-e68f1d5281aa" name="showArgv.eagle" url="../../Tests/data/showArgv.eagle" id="7ef78385-1782-438d-964b-9b0105a3b24a" />

@@ -43,6 +43,7 @@ namespace Eagle._Components.Shared
         private static readonly string DownloadUriName = "download";
         private static readonly string ScriptUriName = "script";
         private static readonly string AuxiliaryUriName = "auxiliary";
+        private static readonly string XmlSchemaName = "xmlSchema";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -461,6 +462,25 @@ namespace Eagle._Components.Shared
             //       most likely need to be changed as well.
             //
             Uri uri = GetAssemblyUri(assembly, AuxiliaryUriName);
+
+            if (uri != null)
+                return uri;
+
+            return GetAssemblyUri(assembly); /* COMPAT: Eagle beta */
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static Uri GetAssemblyXmlSchemaUri(
+            Assembly assembly
+            )
+        {
+            //
+            // TODO: Make a new assembly attribute for this?  In addition,
+            //       the GlobalState.thisAssemblyNamespaceUri field would
+            //       most likely need to be changed as well.
+            //
+            Uri uri = GetAssemblyUri(assembly, XmlSchemaName);
 
             if (uri != null)
                 return uri;

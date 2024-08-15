@@ -258,7 +258,8 @@ namespace eval ::Eagle {
 
     if {$force || ![info exists ::no(dotNetCoreVersions)]} then {
       return [list [list 2 0] [list 2 1] [list 2 2] [list 3 0] \
-          [list 3 1] [list 5 0] [list 6 0] [list 7 0] [list 8 0]]
+          [list 3 1] [list 5 0] [list 6 0] [list 7 0] [list 8 0] \
+          [list 9 0]]
     } else {
       return [list]
     }
@@ -1748,7 +1749,7 @@ namespace eval ::Eagle {
             if {[isEagle] && \
                 ![info exists ::no(detectRepositoryUrlType)]} then {
               if {[catch {
-                uri download -inline $remoteUrl
+                uri download -timeouttype Network -inline $remoteUrl
               } remoteBody] == 0} then {
                 if {[regexp -- {<!--\s*?TestBaseUrl\s*?=\s*?"(.*?)"\s*?-->} \
                         $remoteBody dummy baseUrl] || \
@@ -2135,7 +2136,7 @@ namespace eval ::Eagle {
     #
     tputs $channel "---- checking for official stable release in progress... "
 
-    if {[info exists ::env(OFFICIAL)] && [info exists ::env(STABLE)]} then {
+    if {[isOfficialStableReleaseInProgress]} then {
       addConstraint officialStableReleaseInProgress
 
       tputs $channel yes\n
@@ -3485,7 +3486,7 @@ namespace eval ::Eagle {
           channel uri timeout {pattern ""} {quiet false} } {
     if {[isEagle]} then {
       if {[catch {
-        uri download -inline -timeout $timeout $uri
+        uri download -timeouttype Network -inline -timeout $timeout $uri
       } response] == 0} then {
         if {[string length $pattern] == 0 || \
             [regexp -- $pattern $response]} then {
@@ -3526,18 +3527,31 @@ namespace eval ::Eagle {
     tputs $channel [appendArgs \
         "---- checking for Internet connectivity to URI \"" $uri "\"... "]
 
-    set pattern {[^\w]The Eagle Project[^\w]}
+    if {$uri eq "https://urn.to/r"} then {
+      set uri https://urn.to/r/home
+    }
 
-    if {[maybeDownloadFromUri \
-        $channel $uri $timeout $pattern true]} then {
-      set host [string map [list http:// "" https:// ""] $uri]
-      regsub -all -- {:.*$|/.*$} $host "" host
+    set host [string map [list http:// "" https:// ""] $uri]
+    regsub -all -- {:.*$|/.*$} $host "" host
+    set constraint [appendArgs internet_ $host]
 
-      addConstraint [appendArgs internet_ $host]
-
-      tputs $channel yes\n
+    if {[haveConstraint $constraint]} then {
+      tputs $channel duplicate\n
     } else {
-      tputs $channel no\n
+      if {[info exists ::test_host] && $uri eq $::test_host} then {
+        set pattern {[^\w]The Eagle Project[^\w]}
+      } else {
+        set pattern ""
+      }
+
+      if {[maybeDownloadFromUri \
+          $channel $uri $timeout $pattern true]} then {
+        addConstraint $constraint
+
+        tputs $channel yes\n
+      } else {
+        tputs $channel no\n
+      }
     }
   }
 
@@ -4081,7 +4095,7 @@ namespace eval ::Eagle {
           #       started this process.
           #
           set document [object create -alias System.Xml.XmlDocument]
-          $document LoadXml [readFile $fileName]
+          $document LoadXml [readSharedFile $fileName]
 
           #
           # NOTE: Setup the XML namespace manager for use when using XPath

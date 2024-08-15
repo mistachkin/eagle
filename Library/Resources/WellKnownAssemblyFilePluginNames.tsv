@@ -15,4 +15,6 @@ Harpy.Limited.dll	8bf43b4749e46a0b Licensing.Core Licensing.Standard Licensing.E
 Harpy.Sdk.dll	8bf43b4749e46a0b Licensing.Core Licensing.Standard Licensing.Enterprise Security.Core
 HotKey.dll	1265135207d01249 HotKey.Enterprise
 Kapok.dll	a98da1538d38809e Kapok.Enterprise
+KeyPair.exe	9ca6d7c646f437e6 KeyPair.Generator
+Plugin.dll	29c6297630be05eb Sample.Class3 Sample.Class4
 Zeus.dll	000c2706b38b0eae Zeus.Enterprise

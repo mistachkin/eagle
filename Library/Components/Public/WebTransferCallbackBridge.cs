@@ -37,19 +37,20 @@ namespace Eagle._Components.Public
         #region Public Methods
         public ReturnCode WebTransferCallback(
             Interpreter interpreter,
-            WebFlags flags,
+            WebFlags webFlags,
             IClientData clientData,
             ref Result error
             )
         {
             if (callback == null)
             {
-                error = "invalid new web client callback";
+                error = "invalid web transfer callback";
                 return ReturnCode.Error;
             }
 
             return callback.WebTransfer(
-                interpreter, flags, clientData, ref error);
+                interpreter, webFlags, clientData,
+                ref error);
         }
         #endregion
 

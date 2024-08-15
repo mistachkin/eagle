@@ -31,7 +31,7 @@ namespace Eagle._Components.Public
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        ITypeAndName, IDisposable
+        ISupportVariable, ITypeAndName, IDisposable
     {
         #region Private Constants
         #region IDbDataParameter Names
@@ -250,26 +250,6 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Members
-        #region ITypeAndName Members
-        private string typeName;
-        public string TypeName
-        {
-            get { CheckDisposed(); return typeName; }
-            set { throw new NotSupportedException(); }
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private Type type;
-        public Type Type
-        {
-            get { CheckDisposed(); return type; }
-            set { throw new NotSupportedException(); }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region Public Properties
         private DbVariableFlags dbVariableFlags;
         public DbVariableFlags DbVariableFlags
@@ -352,7 +332,91 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Array Sub-Command Helper Methods
+        #region Script Helper Methods
+        public ReturnCode AddVariable(
+            Interpreter interpreter,
+            string name,
+            ref Result error
+            )
+        {
+            CheckDisposed();
+
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            return interpreter.AddVariable(VariableFlags.Array, name,
+                new TraceList(new TraceCallback[] { TraceCallback }),
+                true, ref error);
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Introspection Helper Methods
+        public StringPairList ToList()
+        {
+            CheckDisposed();
+
+            StringPairList list = new StringPairList();
+
+            list.Add("dbVariableFlags", dbVariableFlags.ToString());
+            list.Add("dbConnectionType", dbConnectionType.ToString());
+
+            if (assemblyFileName != null)
+                list.Add("assemblyFileName", assemblyFileName);
+
+            if (typeName != null)
+                list.Add("typeName", typeName);
+
+            if (connectionString != null)
+                list.Add("connectionString", connectionString);
+
+            if (tableName != null)
+                list.Add("tableName", tableName);
+
+            if (nameColumnName != null)
+                list.Add("nameColumnName", nameColumnName);
+
+            if (valueColumnName != null)
+                list.Add("valueColumnName", valueColumnName);
+
+            list.Add("permissions", permissions.ToString());
+            list.Add("useRowId", useRowId.ToString());
+
+            if (rowIdColumnName != null)
+                list.Add("rowIdColumnName", rowIdColumnName);
+
+            return list;
+        }
+        #endregion
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ITypeAndName Members
+        private string typeName;
+        public string TypeName
+        {
+            get { CheckDisposed(); return typeName; }
+            set { throw new NotSupportedException(); }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private Type type;
+        public Type Type
+        {
+            get { CheckDisposed(); return type; }
+            set { throw new NotSupportedException(); }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region ISupportVariable Members
         public bool DoesExist(
             Interpreter interpreter,
             string name
@@ -390,6 +454,31 @@ namespace Eagle._Components.Public
             bool names,
             bool values,
             ref Result error
+            )
+        {
+            CheckDisposed();
+
+            ObjectDictionary dictionary = null;
+
+            if (GetListViaSelect(
+                    interpreter, names, values, ref dictionary,
+                    ref error) == ReturnCode.Ok)
+            {
+                return dictionary;
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ObjectDictionary GetList(
+            Interpreter interpreter, /* in */
+            string pattern,          /* in: NOT USED */
+            bool noCase,             /* in: NOT USED */
+            bool names,              /* in */
+            bool values,             /* in */
+            ref Result error         /* out */
             )
         {
             CheckDisposed();
@@ -466,70 +555,6 @@ namespace Eagle._Components.Public
 
             return null;
         }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Script Helper Methods
-        public ReturnCode AddVariable(
-            Interpreter interpreter,
-            string name,
-            ref Result error
-            )
-        {
-            CheckDisposed();
-
-            if (interpreter == null)
-            {
-                error = "invalid interpreter";
-                return ReturnCode.Error;
-            }
-
-            return interpreter.AddVariable(VariableFlags.Array, name,
-                new TraceList(new TraceCallback[] { TraceCallback }),
-                true, ref error);
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Introspection Helper Methods
-        public StringPairList ToList()
-        {
-            CheckDisposed();
-
-            StringPairList list = new StringPairList();
-
-            list.Add("dbVariableFlags", dbVariableFlags.ToString());
-            list.Add("dbConnectionType", dbConnectionType.ToString());
-
-            if (assemblyFileName != null)
-                list.Add("assemblyFileName", assemblyFileName);
-
-            if (typeName != null)
-                list.Add("typeName", typeName);
-
-            if (connectionString != null)
-                list.Add("connectionString", connectionString);
-
-            if (tableName != null)
-                list.Add("tableName", tableName);
-
-            if (nameColumnName != null)
-                list.Add("nameColumnName", nameColumnName);
-
-            if (valueColumnName != null)
-                list.Add("valueColumnName", valueColumnName);
-
-            list.Add("permissions", permissions.ToString());
-            list.Add("useRowId", useRowId.ToString());
-
-            if (rowIdColumnName != null)
-                list.Add("rowIdColumnName", rowIdColumnName);
-
-            return list;
-        }
-        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

@@ -96,7 +96,7 @@ namespace Eagle._Commands
             "setup", "sharedlibextension", "shelllibrary",
             "source", "subcommands", "syntax", "sysvars",
             "tclversion", "tid", "transactions",
-            "user", "varlinks", "vars",
+            "undefined", "user", "varlinks", "vars",
             "whitespace", "windows", "windowtext"
         });
 
@@ -145,7 +145,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -196,7 +196,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            result = AppDomainOps.GetIdString(interpreter.GetAppDomain());
+                                            result = AppDomainOps.GetId(interpreter);
                                         }
                                         else
                                         {
@@ -1867,7 +1867,8 @@ namespace Eagle._Commands
 #if NETWORK
                                                                 if (refresh && !interpreter.InternalIsSafe())
                                                                 {
-                                                                    result = WebOps.GetTimeoutOrDefault(interpreter);
+                                                                    result = WebOps.GetTimeoutOrDefault(
+                                                                        interpreter, TimeoutType.Network);
                                                                 }
                                                                 else
                                                                 {
@@ -2632,11 +2633,12 @@ namespace Eagle._Commands
                                                 {
                                                     if (EntityOps.IsLink(variable))
                                                     {
-                                                        string linkIndex = variable.LinkIndex;
+                                                        string linkIndex = null;
                                                         Result linkError = null;
 
                                                         variable = EntityOps.FollowLinks(
-                                                            variable, flags, 1, ref linkError);
+                                                            variable, flags, 0, ref linkIndex,
+                                                            ref linkError);
 
                                                         if (variable != null)
                                                         {
@@ -4063,6 +4065,25 @@ namespace Eagle._Commands
                                         else
                                         {
                                             result = "wrong # args: should be \"info transactions ?pattern?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
+                                case "undefined":
+                                    {
+                                        if ((arguments.Count == 2) || (arguments.Count == 3))
+                                        {
+                                            string pattern = null;
+
+                                            if (arguments.Count == 3)
+                                                pattern = arguments[2];
+
+                                            result = interpreter.VariablesToList(
+                                                VariableFlags.Undefined, pattern, false);
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"info undefined ?pattern?\"";
                                             code = ReturnCode.Error;
                                         }
                                         break;

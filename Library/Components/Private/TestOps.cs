@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -39,6 +40,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        private static readonly string SetCommandName = "::set";
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         internal static readonly string TestToken = "%test%";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -313,12 +318,14 @@ namespace Eagle._Components.Private
 
             if (interpreter != null)
             {
+                CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+
                 if (mode == MatchMode.Expression)
                 {
                     if ((interpreter.EvaluateExpression(
                             pattern, ref result) == ReturnCode.Ok) &&
                         (Engine.ToBoolean(
-                            result, interpreter.InternalCultureInfo, ref match,
+                            result, cultureInfo, ref match,
                             ref result) == ReturnCode.Ok))
                     {
                         code = ReturnCode.Ok;
@@ -664,16 +671,106 @@ namespace Eagle._Components.Private
         {
             if (interpreter != null)
             {
+                CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+
                 switch (type)
                 {
-                    case TestInformationType.CurrentName:
+                    case TestInformationType.PreviousAndCurrentName:
                         {
-                            //
-                            // NOTE: *WARNING* Empty test names are allowed,
-                            //       please do not change this to "!String.IsNullOrEmpty".
-                            //
                             if (add)
                             {
+                                //
+                                // NOTE: *WARNING* Empty test names are allowed,
+                                //       please do not change this to "!String.IsNullOrEmpty".
+                                //
+                                if (name != null)
+                                {
+                                    lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                    {
+                                        interpreter.TestPrevious = interpreter.TestCurrent;
+                                        interpreter.TestCurrent = name;
+
+                                        return ReturnCode.Ok;
+                                    }
+                                }
+                                else
+                                {
+                                    error = "invalid test name";
+                                }
+                            }
+                            else
+                            {
+                                //
+                                // NOTE: *WARNING* Empty test names are allowed,
+                                //       please do not change this to "!String.IsNullOrEmpty".
+                                //
+                                if (name == null)
+                                {
+                                    lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                    {
+                                        interpreter.TestPrevious = interpreter.TestCurrent;
+                                        interpreter.TestCurrent = null;
+
+                                        return ReturnCode.Ok;
+                                    }
+                                }
+                                else
+                                {
+                                    error = "invalid test name";
+                                }
+                            }
+                            break;
+                        }
+                    case TestInformationType.PreviousName:
+                        {
+                            if (add)
+                            {
+                                //
+                                // NOTE: *WARNING* Empty test names are allowed,
+                                //       please do not change this to "!String.IsNullOrEmpty".
+                                //
+                                if (name != null)
+                                {
+                                    lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                    {
+                                        interpreter.TestPrevious = name;
+                                        return ReturnCode.Ok;
+                                    }
+                                }
+                                else
+                                {
+                                    error = "invalid test name";
+                                }
+                            }
+                            else
+                            {
+                                //
+                                // NOTE: *WARNING* Empty test names are allowed,
+                                //       please do not change this to "!String.IsNullOrEmpty".
+                                //
+                                if (name == null)
+                                {
+                                    lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+                                    {
+                                        interpreter.TestPrevious = null;
+                                        return ReturnCode.Ok;
+                                    }
+                                }
+                                else
+                                {
+                                    error = "invalid test name";
+                                }
+                            }
+                            break;
+                        }
+                    case TestInformationType.CurrentName:
+                        {
+                            if (add)
+                            {
+                                //
+                                // NOTE: *WARNING* Empty test names are allowed,
+                                //       please do not change this to "!String.IsNullOrEmpty".
+                                //
                                 if (name != null)
                                 {
                                     lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
@@ -689,6 +786,10 @@ namespace Eagle._Components.Private
                             }
                             else
                             {
+                                //
+                                // NOTE: *WARNING* Empty test names are allowed,
+                                //       please do not change this to "!String.IsNullOrEmpty".
+                                //
                                 if (name == null)
                                 {
                                     lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
@@ -730,7 +831,7 @@ namespace Eagle._Components.Private
 
                                 if (Value.GetInteger2(
                                         StringOps.GetStringFromObject(value),
-                                        ValueFlags.AnyInteger, interpreter.InternalCultureInfo,
+                                        ValueFlags.AnyInteger, cultureInfo,
                                         ref intValue, ref error) == ReturnCode.Ok)
                                 {
                                     interpreter.TestRepeatCount = intValue;
@@ -744,10 +845,11 @@ namespace Eagle._Components.Private
                         {
                             lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
                             {
-                                object enumValue = EnumOps.TryParseFlags(interpreter,
-                                    typeof(TestOutputType), interpreter.TestVerbose.ToString(),
-                                    StringOps.GetStringFromObject(value), interpreter.InternalCultureInfo,
-                                    true, true, true, ref error);
+                                object enumValue = EnumOps.TryParseFlags(
+                                    interpreter, typeof(TestOutputType),
+                                    interpreter.TestVerbose.ToString(),
+                                    StringOps.GetStringFromObject(value),
+                                    cultureInfo, true, true, true, ref error);
 
                                 if (enumValue is TestOutputType)
                                 {
@@ -1120,6 +1222,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public static void AddSkippedTestData(
+            Interpreter interpreter,
+            StringBuilder testData,
+            string name,
+            StringList list
+            )
+        {
+            AppendFormat(
+                interpreter, testData, TestOutputType.Skip,
+                "++++ {0} SKIPPED: {1}", name,
+                list.ToString());
+
+            AppendLine(
+                interpreter, testData, TestOutputType.Skip);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode CheckConstraintExpression(
             Interpreter interpreter,
             int testLevels, /* NOTE: Use this instead of member variable, no need for lock. */
@@ -1173,11 +1293,11 @@ namespace Eagle._Components.Private
 
             if (code == ReturnCode.Ok)
             {
+                CultureInfo cultureInfo = interpreter.InternalCultureInfo;
                 bool value = false;
 
                 code = Engine.ToBoolean(
-                    result, interpreter.InternalCultureInfo, ref value,
-                    ref error);
+                    result, cultureInfo, ref value, ref error);
 
                 if (code != ReturnCode.Ok)
                 {
@@ -1260,13 +1380,9 @@ namespace Eagle._Components.Private
                         }
                     }
 
-                    AppendFormat(
-                        interpreter, testData, TestOutputType.Skip,
-                        "++++ {0} SKIPPED: {1}", name,
-                        matchList.ToString());
 
-                    AppendLine(
-                        interpreter, testData, TestOutputType.Skip);
+                    AddSkippedTestData(
+                        interpreter, testData, name, matchList);
                 }
 
                 //
@@ -1551,13 +1667,8 @@ namespace Eagle._Components.Private
                                                 }
                                             }
 
-                                            AppendFormat(
-                                                interpreter, testData, TestOutputType.Skip,
-                                                "++++ {0} SKIPPED: {1}", name,
-                                                matchList.ToString());
-
-                                            AppendLine(
-                                                interpreter, testData, TestOutputType.Skip);
+                                            AddSkippedTestData(
+                                                interpreter, testData, name, matchList);
                                         }
 
                                         //
@@ -2503,6 +2614,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static ReturnCode AddIsolatedVariableAssignment(
+            Interpreter interpreter,  /* in */
+            TestInformationType type, /* in */
+            StringList list,          /* in */
+            ref Result error          /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (list == null)
+            {
+                error = "invalid list";
+                return ReturnCode.Error;
+            }
+
+            Result result = null;
+
+            if (interpreter.GetTestInformation(type, ref result) != ReturnCode.Ok)
+            {
+                error = result;
+                return ReturnCode.Error;
+            }
+
+            list.Add(Characters.MinusSign + CommandLineOption.PreInitialize);
+
+            list.Add(new StringList(SetCommandName, FormatOps.VariableName(
+                Vars.Core.Tests, type.ToString()), result).ToString());
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static ReturnCode GetIsolatedExecutableArguments(
             Interpreter interpreter,   /* in */
             string fileName,           /* in */
@@ -2572,6 +2720,32 @@ namespace Eagle._Components.Private
             {
                 list.Add(Characters.MinusSign + CommandLineOption.Security);
                 list.Add(security.ToString());
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: Make sure that the isolated process has access to the
+            //       previous test name.
+            //
+            if (AddIsolatedVariableAssignment(
+                    interpreter, TestInformationType.PreviousName, list,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            //
+            // HACK: Make sure that the isolated process has access to the
+            //       current test name.
+            //
+            if (AddIsolatedVariableAssignment(
+                    interpreter, TestInformationType.CurrentName, list,
+                    ref error) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2857,6 +3031,11 @@ namespace Eagle._Components.Private
                 //
                 if ((fileNames != null) && (fileNames.Count > 0))
                 {
+                    CultureInfo cultureInfo = null;
+
+                    if (interpreter != null)
+                        cultureInfo = interpreter.InternalCultureInfo;
+
                     //
                     // NOTE: Make sure the file names are always evaluated
                     //       in a well-defined order.
@@ -2864,8 +3043,7 @@ namespace Eagle._Components.Private
                     IntDictionary duplicates = null;
 
                     fileNames.Sort(new _Comparers.StringDictionaryComparer(
-                        interpreter, true, null, false, false,
-                        (interpreter != null) ? interpreter.InternalCultureInfo : null,
+                        interpreter, true, null, false, false, cultureInfo,
                         ref duplicates));
 
                     //

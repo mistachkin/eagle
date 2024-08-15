@@ -35,8 +35,12 @@ namespace Eagle._Interfaces.Private
         int MaximumLevels { get; set; }
 
         int TrustedLevels { get; set; }
+
         int ScriptLevels { get; set; }
         int MaximumScriptLevels { get; set; }
+
+        int ScriptFileLevels { get; set; }
+        int MaximumScriptFileLevels { get; set; }
 
         int ParserLevels { get; set; }
         int MaximumParserLevels { get; set; }
@@ -52,8 +56,13 @@ namespace Eagle._Interfaces.Private
         int SubCommandLevels { get; set; }
         int SettingLevels { get; set; }
         int PackageLevels { get; set; }
+        int PackageIndexLevels { get; set; }
 
         InterpreterStateFlags InterpreterStateFlags { get; set; }
+
+        PackageFlags PackageFlags { get; set; }
+        PackageIndexFlags PackageIndexFlags { get; set; }
+        ProcedureFlags ProcedureFlags { get; set; }
 
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
         CacheFlags CacheFlags { get; set; }
@@ -88,6 +97,8 @@ namespace Eagle._Interfaces.Private
         PolicyDecision FileFinalDecision { get; set; }
         PolicyDecision StreamFinalDecision { get; set; }
 
+        int? ReadyTimeout { get; set; }
+
         bool Cancel { get; set; }
         bool Unwind { get; set; }
         bool Halt { get; set; }
@@ -104,6 +115,8 @@ namespace Eagle._Interfaces.Private
 #if PREVIOUS_RESULT
         Result PreviousResult { get; set; }
 #endif
+
+        Result LastError { get; set; }
 
         EngineFlags EngineFlags { get; set; }
 

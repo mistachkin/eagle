@@ -853,6 +853,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////
 
+        public virtual bool UseForce
+        {
+            get { CheckDisposed(); return baseHost.UseForce; }
+            set { CheckDisposed(); baseHost.UseForce = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public virtual bool NoTitle
         {
             get { CheckDisposed(); return baseHost.NoTitle; }
@@ -2832,14 +2840,24 @@ namespace Eagle._Hosts
         #region IMaybeDisposed Members
         public bool Disposed
         {
-            get { return disposed; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return disposed;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public bool Disposing
         {
-            get { throw new NotImplementedException(); }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                throw new NotImplementedException();
+            }
         }
         #endregion
 

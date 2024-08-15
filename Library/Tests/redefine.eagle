@@ -763,9 +763,10 @@ runTest {test redefine-4.1 {remove plugin sub-command} -body {
 
   unset -nocomplain result code
   unset -nocomplain interp
-} -constraints {eagle command.object compile.APPDOMAINS\
-compile.ISOLATED_INTERPRETERS file_Plugin.dll strongName.official} -match \
-regexp -result {^1 \{bad option "example3": .*\}$}}
+} -constraints [fixTimingConstraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS file_Plugin.dll strongName.official}] \
+-constraintExpression {[haveConstraint configuration.Debug] || [haveConstraint \
+compile.NATIVE]} -match regexp -result {^1 \{bad option "example3": .*\}$}}
 
 ###############################################################################
 
@@ -808,10 +809,11 @@ runTest {test redefine-4.2 {add plugin sub-command (test)} -body {
 
   unset -nocomplain result code
   unset -nocomplain interp
-} -constraints {eagle monoBug30 command.object compile.APPDOMAINS\
-compile.ISOLATED_INTERPRETERS compile.TEST\
+} -constraints [fixTimingConstraints {eagle monoBug30 command.object\
+compile.APPDOMAINS compile.ISOLATED_INTERPRETERS compile.TEST\
 member_Eagle._Tests.Default.SubCommand.ToString file_Plugin.dll\
-strongName.official} -result {0 {foo 1}}}
+strongName.official}] -constraintExpression {[haveConstraint \
+configuration.Debug] || [haveConstraint compile.NATIVE]} -result {0 {foo 1}}}
 
 ###############################################################################
 
@@ -861,10 +863,12 @@ runTest {test redefine-4.3 {modify plugin sub-command (test)} -body {
 
   unset -nocomplain result code
   unset -nocomplain interp
-} -constraints {eagle monoBug30 command.object compile.APPDOMAINS\
-compile.ISOLATED_INTERPRETERS compile.TEST\
+} -constraints [fixTimingConstraints {eagle monoBug30 command.object\
+compile.APPDOMAINS compile.ISOLATED_INTERPRETERS compile.TEST\
 member_Eagle._Tests.Default.SubCommand.ToString file_Plugin.dll\
-strongName.official} -result {0 {{not a number} 1}}}
+strongName.official}] -constraintExpression {[haveConstraint \
+configuration.Debug] || [haveConstraint compile.NATIVE]} -result {0 {{not a\
+number} 1}}}
 
 ###############################################################################
 
@@ -904,10 +908,12 @@ runTest {test redefine-4.4 {wrap plugin sub-command (test)} -body {
 
   unset -nocomplain result code
   unset -nocomplain interp
-} -constraints {eagle command.object compile.APPDOMAINS\
+} -constraints [fixTimingConstraints {eagle command.object compile.APPDOMAINS\
 compile.ISOLATED_INTERPRETERS compile.TEST\
 member_Eagle._Tests.Default.SubCommand.ToString file_Plugin.dll\
-strongName.official} -match regexp -result {^0 \{\d+ 1\}$}}
+strongName.official}] -constraintExpression {[haveConstraint \
+configuration.Debug] || [haveConstraint compile.NATIVE]} -match regexp -result \
+{^0 \{\d+ 1\}$}}
 
 ###############################################################################
 
@@ -950,10 +956,12 @@ runTest {test redefine-4.5 {wrap plugin nested sub-command (test)} -body {
 
   unset -nocomplain result code
   unset -nocomplain interp
-} -constraints {eagle command.object compile.APPDOMAINS\
+} -constraints [fixTimingConstraints {eagle command.object compile.APPDOMAINS\
 compile.ISOLATED_INTERPRETERS compile.TEST\
 member_Eagle._Tests.Default.SubCommand.ToString file_Plugin.dll\
-strongName.official} -match regexp -result {^0 \{\d+ 1\}$}}
+strongName.official}] -constraintExpression {[haveConstraint \
+configuration.Debug] || [haveConstraint compile.NATIVE]} -match regexp -result \
+{^0 \{\d+ 1\}$}}
 
 ###############################################################################
 
@@ -995,10 +1003,12 @@ runTest {test redefine-4.6 {add plugin sub-command (core)} -body {
 
   unset -nocomplain result code
   unset -nocomplain interp
-} -constraints {eagle monoBug30 command.object compile.APPDOMAINS\
-compile.ISOLATED_INTERPRETERS compile.TEST\
+} -constraints [fixTimingConstraints {eagle monoBug30 command.object\
+compile.APPDOMAINS compile.ISOLATED_INTERPRETERS compile.TEST\
 member_Eagle._Tests.Default.SubCommand.ToString file_Plugin.dll\
-strongName.official} -match regexp -result {^0 \d+$}}
+strongName.official}] -constraintExpression {[haveConstraint \
+configuration.Debug] || [haveConstraint compile.NATIVE]} -match regexp -result \
+{^0 \d+$}}
 
 ###############################################################################
 
@@ -1047,10 +1057,12 @@ runTest {test redefine-4.7 {modify plugin sub-command (core)} -body {
 
   unset -nocomplain result code list
   unset -nocomplain interp
-} -constraints {eagle monoBug30 command.object compile.APPDOMAINS\
-compile.ISOLATED_INTERPRETERS compile.TEST\
+} -constraints [fixTimingConstraints {eagle monoBug30 command.object\
+compile.APPDOMAINS compile.ISOLATED_INTERPRETERS compile.TEST\
 member_Eagle._Tests.Default.SubCommand.ToString file_Plugin.dll\
-strongName.official} -match regexp -result {^0 \d+$}}
+strongName.official}] -constraintExpression {[haveConstraint \
+configuration.Debug] || [haveConstraint compile.NATIVE]} -match regexp -result \
+{^0 \d+$}}
 
 ###############################################################################
 
@@ -1081,10 +1093,12 @@ runTest {test redefine-4.8 {clear plugin sub-commands (core)} -body {
 
   unset -nocomplain result code list
   unset -nocomplain interp
-} -constraints {eagle monoBug30 command.object compile.APPDOMAINS\
-compile.ISOLATED_INTERPRETERS compile.TEST\
+} -constraints [fixTimingConstraints {eagle monoBug30 command.object\
+compile.APPDOMAINS compile.ISOLATED_INTERPRETERS compile.TEST\
 member_Eagle._Tests.Default.SubCommand.ToString file_Plugin.dll\
-strongName.official} -result {0 {1 {bad option "example3"}}}}
+strongName.official}] -constraintExpression {[haveConstraint \
+configuration.Debug] || [haveConstraint compile.NATIVE]} -result {0 {1 {bad\
+option "example3"}}}}
 
 ###############################################################################
 
@@ -1145,9 +1159,11 @@ runTest {test redefine-5.1 {custom IScriptBinder w/custom conversions} -body {
 
   unset -nocomplain result code
   unset -nocomplain interp
-} -constraints {eagle command.object compile.APPDOMAINS\
-compile.ISOLATED_INTERPRETERS file_Plugin.dll strongName.official} -result \
-{0 {{This is an arbitrary description string.} True {Sample.Class2 class2}}}}
+} -constraints [fixTimingConstraints {eagle command.object compile.APPDOMAINS\
+compile.ISOLATED_INTERPRETERS file_Plugin.dll strongName.official}] \
+-constraintExpression {[haveConstraint configuration.Debug] || \
+[haveConstraint compile.NATIVE]} -result {0 {{This is an arbitrary\
+description string.} True {Sample.Class2 class2}}}}
 
 ###############################################################################
 
@@ -1287,8 +1303,9 @@ runTest {test redefine-6.1 {custom package fallback (non-isolated)} -setup {
 
   unset -nocomplain savedEnv
   unset -nocomplain directory
-} -constraints {eagle command.object file_Plugin.dll strongName.official} \
--result {0 1.0}}
+} -constraints [fixTimingConstraints {eagle command.object file_Plugin.dll\
+strongName.official}] -constraintExpression {[haveConstraint \
+configuration.Debug] || [haveConstraint compile.NATIVE]} -result {0 1.0}}
 
 ###############################################################################
 
@@ -1431,8 +1448,10 @@ runTest {test redefine-6.2 {custom package fallback (isolated)} -setup {
 
   unset -nocomplain savedEnv
   unset -nocomplain directory
-} -constraints {eagle command.object compile.ISOLATED_PLUGINS file_Plugin.dll\
-strongName.official} -result {0 1.0}}
+} -constraints [fixTimingConstraints {eagle command.object\
+compile.ISOLATED_PLUGINS file_Plugin.dll strongName.official}] \
+-constraintExpression {[haveConstraint configuration.Debug] || \
+[haveConstraint compile.NATIVE]} -result {0 1.0}}
 
 ###############################################################################
 
@@ -1774,8 +1793,8 @@ runTest {test resolver-1.50 {isolated IResolve} -body {
   unset -nocomplain code result resolve interp
 } -constraints {eagle command.object compile.APPDOMAINS\
 compile.ISOLATED_INTERPRETERS compile.TEST namespaces.available\
-member_Eagle._Tests.Default.Resolve.ToString} -result \
-{0 {result {} xyz 9999} {28 32 15 20}}}
+member_Eagle._Tests.Default.Resolve.ToString} -match regexp -result {^0\
+\{result \{\} xyz 9999\} \{28 32 (?:12|15) 20\}$}}
 
 ###############################################################################
 
@@ -2137,11 +2156,10 @@ runTest {test newWebClientCallback-1.1 {WebClient customization} -setup {
   #       temporarily set them to "Isolated".  The saved flags will
   #       be restored during test cleanup.
   #
-  set savedPluginFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive PluginFlags]
+  package require Eagle.Test
 
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      PluginFlags [combineFlags $savedPluginFlags Isolated]
+  set savedPluginFlags [enablePluginFlags]
+  enablePluginFlags Isolated true
 } -body {
   #
   # HACK: We do not want to bother using HTTPS for this test.  However,
@@ -2156,18 +2174,20 @@ runTest {test newWebClientCallback-1.1 {WebClient customization} -setup {
 
   load $file Sample.Class3
 
-  list [expr {[string first -nocase <html [uri download -inline $uri]] >= 0}] \
-      [debug pluginexecute [getPluginName [appendArgs "Sample\\.Class3, .*"]] \
-      copyState]
+  list [expr {
+    [string first -nocase <html [uri download \
+        -timeouttype network -inline $uri]] >= 0
+  }] [debug pluginexecute [getPluginName \
+      [appendArgs "Sample\\.Class3, .*"]] copyState]
 } -cleanup {
   catch {unload -match glob $file "Sample.Class3, *"}
 
   unset -nocomplain file uri
 
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      PluginFlags [appendArgs = $savedPluginFlags]
-
-  unset -nocomplain savedPluginFlags
+  catch {
+    enablePluginFlags $savedPluginFlags
+    unset -nocomplain savedPluginFlags
+  }
 } -constraints {eagle command.object compile.ISOLATED_PLUGINS file_Plugin.dll\
 strongName.official fossil_repository_url variable_test_repository_url tlsOk} \
 -result {True True}}

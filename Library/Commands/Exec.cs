@@ -62,51 +62,53 @@ namespace Eagle._Commands
                         OptionDictionary options = new OptionDictionary(
                             new IOption[] {
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-debug", null),              // simple switch
+                                Index.Invalid, "-nopreviousprocessid", null), // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nonormalize", null),        // simple switch
+                                Index.Invalid, "-debug", null),               // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-noellipsis", null),         // simple switch
+                                Index.Invalid, "-nonormalize", null),         // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-commandline", null),        // simple switch
+                                Index.Invalid, "-noellipsis", null),          // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-dequote", null),            // simple switch
+                                Index.Invalid, "-commandline", null),         // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-quoteall", null),           // simple switch
+                                Index.Invalid, "-dequote", null),             // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-unicode", null),            // simple switch
+                                Index.Invalid, "-quoteall", null),            // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-ignorestderr", null),       // simple switch
+                                Index.Invalid, "-unicode", null),             // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-overridecapture", null),    // simple switch
+                                Index.Invalid, "-ignorestderr", null),        // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-killonerror", null),        // simple switch
+                                Index.Invalid, "-overridecapture", null),     // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-keepnewline", null),        // simple switch
+                                Index.Invalid, "-killonerror", null),         // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-noexitcode", null),         // simple switch
+                                Index.Invalid, "-keepnewline", null),         // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nocapture", null),          // simple switch
+                                Index.Invalid, "-noexitcode", null),          // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nocaptureinput", null),     // simple switch
+                                Index.Invalid, "-nocapture", null),           // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nocaptureoutput", null),    // simple switch
+                                Index.Invalid, "-nocaptureinput", null),      // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-shell", null),              // simple switch
+                                Index.Invalid, "-nocaptureoutput", null),     // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nocarriagereturns", null),  // simple switch
+                                Index.Invalid, "-shell", null),               // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-setall", null),             // simple switch
+                                Index.Invalid, "-nocarriagereturns", null),   // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-trimall", null),            // simple switch
+                                Index.Invalid, "-setall", null),              // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-noevents", null),           // simple switch
+                                Index.Invalid, "-trimall", null),             // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nosleep", null),            // simple switch
+                                Index.Invalid, "-noevents", null),            // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-nointerpreter", null),      // simple switch
+                                Index.Invalid, "-nosleep", null),             // simple switch
                             new Option(null, OptionFlags.None, Index.Invalid,
-                                Index.Invalid, "-userinterface", null),      // simple switch
+                                Index.Invalid, "-nointerpreter", null),       // simple switch
+                            new Option(null, OptionFlags.None, Index.Invalid,
+                                Index.Invalid, "-userinterface", null),       // simple switch
                             new Option(typeof(ExitCode), OptionFlags.MustHaveEnumValue,
                                 Index.Invalid, Index.Invalid, "-success", null), // success exit code
                             new Option(null, OptionFlags.MustHaveValue, Index.Invalid,
@@ -160,6 +162,11 @@ namespace Eagle._Commands
                         {
                             if (argumentIndex != Index.Invalid)
                             {
+                                bool noPreviousProcessId = false;
+
+                                if (options.IsPresent("-nopreviousprocessid"))
+                                    noPreviousProcessId = true;
+
                                 bool noInterpreter = false;
 
                                 if (options.IsPresent("-nointerpreter"))
@@ -435,11 +442,12 @@ namespace Eagle._Commands
                                         "captureOutput = {20}, useUnicode = {21}, ignoreStdErr = {22}, " +
                                         "overrideCapture = {23}, userInterface = {24}, noSleep = {25}, " +
                                         "killOnError = {26}, keepNewLine = {27}, carriageReturns = {28}, " +
-                                        "trimAll = {29}, background = {30}, noEvents = {31}, successExitCode = {32}, " +
-                                        "processIdVarName = {33}, exitCodeVarName = {34}, stdInVarName = {35}, " +
-                                        "stdInObjectVarName = {36}, stdOutVarName = {37}, stdErrVarName = {38}, " +
-                                        "startCallback = {39}, stdOutCallback = {40}, stdErrCallback = {41}, " +
-                                        "startHandler = {42}, outputHandler = {43}, errorHandler = {44}",
+                                        "trimAll = {29}, background = {30}, noEvents = {31}, " +
+                                        "noPreviousProcessId = {32}, successExitCode = {33}, " +
+                                        "processIdVarName = {34}, exitCodeVarName = {35}, stdInVarName = {36}, " +
+                                        "stdInObjectVarName = {37}, stdOutVarName = {38}, stdErrVarName = {39}, " +
+                                        "startCallback = {40}, stdOutCallback = {41}, stdErrCallback = {42}, " +
+                                        "startHandler = {43}, outputHandler = {44}, errorHandler = {45}",
                                         FormatOps.InterpreterNoThrow(interpreter), FormatOps.WrapOrNull(domainName),
                                         FormatOps.WrapOrNull(userName), FormatOps.WrapOrNull(password),
                                         FormatOps.WrapOrNull(execFileName), FormatOps.WrapOrNull(execArguments),
@@ -449,7 +457,7 @@ namespace Eagle._Commands
                                         noInterpreter, debug, commandLine, dequote, quoteAll, useShellExecute,
                                         captureExitCode, captureInput, captureOutput, useUnicode, ignoreStdErr,
                                         overrideCapture, userInterface, noSleep, killOnError, keepNewLine,
-                                        carriageReturns, trimAll, background, noEvents,
+                                        carriageReturns, trimAll, background, noEvents, noPreviousProcessId,
                                         FormatOps.WrapOrNull(successExitCode), FormatOps.WrapOrNull(processIdVarName),
                                         FormatOps.WrapOrNull(exitCodeVarName), FormatOps.WrapOrNull(stdInVarName),
                                         FormatOps.WrapOrNull(stdInObjectVarName), FormatOps.WrapOrNull(stdOutVarName),
@@ -487,7 +495,8 @@ namespace Eagle._Commands
                                             captureExitCode, captureOutput, useUnicode, ignoreStdErr,
                                             overrideCapture, userInterface, noSleep, killOnError,
                                             keepNewLine, background, !noEvents && !background,
-                                            ref processId, ref exitCode, ref result, ref error);
+                                            noPreviousProcessId, ref processId, ref exitCode,
+                                            ref result, ref error);
 
                                         attempted = true; /* probably? */
                                     }
@@ -507,12 +516,13 @@ namespace Eagle._Commands
                                         "captureOutput = {20}, useUnicode = {21}, ignoreStdErr = {22}, " +
                                         "overrideCapture = {23}, userInterface = {24}, noSleep = {25}, " +
                                         "killOnError = {26}, keepNewLine = {27}, carriageReturns = {28}, " +
-                                        "trimAll = {29}, background = {30}, noEvents = {31}, successExitCode = {32}, " +
-                                        "processIdVarName = {33}, exitCodeVarName = {34}, stdInVarName = {35}, " +
-                                        "stdInObjectVarName = {36}, stdOutVarName = {37}, stdErrVarName = {38}, " +
-                                        "startCallback = {39}, stdOutCallback = {40}, stdErrCallback = {41}, " +
-                                        "startHandler = {42}, outputHandler = {43}, errorHandler = {44}, " +
-                                        "processId = {45}, exitCode = {46}, result = {47}, error = {48}",
+                                        "trimAll = {29}, background = {30}, noEvents = {31}, " +
+                                        "noPreviousProcessId = {32}, successExitCode = {33}, " +
+                                        "processIdVarName = {34}, exitCodeVarName = {35}, stdInVarName = {36}, " +
+                                        "stdInObjectVarName = {37}, stdOutVarName = {38}, stdErrVarName = {39}, " +
+                                        "startCallback = {40}, stdOutCallback = {41}, stdErrCallback = {42}, " +
+                                        "startHandler = {43}, outputHandler = {44}, errorHandler = {45}, " +
+                                        "processId = {46}, exitCode = {47}, result = {48}, error = {49}",
                                         FormatOps.InterpreterNoThrow(interpreter), FormatOps.WrapOrNull(domainName),
                                         FormatOps.WrapOrNull(userName), FormatOps.WrapOrNull(password),
                                         FormatOps.WrapOrNull(execFileName), FormatOps.WrapOrNull(execArguments),
@@ -522,7 +532,7 @@ namespace Eagle._Commands
                                         noInterpreter, debug, commandLine, dequote, quoteAll, useShellExecute,
                                         captureExitCode, captureInput, captureOutput, useUnicode, ignoreStdErr,
                                         overrideCapture, userInterface, noSleep, killOnError, keepNewLine,
-                                        carriageReturns, trimAll, background, noEvents,
+                                        carriageReturns, trimAll, background, noEvents, noPreviousProcessId,
                                         FormatOps.WrapOrNull(successExitCode), FormatOps.WrapOrNull(processIdVarName),
                                         FormatOps.WrapOrNull(exitCodeVarName), FormatOps.WrapOrNull(stdInVarName),
                                         FormatOps.WrapOrNull(stdInObjectVarName), FormatOps.WrapOrNull(stdOutVarName),

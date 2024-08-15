@@ -1805,6 +1805,23 @@ namespace Eagle._Components.Private
             ref Result error                    /* out */
             )
         {
+            return SimulateKeyboardString(
+                null, stringCallback, clientData, value,
+                milliseconds, flags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode SimulateKeyboardString(
+            CheckCancelCallback cancelCallback, /* in: OPTIONAL */
+            CheckStringCallback stringCallback, /* in: OPTIONAL */
+            IClientData clientData,             /* in: OPTIONAL */
+            string value,                       /* in */
+            int milliseconds,                   /* in */
+            SimulatedKeyFlags flags,            /* in */
+            ref Result error                    /* out */
+            )
+        {
             if (CheckWindowFocus(FlagOps.HasFlags(
                     flags, SimulatedKeyFlags.SetFocus, true),
                     ref error) != ReturnCode.Ok)
@@ -1812,8 +1829,11 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            CheckCancelCallback cancelCallback =
-                new CheckCancelCallback(HasWindowFocus);
+            if (cancelCallback == null)
+            {
+                cancelCallback = new CheckCancelCallback(
+                    HasWindowFocus);
+            }
 
             return NativeOps.SimulateKeyboardString(
                 cancelCallback, stringCallback, clientData,
@@ -1928,24 +1948,6 @@ namespace Eagle._Components.Private
         {
             handle = GetWindow();
             return (handle != IntPtr.Zero);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        private static IntPtr GetWindow()
-        {
-            try
-            {
-                return UNM.GetConsoleWindow();
-            }
-            catch (Exception e)
-            {
-                TraceOps.DebugTrace(
-                    e, typeof(NativeConsole).Name,
-                    TracePriority.NativeError);
-            }
-
-            return IntPtr.Zero;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2331,17 +2333,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static IntPtr GetWindow()
+        {
+            Result error = null; /* NOT USED */
+
+            return GetWindow(ref error); /* PUBLIC */
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static IntPtr GetWindow(
             ref Result error /* out */
             )
         {
-            try
+            if (PlatformOps.IsWindowsOperatingSystem())
             {
-                return UNM.GetConsoleWindow();
-            }
-            catch (Exception e)
-            {
-                error = e;
+                try
+                {
+                    return UNM.GetConsoleWindow(); /* throw */
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
             }
 
             return IntPtr.Zero;

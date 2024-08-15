@@ -1509,8 +1509,8 @@ runTest {test wide-1.1 {incr with non-integer type} -setup {
       [catch {incr x $dec} error] $error
 } -cleanup {
   unset -nocomplain x dbl dec error
-} -constraints {eagle} -result {1 {could not convert "12.34" to wide integer} 1\
-{could not convert "43.21" to wide integer}}}
+} -constraints {eagle} -result {1 {expected wide integer but got "12.34"} 1\
+{expected wide integer but got "43.21"}}}
 
 ###############################################################################
 

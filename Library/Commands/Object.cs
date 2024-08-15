@@ -110,7 +110,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -1387,6 +1387,7 @@ namespace Eagle._Commands
                                                                     //
                                                                     if (code != ReturnCode.Ok)
                                                                     {
+                                                                        /* IGNORED */
                                                                         Engine.AddErrorInformation(interpreter, result,
                                                                             String.Format("{0}    (advancing object {1} enumerator \"{2}\")",
                                                                                 Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
@@ -1415,6 +1416,7 @@ namespace Eagle._Commands
                                                                     //
                                                                     if (code != ReturnCode.Ok)
                                                                     {
+                                                                        /* IGNORED */
                                                                         Engine.AddErrorInformation(interpreter, result,
                                                                             String.Format("{0}    (adding object {1} object handle \"{2}\")",
                                                                                 Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
@@ -1452,6 +1454,7 @@ namespace Eagle._Commands
                                                                         if (removeCode != ReturnCode.Ok)
                                                                             DebugOps.Complain(interpreter, removeCode, removeResult);
 
+                                                                        /* IGNORED */
                                                                         Engine.AddErrorInformation(interpreter, result,
                                                                             String.Format("{0}    (setting object {1} loop variable \"{2}\")",
                                                                                 Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
@@ -1484,6 +1487,7 @@ namespace Eagle._Commands
                                                                         }
                                                                         else if (code == ReturnCode.Error)
                                                                         {
+                                                                            /* IGNORED */
                                                                             Engine.AddErrorInformation(interpreter, result,
                                                                                 String.Format("{0}    (\"object {1}\" body line {2})",
                                                                                     Environment.NewLine, subCommand, Interpreter.GetErrorLine(interpreter)));
@@ -1526,6 +1530,7 @@ namespace Eagle._Commands
                                                                 else
                                                                     result = "invalid object enumerator";
 
+                                                                /* IGNORED */
                                                                 Engine.AddErrorInformation(interpreter, result,
                                                                     String.Format("{0}    (getting object {1} enumerator \"{2}\")",
                                                                         Environment.NewLine, subCommand, FormatOps.Ellipsis(arguments[argumentIndex + 1])));

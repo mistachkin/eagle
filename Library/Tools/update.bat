@@ -97,11 +97,15 @@ SET LOGFILE=%LOGFILE:\\=\%
 %_VECHO% LogFile = '%LOGFILE%'
 
 IF EXIST "%LOGFILE%" (
-  %__ECHO% DEL "%LOGFILE%"
+  IF DEFINED NOUPDATETEST (
+    %_AECHO% Skipped deletion of log file "%LOGFILE%", not running tests.
+  ) ELSE (
+    %__ECHO% DEL "%LOGFILE%"
 
-  IF ERRORLEVEL 1 (
-    ECHO Failed to delete "%LOGFILE%".
-    GOTO errors
+    IF ERRORLEVEL 1 (
+      ECHO Failed to delete "%LOGFILE%".
+      GOTO errors
+    )
   )
 )
 

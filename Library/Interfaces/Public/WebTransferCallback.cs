@@ -19,7 +19,7 @@ namespace Eagle._Interfaces.Public
     {
         ReturnCode WebTransfer(
             Interpreter interpreter,
-            WebFlags flags,
+            WebFlags webFlags,
             IClientData clientData,
             ref Result error
         );

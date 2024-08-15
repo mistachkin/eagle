@@ -1612,6 +1612,22 @@ namespace Eagle._Components.Private
                 return true; /* COMMAND PROCESSED */
             }
             else if (CheckCommand(
+                    interpreter, text, "useforce", loopData.ClientData,
+                    true, exact, ref debugVerbose, ref debugArguments,
+                    ref accessError, ref localCode, ref localResult))
+            {
+                if (accessError != null)
+                {
+                    WriteAccessError(interactiveHost, ref accessError);
+                    return true; /* COMMAND PROCESSED */
+                }
+
+                Commands.useforce(
+                    interactiveHost, ref localCode, ref localResult);
+
+                return true; /* COMMAND PROCESSED */
+            }
+            else if (CheckCommand(
                     interpreter, text, "color", loopData.ClientData,
                     true, exact, ref debugVerbose, ref debugArguments,
                     ref accessError, ref localCode, ref localResult))
@@ -3089,7 +3105,7 @@ namespace Eagle._Components.Private
                 return true; /* COMMAND PROCESSED */
             }
             else if (CheckCommand(
-                    interpreter, text, "paflags", loopData.ClientData,
+                    interpreter, text, "spaflags", loopData.ClientData,
                     true, exact, ref debugVerbose, ref debugArguments,
                     ref accessError, ref localCode, ref localResult))
             {
@@ -3099,24 +3115,7 @@ namespace Eagle._Components.Private
                     return true; /* COMMAND PROCESSED */
                 }
 
-                Commands.paflags(
-                    interpreter, debugArguments, ref localCode,
-                    ref localResult);
-
-                return true; /* COMMAND PROCESSED */
-            }
-            else if (CheckCommand(
-                    interpreter, text, "prflags", loopData.ClientData,
-                    true, exact, ref debugVerbose, ref debugArguments,
-                    ref accessError, ref localCode, ref localResult))
-            {
-                if (accessError != null)
-                {
-                    WriteAccessError(interactiveHost, ref accessError);
-                    return true; /* COMMAND PROCESSED */
-                }
-
-                Commands.prflags(
+                Commands.spaflags(
                     interpreter, debugArguments, ref localCode,
                     ref localResult);
 
@@ -3134,6 +3133,23 @@ namespace Eagle._Components.Private
                 }
 
                 Commands.pflags(
+                    interpreter, debugArguments, ref localCode,
+                    ref localResult);
+
+                return true; /* COMMAND PROCESSED */
+            }
+            else if (CheckCommand(
+                    interpreter, text, "sprflags", loopData.ClientData,
+                    true, exact, ref debugVerbose, ref debugArguments,
+                    ref accessError, ref localCode, ref localResult))
+            {
+                if (accessError != null)
+                {
+                    WriteAccessError(interactiveHost, ref accessError);
+                    return true; /* COMMAND PROCESSED */
+                }
+
+                Commands.sprflags(
                     interpreter, debugArguments, ref localCode,
                     ref localResult);
 
@@ -4607,6 +4623,41 @@ namespace Eagle._Components.Private
                     localResult = String.Format(
                         "attach {0}",
                         ConversionOps.ToEnabled(defaultHost.UseAttach));
+
+                    localCode = ReturnCode.Ok;
+                }
+                else
+                {
+                    localResult = String.Format(
+                        HostOps.NoFeatureError,
+                        typeof(_Hosts.Default).Name);
+
+                    localCode = ReturnCode.Error;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////
+
+            [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
+                CommandFlags.NonStandard | CommandFlags.Interactive)]
+            public static void useforce(
+                IInteractiveHost interactiveHost,
+                ref ReturnCode localCode,
+                ref Result localResult
+                )
+            {
+                _Hosts.Default defaultHost = interactiveHost as _Hosts.Default;
+
+                if (defaultHost != null)
+                {
+                    //
+                    // NOTE: Get the current force setting and then toggle it.
+                    //
+                    defaultHost.UseForce = !defaultHost.UseForce;
+
+                    localResult = String.Format(
+                        "force {0}",
+                        ConversionOps.ToEnabled(defaultHost.UseForce));
 
                     localCode = ReturnCode.Ok;
                 }
@@ -8326,6 +8377,10 @@ namespace Eagle._Components.Private
                                 ref localResult);
 
                         if (localCode == ReturnCode.Ok)
+                            localCode = interpreter.SetupMinimumPlatform(
+                                ref localResult);
+
+                        if (localCode == ReturnCode.Ok)
                             localCode = interpreter.SetupPlatform(
                                 interpreter.CreateFlags, false, ref localResult);
 
@@ -9042,7 +9097,7 @@ namespace Eagle._Components.Private
 
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
-            public static void paflags(
+            public static void spaflags(
                 Interpreter interpreter,
                 ArgumentList debugArguments,
                 ref ReturnCode localCode,
@@ -9054,13 +9109,13 @@ namespace Eagle._Components.Private
                 {
                     object enumValue = EnumOps.TryParseFlags(
                         interpreter, typeof(PackageFlags),
-                        interpreter.PackageFlags.ToString(),
+                        interpreter.SharedPackageFlags.ToString(),
                         debugArguments[1], interpreter.InternalCultureInfo,
                         true, true, true, ref localResult);
 
                     if (enumValue is PackageFlags)
                     {
-                        interpreter.PackageFlags = (PackageFlags)enumValue;
+                        interpreter.SharedPackageFlags = (PackageFlags)enumValue;
 
                         localCode = ReturnCode.Ok;
                     }
@@ -9075,14 +9130,14 @@ namespace Eagle._Components.Private
                 }
 
                 if (localCode == ReturnCode.Ok)
-                    localResult = interpreter.PackageFlags;
+                    localResult = interpreter.SharedPackageFlags;
             }
 
             ///////////////////////////////////////////////////////////////////////
 
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
-            public static void prflags(
+            public static void sprflags(
                 Interpreter interpreter,
                 ArgumentList debugArguments,
                 ref ReturnCode localCode,
@@ -9094,13 +9149,13 @@ namespace Eagle._Components.Private
                 {
                     object enumValue = EnumOps.TryParseFlags(
                         interpreter, typeof(ProcedureFlags),
-                        interpreter.ProcedureFlags.ToString(),
+                        interpreter.SharedProcedureFlags.ToString(),
                         debugArguments[1], interpreter.InternalCultureInfo,
                         true, true, true, ref localResult);
 
                     if (enumValue is ProcedureFlags)
                     {
-                        interpreter.ProcedureFlags = (ProcedureFlags)enumValue;
+                        interpreter.SharedProcedureFlags = (ProcedureFlags)enumValue;
 
                         localCode = ReturnCode.Ok;
                     }
@@ -9115,7 +9170,7 @@ namespace Eagle._Components.Private
                 }
 
                 if (localCode == ReturnCode.Ok)
-                    localResult = interpreter.ProcedureFlags;
+                    localResult = interpreter.SharedProcedureFlags;
             }
 
             ///////////////////////////////////////////////////////////////////////

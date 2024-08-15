@@ -92,7 +92,8 @@ using Eagle._Constants;
 
 [assembly: AssemblyTag("beta")]
 [assembly: AssemblyLicense(License.Summary, License.Text)]
-[assembly: AssemblyUri("https://eagle.to/")]
+[assembly: AssemblyUri("https://urn.to/r/eagle")]
+[assembly: AssemblyUri("xmlSchema", "https://eagle.to/2009/schema")]
 [assembly: AssemblyUri("update", "https://update.eagle.to/")]
 [assembly: AssemblyUri("download", "https://download.eagle.to/")]
 [assembly: AssemblyUri("script", "https://script.eagle.to/")]

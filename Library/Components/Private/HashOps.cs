@@ -653,6 +653,8 @@ namespace Eagle._Components.Private
                     ObjectOps.TryDisposeOrTrace<HashAlgorithm>(
                         ref hashAlgorithm);
 
+                    hashAlgorithm = null;
+
                     error = String.Format(
                         "hash algorithm {0} is not an {1}",
                         FormatOps.WrapOrNull(hashAlgorithmName),
@@ -712,6 +714,8 @@ namespace Eagle._Components.Private
                     /* IGNORED */
                     ObjectOps.TryDisposeOrTrace<HashAlgorithm>(
                         ref hashAlgorithm);
+
+                    hashAlgorithm = null;
 
                     error = String.Format(
                         "hash algorithm {0} is not an {1}",
@@ -800,6 +804,8 @@ namespace Eagle._Components.Private
                     /* IGNORED */
                     ObjectOps.TryDisposeOrTrace<object>(
                         ref @object);
+
+                    @object = null;
 
                     return null;
                 }

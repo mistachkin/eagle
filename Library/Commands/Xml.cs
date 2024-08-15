@@ -80,7 +80,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -323,6 +323,7 @@ namespace Eagle._Commands
 
                                                                     if (code != ReturnCode.Ok)
                                                                     {
+                                                                        /* IGNORED */
                                                                         Engine.AddErrorInformation(interpreter, localResult,
                                                                             String.Format("{0}    (adding xml {1} object handle \"{2}\")",
                                                                                 Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
@@ -351,6 +352,7 @@ namespace Eagle._Commands
                                                                         if (removeCode != ReturnCode.Ok)
                                                                             DebugOps.Complain(interpreter, removeCode, removeResult);
 
+                                                                        /* IGNORED */
                                                                         Engine.AddErrorInformation(interpreter, localResult,
                                                                             String.Format("{0}    (setting xml {1} loop variable \"{2}\")",
                                                                                 Environment.NewLine, subCommand, FormatOps.Ellipsis(varName)));
@@ -376,6 +378,7 @@ namespace Eagle._Commands
                                                                         }
                                                                         else if (code == ReturnCode.Error)
                                                                         {
+                                                                            /* IGNORED */
                                                                             Engine.AddErrorInformation(interpreter, localResult,
                                                                                 String.Format("{0}    (\"xml {1}\" body line {2})",
                                                                                     Environment.NewLine, subCommand, Interpreter.GetErrorLine(interpreter)));

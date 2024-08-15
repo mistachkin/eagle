@@ -159,7 +159,8 @@ namespace eval ::Eagle {
   #       extraction directory.  The actual temporary extraction directory is
   #       returned.
   #
-  proc extractZipArchive { archiveFileName extractRootDirectory rootOnly } {
+  proc extractZipArchive {
+          archiveFileName {extractRootDirectory ""} {rootOnly false} } {
     setupUnzipVars false
 
     variable baseUri
@@ -169,6 +170,12 @@ namespace eval ::Eagle {
     variable unzipVersionCommand
 
     set fileName [file nativename $archiveFileName]
+
+    if {[string length $extractRootDirectory] == 0} then {
+      package require Eagle.Test; # [getTemporaryPath]
+      set extractRootDirectory [getTemporaryPath]; # good default?
+      set rootOnly false; # true is forbidden for TEMP root.
+    }
 
     if {$rootOnly} then {
       set extractDirectory $extractRootDirectory
@@ -191,7 +198,7 @@ namespace eval ::Eagle {
         set uri [subst $unzipUri]
         set exeFileName [file tempname]
 
-        uri download $uri $exeFileName
+        uri download -timeouttype network $uri $exeFileName
 
         #
         # NOTE: *SECURITY* The downloaded unzip command line tool must

@@ -157,6 +157,113 @@ namespace eval ::Eagle {
   }
 
   #
+  # NOTE: This procedure attempts to populate the library directory -AND- the
+  #       build reference directory based on the version of the .NET Standard
+  #       currently in use.  Non-zero will be returned only upon success; no
+  #       script errors should be raised by this procedure.
+  #
+  proc populateDotNetStandardReferenceDirectories {
+          path standardVersion {libraryDirectoryVarName ""}
+          {buildReferenceSubDirectoryVarName ""} } {
+    if {[string length $libraryDirectoryVarName] > 0} then {
+      upvar 1 $libraryDirectoryVarName libraryDirectory
+    }
+
+    if {[string length $buildReferenceSubDirectoryVarName] > 0} then {
+      upvar 1 $buildReferenceSubDirectoryVarName buildReferenceSubDirectory
+    }
+
+    if {[info exists \
+        ::compileCSharp(dotNetStandardReferenceDirectories)]} then {
+      set libraryDirectory \
+          [lindex $::compileCSharp(dotNetStandardReferenceDirectories) 0]
+
+      set buildReferenceSubDirectory \
+          [lindex $::compileCSharp(dotNetStandardReferenceDirectories) 1]
+    } else {
+      switch -exact -- $standardVersion {
+        netstandard2.0 {
+          set libraryDirectory [file normalize \
+              [file join [file dirname $path] \
+              NuGetFallbackFolder netstandard.library]]
+
+          set buildReferenceSubDirectory \
+              [file join build $standardVersion ref]
+
+          return true
+        }
+        netstandard2.1 {
+          set libraryDirectory [file normalize \
+              [file join [file dirname [file dirname \
+              $path]] packs NETStandard.Library.Ref]]
+
+          set buildReferenceSubDirectory \
+              [file join ref $standardVersion]
+
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure attempts to determine which version of the .NET
+  #       Standard should be used for the explicit purpose of determining
+  #       the needed .NET Standard reference assembly path(s) to compile
+  #       C# code.  An empty string is used to indicate an error, i.e. no
+  #       suitable .NET Standard version was found.  This procedure should
+  #       not raise script errors.
+  #
+  proc determineDotNetStandardVersion {
+          path {useSdkVersion false} {defaultTargetVersion ""} } {
+    if {!$useSdkVersion && [isDotNetCore] && \
+        [info exists ::eagle_platform(runtimeVersion)]} then {
+      set targetVersion $::eagle_platform(runtimeVersion)
+    } elseif {[string length $path] > 0} then {
+      set targetVersion [file tail $path]
+    } else {
+      set targetVersion $defaultTargetVersion
+    }
+
+    if {[string length $targetVersion] > 0} then {
+      if {[info exists ::compileCSharp(dotNetStandardVersions)]} then {
+        set standardVersions $::compileCSharp(dotNetStandardVersions)
+      } else {
+        if {[string match 9.* $targetVersion] || \
+            [string match 8.* $targetVersion] || \
+            [string match 7.* $targetVersion] || \
+            [string match 6.* $targetVersion] || \
+            [string match 5.* $targetVersion] || \
+            [string match 3.* $targetVersion]} then {
+          set standardVersions [list netstandard2.1 netstandard2.0]
+        } elseif {[string match 2.* $targetVersion]} then {
+          set standardVersions [list netstandard2.0 netstandard2.1]
+        }
+      }
+
+      foreach standardVersion $standardVersions {
+        unset -nocomplain libraryDirectory
+        unset -nocomplain buildReferenceSubDirectory
+
+        populateDotNetStandardReferenceDirectories \
+            $path $standardVersion libraryDirectory \
+            buildReferenceSubDirectory
+
+        if {[info exists libraryDirectory] && \
+            [string length $libraryDirectory] > 0 && \
+            [info exists buildReferenceSubDirectory] && \
+            [string length $buildReferenceSubDirectory] > 0} then {
+          return $standardVersion
+        }
+      }
+    }
+
+    return ""
+  }
+
+  #
   # NOTE: This procedure is used to determine the fully qualified path to the
   #       directory containing the reference assemblies for the .NET Standard
   #       2.x.  An empty string will be returned to indicate an error.  This
@@ -168,53 +275,25 @@ namespace eval ::Eagle {
 
     if {[string length $path] > 0} then {
       if {[string length $standardVersion] == 0} then {
-        if {!$useSdkVersion && [isDotNetCore] && \
-            [info exists ::eagle_platform(runtimeVersion)]} then {
-          set targetVersion $::eagle_platform(runtimeVersion)
-        } else {
-          set targetVersion [file tail $path]
-        }
-
-        if {[string match 8.* $targetVersion] || \
-            [string match 7.* $targetVersion] || \
-            [string match 6.* $targetVersion] || \
-            [string match 5.* $targetVersion] || \
-            [string match 3.* $targetVersion]} then {
-          set standardVersion netstandard2.1
-        } elseif {[string match 2.* $targetVersion]} then {
-          set standardVersion netstandard2.0
-        }
+        set standardVersion [determineDotNetStandardVersion \
+            $path $useSdkVersion]
       }
 
-      switch -exact -- $standardVersion {
-        netstandard2.0 {
-          set libraryDirectory [file normalize [file join [file dirname \
-              $path] NuGetFallbackFolder netstandard.library]]
+      unset -nocomplain libraryDirectory
+      unset -nocomplain buildReferenceSubDirectory
 
-          set buildReferenceSubDirectory [file join build $standardVersion \
-              ref]
-        }
-        netstandard2.1 {
-          set libraryDirectory [file normalize [file join [file dirname \
-              [file dirname $path]] packs NETStandard.Library.Ref]]
+      populateDotNetStandardReferenceDirectories \
+          $path $standardVersion libraryDirectory \
+          buildReferenceSubDirectory
 
-          set buildReferenceSubDirectory [file join ref $standardVersion]
-        }
-        default {
-          #
-          # TODO: Do something else here?  The version of the standard is
-          #       not known.  Perhaps do some kind of search?
-          #
-          set libraryDirectory ""
-          set buildReferenceSubDirectory ""
-        }
-      }
-
-      if {[string length $libraryDirectory] > 0 && \
+      if {[info exists libraryDirectory] && \
+          [string length $libraryDirectory] > 0 && \
+          [info exists buildReferenceSubDirectory] && \
           [string length $buildReferenceSubDirectory] > 0} then {
         if {[string length $packageVersion] > 0} then {
-          set assemblyDirectory [file normalize [file join \
-              $libraryDirectory $packageVersion $buildReferenceSubDirectory]]
+          set assemblyDirectory [file normalize \
+              [file join $libraryDirectory $packageVersion \
+              $buildReferenceSubDirectory]]
 
           if {[file exists $assemblyDirectory]} then {
             return $assemblyDirectory
@@ -223,15 +302,17 @@ namespace eval ::Eagle {
           set compareCommand [list package vsort]
           set globPathPattern [file join $libraryDirectory *]
 
-          set maybeVersions [lsort -decreasing -command $compareCommand \
-              [lmap directory [glob -nocomplain -types {d} $globPathPattern] \
+          set maybeVersions [lsort -decreasing -command \
+              $compareCommand [lmap directory [glob \
+              -nocomplain -types {d} $globPathPattern] \
               { file tail $directory }]]
 
           catch {object removecallback $compareCommand}
 
           foreach maybeVersion $maybeVersions {
-            set assemblyDirectory [file normalize [file join \
-                $libraryDirectory $maybeVersion $buildReferenceSubDirectory]]
+            set assemblyDirectory [file normalize \
+                [file join $libraryDirectory $maybeVersion \
+                $buildReferenceSubDirectory]]
 
             if {[file exists $assemblyDirectory]} then {
               return $assemblyDirectory
@@ -327,7 +408,7 @@ namespace eval ::Eagle {
       } result]} then {
         set errors [list [appendArgs \
             "caught error while compiling \"" $name \
-            "\" test program: " $code]]
+            "\" test program: " $result]]
 
         return false
       }

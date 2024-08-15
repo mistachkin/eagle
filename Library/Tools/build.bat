@@ -871,7 +871,7 @@ REM ****************************************************************************
     %_AECHO% Forced into using 32-bit version of MSBuild from Program Files...
     GOTO set_msbuild_x86
   )
-  IF "%PROCESSOR_ARCHITECTURE%" == "x86" GOTO set_msbuild_x86
+  IF /I "%PROCESSOR_ARCHITECTURE%" == "x86" GOTO set_msbuild_x86
   %_AECHO% The operating system appears to be 64-bit.
   %_AECHO% Using 32-bit version of MSBuild from Program Files...
   SET MSBUILDDIR=%ProgramFiles(x86)%\MSBuild\%MSBUILDVER%\bin

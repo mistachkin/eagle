@@ -1000,6 +1000,7 @@ namespace Eagle._Components.Private
 
             if (code != ReturnCode.Ok)
             {
+                /* IGNORED */
                 Engine.AddErrorInformation(
                     interpreter, result, String.Format(
                         "{0}    (-command substitution computation script)",
@@ -1116,6 +1117,7 @@ namespace Eagle._Components.Private
 
             if (code != ReturnCode.Ok)
             {
+                /* IGNORED */
                 Engine.AddErrorInformation(
                     interpreter, result, String.Format(
                         "{0}    (-regsub command)",

@@ -315,8 +315,9 @@ runTest {test tclLoad-3.1 {basic TclThread usage (Windows)} -setup {
     #          in .\Eagle\Library\Components\Private\TclThread.cs:line 392
     #
     set result ""
-    set code [$interp -alias CreateTclThread null null 1000 false true true \
-        result]
+
+    set code [$interp -alias CreateTclThread \
+        null null 1000 {Default CreateUse NoComplain} result]
 
     if {$code eq "Ok"} then {
       set name [getStringFromObjectHandle $result]
@@ -355,7 +356,7 @@ runTest {test tclLoad-3.1 {basic TclThread usage (Windows)} -setup {
               {foo clock seconds} true result(7) errorLine(7)] \
           [$thread QueueEvent RemoveCommand $flags foo true result(8) \
               errorLine(8)] \
-          [$interp DeleteTclThread $name false result(9)] \
+          [$interp DeleteTclThread $name DeleteUse result(9)] \
           [llength [tcl threads]] \
           [map [testArrayGet result true] {apply [list [list x] {
             if {[regexp -- {^Result#\d+$} $x]} then {
@@ -404,7 +405,9 @@ runTest {test tclLoad-3.2 {TclThread script cancellation (Windows)} -setup {
     #
     if {[catch {tcl canceled [tcl primary]} msg] == 0} then {
       set result ""
-      $interp -alias CreateTclThread null null 1000 false true true result
+
+      $interp -alias CreateTclThread \
+          null null 1000 {Default CreateUse NoComplain} result
 
       set name [getStringFromObjectHandle $result]
 
@@ -425,7 +428,7 @@ runTest {test tclLoad-3.2 {TclThread script cancellation (Windows)} -setup {
           [after 2000] \
           [$thread QueueEvent Cancel $flags null true result(4) errorLine(4)] \
           [$thread QueueEvent Delete $flags null true result(5) errorLine(5)] \
-          [$interp DeleteTclThread $name false result(6)] \
+          [$interp DeleteTclThread $name DeleteUse result(6)] \
           [llength [tcl threads]] \
           [map [testArrayGet result true] {apply [list [list x] {
             if {[regexp -- {^Result#\d+$} $x]} then {
@@ -482,8 +485,9 @@ runTest {test tclLoad-3.3 {basic TclThread usage (generic)} -setup {
     #          in .\Eagle\Library\Components\Private\TclThread.cs:line 392
     #
     set result ""
-    set code [$interp -alias CreateTclThread null null 1000 true true true \
-        result]
+
+    set code [$interp -alias CreateTclThread \
+        null null 1000 {Default CreateUse Generic NoComplain} result]
 
     if {$code eq "Ok"} then {
       set name [getStringFromObjectHandle $result]
@@ -522,7 +526,7 @@ runTest {test tclLoad-3.3 {basic TclThread usage (generic)} -setup {
               {foo clock seconds} true result(7) errorLine(7)] \
           [$thread QueueEvent RemoveCommand $flags foo true result(8) \
               errorLine(8)] \
-          [$interp DeleteTclThread $name false result(9)] \
+          [$interp DeleteTclThread $name DeleteUse result(9)] \
           [llength [tcl threads]] \
           [map [testArrayGet result true] {apply [list [list x] {
             if {[regexp -- {^Result#\d+$} $x]} then {
@@ -571,7 +575,9 @@ runTest {test tclLoad-3.4 {TclThread script cancellation (generic)} -setup {
     #
     if {[catch {tcl canceled [tcl primary]} msg] == 0} then {
       set result ""
-      $interp -alias CreateTclThread null null 1000 true true true result
+
+      $interp -alias CreateTclThread \
+          null null 1000 {Default CreateUse Generic NoComplain} result
 
       set name [getStringFromObjectHandle $result]
 
@@ -592,7 +598,7 @@ runTest {test tclLoad-3.4 {TclThread script cancellation (generic)} -setup {
           [after 2000] \
           [$thread QueueEvent Cancel $flags null true result(4) errorLine(4)] \
           [$thread QueueEvent Delete $flags null true result(5) errorLine(5)] \
-          [$interp DeleteTclThread $name false result(6)] \
+          [$interp DeleteTclThread $name DeleteUse result(6)] \
           [llength [tcl threads]] \
           [map [testArrayGet result true] {apply [list [list x] {
             if {[regexp -- {^Result#\d+$} $x]} then {

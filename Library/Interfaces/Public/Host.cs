@@ -27,6 +27,7 @@ namespace Eagle._Interfaces.Public
         HostCreateFlags HostCreateFlags { get; set; }
 
         bool UseAttach { get; set; }
+        bool UseForce { get; set; }
         bool NoTitle { get; set; }
         bool NoIcon { get; set; }
         bool NoProfile { get; set; }

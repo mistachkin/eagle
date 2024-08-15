@@ -136,191 +136,220 @@ namespace Eagle._Commands
                                                     {
                                                         try
                                                         {
-                                                            BinaryWriter binaryWriter = null; /* NOTE: Output channel. */
-                                                            int outputBytes = 0;
+                                                            EngineFlags engineFlags;
+                                                            SubstitutionFlags substitutionFlags;
+                                                            ExpressionFlags expressionFlags;
+                                                            Result localError = null;
 
-                                                            //
-                                                            // NOTE: Reset the end-of-file indicator here because we may
-                                                            //       need to use it to terminate the loop.
-                                                            //
-                                                            inputChannel.HitEndOfStream = false;
-
-                                                            do
+                                                            if (!Engine.TryQueryAllFlags(
+                                                                    interpreter, Engine.BlockingFlagsForFcopy,
+                                                                    out engineFlags, out substitutionFlags,
+                                                                    out expressionFlags, ref localError))
                                                             {
-                                                                if (inputChannel.AnyEndOfStream)
-                                                                    break;
-
-                                                                ByteList inputBuffer = null;
-
-                                                                int readSize = size;
-
-                                                                if ((readSize != _Size.Invalid) && (readSize > MaximumReadSize))
-                                                                    readSize = MaximumReadSize;
-
-                                                                if (readSize == _Size.Invalid)
-                                                                    code = inputChannel.Read(null, false, false, ref inputBuffer, ref result);
-                                                                else
-                                                                    code = inputChannel.Read(readSize, null, false, false, ref inputBuffer, ref result);
-
-                                                                if (code == ReturnCode.Ok)
+                                                                if (FlagOps.HasFlags(
+                                                                        eventFlags, EventFlags.FailSafe, true))
                                                                 {
-                                                                    //
-                                                                    // NOTE: Grab the input byte array from the input
-                                                                    //       buffer byte list.
-                                                                    //
-                                                                    byte[] inputArray = inputBuffer.ToArray();
+                                                                    Engine.InitializeAllFlags(
+                                                                        out engineFlags, out substitutionFlags,
+                                                                        out expressionFlags);
+                                                                }
+                                                                else
+                                                                {
+                                                                    result = localError;
+                                                                    code = ReturnCode.Error;
+                                                                }
+                                                            }
 
-                                                                    //
-                                                                    // NOTE: Update the total input byte count with the
-                                                                    //       number of bytes we just read.
-                                                                    //
-                                                                    if (size != _Size.Invalid)
-                                                                        size -= inputArray.Length;
+                                                            if (code == ReturnCode.Ok)
+                                                            {
+                                                                BinaryWriter binaryWriter = null; /* NOTE: Output channel. */
+                                                                int outputBytes = 0;
 
-                                                                    if (outputChannel.IsVirtualOutput)
-                                                                    {
-                                                                        //
-                                                                        // NOTE: Virtual output means that we must get
-                                                                        //       the text for the input bytes.
-                                                                        //
-                                                                        string stringValue = null;
+                                                                //
+                                                                // NOTE: Reset the end-of-file indicator here because we may
+                                                                //       need to use it to terminate the loop.
+                                                                //
+                                                                inputChannel.HitEndOfStream = false;
 
-                                                                        code = StringOps.GetString(
-                                                                            inputEncoding, inputArray, EncodingType.Binary,
-                                                                            ref stringValue, ref result);
+                                                                do
+                                                                {
+                                                                    if (inputChannel.AnyEndOfStream)
+                                                                        break;
 
-                                                                        if (code == ReturnCode.Ok)
-                                                                        {
-                                                                            //
-                                                                            // NOTE: The encoding is ignored, because this is
-                                                                            //       directly from the input string, which is
-                                                                            //       already Unicode.
-                                                                            //
-                                                                            outputChannel.AppendVirtualOutput(stringValue);
+                                                                    ByteList inputBuffer = null;
 
-                                                                            //
-                                                                            // NOTE: Update the total output byte count with
-                                                                            //       the number of bytes we just wrote.
-                                                                            //
-                                                                            code = StringOps.AddByteCount(
-                                                                                outputEncoding, stringValue, EncodingType.Binary,
-                                                                                ref outputBytes, ref result);
-                                                                        }
-                                                                    }
+                                                                    int readSize = size;
+
+                                                                    if ((readSize != _Size.Invalid) && (readSize > MaximumReadSize))
+                                                                        readSize = MaximumReadSize;
+
+                                                                    if (readSize == _Size.Invalid)
+                                                                        code = inputChannel.Read(null, false, false, ref inputBuffer, ref result);
                                                                     else
-                                                                    {
-                                                                        if (binaryWriter == null)
-                                                                            binaryWriter = outputChannel.GetBinaryWriter();
+                                                                        code = inputChannel.Read(readSize, null, false, false, ref inputBuffer, ref result);
 
-                                                                        if (binaryWriter != null)
+                                                                    if (code == ReturnCode.Ok)
+                                                                    {
+                                                                        //
+                                                                        // NOTE: Grab the input byte array from the input
+                                                                        //       buffer byte list.
+                                                                        //
+                                                                        byte[] inputArray = inputBuffer.ToArray();
+
+                                                                        //
+                                                                        // NOTE: Update the total input byte count with the
+                                                                        //       number of bytes we just read.
+                                                                        //
+                                                                        if (size != _Size.Invalid)
+                                                                            size -= inputArray.Length;
+
+                                                                        if (outputChannel.IsVirtualOutput)
                                                                         {
                                                                             //
-                                                                            // NOTE: Convert the input bytes into output
-                                                                            //       bytes based on both the input and
-                                                                            //       output encodings, if any.  If both
-                                                                            //       encodings are null, the input bytes
-                                                                            //       are used verbatim.
+                                                                            // NOTE: Virtual output means that we must get
+                                                                            //       the text for the input bytes.
                                                                             //
-                                                                            byte[] outputArray = null;
+                                                                            string stringValue = null;
 
-                                                                            code = StringOps.ConvertBytes(
-                                                                                inputEncoding, outputEncoding, EncodingType.Binary,
-                                                                                EncodingType.Binary, inputArray, ref outputArray,
-                                                                                ref result);
+                                                                            code = StringOps.GetString(
+                                                                                inputEncoding, inputArray, EncodingType.Binary,
+                                                                                ref stringValue, ref result);
 
                                                                             if (code == ReturnCode.Ok)
                                                                             {
                                                                                 //
-                                                                                // NOTE: Ready the output channel for "append"
-                                                                                //       mode, if necessary.
+                                                                                // NOTE: The encoding is ignored, because this is
+                                                                                //       directly from the input string, which is
+                                                                                //       already Unicode.
                                                                                 //
-                                                                                outputChannel.CheckAppend(); /* throw */
-
-                                                                                //
-                                                                                // NOTE: Attempt to write the output bytes to
-                                                                                //       the output channel.
-                                                                                //
-                                                                                binaryWriter.Write(outputArray); /* throw */
-
-#if MONO || MONO_HACKS
-                                                                                //
-                                                                                // HACK: *MONO* As of Mono 2.8.0, it seems that
-                                                                                //       Mono "loses" output unless a flush is
-                                                                                //       performed right after a write.  So far,
-                                                                                //       this has only been observed for the
-                                                                                //       console channels; however, always using
-                                                                                //       flush here on Mono shouldn't cause too
-                                                                                //       many problems, except a slight loss in
-                                                                                //       performance.
-                                                                                //       https://bugzilla.novell.com/show_bug.cgi?id=645193
-                                                                                //
-                                                                                if (CommonOps.Runtime.IsMono())
-                                                                                {
-                                                                                    binaryWriter.Flush(); /* throw */
-                                                                                }
-                                                                                else
-#endif
-                                                                                {
-                                                                                    //
-                                                                                    // NOTE: Check if we should automatically
-                                                                                    //       flush the channel after each write
-                                                                                    //       done by this command.
-                                                                                    //
-                                                                                    /* IGNORED */
-                                                                                    outputChannel.CheckAutoFlush();
-                                                                                }
+                                                                                outputChannel.AppendVirtualOutput(stringValue);
 
                                                                                 //
                                                                                 // NOTE: Update the total output byte count with
                                                                                 //       the number of bytes we just wrote.
                                                                                 //
-                                                                                outputBytes += outputArray.Length;
+                                                                                code = StringOps.AddByteCount(
+                                                                                    outputEncoding, stringValue, EncodingType.Binary,
+                                                                                    ref outputBytes, ref result);
                                                                             }
                                                                         }
                                                                         else
                                                                         {
-                                                                            result = String.Format(
-                                                                                "failed to get binary writer for channel \"{0}\"",
-                                                                                outputChannelId);
+                                                                            if (binaryWriter == null)
+                                                                                binaryWriter = outputChannel.GetBinaryWriter();
 
-                                                                            code = ReturnCode.Error;
+                                                                            if (binaryWriter != null)
+                                                                            {
+                                                                                //
+                                                                                // NOTE: Convert the input bytes into output
+                                                                                //       bytes based on both the input and
+                                                                                //       output encodings, if any.  If both
+                                                                                //       encodings are null, the input bytes
+                                                                                //       are used verbatim.
+                                                                                //
+                                                                                byte[] outputArray = null;
+
+                                                                                code = StringOps.ConvertBytes(
+                                                                                    inputEncoding, outputEncoding, EncodingType.Binary,
+                                                                                    EncodingType.Binary, inputArray, ref outputArray,
+                                                                                    ref result);
+
+                                                                                if (code == ReturnCode.Ok)
+                                                                                {
+                                                                                    //
+                                                                                    // NOTE: Ready the output channel for "append"
+                                                                                    //       mode, if necessary.
+                                                                                    //
+                                                                                    outputChannel.CheckAppend(); /* throw */
+
+                                                                                    //
+                                                                                    // NOTE: Attempt to write the output bytes to
+                                                                                    //       the output channel.
+                                                                                    //
+                                                                                    binaryWriter.Write(outputArray); /* throw */
+
+#if MONO || MONO_HACKS
+                                                                                    //
+                                                                                    // HACK: *MONO* As of Mono 2.8.0, it seems that
+                                                                                    //       Mono "loses" output unless a flush is
+                                                                                    //       performed right after a write.  So far,
+                                                                                    //       this has only been observed for the
+                                                                                    //       console channels; however, always using
+                                                                                    //       flush here on Mono shouldn't cause too
+                                                                                    //       many problems, except a slight loss in
+                                                                                    //       performance.
+                                                                                    //       https://bugzilla.novell.com/show_bug.cgi?id=645193
+                                                                                    //
+                                                                                    if (CommonOps.Runtime.IsMono())
+                                                                                    {
+                                                                                        binaryWriter.Flush(); /* throw */
+                                                                                    }
+                                                                                    else
+#endif
+                                                                                    {
+                                                                                        //
+                                                                                        // NOTE: Check if we should automatically
+                                                                                        //       flush the channel after each write
+                                                                                        //       done by this command.
+                                                                                        //
+                                                                                        /* IGNORED */
+                                                                                        outputChannel.CheckAutoFlush();
+                                                                                    }
+
+                                                                                    //
+                                                                                    // NOTE: Update the total output byte count with
+                                                                                    //       the number of bytes we just wrote.
+                                                                                    //
+                                                                                    outputBytes += outputArray.Length;
+                                                                                }
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                result = String.Format(
+                                                                                    "failed to get binary writer for channel \"{0}\"",
+                                                                                    outputChannelId);
+
+                                                                                code = ReturnCode.Error;
+                                                                            }
                                                                         }
                                                                     }
+
+                                                                    //
+                                                                    // NOTE: If any of the above actions failed, bail out of the
+                                                                    //       copy loop now.
+                                                                    //
+                                                                    if (code != ReturnCode.Ok)
+                                                                        break;
+
+                                                                    //
+                                                                    // NOTE: Are we done reading input bytes?  If this value is
+                                                                    //       less than zero, it means we read until end-of-file.
+                                                                    //       If we have read the specified number of bytes, bail
+                                                                    //       out.
+                                                                    //
+                                                                    if (size == 0)
+                                                                        break;
+
+                                                                    //
+                                                                    // NOTE: Check for any pending events in the interpreter and
+                                                                    //       service them now.
+                                                                    //
+                                                                    code = Engine.CheckEvents(
+                                                                        interpreter, engineFlags, substitutionFlags, eventFlags,
+                                                                        expressionFlags, ref result);
+
+                                                                    if (code != ReturnCode.Ok)
+                                                                        break;
                                                                 }
+                                                                while (true);
 
                                                                 //
-                                                                // NOTE: If any of the above actions failed, bail out of the
-                                                                //       copy loop now.
+                                                                // NOTE: Return the number of bytes written to the output
+                                                                //       channel.
                                                                 //
-                                                                if (code != ReturnCode.Ok)
-                                                                    break;
-
-                                                                //
-                                                                // NOTE: Are we done reading input bytes?  If this value is
-                                                                //       less than zero, it means we read until end-of-file.
-                                                                //       If we have read the specified number of bytes, bail
-                                                                //       out.
-                                                                //
-                                                                if (size == 0)
-                                                                    break;
-
-                                                                //
-                                                                // NOTE: Check for any pending events in the interpreter and
-                                                                //       service them now.
-                                                                //
-                                                                code = Engine.CheckEvents(interpreter, eventFlags, ref result);
-
-                                                                if (code != ReturnCode.Ok)
-                                                                    break;
+                                                                if (code == ReturnCode.Ok)
+                                                                    result = outputBytes;
                                                             }
-                                                            while (true);
-
-                                                            //
-                                                            // NOTE: Return the number of bytes written to the output
-                                                            //       channel.
-                                                            //
-                                                            if (code == ReturnCode.Ok)
-                                                                result = outputBytes;
                                                         }
                                                         catch (Exception e)
                                                         {

@@ -154,9 +154,12 @@ namespace Eagle._Commands
                                     arguments[thenScriptIndex], ref result);
 
                                 if (code == ReturnCode.Error)
+                                {
+                                    /* IGNORED */
                                     Engine.AddErrorInformation(interpreter, result,
                                         String.Format("{0}    (\"if\" then script line {1})",
                                             Environment.NewLine, Interpreter.GetErrorLine(interpreter)));
+                                }
 
                                 return code;
                             }
@@ -205,9 +208,12 @@ namespace Eagle._Commands
                             arguments[thenScriptIndex], ref result);
 
                         if (code == ReturnCode.Error)
+                        {
+                            /* IGNORED */
                             Engine.AddErrorInformation(interpreter, result,
                                 String.Format("{0}    (\"if\" then script line {1})",
                                     Environment.NewLine, Interpreter.GetErrorLine(interpreter)));
+                        }
 
                         return code;
                     }
@@ -217,9 +223,12 @@ namespace Eagle._Commands
                             arguments[index], ref result);
 
                         if (code == ReturnCode.Error)
+                        {
+                            /* IGNORED */
                             Engine.AddErrorInformation(interpreter, result,
                                 String.Format("{0}    (\"if\" else script line {1})",
                                     Environment.NewLine, Interpreter.GetErrorLine(interpreter)));
+                        }
 
                         return code;
                     }

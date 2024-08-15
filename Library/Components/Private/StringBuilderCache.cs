@@ -663,6 +663,9 @@ namespace Eagle._Components.Private
                 if (stopEvent == null)
                     return;
 
+                ulong count0 = 0;
+                TracePriority priority; /* REUSED */
+
                 while (true)
                 {
                     if (AppDomainOps.IsStoppingSoon())
@@ -676,17 +679,41 @@ namespace Eagle._Components.Private
                     }
 
                     long count1 = TryOptimize();
+
+                    if (count1 > 0)
+                        count0 += (ulong)count1;
+
                     long count2 = TryPopulate();
+
+                    if (count2 > 0)
+                        count0 += (ulong)count2;
+
                     long? count3 = TryCollect();
+
+                    if ((count3 != null) && ((long)count3 > 0))
+                        count0++; /* NOTE: We did something. */
+
+#if DEBUG && VERBOSE
+                    priority = GetTracePriority(count1, count2);
 
                     DebugTraceNoCache(
                         "ThreadStart", null,
                         typeof(StringBuilderCache).Name,
-                        GetTracePriority(count1, count2),
-                        false, "TryOptimize", count1,
-                        "TryPopulate", count2, "TryCollect",
-                        count3);
+                        priority, false, "TryOptimize",
+                        count1, "TryPopulate", count2,
+                        "TryCollect", count3);
+#endif
                 }
+
+                priority = (count0 > 0) ?
+                    TracePriority.CacheDebug2 :
+                    TracePriority.CacheDebug;
+
+                DebugTraceNoCache(
+                    "ThreadStart", null,
+                    typeof(StringBuilderCache).Name,
+                    priority, false, "TryTotal",
+                    count0);
             }
             catch (ThreadAbortException)
             {

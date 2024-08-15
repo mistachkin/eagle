@@ -26,6 +26,33 @@ using ConsoleColor = Eagle._Components.Public.ConsoleColor;
 
 namespace Eagle._Constants
 {
+    [ObjectId("71552ae2-fdc3-402f-ae9e-9eade60d96a8")]
+    public static class WebHeaders
+    {
+        public static readonly string Tag = "X-Eagle-Tag";
+        public static readonly string Version = "X-Eagle-Version";
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    [ObjectId("babcfc00-fa2a-4dcf-9d1b-d31dafb0b70d")]
+    public static class Annotations
+    {
+        public static readonly string Private = "private";
+        public static readonly string Fast = "fast";
+        public static readonly string Atomic = "atomic";
+
+#if ARGUMENT_CACHE || PARSE_CACHE
+        public static readonly string NonCaching = "nonCaching";
+#endif
+
+        public static readonly string MatchTypes = "matchTypes";
+
+        public static readonly string Signature = "signature";
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
     [ObjectId("0c564d1c-a98a-4ed7-aabe-1685abae114f")]
     public static class Limits
     {
@@ -276,6 +303,7 @@ namespace Eagle._Constants
         public const string WinTrust = "wintrust.dll";
         public const string Ws2_32 = "ws2_32.dll";
         public const string WtsApi32 = "wtsapi32.dll";
+        public const string IeRtUtil = "IeRtUtil.dll";
 #endif
 
 #if NATIVE_UTILITY
@@ -419,6 +447,8 @@ namespace Eagle._Constants
         ///////////////////////////////////////////////////////////////////////
 
         public static readonly string Library = "Library";
+        public static readonly string Resources = "Resources";
+        public static readonly string Loader = "Loader1.0";
         public static readonly string Tests = "Tests";
         public static readonly string Data = "data";
         public static readonly string Tcl = "tcl";
@@ -433,6 +463,16 @@ namespace Eagle._Constants
     [ObjectId("c9f38457-538c-4dfc-8e16-a1b8f3d6c03a")]
     public static class FileName
     {
+        public static readonly string Loader =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.Loader,
+                PackageType.Loader, false, false);
+
+        public static readonly string LoaderPackageIndex =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
+                PackageType.Loader, false, false);
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static readonly string Initialization =
             FormatOps.ScriptTypeToFileName(ScriptTypes.Initialization,
                 PackageType.Library, false, false);
@@ -507,6 +547,16 @@ namespace Eagle._Constants
     [ObjectId("1f6dc165-629e-4cbe-aec2-b26239f244e4")]
     public static class FileNameOnly
     {
+        public static readonly string Loader =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.Loader,
+                PackageType.Loader, true, false);
+
+        public static readonly string LoaderPackageIndex =
+            FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
+                PackageType.Loader, true, false);
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static readonly string PackageIndex =
             FormatOps.ScriptTypeToFileName(ScriptTypes.PackageIndex,
                 PackageType.None, true, false);
@@ -892,8 +942,11 @@ namespace Eagle._Constants
         public static readonly string Isolated = "Plugin isolation {0}{1}.";
 #endif
 
-        public static readonly string ResultStack =
-            "Result objects will include managed call stacks.";
+        public static readonly string IncludeResultStack =
+            "Result strings will include managed call stacks.";
+
+        public static readonly string PopulateResultStack =
+            "Result objects will populate managed call stacks.";
 
         public static readonly string Security =
             "Script signing policies and core script certificates {0}{1}.";
@@ -1039,6 +1092,9 @@ namespace Eagle._Constants
             "Native stack checking will be disabled.";
 #endif
 
+        public static readonly string AllowAnyThread =
+            "Plugins will be allowed to load on any thread.";
+
         public static readonly string CreateFailSafe =
             "Token interpreter creation cannot be temporarily disabled.";
 
@@ -1143,6 +1199,9 @@ namespace Eagle._Constants
         public static readonly string TracePriorities =
             "Trace priority mask overridden via configuration: {0}.";
 
+        public static readonly string GlobalPriorities =
+            "Trace priority flags overridden via configuration: {0}.";
+
         public static readonly string TracePriority =
             "Trace priority overridden via configuration: {0}.";
 
@@ -1165,6 +1224,9 @@ namespace Eagle._Constants
 
         public static readonly string ForceInitialize =
             "Script library initialization will be forced.";
+
+        public static readonly string ForceModernAlgorithms =
+            "The most modern cryptographic algorithms will be used wherever applicable.";
 
         public static readonly string Initialize =
             "Script library initialization will be enabled.";
@@ -1224,6 +1286,9 @@ namespace Eagle._Constants
 
         public static readonly string UseAttach =
             "Console will be attached or opened.";
+
+        public static readonly string UseForce =
+            "Console will be forcibly attached or opened.";
 
         public static readonly string NoColor =
             "Console output will not be in color.";

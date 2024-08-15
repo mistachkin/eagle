@@ -146,6 +146,7 @@ namespace Eagle._Commands
                 if (!EngineFlagOps.HasErrorAlreadyLogged(engineFlags) &&
                     !EngineFlagOps.HasNoResetError(engineFlags))
                 {
+                    /* IGNORED */
                     Engine.AddErrorInformation(interpreter, localResult,
                         String.Format("{0}    (\"catch\" body line {1})",
                             Environment.NewLine, errorLine));

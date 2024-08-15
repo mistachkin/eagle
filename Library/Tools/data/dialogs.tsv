@@ -1,0 +1,41 @@
+;#;
+;#; dialogs.tsv --
+;#;
+;#; Extensible Adaptable Generalized Logic Engine (Eagle)
+;#; Dialog Result Mappings File
+;#;
+;#; Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+;#;
+;#; See the file "license.terms" for information on usage and redistribution of
+;#; this file, and for a DISCLAIMER OF ALL WARRANTIES.
+;#;
+;#; RCS: @(#) $Id: $
+;#;
+
+;#;
+;#; NOTE: Each line of this file is in the following format:
+;#;
+;#;       messagePattern <tab> dialogResult
+;#;
+;#;       The message pattern is a regular expression to match
+;#;       against the message for an interactive dialog (e.g.
+;#;       MessageBox, etc).  Dialog messages will be matched
+;#;       against each (case-sensitive) regular expression, in
+;#;       line-order (i.e. the order shown below).  The dialog
+;#;       result must be convertable to the Eagle Boolean type
+;#;       -OR- the WinForms DialogResult type.  The first match
+;#;       (with a correct dialog result) will cause matching to
+;#;       stop and that (associated) dialog result will act as
+;#;       the return value.  All literal whitespace values in
+;#;       the regular expressions must be escaped.  Whitespace
+;#;       is forbidden in the dialog results.  In the future,
+;#;       additional fields beyond the first two for each line
+;#;       may be added, e.g. matching against dialog title as
+;#;       well?
+;#;
+^waited \d+ milliseconds so far, possible deadlock\?$	Yes
+^waited \d+ milliseconds so far, possible deadlock\?$	true
+^cancel all interpreters\?$	Yes
+^cancel all interpreters\?$	true
+^possible runaway script \(\d+ milliseconds\), cancel\?$	Yes
+^possible runaway script \(\d+ milliseconds\), cancel\?$	true

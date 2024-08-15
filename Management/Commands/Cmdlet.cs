@@ -229,7 +229,7 @@ namespace Eagle._Commands
 
             code = Utility.TryExecuteSubCommandFromEnsemble(
                 interpreter, this, clientData, arguments, true,
-                false, ref subCommand, ref tried, ref result);
+                null, ref subCommand, ref tried, ref result);
 
             if ((code == ReturnCode.Ok) && !tried)
             {

@@ -74,7 +74,9 @@ runTest {test winForms-8.1 {form with blocking event} -setup {
   set assembly2 [object load -import Microsoft.VisualBasic]
   set form [object create -alias Form]
 
-  $form Text "[info engine] Test Form Title"
+  $form Text [appendArgs \
+      [info engine] " Test '" $eagle_tests(CurrentName) "' Form Title"]
+
   $form TopMost true
   $form Show
 

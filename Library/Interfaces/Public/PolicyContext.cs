@@ -41,6 +41,7 @@ namespace Eagle._Interfaces.Public
         byte[] Bytes { get; }
         string Text { get; }
         Encoding Encoding { get; }
+        int? Timeout { get; }
 
         byte[] HashValue { get; }
         string HashAlgorithmName { get; }

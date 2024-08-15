@@ -42,6 +42,8 @@ using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Tcp;
 #endif
 
+using System.Security.Cryptography;
+
 #if CAS_POLICY
 using System.Security.Policy;
 #endif
@@ -229,6 +231,12 @@ namespace Eagle._Tests
         //
         private static SecurityProtocolType? SavedSecurityProtocol = null;
         private static SecurityProtocolType? BestSecurityProtocol = null;
+        private static SecurityProtocolType? MaskOffSecurityProtocol = null;
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static bool NoMaskOffSecurityProtocol = false;
+        private static bool NoBrokenSecurityProtocol = false;
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -753,6 +761,7 @@ namespace Eagle._Tests
         private static object[] staticMiscellaneousData = new object[] { null };
 
 #if DEBUGGER
+        [ThreadStatic()]
         private static InteractiveLoopCallback savedInteractiveLoopCallback;
 #endif
 
@@ -908,6 +917,165 @@ namespace Eagle._Tests
             ref Result result        /* in, out */
             )
         {
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestAppendArgsExecuteCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* in, out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount < 1)
+            {
+                result = "wrong # args: should be \"appendArgs ?arg ...?\"";
+                return ReturnCode.Error;
+            }
+
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            for (int index = 1; index < argumentCount; index++)
+                builder.Append(arguments[index]);
+
+            result = StringBuilderCache.GetStringAndRelease(ref builder);
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        public static ReturnCode TestLappendArgsExecuteCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in, out */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* in, out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount < 1)
+            {
+                result = "wrong # args: should be \"lappendArgs ?arg ...?\"";
+                return ReturnCode.Error;
+            }
+
+            StringList list = new StringList();
+
+            for (int index = 1; index < argumentCount; index++)
+                list.Add(arguments[index]);
+
+            result = list;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestAddBuiltInExecuteCallbacks(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in: OPTIONAL */
+            bool stopOnError,        /* in */
+            ref LongList tokens,     /* in, out */
+            ref ResultList errors    /* in, out */
+            )
+        {
+            if (interpreter == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            long token; /* REUSED */
+            Result result; /* REUSED */
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "appendArgs", new ExecuteCallback(
+                    TestAppendArgsExecuteCallback),
+                    clientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                if (result != null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(result);
+                }
+
+                if (stopOnError)
+                    return ReturnCode.Error;
+            }
+
+            token = 0;
+            result = null;
+
+            if (interpreter.AddExecuteCallback(
+                    "lappendArgs", new ExecuteCallback(
+                    TestLappendArgsExecuteCallback),
+                    clientData, ref token,
+                    ref result) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                if (result != null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(result);
+                }
+
+                if (stopOnError)
+                    return ReturnCode.Error;
+            }
+
             return ReturnCode.Ok;
         }
 
@@ -1126,16 +1294,16 @@ namespace Eagle._Tests
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public static ReturnCode TestAddCommands(
-            Interpreter interpreter, /* in */
-            Assembly assembly,       /* in */
-            IPlugin plugin,          /* in: OPTIONAL */
-            IClientData clientData,  /* in: OPTIONAL */
-            CommandFlags flags,      /* in */
-            string includePattern,   /* in: OPTIONAL */
-            string excludePattern,   /* in: OPTIONAL */
-            bool stopOnError,        /* in */
-            ref LongList tokens,     /* in, out */
-            ref ResultList errors    /* in, out */
+            Interpreter interpreter,   /* in */
+            Assembly assembly,         /* in */
+            IPlugin plugin,            /* in: OPTIONAL */
+            IClientData clientData,    /* in: OPTIONAL */
+            CommandFlags commandFlags, /* in */
+            string includePattern,     /* in: OPTIONAL */
+            string excludePattern,     /* in: OPTIONAL */
+            bool stopOnError,          /* in */
+            ref LongList tokens,       /* in, out */
+            ref ResultList errors      /* in, out */
             )
         {
             if (interpreter == null)
@@ -1211,7 +1379,7 @@ namespace Eagle._Tests
 
                         ICommandData commandData = new CommandData(
                             ScriptOps.TypeNameToEntityName(type, false),
-                            null, null, clientData, typeName, flags,
+                            null, null, clientData, typeName, commandFlags,
                             plugin, token);
 
                         try
@@ -2165,6 +2333,52 @@ namespace Eagle._Tests
 
         #region Methods for SecurityProtocolType
 #if NETWORK
+        public static ReturnCode TestSetupWebErrorCallback(
+            Interpreter interpreter,
+            bool setup,
+            bool logOnly,
+            bool noRestore,
+            ref Result error
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            WebErrorCallback callback;
+
+            if (setup)
+            {
+                callback = logOnly ?
+                    new WebErrorCallback(TestLogWebErrorCallback) :
+                    new WebErrorCallback(TestBestWebErrorCallback);
+            }
+            else
+            {
+                callback = null;
+            }
+
+            lock (interpreter.InternalSyncRoot) /* TRANSACTIONAL */
+            {
+                interpreter.WebErrorCallback = callback;
+            }
+
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (!noRestore && !setup && (SavedSecurityProtocol != null))
+                {
+                    BestSecurityProtocol = SavedSecurityProtocol;
+                    SavedSecurityProtocol = null;
+                }
+            }
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public static string TestSecurityProtocolToString(
             SecurityProtocolType protocol,
             CultureInfo cultureInfo,
@@ -2245,6 +2459,55 @@ namespace Eagle._Tests
                     TracePriority.NetworkError);
 
                 return null;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static SecurityProtocolType? TestDetectBrokenSecurityProtocols()
+        {
+            //
+            // HACK: Yes, Windows 11 seems to have a broken TLS 1.3
+            //       when using the .NET Framework 4.x.  Hopefully,
+            //       it will be fixed; however, this workaround may
+            //       still last forever.
+            //
+            if (PlatformOps.IsWindows10OrHigher())
+                return SecurityProtocolType.BrokenOnWindows10OrHigher;
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static void TestMaskOffSecurityProtocol(
+            bool noObsolete,                   /* in */
+            ref SecurityProtocolType protocols /* in, out */
+            )
+        {
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if (!NoMaskOffSecurityProtocol)
+                {
+                    if (noObsolete)
+                        protocols &= ~SecurityProtocolType.Obsolete;
+
+                    if (MaskOffSecurityProtocol != null)
+                    {
+                        SecurityProtocolType maskProtocols =
+                            (SecurityProtocolType)MaskOffSecurityProtocol;
+
+                        protocols &= ~maskProtocols;
+                    }
+                    else if (!NoBrokenSecurityProtocol)
+                    {
+                        SecurityProtocolType? maskProtocols =
+                            TestDetectBrokenSecurityProtocols();
+
+                        if (maskProtocols != null)
+                            protocols &= ~((SecurityProtocolType)maskProtocols);
+                    }
+                }
             }
         }
 
@@ -2348,11 +2611,8 @@ namespace Eagle._Tests
                         return ReturnCode.Error;
                     }
 
-                    if (noObsolete)
-                    {
-                        protocols &= ~SecurityProtocolType.Ssl2;
-                        protocols &= ~SecurityProtocolType.Ssl3;
-                    }
+                    TestMaskOffSecurityProtocol(
+                        noObsolete, ref protocols);
 
                     BestSecurityProtocol = protocols;
 
@@ -2414,11 +2674,8 @@ namespace Eagle._Tests
                     SecurityProtocolType allProtocols =
                         (SecurityProtocolType)probeProtocols;
 
-                    if (noObsolete)
-                    {
-                        allProtocols &= ~SecurityProtocolType.Ssl2;
-                        allProtocols &= ~SecurityProtocolType.Ssl3;
-                    }
+                    TestMaskOffSecurityProtocol(
+                        noObsolete, ref allProtocols);
 
                     BestSecurityProtocol = allProtocols;
 
@@ -2582,9 +2839,6 @@ namespace Eagle._Tests
                         //
                         // HACK: For use of the TLS 1.2+ security protocol
                         //       because some web servers fail without it.
-                        //       In order to support the .NET Framework 2.0+
-                        //       at compilation time, must use its integer
-                        //       constant here.
                         //
                         ServicePointManager.SecurityProtocol =
                             (System.Net.SecurityProtocolType)newProtocol;
@@ -2861,7 +3115,7 @@ namespace Eagle._Tests
 #if THREADING
         public static ReturnCode TestHealthCallback(
             Interpreter interpreter, /* in */
-            CheckStatus status,      /* in */
+            ref CheckStatus status,  /* in, out */
             ref ResultList errors    /* in, out */
             )
         {
@@ -3000,8 +3254,9 @@ namespace Eagle._Tests
 
         public static ReturnCode TestOkPreWebClientCallback(
             Interpreter interpreter, /* NOT USED */
-            string argument,
-            IClientData clientData,
+            ref string argument,
+            ref IClientData clientData,
+            ref int? timeout,
             ref Result error /* NOT USED */
             )
         {
@@ -3022,8 +3277,9 @@ namespace Eagle._Tests
 
         public static ReturnCode TestErrorPreWebClientCallback(
             Interpreter interpreter, /* NOT USED */
-            string argument,
-            IClientData clientData,
+            ref string argument,
+            ref IClientData clientData,
+            ref int? timeout,
             ref Result error
             )
         {
@@ -3114,8 +3370,8 @@ namespace Eagle._Tests
             else
             {
                 return WebOps.CreateClient(
-                    argument, WebOps.GetTimeout(interpreter),
-                    ref error);
+                    argument, WebOps.GetTimeout(interpreter,
+                    TimeoutType.Network), ref error);
             }
         }
 
@@ -3537,6 +3793,160 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Methods for TestCommands Environment Variable
+        public static ReturnCode TestAddAllCommands(
+            Interpreter interpreter,
+            RuleSetClientData clientData,
+            ArgumentList arguments
+            )
+        {
+            LongList tokens = null;
+            ResultList errors = null;
+
+            return TestAddAllCommands(
+                interpreter, clientData, arguments, false, false,
+                ref tokens, ref errors);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestAddAllCommands(
+            Interpreter interpreter,
+            RuleSetClientData clientData,
+            ArgumentList arguments,
+            bool stopOnError,
+            bool dynamic,
+            ref LongList tokens,
+            ref ResultList errors
+            )
+        {
+            ReturnCode code = ReturnCode.Ok;
+
+            if (TestAddBuiltInExecuteCallbacks(
+                    interpreter, clientData, stopOnError,
+                    ref tokens, ref errors) != ReturnCode.Ok)
+            {
+                code = ReturnCode.Error;
+            }
+
+            Result result = null;
+
+            if (TestAddPkgInstallLogCommand(
+                    interpreter, ref result) != ReturnCode.Ok)
+            {
+                if (result != null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(result);
+                }
+
+                code = ReturnCode.Error;
+            }
+
+            ResultList results = null;
+
+            if (TestAddCommands(
+                    interpreter, clientData,
+                    ref results) == ReturnCode.Ok)
+            {
+                if (results != null)
+                {
+                    foreach (Result localResult in results)
+                    {
+                        if (localResult == null)
+                            continue;
+
+                        object value = localResult.Value;
+
+                        if (value == null)
+                            continue;
+
+                        Type type = AppDomainOps.MaybeGetType(
+                            value);
+
+                        if (type == null)
+                            continue;
+
+                        if (type == typeof(int))
+                        {
+                            if (tokens == null)
+                                tokens = new LongList();
+
+                            tokens.Add((int)value);
+                        }
+                        else if (type == typeof(long))
+                        {
+                            if (tokens == null)
+                                tokens = new LongList();
+
+                            tokens.Add((long)value);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if (results != null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.AddRange(results);
+                }
+
+                code = ReturnCode.Error;
+            }
+
+            long token = 0;
+            Result error = null;
+
+            if (TestAddCalcCommand(
+                    interpreter, clientData, ref token,
+                    ref error) == ReturnCode.Ok)
+            {
+                if (tokens == null)
+                    tokens = new LongList();
+
+                tokens.Add(token);
+            }
+            else
+            {
+                if (error != null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(error);
+                }
+
+                code = ReturnCode.Error;
+            }
+
+            if (clientData != null)
+            {
+                if (TestAddDefinitionCommands(
+                        interpreter, clientData, ref tokens,
+                        ref errors) != ReturnCode.Ok)
+                {
+                    code = ReturnCode.Error;
+                }
+
+                if (TestAddRuleSetCommands(
+                        interpreter, clientData, ref tokens,
+                        ref errors) != ReturnCode.Ok)
+                {
+                    code = ReturnCode.Error;
+                }
+            }
+
+            return code;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Methods for NewHostCallback
         public static IHost TestNewHostNullCallback(
             IHostData hostData
@@ -3713,6 +4123,7 @@ namespace Eagle._Tests
             IClientData clientData,                  /* in: OPTIONAL */
             IPlugin plugin,                          /* in: OPTIONAL */
             IEnumerable<Type> commandTypes,          /* in: OPTIONAL */
+            CommandFlags commandFlags,               /* in */
             ref Result error                         /* out */
             )
         {
@@ -3743,7 +4154,7 @@ namespace Eagle._Tests
 
             return Helpers.CreateInterpreterWithCommands(
                 interpreterSettings, commands, clientData,
-                plugin, ref error);
+                plugin, commandFlags, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -4848,6 +5259,34 @@ namespace Eagle._Tests
             token = 0;
             result = null;
 
+            if (interpreter.AddExecuteCallback("exists",
+                    TestExistsCommandCallback, clientData,
+                    ref token, ref result) == ReturnCode.Ok)
+            {
+                if (token != 0)
+                {
+                    if (results == null)
+                        results = new ResultList();
+
+                    results.Add(token);
+                }
+            }
+            else
+            {
+                if (result != null)
+                {
+                    if (results == null)
+                        results = new ResultList();
+
+                    results.Add(result);
+                }
+
+                errorCount++;
+            }
+
+            token = 0;
+            result = null;
+
             if (interpreter.AddExecuteCallback("vadd",
                     TestAddVariableCommandCallback, clientData,
                     ref token, ref result) == ReturnCode.Ok)
@@ -5010,9 +5449,8 @@ namespace Eagle._Tests
             {
                 TraceOps.DebugTrace(String.Format(
                     "TestEvaluateInAppDomain: appDomain = {0}, " +
-                    "code = {1}, result = {2}", (appDomain != null) ?
-                        AppDomainOps.GetId(appDomain).ToString() :
-                        FormatOps.DisplayNull,
+                    "code = {1}, result = {2}",
+                    AppDomainOps.GetIdString(appDomain, true),
                     code, FormatOps.WrapOrNull(result)),
                     typeof(Default).Name, TracePriority.Highest);
             }
@@ -5503,7 +5941,8 @@ namespace Eagle._Tests
 #if DEBUGGER
         public static bool TestSetDebugInteractiveLoopCallback(
             Interpreter interpreter,
-            bool? setup
+            bool? setup,
+            bool quiet
             )
         {
             if (interpreter == null)
@@ -5541,11 +5980,14 @@ namespace Eagle._Tests
                         }
                     }
 
-                    TraceOps.DebugTrace(String.Format(
-                        "TestSetDebugInteractiveLoopCallback: HOOK {0}{1}.",
-                        result ? String.Empty : "already ", (bool)setup ?
-                        "installed" : "uninstalled"), typeof(Default).Name,
-                        TracePriority.ScriptDebug2);
+                    if (!quiet)
+                    {
+                        TraceOps.DebugTrace(String.Format(
+                            "TestSetDebugInteractiveLoopCallback: HOOK {0}{1}.",
+                            result ? String.Empty : "already ", (bool)setup ?
+                            "installed" : "uninstalled"), typeof(Default).Name,
+                            TracePriority.ScriptDebug2);
+                    }
                 }
                 else
                 {
@@ -8119,6 +8561,7 @@ namespace Eagle._Tests
 
                 if (code == ReturnCode.Error)
                 {
+                    /* IGNORED */
                     Engine.AddErrorInformation(
                         interpreter, result, String.Format(
                             "{0}    (\"{1}\" body line {2})",
@@ -8284,6 +8727,12 @@ namespace Eagle._Tests
             ArgumentList executeArguments =
                 Engine.GetDebuggerExecuteArguments(
                     interpreter);
+
+            if (executeArguments == null)
+            {
+                result = "invalid debugger execute arguments";
+                return ReturnCode.Error;
+            }
 #endif
 
             return interpreter.AddObject(
@@ -8701,9 +9150,11 @@ namespace Eagle._Tests
                     }
                     else
                     {
-                        TraceOps.DebugTrace(
-                            "Could not lock interpreter to copy error information",
-                            typeof(Default).Name, TracePriority.EngineError2);
+                        TraceOps.LockTrace(
+                            "TestCheckCopyErrorInformation",
+                            typeof(Default).Name, false,
+                            TracePriority.LockError,
+                            interpreter.MaybeWhoHasLock());
                     }
                 }
                 finally
@@ -9689,6 +10140,7 @@ namespace Eagle._Tests
                 //       could easily fail.
                 //
                 interpreterSettings.DisableInitialization();
+                interpreterSettings.DisableLoader();
                 interpreterSettings.DisableSetAutoPath();
             }
 
@@ -11355,6 +11807,48 @@ namespace Eagle._Tests
             {
                 result = text;
             }
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region LockCallback Methods
+        public static bool TestLockCallback(
+            ISynchronizeAll synchronizeAll, /* in */
+            int retry,                      /* in */
+            int timeout,                    /* in */
+            ref bool no                     /* in, out */
+            )
+        {
+            TraceOps.DebugTrace(String.Format(
+                "TestLockCallback: synchronizeAll {0} ({1}) retry {2}, timeout {3}, no {4}",
+                synchronizeAll, RuntimeOps.GetHashCode(synchronizeAll), retry, timeout, no),
+                typeof(Default).Name, TracePriority.LockWarning);
+
+            //
+            // NOTE: By default, just keep trying for the lock.
+            //
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode TestSetupLockCallback(
+            Interpreter interpreter, /* in */
+            bool setup,              /* in */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            interpreter.LockCallback = setup ?
+                new LockCallback(TestLockCallback) : null;
 
             return ReturnCode.Ok;
         }
@@ -15259,6 +15753,44 @@ namespace Eagle._Tests
 
         #region Command Callback Methods
         /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        private static ReturnCode TestExistsCommandCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            ArgumentList arguments,
+            ref Result result
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            if (arguments.Count != 2)
+            {
+                result = "wrong # args: should be \"exists name\"";
+                return ReturnCode.Error;
+            }
+
+            string name = arguments[1];
+
+            if (interpreter.DoesCommandExist(name) == ReturnCode.Ok)
+                result = true;
+            else
+                result = false;
+
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
         private static ReturnCode TestAddVariableCommandCallback(
             Interpreter interpreter,
             IClientData clientData,
@@ -15284,9 +15816,10 @@ namespace Eagle._Tests
                 return ReturnCode.Error;
             }
 
+            string name = arguments[1];
+
             return interpreter.AddVariable(
-                VariableFlags.None, arguments[1], null, true,
-                ref result);
+                VariableFlags.None, name, null, true, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -15777,6 +16310,61 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region Methods for SecurityProtocolType
+#if NETWORK
+        private static ReturnCode TestBestWebErrorCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            Uri uri,
+            WebFlags webFlags,
+            int retries,
+            int? timeout,
+            int? maximumRetries,
+            ref object result,
+            ref ResultList errors
+            )
+        {
+            lock (staticSyncRoot) /* TRANSACTIONAL */
+            {
+                if ((retries == 0) && (SavedSecurityProtocol == null))
+                {
+                    SavedSecurityProtocol = BestSecurityProtocol;
+                    BestSecurityProtocol = SecurityProtocolType.FailSafe;
+                }
+            }
+
+            return ReturnCode.Continue; /* Do nothing and keep going. */
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode TestLogWebErrorCallback(
+            Interpreter interpreter,
+            IClientData clientData,
+            Uri uri,
+            WebFlags webFlags,
+            int retries,
+            int? timeout,
+            int? maximumRetries,
+            ref object result,
+            ref ResultList errors
+            )
+        {
+            TraceOps.DebugTrace(
+                "TestLogWebErrorCallback", null, typeof(Default).Name,
+                TracePriority.NetworkError, false, "interpreter",
+                interpreter, "clientData", clientData, "uri", uri,
+                "webFlags", webFlags, "retries", retries, "timeout",
+                timeout, "maximumRetries", maximumRetries, "result",
+                result, "errors", errors);
+
+            return ReturnCode.Continue; /* Do nothing and keep going. */
+        }
+#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Methods for [pkgInstallLog]
         private static ReturnCode TestValidatePkgInstallArguments(
             Interpreter interpreter,
@@ -15916,6 +16504,8 @@ namespace Eagle._Tests
             {
                 ObjectOps.DisposeOrTrace<TestCrossAppDomainHelper>(
                     null, ref helper);
+
+                helper = null;
             }
         }
 
@@ -15984,6 +16574,8 @@ namespace Eagle._Tests
             {
                 ObjectOps.DisposeOrTrace<TestCrossAppDomainHelper>(
                     null, ref helper);
+
+                helper = null;
             }
         }
 #endif
@@ -16018,39 +16610,50 @@ namespace Eagle._Tests
 
             try
             {
-                StringBuilder builder = new StringBuilder();
+                StringBuilder builder = null;
 
-                while (true)
+                try
                 {
-                    string line = textReader.ReadLine();
+                    builder = StringBuilderFactory.Create();
 
-                    if (line == null)
-                        return ReturnCode.Ok;
-
-                    builder.Length = 0;
-                    builder.Append(line);
-                    builder.Append(Characters.CarriageReturn);
-
-                    if (FlagOps.HasFlags(
-                            flags, SimulatedKeyFlags.ConsoleOnly, true))
+                    while (true)
                     {
-                        if (NativeConsole.SimulateKeyboardString(
-                                stringCallback, clientData, builder.ToString(),
-                                milliseconds, flags, ref error) != ReturnCode.Ok)
+                        string line = textReader.ReadLine();
+
+                        if (line == null)
+                            return ReturnCode.Ok;
+
+                        builder.Length = 0;
+                        builder.Append(line);
+                        builder.Append(Characters.CarriageReturn);
+
+                        if (FlagOps.HasFlags(
+                                flags, SimulatedKeyFlags.ConsoleOnly, true))
                         {
-                            break;
+                            if (NativeConsole.SimulateKeyboardString(
+                                    stringCallback, clientData,
+                                    builder.ToString(), milliseconds,
+                                    flags, ref error) != ReturnCode.Ok)
+                            {
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            if (NativeOps.SimulateKeyboardString(
+                                    cancelCallback, stringCallback,
+                                    clientData, builder.ToString(),
+                                    milliseconds, flags,
+                                    ref error) != ReturnCode.Ok)
+                            {
+                                break;
+                            }
                         }
                     }
-                    else
-                    {
-                        if (NativeOps.SimulateKeyboardString(
-                                cancelCallback, stringCallback, clientData,
-                                builder.ToString(), milliseconds,
-                                flags, ref error) != ReturnCode.Ok)
-                        {
-                            break;
-                        }
-                    }
+                }
+                finally
+                {
+                    StringBuilderCache.Release(ref builder);
                 }
             }
             catch (Exception e)
@@ -16619,6 +17222,15 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static void TestNopWaitCallback(
+            object state
+            ) /* System.Threading.WaitCallback */
+        {
+            // do nothing.
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static void TestDebugEmergencyBreakWaitCallback(
             object state
             ) /* System.Threading.WaitCallback */
@@ -16750,8 +17362,14 @@ namespace Eagle._Tests
                                 HostCreateFlags hostCreateFlags = TestMaskFlags(
                                     interpreter.HostCreateFlags);
 
-                                HostOps.SetupNativeConsole(
-                                    interpreter, hostCreateFlags);
+                                HostOps.SetupNativeConsole(interpreter, hostCreateFlags);
+
+                                if (!HostOps.IsNativeConsoleOpen(interpreter, false))
+                                {
+                                    TraceOps.DebugTrace(
+                                        "TestDebugInteractiveLoopCallback: native console is not open.",
+                                        typeof(Default).Name, TracePriority.ScriptError2);
+                                }
                             }
                             else
                             {
@@ -20199,6 +20817,7 @@ namespace Eagle._Tests
                 IEnumerable<CommandTriplet> commands,    /* in: OPTIONAL */
                 IClientData clientData,                  /* in: OPTIONAL */
                 IPlugin plugin,                          /* in: OPTIONAL */
+                CommandFlags commandFlags,               /* in */
                 ref Result error                         /* out */
                 )
             {
@@ -20233,7 +20852,7 @@ namespace Eagle._Tests
 
                         ICommandData commandData = new CommandData(
                             name, null, null, clientData, type.FullName,
-                            CommandFlags.None, plugin, 0);
+                            commandFlags, plugin, 0);
 
                         try
                         {
@@ -22933,6 +23552,7 @@ namespace Eagle._Tests
                         if (localLevels == 1)
                         {
                             EngineFlags engineFlags = this.EngineFlags;
+                            string text = this.Text;
                             ObjectDictionary objects = new ObjectDictionary();
 
                             objects.Add("engineFlags", engineFlags);
@@ -22952,8 +23572,7 @@ namespace Eagle._Tests
                             try
                             {
                                 localCode = Helpers.EvaluateScript(
-                                    interpreter, this.Text, objects,
-                                    ref localResult);
+                                    interpreter, text, objects, ref localResult);
                             }
                             finally
                             {
@@ -23263,6 +23882,7 @@ namespace Eagle._Tests
                     if (levels == 1)
                     {
                         EngineFlags engineFlags = this.EngineFlags;
+                        string text = this.Text;
                         ObjectDictionary objects = new ObjectDictionary();
 
                         objects.Add("notifyTypes", this.NotifyTypes);
@@ -23282,8 +23902,8 @@ namespace Eagle._Tests
                             ReturnCode code;
                             Result localResult = null;
 
-                            code = Helpers.EvaluateScript(interpreter,
-                                this.Text, objects, ref localResult);
+                            code = Helpers.EvaluateScript(
+                                interpreter, text, objects, ref localResult);
 
                             if (code != ReturnCode.Ok)
                                 result = localResult;
@@ -23468,6 +24088,7 @@ namespace Eagle._Tests
                     if (levels == 1)
                     {
                         EngineFlags engineFlags = this.EngineFlags;
+                        string text = this.Text;
                         ObjectDictionary objects = new ObjectDictionary();
 
                         objects.Add("engineFlags", engineFlags);
@@ -23484,7 +24105,7 @@ namespace Eagle._Tests
                             Result localResult = null;
 
                             if (ResultOps.IsOkOrReturn(Helpers.EvaluateScript(
-                                    interpreter, this.Text, objects, ref localResult)))
+                                    interpreter, text, objects, ref localResult)))
                             {
                                 return localResult;
                             }
@@ -23681,6 +24302,9 @@ namespace Eagle._Tests
             {
                 WebRequest webRequest = base.GetWebRequest(address);
 
+                Interpreter interpreter = this.Interpreter;
+                string text = this.Text;
+
                 ObjectDictionary objects = new ObjectDictionary();
 
                 objects.Add("argument", this.Argument);
@@ -23692,8 +24316,7 @@ namespace Eagle._Tests
                 Result localResult = null;
 
                 localCode = Helpers.EvaluateScript(
-                    this.Interpreter, this.Text, objects,
-                    ref localResult);
+                    interpreter, text, objects, ref localResult);
 
                 if (localCode != ReturnCode.Ok)
                     Complain(this.Interpreter, localCode, localResult);
@@ -23709,6 +24332,9 @@ namespace Eagle._Tests
             {
                 WebResponse webResponse = base.GetWebResponse(request);
 
+                Interpreter interpreter = this.Interpreter;
+                string text = this.Text;
+
                 ObjectDictionary objects = new ObjectDictionary();
 
                 objects.Add("argument", this.Argument);
@@ -23720,8 +24346,7 @@ namespace Eagle._Tests
                 Result localResult = null;
 
                 localCode = Helpers.EvaluateScript(
-                    this.Interpreter, this.Text, objects,
-                    ref localResult);
+                    interpreter, text, objects, ref localResult);
 
                 if (localCode != ReturnCode.Ok)
                     Complain(this.Interpreter, localCode, localResult);
@@ -23738,6 +24363,9 @@ namespace Eagle._Tests
             {
                 WebResponse webResponse = base.GetWebResponse(request);
 
+                Interpreter interpreter = this.Interpreter;
+                string text = this.Text;
+
                 ObjectDictionary objects = new ObjectDictionary();
 
                 objects.Add("argument", this.Argument);
@@ -23750,8 +24378,7 @@ namespace Eagle._Tests
                 Result localResult = null;
 
                 localCode = Helpers.EvaluateScript(
-                    this.Interpreter, this.Text, objects,
-                    ref localResult);
+                    interpreter, text, objects, ref localResult);
 
                 if (localCode != ReturnCode.Ok)
                     Complain(this.Interpreter, localCode, localResult);
@@ -28333,6 +28960,7 @@ namespace Eagle._Tests
 
                     if (code == ReturnCode.Error)
                     {
+                        /* IGNORED */
                         Engine.AddErrorInformation(interpreter, result,
                             String.Format("{0}    (\"{1}\" body line {2})",
                                 Environment.NewLine, GetCommandName(),
@@ -29145,6 +29773,7 @@ namespace Eagle._Tests
 
                     if (code == ReturnCode.Error)
                     {
+                        /* IGNORED */
                         Engine.AddErrorInformation(interpreter, result,
                             String.Format("{0}    (\"{1}\" body line {2})",
                                 Environment.NewLine, GetCommandName(),
@@ -31046,12 +31675,712 @@ namespace Eagle._Tests
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region ProvideEntropy Test Class
+        [ObjectId("a919e528-368a-4f65-923d-dae131432c4c")]
+        public class ProvideEntropy : IProvideEntropy, IDisposable
+        {
+            #region Private Data
+            private RandomNumberGenerator randomNumberGenerator;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Constructors
+            public ProvideEntropy()
+            {
+                PrivateInitialize();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public ProvideEntropy(
+                RandomNumberGenerator randomNumberGenerator /* in */
+                )
+            {
+                this.randomNumberGenerator = randomNumberGenerator;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Methods
+            private void CheckInitialized()
+            {
+                if (randomNumberGenerator == null)
+                {
+                    throw new TraceException(String.Format(
+                        "instance {0} of {1} is closed",
+                        FormatOps.WrapHashCode(this),
+                        typeof(ProvideEntropy)));
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void PrivateInitialize()
+            {
+                if (randomNumberGenerator == null)
+                    randomNumberGenerator = new RNGCryptoServiceProvider();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void PrivateReset()
+            {
+                /* IGNORED */
+                ObjectOps.TryDisposeOrTrace<RandomNumberGenerator>(
+                    ref randomNumberGenerator);
+
+                randomNumberGenerator = null;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Methods
+            public void Initialize()
+            {
+                CheckDisposed();
+
+                PrivateInitialize();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void Reset()
+            {
+                CheckDisposed();
+
+                PrivateReset();
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IProvideEntropy Members
+            public void GetBytes(
+                byte[] data /* in, out */
+                )
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                if (randomNumberGenerator != null)
+                    randomNumberGenerator.GetBytes(data);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void GetNonZeroBytes(
+                byte[] data /* in, out */
+                )
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                if (randomNumberGenerator != null)
+                    randomNumberGenerator.GetNonZeroBytes(data);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void GetBytes(
+                ref byte[] data /* in, out */
+                )
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                if (randomNumberGenerator != null)
+                    randomNumberGenerator.GetBytes(data);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public void GetNonZeroBytes(
+                ref byte[] data /* in, out */
+                )
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                if (randomNumberGenerator != null)
+                    randomNumberGenerator.GetNonZeroBytes(data);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IDisposable Members
+            public void Dispose()
+            {
+                Dispose(true);
+                GC.SuppressFinalize(this);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IDisposable "Pattern" Members
+            private bool disposed;
+            private void CheckDisposed() /* throw */
+            {
+#if THROW_ON_DISPOSED
+                if (disposed && Engine.IsThrowOnDisposed(null, null))
+                {
+                    throw new ObjectDisposedException(
+                        typeof(ProvideEntropy).Name);
+                }
+#endif
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            protected virtual void Dispose(
+                bool disposing
+                )
+            {
+                try
+                {
+                    if (!disposed)
+                    {
+                        if (disposing)
+                        {
+                            ////////////////////////////////////
+                            // dispose managed resources here...
+                            ////////////////////////////////////
+
+                            PrivateReset();
+                        }
+
+                        //////////////////////////////////////
+                        // release unmanaged resources here...
+                        //////////////////////////////////////
+                    }
+                }
+                finally
+                {
+                    // base.Dispose(disposing);
+
+                    disposed = true;
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Destructor
+            ~ProvideEntropy()
+            {
+                Dispose(false);
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region RandomTextReader Test Class
+        [ObjectId("e3e81934-9413-4e89-b042-08363a08f2b2")]
+        public class RandomTextReader : TextReader
+        {
+            #region Private Constants
+            //
+            // HACK: This is purposely not read-only.
+            //
+            private static int DefaultLength = 16;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Data
+            private IProvideEntropy provideEntropy;
+            private int length;
+            private int? peek;
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Protected Constructors
+            protected RandomTextReader(
+                int length /* in */
+                )
+                : base()
+            {
+                this.length = length;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            protected RandomTextReader(
+                IProvideEntropy provideEntropy, /* in: OPTIONAL */
+                int length                      /* in */
+                )
+                : base()
+            {
+                this.provideEntropy = provideEntropy;
+                this.length = length;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Static "Factory" Methods
+            public static TextReader Create(
+                int length /* in */
+                )
+            {
+                return new RandomTextReader(length);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public static TextReader Create(
+                IProvideEntropy provideEntropy, /* in: OPTIONAL */
+                int length                      /* in */
+                )
+            {
+                return new RandomTextReader(provideEntropy, length);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Protected IProvideEntropy Methods
+            protected virtual void CheckInitialized()
+            {
+                if (provideEntropy == null)
+                {
+                    throw new TraceException(String.Format(
+                        "instance {0} of {1} is closed",
+                        FormatOps.WrapHashCode(this),
+                        typeof(RandomTextReader)));
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            protected virtual RandomNumberGenerator GetRandomNumberGenerator()
+            {
+                return new RNGCryptoServiceProvider();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            protected virtual void MaybeInitialize()
+            {
+                if (provideEntropy == null)
+                {
+                    RandomNumberGenerator randomNumberGenerator =
+                        GetRandomNumberGenerator();
+
+                    if (randomNumberGenerator != null)
+                    {
+                        provideEntropy = new ProvideEntropy(
+                            randomNumberGenerator);
+                    }
+                    else
+                    {
+                        provideEntropy = new ProvideEntropy();
+                    }
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            protected virtual void MaybeDispose()
+            {
+                /* IGNORED */
+                ObjectOps.TryDisposeOrTrace<IProvideEntropy>(
+                    ref provideEntropy);
+
+                provideEntropy = null;
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Private Methods
+            //
+            // HACK: This method does not consume any of the stated
+            //       capacity for this instance.
+            //
+            private int GetRandomCount()
+            {
+                byte[] data = new byte[sizeof(int)];
+
+                if (provideEntropy != null)
+                    provideEntropy.GetBytes(data);
+
+                int count = BitConverter.ToInt32(data, 0);
+
+                if (count == Int32.MinValue)
+                    count = Int32.MaxValue;
+                else if (count < 0)
+                    count = -count;
+
+                return count % GetLength();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private int GetLength()
+            {
+                return (length > 0) ? length : DefaultLength;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void PrivateRead(
+                byte[] data, /* in, out */
+                int consume, /* in */
+                byte? crLf   /* in: OPTIONAL */
+                )
+            {
+                if ((data != null) && (provideEntropy != null))
+                {
+                    //
+                    // NOTE: If the "crLf" parameter is not null, its
+                    //       value will be used as a replacement for
+                    //       carriage return -AND- line feed values,
+                    //       e.g. for use by ReadLine methods.
+                    //
+                    if (crLf != null)
+                    {
+                        int dataLength = data.Length;
+                        byte[] localData = new byte[dataLength];
+
+                        provideEntropy.GetBytes(localData);
+
+                        for (int index = 0; index < dataLength; index++)
+                        {
+                            byte byteValue = localData[index];
+
+                            if ((byteValue == Characters.CarriageReturn) ||
+                                (byteValue == Characters.LineFeed))
+                            {
+                                localData[index] = (byte)crLf;
+                            }
+                        }
+
+                        Array.Copy(localData, data, dataLength);
+                    }
+                    else
+                    {
+                        provideEntropy.GetBytes(data);
+                    }
+
+                    if (length > 0)
+                        length -= consume;
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void PrivateRead(
+                char[] data,    /* in, out */
+                int startIndex, /* in */
+                ref int count   /* in, out */
+                )
+            {
+                if ((data != null) && (provideEntropy != null))
+                {
+                    bool success = false;
+
+                    try
+                    {
+                       int newCount = count;
+
+                       if ((length > 0) && (newCount > length))
+                           newCount = length;
+
+                        byte[] localData = new byte[newCount];
+
+                        provideEntropy.GetBytes(localData);
+
+                        //
+                        // NOTE: Ideally, an overload of Array.Copy
+                        //       could be used here; however, that
+                        //       is frustrated by mismatched types;
+                        //       the random number generator gives
+                        //       bytes, not chars.
+                        //
+                        // HACK: This will only produce chars with
+                        //       values that will fit into a byte,
+                        //       which is fine for our use cases.
+                        //
+                        int dataLength = data.Length;
+                        int dataIndex = startIndex;
+
+                        for (int index = 0; index < newCount; index++)
+                        {
+                            if ((dataIndex < 0) ||
+                                (dataIndex >= dataLength))
+                            {
+                                break;
+                            }
+
+                            data[dataIndex++] = ConversionOps.ToChar(
+                                localData[index]);
+                        }
+
+                        count = newCount;
+                        success = true;
+                    }
+                    finally
+                    {
+                        if (success && (length > 0))
+                        {
+                            if (count > length)
+                                length = 0; /* CONSUME ALL */
+                            else
+                                length -= count; /* CONSUME X */
+                        }
+                    }
+                }
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            private void PrivateReadOrThrow(
+                char[] buffer,  /* in, out */
+                int startIndex, /* in */
+                ref int count   /* in, out */
+                )
+            {
+                if (buffer == null)
+                    throw new ArgumentNullException("buffer");
+
+                int bufferLength = buffer.Length;
+
+                if (bufferLength == 0)
+                {
+                    if (count == 0)
+                        return;
+
+                    throw new ArgumentException(
+                        "no space in buffer");
+                }
+
+                if ((bufferLength - startIndex) < count)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        "not enough space in buffer");
+                }
+
+                PrivateRead(buffer, startIndex, ref count);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Public Methods
+            public virtual void Initialize()
+            {
+                CheckDisposed();
+
+                MaybeInitialize();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public virtual void Reset()
+            {
+                CheckDisposed();
+
+                MaybeDispose();
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region System.IO.TextReader Overrides
+            public override void Close()
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                MaybeDispose();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override int Peek()
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                if (peek != null)
+                    return (int)peek;
+
+                if (length == 0)
+                    return ChannelStream.EndOfFile;
+
+                byte[] data = new byte[sizeof(int)];
+
+                PrivateRead(data, data.Length, null);
+
+                peek = BitConverter.ToInt32(data, 0);
+                return (int)peek;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override int Read()
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                if (peek != null)
+                {
+                    int read = (int)peek;
+
+                    if (length > 0)
+                        length--;  /* CONSUME 1 */
+
+                    peek = null;
+                    return read;
+                }
+
+                if (length == 0)
+                    return ChannelStream.EndOfFile;
+
+                byte[] data = new byte[sizeof(int)];
+
+                PrivateRead(data, data.Length, null);
+
+                return BitConverter.ToInt32(data, 0);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override int Read(
+                char[] buffer, /* in, out */
+                int index,     /* in */
+                int count      /* in */
+                )
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                PrivateReadOrThrow(buffer, index, ref count);
+                return count;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override int ReadBlock(
+                char[] buffer, /* in, out */
+                int index,     /* in */
+                int count      /* in */
+                )
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                PrivateReadOrThrow(buffer, index, ref count);
+                return count;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override string ReadLine()
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                int count = GetRandomCount();
+                byte[] data = new byte[count];
+
+                PrivateRead(data, data.Length, 0);
+
+                return ArrayOps.ToRawString(data);
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            public override string ReadToEnd()
+            {
+                CheckDisposed();
+                CheckInitialized();
+
+                int count = GetLength();
+                byte[] data = new byte[count];
+
+                PrivateRead(data, data.Length, null);
+
+                return ArrayOps.ToRawString(data);
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region IDisposable "Pattern" Members
+            private bool disposed;
+            private void CheckDisposed() /* throw */
+            {
+#if THROW_ON_DISPOSED
+                if (disposed && Engine.IsThrowOnDisposed(null, null))
+                {
+                    throw new ObjectDisposedException(
+                        typeof(RandomTextReader).Name);
+                }
+#endif
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            protected override void Dispose(
+                bool disposing
+                )
+            {
+                try
+                {
+                    if (!disposed)
+                    {
+                        if (disposing)
+                        {
+                            ////////////////////////////////////
+                            // dispose managed resources here...
+                            ////////////////////////////////////
+
+                            MaybeDispose();
+                        }
+
+                        //////////////////////////////////////
+                        // release unmanaged resources here...
+                        //////////////////////////////////////
+                    }
+                }
+                finally
+                {
+                    base.Dispose(disposing);
+
+                    disposed = true;
+                }
+            }
+            #endregion
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            #region Destructor
+            ~RandomTextReader()
+            {
+                Dispose(false);
+            }
+            #endregion
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region ScriptTraceListener Test Class
         [ObjectId("91730fa7-dbe4-42cd-b175-9ccb66cae405")]
         public class ScriptTraceListener : TraceListener
         {
             #region Private Data
             private int traceLevels = 0;
+            private int traceLockError = 0;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -31207,21 +32536,49 @@ namespace Eagle._Tests
                 {
                     if (levels == 1)
                     {
-                        ObjectDictionary objects = new ObjectDictionary();
+                        Interpreter interpreter = this.Interpreter;
 
-                        objects.Add("listener", this);
-                        objects.Add("argument", this.Argument);
-                        objects.Add("methodName", "Close");
+                        if (interpreter == null)
+                            return;
 
-                        ReturnCode localCode;
-                        Result localResult = null;
+                        bool locked = false;
 
-                        localCode = Helpers.EvaluateScript(
-                            this.Interpreter, this.Text, objects,
-                            ref localResult);
+                        try
+                        {
+                            interpreter.InternalSoftTryLock(
+                                ref locked); /* TRANSACTIONAL */
 
-                        if (localCode != ReturnCode.Ok)
-                            Complain(this.Interpreter, localCode, localResult);
+                            if (locked)
+                            {
+                                string argument = this.Argument;
+                                string text = this.Text;
+
+                                ObjectDictionary objects = new ObjectDictionary();
+
+                                objects.Add("listener", this);
+                                objects.Add("argument", argument);
+                                objects.Add("methodName", "Close");
+
+                                ReturnCode localCode;
+                                Result localResult = null;
+
+                                localCode = Helpers.EvaluateScript(
+                                    interpreter, text, objects, ref localResult);
+
+                                if (localCode != ReturnCode.Ok)
+                                    Complain(interpreter, localCode, localResult);
+                            }
+                            else
+                            {
+                                /* IGNORED */
+                                Interlocked.Increment(ref traceLockError);
+                            }
+                        }
+                        finally
+                        {
+                            interpreter.InternalExitLock(
+                                ref locked); /* TRANSACTIONAL */
+                        }
                     }
                 }
                 finally
@@ -31254,21 +32611,49 @@ namespace Eagle._Tests
                 {
                     if (levels == 1)
                     {
-                        ObjectDictionary objects = new ObjectDictionary();
+                        Interpreter interpreter = this.Interpreter;
 
-                        objects.Add("listener", this);
-                        objects.Add("argument", this.Argument);
-                        objects.Add("methodName", "Flush");
+                        if (interpreter == null)
+                            return;
 
-                        ReturnCode localCode;
-                        Result localResult = null;
+                        bool locked = false;
 
-                        localCode = Helpers.EvaluateScript(
-                            this.Interpreter, this.Text, objects,
-                            ref localResult);
+                        try
+                        {
+                            interpreter.InternalSoftTryLock(
+                                ref locked); /* TRANSACTIONAL */
 
-                        if (localCode != ReturnCode.Ok)
-                            Complain(this.Interpreter, localCode, localResult);
+                            if (locked)
+                            {
+                                string argument = this.Argument;
+                                string text = this.Text;
+
+                                ObjectDictionary objects = new ObjectDictionary();
+
+                                objects.Add("listener", this);
+                                objects.Add("argument", argument);
+                                objects.Add("methodName", "Flush");
+
+                                ReturnCode localCode;
+                                Result localResult = null;
+
+                                localCode = Helpers.EvaluateScript(
+                                    interpreter, text, objects, ref localResult);
+
+                                if (localCode != ReturnCode.Ok)
+                                    Complain(interpreter, localCode, localResult);
+                            }
+                            else
+                            {
+                                /* IGNORED */
+                                Interlocked.Increment(ref traceLockError);
+                            }
+                        }
+                        finally
+                        {
+                            interpreter.InternalExitLock(
+                                ref locked); /* TRANSACTIONAL */
+                        }
                     }
                 }
                 finally
@@ -31303,22 +32688,50 @@ namespace Eagle._Tests
                 {
                     if (levels == 1)
                     {
-                        ObjectDictionary objects = new ObjectDictionary();
+                        Interpreter interpreter = this.Interpreter;
 
-                        objects.Add("listener", this);
-                        objects.Add("argument", this.Argument);
-                        objects.Add("methodName", "Write");
-                        objects.Add("message", message);
+                        if (interpreter == null)
+                            return;
 
-                        ReturnCode localCode;
-                        Result localResult = null;
+                        bool locked = false;
 
-                        localCode = Helpers.EvaluateScript(
-                            this.Interpreter, this.Text, objects,
-                            ref localResult);
+                        try
+                        {
+                            interpreter.InternalSoftTryLock(
+                                ref locked); /* TRANSACTIONAL */
 
-                        if (localCode != ReturnCode.Ok)
-                            Complain(this.Interpreter, localCode, localResult);
+                            if (locked)
+                            {
+                                string argument = this.Argument;
+                                string text = this.Text;
+
+                                ObjectDictionary objects = new ObjectDictionary();
+
+                                objects.Add("listener", this);
+                                objects.Add("argument", argument);
+                                objects.Add("methodName", "Write");
+                                objects.Add("message", message);
+
+                                ReturnCode localCode;
+                                Result localResult = null;
+
+                                localCode = Helpers.EvaluateScript(
+                                    interpreter, text, objects, ref localResult);
+
+                                if (localCode != ReturnCode.Ok)
+                                    Complain(interpreter, localCode, localResult);
+                            }
+                            else
+                            {
+                                /* IGNORED */
+                                Interlocked.Increment(ref traceLockError);
+                            }
+                        }
+                        finally
+                        {
+                            interpreter.InternalExitLock(
+                                ref locked); /* TRANSACTIONAL */
+                        }
                     }
                 }
                 finally
@@ -31353,22 +32766,50 @@ namespace Eagle._Tests
                 {
                     if (levels == 1)
                     {
-                        ObjectDictionary objects = new ObjectDictionary();
+                        Interpreter interpreter = this.Interpreter;
 
-                        objects.Add("listener", this);
-                        objects.Add("argument", this.Argument);
-                        objects.Add("methodName", "WriteLine");
-                        objects.Add("message", message);
+                        if (interpreter == null)
+                            return;
 
-                        ReturnCode localCode;
-                        Result localResult = null;
+                        bool locked = false;
 
-                        localCode = Helpers.EvaluateScript(
-                            this.Interpreter, this.Text, objects,
-                            ref localResult);
+                        try
+                        {
+                            interpreter.InternalSoftTryLock(
+                                ref locked); /* TRANSACTIONAL */
 
-                        if (localCode != ReturnCode.Ok)
-                            Complain(this.Interpreter, localCode, localResult);
+                            if (locked)
+                            {
+                                string argument = this.Argument;
+                                string text = this.Text;
+
+                                ObjectDictionary objects = new ObjectDictionary();
+
+                                objects.Add("listener", this);
+                                objects.Add("argument", argument);
+                                objects.Add("methodName", "WriteLine");
+                                objects.Add("message", message);
+
+                                ReturnCode localCode;
+                                Result localResult = null;
+
+                                localCode = Helpers.EvaluateScript(
+                                    interpreter, text, objects, ref localResult);
+
+                                if (localCode != ReturnCode.Ok)
+                                    Complain(interpreter, localCode, localResult);
+                            }
+                            else
+                            {
+                                /* IGNORED */
+                                Interlocked.Increment(ref traceLockError);
+                            }
+                        }
+                        finally
+                        {
+                            interpreter.InternalExitLock(
+                                ref locked); /* TRANSACTIONAL */
+                        }
                     }
                 }
                 finally
@@ -33384,7 +34825,12 @@ namespace Eagle._Tests
                 //       as that would defeat the purpose of this method and
                 //       may interfere with the associated test cases.
                 //
-                get { /* CheckDisposed(); */ return disposed; }
+                get
+                {
+                    // CheckDisposed(); /* EXEMPT */
+
+                    return disposed;
+                }
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -33396,7 +34842,12 @@ namespace Eagle._Tests
                 //       as that would defeat the purpose of this method and
                 //       may interfere with the associated test cases.
                 //
-                get { /* CheckDisposed(); */ return disposing; }
+                get
+                {
+                    // CheckDisposed(); /* EXEMPT */
+
+                    return disposing;
+                }
             }
             #endregion
 
@@ -34753,6 +36204,8 @@ namespace Eagle._Tests
                             /* IGNORED */
                             ObjectOps.TryDisposeOrTrace<IRule>(
                                 ref rule);
+
+                            rule = null;
                         }
 
                         if (ruleSet != null)
@@ -34760,6 +36213,8 @@ namespace Eagle._Tests
                             /* IGNORED */
                             ObjectOps.TryDisposeOrTrace<IRuleSet>(
                                 ref ruleSet);
+
+                            ruleSet = null;
                         }
                     }
                 }
@@ -34803,6 +36258,8 @@ namespace Eagle._Tests
                             /* IGNORED */
                             ObjectOps.TryDisposeOrTrace<IRule>(
                                 ref rule);
+
+                            rule = null;
                         }
 
                         if (ruleSet != null)
@@ -34810,6 +36267,8 @@ namespace Eagle._Tests
                             /* IGNORED */
                             ObjectOps.TryDisposeOrTrace<IRuleSet>(
                                 ref ruleSet);
+
+                            ruleSet = null;
                         }
                     }
                 }
@@ -35933,7 +37392,7 @@ namespace Eagle._Tests
                 // NOTE: Obviously, this would defeat the point of this
                 //       property.
                 //
-                // CheckDisposed();
+                // CheckDisposed(); /* EXEMPT */
 
                 return disposed;
             }
@@ -35949,7 +37408,7 @@ namespace Eagle._Tests
                 // NOTE: Obviously, this would defeat the point of this
                 //       property.
                 //
-                // CheckDisposed();
+                // CheckDisposed(); /* EXEMPT */
 
                 return false;
             }

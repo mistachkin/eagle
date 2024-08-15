@@ -34,7 +34,7 @@ namespace Eagle._Services
             "This service is used to handle dynamic content (i.e. expressions, " +
             "scripts, and/or text blocks) for the Tcl and/or Eagle languages.";
 
-        private const string Namespace = "https://eagle.to/";
+        private const string Namespace = "https://urn.to/r/eagle";
 
         ///////////////////////////////////////////////////////////////////////
 

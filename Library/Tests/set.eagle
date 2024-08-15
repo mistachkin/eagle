@@ -108,8 +108,8 @@ runTest {test set-1.4 {big set, out-of-memory, global} -setup {
   }
 
   if {[llength [info commands showCounters]] > 0} then {showCounters}
-} -constraints {eagle memoryIntensive monoBug46 tclCrash} \
--constraintExpression {[haveConstraint windows] || \
+} -constraints [fixMemoryConstraints {eagle memoryIntensive monoBug46\
+tclCrash}] -constraintExpression {[haveConstraint windows] || \
 ![haveConstraint dotNetCore]} -returnCodes 1 -match regexp -result \
 [appendArgs {^(?:.*: )?(?:System\.OutOfMemoryException} \
 {|Eagle\._Components\.Public\.ScriptEngineException): .*$}]}
@@ -145,8 +145,8 @@ runTest {test set-1.5 {big set, out-of-memory, procedure} -setup {
   rename bigSet ""
 
   if {[llength [info commands showCounters]] > 0} then {showCounters}
-} -constraints {eagle memoryIntensive monoBug46 tclCrash} \
--constraintExpression {[haveConstraint windows] || \
+} -constraints [fixMemoryConstraints {eagle memoryIntensive monoBug46\
+tclCrash}] -constraintExpression {[haveConstraint windows] || \
 ![haveConstraint dotNetCore]} -returnCodes 1 -match regexp -result \
 [appendArgs {^(?:.*: )?(?:System\.OutOfMemoryException} \
 {|Eagle\._Components\.Public\.ScriptEngineException): .*$}]}
@@ -189,8 +189,8 @@ runTest {test set-1.6 {big set, out-of-memory, nested procedures} -setup {
   rename bigSet1 ""
 
   if {[llength [info commands showCounters]] > 0} then {showCounters}
-} -constraints {eagle memoryIntensive monoBug22 tclCrash} \
--constraintExpression {[haveConstraint windows] || \
+} -constraints [fixMemoryConstraints {eagle memoryIntensive monoBug22\
+tclCrash}] -constraintExpression {[haveConstraint windows] || \
 ![haveConstraint dotNetCore]} -result {8}}
 
 ###############################################################################
@@ -238,6 +238,12 @@ runTest {test unset-1.3 {-nocomplain for bad array element ref} -setup {
 } -cleanup {
   catch {unset -nocomplain foo}
 } -result {1 {} 1}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  catch {purgeAndCleanup $test_channel after}
+}
 
 ###############################################################################
 

@@ -761,6 +761,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public void TryLockNoThrow(
+            ref bool locked
+            )
+        {
+            // CheckDisposed(); /* EXEMPT */
+
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(syncRoot);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public void TryLock(
             int timeout,
             ref bool locked
@@ -1044,7 +1058,7 @@ namespace Eagle._Components.Public
             list.Add("name", (name != null) ? name : _String.Null);
 
             list.Add("interpreter", (interpreter != null) ?
-                interpreter.InternalToString() : _String.Null);
+                interpreter.IdNoThrow.ToString() : _String.Null);
 
             if (!id.Equals(Guid.Empty))
                 list.Add("id", id.ToString());

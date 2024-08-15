@@ -34,7 +34,7 @@ namespace Eagle._Components.Private
         #region Private Constants
 #if DEBUGGER
         private static readonly EngineFlags InteractiveEngineFlags =
-            EngineFlags.NoBreakpoint | EngineFlags.Interactive;
+            EngineFlags.NoDebuggerMask | EngineFlags.Interactive;
 #endif
         #endregion
 
@@ -246,7 +246,7 @@ namespace Eagle._Components.Private
                     //         interpreter, it should be re-checked here.
                     //
                     code = Interpreter.EngineReady(
-                        interpreter, ReadyFlags.ViaDebugger, ref result);
+                        interpreter, null, ReadyFlags.ViaDebugger, ref result);
                 }
 
                 return code;
@@ -289,6 +289,55 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if DEBUGGER
+        public static void DumpCommands(
+            Interpreter interpreter, /* in */
+            bool ignoreEnabled,      /* in */
+            ref StringList commands  /* in, out */
+            )
+        {
+            if (interpreter != null)
+            {
+                IDebugger debugger = interpreter.Debugger;
+
+                if ((debugger != null) &&
+                    (ignoreEnabled || debugger.Enabled))
+                {
+                    Result result = null;
+
+                    if ((debugger.DumpCommands(
+                            ref result) == ReturnCode.Ok) &&
+                        (result != null))
+                    {
+                        StringList list = result.Value as StringList;
+
+                        if (list != null)
+                        {
+                            if (commands == null)
+                                commands = new StringList();
+
+                            commands.Add("queue");
+                            commands.Add(list.ToString());
+                        }
+                    }
+
+                    string command = debugger.Command;
+
+                    if (command != null)
+                    {
+                        if (commands == null)
+                            commands = new StringList();
+
+                        commands.Add("command");
+                        commands.Add(command);
+                    }
+                }
+            }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static string GetCommand(
             Interpreter interpreter,
             bool ignoreEnabled
@@ -321,7 +370,7 @@ namespace Eagle._Components.Private
                         //
                         QueueList<string, string> queue = debugger.Queue;
 
-                        if ((queue != null) && (queue.Count > 0))
+                        if ((queue != null) && !queue.IsEmpty)
                             result = queue.Dequeue();
                     }
                 }

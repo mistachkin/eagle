@@ -77,6 +77,7 @@ debug function	debug function name ?enabled?
 debug gcmemory	debug gcmemory ?collect?
 debug halt	debug halt ?result?
 debug history	debug history ?enabled?
+debug hook	debug hook ?options? ?pattern? ?script?
 debug icommand	debug icommand ?command?
 debug interactive	debug interactive ?enabled?
 debug invoke	debug invoke ?level? cmd ?arg ...?
@@ -88,6 +89,7 @@ debug lockloop	debug lockloop enabled
 debug lockvar	debug lockvar enabled name
 debug log	debug log ?options? message
 debug memory	debug memory
+debug null	debug null
 debug oncancel	debug oncancel ?enabled?
 debug onerror	debug onerror ?enabled?
 debug onexecute	debug onexecute ?enabled?
@@ -106,12 +108,20 @@ debug readonly	debug readonly kind enabled ?pattern?
 debug ready	debug ready ?isolated?
 debug refreshautopath	debug refreshautopath ?verbose?
 debug restore	debug restore ?strict? ?verbose?
+debug result	debug result
 debug resume	debug resume
 debug run	debug run arg ?arg ...?
-debug runtimeoption	debug runtimeoption has name
+debug runtimeoption	#has get clear add remove set
+debug runtimeoption add	debug runtimeoption add name
+debug runtimeoption clear	debug runtimeoption clear
+debug runtimeoption get	debug runtimeoption get
+debug runtimeoption has	debug runtimeoption has name
+debug runtimeoption remove	debug runtimeoption remove name
+debug runtimeoption set	debug runtimeoption set list
 debug runtimeoverride	debug runtimeoverride name
 debug secureeval	debug secureeval ?options? path arg ?arg ...?
 debug self	debug self ?debug? ?force?
+debug set	debug set ?options? varName object
 debug setup	debug setup ?create? ?isolated? ?createFlags? ?initializeFlags? ?scriptFlags? ?interpreterFlags?
 debug shell	debug shell ?options? ?arg ...?
 debug stack	debug stack ?force?
@@ -138,7 +148,7 @@ encoding getstring	encoding getstring object ?encoding?
 encoding names	encoding names ?system? ?pattern?
 encoding system	encoding system ?encoding?
 eof	eof channelId
-error	error message ?errorInfo? ?errorCode? ?returnCode?
+error	error ?message? ?errorInfo? ?errorCode? ?returnCode?
 eval	eval arg ?arg ...?
 exec	exec ?options? arg ?arg ...?
 exit	exit ?options? ?returnCode?
@@ -337,6 +347,7 @@ info sysvars	info sysvars ?pattern?
 info tclversion	info tclversion ?refresh?
 info tid	info tid ?native?
 info transactions	info transactions ?pattern?
+info undefined	info undefined ?pattern?
 info user	info user
 info varlinks	info varlinks ?pattern?
 info vars	info vars ?options? ?pattern?
@@ -373,6 +384,7 @@ interp iterationlimit	interp iterationlimit path ?limit?
 interp makesafe	interp makesafe ?path? ?safe? ?all?
 interp makestandard	interp makestandard ?path? ?standard? ?all?
 interp marktrusted	interp marktrusted path
+interp maybereadorgetscriptfile	interp maybereadorgetscriptfile ?options? path fileName
 interp namespacelimit	interp namespacelimit path ?limit?
 interp nopolicy	interp nopolicy path name
 interp parent	interp parent ?path?

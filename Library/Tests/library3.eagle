@@ -65,9 +65,10 @@ if {[isEagle] && \
   unset -nocomplain tclExitUnloadFlagsError
 
   if {[catch {
+    package require Eagle.Test
+
     unset -nocomplain savedTclExitUnloadFlags
-    set savedTclExitUnloadFlags [object invoke -flags +NonPublic \
-        Interpreter.GetActive tclExitUnloadFlags]
+    set savedTclExitUnloadFlags [enableTclExitUnloadFlags]
   } tclExitUnloadFlagsError]} then {
     if {![info exists no(warningForTclExitUnloadFlags)] && \
         ![haveConstraint quiet]} then {
@@ -88,8 +89,7 @@ if {[isEagle] && \
     #       and it cannot actually free the library module handle in that
     #       case).
     #
-    object invoke -flags +NonPublic \
-        Interpreter.GetActive tclExitUnloadFlags FreeLibrary
+    enableTclExitUnloadFlags FreeLibrary true
   } tclExitUnloadFlagsError]} then {
     if {![info exists no(warningForTclExitUnloadFlags)] && \
         ![haveConstraint quiet]} then {
@@ -209,8 +209,7 @@ if {[isEagle] && \
     unset -nocomplain tclExitUnloadFlagsError
 
     if {[catch {
-      object invoke -flags +NonPublic \
-          Interpreter.GetActive tclExitUnloadFlags $savedTclExitUnloadFlags
+      enableTclExitUnloadFlags $savedTclExitUnloadFlags
     } tclExitUnloadFlagsError]} then {
       if {![info exists no(warningForTclExitUnloadFlags)] && \
           ![haveConstraint quiet]} then {

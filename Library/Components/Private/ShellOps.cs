@@ -1338,17 +1338,16 @@ namespace Eagle._Components.Private
             if (interactiveHost == null)
                 return;
 
-            ISynchronizeStatic synchronize =
+            ISynchronizeStatic synchronizeStatic =
                 interactiveHost as ISynchronizeStatic;
 
             bool locked = false;
 
-            if (synchronize != null)
-                synchronize.StaticTryLock(ref locked);
+            if (synchronizeStatic != null)
+                synchronizeStatic.StaticTryLock(ref locked);
 
             try
             {
-
                 ConsoleColor savedForegroundColor = _ConsoleColor.None;
                 ConsoleColor savedBackgroundColor = _ConsoleColor.None;
 
@@ -1379,8 +1378,8 @@ namespace Eagle._Components.Private
             }
             finally
             {
-                if (synchronize != null)
-                    synchronize.StaticExitLock(ref locked);
+                if (synchronizeStatic != null)
+                    synchronizeStatic.StaticExitLock(ref locked);
             }
         }
 
@@ -1722,7 +1721,7 @@ namespace Eagle._Components.Private
             TraceOps.DebugTrace(String.Format(
                 "FailureExitCode: using exit code {0} for interpreter {1}",
                 FormatOps.WrapOrNull(exitCode), FormatOps.InterpreterNoThrow(
-                interpreter)), typeof(ShellOps).Name, TracePriority.ShellDebug2);
+                interpreter)), typeof(ShellOps).Name, TracePriority.ShellDebug);
 
             return exitCode;
         }
@@ -1743,7 +1742,7 @@ namespace Eagle._Components.Private
                 "return code {1} for interpreter {2}", FormatOps.WrapOrNull(
                 exitCode), FormatOps.WrapOrNull(returnCode),
                 FormatOps.InterpreterNoThrow(interpreter)),
-                typeof(ShellOps).Name, TracePriority.ShellDebug2);
+                typeof(ShellOps).Name, TracePriority.ShellDebug);
 
             return exitCode;
         }
@@ -1763,7 +1762,7 @@ namespace Eagle._Components.Private
                     "GetExitCode: using exit code {0} from interpreter {1}",
                     FormatOps.WrapOrNull(exitCode), FormatOps.InterpreterNoThrow(
                     interpreter)), typeof(ShellOps).Name,
-                    TracePriority.ShellDebug2);
+                    TracePriority.ShellDebug);
             }
             else
             {
@@ -1863,7 +1862,8 @@ namespace Eagle._Components.Private
 
                     code = EventOps.Wait(
                         interpreter, null, microseconds, null, true,
-                        false, false, false, ref timedOut, ref error);
+                        false, false, false, false, ref timedOut,
+                        ref error);
 
                     if ((code != ReturnCode.Ok) && !timedOut)
                         break;

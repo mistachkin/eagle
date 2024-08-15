@@ -128,9 +128,12 @@ namespace Eagle._Commands
                             arguments, argumentIndex, ref result);
 
                     if (code == ReturnCode.Error)
+                    {
+                        /* IGNORED */
                         Engine.AddErrorInformation(interpreter, result,
                             String.Format("{0}    (\"uplevel\" body line {1})",
                                 Environment.NewLine, Interpreter.GetErrorLine(interpreter)));
+                    }
 
                     //
                     // NOTE: Pop the original call frame that we pushed above and

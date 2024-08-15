@@ -186,6 +186,10 @@ namespace eval ::Eagle {
     }
   }
 
+  proc maybeLowerCase { value } {
+    return [expr {[isWindows] ? [string tolower $value] : $value}]
+  }
+
   proc lockDirectory { fileName directory } {
     variable lockSddl
 
@@ -199,7 +203,7 @@ namespace eval ::Eagle {
     set data [string map [list \r\n \n] $data]; # unix
 
     append data \n [list \
-        set savedSddl($directory) \
+        set savedSddl([maybeLowerCase $directory]) \
         [file sddl $directory]] \n
 
     set parentDirectory [file dirname $directory]
@@ -207,7 +211,7 @@ namespace eval ::Eagle {
 
     if {[file exists $parentWebConfig]} then {
       append data \n [list \
-          set savedSddl($parentWebConfig) \
+          set savedSddl([maybeLowerCase $parentWebConfig]) \
           [file sddl $parentWebConfig]] \n
     }
 
@@ -237,14 +241,14 @@ namespace eval ::Eagle {
     isLockedDirectory $fileName $directory; # error (?)
     source $fileName
 
-    if {![info exists savedSddl($directory)]} then {
+    if {![info exists savedSddl([maybeLowerCase $directory])]} then {
       error [appendArgs \
           "missing saved SDDL for directory \"" $directory \"]
     }
 
     foreach name [lsort [array names savedSddl]] {
       if {[file exists $name]} then {
-        maybeWhatIf file sddl $name $savedSddl($name)
+        maybeWhatIf file sddl $name $savedSddl([maybeLowerCase $name])
       }
     }
 

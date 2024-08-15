@@ -67,6 +67,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         //
+        // HACK: This is purposely not read-only.
+        //
+        private static string loaderCommand =
+            "::maybeCreatePackageIfNeededCommand";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // HACK: These are purposely not read-only.
         //
         private static string sourceCommand = "::source";
@@ -87,6 +95,24 @@ namespace Eagle._Components.Private
         //
         private static readonly Regex PublicKeyTokenRegEx = RegExOps.Create(
             "^(?:0x)?([0-9a-f]{16})$");
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This pattern ends up being "pkgIndex_*.eagle".  This is
+        //       specifically designed to exclude "pkgIndex.eagle" because
+        //       that is handled separately.
+        //
+        private static readonly string IndexFileNamePattern = "{0}_*{1}";
+
+        //
+        // NOTE: This further restricts the above pattern to enforce the
+        //       requirement that all tagged package index file names must
+        //       contain the 16 digit hexadecimal number.
+        //
+        private static readonly Regex IndexFileNameRegEx = RegExOps.Create(
+            "^" + ScriptTypes.PackageIndex + "_([0-9a-f]{16})\\" +
+            FileExtension.Script + "$", RegexOptions.IgnoreCase);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -325,6 +351,7 @@ namespace Eagle._Components.Private
             byte[] publicKeyToken,   /* in: OPTIONAL */
             string fileName,         /* in */
             string typeName,         /* in */
+            bool anyThread,          /* in */
             ref Result error         /* out: NOT USED */
             )
         {
@@ -342,6 +369,14 @@ namespace Eagle._Components.Private
                 list.Add(String.Format("0x{0}",
                     ArrayOps.ToHexadecimalString(publicKeyToken)));
             }
+
+            if (anyThread)
+                list.Add("-anythread");
+
+#if NATIVE
+            list.Add("-maybeverifiedonly");
+            list.Add("-maybetrustedonly");
+#endif
 
             list.Add(Option.EndOfOptions);
             list.Add(fileName);
@@ -429,13 +464,15 @@ namespace Eagle._Components.Private
             string typeName,         /* in */
             Version version,         /* in */
             byte[] publicKeyToken,   /* in: OPTIONAL */
+            bool anyThread,          /* in */
             bool locked,             /* in */
             ref Result error         /* out */
             )
         {
             string text = GetLoadCommand(
                 interpreter, null, publicKeyToken,
-                fileName, typeName, ref error);
+                fileName, typeName, anyThread,
+                ref error);
 
             if (text == null)
                 return null;
@@ -697,17 +734,68 @@ namespace Eagle._Components.Private
             ref Result result                 /* out */
             )
         {
-            if (interpreter == null)
-            {
-                result = "invalid interpreter";
-                return ReturnCode.Error;
-            }
-
             if (mappings == null)
             {
                 result = "invalid mappings dictionary";
                 return ReturnCode.Error;
             }
+
+            StringList list = null;
+
+            PathList directories = GetDirectories(
+                interpreter, path, flags);
+
+            foreach (AssemblyPluginPair pair in mappings)
+            {
+                if (CreateAndEvaluateIfNeededScript(
+                        interpreter, pair.Key, pair.Value,
+                        directories, version, publicKeyToken,
+                        cultureInfo, flags, ref list,
+                        ref result) != ReturnCode.Ok)
+                {
+                    return ReturnCode.Error;
+                }
+            }
+
+            result = list;
+            return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CreateAndEvaluateIfNeededScript(
+            Interpreter interpreter,    /* in */
+            string fileNameOnly,        /* in */
+            StringList typeNames,       /* in */
+            PathList directories,       /* in */
+            Version version,            /* in: OPTIONAL */
+            byte[] publicKeyToken,      /* in: OPTIONAL */
+            CultureInfo cultureInfo,    /* in: OPTIONAL */
+            PackageIfNeededFlags flags, /* in */
+            ref StringList list,        /* in, out */
+            ref Result error            /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (String.IsNullOrEmpty(fileNameOnly))
+            {
+                error = "invalid file name only";
+                return ReturnCode.Error;
+            }
+
+            if (typeNames == null)
+            {
+                error = "invalid type names";
+                return ReturnCode.Error;
+            }
+
+            bool anyThread = FlagOps.HasFlags(
+                flags, PackageIfNeededFlags.AnyThread, true);
 
             bool locked = FlagOps.HasFlags(
                 flags, PackageIfNeededFlags.Locked, true);
@@ -715,69 +803,81 @@ namespace Eagle._Components.Private
             bool whatIf = FlagOps.HasFlags(
                 flags, PackageIfNeededFlags.WhatIf, true);
 
-            StringList list = null;
-            PathList directories = GetDirectories(interpreter, path, flags);
+            bool errorOnNotFound = FlagOps.HasFlags(
+                flags, PackageIfNeededFlags.ErrorOnNotFound, true);
 
-            foreach (AssemblyPluginPair pair in mappings)
+            string fileName = FindFileNameOnly(
+                directories, fileNameOnly);
+
+            if (fileName == null)
             {
-                string fileNameOnly = pair.Key;
-
-                if (String.IsNullOrEmpty(fileNameOnly))
-                    continue;
-
-                string fileName = FindFileNameOnly(
-                    directories, fileNameOnly);
-
-                if (fileName == null)
-                    continue;
-
-                IList<string> typeNames = pair.Value;
-
-                if (typeNames == null)
-                    continue;
-
-                byte[] localPublicKeyToken = publicKeyToken;
-
-                foreach (string typeName in typeNames)
+                if (errorOnNotFound)
                 {
-                    if (typeName == null)
-                        continue;
+                    error = String.Format(
+                        "could not find file name {0} in {1}",
+                        FormatOps.WrapOrNull(fileNameOnly),
+                        FormatOps.WrapOrNull(directories));
 
-                    if (ExtractPublicKeyToken(
-                            typeName, cultureInfo, flags,
-                            ref localPublicKeyToken))
-                    {
-                        continue;
-                    }
-
-                    string text = GetIfNeededScript(
-                        interpreter, fileName, typeName,
-                        version, localPublicKeyToken,
-                        locked, ref result);
-
-                    if (text == null)
-                        return ReturnCode.Error;
-
-                    Result localResult = null;
-
-                    if (!whatIf)
-                    {
-                        if (interpreter.EvaluateScript(text,
-                                ref localResult) != ReturnCode.Ok)
-                        {
-                            result = localResult;
-                            return ReturnCode.Error;
-                        }
-                    }
-
-                    if (list == null)
-                        list = new StringList();
-
-                    list.Add(text);
+                    return ReturnCode.Error;
+                }
+                else
+                {
+                    return ReturnCode.Ok;
                 }
             }
 
-            result = list;
+            byte[] localPublicKeyToken = publicKeyToken;
+
+            foreach (string typeName in typeNames)
+            {
+                if (typeName == null)
+                    continue;
+
+                //
+                // HACK: *WARNING* This is somewhat tricky.
+                //       If the first type name appears to
+                //       be a public key token, attempt to
+                //       extract and use it with subsequent
+                //       type names until a new public key
+                //       token is found.  This is necessary
+                //       because the underlying lists of
+                //       public key tokens and plugin names
+                //       are actually contained within one
+                //       list, in a specific order.
+                //
+                if (ExtractPublicKeyToken(
+                        typeName, cultureInfo, flags,
+                        ref localPublicKeyToken))
+                {
+                    continue;
+                }
+
+                string text = GetIfNeededScript(
+                    interpreter, fileName, typeName,
+                    version, localPublicKeyToken,
+                    anyThread, locked, ref error);
+
+                if (text == null)
+                    return ReturnCode.Error;
+
+                if (!whatIf)
+                {
+                    Result result = null;
+
+                    if (interpreter.EvaluateScript(text,
+                            ref result) != ReturnCode.Ok)
+                    {
+                        error = result;
+                        return ReturnCode.Error;
+                    }
+                }
+
+                if (list == null)
+                    list = new StringList();
+
+                list.Add(text);
+            }
+
             return ReturnCode.Ok;
         }
 
@@ -823,13 +923,16 @@ namespace Eagle._Components.Private
 #endif
 
             list.Add("-normal");
+            list.Add("-primary");
+            list.Add("-tagged");
             list.Add("-refresh");
 
-#if NATIVE && DEBUG
+#if !NATIVE || DEBUG
             //
-            // BUGFIX: For debug builds, the trusted status of assemblies
-            //         cannot be checked, due to lack of build signing;
-            //         therefore, just skip trust checking in that case.
+            // BUGFIX: For debug builds (or builds without NATIVE code
+            //         support), trusted status of assemblies cannot be
+            //         checked, due to lack of build signing; therefore,
+            //         just skip trust checking in those cases.
             //
             list.Add("-notrusted");
 #endif
@@ -1186,6 +1289,7 @@ namespace Eagle._Components.Private
             PackageIndexCallback callback,           /* in */
             string path,                             /* in */
             string fileName,                         /* in */
+            string tag,                              /* in */
             PackageIndexFlags initialFlags,          /* in */
             PackageIndexDictionary packageIndexes,   /* in */
             PackageContextClientData packageContext, /* in */
@@ -1230,39 +1334,54 @@ namespace Eagle._Components.Private
                 try
                 {
                     PackageIndexFlags flags = initialFlags;
-                    IClientData clientData = ClientData.Empty;
-                    Result result = null;
 
-                    if (callback(
-                            interpreter, path, fileName,
-                            ref flags, ref clientData,
-                            ref result) != ReturnCode.Ok)
+                    bool temporaryPackages = FlagOps.HasFlags(
+                        flags, PackageIndexFlags.Temporary, true);
+
+                    try
                     {
-                        error = result;
-                        return ReturnCode.Error;
-                    }
+                        if (temporaryPackages)
+                            interpreter.SetTemporaryPackages();
 
-                    if (FlagOps.HasFlags(flags,
-                            PackageIndexFlags.Evaluated,
-                            true))
-                    {
-                        string newFileName = fileName;
-                        string prefixFileName;
+                        IClientData clientData = ClientData.Empty;
+                        Result result = null;
 
-                        if (AdjustFileName(
-                                clientData, ref newFileName,
-                                out prefixFileName))
+                        if (callback(
+                                interpreter, path, fileName,
+                                tag, ref flags, ref clientData,
+                                ref result) != ReturnCode.Ok)
                         {
-                            AddFileNameWithFlags(
-                                packageIndexes, newFileName,
-                                prefixFileName, addFlags);
+                            error = result;
+                            return ReturnCode.Error;
+                        }
 
+                        if (FlagOps.HasFlags(flags,
+                                PackageIndexFlags.Evaluated,
+                                true))
+                        {
+                            string newFileName = fileName;
+                            string prefixFileName;
+
+                            if (AdjustFileName(
+                                    clientData, ref newFileName,
+                                    out prefixFileName))
+                            {
+                                AddFileNameWithFlags(
+                                    packageIndexes, newFileName,
+                                    prefixFileName, addFlags);
+
+                                purge = true;
+                            }
+                        }
+                        else
+                        {
                             purge = true;
                         }
                     }
-                    else
+                    finally
                     {
-                        purge = true;
+                        if (temporaryPackages)
+                            interpreter.UnsetTemporaryPackages();
                     }
                 }
                 finally
@@ -1357,19 +1476,25 @@ namespace Eagle._Components.Private
             packageIndexFlags |= PackageIndexFlags.Host;
 
             //
-            // NOTE: What are the package index flags to add when the
-            //       package index is found?
-            //
-            PackageIndexFlags addFlags = PackageIndexFlags.Host |
-                PackageIndexFlags.Found;
-
-            //
             // NOTE: If we are refreshing package indexes or we have
             //       never seen this package index before, notify the
             //       caller.
             //
             bool refresh = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.Refresh, true);
+
+            bool temporary = FlagOps.HasFlags(
+                packageIndexFlags, PackageIndexFlags.Temporary, true);
+
+            //
+            // NOTE: What are the package index flags to add when the
+            //       package index is found?
+            //
+            PackageIndexFlags addFlags = PackageIndexFlags.Host |
+                PackageIndexFlags.Found;
+
+            if (temporary)
+                addFlags |= PackageIndexFlags.Temporary;
 
             //
             // NOTE: For each package index file, notify the callback
@@ -1412,7 +1537,7 @@ namespace Eagle._Components.Private
                 {
                     if (InvokeCallback(
                             interpreter, callback, null,
-                            relativeFileName, packageIndexFlags,
+                            relativeFileName, null, packageIndexFlags,
                             packageIndexes, packageContext,
                             addFlags, ref purge,
                             ref error) != ReturnCode.Ok)
@@ -1509,13 +1634,6 @@ namespace Eagle._Components.Private
             packageIndexFlags |= PackageIndexFlags.Plugin;
 
             //
-            // NOTE: What are the package index flags to add when the
-            //       package index is found?
-            //
-            PackageIndexFlags addFlags = PackageIndexFlags.Plugin |
-                PackageIndexFlags.Found;
-
-            //
             // NOTE: Find all the package index files in the specified
             //       paths, optionally looking in all sub-directories.
             //
@@ -1546,6 +1664,19 @@ namespace Eagle._Components.Private
             bool allowDuplicate = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.AllowDuplicateDirectory, true);
 
+            bool temporary = FlagOps.HasFlags(
+                packageIndexFlags, PackageIndexFlags.Temporary, true);
+
+            //
+            // NOTE: What are the package index flags to add when the
+            //       package index is found?
+            //
+            PackageIndexFlags addFlags = PackageIndexFlags.Plugin |
+                PackageIndexFlags.Found;
+
+            if (temporary)
+                addFlags |= PackageIndexFlags.Temporary;
+
             //
             // NOTE: Create a string comparer for file names, used to
             //       sort them.
@@ -1558,6 +1689,8 @@ namespace Eagle._Components.Private
                 comparer = _Comparers.StringFileName.Create(
                     pathComparisonType);
             }
+
+            SearchOption searchOption = FileOps.GetSearchOption(recursive);
 
             foreach (string path in paths)
             {
@@ -1625,8 +1758,7 @@ namespace Eagle._Components.Private
                                     Directory.GetFiles(newPath,
                                         PathOps.ScriptFileNameOnly(
                                             pattern) /* PATTERN */,
-                                        FileOps.GetSearchOption(
-                                            recursive)));
+                                        searchOption));
                             }
                             catch (Exception e)
                             {
@@ -1654,7 +1786,11 @@ namespace Eagle._Components.Private
                                 }
                                 else
                                 {
-                                    error = localError;
+                                    if (localError != null)
+                                        error = localError;
+                                    else
+                                        error = "no plugin package index files found";
+
                                     return ReturnCode.Error;
                                 }
                             }
@@ -1828,7 +1964,7 @@ namespace Eagle._Components.Private
                                 {
                                     if (InvokeCallback(
                                             interpreter, callback, newPath,
-                                            fileName, packageIndexFlags,
+                                            fileName, null, packageIndexFlags,
                                             packageIndexes, packageContext,
                                             addFlags, ref purge,
                                             ref error) != ReturnCode.Ok)
@@ -1929,13 +2065,6 @@ namespace Eagle._Components.Private
             packageIndexFlags |= PackageIndexFlags.Normal;
 
             //
-            // NOTE: What are the package index flags to add when the
-            //       package index is found?
-            //
-            PackageIndexFlags addFlags = PackageIndexFlags.Normal |
-                PackageIndexFlags.Found;
-
-            //
             // NOTE: Find all the package index files in the specified
             //       paths, optionally looking in all sub-directories.
             //
@@ -1960,6 +2089,25 @@ namespace Eagle._Components.Private
             bool allowDuplicate = FlagOps.HasFlags(
                 packageIndexFlags, PackageIndexFlags.AllowDuplicateDirectory, true);
 
+            bool temporary = FlagOps.HasFlags(
+                packageIndexFlags, PackageIndexFlags.Temporary, true);
+
+            bool primary = FlagOps.HasFlags(
+                packageIndexFlags, PackageIndexFlags.Primary, true);
+
+            bool tagged = FlagOps.HasFlags(
+                packageIndexFlags, PackageIndexFlags.Tagged, true);
+
+            //
+            // NOTE: What are the package index flags to add when the
+            //       package index is found?
+            //
+            PackageIndexFlags addFlags = PackageIndexFlags.Normal |
+                PackageIndexFlags.Found;
+
+            if (temporary)
+                addFlags |= PackageIndexFlags.Temporary;
+
             //
             // NOTE: Create a string comparer for file names, used to
             //       sort them.
@@ -1972,6 +2120,8 @@ namespace Eagle._Components.Private
                 comparer = _Comparers.StringFileName.Create(
                     pathComparisonType);
             }
+
+            SearchOption searchOption = FileOps.GetSearchOption(recursive);
 
             foreach (string path in paths)
             {
@@ -2023,29 +2173,122 @@ namespace Eagle._Components.Private
                     // NOTE: Find all package index files in the
                     //       specified directory.
                     //
+                    string searchPattern; /* REUSED */
                     StringList fileNames = null;
+                    StringDictionary tags = null;
                     Result localError = null;
 
-                    try
+                    if (primary)
                     {
-                        fileNames = new StringList(
-                            Directory.GetFiles(newPath,
-                                GetIndexFileName(interpreter,
-                                    PackageType.None,
-                                    false) /* PATTERN */,
-                                FileOps.GetSearchOption(
-                                    recursive)));
-                    }
-                    catch (Exception e)
-                    {
-                        if (trace && verbose)
+                        searchPattern = GetIndexFilePattern(
+                            interpreter, PackageType.None, false,
+                            false);
+
+                        if (fileNames == null)
+                            fileNames = new StringList();
+
+                        try
                         {
-                            TraceOps.DebugTrace(
-                                e, typeof(PackageOps).Name,
-                                TracePriority.FileSystemError);
+                            fileNames.AddRange(
+                                Directory.GetFiles(
+                                    newPath, searchPattern,
+                                searchOption));
+                        }
+                        catch (Exception e)
+                        {
+                            if (trace && verbose)
+                            {
+                                TraceOps.DebugTrace(
+                                    e, typeof(PackageOps).Name,
+                                    TracePriority.FileSystemError);
+                            }
+
+                            localError = e;
+                        }
+                    }
+
+                    if (tagged)
+                    {
+                        searchPattern = GetIndexFilePattern(
+                            interpreter, PackageType.None, true,
+                            false);
+
+                        if (fileNames == null)
+                            fileNames = new StringList();
+
+                        string[] taggedFileNames = null;
+
+                        try
+                        {
+                            taggedFileNames = Directory.GetFiles(
+                                newPath, searchPattern,
+                                searchOption);
+                        }
+                        catch (Exception e)
+                        {
+                            if (trace && verbose)
+                            {
+                                TraceOps.DebugTrace(
+                                    e, typeof(PackageOps).Name,
+                                    TracePriority.FileSystemError);
+                            }
+
+                            localError = e;
                         }
 
-                        localError = e;
+                        if (taggedFileNames == null)
+                        {
+                            if (noFileError)
+                            {
+                                continue;
+                            }
+                            else
+                            {
+                                if (localError != null)
+                                    error = localError;
+                                else
+                                    error = "no tagged package index files found";
+
+                                return ReturnCode.Error;
+                            }
+                        }
+
+                        Regex regEx = IndexFileNameRegEx;
+
+                        if (regEx != null)
+                        {
+                            tags = new StringDictionary();
+
+                            foreach (string fileName in taggedFileNames)
+                            {
+                                if (String.IsNullOrEmpty(fileName))
+                                    continue;
+
+                                string fileNameOnly = Path.GetFileName(
+                                    fileName);
+
+                                if (String.IsNullOrEmpty(fileNameOnly))
+                                    continue;
+
+                                Match match = regEx.Match(fileNameOnly);
+
+                                if ((match == null) || !match.Success)
+                                    continue;
+
+                                string tag = RegExOps.GetMatchValue(
+                                    match, 1);
+
+                                if (String.IsNullOrEmpty(tag))
+                                    continue;
+
+                                fileNames.Add(fileName);
+                                tags.Add(fileName, tag);
+                            }
+                        }
+                        else
+                        {
+                            fileNames.AddRange(taggedFileNames);
+                        }
                     }
 
                     //
@@ -2061,7 +2304,11 @@ namespace Eagle._Components.Private
                         }
                         else
                         {
-                            error = localError;
+                            if (localError != null)
+                                error = localError;
+                            else
+                                error = "no package index files found";
+
                             return ReturnCode.Error;
                         }
                     }
@@ -2131,9 +2378,18 @@ namespace Eagle._Components.Private
                         //
                         if (refresh || !exists)
                         {
+                            string tag = null;
+
+                            if ((tags != null) &&
+                                tags.TryGetValue(fileName, out tag) &&
+                                String.IsNullOrEmpty(tag))
+                            {
+                                tag = null;
+                            }
+
                             if (InvokeCallback(
                                     interpreter, callback, newPath,
-                                    fileName, packageIndexFlags,
+                                    fileName, tag, packageIndexFlags,
                                     packageIndexes, packageContext,
                                     addFlags, ref purge,
                                     ref error) != ReturnCode.Ok)
@@ -2215,6 +2471,11 @@ namespace Eagle._Components.Private
                 case PackageType.None:
                     {
                         fileName = FileNameOnly.PackageIndex;
+                        break;
+                    }
+                case PackageType.Loader:
+                    {
+                        fileName = FileName.LoaderPackageIndex;
                         break;
                     }
                 case PackageType.Library:
@@ -2312,8 +2573,8 @@ namespace Eagle._Components.Private
             PackageFileNameList fileNames = new PackageFileNameList();
 
             foreach (PackageType packageType in new PackageType[] {
-                    PackageType.Library, PackageType.Test,
-                    PackageType.Kit })
+                    PackageType.Loader, PackageType.Library,
+                    PackageType.Test, PackageType.Kit })
             {
                 //
                 // NOTE: For each package type, the "non-full" file name
@@ -2384,6 +2645,38 @@ namespace Eagle._Components.Private
             }
 
             return fileNames;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static string GetIndexFilePattern(
+            Interpreter interpreter,
+            PackageType packageType,
+            bool tagged,
+            bool full
+            )
+        {
+            string searchPattern = null;
+
+            if (tagged)
+            {
+                searchPattern = IndexFileNamePattern;
+
+                if (searchPattern != null)
+                {
+                    searchPattern = String.Format(
+                        searchPattern, ScriptTypes.PackageIndex,
+                        FileExtension.Script);
+                }
+            }
+
+            if (searchPattern == null)
+            {
+                searchPattern = GetIndexFileName(
+                    interpreter, packageType, full);
+            }
+
+            return searchPattern;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2580,6 +2873,24 @@ namespace Eagle._Components.Private
 
             packageIndexes = newPackageIndexes;
             return ReturnCode.Ok;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode FindAll(
+            Interpreter interpreter,               /* in */
+            StringList paths,                      /* in */
+            PackageIndexFlags packageIndexFlags,   /* in */
+            PathComparisonType pathComparisonType, /* in */
+            ref Result error                       /* out */
+            )
+        {
+            PackageIndexDictionary packageIndexes = null;
+
+            return FindAll(
+                interpreter, paths, packageIndexFlags,
+                pathComparisonType, ref packageIndexes,
+                ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3037,56 +3348,302 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void UnsetIndexCallbackDirectory(
+        private static void UnsetIndexCallbackVariables(
             Interpreter interpreter, /* in */
-            string varName,          /* in */
-            ref bool setDirectory    /* in, out */
+            string dirVarName,       /* in */
+            string tagVarName,       /* in */
+            ref bool setDirectory,   /* in, out */
+            ref bool setTag          /* in, out */
             )
         {
-            if ((interpreter != null) && setDirectory)
+            ResultList errors = null;
+
+            try
             {
-                ReturnCode code;
-                Result error = null;
+                Result error; /* REUSED */
 
-                code = interpreter.UnsetVariable( /* EXEMPT */
-                    VariableFlags.None, varName, ref error);
+                if (interpreter == null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
 
-                if (code == ReturnCode.Ok)
-                    setDirectory = false;
-                else
-                    DebugOps.Complain(interpreter, code, error);
+                    errors.Add("invalid interpreter");
+                    return;
+                }
+
+                if (setDirectory)
+                {
+                    error = null;
+
+                    if (interpreter.UnsetVariable( /* EXEMPT */
+                            VariableFlags.None, dirVarName,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        setDirectory = false;
+                    }
+                    else if (error != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(error);
+                    }
+                }
+
+                if (setTag)
+                {
+                    error = null;
+
+                    if (interpreter.UnsetVariable( /* EXEMPT */
+                            VariableFlags.None, tagVarName,
+                            ref error) == ReturnCode.Ok)
+                    {
+                        setTag = false;
+                    }
+                    else if (error != null)
+                    {
+                        if (errors == null)
+                            errors = new ResultList();
+
+                        errors.Add(error);
+                    }
+                }
+            }
+            finally
+            {
+                if (errors != null)
+                {
+                    DebugOps.Complain(
+                        interpreter, ReturnCode.Error, errors);
+                }
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static ReturnCode SetIndexCallbackDirectory(
+        private static ReturnCode SetIndexCallbackVariables(
             Interpreter interpreter, /* in */
-            string varName,          /* in */
+            string dirVarName,       /* in */
+            string tagVarName,       /* in */
             string fileName,         /* in */
+            string tag,              /* in */
             ref bool setDirectory,   /* out */
+            ref bool setTag,         /* out */
             ref Result result        /* out */
             )
         {
-            if (interpreter != null)
+            ResultList errors = null;
+            Result error; /* REUSED */
+
+            if (interpreter == null)
+            {
+                if (errors == null)
+                    errors = new ResultList();
+
+                errors.Add("invalid interpreter");
+                return ReturnCode.Error;
+            }
+
+            if (fileName != null)
             {
                 string directory = PathOps.GetUnixPath(
                     PathOps.GetDirectoryName(fileName));
 
-                Result error = null;
+                error = null;
 
                 if (interpreter.SetVariableValue( /* EXEMPT */
-                        VariableFlags.None, varName, directory,
-                        ref error) != ReturnCode.Ok)
+                        VariableFlags.None, dirVarName,
+                        directory, ref error) == ReturnCode.Ok)
                 {
-                    result = error;
-                    return ReturnCode.Error;
+                    setDirectory = true;
                 }
+                else if (error != null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
 
-                setDirectory = true;
+                    errors.Add(error);
+                }
             }
 
-            return ReturnCode.Ok;
+            if (tag != null)
+            {
+                error = null;
+
+                if (interpreter.SetVariableValue( /* EXEMPT */
+                        VariableFlags.None, tagVarName,
+                        tag, ref error) == ReturnCode.Ok)
+                {
+                    setTag = true;
+                }
+                else if (error != null)
+                {
+                    if (errors == null)
+                        errors = new ResultList();
+
+                    errors.Add(error);
+                }
+            }
+
+            if (errors != null)
+            {
+                result = errors;
+                return ReturnCode.Error;
+            }
+            else
+            {
+                return ReturnCode.Ok;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode MaybeAddLoaderCommand(
+            Interpreter interpreter,
+            IPlugin plugin,
+            IRuleSet ruleSet,
+            ref Result error
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (plugin == null)
+            {
+                error = "invalid plugin";
+                return ReturnCode.Error;
+            }
+
+            if ((ruleSet != null) && !ruleSet.ApplyRules(interpreter,
+                    IdentifierKind.Command, MatchMode.IncludeRuleSetMask,
+                    ScriptOps.MakeCommandName(loaderCommand)))
+            {
+                return ReturnCode.Ok;
+            }
+
+            //
+            // HACK: Both the [maybeCreatePackageIfNeededCommand] command
+            //       provided by this class and its associated procedures
+            //       defined by the core loader script package are "safe"
+            //       because they only construct [load] commands and/or
+            //       [package ifneeded] commands to be evaluated later.
+            //
+            long token = 0; /* NOT USED */
+
+            return interpreter.AddExecuteCallback(
+                loaderCommand, LoaderCommandCallback, null, plugin,
+                CommandFlags.Safe, ref token, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        private static ReturnCode LoaderCommandCallback(
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                result = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+            if (arguments == null)
+            {
+                result = "invalid argument list";
+                return ReturnCode.Error;
+            }
+
+            int argumentCount = arguments.Count;
+
+            if (argumentCount < 1)
+            {
+                result = String.Format(
+                    "wrong # args: should be \"{0} name dir " +
+                    "fileNamesOnly tagVarName ?version?\"",
+                    NamespaceOps.TrimLeading(loaderCommand));
+
+                return ReturnCode.Error;
+            }
+
+            IExecute oldExecute = null;
+
+            if (interpreter.InternalGetIExecuteViaResolvers(
+                    interpreter.GetResolveEngineFlagsNoLock(true),
+                    arguments[0], arguments, LookupFlags.Default,
+                    ref oldExecute, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (interpreter.InternalInitializeLoader(
+                    false, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            ArgumentList newArguments = new ArgumentList();
+
+            newArguments.Add(loaderCommand);
+            newArguments.AddRange(ArgumentList.GetRange(arguments, 1));
+
+            IExecute newExecute = null;
+
+            if (interpreter.InternalGetIExecuteViaResolvers(
+                    interpreter.GetResolveEngineFlagsNoLock(true),
+                    newArguments[0], newArguments, LookupFlags.Default,
+                    ref newExecute, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (Object.ReferenceEquals(newExecute, oldExecute))
+            {
+                result = "loader command bootstrap failed?";
+                return ReturnCode.Error;
+            }
+
+#if ARGUMENT_CACHE
+            CacheFlags savedCacheFlags;
+
+            interpreter.BeginNoArgumentCache(out savedCacheFlags);
+
+            try
+            {
+#endif
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
+                InterpreterStateFlags savedInterpreterStateFlags;
+
+                interpreter.BeginArgumentLocation(
+                    null, out savedInterpreterStateFlags);
+
+                try
+                {
+#endif
+                    return newExecute.Execute(
+                        interpreter, clientData, newArguments,
+                        ref result);
+#if DEBUGGER && DEBUGGER_BREAKPOINTS
+                }
+                finally
+                {
+                    interpreter.EndArgumentLocation(
+                        ref savedInterpreterStateFlags);
+                }
+#endif
+#if ARGUMENT_CACHE
+            }
+            finally
+            {
+                interpreter.EndNoArgumentCache(ref savedCacheFlags);
+            }
+#endif
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3168,13 +3725,12 @@ namespace Eagle._Components.Private
             newArguments.Add(sourceCommand);
             newArguments.AddRange(ArgumentList.GetRange(arguments, 1));
 
-            IExecute execute = null;
+            IExecute newExecute = null;
 
             if (interpreter.InternalGetIExecuteViaResolvers(
                     interpreter.GetResolveEngineFlagsNoLock(true),
-                    newArguments[0], newArguments,
-                    LookupFlags.Default, ref execute,
-                    ref result) != ReturnCode.Ok)
+                    newArguments[0], newArguments, LookupFlags.Default,
+                    ref newExecute, ref result) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
             }
@@ -3191,12 +3747,12 @@ namespace Eagle._Components.Private
                 InterpreterStateFlags savedInterpreterStateFlags;
 
                 interpreter.BeginArgumentLocation(
-                    out savedInterpreterStateFlags);
+                    null, out savedInterpreterStateFlags);
 
                 try
                 {
 #endif
-                    return execute.Execute(
+                    return newExecute.Execute(
                         interpreter, clientData, newArguments,
                         ref result);
 #if DEBUGGER && DEBUGGER_BREAKPOINTS
@@ -3222,6 +3778,7 @@ namespace Eagle._Components.Private
             Interpreter interpreter,     /* in */
             string path,                 /* in */
             string fileName,             /* in */
+            string tag,                  /* in */
             ref PackageIndexFlags flags, /* in, out */
             ref IClientData clientData,  /* in, out */
             ref Result result            /* out */
@@ -3235,6 +3792,7 @@ namespace Eagle._Components.Private
 
             ReturnCode code;
             bool setDirectory = false;
+            bool setTag = false;
 
             try
             {
@@ -3330,21 +3888,34 @@ namespace Eagle._Components.Private
                                 //       file system?  Ok, fine.  Setup the
                                 //       directory variable properly.
                                 //
-                                code = SetIndexCallbackDirectory(
+                                code = SetIndexCallbackVariables(
                                     interpreter, TclVars.Core.Directory,
-                                    newText, ref setDirectory, ref result);
+                                    TclVars.Core.Tag, newText, tag,
+                                    ref setDirectory, ref setTag,
+                                    ref result);
 
                                 if (code == ReturnCode.Ok)
                                 {
-                                    if (safe && !interpreter.InternalIsSafe())
+                                    /* IGNORED */
+                                    interpreter.EnterPackageIndexLevel();
+
+                                    try
                                     {
-                                        code = interpreter.EvaluateSafeFile(
-                                            null, newText, ref result);
+                                        if (safe && !interpreter.InternalIsSafe())
+                                        {
+                                            code = interpreter.EvaluateSafeFile(
+                                                null, newText, ref result);
+                                        }
+                                        else
+                                        {
+                                            code = interpreter.EvaluateFile(
+                                                newText, ref result);
+                                        }
                                     }
-                                    else
+                                    finally
                                     {
-                                        code = interpreter.EvaluateFile(
-                                            newText, ref result);
+                                        /* IGNORED */
+                                        interpreter.ExitPackageIndexLevel();
                                     }
 
                                     flags |= PackageIndexFlags.Evaluated;
@@ -3392,39 +3963,52 @@ namespace Eagle._Components.Private
                         }
                         else
                         {
-                            code = SetIndexCallbackDirectory(
+                            code = SetIndexCallbackVariables(
                                 interpreter, TclVars.Core.Directory,
-                                fileName, ref setDirectory, ref result);
+                                TclVars.Core.Tag, fileName, tag,
+                                ref setDirectory, ref setTag,
+                                ref result);
 
                             if (code == ReturnCode.Ok)
                             {
-                                //
-                                // BUGFIX: Use the original script [file?]
-                                //         name, exactly as specified, for
-                                //         any contained [info script] calls.
-                                //
-                                bool pushed = false;
-
-                                interpreter.PushScriptLocation(
-                                    fileName, true, ref pushed);
+                                /* IGNORED */
+                                interpreter.EnterPackageIndexLevel();
 
                                 try
                                 {
-                                    if (safe && !interpreter.InternalIsSafe())
+                                    //
+                                    // BUGFIX: Use the original script [file?]
+                                    //         name, exactly as specified, for
+                                    //         any contained [info script] calls.
+                                    //
+                                    bool pushed = false;
+
+                                    interpreter.PushScriptLocation(
+                                        fileName, true, ref pushed);
+
+                                    try
                                     {
-                                        code = interpreter.EvaluateSafeScript(
-                                            text, ref result); /* EXEMPT */
+                                        if (safe && !interpreter.InternalIsSafe())
+                                        {
+                                            code = interpreter.EvaluateSafeScript(
+                                                text, ref result); /* EXEMPT */
+                                        }
+                                        else
+                                        {
+                                            code = interpreter.EvaluateScript(
+                                                text, ref result); /* EXEMPT */
+                                        }
                                     }
-                                    else
+                                    finally
                                     {
-                                        code = interpreter.EvaluateScript(
-                                            text, ref result); /* EXEMPT */
+                                        interpreter.PopScriptLocation(
+                                            true, ref pushed);
                                     }
                                 }
                                 finally
                                 {
-                                    interpreter.PopScriptLocation(
-                                        true, ref pushed);
+                                    /* IGNORED */
+                                    interpreter.ExitPackageIndexLevel();
                                 }
 
                                 flags |= PackageIndexFlags.Evaluated;
@@ -3494,9 +4078,11 @@ namespace Eagle._Components.Private
                                     newFileName = fileName;
                             }
 
-                            code = SetIndexCallbackDirectory(
+                            code = SetIndexCallbackVariables(
                                 interpreter, TclVars.Core.Directory,
-                                newFileName, ref setDirectory, ref result);
+                                TclVars.Core.Tag, newFileName, tag,
+                                ref setDirectory, ref setTag,
+                                ref result);
 
                             if (code == ReturnCode.Ok)
                             {
@@ -3558,17 +4144,28 @@ namespace Eagle._Components.Private
                                             continue;
                                         }
 
-                                        localResult = null;
+                                        /* IGNORED */
+                                        interpreter.EnterPackageIndexLevel();
 
-                                        if (safe && !interpreter.InternalIsSafe())
+                                        try
                                         {
-                                            localCode = interpreter.EvaluateSafeScript(
-                                                text, ref localResult);
+                                            localResult = null;
+
+                                            if (safe && !interpreter.InternalIsSafe())
+                                            {
+                                                localCode = interpreter.EvaluateSafeScript(
+                                                    text, ref localResult);
+                                            }
+                                            else
+                                            {
+                                                localCode = interpreter.EvaluateScript(
+                                                    text, ref localResult);
+                                            }
                                         }
-                                        else
+                                        finally
                                         {
-                                            localCode = interpreter.EvaluateScript(
-                                                text, ref localResult);
+                                            /* IGNORED */
+                                            interpreter.ExitPackageIndexLevel();
                                         }
 
                                         if (trace && verbose)
@@ -3706,21 +4303,34 @@ namespace Eagle._Components.Private
                                     newFileName = fileName;
                             }
 
-                            code = SetIndexCallbackDirectory(
+                            code = SetIndexCallbackVariables(
                                 interpreter, TclVars.Core.Directory,
-                                newFileName, ref setDirectory, ref result);
+                                TclVars.Core.Tag, newFileName, tag,
+                                ref setDirectory, ref setTag,
+                                ref result);
 
                             if (code == ReturnCode.Ok)
                             {
-                                if (safe && !interpreter.InternalIsSafe())
+                                /* IGNORED */
+                                interpreter.EnterPackageIndexLevel();
+
+                                try
                                 {
-                                    code = interpreter.EvaluateSafeFile(
-                                        null, newFileName, ref result);
+                                    if (safe && !interpreter.InternalIsSafe())
+                                    {
+                                        code = interpreter.EvaluateSafeFile(
+                                            null, newFileName, ref result);
+                                    }
+                                    else
+                                    {
+                                        code = interpreter.EvaluateFile(
+                                            newFileName, ref result);
+                                    }
                                 }
-                                else
+                                finally
                                 {
-                                    code = interpreter.EvaluateFile(
-                                        newFileName, ref result);
+                                    /* IGNORED */
+                                    interpreter.ExitPackageIndexLevel();
                                 }
 
                                 flags |= PackageIndexFlags.Evaluated;
@@ -3787,9 +4397,10 @@ namespace Eagle._Components.Private
             }
             finally
             {
-                UnsetIndexCallbackDirectory(
+                UnsetIndexCallbackVariables(
                     interpreter, TclVars.Core.Directory,
-                    ref setDirectory);
+                    TclVars.Core.Tag, ref setDirectory,
+                    ref setTag);
             }
 
             return code;

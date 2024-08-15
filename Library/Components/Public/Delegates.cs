@@ -83,6 +83,23 @@ namespace Eagle._Components.Public.Delegates
     ///////////////////////////////////////////////////////////////////////////
 
     //
+    // WARNING: The ISynchronizeAll is actually the interpreter;
+    //          however, great care must be taken to avoid using
+    //          anything in the interpreter class that requires
+    //          the interpreter lock (obviously?).  If this rule
+    //          is violated, deadlocks WILL result.
+    //
+    [ObjectId("d388608e-5933-43a2-8f5c-2248ec12ea42")]
+    public delegate bool LockCallback(
+        ISynchronizeAll synchronizeAll,
+        int retry,
+        int timeout,
+        ref bool no
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    //
     // NOTE: Used by the CommandCallback class (i.e. instead of always using
     //       ThreadStart).
     //
@@ -145,9 +162,9 @@ namespace Eagle._Components.Public.Delegates
 #if THREADING
     [ObjectId("6fedb042-0a7e-4c83-9bb6-1351f9fd0c55")]
     public delegate ReturnCode HealthCallback(
-        Interpreter interpreter,
-        CheckStatus status,
-        ref ResultList errors
+        Interpreter interpreter, /* in */
+        ref CheckStatus status,  /* in, out */
+        ref ResultList errors    /* in, out */
     );
 #endif
     #endregion
@@ -462,8 +479,9 @@ namespace Eagle._Components.Public.Delegates
     [ObjectId("c4655c83-55b2-4de9-a2e2-6c208194aa8e")]
     public delegate ReturnCode PreWebClientCallback(
         Interpreter interpreter, // TODO: Change to use the IInterpreter type.
-        string argument,
-        IClientData clientData,
+        ref string argument,
+        ref IClientData clientData,
+        ref int? timeout,
         ref Result error
     );
 
@@ -482,9 +500,24 @@ namespace Eagle._Components.Public.Delegates
     [ObjectId("b925a02b-d50b-4831-ae46-4161a2e4b5eb")]
     public delegate ReturnCode WebTransferCallback(
         Interpreter interpreter, // TODO: Change to use the IInterpreter type.
-        WebFlags flags,
+        WebFlags webFlags,
         IClientData clientData,
         ref Result error
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    [ObjectId("9a591097-65bb-49da-97bd-8a85c43e3dfe")]
+    public delegate ReturnCode WebErrorCallback(
+        Interpreter interpreter, // TODO: Change to use the IInterpreter type.
+        IClientData clientData,
+        Uri uri,
+        WebFlags webFlags,
+        int retries,
+        int? timeout,
+        int? maximumRetries,
+        ref object result,
+        ref ResultList errors
     );
 #endif
     #endregion

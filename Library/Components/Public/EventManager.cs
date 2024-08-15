@@ -48,6 +48,13 @@ namespace Eagle._Components.Public
 
         internal static readonly int MinimumEventTime = 1;
         internal static readonly int MinimumIdleWaitTime = 1000;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: This is purposely not read-only.
+        //
+        internal static bool DefaultNoComplain = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -622,11 +629,11 @@ namespace Eagle._Components.Public
                     //
                     code = eventManager.ServiceEvents(
                         clientData.EventFlags, clientData.Priority,
-                        clientData.ThreadId, clientData.Limit,
-                        clientData.NoCancel, clientData.NoGlobalCancel,
-                        clientData.StopOnError, clientData.ErrorOnEmpty,
-                        clientData.UserInterface, ref eventCount,
-                        ref result);
+                        clientData.ThreadId, clientData.Timeout,
+                        clientData.Limit, clientData.NoCancel,
+                        clientData.NoGlobalCancel, clientData.StopOnError,
+                        clientData.ErrorOnEmpty, clientData.UserInterface,
+                        ref eventCount, ref result);
 
                     IInteractiveHost interactiveHost =
                         interpreter.GetInteractiveHost();
@@ -1022,6 +1029,7 @@ namespace Eagle._Components.Public
                     {
                         if (code == ReturnCode.Error)
                         {
+                            /* IGNORED */
                             Engine.AddErrorInformation(
                                 interpreter, result, String.Format(
                                     "{0}    (\"after\" script line {1})",
@@ -1329,10 +1337,10 @@ namespace Eagle._Components.Public
                     if (eventCount > 0)
                     {
                         priority = GetAutomaticEventPriority(
-                            eventFlags, priority);
+                            eventFlags, priority); /* TRANSLATE */
 
                         threadId = GetAutomaticEventThread(
-                            threadId);
+                            threadId); /* TRANSLATE */
 
                         for (int index = 0; index < eventCount; index++)
                         {
@@ -1366,7 +1374,7 @@ namespace Eagle._Components.Public
                             //       ready yet either.
                             //
                             if (!IsEventDateTimeReady(localEvent, dateTime))
-                                break;
+                                continue;
 
                             //
                             // HACK: Is this event targeted at *this* or *any*
@@ -1457,7 +1465,7 @@ namespace Eagle._Components.Public
             Result error
             )
         {
-            if (code != ReturnCode.Ok)
+            if ((code != ReturnCode.Ok) && !DefaultNoComplain)
             {
                 Interpreter interpreter;
 
@@ -1646,7 +1654,7 @@ namespace Eagle._Components.Public
                 //
                 // NOTE: Obviously, this would be pointless.
                 //
-                // CheckDisposed();
+                // CheckDisposed(); /* EXEMPT */
 
                 lock (syncRoot)
                 {
@@ -1659,7 +1667,12 @@ namespace Eagle._Components.Public
 
         public bool Disposing
         {
-            get { return false; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return false;
+            }
         }
         #endregion
 
@@ -1745,6 +1758,20 @@ namespace Eagle._Components.Public
             locked = Monitor.TryEnter(
                 syncRoot, ThreadOps.GetTimeout(
                 null, null, TimeoutType.WaitLock));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public void TryLockNoThrow(
+            ref bool locked
+            )
+        {
+            // CheckDisposed(); /* EXEMPT */
+
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(syncRoot);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3424,6 +3451,9 @@ namespace Eagle._Components.Public
                     //
                     // NOTE: Probe for an available event in the queue.
                     //
+                    bool noComplain = FlagOps.HasFlags(
+                        eventFlags, EventFlags.NoComplain, true);
+
                     bool bgError = !FlagOps.HasFlags(
                         eventFlags, EventFlags.NoBgError, true);
 
@@ -3489,7 +3519,8 @@ namespace Eagle._Components.Public
                             //       evaluated.
                             //
                             if (!localEvent.SetResult(
-                                    true, code, localResult, 0, ref setError))
+                                    true, code, localResult, 0, ref setError) &&
+                                !noComplain)
                             {
                                 DebugOps.Complain(
                                     eventInterpreter, ReturnCode.Error,
@@ -3735,6 +3766,7 @@ namespace Eagle._Components.Public
             EventFlags eventFlags,
             EventPriority priority,
             long? threadId,
+            int? timeout,
             int limit,
             bool noCancel,
             bool noGlobalCancel,
@@ -3749,8 +3781,8 @@ namespace Eagle._Components.Public
             int eventCount = 0;
 
             return ServiceEvents(
-                eventFlags, priority, threadId, limit, noCancel,
-                noGlobalCancel, stopOnError, errorOnEmpty,
+                eventFlags, priority, threadId, timeout, limit,
+                noCancel, noGlobalCancel, stopOnError, errorOnEmpty,
                 userInterface, ref eventCount, ref result);
         }
 
@@ -3760,6 +3792,7 @@ namespace Eagle._Components.Public
             EventFlags eventFlags,
             EventPriority priority,
             long? threadId,
+            int? timeout,
             int limit,
             bool noCancel,
             bool noGlobalCancel,
@@ -3786,7 +3819,7 @@ namespace Eagle._Components.Public
             //       is no longer valid.
             //
             while ((code = Interpreter.EventReady(
-                    interpreter, noCancel, noGlobalCancel,
+                    interpreter, timeout, noCancel, noGlobalCancel,
                     ref result)) == ReturnCode.Ok)
             {
                 //

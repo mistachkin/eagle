@@ -10,13 +10,16 @@
  */
 
 using System;
-using System.Collections.Generic;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Interfaces.Public;
 
 using EventQueueKey = Eagle._Interfaces.Public.IAnyTriplet<
     Eagle._Components.Public.EventPriority, System.DateTime, long>;
+
+using EventPair = System.Collections.Generic.KeyValuePair<
+    Eagle._Interfaces.Public.IAnyTriplet<Eagle._Components.Public.EventPriority,
+    System.DateTime, long>, Eagle._Interfaces.Public.IEvent>;
 
 namespace Eagle._Containers.Private
 {
@@ -44,7 +47,7 @@ namespace Eagle._Containers.Private
 
             if (dispose)
             {
-                foreach (KeyValuePair<EventQueueKey, IEvent> pair in this)
+                foreach (EventPair pair in this)
                 {
                     IEvent @event = pair.Value;
 

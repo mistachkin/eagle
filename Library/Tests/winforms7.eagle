@@ -54,7 +54,9 @@ runTest {test winForms-7.1 {event handler removal} -setup {
   set assembly [object load -import System.Windows.Forms]
   set form [object create -alias Form]
 
-  $form Text [appendArgs [info engine] " Test Form Title"]
+  $form Text [appendArgs \
+      [info engine] " Test '" $eagle_tests(CurrentName) "' Form Title"]
+
   $form Show
 
   set button [object create -alias System.Windows.Forms.Button]

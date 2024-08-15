@@ -222,6 +222,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        internal void DisableLoader() /* DO NOT USE: TESTS ONLY. */
+        {
+            initializeFlags &= ~InitializeFlags.Loader;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         internal void DisableInitialization() /* DO NOT USE: TESTS ONLY. */
         {
             initializeFlags &= ~InitializeFlags.Initialization;

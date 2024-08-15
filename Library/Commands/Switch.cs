@@ -229,10 +229,13 @@ namespace Eagle._Commands
                                                     code = interpreter.EvaluateScript(list[index2], location, ref result);
 
                                                     if (code == ReturnCode.Error)
+                                                    {
+                                                        /* IGNORED */
                                                         Engine.AddErrorInformation(interpreter, result,
                                                             String.Format("{0}    (\"{1}\" arm line {2})",
                                                                 Environment.NewLine, FormatOps.Ellipsis(pattern),
                                                                 Interpreter.GetErrorLine(interpreter)));
+                                                    }
 
                                                     goto switch_done;
                                                 }

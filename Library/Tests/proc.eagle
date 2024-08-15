@@ -239,11 +239,11 @@ runTest {test proc-2.1 {balanced call stack after body exception} -setup {
     #       into procedure body evaluation.
     #
     after 1000 {
-      object invoke -flags +NonPublic \
-          Interpreter.GetActive interpreterStateFlags \
-          [appendArgs [object invoke -flags +NonPublic \
-          Interpreter.GetActive interpreterStateFlags] \
-          " +ScriptLocation StrictScriptLocation"]
+      package require Eagle.Test
+
+      set savedInterpreterStateFlags [enableInterpreterStateFlags]
+      enableInterpreterStateFlags ScriptLocation true
+      enableInterpreterStateFlags StrictScriptLocation true
     }
 
     #
@@ -310,6 +310,15 @@ runTest {test proc-2.1 {balanced call stack after body exception} -setup {
       $frame(before) $frame(after) \
       [expr {$frame(before) == $frame(after)}]
 } -cleanup {
+  catch {
+    interp eval $interp {
+      package require Eagle.Test
+
+      enableInterpreterStateFlags $savedInterpreterStateFlags
+      unset -nocomplain savedInterpreterStateFlags
+    }
+  }
+
   catch {interp delete $interp}
 
   unset -nocomplain error code locations frame failed o interp
@@ -320,7 +329,7 @@ compile.DEBUGGER_BREAKPOINTS Eagle._Tests.Default.TestSetQuiet} -match regexp \
 ###############################################################################
 
 runTest {test proc-3.1 {locked procedures} -setup {
-  set interp [interp create -safe]
+  set interp [interp create -safe -noloader]
 } -body {
   list [catch {interp eval $interp {isEagle}} error] $error [catch {interp \
       invokehidden $interp debug readonly procedure true isEagle} error] \

@@ -19,8 +19,12 @@ namespace Eagle._Interfaces.Public
     {
         long? ThreadId { get; set; }
 
+        bool IsLocked(); // NOTE: By *this* thread.
+
         bool Lock(ref Result error);
         bool Unlock(ref Result error);
+
+        bool MaybeUnlock(ref Result error); // NOTE: Does not fail if already unlocked.
 
         bool IsUsable();
         bool IsUsable(ref Result error);

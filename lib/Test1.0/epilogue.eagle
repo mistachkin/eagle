@@ -15,6 +15,11 @@
 ###############################################################################
 
 if {![info exists no([file tail [info script]])]} then {
+  if {![info exists no(hookForStartEpilogue)] && \
+      [llength [info commands ::hookForStartEpilogue]] > 0} then {
+    catch {::hookForStartEpilogue}
+  }
+
   if {[info level] > 0} then {
     error "cannot run, current level is not global"
   }
@@ -38,7 +43,8 @@ if {![info exists no([file tail [info script]])]} then {
   }
 
   #
-  # NOTE: Make sure all the variables used by this epilogue are unset.
+  # NOTE: Make sure all global variables that may be set / used by
+  #       this epilogue are initially unset.
   #
   unset -nocomplain haveStartSentry operationCount memory stack \
       name count percent exitCode milliseconds code dictionary \
@@ -103,9 +109,6 @@ if {![info exists no([file tail [info script]])]} then {
         [formatElapsedTime $test_timestamp(elapsedSeconds)] \n]
   }
 
-  #
-  # NOTE: Show the ending command count (for both Tcl and Eagle).
-  #
   tputs $test_channel [appendArgs "---- ending command count: " \
       [info cmdcount] \n]
 
@@ -155,12 +158,10 @@ if {![info exists no([file tail [info script]])]} then {
       }
     }
 
-    #
-    # NOTE: Show the ending operation count (for Eagle only).
-    #
     if {[llength [info commands object]] > 0} then {
       catch {
-        object invoke -flags +NonPublic Interpreter.GetActive OperationCount
+        object invoke -flags +NonPublic Interpreter.GetActive \
+            OperationCount
       } operationCount
     } else {
       set operationCount unavailable
@@ -171,9 +172,6 @@ if {![info exists no([file tail [info script]])]} then {
 
     unset operationCount
 
-    #
-    # NOTE: Maybe show the current state of the CPU.
-    #
     if {![info exists no(showEndingCpu)]} then {
       set cpu(0) [catch {getCpuStatus} cpu(1)]
 
@@ -184,9 +182,6 @@ if {![info exists no([file tail [info script]])]} then {
       unset cpu
     }
 
-    #
-    # NOTE: Maybe show the current state of the memory.
-    #
     if {![info exists no(showEndingMemory)]} then {
       set memory(0) [catch {debug memory} memory(1)]
 
@@ -197,9 +192,6 @@ if {![info exists no([file tail [info script]])]} then {
       unset memory
     }
 
-    #
-    # NOTE: Maybe show the current state of the native stack.
-    #
     if {![info exists no(showEndingStack)]} then {
       set stack(0) [catch {debug stack true} stack(1)]
 
@@ -210,10 +202,6 @@ if {![info exists no([file tail [info script]])]} then {
       unset stack
     }
 
-    #
-    # NOTE: Maybe show the (maximum?) levels that were hit by whichever
-    #       tests actually ran.
-    #
     if {![info exists no(showEndingLevels)]} then {
       set levels(0) [catch {debug levels} levels(1)]
 
@@ -224,9 +212,6 @@ if {![info exists no([file tail [info script]])]} then {
       unset levels
     }
 
-    #
-    # NOTE: Maybe show usage data for all commands.
-    #
     if {![info exists no(showEndingUsageData)] && \
         [llength [info commands object]] > 0} then {
       #
@@ -281,9 +266,6 @@ if {![info exists no([file tail [info script]])]} then {
           pair usageData key value cmdType usage
     }
 
-    #
-    # NOTE: Check the overall test suite results and report them now.
-    #
     reportTestDuplicateNames $test_channel
 
     tputs $test_channel \n; # NOTE: Blank line.
@@ -298,7 +280,7 @@ if {![info exists no([file tail [info script]])]} then {
 
     #
     # NOTE: Attempt to log the overall test suite results with the test
-    #       server, as long as we are not forbidden from doing so.
+    #       server unless we are not forbidden from doing so.
     #
     if {![info exists no(logRemoteTestResults)] && \
         ![info exists no(eagleLogRemoteTestResults)]} then {
@@ -307,9 +289,6 @@ if {![info exists no([file tail [info script]])]} then {
 
     unset percent success
   } else {
-    #
-    # NOTE: Check the overall test suite results and report them now.
-    #
     tputs $test_channel \n; # NOTE: Blank line.
 
     reportTestResultCounts $test_channel percent
@@ -321,11 +300,11 @@ if {![info exists no([file tail [info script]])]} then {
 
     #
     # NOTE: Attempt to log the overall test suite results with the test
-    #       server, as long as we are not forbidden from doing so.
+    #       server unless we are not forbidden from doing so.
     #
     if {![info exists no(logRemoteTestResults)] && \
         ![info exists no(tclLogRemoteTestResults)]} then {
-      logRemoteTestResults $success; # NOTE: Server errors, etc.
+      catch {logRemoteTestResults $success}; # NOTE: Server errors, etc.
     }
 
     unset percent success
@@ -348,33 +327,27 @@ if {![info exists no([file tail [info script]])]} then {
   #
   sourceIfValid epilogue [getEnvironmentVariable testEpilogue]
 
-  #
-  # NOTE: Are we being prevented from evaluating the "post-test" script?
-  #
   if {![info exists no(postTest)]} then {
-    #
-    # NOTE: Evaluate the specified post-test script now, if any.
-    #
     if {[info exists test_script(post)] && \
         [string length $test_script(post)] > 0} then {
       #
-      # TODO: Perhaps use [uplevel] here instead of [eval].  For now, it does
-      #       not matter since we enforce this file being evaluated at the
-      #       top-level.
+      # TODO: Perhaps use [uplevel] here instead of [eval].  For now, it
+      #       does not matter since we enforce this file being evaluated
+      #       at the top-level.
       #
       if {[catch $test_script(post) test_script(post,result)]} then {
         #
-        # NOTE: Make 100% sure, even in "quiet" mode, that this script error
-        #       gets into the test log file.
+        # NOTE: Make 100% sure, even in "quiet" mode, that this script
+        #       error gets into the test log file.
         #
         tputs $test_channel [appendArgs "---- post-test script error: " \
             $test_script(post,result) \n]
 
         #
-        # NOTE: The post-test script failed in some way.  This is considered
-        #       to be an overall failure of the test suite; therefore, raise
-        #       the error now that we are sure it has been recorded in the
-        #       test log file.
+        # NOTE: The post-test script failed in some way.  This will be
+        #       considered to be an overall failure of the test suite;
+        #       therefore, raise the error now that we are sure it has
+        #       been recorded in the test log file.
         #
         unset -nocomplain test_suite_running
         error $test_script(post,result)
@@ -394,15 +367,24 @@ if {![info exists no([file tail [info script]])]} then {
   #
   if {[isExitOnComplete]} then {
     #
-    # NOTE: Exit now.  In Eagle, this will not exit the entire process.
-    #       Zero (0) will be the exit code if all the selected tests have
-    #       succeeded or the test success threshold has been met or
-    #       exceeded; otherwise, one (1) will be the exit code.
+    # NOTE: Run test suite exit hooks now, if needed.
+    #
+    if {![info exists no(hookForExitEpilogue)] && \
+        [llength [info commands ::hookForExitEpilogue]] > 0} then {
+      catch {::hookForExitEpilogue}
+    }
+
+    #
+    # NOTE: Exit now.  For Eagle, this will not necessarily exit the
+    #       entire process.  Zero (0) will be used as the exit code
+    #       if all the selected tests have either succeeded -OR- the
+    #       success threshold has been met (or exceeded); otherwise,
+    #       one (1) will be the exit code.
     #
     exit $exitCode
   } else {
     #
-    # NOTE: For Eagle, even when not exiting, we still set the ExitCode
+    # NOTE: For Eagle, even when not exiting, still set the ExitCode
     #       property of the interpreter.
     #
     if {[isEagle] && [llength [info commands object]] > 0} then {
@@ -410,5 +392,10 @@ if {![info exists no([file tail [info script]])]} then {
     }
 
     unset exitCode
+  }
+
+  if {![info exists no(hookForEndEpilogue)] && \
+      [llength [info commands ::hookForEndEpilogue]] > 0} then {
+    catch {::hookForEndEpilogue}
   }
 }

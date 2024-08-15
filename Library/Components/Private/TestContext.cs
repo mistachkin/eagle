@@ -51,10 +51,12 @@ namespace Eagle._Components.Private
             breakpoints = new StringDictionary();
 #endif
 
+            hooks = new StringDictionary();
             comparer = null;
             path = null;
             verbose = TestOutputType.Default;
             repeatCount = Count.Invalid;
+            previous = null;
             current = null;
         }
         #endregion
@@ -64,14 +66,24 @@ namespace Eagle._Components.Private
         #region IMaybeDisposed Members
         public bool Disposed
         {
-            get { return disposed; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return disposed;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public bool Disposing
         {
-            get { return false; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return false;
+            }
         }
         #endregion
 
@@ -207,6 +219,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private StringDictionary hooks;
+        public StringDictionary Hooks
+        {
+            get { CheckDisposed(); return hooks; }
+            set { CheckDisposed(); hooks = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         private IComparer<string> comparer;
         public IComparer<string> Comparer
         {
@@ -239,6 +260,15 @@ namespace Eagle._Components.Private
         {
             get { CheckDisposed(); return repeatCount; }
             set { CheckDisposed(); repeatCount = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private string previous;
+        public string Previous
+        {
+            get { CheckDisposed(); return previous; }
+            set { CheckDisposed(); previous = value; }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -369,10 +399,19 @@ namespace Eagle._Components.Private
 
                     ///////////////////////////////////////////////////////////
 
+                    if (hooks != null)
+                    {
+                        hooks.Clear();
+                        hooks = null;
+                    }
+
+                    ///////////////////////////////////////////////////////////
+
                     comparer = null;
                     path = null;
                     verbose = TestOutputType.None;
                     repeatCount = 0;
+                    previous = null;
                     current = null;
                 }
 

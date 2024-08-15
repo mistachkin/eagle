@@ -91,3 +91,6 @@ package ifneeded Eagle.Unzip 1.0 \
 
 package ifneeded Eagle.Update 1.0 \
     [list source [file join $dir update.eagle]]
+
+package ifneeded Eagle.Loader 1.0 \
+    [list source [file join $dir loader.eagle]]

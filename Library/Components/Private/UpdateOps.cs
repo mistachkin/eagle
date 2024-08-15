@@ -10,21 +10,19 @@
  */
 
 using System;
-
-#if !NET_STANDARD_20
 using System.Net;
 using System.Net.Security;
-using System.Security.Cryptography.X509Certificates;
+
+#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
+using System.Runtime.CompilerServices;
 #endif
 
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Containers.Public;
-
-#if !NET_STANDARD_20
 using _PublicKey = Eagle._Components.Shared.PublicKey;
-#endif
 
 namespace Eagle._Components.Private
 {
@@ -32,12 +30,7 @@ namespace Eagle._Components.Private
     internal static class UpdateOps
     {
         #region Private Static Data
-        private static readonly object syncRoot = new object();
-
-        ///////////////////////////////////////////////////////////////////////
-
         #region Trusted Public Key Data
-#if !NET_STANDARD_20
         //
         // NOTE: This lock is used to synchronize access to the static fields
         //       "PublicKey1", "PublicKey2", "PublicKey3", "PublicKey4", and
@@ -99,12 +92,35 @@ namespace Eagle._Components.Private
         //       not intended to be used lightly.
         //
         private static byte[] PublicKey5 = null;
-#endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Trusted Certificate Support
+        //
+        // HACK: Which thread currently holds the static lock?
+        //
+        private static long trustedLockThreadId = 0;
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: This lock is used to synchronize access to the trusted
+        //       state, e.g. callbacks, etc.
+        //
+        private static readonly object trustedSyncRoot = new object();
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Exclusive Mode Support
+        //
+        // HACK: Which thread currently holds the static lock?
+        //
+        private static long exclusiveLockThreadId = 0;
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This lock is used to synchronize access to the static field
         //       "exclusive".
@@ -113,6 +129,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        //
+        // NOTE: This is the "exclusive" mode flag used with the "trusted"
+        //       certificate status flag.
+        //
         private static bool exclusive = false;
         #endregion
 
@@ -120,13 +140,18 @@ namespace Eagle._Components.Private
 
         #region ICertificatePolicy Support Data
 #if !NET_STANDARD_20
-#if !MONO
         //
         // HACK: This is purposely not read-only; however, it is logically a
         //       constant.
         //
         private static bool useLegacyCertificatePolicy = false;
-#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // HACK: Which thread currently holds the static lock?
+        //
+        private static long certificatePolicyLockThreadId = 0;
 
         ///////////////////////////////////////////////////////////////////////
 
@@ -152,41 +177,286 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ServerCertificateValidationCallback Support Data
-#if !NET_STANDARD_20
+        //
+        // HACK: Which thread currently holds the static lock?
+        //
+        private static long callbackLockThreadId = 0;
+
+        ///////////////////////////////////////////////////////////////////////
+
         //
         // NOTE: This lock is used to synchronize access to the property
         //       "ServicePointManager.ServerCertificateValidationCallback".
         //
-        private static readonly object certificateCallbackSyncRoot = new object();
-#endif
+        private static readonly object callbackSyncRoot = new object();
         #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Threading Cooperative Locking Methods
-        public static void TryLock(
-            ref bool locked
-            )
+        private static long MaybeWhoHasTrustedLock()
         {
-            if (syncRoot == null)
-                return;
-
-            locked = Monitor.TryEnter(syncRoot);
+            return Interlocked.CompareExchange(
+                ref trustedLockThreadId, 0, 0);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static void ExitLock(
-            ref bool locked
+        private static void MaybeSomebodyHasTrustedLock(
+            bool locked /* in */
             )
         {
-            if (syncRoot == null)
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref trustedLockThreadId,
+                    GlobalState.GetCurrentLockThreadId(), 0);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeNobodyHasTrustedLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref trustedLockThreadId,
+                    0, GlobalState.GetCurrentLockThreadId());
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void TryTrustedLock(
+            ref bool locked /* out */
+            )
+        {
+            if (trustedSyncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(trustedSyncRoot);
+            MaybeSomebodyHasTrustedLock(locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void ExitTrustedLock(
+            ref bool locked /* in, out */
+            )
+        {
+            if (trustedSyncRoot == null)
                 return;
 
             if (locked)
             {
-                Monitor.Exit(syncRoot);
+                MaybeNobodyHasTrustedLock(locked);
+                Monitor.Exit(trustedSyncRoot);
+                locked = false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long MaybeWhoHasExclusiveLock()
+        {
+            return Interlocked.CompareExchange(
+                ref exclusiveLockThreadId, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeSomebodyHasExclusiveLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref exclusiveLockThreadId,
+                    GlobalState.GetCurrentLockThreadId(), 0);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeNobodyHasExclusiveLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref exclusiveLockThreadId,
+                    0, GlobalState.GetCurrentLockThreadId());
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void TryExclusiveLock(
+            ref bool locked /* out */
+            )
+        {
+            if (exclusiveSyncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(exclusiveSyncRoot);
+            MaybeSomebodyHasExclusiveLock(locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ExitExclusiveLock(
+            ref bool locked /* in, out */
+            )
+        {
+            if (exclusiveSyncRoot == null)
+                return;
+
+            if (locked)
+            {
+                MaybeNobodyHasExclusiveLock(locked);
+                Monitor.Exit(exclusiveSyncRoot);
+                locked = false;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if !NET_STANDARD_20
+        private static long MaybeWhoHasCertificatePolicyLock()
+        {
+            return Interlocked.CompareExchange(
+                ref certificatePolicyLockThreadId, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeSomebodyHasCertificatePolicyLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(
+                    ref certificatePolicyLockThreadId,
+                    GlobalState.GetCurrentLockThreadId(), 0);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeNobodyHasCertificatePolicyLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(
+                    ref certificatePolicyLockThreadId,
+                    0, GlobalState.GetCurrentLockThreadId());
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void TryCertificatePolicyLock(
+            ref bool locked /* out */
+            )
+        {
+            if (certificatePolicySyncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(certificatePolicySyncRoot);
+            MaybeSomebodyHasCertificatePolicyLock(locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ExitCertificatePolicyLock(
+            ref bool locked /* in, out */
+            )
+        {
+            if (certificatePolicySyncRoot == null)
+                return;
+
+            if (locked)
+            {
+                MaybeNobodyHasCertificatePolicyLock(locked);
+                Monitor.Exit(certificatePolicySyncRoot);
+                locked = false;
+            }
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long MaybeWhoHasCallbackLock()
+        {
+            return Interlocked.CompareExchange(
+                ref callbackLockThreadId, 0, 0);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeSomebodyHasCallbackLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref callbackLockThreadId,
+                    GlobalState.GetCurrentLockThreadId(), 0);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void MaybeNobodyHasCallbackLock(
+            bool locked /* in */
+            )
+        {
+            if (locked)
+            {
+                /* IGNORED */
+                Interlocked.CompareExchange(ref callbackLockThreadId,
+                    0, GlobalState.GetCurrentLockThreadId());
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void TryCallbackLock(
+            ref bool locked /* out */
+            )
+        {
+            if (callbackSyncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(callbackSyncRoot);
+            MaybeSomebodyHasCallbackLock(locked);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static void ExitCallbackLock(
+            ref bool locked /* in, out */
+            )
+        {
+            if (callbackSyncRoot == null)
+                return;
+
+            if (locked)
+            {
+                MaybeNobodyHasCallbackLock(locked);
+                Monitor.Exit(callbackSyncRoot);
                 locked = false;
             }
         }
@@ -196,76 +466,122 @@ namespace Eagle._Components.Private
 
         #region Public Introspection Methods
         public static void GetStatus(
-            ref StringList list
+            ref StringList list /* in, out */
             )
         {
             if (list == null)
                 list = new StringList();
 
-            list.Add("updates(active)");
-            list.Add(IsTrusted().ToString());
+            list.Add("updates(trusted)");
+            list.Add(FormatOps.MaybeNull(IsTrusted()).ToString());
 
             list.Add("updates(exclusive)");
-            list.Add(IsExclusive().ToString());
+            list.Add(FormatOps.MaybeNull(IsExclusive()).ToString());
 
-#if !NET_STANDARD_20
             GetPublicKeys(ref list);
 
+#if !NET_STANDARD_20
             list.Add("updates(legacyActive)");
-            list.Add(IsLegacyCertificatePolicyActive().ToString());
+            list.Add(FormatOps.MaybeNull(
+                IsLegacyCertificatePolicyActive()).ToString());
+#endif
 
             list.Add("updates(modernActive)");
-            list.Add(IsServerCertificateValidationCallbackActive().ToString());
+            list.Add(FormatOps.MaybeNull(
+                IsServerCertificateValidationCallbackActive()).ToString());
 
-#if !MONO
-            list.Add("updates(legacyFavored)");
+            list.Add("updates(useLegacy)");
             list.Add(ShouldUseLegacyCertificatePolicy().ToString());
-#endif
-#endif
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Exclusive Mode Support Methods
-        public static bool IsExclusive()
+        public static bool? IsExclusive()
         {
-            lock (exclusiveSyncRoot)
+            bool locked = false;
+
+            try
             {
+                TryExclusiveLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "IsExclusive",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasExclusiveLock());
+
+                    return null;
+                }
+
                 return exclusive;
+            }
+            finally
+            {
+                ExitExclusiveLock(ref locked);
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SetExclusive(
-            bool exclusive,
-            ref Result error
+            bool exclusive,  /* in */
+            ref Result error /* out */
             )
         {
-            lock (exclusiveSyncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+
+            try
             {
-                bool wasExclusive = IsExclusive();
+                TryExclusiveLock(ref locked);
 
-                if (exclusive != wasExclusive)
+                if (!locked)
                 {
-                    UpdateOps.exclusive = exclusive;
+                    TraceOps.LockTrace(
+                        "SetExclusive",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasExclusiveLock());
 
-                    TraceOps.DebugTrace(String.Format(
-                        "SetExclusive: exclusive mode {0}",
-                        exclusive ? "enabled" : "disabled"),
-                        typeof(UpdateOps).Name,
-                        TracePriority.SecurityDebug);
-
-                    return ReturnCode.Ok;
+                    goto error;
                 }
-                else
+
+                bool? wasExclusive = IsExclusive();
+
+                if (wasExclusive == null)
+                {
+                    error = "exclusive mode status unknown";
+                    goto error;
+                }
+
+                if (exclusive == (bool)wasExclusive)
                 {
                     error = String.Format(
-                        "already {0}", exclusive ?
+                        "already {0} mode", exclusive ?
                             "exclusive" : "non-exclusive");
+
+                    goto error;
                 }
+
+                UpdateOps.exclusive = exclusive;
+
+                TraceOps.DebugTrace(String.Format(
+                    "SetExclusive: exclusive mode {0}",
+                    exclusive ? "enabled" : "disabled"),
+                    typeof(UpdateOps).Name,
+                    TracePriority.SecurityDebug);
+
+                return ReturnCode.Ok;
             }
+            finally
+            {
+                ExitExclusiveLock(ref locked);
+            }
+
+        error:
 
             TraceOps.DebugTrace(String.Format(
                 "SetExclusive: exclusive = {0}, error = {1}",
@@ -279,118 +595,61 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Public Trust Support Methods
-        public static bool IsTrusted()
+        #region Public Trusted Status Support Methods
+        public static bool? IsTrusted()
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool? useLegacy = ShouldUseLegacyCertificatePolicy();
+
+            if (useLegacy == null)
+                return null;
+
+            if ((bool)useLegacy)
             {
 #if !NET_STANDARD_20
-#if MONO
-                return IsLegacyCertificatePolicyActive();
+                return IsTrustedLegacy();
 #else
-                if (!ShouldUseLegacyCertificatePolicy())
-                    return IsServerCertificateValidationCallbackActive();
-                else
-                    return IsLegacyCertificatePolicyActive();
-#endif
-#else
-                return false;
+                return null;
 #endif
             }
+
+            return IsTrustedModern();
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SetTrusted(
-            bool trusted,
-            ref Result error
+            bool trusted,    /* in */
+            ref Result error /* out */
             )
         {
-            lock (syncRoot) /* TRANSACTIONAL */
+            bool? useLegacy = ShouldUseLegacyCertificatePolicy(
+                ref error);
+
+            if (useLegacy == null)
+                return ReturnCode.Error;
+
+            if ((bool)useLegacy)
             {
-                bool wasTrusted = IsTrusted();
-
-                if (trusted != wasTrusted)
-                {
-                    try
-                    {
 #if !NET_STANDARD_20
-#if !MONO
-                        if (!ShouldUseLegacyCertificatePolicy())
-                        {
-                            //
-                            // NOTE: When using the .NET Framework, use the
-                            //       newer certification validation callback
-                            //       interface.
-                            //
-                            if (trusted)
-                                AddServerCertificateValidationCallback();
-                            else
-                                RemoveServerCertificateValidationCallback();
-
-                            TraceOps.DebugTrace(String.Format(
-                                "SetTrusted: {0} " +
-                                "RemoteCertificateValidationCallback",
-                                trusted ? "added" : "removed"),
-                                typeof(UpdateOps).Name,
-                                TracePriority.SecurityDebug);
-                        }
-                        else
-#endif
-                        {
-                            //
-                            // NOTE: When running on Mono, fallback to the
-                            //       "obsolete" CertificatePolicy property.
-                            //
-                            if (trusted)
-                                EnableLegacyCertificatePolicy();
-                            else
-                                DisableLegacyCertificatePolicy();
-
-                            TraceOps.DebugTrace(String.Format(
-                                "SetTrusted: {0} CertificatePolicy",
-                                trusted ? "overridden" : "restored"),
-                                typeof(UpdateOps).Name,
-                                TracePriority.SecurityDebug);
-                        }
-
-                        return ReturnCode.Ok;
+                return SetTrustedLegacy(trusted, ref error);
 #else
-                        error = "not implemented";
+                error = "not implemented";
+                return ReturnCode.Error;
 #endif
-                    }
-                    catch (Exception e)
-                    {
-                        error = e;
-                    }
-                }
-                else
-                {
-                    error = String.Format(
-                        "already {0}", trusted ?
-                            "trusted" : "untrusted");
-                }
             }
 
-            TraceOps.DebugTrace(String.Format(
-                "SetTrusted: trusted = {0}, error = {1}",
-                trusted, FormatOps.WrapOrNull(error)),
-                typeof(UpdateOps).Name,
-                TracePriority.SecurityError);
-
-            return ReturnCode.Error;
+            return SetTrustedModern(trusted, ref error);
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ServerCertificateValidationCallback Support Methods
-#if !NET_STANDARD_20
+        #region Private Modern Support Methods
         private static bool RemoteCertificateValidationCallback(
-            object sender,
-            X509Certificate certificate,
-            X509Chain chain,
-            SslPolicyErrors sslPolicyErrors
+            object sender,                  /* in */
+            X509Certificate certificate,    /* in */
+            X509Chain chain,                /* in */
+            SslPolicyErrors sslPolicyErrors /* in */
             )
         {
             //
@@ -399,13 +658,15 @@ namespace Eagle._Components.Private
             //       have an error status).  If exclusive mode is enabled,
             //       this will be skipped.
             //
-            lock (exclusiveSyncRoot) /* TRANSACTIONAL */
+            bool? wasExclusive = IsExclusive();
+
+            if (wasExclusive == null)
+                return false;
+
+            if (!(bool)wasExclusive &&
+                (sslPolicyErrors == SslPolicyErrors.None))
             {
-                if (!exclusive &&
-                    (sslPolicyErrors == SslPolicyErrors.None))
-                {
-                    return true;
-                }
+                return true;
             }
 
             //
@@ -426,63 +687,283 @@ namespace Eagle._Components.Private
             //       supposed to be "always trusted" right now; therefore,
             //       just return false.
             //
-            if (!IsServerCertificateValidationCallbackActive())
+            bool? wasActive = IsServerCertificateValidationCallbackActive();
+
+            if ((wasActive == null) || !(bool)wasActive)
                 return false;
+
+            //
+            // HACK: When the policy is active, make all local host
+            //       connections exempt for development and testing
+            //       purposes.
+            //
+            HttpWebRequest request = sender as HttpWebRequest;
+
+            if (request != null)
+            {
+                Uri uri = request.RequestUri;
+
+                if ((uri != null) && uri.IsLoopback)
+                    return true;
+            }
 
             return IsTrustedCertificate(certificate);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static bool IsServerCertificateValidationCallbackActive()
+        private static bool? IsServerCertificateValidationCallbackActive()
         {
-            lock (certificateCallbackSyncRoot)
+            bool locked = false;
+
+            try
             {
+                TryCallbackLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "IsServerCertificateValidationCallbackActive",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasCallbackLock());
+
+                    return null;
+                }
+
                 return (
                     ServicePointManager.ServerCertificateValidationCallback
                         == RemoteCertificateValidationCallback
                 );
             }
+            finally
+            {
+                ExitCallbackLock(ref locked);
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void AddServerCertificateValidationCallback()
+        private static bool AddServerCertificateValidationCallback()
         {
-            lock (certificateCallbackSyncRoot)
+            bool locked = false;
+
+            try
             {
+                TryCallbackLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "AddServerCertificateValidationCallback",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasCallbackLock());
+
+                    return false;
+                }
+
                 ServicePointManager.ServerCertificateValidationCallback +=
                     RemoteCertificateValidationCallback;
+
+                return true;
+            }
+            finally
+            {
+                ExitCallbackLock(ref locked);
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void RemoveServerCertificateValidationCallback()
+        private static bool RemoveServerCertificateValidationCallback()
         {
-            lock (certificateCallbackSyncRoot)
+            bool locked = false;
+
+            try
             {
+                TryCallbackLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "RemoveServerCertificateValidationCallback",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasCallbackLock());
+
+                    return false;
+                }
+
                 ServicePointManager.ServerCertificateValidationCallback -=
                     RemoteCertificateValidationCallback;
+
+                return true;
+            }
+            finally
+            {
+                ExitCallbackLock(ref locked);
             }
         }
-#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Trusted Status Support Methods
+        private static bool? IsTrustedModern()
+        {
+            bool locked = false;
+
+            try
+            {
+                TryTrustedLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "IsTrustedModern",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasTrustedLock());
+
+                    return null;
+                }
+
+                try
+                {
+                    return IsServerCertificateValidationCallbackActive();
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(UpdateOps).Name,
+                        TracePriority.SecurityError);
+
+                    return null;
+                }
+            }
+            finally
+            {
+                ExitTrustedLock(ref locked);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static ReturnCode SetTrustedModern(
+            bool trusted,    /* in */
+            ref Result error /* out */
+            )
+        {
+            bool locked = false;
+
+            try
+            {
+                TryTrustedLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "SetTrustedModern",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasTrustedLock());
+
+                    error = "unable to acquire lock";
+                    goto error;
+                }
+
+                bool? wasTrusted = IsTrusted();
+
+                if (wasTrusted == null)
+                {
+                    error = "trusted status unknown";
+                    goto error;
+                }
+
+                if (trusted == (bool)wasTrusted)
+                {
+                    error = String.Format(
+                        "already {0} status", trusted ?
+                            "trusted" : "untrusted");
+
+                    goto error;
+                }
+
+                try
+                {
+                    //
+                    // NOTE: When using the .NET Framework, use the
+                    //       newer certification validation callback
+                    //       interface.
+                    //
+                    error = null;
+
+                    if (trusted)
+                    {
+                        if (!AddServerCertificateValidationCallback())
+                        {
+                            error = "failed to add certificate " +
+                                    "validation callback";
+                        }
+                    }
+                    else
+                    {
+                        if (!RemoveServerCertificateValidationCallback())
+                        {
+                            error = "failed to remove certificate " +
+                                    "validation callback";
+                        }
+                    }
+
+                    if (error != null)
+                        goto error;
+
+                    TraceOps.DebugTrace(String.Format(
+                        "SetTrustedModern: {0} " +
+                            "RemoteCertificateValidationCallback",
+                        trusted ? "added" : "removed"),
+                        typeof(UpdateOps).Name,
+                        TracePriority.SecurityDebug);
+
+                    return ReturnCode.Ok;
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+            }
+            finally
+            {
+                ExitTrustedLock(ref locked);
+            }
+
+        error:
+
+            TraceOps.DebugTrace(String.Format(
+                "SetTrustedModern: trusted = {0}, error = {1}",
+                trusted, FormatOps.WrapOrNull(error)),
+                typeof(UpdateOps).Name,
+                TracePriority.SecurityError);
+
+            return ReturnCode.Error;
+        }
+        #endregion
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ICertificatePolicy Support Class & Methods
+        #region Private Legacy Support Class & Methods
 #if !NET_STANDARD_20
-        #region ICertificatePolicy Support Class
+        #region Private ICertificatePolicy Support Class
         [ObjectId("4062e197-ed96-4db3-87e8-f463e5fb818b")]
         private sealed class CertificatePolicy : ICertificatePolicy
         {
             #region ICertificatePolicy Members
             public bool CheckValidationResult(
-                ServicePoint srvPoint,
-                X509Certificate certificate,
-                WebRequest request,
-                int certificateProblem
+                ServicePoint srvPoint,       /* in */
+                X509Certificate certificate, /* in */
+                WebRequest request,          /* in */
+                int certificateProblem       /* in */
                 )
             {
                 //
@@ -491,11 +972,13 @@ namespace Eagle._Components.Private
                 //       be valid by the platform itself (i.e. they do
                 //       not have an error status).
                 //
-                lock (exclusiveSyncRoot) /* TRANSACTIONAL */
-                {
-                    if (!exclusive && (certificateProblem == 0))
-                        return true;
-                }
+                bool? wasExclusive = IsExclusive();
+
+                if (wasExclusive == null)
+                    return false;
+
+                if (!(bool)wasExclusive && (certificateProblem == 0))
+                    return true;
 
                 //
                 // NOTE: Emit diagnostic message with the certificate
@@ -515,8 +998,23 @@ namespace Eagle._Components.Private
                 //       "always trusted" right now; therefore, just return
                 //       false.
                 //
-                if (!IsLegacyCertificatePolicyActive())
+                bool? wasActive = IsLegacyCertificatePolicyActive();
+
+                if ((wasActive == null) || !(bool)wasActive)
                     return false;
+
+                //
+                // HACK: When the legacy policy is active, make all local
+                //       host connections exempt for development and test
+                //       purposes.
+                //
+                if (request != null)
+                {
+                    Uri uri = request.RequestUri;
+
+                    if ((uri != null) && uri.IsLoopback)
+                        return true;
+                }
 
                 return IsTrustedCertificate(certificate);
             }
@@ -526,49 +1024,105 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region ICertificatePolicy Support Methods
-        private static bool IsLegacyCertificatePolicyActive()
+        #region Private ICertificatePolicy Support Methods
+        private static bool? IsLegacyCertificatePolicyActive()
         {
-            lock (certificatePolicySyncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+
+            try
             {
+                TryCertificatePolicyLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "IsLegacyCertificatePolicyActive",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasCertificatePolicyLock());
+
+                    return null;
+                }
+
                 return Object.ReferenceEquals(
-                    ServicePointManager.CertificatePolicy, certificatePolicy);
+                    ServicePointManager.CertificatePolicy,
+                    certificatePolicy);
+            }
+            finally
+            {
+                ExitCertificatePolicyLock(ref locked);
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void EnableLegacyCertificatePolicy()
+        private static bool EnableLegacyCertificatePolicy()
         {
-            lock (certificatePolicySyncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+
+            try
             {
+                TryCertificatePolicyLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "EnableLegacyCertificatePolicy",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasCertificatePolicyLock());
+
+                    return false;
+                }
+
                 //
-                // NOTE: First, save the current certificate policy for
-                //       possible later restoration.
+                // NOTE: First, save the current certificate
+                //       policy for possible later restoration.
                 //
                 savedCertificatePolicy = ServicePointManager.CertificatePolicy;
                 haveSavedCertificatePolicy = true;
 
                 //
-                // NOTE: Next, set the certificate policy to the one we
-                //       use for software updates.
+                // NOTE: Next, set the certificate policy to
+                //       the one we use for software updates.
                 //
                 ServicePointManager.CertificatePolicy = certificatePolicy;
+
+                return true;
+            }
+            finally
+            {
+                ExitCertificatePolicyLock(ref locked);
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static void DisableLegacyCertificatePolicy()
+        private static bool DisableLegacyCertificatePolicy()
         {
-            lock (certificatePolicySyncRoot) /* TRANSACTIONAL */
+            bool locked = false;
+
+            try
             {
+                TryCertificatePolicyLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "DisableLegacyCertificatePolicy",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasCertificatePolicyLock());
+
+                    return false;
+                }
+
                 //
-                // NOTE: Restore the previously saved certificate policy,
-                //       if any.
+                // NOTE: Restore the previously saved certificate
+                //       policy, if any.
                 //
                 if (!haveSavedCertificatePolicy)
-                    return;
+                    return false;
 
                 //
                 // NOTE: Restore the saved ICertificatePolicy.
@@ -580,28 +1134,227 @@ namespace Eagle._Components.Private
                 //
                 haveSavedCertificatePolicy = false;
                 savedCertificatePolicy = null;
+
+                return true;
+            }
+            finally
+            {
+                ExitCertificatePolicyLock(ref locked);
+            }
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Trusted Status Support Methods
+        private static bool? IsTrustedLegacy()
+        {
+            bool locked = false;
+
+            try
+            {
+                TryTrustedLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "IsTrustedLegacy",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasTrustedLock());
+
+                    return null;
+                }
+
+                try
+                {
+                    return IsLegacyCertificatePolicyActive();
+                }
+                catch (Exception e)
+                {
+                    TraceOps.DebugTrace(
+                        e, typeof(UpdateOps).Name,
+                        TracePriority.SecurityError);
+
+                    return null;
+                }
+            }
+            finally
+            {
+                ExitTrustedLock(ref locked);
             }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-#if !MONO
-        private static bool ShouldUseLegacyCertificatePolicy()
+        private static ReturnCode SetTrustedLegacy(
+            bool trusted,    /* in */
+            ref Result error /* out */
+            )
         {
-            return useLegacyCertificatePolicy ||
-                CommonOps.Runtime.IsMono();
+            bool locked = false;
+
+            try
+            {
+                TryTrustedLock(ref locked);
+
+                if (!locked)
+                {
+                    TraceOps.LockTrace(
+                        "SetTrustedLegacy",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasTrustedLock());
+
+                    error = "unable to acquire lock";
+                    goto error;
+                }
+
+                bool? wasTrusted = IsTrusted();
+
+                if (wasTrusted == null)
+                {
+                    error = "trusted status unknown";
+                    goto error;
+                }
+
+                if (trusted == (bool)wasTrusted)
+                {
+                    error = String.Format(
+                        "already {0} status", trusted ?
+                            "trusted" : "untrusted");
+
+                    goto error;
+                }
+
+                try
+                {
+                    //
+                    // NOTE: When running on Mono, fallback to the
+                    //       "obsolete" CertificatePolicy property.
+                    //
+                    error = null;
+
+                    if (trusted)
+                    {
+                        if (!EnableLegacyCertificatePolicy())
+                        {
+                            error = "failed to enable legacy " +
+                                    "certificate policy";
+                        }
+                    }
+                    else
+                    {
+                        if (!DisableLegacyCertificatePolicy())
+                        {
+                            error = "failed to disable legacy " +
+                                    "certificate policy";
+                        }
+                    }
+
+                    if (error != null)
+                        goto error;
+
+                    TraceOps.DebugTrace(String.Format(
+                        "SetTrustedLegacy: {0} CertificatePolicy",
+                        trusted ? "overridden" : "restored"),
+                        typeof(UpdateOps).Name,
+                        TracePriority.SecurityDebug);
+
+                    return ReturnCode.Ok;
+                }
+                catch (Exception e)
+                {
+                    error = e;
+                }
+            }
+            finally
+            {
+                ExitTrustedLock(ref locked);
+            }
+
+        error:
+
+            TraceOps.DebugTrace(String.Format(
+                "SetTrustedLegacy: trusted = {0}, error = {1}",
+                trusted, FormatOps.WrapOrNull(error)),
+                typeof(UpdateOps).Name,
+                TracePriority.SecurityError);
+
+            return ReturnCode.Error;
         }
-#endif
         #endregion
 #endif
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Private Trusted Certificate Support Methods
+        #region Private Legacy Support Shared Methods
+#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        private static bool? ShouldUseLegacyCertificatePolicy()
+        {
+            Result error = null; /* NOT USED */
+
+            return ShouldUseLegacyCertificatePolicy(ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        private static bool? ShouldUseLegacyCertificatePolicy(
+            ref Result error /* out */
+            )
+        {
 #if !NET_STANDARD_20
+            //
+            // HACK: Is this still (always) necessary on Mono?
+            //
+            if (CommonOps.Runtime.IsMono())
+                return true;
+
+            ///////////////////////////////////////////////////////////////////
+
+            bool locked = false;
+
+            try
+            {
+                TryTrustedLock(ref locked);
+
+                if (locked)
+                {
+                    return useLegacyCertificatePolicy;
+                }
+                else
+                {
+                    TraceOps.LockTrace(
+                        "ShouldUseLegacyCertificatePolicy",
+                        typeof(UpdateOps).Name, true,
+                        TracePriority.LockError,
+                        MaybeWhoHasTrustedLock());
+
+                    error = "unable to acquire lock";
+                    return null;
+                }
+            }
+            finally
+            {
+                ExitTrustedLock(ref locked);
+            }
+#else
+            return false;
+#endif
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Private Trusted Certificate Support Methods
         private static void GetPublicKeys(
-            ref StringList list
+            ref StringList list /* in, out */
             )
         {
             if (PublicKey1 != null)
@@ -671,7 +1424,7 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool IsTrustedCertificate(
-            X509Certificate certificate
+            X509Certificate certificate /* in */
             )
         {
             bool result = false;
@@ -756,7 +1509,6 @@ namespace Eagle._Components.Private
 
             return result;
         }
-#endif
         #endregion
     }
 }

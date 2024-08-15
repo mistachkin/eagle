@@ -406,6 +406,13 @@ runTest {test lreplace-100.2 {[lreplace] error with empty lists} -setup {
 
 ###############################################################################
 
+if {[isEagle]} then {
+  set savedInterpreterFlags [enableInterpreterFlags]
+  enableInterpreterFlags ReplaceEmptyListOk true
+}
+
+###############################################################################
+
 runTest {test lreplace-200.1 {lreplace past end-of-list (end)} -setup {
   unset -nocomplain x y
 } -body {
@@ -455,6 +462,13 @@ runTest {test lreplace-200.4 {lreplace past end-of-list (-1)} -setup {
 } -cleanup {
   unset -nocomplain x y
 } -result {{1 2 3 4} {1 2 3 4}}}
+
+###############################################################################
+
+if {[isEagle]} then {
+  enableInterpreterFlags $savedInterpreterFlags
+  unset -nocomplain savedInterpreterFlags
+}
 
 ###############################################################################
 

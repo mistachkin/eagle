@@ -24,9 +24,10 @@ runTest {test parser-2.1 {scripting of command parser} -body {
   parse command {set a 2; set b [set a]; version; # comment}
 } -cleanup {
   unset -nocomplain a b
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 8} {CommandWords 3} {Tokens 6} {IsImmutable False} {Type\
 SimpleWord} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
 1} {ViaSource False} {Start 0} {Length 3} {Components 1} {Text set} {ClientData\
@@ -42,7 +43,7 @@ None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False}\
 {Start 6} {Length 1} {Components 1} {Text 2} {ClientData {}} {IsImmutable\
 False} {Type Text} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1}\
 {EndLine 1} {ViaSource False} {Start 6} {Length 1} {Components 0} {Text 2}\
-{ClientData {}}}}
+{ClientData {}}}]}
 
 ###############################################################################
 

@@ -7,7 +7,7 @@
     <authors>Eagle Development Team</authors>
     <description>This is a pre-release package and is not intended for production use.  An implementation of the Tcl scripting language.</description>
     <language>en-US</language>
-    <projectUrl>https://eagle.to/</projectUrl>
+    <projectUrl>https://urn.to/r/eagle</projectUrl>
     <iconUrl>https://eagle.to/images/eagle128.png</iconUrl>
     <licenseUrl>https://eagle.to/enterprise/license.html</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>

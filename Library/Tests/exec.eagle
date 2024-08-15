@@ -75,7 +75,9 @@ runTest {test exec-1.1 {cancel exec with events, kill process} -setup [subst \
   catch {info previouspid true}
 
   after flags [appendArgs = $savedFlags]
-  unset -nocomplain y code pid msg savedFlags comSpec
+  unset -nocomplain savedFlags
+
+  unset -nocomplain y code pid msg comSpec
   unset -nocomplain test_log test_channel
 } -constraints {eagle windows testExec interactive tip285} -isolationLevel \
 Interpreter -match regexp -result [string map [list cmd.exe [appendArgs \
@@ -376,7 +378,8 @@ runTest {test exec-2.1 {output capture stress test} -setup {
 maybeTimeIntensive file_big_exec.txt file_big_exec_raw.txt} \
 -constraintExpression {![haveConstraint dotNetCore50] && \
 ![haveConstraint dotNetCore60] && ![haveConstraint dotNetCore70] && \
-![haveConstraint dotNetCore80]} -time true -result {{} True}}
+![haveConstraint dotNetCore80] && ![haveConstraint dotNetCore90]} -time true \
+-result {{} True}}
 
 ###############################################################################
 
@@ -409,14 +412,18 @@ tputs $test_channel "---- start of process isolation tests\n"
 #       to work.
 #
 runTest {test processIsolation-1.1 {test with process isolation} -body {
-  info pid
+  expr {
+    $eagle_tests(CurrentName) eq "processIsolation-1.1" ? \
+        [info pid] : "current test name mismatch"
+  }
 } -constraints {eagle testExec} -time true -match regexp -isolationLevel \
 Process -isolationTemplate $isolationTemplate -isolationPathType Library \
 -isolationFileName [file join $test_path temporary-isolated.eagle] \
 -isolationOtherArguments [list -preInitialize [list set test_run_id \
 [getTestRunId]] -preInitialize [list set test_run_bucket [getTestRunBucket]]] \
--isolationFailDetail Highest -isolationLogFile $test_log_if -noProcessId true \
--constraintExpression {[haveConstraint dotNetOrDotNetCore] || \
+-isolationFailDetail Highest -isolationLogFile $test_log_if -execExitCode \
+Success -noProcessId true -constraintExpression \
+{[haveConstraint dotNetOrDotNetCore] || \
 ![haveConstraint windows] || [haveConstraint mono20] || \
 [haveConstraint mono22] || [haveConstraint mono24] || \
 [haveConstraint mono26] || [haveConstraint mono46]} -result {^\d+$}}

@@ -59,9 +59,12 @@ namespace Eagle._Commands
                             //       for converting the increment value.
                             //
                             if (code == ReturnCode.Error)
+                            {
+                                /* IGNORED */
                                 Engine.AddErrorInformation(interpreter, result,
                                     String.Format("{0}    (reading increment)",
                                         Environment.NewLine));
+                            }
                         }
 
                         if (code == ReturnCode.Ok)
@@ -90,6 +93,7 @@ namespace Eagle._Commands
                                     // NOTE: Replicate "odd" Tcl behavior regarding error reporting for
                                     //       converting the value to be incremented.
                                     //
+                                    /* IGNORED */
                                     Engine.AddErrorInformation(interpreter, result,
                                         String.Format("{0}    (reading value of variable to increment)",
                                             Environment.NewLine));

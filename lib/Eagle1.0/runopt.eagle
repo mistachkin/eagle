@@ -42,19 +42,23 @@ namespace eval ::Eagle {
         }
       }
     } else {
-      if {![info exists ::no(tclHasRuntimeOption)] && \
-          [info exists ::env(tclHasRuntimeOption)]} then {
-        if {[info exists ::eagle_platform(runtimeOptions)] && [set \
-            index [lsearch -exact $::eagle_platform(runtimeOptions) \
-            $name]] != -1} then {
-          return true
-        }
+      if {[llength [info commands eagle]] > 0} then {; # Garuda?
+        return [eagle [list hasRuntimeOption $name $default]]
       } else {
-        if {[info exists ::no(silentTclHasRuntimeOption)] || \
-            [info exists ::env(errorOnTclHasRuntimeOption)]} then {
-          error [appendArgs \
-              "procedure \[" [lindex [info level [info level]] 0] \
-              "\] is not enabled for native Tcl"]
+        if {![info exists ::no(tclHasRuntimeOption)] && \
+            [info exists ::env(tclHasRuntimeOption)]} then {
+          if {[info exists ::eagle_platform(runtimeOptions)] && [set \
+              index [lsearch -exact $::eagle_platform(runtimeOptions) \
+              $name]] != -1} then {
+            return true
+          }
+        } else {
+          if {[info exists ::no(silentTclHasRuntimeOption)] || \
+              [info exists ::env(errorOnTclHasRuntimeOption)]} then {
+            error [appendArgs \
+                "procedure \[" [lindex [info level [info level]] 0] \
+                "\] is not enabled for native Tcl"]
+          }
         }
       }
     }
@@ -84,17 +88,21 @@ namespace eval ::Eagle {
         }
       }
     } else {
-      if {![info exists ::no(tclListRuntimeOptions)] && \
-          [info exists ::env(tclListRuntimeOptions)]} then {
-        if {[info exists ::eagle_platform(runtimeOptions)]} then {
-          return $::eagle_platform(runtimeOptions)
-        }
+      if {[llength [info commands eagle]] > 0} then {; # Garuda?
+        return [eagle [list listRuntimeOptions $default]]
       } else {
-        if {[info exists ::no(silentTclListRuntimeOptions)] || \
-            [info exists ::env(errorOnTclListRuntimeOptions)]} then {
-          error [appendArgs \
-              "procedure \[" [lindex [info level [info level]] 0] \
-              "\] is not enabled for native Tcl"]
+        if {![info exists ::no(tclListRuntimeOptions)] && \
+            [info exists ::env(tclListRuntimeOptions)]} then {
+          if {[info exists ::eagle_platform(runtimeOptions)]} then {
+            return $::eagle_platform(runtimeOptions)
+          }
+        } else {
+          if {[info exists ::no(silentTclListRuntimeOptions)] || \
+              [info exists ::env(errorOnTclListRuntimeOptions)]} then {
+            error [appendArgs \
+                "procedure \[" [lindex [info level [info level]] 0] \
+                "\] is not enabled for native Tcl"]
+          }
         }
       }
     }
@@ -124,20 +132,24 @@ namespace eval ::Eagle {
         }
       }
     } else {
-      if {![info exists ::no(tclAddRuntimeOption)] && \
-          [info exists ::env(tclAddRuntimeOption)]} then {
-        if {![info exists ::eagle_platform(runtimeOptions)] || [set \
-            index [lsearch -exact $::eagle_platform(runtimeOptions) \
-            $name]] == -1} then {
-          lappend ::eagle_platform(runtimeOptions) $name
-          return true
-        }
+      if {[llength [info commands eagle]] > 0} then {; # Garuda?
+        return [eagle [list addRuntimeOption $name]]
       } else {
-        if {[info exists ::no(silentTclAddRuntimeOption)] || \
-            [info exists ::env(errorOnTclAddRuntimeOption)]} then {
-          error [appendArgs \
-              "procedure \[" [lindex [info level [info level]] 0] \
-              "\] is not enabled for native Tcl"]
+        if {![info exists ::no(tclAddRuntimeOption)] && \
+            [info exists ::env(tclAddRuntimeOption)]} then {
+          if {![info exists ::eagle_platform(runtimeOptions)] || [set \
+              index [lsearch -exact $::eagle_platform(runtimeOptions) \
+              $name]] == -1} then {
+            lappend ::eagle_platform(runtimeOptions) $name
+            return true
+          }
+        } else {
+          if {[info exists ::no(silentTclAddRuntimeOption)] || \
+              [info exists ::env(errorOnTclAddRuntimeOption)]} then {
+            error [appendArgs \
+                "procedure \[" [lindex [info level [info level]] 0] \
+                "\] is not enabled for native Tcl"]
+          }
         }
       }
     }
@@ -167,22 +179,26 @@ namespace eval ::Eagle {
         }
       }
     } else {
-      if {![info exists ::no(tclRemoveRuntimeOption)] && \
-          [info exists ::env(tclRemoveRuntimeOption)]} then {
-        if {[info exists ::eagle_platform(runtimeOptions)] && [set \
-            index [lsearch -exact $::eagle_platform(runtimeOptions) \
-            $name]] != -1} then {
-          set ::eagle_platform(runtimeOptions) [lreplace \
-              $::eagle_platform(runtimeOptions) $index $index]
-
-          return true
-        }
+      if {[llength [info commands eagle]] > 0} then {; # Garuda?
+        return [eagle [list removeRuntimeOption $name]]
       } else {
-        if {[info exists ::no(silentTclRemoveRuntimeOption)] || \
-            [info exists ::env(errorOnTclRemoveRuntimeOption)]} then {
-          error [appendArgs \
-              "procedure \[" [lindex [info level [info level]] 0] \
-              "\] is not enabled for native Tcl"]
+        if {![info exists ::no(tclRemoveRuntimeOption)] && \
+            [info exists ::env(tclRemoveRuntimeOption)]} then {
+          if {[info exists ::eagle_platform(runtimeOptions)] && [set \
+              index [lsearch -exact $::eagle_platform(runtimeOptions) \
+              $name]] != -1} then {
+            set ::eagle_platform(runtimeOptions) [lreplace \
+                $::eagle_platform(runtimeOptions) $index $index]
+
+            return true
+          }
+        } else {
+          if {[info exists ::no(silentTclRemoveRuntimeOption)] || \
+              [info exists ::env(errorOnTclRemoveRuntimeOption)]} then {
+            error [appendArgs \
+                "procedure \[" [lindex [info level [info level]] 0] \
+                "\] is not enabled for native Tcl"]
+          }
         }
       }
     }

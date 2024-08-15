@@ -111,7 +111,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -355,15 +355,18 @@ namespace Eagle._Commands
                                                     code = interpreter.EvaluateScript(arguments, 3, ref result);
 
                                                 if (code == ReturnCode.Error)
+                                                {
+                                                    /* IGNORED */
                                                     Engine.AddErrorInformation(interpreter, result,
                                                         String.Format("{0}    (in namespace eval \"{1}\" script line {2})",
                                                             Environment.NewLine, NamespaceOps.MaybeQualifiedName(@namespace,
                                                             true), Interpreter.GetErrorLine(interpreter)));
+                                                }
 
                                                 /* IGNORED */
                                                 interpreter.PopNamespaceCallFrame(frame);
 
-                                                /* NO RESULT */
+                                                /* IGNORED */
                                                 Engine.CleanupNamespacesOrComplain(interpreter);
                                             }
                                             else
@@ -550,15 +553,18 @@ namespace Eagle._Commands
                                                             location, ref result);
 
                                                         if (code == ReturnCode.Error)
+                                                        {
+                                                            /* IGNORED */
                                                             Engine.AddErrorInformation(interpreter, result,
                                                                 String.Format("{0}    (in namespace inscope \"{1}\" script line {2})",
                                                                     Environment.NewLine, NamespaceOps.MaybeQualifiedName(@namespace,
                                                                     true), Interpreter.GetErrorLine(interpreter)));
+                                                        }
 
                                                         /* IGNORED */
                                                         interpreter.PopNamespaceCallFrame(frame);
 
-                                                        /* NO RESULT */
+                                                        /* IGNORED */
                                                         Engine.CleanupNamespacesOrComplain(interpreter);
                                                     }
                                                 }
@@ -575,15 +581,18 @@ namespace Eagle._Commands
                                                     code = interpreter.EvaluateScript(arguments[3], ref result);
 
                                                     if (code == ReturnCode.Error)
+                                                    {
+                                                        /* IGNORED */
                                                         Engine.AddErrorInformation(interpreter, result,
                                                             String.Format("{0}    (in namespace inscope \"{1}\" script line {2})",
                                                                 Environment.NewLine, NamespaceOps.MaybeQualifiedName(@namespace,
                                                                 true), Interpreter.GetErrorLine(interpreter)));
+                                                    }
 
                                                     /* IGNORED */
                                                     interpreter.PopNamespaceCallFrame(frame);
 
-                                                    /* NO RESULT */
+                                                    /* IGNORED */
                                                     Engine.CleanupNamespacesOrComplain(interpreter);
                                                 }
                                             }

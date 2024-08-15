@@ -37,6 +37,7 @@ using System.Globalization;
 using System.IO;
 
 #if NETWORK
+using System.Net;
 using System.Net.Sockets;
 #endif
 
@@ -53,16 +54,25 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 
+#if WEB
+using System.Web;
+
+#if NET_STANDARD_20 && NET_CORE_REFERENCES
+using Microsoft.Extensions.Primitives;
+using Microsoft.AspNetCore.Http;
+#endif
+#endif
+
+#if WINFORMS
+using System.Windows.Forms;
+#endif
+
 #if XML
 using System.Xml;
 #endif
 
 #if XML && SERIALIZATION
 using System.Xml.Serialization;
-#endif
-
-#if WINFORMS
-using System.Windows.Forms;
 #endif
 
 using Eagle._Attributes;
@@ -166,6 +176,19 @@ namespace Eagle._Components.Public
         public static void PopActiveInterpreter()
         {
             GlobalState.PopActiveInterpreter();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ConvertValueToString(
+            IScriptBinder scriptBinder,
+            CultureInfo cultureInfo,
+            object value,
+            ref Result result
+            )
+        {
+            return MarshalOps.ConvertValueToString(
+                scriptBinder, cultureInfo, value, ref result);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -459,6 +482,63 @@ namespace Eagle._Components.Public
         {
             WebOps.SetOfflineMode(offline);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int GetWebMaximumRetries()
+        {
+            return WebOps.GetMaximumRetries();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static int SetWebMaximumRetries(
+            int retries
+            )
+        {
+            return WebOps.SetMaximumRetries(retries);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void SleepForWebRetry(
+            Interpreter interpreter,
+            EventWaitHandle @event,
+            int retries
+            )
+        {
+            WebOps.SleepForRetry(interpreter, @event, retries);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static WebClient CreateWebClient(
+            Interpreter interpreter,
+            string argument,
+            IClientData clientData,
+            int? timeout,
+            ref Result error
+            )
+        {
+            return WebOps.CreateClient(
+                interpreter, argument, clientData, timeout, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static WebClient CreateWebClient(
+            Interpreter interpreter,
+            string argument,
+            IClientData clientData,
+            string tag,
+            int? timeout,
+            ref Result error
+            )
+        {
+            return WebOps.CreateClient(
+                interpreter, argument, clientData, tag, timeout,
+                ref error);
+        }
 #endif
 
         ///////////////////////////////////////////////////////////////////////
@@ -469,7 +549,18 @@ namespace Eagle._Components.Public
             ref Result error
             )
         {
-            return WebOps.SetSecurityProtocol(obsolete, ref error);
+            return WebOps.SetSecurityProtocol(false, obsolete, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode SetWebSecurityProtocol(
+            bool force,
+            bool obsolete,
+            ref Result error
+            )
+        {
+            return WebOps.SetSecurityProtocol(force, obsolete, ref error);
         }
 #endif
 #endif
@@ -496,6 +587,20 @@ namespace Eagle._Components.Public
         public static object GetDefaultAppDomain()
         {
             return AppDomainOps.GetDefault();
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+        public static void GetAppDomainCounts(
+            bool localOnly,
+            ref long createCount,
+            ref long unloadCount
+            )
+        {
+            AppDomainOps.GetCounts(
+                localOnly, ref createCount, ref unloadCount);
         }
 #endif
 
@@ -537,20 +642,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static void EnableInterpreterCreation(
-            DisableFlags flags
+        public static int? EnableInterpreterCreation(
+            DisableFlags? flags
             )
         {
-            Interpreter.EnableCreation(flags);
+            if (flags != null)
+            {
+                Interpreter.EnableCreation((DisableFlags)flags);
+                return null;
+            }
+            else
+            {
+                return Interpreter.GetDisableCreationCount();
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static void DisableInterpreterCreation(
-            DisableFlags flags
+        public static int? DisableInterpreterCreation(
+            DisableFlags? flags
             )
         {
-            Interpreter.DisableCreation(flags);
+            if (flags != null)
+            {
+                Interpreter.DisableCreation((DisableFlags)flags);
+                return null;
+            }
+            else
+            {
+                return Interpreter.GetDisableCreationCount();
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -594,6 +715,15 @@ namespace Eagle._Components.Public
             )
         {
             return PathOps.CombinePath(unix, list);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string TrimLeadingNamespacePrefix(
+            string name
+            )
+        {
+            return NamespaceOps.TrimLeading(name);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -943,6 +1073,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if THREADING
+        public static bool HasFlags(
+            CheckStatus flags,
+            CheckStatus hasFlags,
+            bool all
+            )
+        {
+            return FlagOps.HasFlags(flags, hasFlags, all);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool HasFlags(
             CommandFlags flags,
             CommandFlags hasFlags,
@@ -1102,6 +1245,17 @@ namespace Eagle._Components.Public
         public static bool HasFlags(
             SecretDataFlags? flags,
             SecretDataFlags hasFlags,
+            bool all
+            )
+        {
+            return FlagOps.HasFlags(flags, hasFlags, all);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool HasFlags(
+            SwapFlags flags,
+            SwapFlags hasFlags,
             bool all
             )
         {
@@ -1307,6 +1461,15 @@ namespace Eagle._Components.Public
             )
         {
             return HandleOps.Identity(arg);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool TryLockAndExit(
+            int? timeout
+            )
+        {
+            return GlobalState.TryLockAndExit(timeout);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1960,6 +2123,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static Uri GetAssemblyXmlSchemaUri(
+            Assembly assembly
+            )
+        {
+            return SharedAttributeOps.GetAssemblyXmlSchemaUri(assembly);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static Uri GetAssemblyUri(
             Assembly assembly,
             string name
@@ -2013,11 +2185,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static bool HaveEagleNative(
+            Interpreter interpreter
+            )
+        {
+            return _RuntimeOps.HaveNative(interpreter);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static bool HaveEagleDefineConstant(
             string name
             )
         {
             return _RuntimeOps.HaveDefineConstant(name);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static Assembly GetAssembly()
+        {
+            return GlobalState.GetAssembly();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2357,6 +2545,15 @@ namespace Eagle._Components.Public
             )
         {
             return PathOps.IsRemoteUri(value, ref uri);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FixupEnumString(
+            string value
+            )
+        {
+            return EnumOps.FixupEnumString(value);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3071,6 +3268,15 @@ namespace Eagle._Components.Public
         public static void ClearInterpreterForSettings()
         {
             ScriptOps.ClearInterpreterCache();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsScriptFileForPackageIndexPending(
+            Interpreter interpreter
+            )
+        {
+            return ScriptOps.IsFileForPackageIndexPending(interpreter);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -3909,7 +4115,7 @@ namespace Eagle._Components.Public
             EnsembleDictionary subCommands,
             string type,
             bool strict,
-            bool noCase,
+            bool? noCase,
             ref string name,
             ref Result error
             ) /* DEADLOCK-ON-DISPOSE */
@@ -3927,7 +4133,7 @@ namespace Eagle._Components.Public
             IClientData clientData,
             ArgumentList arguments,
             bool strict,
-            bool noCase,
+            bool? noCase,
             ref string name,
             ref bool tried,
             ref Result result
@@ -3997,12 +4203,13 @@ namespace Eagle._Components.Public
             ref IPolicyContext policyContext,
             ref Encoding encoding,
             ref IScript script,
+            ref int? timeout,
             ref Result error
             ) /* DEADLOCK-ON-DISPOSE */
         {
             return PolicyOps.ExtractContextAndScript(
                 interpreter, clientData, ref policyContext, ref encoding,
-                ref script, ref error);
+                ref script, ref timeout, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4012,12 +4219,13 @@ namespace Eagle._Components.Public
             IClientData clientData,
             ref IPolicyContext policyContext,
             ref string fileName,
+            ref int? timeout,
             ref Result error
             ) /* DEADLOCK-ON-DISPOSE */
         {
             return PolicyOps.ExtractContextAndFileName(
                 interpreter, clientData, ref policyContext, ref fileName,
-                ref error);
+                ref timeout, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4103,16 +4311,23 @@ namespace Eagle._Components.Public
             EventWaitHandle @event,
             long? waitMicroseconds,
             long? readyMicroseconds,
-            bool timeout,
-            bool noWindows,
-            bool noCancel,
-            bool noGlobalCancel,
+            EventWaitFlags eventWaitFlags,
             ref Result error
             ) /* SAFE-ON-DISPOSE */
         {
-            return EventOps.Wait(
-                interpreter, @event, waitMicroseconds, readyMicroseconds,
-                timeout, noWindows, noCancel, noGlobalCancel, ref error);
+            return EventOps.Wait(interpreter,
+                @event, waitMicroseconds, readyMicroseconds,
+                !FlagOps.HasFlags(
+                    eventWaitFlags, EventWaitFlags.NoTimeout, true),
+                FlagOps.HasFlags(
+                    eventWaitFlags, EventWaitFlags.NoWindows, true),
+                FlagOps.HasFlags(
+                    eventWaitFlags, EventWaitFlags.NoCancel, true),
+                FlagOps.HasFlags(
+                    eventWaitFlags, EventWaitFlags.NoGlobalCancel, true),
+                FlagOps.HasFlags(
+                    eventWaitFlags, EventWaitFlags.Trace, true),
+                ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4162,7 +4377,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if NETWORK
-        public static bool IsSoftwareUpdateExclusive()
+        public static bool? IsSoftwareUpdateExclusive()
         {
             return UpdateOps.IsExclusive();
         }
@@ -4170,16 +4385,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SetSoftwareUpdateExclusive(
-            bool exclusive,
+            bool? exclusive,
             ref Result error
             )
         {
-            return UpdateOps.SetExclusive(exclusive, ref error);
+            if (exclusive == null) return ReturnCode.Ok;
+            return UpdateOps.SetExclusive((bool)exclusive, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
-        public static bool IsSoftwareUpdateTrusted()
+        public static bool? IsSoftwareUpdateTrusted()
         {
             return UpdateOps.IsTrusted();
         }
@@ -4187,11 +4403,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         public static ReturnCode SetSoftwareUpdateTrusted(
-            bool trusted,
+            bool? trusted,
             ref Result error
             )
         {
-            return UpdateOps.SetTrusted(trusted, ref error);
+            if (trusted == null) return ReturnCode.Ok;
+            return UpdateOps.SetTrusted((bool)trusted, ref error);
         }
 #endif
 
@@ -4200,6 +4417,25 @@ namespace Eagle._Components.Public
         public static bool AppDomainIsStoppingSoon()
         {
             return AppDomainOps.IsStoppingSoon();
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FormatAppDomainId(
+            AppDomain appDomain,
+            bool display
+            )
+        {
+            return AppDomainOps.FormatIdString(appDomain, false, display);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsCurrentAppDomain(
+            AppDomain appDomain
+            )
+        {
+            return AppDomainOps.IsCurrent(appDomain);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4520,6 +4756,15 @@ namespace Eagle._Components.Public
             )
         {
             return FormatOps.MaybeNull(value);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static object FormatMaybeNullOrEmpty(
+            object value
+            )
+        {
+            return FormatOps.MaybeNullOrEmpty(value);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -4997,19 +5242,64 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if NETWORK
+        public static string GetWebClientTagEnvVarValue(
+            Interpreter interpreter
+            )
+        {
+            return WebOps.GetTagEnvVarValue(interpreter);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetWebClientTagEnvVarValue(
+            Interpreter interpreter,
+            ContextIdType type
+            )
+        {
+            return WebOps.GetTagEnvVarValue(interpreter, type);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool SetWebClientTagEnvVarValue(
+            Interpreter interpreter,
+            ContextIdType type,
+            string tag
+            )
+        {
+            return WebOps.SetTagEnvVarValue(interpreter, type, tag);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+#if WEB
+        public static bool TrySetWebClientTagEnvVarValue(
+            Interpreter interpreter,
+            HttpRequest request,
+            ContextIdType type
+            )
+        {
+            return WebOps.TrySetTagEnvVarValue(
+                interpreter, request, type);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode DownloadData(
             Interpreter interpreter,
             IClientData clientData,
             Uri uri,
+            int? maximumRetries,
             int? timeout,
-            bool trusted,
+            bool? trusted,
             ref byte[] bytes,
             ref Result error
             ) /* DEADLOCK-ON-DISPOSE */
         {
             return WebOps.DownloadData(
-                interpreter, clientData, uri, timeout, trusted, ref bytes,
-                ref error);
+                interpreter, clientData, uri, maximumRetries, timeout,
+                trusted, ref bytes, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5019,14 +5309,15 @@ namespace Eagle._Components.Public
             IClientData clientData,
             Uri uri,
             string fileName,
+            int? maximumRetries,
             int? timeout,
-            bool trusted,
+            bool? trusted,
             ref Result error
             ) /* DEADLOCK-ON-DISPOSE */
         {
             return WebOps.DownloadFile(
-                interpreter, clientData, uri, fileName, timeout, trusted,
-                ref error);
+                interpreter, clientData, uri, fileName, maximumRetries,
+                timeout, trusted, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5037,15 +5328,17 @@ namespace Eagle._Components.Public
             Uri uri,
             string method,
             byte[] rawData,
+            int? maximumRetries,
             int? timeout,
-            bool trusted,
+            bool? trusted,
             ref byte[] bytes,
             ref Result error
             )
         {
             return WebOps.UploadData(
-                interpreter, clientData, uri, method, rawData, timeout,
-                trusted, ref bytes, ref error);
+                interpreter, clientData, uri, method, rawData,
+                maximumRetries, timeout, trusted, ref bytes,
+                ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5056,15 +5349,17 @@ namespace Eagle._Components.Public
             Uri uri,
             string method,
             NameValueCollection collection,
+            int? maximumRetries,
             int? timeout,
-            bool trusted,
+            bool? trusted,
             ref byte[] bytes,
             ref Result error
             ) /* DEADLOCK-ON-DISPOSE */
         {
             return WebOps.UploadValues(
-                interpreter, clientData, uri, method, collection, timeout,
-                trusted, ref bytes, ref error);
+                interpreter, clientData, uri, method, collection,
+                maximumRetries, timeout, trusted, ref bytes,
+                ref error);
         }
 #endif
 
@@ -5142,6 +5437,7 @@ namespace Eagle._Components.Public
         public static HostCreateFlags GetHostCreateFlags(
             HostCreateFlags hostCreateFlags,
             bool useAttach,
+            bool useForce,
             bool noColor,
             bool noTitle,
             bool noIcon,
@@ -5150,8 +5446,8 @@ namespace Eagle._Components.Public
             )
         {
             return HostOps.GetCreateFlags(
-                hostCreateFlags, useAttach, noColor, noTitle, noIcon,
-                noProfile, noCancel);
+                hostCreateFlags, useAttach, useForce, noColor,
+                noTitle, noIcon, noProfile, noCancel);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5214,7 +5510,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+#if TEST || !WINFORMS
+        public static bool? GetPromptResultForAutomation(
+            string text,
+            string caption,
+            bool? @default
+            )
+        {
+            return WindowOps.GetPromptResultForAutomation(
+                text, caption, @default);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if WINFORMS
+        public static T? GetPromptResultForAutomation<T>(
+            string text,
+            string caption,
+            T? @default,
+            CultureInfo cultureInfo,
+            AutomationFlags automationFlags
+            ) where T : struct /* e.g. System.Windows.Forms.DialogResult */
+        {
+            return WindowOps.GetPromptResultForAutomation<T>(
+                text, caption, @default, cultureInfo, automationFlags);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static ReturnCode GetControlHandle( /* hWnd */
             Control control,
             ref IntPtr handle,
@@ -5436,6 +5760,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static TracePriority MaskTracePriority(
+            TracePriority priority
+            )
+        {
+            return TraceOps.MaskTracePriority(priority);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void ChangeTracePriority(
+            ref TracePriority priority,
+            TracePriority newBasePriority
+            )
+        {
+            TraceOps.ChangeTracePriority(ref priority, newBasePriority);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static TracePriority GetTracePriorities()
         {
             return TraceOps.GetTracePriorities();
@@ -5563,13 +5906,43 @@ namespace Eagle._Components.Public
             string prefix,
             CultureInfo cultureInfo,
             bool? increment,
-            out int referenceCount,
+            ref Result error
+            )
+        {
+            long referenceCount; /* NOT USED */
+
+            return ProcessOps.CheckAndMaybeModifyReferenceCount(
+                prefix, cultureInfo, increment, out referenceCount,
+                ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CheckAndMaybeModifyProcessReferenceCount(
+            string prefix,
+            CultureInfo cultureInfo,
+            bool? increment,
+            out long referenceCount,
             ref Result error
             )
         {
             return ProcessOps.CheckAndMaybeModifyReferenceCount(
                 prefix, cultureInfo, increment, out referenceCount,
                 ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CheckAndMaybeAppendProcessElement(
+            string prefix,
+            string element,
+            bool clear,
+            out StringList list,
+            ref Result error
+            )
+        {
+            return ProcessOps.CheckAndMaybeAppendElement(
+                prefix, element, clear, out list, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -5706,8 +6079,25 @@ namespace Eagle._Components.Public
             )
         {
             return NativeConsole.SimulateKeyboardString(
-                stringCallback, clientData, value, milliseconds,
-                flags, ref error);
+                stringCallback, clientData, value,
+                milliseconds, flags, ref error);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode ConsoleKeyboardString(
+            CheckCancelCallback cancelCallback,
+            CheckStringCallback stringCallback,
+            IClientData clientData,
+            string value,
+            int milliseconds,
+            SimulatedKeyFlags flags,
+            ref Result error
+            )
+        {
+            return NativeConsole.SimulateKeyboardString(
+                cancelCallback, stringCallback, clientData,
+                value, milliseconds, flags, ref error);
         }
 #endif
 

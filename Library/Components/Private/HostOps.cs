@@ -47,6 +47,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        private const string CountPrefixFormat = "[{0}] ";
+
+        ///////////////////////////////////////////////////////////////////////
+
         private const string DebugPrefix = "(debug) ";
         private const string QueuePrefix = "^ ";
 
@@ -61,7 +65,7 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
-        private static string PromptWithIdFormat = "i:{0} {1}";
+        private static string IdPrefixFormat = "i:{0} ";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
@@ -241,21 +245,33 @@ namespace Eagle._Components.Private
 
                     if (!locked)
                     {
-                        TraceOps.DebugTrace(
-                            "TryGet: could not lock interpreter",
-                            typeof(HostOps).Name, TracePriority.LockError);
+                        TraceOps.LockTrace(
+                            "TryGet(1)",
+                            typeof(HostOps).Name, false,
+                            TracePriority.LockWarning2,
+                            interpreter.MaybeWhoHasLock());
 
                         int timeout = GetTimeout; /* NO-LOCK */
 
                         if (timeout >= 0)
                         {
                             TraceOps.DebugTrace(String.Format(
-                                "TryGet: retry in {0} milliseconds",
+                                "TryGet: retrying " +
+                                "for {0} milliseconds...",
                                 timeout), typeof(HostOps).Name,
                                 TracePriority.HostDebug);
 
                             interpreter.InternalTryLock(
                                 timeout, ref locked); /* TRANSACTIONAL */
+
+                            if (!locked)
+                            {
+                                TraceOps.LockTrace(
+                                    "TryGet(2)",
+                                    typeof(HostOps).Name, false,
+                                    TracePriority.LockError,
+                                    interpreter.MaybeWhoHasLock());
+                            }
                         }
                     }
 
@@ -284,7 +300,8 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static IInteractiveHost TryGetInteractive(
-            Interpreter interpreter /* in */
+            Interpreter interpreter,    /* in */
+            ref PromptFlags promptFlags /* out */
             )
         {
             IInteractiveHost interactiveHost = null;
@@ -300,21 +317,33 @@ namespace Eagle._Components.Private
 
                     if (!locked)
                     {
-                        TraceOps.DebugTrace(
-                            "TryGetInteractive: could not lock interpreter",
-                            typeof(HostOps).Name, TracePriority.LockError);
+                        TraceOps.LockTrace(
+                            "TryGetInteractive(1)",
+                            typeof(HostOps).Name, false,
+                            TracePriority.LockWarning2,
+                            interpreter.MaybeWhoHasLock());
 
                         int timeout = InteractiveGetTimeout; /* NO-LOCK */
 
                         if (timeout >= 0)
                         {
                             TraceOps.DebugTrace(String.Format(
-                                "TryGetInteractive: retry in {0} milliseconds",
+                                "TryGetInteractive: retrying " +
+                                "for {0} milliseconds...",
                                 timeout), typeof(HostOps).Name,
                                 TracePriority.HostDebug);
 
                             interpreter.InternalTryLock(
                                 timeout, ref locked); /* TRANSACTIONAL */
+
+                            if (!locked)
+                            {
+                                TraceOps.LockTrace(
+                                    "TryGetInteractive(2)",
+                                    typeof(HostOps).Name, false,
+                                    TracePriority.LockError,
+                                    interpreter.MaybeWhoHasLock());
+                            }
                         }
                     }
 
@@ -328,7 +357,10 @@ namespace Eagle._Components.Private
                         //         WaitVariable methods.
                         //
                         if (!interpreter.Disposed)
+                        {
                             interactiveHost = interpreter.GetInteractiveHost();
+                            promptFlags = interpreter.InternalPromptFlags;
+                        }
                     }
                 }
                 finally
@@ -365,35 +397,30 @@ namespace Eagle._Components.Private
         public static string GetDefaultPrompt(
             PromptType type,   /* in */
             PromptFlags flags, /* in */
-            long id            /* in */
+            long id,           /* in */
+            int count          /* in */
             )
         {
-            string result = null;
+            StringBuilder builder = StringBuilderFactory.Create();
 
             if (((int)type >= 0) && ((int)type < DefaultPrompts.Count))
             {
-                result = DefaultPrompts[(int)type];
+                builder.Append(DefaultPrompts[(int)type]);
 
-                if ((result != null) &&
-                    FlagOps.HasFlags(flags, PromptFlags.Queue, true))
-                {
-                    result = QueuePrefix + result;
-                }
+                if (FlagOps.HasFlags(flags, PromptFlags.Count, true))
+                    builder.Insert(0, String.Format(CountPrefixFormat, count));
 
-                if ((result != null) &&
-                    FlagOps.HasFlags(flags, PromptFlags.Debug, true))
-                {
-                    result = DebugPrefix + result;
-                }
+                if (FlagOps.HasFlags(flags, PromptFlags.Queue, true))
+                    builder.Insert(0, QueuePrefix);
 
-                if ((result != null) &&
-                    FlagOps.HasFlags(flags, PromptFlags.Interpreter, true))
-                {
-                    result = String.Format(PromptWithIdFormat, id, result);
-                }
+                if (FlagOps.HasFlags(flags, PromptFlags.Debug, true))
+                    builder.Insert(0, DebugPrefix);
+
+                if (FlagOps.HasFlags(flags, PromptFlags.Interpreter, true))
+                    builder.Insert(0, String.Format(IdPrefixFormat, id));
             }
 
-            return result;
+            return StringBuilderCache.GetStringAndRelease(ref builder);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1339,12 +1366,30 @@ namespace Eagle._Components.Private
         public static bool IsOpen(
             Interpreter interpreter,             /* in */
             bool? refresh,                       /* in */
-            ref HostFlags hostFlags,             /* out */
+            ref HostFlags hostFlags,             /* in, out */
+            ref IInteractiveHost interactiveHost /* out */
+            )
+        {
+            PromptFlags promptFlags = PromptFlags.None; /* NOT USED */
+
+            return IsOpen(
+                interpreter, refresh, ref hostFlags,
+                ref promptFlags, ref interactiveHost);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsOpen(
+            Interpreter interpreter,             /* in */
+            bool? refresh,                       /* in */
+            ref HostFlags hostFlags,             /* in, out */
+            ref PromptFlags promptFlags,         /* in, out */
             ref IInteractiveHost interactiveHost /* out */
             )
         {
             bool localRefresh;
             HostFlags localHostFlags;
+            PromptFlags localPromptFlags = PromptFlags.None;
             IInteractiveHost localInteractiveHost;
 
             if (refresh != null)
@@ -1364,7 +1409,8 @@ namespace Eagle._Components.Private
                 //       This design decision may need to be revised
                 //       at a later time.
                 //
-                localInteractiveHost = TryGetInteractive(interpreter);
+                localInteractiveHost = TryGetInteractive(
+                    interpreter, ref localPromptFlags);
 
 #if DEBUG && VERBOSE
                 EmitTrace(
@@ -1415,7 +1461,9 @@ namespace Eagle._Components.Private
             if (localRefresh)
             {
                 localHostFlags = HostFlags.None; /* reset inside try */
-                localInteractiveHost = TryGetInteractive(interpreter);
+
+                localInteractiveHost = TryGetInteractive(
+                    interpreter, ref localPromptFlags);
 
 #if DEBUG && VERBOSE
                 EmitTrace(
@@ -1427,6 +1475,7 @@ namespace Eagle._Components.Private
             else
             {
                 localHostFlags = hostFlags;
+                localPromptFlags = promptFlags;
                 localInteractiveHost = interactiveHost;
             }
 
@@ -1515,11 +1564,28 @@ namespace Eagle._Components.Private
                 if (localRefresh && success)
                 {
                     hostFlags = localHostFlags;
+                    promptFlags = localPromptFlags;
                     interactiveHost = localInteractiveHost;
                 }
             }
 
             return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static void MaybeAdjustPromptFlags(
+            bool debug,                 /* in */
+            bool queue,                 /* in */
+            ref PromptFlags promptFlags /* in, out */
+            )
+        {
+            //
+            // NOTE: Set the prompt flags based on the
+            //       parameters specified by our caller.
+            //
+            if (debug) promptFlags |= PromptFlags.Debug;
+            if (queue) promptFlags |= PromptFlags.Queue;
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1876,6 +1942,8 @@ namespace Eagle._Components.Private
 
             if (fileSystemHost != null)
             {
+                ScriptFlags localScriptFlags; /* REUSED */
+
                 try
                 {
                     HostFlags hostFlags = fileSystemHost.GetHostFlags();
@@ -1915,13 +1983,16 @@ namespace Eagle._Components.Private
 
                                     ResultList errors = null;
 
-                                    if (fileHost.GetDataViaResourceManager(
+                                    localScriptFlags = scriptFlags;
+
+                                    if (fileHost.GetDataViaResourceManager( /* throw */
                                             interpreter, name, anyPair,
                                             uniqueResourceNames, engineFlags,
                                             dataFlags, false, false, null,
-                                            ref scriptFlags, ref clientData,
+                                            ref localScriptFlags, ref clientData,
                                             ref result, ref errors) == ReturnCode.Ok)
                                     {
+                                        scriptFlags = localScriptFlags;
                                         return ReturnCode.Ok;
                                     }
                                     else
@@ -1955,10 +2026,18 @@ namespace Eagle._Components.Private
                             if (FlagOps.HasFlags(
                                     isolatedHostFlags, HostFlags.Data, true))
                             {
-                                return isolatedFileSystemHost.GetData(
-                                    name, CombineDataFlags(interpreter,
-                                    DataFlags.Script), ref scriptFlags,
-                                    ref clientData, ref result); /* throw */
+                                localScriptFlags = scriptFlags;
+
+                                if (isolatedFileSystemHost.GetData( /* throw */
+                                        name, CombineDataFlags(interpreter,
+                                        DataFlags.Script), ref localScriptFlags,
+                                        ref clientData, ref result) == ReturnCode.Ok)
+                                {
+                                    scriptFlags = localScriptFlags;
+                                    return ReturnCode.Ok;
+                                }
+
+                                return ReturnCode.Error;
                             }
                         }
                     }
@@ -1967,10 +2046,18 @@ namespace Eagle._Components.Private
                     if (FlagOps.HasFlags(
                             hostFlags, HostFlags.Data, true))
                     {
-                        return fileSystemHost.GetData(
-                            name, CombineDataFlags(interpreter,
-                            DataFlags.Script), ref scriptFlags,
-                            ref clientData, ref result); /* throw */
+                        localScriptFlags = scriptFlags;
+
+                        if (fileSystemHost.GetData( /* throw */
+                                name, CombineDataFlags(interpreter,
+                                DataFlags.Script), ref localScriptFlags,
+                                ref clientData, ref result) == ReturnCode.Ok)
+                        {
+                            scriptFlags = localScriptFlags;
+                            return ReturnCode.Ok;
+                        }
+
+                        return ReturnCode.Error;
                     }
                     else
                     {
@@ -2124,6 +2211,7 @@ namespace Eagle._Components.Private
         public static HostCreateFlags GetCreateFlags(
             HostCreateFlags hostCreateFlags, /* in */
             bool useAttach,                  /* in */
+            bool useForce,                   /* in */
             bool noColor,                    /* in */
             bool noTitle,                    /* in */
             bool noIcon,                     /* in */
@@ -2137,6 +2225,11 @@ namespace Eagle._Components.Private
                 result |= HostCreateFlags.UseAttach;
             else
                 result &= ~HostCreateFlags.UseAttach;
+
+            if (useForce)
+                result |= HostCreateFlags.UseForce;
+            else
+                result &= ~HostCreateFlags.UseForce;
 
             if (noColor)
                 result |= HostCreateFlags.NoColor;
@@ -2508,6 +2601,8 @@ namespace Eagle._Components.Private
                 {
                     ObjectOps.TryDisposeOrComplain<object>(
                         interpreter, ref newObject);
+
+                    newObject = null;
                 }
             }
 
@@ -2806,6 +2901,22 @@ namespace Eagle._Components.Private
 #endif
 
             NotImplemented(interpreter, quiet);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static bool IsNativeConsoleOpen(
+            Interpreter interpreter, /* in: OPTIONAL */
+            bool quiet               /* in */
+            )
+        {
+#if NATIVE && WINDOWS
+            if (NativeConsole.IsSupported())
+                return NativeConsole.IsOpen();
+#endif
+
+            NotImplemented(interpreter, quiet);
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////

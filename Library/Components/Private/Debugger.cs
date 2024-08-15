@@ -350,7 +350,7 @@ namespace Eagle._Components.Private
                 //
                 // NOTE: Obviously, this would be pointless.
                 //
-                // CheckDisposed();
+                // CheckDisposed(); /* EXEMPT */
 
                 return disposed;
             }
@@ -365,7 +365,7 @@ namespace Eagle._Components.Private
                 //
                 // NOTE: Obviously, this would also be pointless.
                 //
-                // CheckDisposed();
+                // CheckDisposed(); /* EXEMPT */
 
                 return false;
             }
@@ -764,7 +764,7 @@ namespace Eagle._Components.Private
 
             QueueList<string, string> queue = Queue;
 
-            if (empty || ((queue != null) && (queue.Count > 0)))
+            if (empty || ((queue != null) && !queue.IsEmpty))
                 list.Add("Queue", (queue != null) ?
                     queue.Count.ToString() : FormatOps.DisplayNull);
 
@@ -1255,10 +1255,7 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            result = GenericOps<string>.EnumerableToString(
-                queue.Values, ToStringFlags.None, Characters.Space.ToString(),
-                null, false);
-
+            result = new StringList(queue.Values);
             return ReturnCode.Ok;
         }
 

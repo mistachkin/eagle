@@ -67,15 +67,16 @@ debug tclCrash stackIntensive} -returnCodes 1 -result {out of stack space\
 #
 runTest {test parser-20.1 {truncated escape} -body {
   parse command -characters 1 {\u12345}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 1} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type\
 SimpleWord} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
 1} {ViaSource False} {Start 0} {Length 1} {Components 1} {Text \\} {ClientData\
 {}} {IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName\
 {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 1}\
-{Components 0} {Text \\} {ClientData {}}}}
+{Components 0} {Text \\} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -84,15 +85,16 @@ SimpleWord} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
 #
 runTest {test parser-20.2 {truncated escape} -body {
   parse command -characters 2 {\u12345}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 2} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
 {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
 {ViaSource False} {Start 0} {Length 2} {Components 1} {Text {\u}} {ClientData\
 {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
 {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 2}\
-{Components 0} {Text {\u}} {ClientData {}}}}
+{Components 0} {Text {\u}} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -101,15 +103,16 @@ runTest {test parser-20.2 {truncated escape} -body {
 #
 runTest {test parser-20.3 {truncated escape} -body {
   parse command -characters 3 {\u12345}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 3} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
 {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
 {ViaSource False} {Start 0} {Length 3} {Components 1} {Text {\u1}} {ClientData\
 {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
 {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 3}\
-{Components 0} {Text {\u1}} {ClientData {}}}}
+{Components 0} {Text {\u1}} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -118,15 +121,16 @@ runTest {test parser-20.3 {truncated escape} -body {
 #
 runTest {test parser-20.4 {truncated escape} -body {
   parse command -characters 4 {\u12345}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 4} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
 {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
 {ViaSource False} {Start 0} {Length 4} {Components 1} {Text {\u12}} {ClientData\
 {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
 {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 4}\
-{Components 0} {Text {\u12}} {ClientData {}}}}
+{Components 0} {Text {\u12}} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -135,15 +139,16 @@ runTest {test parser-20.4 {truncated escape} -body {
 #
 runTest {test parser-20.5 {truncated escape} -body {
   parse command -characters 5 {\u12345}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 5} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
 {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
 {ViaSource False} {Start 0} {Length 5} {Components 1} {Text {\u123}}\
 {ClientData {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags\
 None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
-{Length 5} {Components 0} {Text {\u123}} {ClientData {}}}}
+{Length 5} {Components 0} {Text {\u123}} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -152,15 +157,16 @@ None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
 #
 runTest {test parser-20.6 {truncated escape} -body {
   parse command -characters 6 {\u12345}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 6} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
 {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
 {ViaSource False} {Start 0} {Length 6} {Components 1} {Text {\u1234}}\
 {ClientData {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags\
 None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
-{Length 6} {Components 0} {Text {\u1234}} {ClientData {}}}}
+{Length 6} {Components 0} {Text {\u1234}} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -169,9 +175,10 @@ None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
 #
 runTest {test parser-20.7 {truncated escape} -body {
   parse command -characters 7 {\u12345}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 7} {CommandWords 1} {Tokens 3} {IsImmutable False} {Type Word}\
 {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
 {ViaSource False} {Start 0} {Length 7} {Components 2} {Text {\u12345}}\
@@ -180,7 +187,7 @@ None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
 {Length 6} {Components 0} {Text {\u1234}} {ClientData {}} {IsImmutable False}\
 {Type Text} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
 1} {ViaSource False} {Start 6} {Length 1} {Components 0} {Text 5} {ClientData\
-{}}}}
+{}}}]}
 
 ###############################################################################
 
@@ -189,15 +196,16 @@ None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
 #
 runTest {test parser-20.8 {truncated escape} -body {
   parse command -characters 1 {\x12X}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 1} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type\
 SimpleWord} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
 1} {ViaSource False} {Start 0} {Length 1} {Components 1} {Text \\} {ClientData\
 {}} {IsImmutable False} {Type Text} {SyntaxType None} {Flags None} {FileName\
 {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 1}\
-{Components 0} {Text \\} {ClientData {}}}}
+{Components 0} {Text \\} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -206,15 +214,16 @@ SimpleWord} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
 #
 runTest {test parser-20.9 {truncated escape} -body {
   parse command -characters 2 {\x12X}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 2} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
 {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
 {ViaSource False} {Start 0} {Length 2} {Components 1} {Text {\x}} {ClientData\
 {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
 {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 2}\
-{Components 0} {Text {\x}} {ClientData {}}}}
+{Components 0} {Text {\x}} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -223,15 +232,16 @@ runTest {test parser-20.9 {truncated escape} -body {
 #
 runTest {test parser-20.10 {truncated escape} -body {
   parse command -characters 3 {\x12X}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 3} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
 {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
 {ViaSource False} {Start 0} {Length 3} {Components 1} {Text {\x1}} {ClientData\
 {}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
 {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 3}\
-{Components 0} {Text {\x1}} {ClientData {}}}}
+{Components 0} {Text {\x1}} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -240,15 +250,16 @@ runTest {test parser-20.10 {truncated escape} -body {
 #
 runTest {test parser-20.11 {truncated escape} -body {
   parse command -characters 4 {\x12X}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False} {IsImmutable False}\
-{EngineFlags None} {SubstitutionFlags Default} {FileName {}} {CurrentLine 1}\
-{CommentStart -1} {CommentLength 0} {CommandStart 0} {CommandLength 4}\
-{CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word} {SyntaxType None}\
-{Flags None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start\
-0} {Length 4} {Components 1} {Text {\x12}} {ClientData {}} {IsImmutable False}\
-{Type Backslash} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1}\
-{EndLine 1} {ViaSource False} {Start 0} {Length 4} {Components 0} {Text {\x12}}\
-{ClientData {}}}}
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+{CommandLength 4} {CommandWords 1} {Tokens 2} {IsImmutable False} {Type Word}\
+{SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
+{ViaSource False} {Start 0} {Length 4} {Components 1} {Text {\x12}} {ClientData\
+{}} {IsImmutable False} {Type Backslash} {SyntaxType None} {Flags None}\
+{FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0} {Length 4}\
+{Components 0} {Text {\x12}} {ClientData {}}}]}
 
 ###############################################################################
 
@@ -257,9 +268,10 @@ runTest {test parser-20.11 {truncated escape} -body {
 #
 runTest {test parser-20.12 {truncated escape} -body {
   parse command -characters 5 {\x12X}
-} -constraints {eagle dotNetOrDotNetCore} -result {{NotReady False}\
-{IsImmutable False} {EngineFlags None} {SubstitutionFlags Default} {FileName\
-{}} {CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
+} -constraints {eagle dotNetOrDotNetCore} -result [string map [list \
+%engineFlags% [getEngineFlagsForTest 2]] {{NotReady False} {IsImmutable False}\
+{EngineFlags %engineFlags%} {SubstitutionFlags Default} {FileName {}}\
+{CurrentLine 1} {CommentStart -1} {CommentLength 0} {CommandStart 0}\
 {CommandLength 5} {CommandWords 1} {Tokens 3} {IsImmutable False} {Type Word}\
 {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine 1}\
 {ViaSource False} {Start 0} {Length 5} {Components 2} {Text {\x12X}}\
@@ -268,7 +280,7 @@ None} {FileName {}} {StartLine 1} {EndLine 1} {ViaSource False} {Start 0}\
 {Length 4} {Components 0} {Text {\x12}} {ClientData {}} {IsImmutable False}\
 {Type Text} {SyntaxType None} {Flags None} {FileName {}} {StartLine 1} {EndLine\
 1} {ViaSource False} {Start 4} {Length 1} {Components 0} {Text X} {ClientData\
-{}}}}
+{}}}]}
 
 ###############################################################################
 

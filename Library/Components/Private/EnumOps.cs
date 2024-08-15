@@ -513,6 +513,53 @@ namespace Eagle._Components.Private
 
             return null;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FixupEnumString( /* CORE */
+            string value /* in */
+            )
+        {
+            string result = value;
+            int length;
+
+            if (StringOps.IsNullOrEmpty(result, out length))
+                return result;
+
+            const string separator = ", ";
+            string[] names = { "None", "Default" };
+
+            foreach (string name in names)
+            {
+                int nameLength;
+
+                if (StringOps.IsNullOrEmpty(name, out nameLength))
+                    continue;
+
+                if (nameLength >= length) /* NOTE: Efficiency. */
+                    continue;
+
+                string prefix = String.Format("{0}{1}", name, separator);
+                int prefixLength = prefix.Length;
+
+                if ((prefixLength < length) &&
+                    SharedStringOps.SystemStartsWith(result, prefix))
+                {
+                    result = result.Substring(prefixLength);
+                }
+
+                string suffix = String.Format("{0}{1}", separator, name);
+                int suffixLength = suffix.Length;
+
+                if ((suffixLength < length) &&
+                    SharedStringOps.SystemEndsWith(result, suffix))
+                {
+                    result = result.Substring(0, length - suffixLength);
+                }
+            }
+
+            return result;
+        }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

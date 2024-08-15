@@ -1,6 +1,6 @@
 
 set x 9
 
-debug watch x +breakonany
+debug watch x +BreakOnAny
 
 incr x; # 10

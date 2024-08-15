@@ -28,7 +28,8 @@ namespace Sample
     [ObjectId("509108fc-537f-4a95-a126-c1105dcd6d70")]
     internal sealed class Class14
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
-        : ScriptMarshalByRefObject, INewWebClientCallback, IWebTransferCallback
+        : ScriptMarshalByRefObject, INewWebClientCallback,
+          IWebErrorCallback, IWebTransferCallback
 #endif
     {
         #region WebClient Sample Class
@@ -133,10 +134,46 @@ namespace Sample
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region IWebErrorCallback Members
+        public ReturnCode WebError(
+            Interpreter interpreter,
+            IClientData clientData,
+            Uri uri,
+            WebFlags webFlags,
+            int retries,
+            int? timeout,
+            int? maximumRetries,
+            ref object result,
+            ref ResultList errors
+            )
+        {
+            bool isolated = Utility.IsCrossAppDomain(interpreter, plugin);
+
+            Utility.DebugTrace(String.Format(
+                "WebError: interpreter = {0}, webFlags = {1}, " +
+                "clientData = {2}, isolated = {3}, uri = {4}, " +
+                "retries = {5}, timeout = {6}, maximumRetries = {7}, " +
+                "result = {8}, errors = {9}",
+                Utility.FormatWrapOrNull(interpreter), webFlags,
+                Utility.FormatWrapOrNull(clientData), isolated,
+                Utility.FormatWrapOrNull(uri), retries,
+                Utility.FormatWrapOrNull(timeout),
+                Utility.FormatWrapOrNull(maximumRetries),
+                Utility.FormatWrapOrNull(result),
+                Utility.FormatWrapOrNull(errors)),
+                typeof(Class14).Name, TracePriority.Medium |
+                    TracePriority.FromPlugin);
+
+            return ReturnCode.Continue; /* NOTE: Do nothing / keep going. */
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region IWebTransferCallback Members
         public ReturnCode WebTransfer(
             Interpreter interpreter,
-            WebFlags flags,
+            WebFlags webFlags,
             IClientData clientData,
             ref Result error
             )
@@ -144,9 +181,9 @@ namespace Sample
             bool isolated = Utility.IsCrossAppDomain(interpreter, plugin);
 
             Utility.DebugTrace(String.Format(
-                "WebTransfer: interpreter = {0}, flags = {1}, " +
+                "WebTransfer: interpreter = {0}, webFlags = {1}, " +
                 "clientData = {2}, isolated = {3}, error = {4}",
-                Utility.FormatWrapOrNull(interpreter), flags,
+                Utility.FormatWrapOrNull(interpreter), webFlags,
                 Utility.FormatWrapOrNull(clientData), isolated,
                 Utility.FormatWrapOrNull(error)),
                 typeof(Class14).Name, TracePriority.Medium |

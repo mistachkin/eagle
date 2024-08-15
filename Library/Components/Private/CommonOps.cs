@@ -372,7 +372,7 @@ namespace Eagle._Components.Private
                 {
                     /* IGNORED */
                     Interlocked.CompareExchange(ref lockThreadId,
-                        GlobalState.GetCurrentThreadId(), 0);
+                        GlobalState.GetCurrentLockThreadId(), 0);
                 }
             }
 
@@ -386,7 +386,7 @@ namespace Eagle._Components.Private
                 {
                     /* IGNORED */
                     Interlocked.CompareExchange(ref lockThreadId,
-                        0, GlobalState.GetCurrentThreadId());
+                        0, GlobalState.GetCurrentLockThreadId());
                 }
             }
             #endregion

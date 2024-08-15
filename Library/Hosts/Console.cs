@@ -2218,19 +2218,12 @@ namespace Eagle._Hosts
         {
             lock (staticSyncRoot) /* TRANSACTIONAL */
             {
-                WindowOps.UnsafeNativeMethods.SendMessage(
-                    handle, WindowOps.UnsafeNativeMethods.WM_SETICON,
-                    new UIntPtr(WindowOps.UnsafeNativeMethods.ICON_BIG),
-                    oldBigIcon);
-
-                oldBigIcon = IntPtr.Zero;
-
-                WindowOps.UnsafeNativeMethods.SendMessage(
-                    handle, WindowOps.UnsafeNativeMethods.WM_SETICON,
-                    new UIntPtr(WindowOps.UnsafeNativeMethods.ICON_SMALL),
-                    oldSmallIcon);
+                /* IGNORED */
+                WindowOps.SetIcons(
+                    handle, oldSmallIcon, oldBigIcon);
 
                 oldSmallIcon = IntPtr.Zero;
+                oldBigIcon = IntPtr.Zero;
 
                 if (icon != null)
                 {
@@ -2752,6 +2745,9 @@ namespace Eagle._Hosts
             Result result
             )
         {
+            if (result == null)
+                return;
+
             if (!IsVerboseMode())
                 return;
 
@@ -2764,6 +2760,7 @@ namespace Eagle._Hosts
         #region Native Console Open/Close Handling
 #if NATIVE && WINDOWS
         private ReturnCode PrivateAttachOrOpen(
+            bool force,
             bool attach,
             ref Result error
             )
@@ -2778,7 +2775,7 @@ namespace Eagle._Hosts
                 localError = null;
 
                 code = NativeConsole.AttachOrOpen(
-                    false, attach, ref attached,
+                    force, attach, ref attached,
                     ref localError);
 
                 if (code != ReturnCode.Ok)
@@ -2812,9 +2809,12 @@ namespace Eagle._Hosts
                     }
                 }
 
-                if (errors != null)
-                    MaybeComplain(code, errors);
+                localError = errors;
 
+                if (code != ReturnCode.Ok)
+                    MaybeComplain(code, localError);
+
+                error = localError;
                 return code;
             }
             else
@@ -5451,7 +5451,8 @@ namespace Eagle._Hosts
             CheckDisposed();
 
 #if NATIVE && WINDOWS
-            ReturnCode code = PrivateAttachOrOpen(UseAttach, ref error);
+            ReturnCode code = PrivateAttachOrOpen(
+                UseForce, UseAttach, ref error);
 
             if (code == ReturnCode.Ok)
             {
@@ -5661,6 +5662,20 @@ namespace Eagle._Hosts
             locked = Monitor.TryEnter(
                 syncRoot, ThreadOps.GetTimeout(
                 null, null, TimeoutType.WaitLock));
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public void TryLockNoThrow(
+            ref bool locked
+            )
+        {
+            // CheckDisposed(); /* EXEMPT */
+
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(syncRoot);
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

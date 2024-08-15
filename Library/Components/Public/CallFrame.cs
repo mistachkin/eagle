@@ -177,6 +177,32 @@ namespace Eagle._Components.Public
         //
         // WARNING: Assumes the interpreter lock is already held.
         //
+        private bool IsLockedByThisThread()
+        {
+            //
+            // HACK: This method purposely does not care about the
+            //       undefined flag.  Generally, a variable cannot
+            //       be locked while undefined; however, we do not
+            //       enforce that here.
+            //
+            long? localMaybeThreadId = this.threadId;
+
+            if (localMaybeThreadId == null)
+                return false;
+
+            long localThreadId = (long)localMaybeThreadId;
+
+            if (localThreadId != GlobalState.GetCurrentSystemThreadId())
+                return false;
+
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: Assumes the interpreter lock is already held.
+        //
         internal bool IsLockedByOtherThread(
             ref long? threadId
             )
@@ -204,6 +230,66 @@ namespace Eagle._Components.Public
             }
 
             threadId = localThreadId;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private bool PrivateUnlock(
+            bool errorOnUnlocked,
+            ref Result error
+            )
+        {
+            //
+            // HACK: This method does care about the undefined flag.
+            //       If a call frame is undefined, unlocking it cannot
+            //       fail when it is already unlocked.
+            //
+            long? localMaybeThreadId = threadId;
+
+            if (localMaybeThreadId == null)
+            {
+                if (HasFlags(CallFrameFlags.Undefined, true))
+                {
+                    //
+                    // HACK: The call frame is now (?) dead;
+                    //       therefore, permit unlocking.
+                    //
+                    return true;
+                }
+                else
+                {
+                    //
+                    // NOTE: It is possible that another
+                    //       thread destroyed the call
+                    //       frame and then recreated it
+                    //       (i.e. it is actually a different
+                    //       call frame now, technically).
+                    //
+                    if (errorOnUnlocked)
+                    {
+                        error = "call frame already unlocked";
+                        return false;
+                    }
+                    else
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            long localThreadId = (long)localMaybeThreadId;
+
+            if (localThreadId != GlobalState.GetCurrentSystemThreadId())
+            {
+                error = String.Format(
+                    "call frame locked by other thread {0}",
+                    FormatOps.WrapOrNull(localThreadId));
+
+                return false;
+            }
+
+            threadId = null;
             return true;
         }
         #endregion
@@ -275,14 +361,24 @@ namespace Eagle._Components.Public
         #region IMaybeDisposed Members
         public bool Disposed
         {
-            get { return disposed; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return disposed;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public bool Disposing
         {
-            get { return false; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return false;
+            }
         }
         #endregion
 
@@ -299,6 +395,18 @@ namespace Eagle._Components.Public
         {
             get { CheckDisposed(); return threadId; }
             set { CheckDisposed(); threadId = value; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: Assumes the interpreter lock is already held.
+        //
+        public bool IsLocked()
+        {
+            CheckDisposed();
+
+            return IsLockedByThisThread();
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -344,50 +452,21 @@ namespace Eagle._Components.Public
         {
             CheckDisposed();
 
-            //
-            // HACK: This method does care about the undefined flag.
-            //       If a call frame is undefined, unlocking it cannot
-            //       fail when it is already unlocked.
-            //
-            long? localMaybeThreadId = threadId;
+            return PrivateUnlock(true, ref error);
+        }
 
-            if (localMaybeThreadId == null)
-            {
-                if (HasFlags(CallFrameFlags.Undefined, true))
-                {
-                    //
-                    // HACK: The call frame is now (?) dead;
-                    //       therefore, permit unlocking.
-                    //
-                    return true;
-                }
-                else
-                {
-                    //
-                    // NOTE: It is possible that another
-                    //       thread destroyed the call
-                    //       frame and then recreated it
-                    //       (i.e. it is actually a different
-                    //       call frame now, technically).
-                    //
-                    error = "call frame already unlocked";
-                    return false;
-                }
-            }
+        ///////////////////////////////////////////////////////////////////////
 
-            long localThreadId = (long)localMaybeThreadId;
+        //
+        // WARNING: Assumes the interpreter lock is already held.
+        //
+        public bool MaybeUnlock(
+            ref Result error
+            )
+        {
+            CheckDisposed();
 
-            if (localThreadId != GlobalState.GetCurrentSystemThreadId())
-            {
-                error = String.Format(
-                    "call frame locked by other thread {0}",
-                    FormatOps.WrapOrNull(localThreadId));
-
-                return false;
-            }
-
-            threadId = null;
-            return true;
+            return PrivateUnlock(false, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////

@@ -1576,6 +1576,20 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public void TryLockNoThrow(
+            ref bool locked
+            )
+        {
+            // CheckDisposed(); /* EXEMPT */
+
+            if (syncRoot == null)
+                return;
+
+            locked = Monitor.TryEnter(syncRoot);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public void TryLock(
             int timeout,
             ref bool locked
@@ -1750,7 +1764,7 @@ namespace Eagle._Components.Private.Tcl
                 }
 
                 list.Add("interpreter", (interpreter != null) ?
-                    interpreter.InternalToString() : _String.Null);
+                    interpreter.IdNoThrow.ToString() : _String.Null);
 
                 list.Add("fileName", (fileName != null) ?
                     fileName : _String.Null);

@@ -15,6 +15,178 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Public
 {
+#if NETWORK
+    [Flags()]
+    [ObjectId("b038c8a9-6031-4734-8b42-00e9e6754d29")]
+    public enum ContextIdType
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        ParentProcess = 0x1000,
+        Process = 0x2000,
+
+        AppDomain = 0x4000,
+
+        Thread = 0x8000,
+        Interpreter = 0x10000,
+        Context = 0x20000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        MaybeUnset = 0x10000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        TypeMask = ParentProcess | Process | AppDomain |
+                   Thread | Interpreter | Context,
+
+        FlagMask = MaybeUnset,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Default = Interpreter
+    }
+#endif
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("a86740f6-a243-4a29-ac36-14e2d053db12")]
+    public enum AutomationFlags
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        UniqueKeys = 0x1000,
+        AllowNullValue = 0x2000,
+        IgnoreDuplicateKey = 0x4000,
+        IgnoreValueError = 0x8000,
+
+        ForDefault = 0x100000,
+
+        Default = AllowNullValue | IgnoreValueError | ForDefault
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if NATIVE && TCL && TCL_THREADS
+    [Flags()]
+    [ObjectId("34c95711-5043-4a0c-860c-3c4866c4e296")]
+    public enum TclCreateFlags : ulong
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        Initialize = 0x1000,
+        Memory = 0x2000,
+        Safe = 0x4000
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("d15bb599-be36-4b9c-bc58-9fe7a4e6e6a3")]
+    public enum TclCommandFlags : ulong
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        ForceDelete = 0x10000,
+        NoComplain = 0x20000
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+#if TCL_THREADS
+    [Flags()]
+    [ObjectId("0c2e47bd-3e01-4a51-8392-c1441c40ec78")]
+    public enum TclThreadFlags : ulong
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Generic = 0x1000,
+        NoYield = 0x2000,
+        Debug = 0x4000,
+        NoComplain = 0x8000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Start = 0x10000,
+        WaitForStart = 0x20000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        UserInterface = 0x100000,
+        IsBackground = 0x200000,
+        UseActiveStack = 0x400000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Delete = 0x1000000,
+        ErrorOnDead = 0x2000000,
+        WaitForEnd = 0x4000000,
+        NoAbort = 0x8000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        CreateUse = Start | WaitForStart | UserInterface | UseActiveStack,
+        DeleteUse = Delete | WaitForEnd,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Default = None
+    }
+#endif
+#endif
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("b8721a6f-56a5-4b2c-8e73-827d5f1685e2")]
+    public enum SwapFlags : ulong
+    {
+        None = 0x0,          /* No special behavior. */
+        Invalid = 0x1,       /* Do not use. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Command = 0x1000,        /* Swap out the normal set of commands. */
+        HiddenCommand = 0x2000,  /* Swap out the hidden set of commands. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        IExecute = 0x4000,       /* Swap out the normal set of IExecute. */
+        HiddenIExecute = 0x8000, /* Swap out the hidden set of IExecute. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        NoRestore = 0x100000,    /* EXTERNAL: Skip adding "rescue" command
+                                  * that can restore the previous command
+                                  * set. */
+        NoTerminate = 0x200000,  /* Skip formally terminating the command
+                                  * within the RemoveSwapCommand method. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForDefault = 0x80000000,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        CommandMask = Command | HiddenCommand,
+        IExecuteMask = IExecute | HiddenIExecute,
+        AllMask = CommandMask | IExecuteMask,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Default = Command | ForDefault
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     [Flags()]
     [ObjectId("0e5fe421-c6aa-4e48-9a0a-801a2b747d19")]
     public enum QueueFlags : ulong
@@ -64,9 +236,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Locked = 0x1000,
-        WhatIf = 0x2000,
-        Silent = 0x4000,
+        AnyThread = 0x1000,
+        Locked = 0x2000,
+        WhatIf = 0x4000,
+        Silent = 0x8000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -86,10 +259,11 @@ namespace Eagle._Components.Public
         IgnoreDisabled = 0x1000000000,
         IgnoreFileName = 0x2000000000,
         AllDirectories = 0x4000000000,
+        ErrorOnNotFound = 0x8000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        MustHaveAssembly = 0x8000000000,
+        MustHaveAssembly = 0x10000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -105,9 +279,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        FlagsMask = Locked | WhatIf | Silent | UseBuiltInMappings|
+        FlagsMask = AnyThread | Locked | WhatIf | Silent | UseBuiltInMappings |
                     NoTrusted | NoVerified | IgnoreDisabled | IgnoreFileName |
-                    AllDirectories | MustHaveAssembly,
+                    AllDirectories | ErrorOnNotFound | MustHaveAssembly,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -318,10 +492,14 @@ namespace Eagle._Components.Public
         Success = 0x200,
         Failure = 0x400,
 
-        ForDefault = 0x1000,
+        Quiet = 0x1000,
+        NoReport = 0x2000,
+
+        ForDefault = 0x100000,
 
         TimeMask = Before | After,
         StatusMask = Unknown | Success | Failure,
+        SilentMask = Quiet | NoReport,
 
         Default = Unknown | ForDefault
     }
@@ -377,7 +555,27 @@ namespace Eagle._Components.Public
         Tls10 = 0x00C0,
         Tls11 = 0x0300,
         Tls12 = 0x0C00,
-        Tls13 = 0x3000
+        Tls13 = 0x3000,
+
+        //
+        // NOTE: These protocols are quite obsolete.
+        //
+        Obsolete = Ssl2 | Ssl3,
+
+        //
+        // NOTE: These protocols are considered to be
+        //       "fail-safe", i.e. they generally work
+        //       correctly most (or all?) of the time.
+        //
+        FailSafe = Tls12,
+
+        //
+        // HACK: Windows 11 (and probably Windows 10) is
+        //       apparently broken for everything except
+        //       TLS 1.2; specifically, TLS 1.3 fails on
+        //       Windows 11 Enterprise 64-bit.
+        //
+        BrokenOnWindows10OrHigher = Tls10 | Tls11 | Tls13
     }
 #endif
 
@@ -808,13 +1006,14 @@ namespace Eagle._Components.Public
         #region Other Flag Values
         SimpleFormatting = 0x10000000000000,      // use simpler trace parameter formatting
         UseEllipsis = 0x20000000000000,           // truncate overly long values with ellipsis
+        NoEllipsis = 0x40000000000000,            // do not truncate overly long values with ellipsis
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        FromPlugin = 0x40000000000000,            // caller is an external binary plugin
-        FromSdk = 0x80000000000000,               // caller is an external SDK integration
-        ViaWrapper = 0x100000000000000,           // caller is a wrapper around DebugTrace, et al.
-        NoLimits = 0x200000000000000,             // skip calling into the TraceLimits checks.
+        FromPlugin = 0x80000000000000,            // caller is an external binary plugin
+        FromSdk = 0x100000000000000,              // caller is an external SDK integration
+        ViaWrapper = 0x200000000000000,           // caller is a wrapper around DebugTrace, et al.
+        NoLimits = 0x400000000000000,             // skip calling into the TraceLimits checks.
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -861,6 +1060,7 @@ namespace Eagle._Components.Public
 
         InputError = Lowest | Error,              // malformed input, parse error, etc.
         HostError3 = Lowest | Error,              // interpreter hosts, etc.
+        PathError3 = Lowest | Error,              // path discovery and building
 
         TestError2 = Lower | Error,               // test suite infrastructure, etc.
 
@@ -916,6 +1116,7 @@ namespace Eagle._Components.Public
         PackageError2 = High | Error,             // high-level package handling, etc.
         RuleError = High | Error,                 // rule set, etc.
         InteractiveError = High | Error,          // interactive loop, etc.
+        SetupError = High | Error,                // setup instances, auto-update, etc.
 
         LockError = Higher | Error,               // unable to acquire required lock
         ThreadError = Higher | Error,             // thread exceptions, timeout, etc.
@@ -940,8 +1141,10 @@ namespace Eagle._Components.Public
         PerformanceError2 = Highest | Error,      // for [time], etc.
         ProcessError2 = Highest | Error,          // process handling, [exec], etc.
         NativeError4 = Highest | Error,           // native code and interop
+        AnnotationError = Highest | Error,        // error extracting annotations, etc.
 
         StateError = Always | Error,              // internal state changes, etc. (NOT USED)
+        LockError3 = Always | Error,              // unable to acquire required lock
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -1004,6 +1207,8 @@ namespace Eagle._Components.Public
         PackageDebug3 = Low | Debug,              // high-level package handling, etc.
         NetworkDebug3 = Low | Debug,              // data transfer over network, etc.
         PluginDebug = Low | Debug,                // plugin loader (high-level), etc.
+        SecurityDebug4 = Low | Debug,             // signatures, certificates, etc.
+        NativeDebug4 = Low | Debug,               // native code and interop (details)
 
         CleanupDebug = MediumLow | Debug,         // object disposal and cleanup.
         StartupDebug = MediumLow | Debug,         // library / interpreter startup.
@@ -1012,8 +1217,10 @@ namespace Eagle._Components.Public
         ThreadDebug2 = MediumLow | Debug,         // thread exceptions, timeout, etc.
         PlatformDebug2 = MediumLow | Debug,       // operating system call, etc.
         PackageDebug2 = MediumLow | Debug,        // high-level package handling, etc.
-        PolicyDebug2 = MediumLow | Debug,         // policy context approvals, etc.
         FileSystemDebug = MediumLow | Debug,      // file system related, etc.
+        PolicyDebug = MediumLow | Debug,          // policy context approvals, etc.
+        PluginDebug2 = MediumLow | Debug,         // plugin loader (high-level), etc.
+        RemotingDebug3 = MediumLow | Debug,       // remoting and serialization
 
         DisposalDebug = Medium | Debug,           // interpreter, etc disposal.
         PlatformDebug = Medium | Debug,           // operating system call, etc.
@@ -1025,7 +1232,6 @@ namespace Eagle._Components.Public
         NetworkDebug2 = Medium | Debug,           // data transfer over network, etc.
         RemotingDebug2 = Medium | Debug,          // remoting and serialization
         ChannelDebug = Medium | Debug,            // input / output channels, etc.
-        PolicyDebug = Medium | Debug,             // policy context approvals, etc.
         StatusDebug = Medium | Debug,             // from StatusFormOps, etc.
         PerformanceDebug = Medium | Debug,        // for [time], etc.
         ShellDebug3 = Medium | Debug,             // high-level interactive shell and loop.
@@ -1035,7 +1241,8 @@ namespace Eagle._Components.Public
         CleanupDebug3 = Medium | Debug,           // object disposal and cleanup.
         HealthDebug = Medium | Debug,             // interpreter health status, etc.
         InteractiveDebug = Medium | Debug,        // interactive loop, etc.
-        PluginDebug2 = Medium | Debug,            // plugin loader (high-level), etc.
+        EngineDebug2 = Medium | Debug,            // low-level script evaluation
+
         StartupDebug3 = MediumHigh | Debug,       // library / interpreter startup.
         ThreadDebug = MediumHigh | Debug,         // thread exceptions, timeout, etc.
         TestDebug = MediumHigh | Debug,           // test suite infrastructure, etc.
@@ -1046,8 +1253,8 @@ namespace Eagle._Components.Public
         SetupDebug = MediumHigh | Debug,          // setup instances, auto-update, etc.
         HostDebug3 = MediumHigh | Debug,          // interpreter host, console, etc.
         ProcessDebug = MediumHigh | Debug,        // process handling, [exec], etc.
-        RemotingDebug3 = MediumHigh | Debug,      // remoting and serialization
         PackageDebug4 = MediumHigh | Debug,       // high-level package handling, etc.
+        CacheDebug2 = MediumHigh | Debug,         // cache configuration, etc.
 
         PackageDebug = High | Debug,              // high-level package handling, etc.
         RuleDebug = High | Debug,                 // rule set, etc.
@@ -1064,6 +1271,7 @@ namespace Eagle._Components.Public
         EventDebug2 = Highest | Debug,            // event manager and processing
         ConsoleDebug2 = Highest | Debug,          // built-in console host, etc.
 
+        InputDebug = Always | Debug,              // malformed input, parse error, etc.
         StateDebug = Always | Debug,              // internal state changes, etc.
         #endregion
 
@@ -1196,10 +1404,12 @@ namespace Eagle._Components.Public
         DefaultDebug = Default | Debug,
         DefaultWarning = Default | Warning,
         DefaultError = Default | Error | Fatal | Emergency,
+        DefaultDemand = Default | Demand,
+        AlwaysDemand = Always | Demand,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        DefaultLimitMask = MediumLowAndDownMask, /* For TraceLimits use only. */
+        DefaultLimitMask = LowAndDownMask, /* For TraceLimits use only. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1475,92 +1685,127 @@ namespace Eagle._Components.Public
 
     [Flags()]
     [ObjectId("36aabcbf-061b-4524-bc93-d427b6f62caf")]
-    public enum DebugEmergencyLevel
+    public enum DebugEmergencyLevel : ulong
     {
-        None = 0x0,                 /* No special handling. */
-        Invalid = 0x1,              /* Invalid, do not use. */
-        Reserved1 = 0x2,            /* Reserved, do not use. */
+        None = 0x0,                     /* No special handling. */
+        Invalid = 0x1,                  /* Invalid, do not use. */
+        Reserved1 = 0x2,                /* Reserved, do not use. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Disposed = 0x10,            /* Dispose existing debugger, if any. */
-        Disabled = 0x20,            /* Disable debugger, if present. */
+        Disposed = 0x10,                /* Dispose existing debugger, if any. */
+        Disabled = 0x20,                /* Disable debugger, if present. */
 
-        Enabled = 0x40,             /* Enable debugger, if present. */
-        Created = 0x80,             /* Create new debugger, if necessary. */
+        Enabled = 0x40,                 /* Enable debugger, if present. */
+        Created = 0x80,                 /* Create new debugger, if necessary. */
 
-        ResetCancel = 0x100,        /* Reset script cancellation, if necessary. */
-        ForceResetCancel = 0x200,   /* Forcibly reset script cancellation. */
+        Reset = 0x100,                  /* Reset (some?) state to its default. */
 
-        ResetHalt = 0x400,          /* Reset halt flag, if necessary. */
-        ForceResetHalt = 0x800,     /* Forcibly reset halt flag. */
+        ResetCancel = 0x200,            /* Reset script cancellation, if necessary. */
+        ForceResetCancel = 0x400,       /* Forcibly reset script cancellation. */
 
-        Break = 0x1000,             /* Break into debugger, if present. */
+        ResetHalt = 0x800,              /* Reset halt flag, if necessary. */
+        ForceResetHalt = 0x1000,        /* Forcibly reset halt flag. */
 
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        Tokens = 0x2000,            /* Enable everything needed to make
-                                     * token breakpoints work. */
-        ScriptArguments = 0x4000,   /* Enable everything needed to make
-                                     * nested script argument tracking
-                                     * work. */
-        Isolated = 0x8000,          /* Enable isolated interpreter for new
-                                     * debugger, if applicable. */
-        IgnoreModifiable = 0x10000, /* When creating or disposing of the
-                                     * debugger (if necessary), ignore the
-                                     * immutable flag for the interpreter. */
-        Verbose = 0x20000,          /* Enable more diagnostic output. */
+        Break = 0x2000,                 /* Break into debugger, if present. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForCommonUse = 0x100000,    /* Used to indicate flag values that
-                                     * are commonly used with instances
-                                     * of this enumeration. */
-        ForEnabledUse = 0x200000,   /* Used to indicate flag values that
-                                     * are commonly used when enabling
-                                     * the debugger. */
-        ForDisabledUse = 0x400000,  /* Used to indicate flag values that
-                                     * are commonly used when disabling
-                                     * the debugger. */
-        ForOverrideUse = 0x800000,  /* Used to indicate flag values that
-                                     * are commonly used when debugging
-                                     * a script on-demand. */
-        ForDefaultUse = 0x1000000,  /* Used to indicate flag values that
-                                     * are used by default. */
-        ForNowUse = 0x2000000,      /* Used to indicate flag values that
-                                     * are used with the special "now"
-                                     * value. */
-        ForLaterUse = 0x4000000,    /* Used to indicate flag values that
-                                     * are used with the special "later"
-                                     * value. */
-        ForFullUse = 0x8000000,     /* Used to indicate flag values that
-                                     * are used with the special "full"
-                                     * value. */
+        Tokens = 0x4000,                /* Enable everything needed to make
+                                         * token breakpoints work. */
+        ScriptArguments = 0x8000,       /* Enable everything needed to make
+                                         * nested script argument tracking
+                                         * work. */
+        Isolated = 0x10000,             /* Enable isolated interpreter for new
+                                         * debugger, if applicable. */
+        IgnoreModifiable = 0x20000,     /* When creating or disposing of the
+                                         * debugger (if necessary), ignore the
+                                         * immutable flag for the interpreter. */
+        Verbose = 0x40000,              /* Enable more diagnostic results. */
+        Quiet = 0x80000,                /* Silence trace output. */
+        IgnoreEnabled = 0x100000,       /* Ignore debugger enabled status. */
+        PopulateResultStack = 0x200000, /* WARNING: Force result stack traces
+                                         *          to be populated right now.
+                                         *          This will slow down the
+                                         *          library significantly. */
+        IncludeResultStack = 0x400000,  /* WARNING: Force result stack traces
+                                         *          to be included right now.
+                                         *          This will slow down the
+                                         *          library significantly. */
+        NoComplain = 0x800000,          /* Use the -nocomplain option to the
+                                         * [debug break] sub-command. */
+        NoError = 0x1000000,            /* Use the -noerror option to the
+                                         * [debug break] sub-command. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        CommonMask = ForCommonUse | ResetCancel | ResetHalt | IgnoreModifiable,
-        EnabledMask = ForEnabledUse | Enabled | Created,
-        DisabledMask = ForDisabledUse | Disposed | Disabled,
-        OverrideMask = ForOverrideUse | Enabled | Created | Break,
+        ForCommonUse = 0x2000000,       /* Used to indicate flag values that
+                                         * are commonly used with instances
+                                         * of this enumeration. */
+        ForEnabledUse = 0x4000000,      /* Used to indicate flag values that
+                                         * are commonly used when enabling
+                                         * the debugger. */
+        ForDisabledUse = 0x8000000,     /* Used to indicate flag values that
+                                         * are commonly used when disabling
+                                         * the debugger. */
+        ForOverrideUse = 0x10000000,    /* Used to indicate flag values that
+                                         * are commonly used when debugging
+                                         * a script on-demand. */
+        ForDefaultUse = 0x20000000,     /* Used to indicate flag values that
+                                         * are used by default. */
+        ForNowUse = 0x40000000,         /* Used to indicate flag values that
+                                         * are used with the special "now"
+                                         * value. */
+        ForLaterUse = 0x80000000,       /* Used to indicate flag values that
+                                         * are used with the special "later"
+                                         * value. */
+        ForFullUse = 0x100000000,       /* Used to indicate flag values that
+                                         * are used with the special "full"
+                                         * value. */
+        ForStatusUse = 0x200000000,     /* Used to indicate flag values that
+                                         * are used with the special "status"
+                                         * value. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        FullMask = Enabled | Created | Break | Tokens |
-                   ScriptArguments | IgnoreModifiable | Verbose,
+        PositiveMask = Enabled | Created,
+        NegativeMask = Disposed | Disabled,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        FlagsMask = Disposed | Disabled | Enabled |
-                    Created | Break | Tokens | ScriptArguments |
-                    Isolated | IgnoreModifiable | Verbose,
+        ResetMask = ResetCancel | ResetHalt,
+        ResultStackMask = PopulateResultStack | IncludeResultStack,
+        StatusMask = Tokens | ScriptArguments | Verbose | ResultStackMask,
+        BreakMask = Break | IgnoreEnabled | NoComplain | NoError,
+        EnableOrDisableMask = StatusMask | BreakMask | IgnoreModifiable,
+        EnabledFlagsMask = PositiveMask | EnableOrDisableMask,
+        DisabledFlagsMask = NegativeMask | EnableOrDisableMask,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        FlagsMask = EnabledFlagsMask | DisabledFlagsMask | Isolated,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        CommonMask = ForCommonUse | ResetMask | IgnoreModifiable | Quiet,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        EnabledMask = ForEnabledUse | PositiveMask,
+        DisabledMask = ForDisabledUse | NegativeMask,
+        OverrideMask = ForOverrideUse | PositiveMask | Break,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Status = ForStatusUse | StatusMask,
         Override = ForOverrideUse | CommonMask | OverrideMask,
         Now = ForNowUse | CommonMask | EnabledMask,
         Later = ForLaterUse | CommonMask | DisabledMask,
-        Full = ForFullUse | CommonMask | FullMask,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Full = ForFullUse | CommonMask | Break | IgnoreEnabled |
+               (EnabledFlagsMask & ~BreakMask),
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1596,134 +1841,144 @@ namespace Eagle._Components.Public
 
     [Flags()]
     [ObjectId("c661b7a4-c315-4ed7-b790-ea7a3505ff8a")]
-    public enum TimeoutType
+    public enum TimeoutType : ulong
     {
-        None = 0x0,              /* None, implicit only, do not use. */
-        Invalid = 0x1,           /* Explicitly invalid, do not use. */
+        None = 0x0,                   /* None, implicit only, do not use. */
+        Invalid = 0x1,                /* Explicitly invalid, do not use. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Fallback = 0x10,         /* Fallback when no other type of
-                                  * timeout directly applies. Please
-                                  * do not use this in external code. */
+        Fallback = 0x10,              /* Fallback when no other type of
+                                       * timeout directly applies. Please
+                                       * do not use this in external code. */
 
-        SoftLock = 0x20,         /* Used when attempting to acquire
-                                  * a lock on something, e.g. the
-                                  * interpreter, in a context where
-                                  * failing to acquire the lock will
-                                  * not result in errors. */
+        SoftLock = 0x20,              /* Used when attempting to acquire
+                                       * a lock on something, e.g. the
+                                       * interpreter, in a context where
+                                       * failing to acquire the lock will
+                                       * not result in errors. */
 
-        FirmLock = 0x40,         /* Used when attempting to acquire
-                                  * a lock on something, e.g. the
-                                  * interpreter, in a context where
-                                  * failing to acquire the lock may
-                                  * result in an error. */
+        FirmLock = 0x40,              /* Used when attempting to acquire
+                                       * a lock on something, e.g. the
+                                       * interpreter, in a context where
+                                       * failing to acquire the lock may
+                                       * result in an error. */
 
-        WaitLock = 0x80,         /* Used primarily by the method
-                                  * ISynchronize.TryLockWithWait
-                                  * implementations. */
+        Ready = 0x80,                 /* Used with interpreter readiness
+                                       * checks. */
 
-        HardLock = 0x100,        /* Used when attempting to acquire
-                                  * a lock on something, e.g. the
-                                  * interpreter, in a context where
-                                  * failing to acquire the lock will
-                                  * result in a serious error. */
+        WaitLock = 0x100,             /* Used primarily by the method
+                                       * ISynchronize.TryLockWithWait
+                                       * implementations. */
 
-        Event = 0x200,           /* Used when dealing with script
-                                  * events sent to the dedicated
-                                  * script event thread.  To avoid
-                                  * smashing runaway script errors
-                                  * from a script, the associated
-                                  * timeout value should be higher
-                                  * than the script timeout. */
+        HardLock = 0x200,             /* Used when attempting to acquire
+                                       * a lock on something, e.g. the
+                                       * interpreter, in a context where
+                                       * failing to acquire the lock will
+                                       * result in a serious error. */
+        EngineLock = 0x400,           /* Used when attempting to acquire
+                                       * a lock on something from inside
+                                       * the engine. */
+        Event = 0x800,                /* Used when dealing with script
+                                       * events sent to the dedicated
+                                       * script event thread.  To avoid
+                                       * smashing runaway script errors
+                                       * from a script, the associated
+                                       * timeout value should be higher
+                                       * than the script timeout. */
 
 #if THREADING
-        Health = 0x400,          /* Used to dealing with the health
-                                  * checking thread. */
+        Health = 0x1000,              /* Used to dealing with the health
+                                       * checking thread. */
 #endif
 
-        Script = 0x800,          /* Used to avoid having runaway
-                                  * scripts.  Script evaluation
-                                  * will be canceled after the
-                                  * associated timeout value has
-                                  * elapsed. */
+        Script = 0x2000,              /* Used to avoid having runaway
+                                       * scripts.  Script evaluation
+                                       * will be canceled after the
+                                       * associated timeout value has
+                                       * elapsed. */
 
-        Start = 0x1000,          /* Used when making sure a thread
-                                  * -OR- process has been started. */
+        Start = 0x4000,               /* Used when making sure a thread
+                                       * -OR- process has been started. */
 
-        Interrupt = 0x2000,      /* Used when making sure a thread
-                                  * has been interrupted. */
+        Interrupt = 0x8000,           /* Used when making sure a thread
+                                       * has been interrupted. */
 
-        Join = 0x4000,           /* Used when making sure a thread
-                                  * has exited.  Generally, the
-                                  * associated timeout value need
-                                  * not be too high because any
-                                  * pending scripts and/or other
-                                  * user-defined code should have
-                                  * already been canceled. */
-
-        ///////////////////////////////////////////////////////////////////////////////////////////
-
-        Ready = 0x8000,          /* This is reserved for future
-                                  * use. */
-
-        Variable = 0x10000,      /* This is reserved for future
-                                  * use. */
-
-        Setup = 0x20000,         /* This is reserved for future
-                                  * use. */
-
-        EventManager = 0x40000,  /* This is reserved for future
-                                  * use. */
+        Join = 0x10000,               /* Used when making sure a thread
+                                       * has exited.  Generally, the
+                                       * associated timeout value need
+                                       * not be too high because any
+                                       * pending scripts and/or other
+                                       * user-defined code should have
+                                       * already been canceled. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-#if NETWORK
-        Network = 0x80000,        /* Used when contacting machines
-                                   * over a network. */
-#endif
+        Variable = 0x200000,          /* This is reserved for future
+                                       * use. */
 
-        Finally = 0x100000,       /* Used for [try] finally script
-                                   * blocks.  The exact value used
-                                   * will depend on whether the
-                                   * target interpreter is "safe"
-                                   * or "unsafe". */
+        Setup = 0x400000,             /* This is reserved for future
+                                       * use. */
 
-        UnsafeFinally = 0x200000, /* Used for [try] finally script
-                                   * blocks when an interpreter is
-                                   * "unsafe". */
-
-        SafeFinally = 0x400000,   /* Used for [try] finally script
-                                   * blocks when an interpreter is
-                                   * "safe". */
-
-        Dispose = 0x800000,       /* Used when disposing a thread
-                                   * -OR- event of some kind. */
-
-        Unknown = 0x1000000,      /* Used when the type of timeout
-                                   * is not recognized. */
-
-        Interpreter = 0x2000000,  /* Value of the fallback timeout
-                                   * of interpreter.  Please do not
-                                   * use this in external code. */
+        EventManager = 0x800000,      /* This is reserved for future
+                                       * use. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Infinite = 0x4000000,    /* Allow infinite timeouts. */
+        Network = 0x8000000,          /* Used when contacting machines
+                                       * over a network. */
 
-        External = 0x8000000,    /* Timeout value originated from
-                                  * outside of the core library. */
+        Finally = 0x10000000,         /* Used for [try] finally script
+                                       * blocks.  The exact value used
+                                       * will depend on whether the
+                                       * target interpreter is "safe"
+                                       * or "unsafe". */
+
+        UnsafeFinally = 0x20000000,   /* Used for [try] finally script
+                                       * blocks when an interpreter is
+                                       * "unsafe". */
+
+        SafeFinally = 0x40000000,     /* Used for [try] finally script
+                                       * blocks when an interpreter is
+                                       * "safe". */
+
+        Dispose = 0x80000000,         /* Used when disposing a thread
+                                       * -OR- event of some kind. */
+
+        Unknown = 0x100000000,        /* Used when the type of timeout
+                                       * is not recognized. */
+
+        Interpreter = 0x200000000,    /* Value of the fallback timeout
+                                       * of interpreter.  Please do not
+                                       * use this in external code. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForceFallback = 0x10000000, /* Always enable use of the fallback
-                                     * timeout when a more specific one
-                                     * is not available. */
+        Infinite = 0x400000000,       /* Allow infinite timeouts. */
 
-        MaybeFallback = 0x20000000, /* Maybe enable use of the fallback
-                                     * timeout when a more specific one
-                                     * is not available, i.e. -IF- its
-                                     * value is not null -AND- finite. */
+        External = 0x800000000,       /* Timeout value originated from
+                                       * outside of the core library. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForceFallback = 0x1000000000, /* Always enable use of the fallback
+                                       * timeout when a more specific one
+                                       * is not available. */
+
+        MaybeFallback = 0x2000000000, /* Maybe enable use of the fallback
+                                       * timeout when a more specific one
+                                       * is not available, i.e. -IF- its
+                                       * value is not null -AND- finite. */
+
+        NoError = 0x4000000000,       /* Skip returning an error message. */
+
+        NoFailSafe = 0x8000000000,    /* Allow attempts to obtain a timeout
+                                       * value to fail, e.g. due to a locking
+                                       * error, etc. */
+
+        NoMultiplier = 0x10000000000, /* Do not apply any detected or set
+                                       * multipliers against the resulting
+                                       * timeout value. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1734,7 +1989,7 @@ namespace Eagle._Components.Public
 
         FinallyMask = Finally | UnsafeFinally | SafeFinally,
         FallbackMask = ForceFallback | MaybeFallback,
-        FlagsMask = External | Infinite | FallbackMask
+        FlagsMask = Infinite | External | FallbackMask | NoError | NoFailSafe | NoMultiplier
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2017,16 +2272,17 @@ namespace Eagle._Components.Public
     {
         None = 0x0,        /* No package. */
         Invalid = 0x1,     /* Invalid, do not use. */
-        Library = 0x2,     /* The script library package. */
-        Test = 0x4,        /* The test suite package. */
-        Kit = 0x8,         /* The kit packages. */
-        Host = 0x10,       /* Host-defined package. */
-        Automatic = 0x20,  /* Attempt to automatically figure it out. */
-        Default = 0x40,    /* Default package, for internal use only. */
+        Loader = 0x2,      /* The plugin loader package. */
+        Library = 0x4,     /* The script library package. */
+        Test = 0x8,        /* The test suite package. */
+        Kit = 0x10,        /* The kit packages. */
+        Host = 0x20,       /* Host-defined package. */
+        Automatic = 0x40,  /* Attempt to automatically figure it out. */
+        Default = 0x80,    /* Default package, for internal use only. */
 
-        Mask = Library | Test | Kit | Host | Automatic,
+        Mask = Loader | Library | Test | Kit | Host | Automatic,
 
-        Any = Library | Test | Kit | Host /* Any known package type will work. */
+        Any = Loader | Library | Test | Kit | Host /* Any known package type will work. */
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -2035,33 +2291,33 @@ namespace Eagle._Components.Public
     [ObjectId("dad4b809-342f-4da3-b533-7acdc54bae9e")]
     public enum EncodingType
     {
-        None = 0x0,          /* None, do not use. */
-        Invalid = 0x1,       /* Invalid, do not use. */
-        System = 0x2,        /* Unicode */
-        Default = 0x4,       /* UTF-8 */
-        Binary = 0x8,        /* OneByte */
-        Tcl = 0x10,          /* ISO-8859-1 */
-        Channel = 0x20,      /* ISO-8859-1 */
-        Text = 0x40,         /* UTF-8 */
-        Script = 0x80,       /* UTF-8 */
-        Xml = 0x100,         /* UTF-8 */
-        Policy = 0x200,      /* UTF-8 */
-        Profile = 0x400,     /* UTF-8 */
+        None = 0x0,            /* None, do not use. */
+        Invalid = 0x1,         /* Invalid, do not use. */
+        Null = 0x2,            /* Always null. */
+        System = 0x4,          /* Unicode */
+        Default = 0x8,         /* UTF-8 */
+        Binary = 0x10,         /* OneByte */
+        Tcl = 0x20,            /* ISO-8859-1 */
+        Channel = 0x40,        /* ISO-8859-1 */
+        Text = 0x80,           /* UTF-8 */
+        Script = 0x100,        /* UTF-8 */
+        Xml = 0x200,           /* UTF-8 */
+        Policy = 0x400,        /* UTF-8 */
+        Profile = 0x800,       /* UTF-8 */
 
 #if HISTORY
-        History = 0x800,     /* UTF-8 */
+        History = 0x10000,     /* UTF-8 */
 #endif
 
-        Base64 = 0x1000,     /* UTF-8 */
-        RemoteUri = 0x2000,  /* UTF-8 */
-        UnknownUri = 0x4000, /* UTF-8 */
-        FileSystem = 0x8000, /* UTF-8 */
-        Snippet = 0x10000    /* UTF-8 */
+        Base64 = 0x20000,      /* UTF-8 */
+        RemoteUri = 0x40000,   /* UTF-8 */
+        UnknownUri = 0x80000,  /* UTF-8 */
+        FileSystem = 0x100000, /* UTF-8 */
+        Snippet = 0x200000     /* UTF-8 */
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-#if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
     //
     // WARNING: Values may be added, modified, or removed from this enumeration
     //          at any time.
@@ -2092,23 +2348,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForceTrim = 0x1000,      /* Forcibly trim the specified caches if necessary,
-                                  * ignorning any limits on how many items may be
-                                  * trimmed at once. */
-        Unlock = 0x2000,         /* Unlock the specified caches. */
-        Lock = 0x4000,           /* Lock the specified caches. */
-        DisableOnLock = 0x8000,  /* When locking a cache, disable it as well. */
-        Reset = 0x10000,         /* Create the specified caches if necessary -AND-
-                                  * reset their settings back to their originally
-                                  * configured values. */
-        Clear = 0x20000,         /* Empty the specified caches. */
-        FullClear = 0x40000,     /* Force all subsystems fully cleared. */
+        ForceTrim = 0x1000,       /* Forcibly trim the specified caches if necessary,
+                                   * ignorning any limits on how many items may be
+                                   * trimmed at once. */
+        Unlock = 0x2000,          /* Unlock the specified caches. */
+        Lock = 0x4000,            /* Lock the specified caches. */
+        DisableOnLock = 0x8000,   /* When locking a cache, disable it as well. */
+        Reset = 0x10000,          /* Create the specified caches if necessary -AND-
+                                   * reset their settings back to their originally
+                                   * configured values. */
+        Clear = 0x20000,          /* Empty the specified caches. */
+        PreSetup = 0x40000,       /* Initialize the caches, again if neeed. */
+        FullClear = 0x80000,      /* Force all subsystems fully cleared. */
 #if CACHE_DICTIONARY
-        SetProperties = 0x80000, /* Configure various properties of the caches. */
+        SetProperties = 0x100000, /* Configure various properties of the caches. */
 #endif
 #if CACHE_STATISTICS
-        KeepCounts = 0x100000,   /* When resetting the cache, keep its counts. */
-        ZeroCounts = 0x200000,   /* When resetting the cache, zero its counts. */
+        KeepCounts = 0x200000,    /* When resetting the cache, keep its counts. */
+        ZeroCounts = 0x400000,    /* When resetting the cache, zero its counts. */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2118,14 +2375,14 @@ namespace Eagle._Components.Public
         //       of the associated cache, when appropriate (typically when
         //       under heavy load).
         //
-        ForceTrimArgument = 0x400000,
-        ForceTrimStringList = 0x800000,
-        ForceTrimIParseState = 0x1000000,
-        ForceTrimIExecute = 0x2000000, /* NOT YET IMPLEMENTED */
-        ForceTrimType = 0x4000000,
-        ForceTrimComTypeList = 0x8000000,
-        ForceTrimStringBuilder = 0x10000000, /* NOT YET IMPLEMENTED */
-        ForceTrimMiscellaneous = 0x20000000, /* NOT YET IMPLEMENTED */
+        ForceTrimArgument = 0x800000,
+        ForceTrimStringList = 0x1000000,
+        ForceTrimIParseState = 0x2000000,
+        ForceTrimIExecute = 0x4000000, /* NOT YET IMPLEMENTED */
+        ForceTrimType = 0x8000000,
+        ForceTrimComTypeList = 0x10000000,
+        ForceTrimStringBuilder = 0x20000000, /* NOT YET IMPLEMENTED */
+        ForceTrimMiscellaneous = 0x40000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2135,14 +2392,14 @@ namespace Eagle._Components.Public
         //       would have been appropriate (typically when under heavy
         //       load).
         //
-        LockArgument = 0x40000000,
-        LockStringList = 0x80000000,
-        LockIParseState = 0x100000000,
-        LockIExecute = 0x200000000, /* NOT YET IMPLEMENTED */
-        LockType = 0x400000000,
-        LockComTypeList = 0x800000000,
-        LockStringBuilder = 0x1000000000, /* NOT YET IMPLEMENTED */
-        LockMiscellaneous = 0x2000000000, /* NOT YET IMPLEMENTED */
+        LockArgument = 0x80000000,
+        LockStringList = 0x100000000,
+        LockIParseState = 0x200000000,
+        LockIExecute = 0x400000000, /* NOT YET IMPLEMENTED */
+        LockType = 0x800000000,
+        LockComTypeList = 0x1000000000,
+        LockStringBuilder = 0x2000000000, /* NOT YET IMPLEMENTED */
+        LockMiscellaneous = 0x4000000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2152,14 +2409,14 @@ namespace Eagle._Components.Public
         //       the originally configured values when appropriate
         //       (typically when under heavy load).
         //
-        ResetArgument = 0x4000000000,
-        ResetStringList = 0x8000000000,
-        ResetIParseState = 0x10000000000,
-        ResetIExecute = 0x20000000000,
-        ResetType = 0x40000000000,
-        ResetComTypeList = 0x80000000000,
-        ResetStringBuilder = 0x100000000000, /* NOT YET IMPLEMENTED */
-        ResetMiscellaneous = 0x200000000000, /* NOT YET IMPLEMENTED */
+        ResetArgument = 0x8000000000,
+        ResetStringList = 0x10000000000,
+        ResetIParseState = 0x20000000000,
+        ResetIExecute = 0x40000000000,
+        ResetType = 0x80000000000,
+        ResetComTypeList = 0x100000000000,
+        ResetStringBuilder = 0x200000000000, /* NOT YET IMPLEMENTED */
+        ResetMiscellaneous = 0x400000000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2168,14 +2425,14 @@ namespace Eagle._Components.Public
         //       associated cache when appropriate (typically when
         //       under heavy load).
         //
-        ClearArgument = 0x400000000000,
-        ClearStringList = 0x800000000000,
-        ClearIParseState = 0x1000000000000,
-        ClearIExecute = 0x2000000000000,
-        ClearType = 0x4000000000000,
-        ClearComTypeList = 0x8000000000000,
-        ClearStringBuilder = 0x10000000000000, /* NOT YET IMPLEMENTED */
-        ClearMiscellaneous = 0x20000000000000, /* NOT YET IMPLEMENTED */
+        ClearArgument = 0x800000000000,
+        ClearStringList = 0x1000000000000,
+        ClearIParseState = 0x2000000000000,
+        ClearIExecute = 0x4000000000000,
+        ClearType = 0x8000000000000,
+        ClearComTypeList = 0x10000000000000,
+        ClearStringBuilder = 0x20000000000000, /* NOT YET IMPLEMENTED */
+        ClearMiscellaneous = 0x40000000000000, /* NOT YET IMPLEMENTED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2188,10 +2445,10 @@ namespace Eagle._Components.Public
         //       which may improve performance in some rare use
         //       cases.
         //
-        ForResult = 0x40000000000000,
-        ForResultWithLocation = 0x80000000000000,
-        ForVariant = 0x100000000000000,
-        ForProcedure = 0x200000000000000,
+        ForResult = 0x80000000000000,
+        ForResultWithLocation = 0x100000000000000,
+        ForVariant = 0x200000000000000,
+        ForProcedure = 0x400000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2241,7 +2498,7 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         FlagMask = Hidden | ForceTrim | Unlock | Lock |
-                   DisableOnLock | Reset | Clear |
+                   DisableOnLock | Reset | Clear | PreSetup |
                    MaybeSetProperties | MaybeKeepCounts | MaybeZeroCounts,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2290,7 +2547,6 @@ namespace Eagle._Components.Public
                   DefaultClearMask | MaybeSetProperties |
                   MaybeKeepCounts
     }
-#endif
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2344,22 +2600,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Download = 0x100,       /* This flag implies the method is GET. */
-        Upload = 0x200,         /* This flag implies the method is POST. */
+        Open = 0x100,           /* This flag implies the method is GET
+                                 * -AND- that the script engine is going
+                                 * to read a script file. */
+        Download = 0x200,       /* This flag implies the method is GET. */
+        Upload = 0x400,         /* This flag implies the method is POST. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Data = 0x1000,          /* The request or response should be a
+        String = 0x1000,        /* The response should be a String. */
+        Stream = 0x2000,        /* The response should be a Stream object
+                                 * that can be read from -OR- writen to,
+                                 * depending on the caller. */
+        Data = 0x4000,          /* The request or response should be a
                                  * sequence of bytes. */
-        File = 0x2000,          /* The request or response should be
+        File = 0x8000,          /* The request or response should be
                                  * data written to the specified file. */
-        Values = 0x4000,        /* The request or response should be
+        Values = 0x10000,       /* The request or response should be
                                  * name / value pairs. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Asynchronous = 0x10000, /* The transfer(s) should be performed
-                                 * asynchronously. */
+        Asynchronous = 0x100000, /* The transfer(s) should be performed
+                                  * asynchronously. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        MakeRequest = 0x10000000, /* The transfer is being done via the
+                                   * (special) MakeRequest method. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        OpenScriptStream = Open | Stream,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2918,26 +3190,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        NoBgError = 0x100000,      /* Skip invoking background error handler for this event. */
-        FireAndForget = 0x200000,  /* The IEvent object may be disposed after the event has
+        NoComplain = 0x100000,     /* Skip invoking the complaint subsystem. */
+        NoBgError = 0x200000,      /* Skip invoking background error handler for this event. */
+        FireAndForget = 0x400000,  /* The IEvent object may be disposed after the event has
                                     * been serviced (i.e. the caller does NOT need to obtain
                                     * the result).  For now, this is for core library use
                                     * only.  Please do not use it. */
-        WasDequeued = 0x400000,    /* The event was somehow removed from the event queue. */
-        WasCompleted = 0x800000,   /* The event was executed.  This does not imply that it
+        WasDequeued = 0x800000,    /* The event was somehow removed from the event queue. */
+        WasCompleted = 0x1000000,  /* The event was executed.  This does not imply that it
                                     * was "successful". */
-        WasCanceled = 0x1000000,   /* The event was canceled somehow.  This currently implies
+        WasCanceled = 0x2000000,   /* The event was canceled somehow.  This currently implies
                                     * that it MAY have been removed from the event queue as
                                     * well. */
-        WasDiscarded = 0x2000000,  /* The event was discarded somehow.  This currently implies
+        WasDiscarded = 0x4000000,  /* The event was discarded somehow.  This currently implies
                                     * that it MAY have been removed from the event queue as
                                     * well. */
-        DisposeThread = 0x4000000, /* The thread local data should be disposed after the event
+        DisposeThread = 0x8000000, /* The thread local data should be disposed after the event
                                     * is complete. */
-        GreedyThread = 0x8000000,  /* The event should be processed even if it has a non-null
+        GreedyThread = 0x10000000, /* The event should be processed even if it has a non-null
                                     * thread identifier -AND- the current call is processing
                                     * non-thread specific events (i.e. [vwait] called without
                                     * a -thread option value). */
+        FailSafe = 0x20000000,     /* Do not permit a failed call to Engine.TryQueryAllFlags
+                                    * to cause overall event processing to fail, e.g. via the
+                                    * ProcessOps class, et al. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2975,7 +3251,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Default = Engine
+        Default = Engine | FailSafe
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3079,40 +3355,45 @@ namespace Eagle._Components.Public
                                              * This flag is only used by the
                                              * DisposeInterpreters method. */
 
+        Trace = 0x80000000,                 /* This may result in additional trace
+                                             * output. */
+
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForDebug = 0x80000000,              /* For use with the [debug] command
+        ForDebug = 0x100000000,             /* For use with the [debug] command
                                              * only. */
-        ForInterp = 0x100000000,            /* For use with the [interp] command
+        ForInterp = 0x200000000,            /* For use with the [interp] command
                                              * only. */
-        ForTest2 = 0x200000000,             /* For use with the [test2] command
+        ForTest2 = 0x400000000,             /* For use with the [test2] command
                                              * only. */
-        ForTime = 0x400000000,              /* For use with the [time] command
+        ForTime = 0x800000000,              /* For use with the [time] command
                                              * only. */
-        ForTry = 0x800000000,               /* For use with the [try] command
+        ForTry = 0x1000000000,              /* For use with the [try] command
                                              * only. */
-        ForCatch = 0x1000000000,            /* For use with the [catch] command
+        ForCatch = 0x2000000000,            /* For use with the [catch] command
                                              * only. */
-        ForEngine = 0x2000000000,           /* For use by the Engine class only. */
-        ForReady = 0x4000000000,            /* For use by the Interpreter.Ready
+        ForEngine = 0x4000000000,           /* For use by the Engine class only. */
+        ForReady = 0x8000000000,            /* For use by the Interpreter.Ready
                                              * method only. */
-        ForInteractive = 0x8000000000,      /* For use by the interactive loop
+        ForInteractive = 0x10000000000,     /* For use by the interactive loop
                                              * only. */
-        ForExternal = 0x10000000000,        /* For use by external (i.e. outside
+        ForExternal = 0x20000000000,        /* For use by external (i.e. outside
                                              * of the core library) components
                                              * only. */
-        ForBgError = 0x20000000000,         /* For use by the event manager only. */
-        ForCommandCallback = 0x40000000000, /* For use by CommandCallback class
+        ForBgError = 0x40000000000,         /* For use by the event manager only. */
+        ForCommandCallback = 0x80000000000, /* For use by CommandCallback class
                                              * only. */
-        ForScriptTimeout = 0x80000000000,   /* For use by the RuntimeOps class
+        ForScriptTimeout = 0x100000000000,  /* For use by the RuntimeOps class
                                              * only. */
-        ForScriptEvent = 0x100000000000,    /* For use by the ScriptEventState
+        ForScriptEvent = 0x200000000000,    /* For use by the ScriptEventState
                                              * class only. */
-        ForScriptThread = 0x200000000000,   /* For use with the ScriptThread
+        ForScriptThread = 0x400000000000,   /* For use with the ScriptThread
                                              * class only. */
-        ForSettings = 0x400000000000,       /* For use by the LoadSettingsViaFile
+        ForSettings = 0x800000000000,       /* For use by the LoadSettingsViaFile
                                              * method only. */
-        ForTimeout = 0x800000000000,        /* For use by the timeout threads. */
+        ForTimeout = 0x1000000000000,       /* For use by the timeout threads. */
+        ForVwait = 0x2000000000000,         /* For use by the [vwait] command
+                                             * only. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3152,61 +3433,77 @@ namespace Eagle._Components.Public
         //
         // WARNING: These two values are for external use only.
         //
-        UnwindAndNotify = SetGlobalState | Unwind | ForExternal, /* EXEMPT */
-        IgnorePendingAndNotify = ResetGlobalState | IgnorePending | ForExternal, /* EXEMPT */
+        UnwindAndNotify = SetGlobalState | Unwind | TryLock | ForExternal, /* EXEMPT */
+        IgnorePendingAndNotify = ResetGlobalState | IgnorePending | TryLock | ForExternal, /* EXEMPT */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        DebugHalt = SetLocalState | ForDebug,
-        InterpCancel = SetLocalState | ForInterp,
+        DebugHalt = SetLocalState | TryLock | ForDebug,
+        InterpCancel = SetLocalState | TryLock | ForInterp,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         ScriptTimeout = SetLocalState | Unwind | NoComplain | NoLock | ForScriptTimeout,
         Timeout = SetLocalState | Unwind | NoComplain | NoLock | ForTimeout,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        InterpResetCancel = ResetLocalState | ForInterp,
-        Test2 = ResetLocalState | IgnorePending | ForTest2,
-        Time = ResetLocalState | IgnorePending | ForTime,
-        BgError = ResetLocalState | IgnorePending | ForBgError,
-        CommandCallback = ResetLocalState | FailPending | ForCommandCallback,
-        DebugSecureEval = ResetLocalState | IgnorePending | ForDebug,
-        Settings = ResetGlobalState | IgnorePending | ForSettings,
-        DebugEmergency = ResetLocalState | ResetGlobalState | FailPending | ForDebug,
+        InterpResetCancel = ResetLocalState | TryLock | ForInterp,
+        Test2 = ResetLocalState | IgnorePending | TryLock | ForTest2,
+        Time = ResetLocalState | IgnorePending | TryLock | ForTime,
+        BgError = ResetLocalState | IgnorePending | TryLock | ForBgError,
+        CommandCallback = ResetLocalState | FailPending | TryLock | ForCommandCallback,
+        DebugSecureEval = ResetLocalState | IgnorePending | TryLock | ForDebug,
+        Settings = ResetGlobalState | IgnorePending | TryLock | ForSettings,
+        DebugEmergency = ResetLocalState | ResetGlobalState | FailPending | TryLock | ForDebug,
+        Vwait = ResetLocalState | ResetGlobalState | IgnorePending | TryLock | ForVwait,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        TryBlock = ResetLocalState | IgnorePending | ForTry,
-        CatchBlock = ResetLocalState | IgnorePending | ForCatch,
-        FinallyBlock = SetLocalState | ForTry,
+        TryBlock = ResetLocalState | IgnorePending | TryLock | ForTry,
+        CatchBlock = ResetLocalState | IgnorePending | TryLock | ForCatch,
+        FinallyBlock = SetLocalState | TryLock | ForTry,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Engine = ResetLocalState | ForEngine,
-        Ready = CheckGlobalState | NeedResult | ForReady,
+#if NOTIFY
+        //
+        // NOTE: This is the mask of flags that should NOT be
+        //       used in methods that are in the hot paths.
+        //
+        NonHotPathMask = Notify,
+#else
+        NonHotPathMask = None,
+#endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ScriptEvent = ResetGlobalState | IgnorePending | ForScriptEvent,
-        ScriptThread = ResetGlobalState | IgnorePending | ForScriptThread,
+        Engine = (ResetLocalState & ~NonHotPathMask) | TryLock | ForEngine,
+        Ready = (CheckGlobalState & ~NonHotPathMask) | NeedResult | TryLock | ForReady,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ScriptEvent = ResetGlobalState | IgnorePending | TryLock | ForScriptEvent,
+        ScriptThread = ResetGlobalState | IgnorePending | TryLock | ForScriptThread,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region For Interactive Use Only
-        ShellResetCancel = ResetGlobalState | ForInteractive,
+        ShellResetCancel = ResetGlobalState | TryLock | ForInteractive,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        InteractiveIsHalted = CheckGlobalState | NeedResult | ForInteractive,
+        InteractiveIsHalted = CheckGlobalState | NeedResult | TryLock | ForInteractive,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        InteractiveManualHalt = SetLocalState | IgnorePending | ForInteractive,
+        InteractiveManualHalt = SetLocalState | IgnorePending | TryLock | ForInteractive,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        InteractiveManualResetCancel = ResetGlobalState | IgnorePending | ForInteractive,
-        InteractiveManualResetHalt = ResetGlobalState | IgnorePending | ForInteractive,
-        InteractiveAutomaticResetHalt = ResetGlobalState | ForInteractive,
+        InteractiveManualResetCancel = ResetGlobalState | IgnorePending | TryLock | ForInteractive,
+        InteractiveManualResetHalt = ResetGlobalState | IgnorePending | TryLock | ForInteractive,
+        InteractiveAutomaticResetHalt = ResetGlobalState | TryLock | ForInteractive,
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -3215,7 +3512,7 @@ namespace Eagle._Components.Public
 #if SHELL
             UnpauseInteractiveLoop |
 #endif
-            ForInteractive,
+            TryLock | ForInteractive,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3224,7 +3521,7 @@ namespace Eagle._Components.Public
 #if SHELL
             UseInteractiveThread |
 #endif
-            ForInteractive,
+            TryLock | ForInteractive,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3375,6 +3672,8 @@ namespace Eagle._Components.Public
                                     * etc, from the underlying managed type. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
+
+        SecurityMask = Initialize | SecuritySdk,
 
         SubsetMask = Arithmetic | Relational | Conditional |
                      Logical | Bitwise | Assignment | String |
@@ -4358,82 +4657,84 @@ namespace Eagle._Components.Public
         NoDispose = 0x400,            /* Do not call Dispose on the host? */
         UseAttach = 0x800,            /* Attempt to attach to existing console,
                                        * if applicable. */
-        NoColor = 0x1000,             /* Limit colors to grayscale, if
+        UseForce = 0x1000,            /* Forcibly attempt to attach or open a
+                                       * console. */
+        NoColor = 0x2000,             /* Limit colors to grayscale, if
                                        * applicable? */
-        NoTitle = 0x2000,             /* Do not change the console title, if
+        NoTitle = 0x4000,             /* Do not change the console title, if
                                        * applicable? */
-        NoIcon = 0x4000,              /* Do not change the console icon, if
+        NoIcon = 0x8000,              /* Do not change the console icon, if
                                        * applicable? */
-        NoProfile = 0x8000,           /* Do not load the host profile? */
-        NoCancel = 0x10000,           /* Do not setup or teardown the script
+        NoProfile = 0x10000,          /* Do not load the host profile? */
+        NoCancel = 0x20000,           /* Do not setup or teardown the script
                                        * cancellation user interface if
                                        * applicable (i.e. via key press)? */
-        Echo = 0x20000,               /* Enable echo for interactive input,
+        Echo = 0x40000,               /* Enable echo for interactive input,
                                        * if applicable. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if CONSOLE
-        CloseConsole = 0x40000,       /* First, close the console in the current
+        CloseConsole = 0x80000,       /* First, close the console in the current
                                        * process. */
-        OpenConsole = 0x80000,        /* Next, open [or attach?] a console in the
+        OpenConsole = 0x100000,       /* Next, open [or attach?] a console in the
                                        * current process. */
-        ForceConsole = 0x100000,      /* Finally, open [or attach?] a console even
+        ForceConsole = 0x200000,      /* Finally, open [or attach?] a console even
                                        * if it appears to be open already. */
-        AttachConsole = 0x200000,     /* Allow an existing console in the parent
+        AttachConsole = 0x400000,     /* Allow an existing console in the parent
                                        * process to be attached. */
-        NoCloseConsole = 0x400000,    /* Attempt to make sure that the native
+        NoCloseConsole = 0x800000,    /* Attempt to make sure that the native
                                        * console window cannot be closed. */
-        FixConsole = 0x800000,        /* Perform various fixes to the console in
+        FixConsole = 0x1000000,       /* Perform various fixes to the console in
                                        * order to make it integrate better with
                                        * Eagle (e.g. resize the input buffer). */
-        HookConsole = 0x1000000,      /* Greedily open the native console handles
+        HookConsole = 0x2000000,      /* Greedily open the native console handles
                                        * when a console-based interpreter host is
                                        * created. */
-        PushConsole = 0x2000000,      /* Before creating the first console-based
+        PushConsole = 0x4000000,      /* Before creating the first console-based
                                        * host for an interpreter, push its screen
                                        * buffer onto the stack, thus saving it
                                        * for later. */
-        HistoryConsole = 0x4000000,   /* Configure the console history buffer. */
-        NoNativeConsole = 0x8000000,  /* Avoid calling into the NativeConsole
+        HistoryConsole = 0x8000000,   /* Configure the console history buffer. */
+        NoNativeConsole = 0x10000000, /* Avoid calling into the NativeConsole
                                        * class during interpreter creation. */
-        QuietConsole = 0x10000000,    /* Do not complain if NativeConsole methods
+        QuietConsole = 0x20000000,    /* Do not complain if NativeConsole methods
                                        * fail during interpreter creation. */
-        WriteConsole = 0x20000000,    /* Use the native Win32 API to write to the
+        WriteConsole = 0x40000000,    /* Use the native Win32 API to write to the
                                        * console window. */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Debug = 0x40000000,           /* Enable debug-mode for the host (NOT USED). */
-        ReplaceNewLines = 0x80000000, /* When displaying a Result object, replace
-                                       * all line-ending characters with visible
-                                       * placeholder characters. */
-        Ellipsis = 0x100000000,       /* When displaying a Result object, truncate
-                                       * it as the default result formatting limit,
-                                       * and append the string "..." to it. */
-        Exceptions = 0x200000000,     /* When displaying a Result object, allow
-                                       * non-standard return codes -AND- determine
-                                       * if they represent success or error. */
-        Display = 0x400000000,        /* When displaying a Result object, make sure
-                                       * that null and empty strings are represented
-                                       * using a string suitable for display instead
-                                       * of an empty string. */
+        Debug = 0x80000000,            /* Enable debug-mode for the host (NOT USED). */
+        ReplaceNewLines = 0x100000000, /* When displaying a Result object, replace
+                                        * all line-ending characters with visible
+                                        * placeholder characters. */
+        Ellipsis = 0x200000000,        /* When displaying a Result object, truncate
+                                        * it as the default result formatting limit,
+                                        * and append the string "..." to it. */
+        Exceptions = 0x400000000,      /* When displaying a Result object, allow
+                                        * non-standard return codes -AND- determine
+                                        * if they represent success or error. */
+        Display = 0x800000000,         /* When displaying a Result object, make sure
+                                        * that null and empty strings are represented
+                                        * using a string suitable for display instead
+                                        * of an empty string. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        CanExit = 0x800000000,        /* Non-zero if the host should allow for its
+        CanExit = 0x1000000000,       /* Non-zero if the host should allow for its
                                        * associated interpreter to be flagged as
                                        * "exited". */
-        CanForceExit = 0x1000000000,  /* Non-zero if the host should allow for its
+        CanForceExit = 0x2000000000,  /* Non-zero if the host should allow for its
                                        * associated interpreter to be forcibly
                                        * flagged as "exited". */
-        Exiting = 0x2000000000,       /* Non-zero when the associated interpreter
+        Exiting = 0x4000000000,       /* Non-zero when the associated interpreter
                                        * is exiting. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        UseLibrary = 0x4000000000,    /* Prefer host scripts over those on the
+        UseLibrary = 0x8000000000,    /* Prefer host scripts over those on the
                                        * file system (i.e. when embedded script
                                        * library is available).  This flag can be
                                        * useful if (core library) scripts on the
@@ -4443,62 +4744,62 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER
-        Debugger = 0x8000000000,      /* Indicates that the script debugger may
+        Debugger = 0x10000000000,     /* Indicates that the script debugger may
                                        * make use of this host. */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        MustCreate = 0x10000000000,   /* The host must be created.  If the callback
+        MustCreate = 0x20000000000,   /* The host must be created.  If the callback
                                        * fails, use fallback semantics. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_PLUGINS
-        ResetIsolated = 0x20000000000, /* The isolated host mube be reset after the
+        ResetIsolated = 0x40000000000, /* The isolated host mube be reset after the
                                         * host is set. */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ResourceManager = 0x40000000000,            /* Initialize various resource
-                                                     * managers. */
-        ApplicationResourceManager = 0x80000000000, /* Initialize application resource
-                                                     * managers. */
+        ResourceManager = 0x80000000000,             /* Initialize various resource
+                                                      * managers. */
+        ApplicationResourceManager = 0x100000000000, /* Initialize application resource
+                                                      * managers. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        NoAttributes = 0x100000000000,              /* Skip querying and combining the flags,
-                                                     * etc, from the underlying managed type. */
+        NoAttributes = 0x200000000000, /* Skip querying and combining the flags,
+                                        * etc, from the underlying managed type. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForShellUse = 0x200000000000,
-        ForCoreShellUse = 0x400000000000,
+        ForShellUse = 0x400000000000,
+        ForCoreShellUse = 0x800000000000,
 
 #if NATIVE && TCL && NATIVE_PACKAGE
-        ForNativeUse = 0x800000000000,
+        ForNativeUse = 0x1000000000000,
 #endif
 
-        ForNestedUse = 0x1000000000000,
+        ForNestedUse = 0x2000000000000,
 
 #if NATIVE && TCL
-        ForTclManagerUse = 0x2000000000000,
+        ForTclManagerUse = 0x4000000000000,
 #endif
 
-        ForSettingsUse = 0x4000000000000,
-        ForSafeSettingsUse = 0x8000000000000,
+        ForSettingsUse = 0x8000000000000,
+        ForSafeSettingsUse = 0x10000000000000,
 
-        ForTestUse = 0x10000000000000,
+        ForTestUse = 0x20000000000000,
 
-        ForEmbeddedUse = 0x20000000000000,
-        ForSafeEmbeddedUse = 0x40000000000000,
+        ForEmbeddedUse = 0x40000000000000,
+        ForSafeEmbeddedUse = 0x80000000000000,
 
-        ForSingleUse = 0x80000000000000,
-        ForSafeSingleUse = 0x100000000000000,
+        ForSingleUse = 0x100000000000000,
+        ForSafeSingleUse = 0x200000000000000,
 
-        ForScriptThreadUse = 0x200000000000000,
-        ForPluginUse = 0x400000000000000,
+        ForScriptThreadUse = 0x400000000000000,
+        ForPluginUse = 0x800000000000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -4616,6 +4917,7 @@ namespace Eagle._Components.Public
         Override = 0x100,
         Persistent = 0x200,
         Quiet = 0x400,
+        AllowNop = 0x800,
 
         ForDefault = 0x1000,
         ForSdk = 0x2000,
@@ -4623,6 +4925,7 @@ namespace Eagle._Components.Public
 
         Demand = ForDemand,
         Sdk = Override | ForSdk,
+        FailSafe = Override | Persistent | AllowNop | ForSdk,
 
         Default = ForDefault
     }
@@ -4763,6 +5066,11 @@ namespace Eagle._Components.Public
         DebuggerInterpreter = 0x400000, /* Also create an isolated debugger
                                          * interpreter? */
 #endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        NoLoader = 0x800000,            /* Forbid the loader from being added
+                                         * to the interpreter dynamically. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -5305,6 +5613,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        Loader = 0x100,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         Initialization = 0x1000,
         Safe = 0x2000,
         Test = 0x4000,
@@ -5431,7 +5743,7 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Library = Initialization | Safe | Test | Embedding | Vendor | Startup | Worker,
+        Library = Loader | Initialization | Safe | Test | Embedding | Vendor | Startup | Worker,
         ShellLibrary = Shell | ShellWorker | Startup | Worker,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -5440,22 +5752,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Minimal = Initialization | MaybeIsolatedSecurity,
+        Minimal = Loader | Initialization | MaybeIsolatedSecurity,
 
         SafeMinimal = Safe | MaybeIsolatedSecurity,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        SdkUse = Initialization | MaybeEmbeddingVendor | LibraryPath | Callback,
+        SdkUse = Loader | Initialization | MaybeEmbeddingVendor |
+                 LibraryPath | Callback,
+
         SafeSdkUse = Safe | MaybeEmbeddingVendor | LibraryPath | Callback,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        CoreLibraryUse = Initialization | MaybeEverything | AutoPath |
-                         LibraryPath | GlobalTracking | Callback,
+        CoreLibraryUse = Loader | Initialization | MaybeEverything |
+                         AutoPath | LibraryPath | GlobalTracking |
+                         Callback,
 
-        SafeCoreLibraryUse = Safe | MaybeEverything | AutoPath |
-                             LibraryPath | GlobalTracking | Callback,
+        SafeCoreLibraryUse = Loader | Safe | MaybeEverything |
+                             AutoPath | LibraryPath | GlobalTracking |
+                             Callback,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -6028,10 +6344,11 @@ namespace Eagle._Components.Public
     public enum ModuleFlags
     {
         None = 0x0,
-        NoUnload = 0x1, /* Do not call FreeLibrary when the reference
-                         * count reaches zero. */
-        NoRemove = 0x2  /* Do not allow the module to be removed from
-                         * the interpreter. */
+        NoUnload = 0x1,    /* Do not call FreeLibrary when the reference
+                            * count reaches zero. */
+        NoRemove = 0x2,    /* Do not allow the module to be removed from
+                            * the interpreter. */
+        TrustedOnly = 0x4, /* The module file must be signed and trusted. */
     }
 #endif
 
@@ -6070,17 +6387,23 @@ namespace Eagle._Components.Public
     [ObjectId("f76751ef-752b-4a0b-adf6-fe26384d6686")]
     public enum PromptFlags
     {
-        None = 0x0,         /* no special handling, normal start or continue
-                             * prompt. */
-        Invalid = 0x1,      /* invalid, do not use. */
-        Debug = 0x8,        /* when set, this prompt is for the interactive
-                             * debugger. */
-        Queue = 0x10,       /* when set, this prompt is for queued (async)
-                             * input mode. */
-        Interpreter = 0x20, /* when set, make sure the interpreter Id is
-                             * shown. */
-        Done = 0x40         /* when set, it means that the host successfully
-                             * displayed a prompt. */
+        None = 0x0,           /* no special handling, normal start or continue
+                               * prompt. */
+        Invalid = 0x1,        /* invalid, do not use. */
+        Debug = 0x8,          /* when set, this prompt is for the interactive
+                               * debugger. */
+        Queue = 0x10,         /* when set, this prompt is for queued (async)
+                               * input mode. */
+        Count = 0x20,         /* when set, make sure the total interactive
+                               * command count is shown. */
+        Interpreter = 0x40,   /* when set, make sure the interpreter Id is
+                               * shown. */
+        Done = 0x80,          /* when set, it means that the host successfully
+                               * displayed a prompt. */
+
+        ForDefault = 0x10000, /* for use with the default flag set. */
+
+        Default = ForDefault
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6350,32 +6673,42 @@ namespace Eagle._Components.Public
     [ObjectId("cacfb749-6c82-44b7-bf4c-e98b86621291")]
     public enum TestInformationType
     {
-        CurrentName = -14,   // The name of the current test, if any.
-        Interpreter = -13,   // The parent interpreter of the one running the test.
-        RepeatCount = -12,   // The number of times a given test should be repeated.
-        Verbose = -11,       // The test output flags (tcltest -verbose).
-        KnownBugs = -10,     // The names of tests ran with knownBug constraints.
-        Constraints = -9,    // The active test constraints.
+        PreviousAndCurrentName = -17, // SPECIAL: For use by the TestOps.RecordInformation
+                                      // method only.  Set the previous and current test
+                                      // names.
+        PreviousName = -16,           // The name of the previous test, if any.
+        CurrentName = -15,            // The name of the current test, if any.
+        Interpreter = -14,            // The parent interpreter of the one running the test.
+        RepeatCount = -13,            // The number of times a given test should be repeated.
+        Verbose = -12,                // The test output flags (tcltest -verbose).
+        KnownBugs = -11,              // The names of tests ran with knownBug constraints.
+        Constraints = -10,            // The active test constraints.
 #if DEBUGGER
-        Breakpoints = -8,    // The active test breakpoints.
+        Breakpoints = -9,             // The active test breakpoints.
 #endif
-        Counts = -7,         // The number of times a given test has been run.
-        PassedNames = -6,    // The names of the failing tests.
-        SkippedNames = -5,   // The names of the skipped tests.
-        FailedNames = -4,    // The names of the failing tests.
-        SkipNames = -3,      // The patterns of tests to skip.
-        MatchNames = -2,     // The patterns of tests to run.
-        Level = -1,          // The test nesting level.
-        Total = 0,           // Total number of tests encountered.
-        Skipped = 1,         // Total number of tests that were skipped.
-        Disabled = 2,        // Total number of tests that were disabled.
-        Passed = 3,          // Total number of tests that passed.
-        Failed = 4,          // Total number of tests that failed.
-        SkippedBug = 5,      // Total number of tests that were skipped -AND- marked as "knownBug".
-        DisabledBug = 6,     // Total number of tests that were disabled -AND- marked as "knownBug".
-        PassedBug = 7,       // Total number of tests that passed -AND- marked as "knownBug".
-        FailedBug = 8,       // Total number of tests that failed -AND- marked as "knownBug".
-        SizeOf = 9           // Total number of statistics that we are keeping track of.
+        Hooks = -8,                   // The active test hooks.
+        Counts = -7,                  // The number of times a given test has been run.
+        PassedNames = -6,             // The names of the failing tests.
+        SkippedNames = -5,            // The names of the skipped tests.
+        FailedNames = -4,             // The names of the failing tests.
+        SkipNames = -3,               // The patterns of tests to skip.
+        MatchNames = -2,              // The patterns of tests to run.
+        Level = -1,                   // The test nesting level.
+        Total = 0,                    // Total number of tests encountered.
+        Skipped = 1,                  // Total number of tests that were skipped.
+        Disabled = 2,                 // Total number of tests that were disabled.
+        Passed = 3,                   // Total number of tests that passed.
+        Failed = 4,                   // Total number of tests that failed.
+        SkippedBug = 5,               // Total number of tests that were skipped -AND- marked
+                                      // as "knownBug".
+        DisabledBug = 6,              // Total number of tests that were disabled -AND- marked
+                                      // as "knownBug".
+        PassedBug = 7,                // Total number of tests that passed -AND- marked as
+                                      // "knownBug".
+        FailedBug = 8,                // Total number of tests that failed -AND- marked as
+                                      // "knownBug".
+        SizeOf = 9                    // Total number of statistics that we are keeping track
+                                      // of.
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -6970,12 +7303,13 @@ namespace Eagle._Components.Public
     [ObjectId("687b2526-63ad-4367-8a80-40441fe9396d")]
     public enum ExitCode
     {
-        Unknown = -1, /* For internal use only. */
-        Success = 0,  /* COMPAT: Unix. */
-        Failure = 1,  /* COMPAT: Unix. */
-        Exception = 2,
-        FailSafe = unchecked((int)0xDEADDEAD), // extra dead
-        Fatal = 255
+        Unknown = -1,  /* For internal use only. */
+        Success = 0,   /* COMPAT: Unix. */
+        Failure = 1,   /* COMPAT: Unix. */
+        Exception = 2, /* COMPAT: ??? */
+        Fatal = 255,   /* COMPAT: Win32? */
+        Demand = unchecked((int)0xDEADC0DE),  /* For script use only. */
+        FailSafe = unchecked((int)0xDEADDEAD) /* Extra dead. */
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -7110,27 +7444,27 @@ namespace Eagle._Components.Public
                                                             * script engine for reading script streams, etc. */
         StopOnError = 0x10000000000,                       /* unexpected errors should cause the remainder
                                                             * of the script search to be canceled. */
-        Silent = 0x20000000000,                            /* return minimum error information if a script
-                                                            * cannot be found. */
-        PreferDeepFileNames = 0x40000000000,               /* prefer file names that are longer. */
-        PreferDeepResourceNames = 0x80000000000,           /* prefer resource names that are longer. */
-        SearchDirectory = 0x100000000000,                  /* when searching for a script on the file
+        PreferDeepFileNames = 0x20000000000,               /* prefer file names that are longer. */
+        PreferDeepResourceNames = 0x40000000000,           /* prefer resource names that are longer. */
+        SearchDirectory = 0x80000000000,                   /* when searching for a script on the file
                                                             * system, consider candidate locations that
                                                             * represent a directory. */
-        SearchFile = 0x200000000000,                       /* when searching for a script on the file
+        SearchFile = 0x100000000000,                       /* when searching for a script on the file
                                                             * system, consider candidate locations that
                                                             * represent a file. */
-        NoLibraryFile = 0x400000000000,                    /* the file system should be disallowed when
+        NoLibraryFile = 0x200000000000,                    /* the file system should be disallowed when
                                                             * searching for the core script library. */
-        ClientData = 0x800000000000,                       /* the IClientData has been filled in with
+        ClientData = 0x400000000000,                       /* the IClientData has been filled in with
                                                             * auxiliary data (e.g. the associated plugin
                                                             * file name). */
+        LoaderPackage = 0x800000000000,                    /* the script is part of the core binary
+                                                            * plugin loader library package. */
         LibraryPackage = 0x1000000000000,                  /* the script is part of the core script
-                                                            * library. */
-        TestPackage = 0x2000000000000,                     /* the script is part of the core script
-                                                            * library test package. */
+                                                            * library package. */
+        TestPackage = 0x2000000000000,                     /* the script is part of the core test
+                                                            * library package. */
         KitPackage = 0x4000000000000,                      /* the script is part of the core kit
-                                                            * packages. */
+                                                            * library package. */
         AutomaticPackage = 0x8000000000000,                /* the script is part of the core script
                                                             * library, test, or kit packages. */
         FilterOnSuffixMatch = 0x10000000000000,            /* avoid checking resource names that do not
@@ -7415,6 +7749,8 @@ namespace Eagle._Components.Public
                                 * any.  This flag never has an effect on the
                                 * test results. */
         G = Track,             /* Same as "Track". */
+        Hook = 0x80000,        /* Eagle: A test hook was invoked. */
+        H = Hook,              /* Same as "Hook". */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7435,7 +7771,7 @@ namespace Eagle._Components.Public
         All = Standard | Fail | Reason |
               Time | Exit | StdOut |
               StdErr | Enter | Leave |
-              Track,
+              Track | Hook,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7579,7 +7915,7 @@ namespace Eagle._Components.Public
         //
         CheckOptions = StopOnEndOfOptions | StopOnListOfOptions |
                        IgnoreOnUnknownOption | IgnoreOnAmbiguousOption |
-                       IgnoreOnNonOption,
+                       IgnoreOnNonOption | IgnoreOnListOfOptions,
 
         //
         // NOTE: This is the value for the old "strict" mode behavior.
@@ -7600,76 +7936,86 @@ namespace Eagle._Components.Public
     [ObjectId("64fb0580-d2c6-4e7e-a6f4-300144472520")]
     public enum OptionFlags : ulong
     {
-        None = 0x0,                              // Regular name-only option, no special handling.
-        Invalid = 0x1,                           // Invalid, do not use.
-        Present = 0x2,                           // Option was found while parsing arguments.
-        Strict = 0x4,                            // Use strict option value processing semantics?
-        Verbose = 0x8,                           // Error messages should contain more details?
-        NoCase = 0x10,                           // Option is not case-sensitive.
-        Unsafe = 0x20,                           // Option is not allowed in "safe" interpreters.
-        System = 0x40,                           // Option was added automatically by the system.
-        AllowInteger = 0x80,                     // Integers are allowed for an enumeration option.
+        None = 0x0,                              /* Regular name-only option, no special
+                                                  * handling. */
+        Invalid = 0x1,                           /* Invalid, do not use. */
+        Present = 0x2,                           /* Option was found while parsing
+                                                  * arguments. */
+        Strict = 0x4,                            /* Use strict option value processing
+                                                  * semantics? */
+        Verbose = 0x8,                           /* Error messages should contain more
+                                                  * details? */
+        NoCase = 0x10,                           /* Option is not case-sensitive. */
+        Unsafe = 0x20,                           /* Option is not allowed in "safe"
+                                                  * interpreters. */
+        Restricted = 0x40,                       /* Option is not allowed in interpreters
+                                                  * that do not have the "AllowRestricted"
+                                                  * interpreter flag set. */
+        System = 0x80,                           /* Option was added automatically by the
+                                                  * system. */
+        AllowInteger = 0x100,                    /* Integers are allowed for an enumeration
+                                                  * option. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        MustHaveValue = 0x100,                   // Value must have value after name (string, int, etc).
-        MustBeBoolean = 0x200,                   // Value must convert to bool via GetBoolean.
-        MustBeSignedByte = 0x400,                // Value must convert to int via GetSignedByte2.
-        MustBeByte = 0x800,                      // Value must convert to int via GetByte2.
-        MustBeNarrowInteger = 0x1000,            // Value must convert to int via GetInteger2.
-        MustBeUnsignedNarrowInteger = 0x2000,    // Value must convert to int via GetUnsignedInteger2.
-        MustBeInteger = 0x4000,                  // Value must convert to int via GetInteger2.
-        MustBeUnsignedInteger = 0x8000,          // Value must convert to int via GetUnsignedInteger2.
-        MustBeWideInteger = 0x10000,             // Value must convert to wideInt (long) via GetWideInteger2.
-        MustBeUnsignedWideInteger = 0x20000,     // Value must convert to wideInt (long) via GetWideInteger2.
-        MustBeDecimal = 0x40000,                 // Value must convert to decimal via GetDecimal.
-        MustBeDouble = 0x80000,                  // Value must convert to double via GetDouble.
-        MustBeIndex = 0x100000,                  // Value must be an int or end[<+|-><int>].
-        MustBeLevel = 0x200000,                  // Value must be an int or #<int>.
-        MustBeReturnCode = 0x400000,             // Value must be a ReturnCode or int.
-        MustBeEnum = 0x800000,                   // Value must convert to the specified Enum type.
-        MustBeEnumList = 0x1000000,              // Value must be an EnumList object.
-        MustBeGuid = 0x2000000,                  // Value must convert to System.Guid.
-        MustBeDateTime = 0x4000000,              // Value must convert to System.DateTime.
-        MustBeTimeSpan = 0x8000000,              // Value must convert to System.TimeSpan.
-        MustBeList = 0x10000000,                 // SplitList on value must succeed.
-        MustBeDictionary = 0x20000000,           // Must have an even number of list elements.
-        MustBeMatchMode = 0x40000000,            // Value must be "exact", "glob", or "regexp".
-        MustBeValue = 0x80000000,                // Value must convert to some value via GetValue.
-        MustBeObject = 0x100000000,              // Value must be an opaque object handle.
-        MustBeInterpreter = 0x200000000,         // Value must be an opaque interpreter handle.
-        MustBeType = 0x400000000,                // Value must be a System.Type object.
-        MustBeTypeList = 0x800000000,            // Value must be a TypeList object.
-        MustBeAbsoluteUri = 0x1000000000,        // Value must be a System.Uri object.
-        MustBeVersion = 0x2000000000,            // Value must be a System.Version object.
-        MustBeReturnCodeList = 0x4000000000,     // Value must be a ReturnCodeList object.
-        MustBeIdentifier = 0x8000000000,         // Value must be an IIdentifier object.
-        MustBeAlias = 0x10000000000,             // Value must be an IAlias object.
-        MustBeOption = 0x20000000000,            // Value must be an IOption object.
-        MustBeAbsoluteNamespace = 0x40000000000, // Value must be an INamespace object.
-        MustBeRelativeNamespace = 0x80000000000, // Value must be an INamespace object.
-        MustBeCultureInfo = 0x100000000000,      // Value must be a CultureInfo object.
-        MustBeByteArray = 0x200000000000,        // Value must be an array of byte(s).
+        MustHaveValue = 0x200,                    /* Value must have value after name (string, int, etc). */
+        MustBeBoolean = 0x400,                    /* Value must convert to bool via GetBoolean. */
+        MustBeSignedByte = 0x800,                 /* Value must convert to int via GetSignedByte2. */
+        MustBeByte = 0x1000,                      /* Value must convert to int via GetByte2. */
+        MustBeNarrowInteger = 0x2000,             /* Value must convert to int via GetInteger2. */
+        MustBeUnsignedNarrowInteger = 0x4000,     /* Value must convert to int via GetUnsignedInteger2. */
+        MustBeInteger = 0x8000,                   /* Value must convert to int via GetInteger2. */
+        MustBeUnsignedInteger = 0x10000,          /* Value must convert to int via GetUnsignedInteger2. */
+        MustBeWideInteger = 0x20000,              /* Value must convert to wideInt (long) via GetWideInteger2. */
+        MustBeUnsignedWideInteger = 0x40000,      /* Value must convert to wideInt (long) via GetWideInteger2. */
+        MustBeDecimal = 0x80000,                  /* Value must convert to decimal via GetDecimal. */
+        MustBeDouble = 0x100000,                  /* Value must convert to double via GetDouble. */
+        MustBeIndex = 0x200000,                   /* Value must be an int or end[<+|-><int>]. */
+        MustBeLevel = 0x400000,                   /* Value must be an int or #<int>. */
+        MustBeReturnCode = 0x800000,              /* Value must be a ReturnCode or int. */
+        MustBeEnum = 0x1000000,                   /* Value must convert to the specified Enum type. */
+        MustBeEnumList = 0x2000000,               /* Value must be an EnumList object. */
+        MustBeGuid = 0x4000000,                   /* Value must convert to System.Guid. */
+        MustBeDateTime = 0x8000000,               /* Value must convert to System.DateTime. */
+        MustBeTimeSpan = 0x10000000,              /* Value must convert to System.TimeSpan. */
+        MustBeList = 0x20000000,                  /* SplitList on value must succeed. */
+        MustBeDictionary = 0x40000000,            /* Must have an even number of list elements. */
+        MustBeMatchMode = 0x80000000,             /* Value must be "exact", "glob", or "regexp". */
+        MustBeValue = 0x100000000,                /* Value must convert to some value via GetValue. */
+        MustBeObject = 0x200000000,               /* Value must be an opaque object handle. */
+        MustBeInterpreter = 0x400000000,          /* Value must be an opaque interpreter handle. */
+        MustBeType = 0x800000000,                 /* Value must be a System.Type object. */
+        MustBeTypeList = 0x1000000000,            /* Value must be a TypeList object. */
+        MustBeAbsoluteUri = 0x2000000000,         /* Value must be a System.Uri object. */
+        MustBeVersion = 0x4000000000,             /* Value must be a System.Version object. */
+        MustBeReturnCodeList = 0x8000000000,      /* Value must be a ReturnCodeList object. */
+        MustBeIdentifier = 0x10000000000,         /* Value must be an IIdentifier object. */
+        MustBeAlias = 0x20000000000,              /* Value must be an IAlias object. */
+        MustBeOption = 0x40000000000,             /* Value must be an IOption object. */
+        MustBeAbsoluteNamespace = 0x80000000000,  /* Value must be an INamespace object. */
+        MustBeRelativeNamespace = 0x100000000000, /* Value must be an INamespace object. */
+        MustBeCultureInfo = 0x200000000000,       /* Value must be a CultureInfo object. */
+        MustBeByteArray = 0x400000000000,         /* Value must be an array of byte(s). */
 
 #if NATIVE && TCL
-        MustBeTclInterpreter = 0x400000000000,   // Value must be a Tcl interpreter.
+        MustBeTclInterpreter = 0x800000000000,    /* Value must be a Tcl interpreter. */
 #endif
 
-        MustBeSecureString = 0x800000000000,     // Value must be a SecureString object.
-        MustBeEncoding = 0x1000000000000,        // Value must be an Encoding object.
-        MustBePlugin = 0x2000000000000,          // Value must be an IPlugin object.
-        MustBeExecute = 0x4000000000000,         // Value must be an IExecute object.
-        MustBeCallback = 0x8000000000000,        // Value must be an ICallback object.
-        MustBeRuleSet = 0x10000000000000,        // value must be an IRuleSet object.
+        MustBeSecureString = 0x1000000000000,     /* Value must be a SecureString object. */
+        MustBeEncoding = 0x2000000000000,         /* Value must be an Encoding object. */
+        MustBePlugin = 0x4000000000000,           /* Value must be an IPlugin object. */
+        MustBeExecute = 0x8000000000000,          /* Value must be an IExecute object. */
+        MustBeCallback = 0x10000000000000,        /* Value must be an ICallback object. */
+        MustBeRuleSet = 0x20000000000000,         /* value must be an IRuleSet object. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         //
         // NOTE: Special option flags.
         //
-        EndOfOptions = 0x20000000000000,         // This is the end-of-options marker, stop and do not process.
-        ListOfOptions = 0x40000000000000,        // This is the list-of-options marker, stop and show the
-                                                 // available options, returning an error.
+        EndOfOptions = 0x40000000000000,          /* This is the end-of-options marker, stop and do not process. */
+        ListOfOptions = 0x80000000000000,         /* This is the list-of-options marker, stop and show the
+                                                  /* available options, returning an error. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -7698,7 +8044,6 @@ namespace Eagle._Components.Public
         //
         // NOTE: Composite flags provided for shorthand.
         //
-
         MustHaveCallbackValue = MustHaveValue | MustBeCallback,
         MustHaveExecuteValue = MustHaveValue | MustBeExecute,
         MustHavePluginValue = MustHaveValue | MustBePlugin,
@@ -7748,11 +8093,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        MatchOldValueType = 0x800000000000000,  // Old option value must be string or enum.
-        Ignored = 0x1000000000000000,           // This option should not be processed.
-        Disabled = 0x2000000000000000,          // This option is currently disabled (error).
-        Unsupported = 0x4000000000000000,       // This option is not supported by this engine.
-        Reserved = 0x8000000000000000           // Reserved, do not use.
+        MatchOldValueType = 0x800000000000000,  /* Old option value must be string or enum. */
+        Ignored = 0x1000000000000000,           /* This option should not be processed. */
+        Disabled = 0x2000000000000000,          /* This option is currently disabled (error). */
+        Unsupported = 0x4000000000000000,       /* This option is not supported by this engine. */
+        Reserved = 0x8000000000000000           /* Reserved, do not use. */
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -8250,6 +8595,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         SavedCommand = Command | Saved,
+        SavedHiddenCommand = Command | Hidden | Saved,
+        SavedIExecute = IExecute | Saved,
+        SavedHiddenIExecute = IExecute | Hidden | Saved,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -8277,23 +8625,29 @@ namespace Eagle._Components.Public
     public enum StreamFlags
     {
         None = 0x0,
-        Invalid = 0x1,              /* Invalid, do not use. */
-        PreventClose = 0x2,         /* When set, reject all Close and Dispose requests. */
-        SawCarriageReturn = 0x4,    /* A carriage-return has been seen while processing input. */
-        NeedLineFeed = 0x8,         /* A line-feed is needed while processing input. */
-        ExtraCarriageReturn = 0x10, /* A carriage-return has been seen while processing input. */
-        ExtraLineFeed = 0x20,       /* A line-feed was seen without a carriage-return. */
-        UseAnyEndOfLineChar = 0x40, /* Any end-of-line character can terminate an input line. */
-        KeepEndOfLineChars = 0x80,  /* Keep end-of-line characters from input line. */
-        Socket = 0x100,             /* The stream is a socket. */
-        Client = 0x200,             /* The stream contains a client socket. */
-        Server = 0x400,             /* The stream contains a server socket. */
-        Listen = 0x800,             /* The stream contains a listen socket. */
-        NeedBuffer = 0x1000,        /* Enable buffering when adding channels. */
-        TraceReadLines = 0x2000,    /* Enable tracing of end-of-lines for reads. */
+        Invalid = 0x1,               /* Invalid, do not use. */
+        PreventClose = 0x2,          /* When set, reject all Close and Dispose requests. */
+        SawCarriageReturn = 0x4,     /* A carriage-return has been seen while processing input. */
+        NeedLineFeed = 0x8,          /* A line-feed is needed while processing input. */
+        ExtraCarriageReturn = 0x10,  /* A carriage-return has been seen while processing input. */
+        ExtraLineFeed = 0x20,        /* A line-feed was seen without a carriage-return. */
+        UseAnyEndOfLineChar = 0x40,  /* Any end-of-line character can terminate an input line. */
+        KeepEndOfLineChars = 0x80,   /* Keep end-of-line characters from input line. */
+        Socket = 0x100,              /* The stream is a socket. */
+        Client = 0x200,              /* The stream contains a client socket. */
+        Server = 0x400,              /* The stream contains a server socket. */
+        Listen = 0x800,              /* The stream contains a listen socket. */
+        NeedBuffer = 0x1000,         /* Enable buffering when adding channels. */
+        TraceReadLines = 0x2000,     /* Enable tracing of end-of-lines for reads. */
+        LastCarriageReturn = 0x4000, /* A carriage-return was seen as the last input character. */
+        FirstLineFeed = 0x8000,      /* NOT USED: A line-feed was seen as the first input character. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ExtraLineEndingMask = ExtraCarriageReturn | ExtraLineFeed |
+                              LastCarriageReturn | FirstLineFeed,
 
         LineEndingMask = SawCarriageReturn | NeedLineFeed,
-        ExtraLineEndingMask = ExtraCarriageReturn | ExtraLineFeed,
         AnyLineEndingMask = LineEndingMask | ExtraLineEndingMask,
 
         ListenSocket = Socket | Listen,
@@ -8434,86 +8788,100 @@ namespace Eagle._Components.Public
 
     [Flags()]
     [ObjectId("ba1fcf45-9ce8-4d7a-9158-fb5c4f345bd2")]
-    public enum ScriptDataFlags
+    public enum ScriptDataFlags : ulong
     {
-        None = 0x0,                        /* No special handling. */
-        Invalid = 0x1,                     /* Invalid, do not use. */
-        UseSafeInterpreter = 0x2,          /* Create and/or use a "safe"
-                                            * interpreter. */
-        UseIsolatedInterpreter = 0x4,      /* Create and/or use an interpreter
-                                            * in its own application domain. */
-        UseStaticDataOnly = 0x8,           /* The script only contains static
-                                            * data that uses the [set] command.
-                                            */
-        FastStaticDataOnly = 0x10,         /* Loading is being done in a time
-                                            * critical context and shortcuts
-                                            * should be taken as needed. */
-        CopyScalars = 0x20,                /* Scalar variables should be copied
-                                            * to the resulting dictionary. */
-        CopyArrays = 0x40,                 /* Array variables should be copied
-                                            * to the resulting dictionary. */
-        ExistingOnly = 0x80,               /* When merging the settings, only
-                                            * consider those that already
-                                            * existed. */
-        ErrorOnScalar = 0x100,             /* When this flag is set and the
-                                            * associated "copy" flag is not set,
-                                            * an error will be returned if a
-                                            * scalar variable is found.
-                                            */
-        ErrorOnArray = 0x200,              /* When this flag is set and the
-                                            * associated "copy" flag is not set,
-                                            * an error will be returned if an
-                                            * array variable is found. */
-        DisableSecurity = 0x400,           /* Prevent the "Security" flag from
-                                            * being set in the interpreter
-                                            * initialization flags. */
-        ForceTrustedUri = 0x800,           /* Make sure to trust the public
-                                            * key(s) that are associated with
-                                            * the software update SSL
-                                            * certificate(s) prior to attempting
-                                            * to evaluate the settings file.
-                                            * This will use save/restore
-                                            * semantics on the associated trust
-                                            * state. */
-        NoCreateInterpreter = 0x1000,      /* Use an existing interpreter, do
-                                            * not create a new one. */
-        CacheSafeInterpreter = 0x2000,     /* Use existing cached "safe"
-                                            * interpreter, if any, creating and
-                                            * storing it when needed. */
-        CacheIsolatedInterpreter = 0x4000, /* Use existing cached "safe"
-                                            * interpreter, if any, creating and
-                                            * storing it when needed. */
-        DisableHost = 0x8000,              /* Skip creating an interpreter host.
-                                            */
-        NoConsoleHost = 0x10000,           /* Do not use the console host. */
+        None = 0x0,                         /* No special handling. */
+        Invalid = 0x1,                      /* Invalid, do not use. */
+        UseSafeInterpreter = 0x2,           /* Create and/or use a "safe"
+                                             * interpreter. */
+        UseIsolatedInterpreter = 0x4,       /* Create and/or use an interpreter
+                                             * in its own application domain. */
+        UseStaticDataOnly = 0x8,            /* The script only contains static
+                                             * data that uses the [set] command.
+                                             */
+        FastStaticDataOnly = 0x10,          /* Loading is being done in a time
+                                             * critical context and shortcuts
+                                             * should be taken as needed. */
+        CopyScalars = 0x20,                 /* Scalar variables should be copied
+                                             * to the resulting dictionary. */
+        CopyArrays = 0x40,                  /* Array variables should be copied
+                                             * to the resulting dictionary. */
+        ExistingOnly = 0x80,                /* When merging the settings, only
+                                             * consider those that already
+                                             * existed. */
+        ErrorOnScalar = 0x100,              /* When this flag is set and the
+                                             * associated "copy" flag is not set,
+                                             * an error will be returned if a
+                                             * scalar variable is found.
+                                             */
+        ErrorOnArray = 0x200,               /* When this flag is set and the
+                                             * associated "copy" flag is not set,
+                                             * an error will be returned if an
+                                             * array variable is found. */
+        DisableSecurity = 0x400,            /* Prevent the "Security" flag from
+                                             * being set in the interpreter
+                                             * initialization flags. */
+        EnableSecurity = 0x800,             /* Set the "Security" initialization
+                                             * flag when creating a new (cached)
+                                             * interpreter for use by settings.
+                                             */
+        ForceTrustedUri = 0x1000,           /* Make sure to trust the public
+                                             * key(s) that are associated with
+                                             * the software update SSL
+                                             * certificate(s) prior to attempting
+                                             * to evaluate the settings file.
+                                             * This will use save/restore
+                                             * semantics on the associated trust
+                                             * state. */
+        NoCreateInterpreter = 0x2000,       /* Use an existing interpreter, do
+                                             * not create a new one. */
+        CacheSafeInterpreter = 0x4000,      /* Use existing cached "safe"
+                                             * interpreter, if any, creating and
+                                             * storing it when needed. */
+        CacheIsolatedInterpreter = 0x8000,  /* NOT IMPLEMENTED: Use existing cached
+                                             * "safe" interpreter, if any, creating
+                                             * and storing it when needed. */
+        DisableHost = 0x10000,              /* Skip creating an interpreter host.
+                                             */
+        NoConsoleHost = 0x20000,            /* Do not use the console host. */
 #if ISOLATED_PLUGINS
-        NoIsolatedPlugins = 0x20000,       /* Prevent plugins from being loaded
-                                            * in isolated application domains. */
+        NoIsolatedPlugins = 0x40000,        /* Prevent plugins from being loaded
+                                             * in isolated application domains. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
-        NoPluginUpdateCheck = 0x40000,     /* Skip update checks when loading
-                                            * plugins. */
+        NoPluginUpdateCheck = 0x80000,      /* Skip update checks when loading
+                                             * plugins. */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        NoPluginIsolatedOnly = 0x80000,    /* Prevent plugins from setting the
-                                            * IsolatedOnly plugin flag. */
+        NoPluginIsolatedOnly = 0x100000,    /* Prevent plugins from setting the
+                                             * IsolatedOnly plugin flag. */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        NoStartup = 0x100000,              /* Skip evaluating "startup" scripts
-                                            * when creating an interpreter. */
-        NoThreadAbort = 0x200000,          /* Disallow any implicit use of the
-                                            * Thread.Abort() method. */
+        NoStartup = 0x200000,               /* Skip evaluating "startup" scripts
+                                             * when creating an interpreter. */
+        NoThreadAbort = 0x400000,           /* Disallow any implicit use of the
+                                             * Thread.Abort() method. */
+        AllowPackageUnknown = 0x800000,     /* For created interpreters, skip
+                                             * forbidding use of [package unknown]. */
+        AllowTemporaryPackages = 0x1000000, /* For created interpreters, allow
+                                             * the temporary packages flag to be
+                                             * set. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Reserved1 = 0x2000000,             /* Reserved value, do not use. */
-        Reserved2 = 0x4000000,             /* Reserved value, do not use. */
+        ForDefault = 0x2000000,             /* The settings are being loaded using
+                                             * the default semantics. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Reserved1 = 0x40000000,             /* Reserved value, do not use. */
+        Reserved2 = 0x80000000,             /* Reserved value, do not use. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -8526,7 +8894,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        SecurityPackage = DisableSecurity | NoConsoleHost |
+        FastUseMask = NoCreateInterpreter |
+                      UseSafeInterpreter |
+                      CacheSafeInterpreter,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        EmbeddedUseMask = NoConsoleHost |
 #if ISOLATED_PLUGINS
                           NoIsolatedPlugins |
 #if SHELL
@@ -8535,6 +8909,18 @@ namespace Eagle._Components.Public
                           NoPluginIsolatedOnly |
 #endif
                           NoThreadAbort,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+#if ENTERPRISE_LOCKDOWN
+        MaybeEnableSecurity = EnableSecurity,
+#else
+        MaybeEnableSecurity = None,
+#endif
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        SecurityPackage = DisableSecurity | EmbeddedUseMask,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -8552,8 +8938,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Minimum = Reserved2 | Low, /* COMPAT: Eagle beta. */
-        Maximum = Reserved2 | High /* COMPAT: Eagle beta. */
+        Minimum = Reserved2 | Low,  /* COMPAT: Eagle beta. */
+        Maximum = Reserved2 | High, /* COMPAT: Eagle beta. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Default = (High & ~ExistingOnly) | MaybeEnableSecurity |
+                  FastUseMask | EmbeddedUseMask | ForDefault,
+
+        DefaultAndEnableSecurity = Default | EnableSecurity
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -9273,6 +9666,14 @@ namespace Eagle._Components.Public
         NoCleanup = 0x100000,        /* WARNING: Setting this flag will
                                       * skip evaluation of all test cleanup
                                       * scripts. */
+        NoAppDomain = 0x200000,      /* WARNING: Setting this flag will
+                                      * completely ignore all isolation
+                                      * level settings that call for a
+                                      * new AppDomain. */
+        StopOnHookError = 0x400000,  /* If a hook script raises a script
+                                      * error, stop evaluating further
+                                      * test hooks and raise an error.
+                                      */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -9309,17 +9710,36 @@ namespace Eagle._Components.Public
                                                     * handling. */
         NoPostProcess = 0x4,                       /* Skip post-processing of returned
                                                     * variable values. */
+        TemporaryPackages = 0x8,                   /* Enable scanning for temporary
+                                                    * packages automatically when
+                                                    * using the EvaluateFile method
+                                                    * overloads to evaluate a script
+                                                    * file. */
         TraceResult = 0x10,                        /* Trace engine result processing. */
         TraceToHost = 0x20,                        /* Redirect trace listener output to
                                                     * the interpreter host.  Currently,
                                                     * this is used by external plugins
                                                     * only. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         TraceStack = 0x40,                         /* Attempt to emit a full stack trace
                                                     * if the DebugOps.Complain method is
                                                     * called.  In the future, other trace
                                                     * listener output may be impacted by
                                                     * this flag as well.
+                                                    *
+                                                    * BUGBUG: It is highly likely that
+                                                    *         this should actually be
+                                                    *         part of the default
+                                                    *         interpreter flags because
+                                                    *         any "complaints" issued by
+                                                    *         this library should be very
+                                                    *         rare in normal usage.
                                                     */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
         AllowUnsafeOptions = 0x80,                 /* Allow a "safe" interpreter to use
                                                     * options flagged as "unsafe". */
         NoThreadAbort = 0x200,                     /* Prevent any implicit use of the
@@ -9402,9 +9822,7 @@ namespace Eagle._Components.Public
         ForceGlobalLibrary = 0x100000000,          /* Make sure that all library scripts
                                                     * are evaluated in the global context.
                                                     */
-        ForceGlobalStartup = 0x200000000,          /* Make sure that all startup scripts
-                                                    * are evaluated in the global context.
-                                                    */
+        AllowRestricted = 0x200000000,             /* Restricted options are allowed. */
         TclMathOperators = 0x400000000,            /* Enable adding a command for each
                                                     * operator into the "tcl::mathop"
                                                     * namespace. */
@@ -9517,7 +9935,8 @@ namespace Eagle._Components.Public
         //
         // NOTE: These are disallowed when creating "safe" interpreters.
         //
-        UnsafeMask = ReplaceEmptyListOk | ComplainViaTest |
+        UnsafeMask = TemporaryPackages | ReplaceEmptyListOk |
+                     ComplainViaTest | AllowRestricted |
                      TclMathOperators | TclMathFunctions |
                      LegacyOctal | UsePrintfForDouble|
                      PreDisposeScripts,
@@ -9527,10 +9946,11 @@ namespace Eagle._Components.Public
         //
         // NOTE: These are the default flags for newly created interpreters.
         //
-        Default = FinallyResetCancel | FinallyRestoreCancel |
-                  FinallyResetExit | FinallyRestoreExit |
-                  NoPackageUnknown | ReplaceEmptyListOk |
-                  ComplainViaTest | TclMathOperators |
+        Default = TemporaryPackages | FinallyResetCancel |
+                  FinallyRestoreCancel | FinallyResetExit |
+                  FinallyRestoreExit | NoPackageUnknown |
+                  ReplaceEmptyListOk | ComplainViaTest |
+                  AllowRestricted | TclMathOperators |
                   TclMathFunctions | LegacyOctal |
                   StrictExpressionInteger | UsePrintfForDouble |
                   PreDisposeScripts | SafeTiming |
@@ -10282,32 +10702,34 @@ namespace Eagle._Components.Public
     [ObjectId("bd01cdba-63db-4751-9c5e-45504fb336af")]
     public enum AliasFlags
     {
-        None = 0x0,               /* No special handling. */
-        MergeArguments = 0x1,     /* The alias will merge the current command arguments with the
-                                   * arguments originally specified during alias creation,
-                                   * maintaining the overall argument order and merging the options
-                                   * together. */
-        SkipTargetName = 0x2,     /* The merged arguments will not include the target command
-                                   * name. */
-        SkipSourceName = 0x4,     /* The merged arguments will not include the source command
-                                   * name. */
-        UseTargetRemaining = 0x8, /* The merged arguments will include all non-option arguments
-                                   * from the target. */
-        Evaluate = 0x10,          /* The target of the alias will be evaluated rather than executed
-                                   * directly. */
-        GlobalNamespace = 0x20,   /* The global namespace should be used as the context. */
-        CrossCommand = 0x40,      /* The command alias is being used for [interp alias] support. */
-        Object = 0x80,            /* The command alias refers to a managed object. */
-        Reference = 0x100,        /* The command alias holds a reference to the managed object. */
-        Namespace = 0x200,        /* The command alias is being used for [namespace] support. */
-        CrossInterpreter = 0x400, /* The command alias is being used for [interp create] support. */
+        None = 0x0,                /* No special handling. */
+        Invalid = 0x1,             /* Invalid, do not use. */
+        System = 0x2,              /* Reserved, do not use. */
+        MergeArguments = 0x4,      /* The alias will merge the current command arguments with the
+                                    * arguments originally specified during alias creation,
+                                    * maintaining the overall argument order and merging the options
+                                    * together. */
+        SkipTargetName = 0x8,      /* The merged arguments will not include the target command
+                                    * name. */
+        SkipSourceName = 0x10,     /* The merged arguments will not include the source command
+                                    * name. */
+        UseTargetRemaining = 0x20, /* The merged arguments will include all non-option arguments
+                                    * from the target. */
+        Evaluate = 0x40,           /* The target of the alias will be evaluated rather than executed
+                                    * directly. */
+        GlobalNamespace = 0x80,    /* The global namespace should be used as the context. */
+        CrossCommand = 0x100,      /* The command alias is being used for [interp alias] support. */
+        Object = 0x200,            /* The command alias refers to a managed object. */
+        Reference = 0x400,         /* The command alias holds a reference to the managed object. */
+        Namespace = 0x800,         /* The command alias is being used for [namespace] support. */
+        CrossInterpreter = 0x1000, /* The command alias is being used for [interp create] support. */
 
 #if EMIT && NATIVE && LIBRARY
-        Library = 0x800,          /* The command alias refers to a native library delegate. */
+        Library = 0x2000,          /* The command alias refers to a native library delegate. */
 #endif
 
 #if NATIVE && TCL
-        TclWrapper = 0x1000,      /* The command alias is being used for [tcl eval] support. */
+        TclWrapper = 0x4000,       /* The command alias is being used for [tcl eval] support. */
 #endif
 
         CrossCommandAlias = GlobalNamespace | CrossCommand,         /* For [interp alias]
@@ -10436,6 +10858,10 @@ namespace Eagle._Components.Public
         Proxy = 0x80000000,       /* This command acts as a proxy for other
                                    * commands.  It (probably) cannot be created
                                    * directly. */
+        NoCase = 0x100000000,     /* This command should handle its arguments
+                                   * in a case-insensitive manner, including
+                                   * (and especially, and possibly only) its
+                                   * sub-command names. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -10451,7 +10877,7 @@ namespace Eagle._Components.Public
                         Interactive |
 #endif
                         Initialize | SecuritySdk |
-                        LicenseSdk | Proxy,
+                        LicenseSdk | Proxy | NoCase,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -10462,7 +10888,8 @@ namespace Eagle._Components.Public
             Disabled | Hidden |
             ReadOnly | Breakpoint |
             NoToken | NoRename |
-            NoRemove | NoAttributes,
+            NoRemove | NoAttributes |
+            NoCase,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -10678,7 +11105,7 @@ namespace Eagle._Components.Public
 
     [Flags()]
     [ObjectId("a82bd131-a778-4856-a03e-d09e470a83c7")]
-    public enum ProcedureFlags
+    public enum ProcedureFlags : ulong
     {
         None = 0x0,
         Invalid = 0x1,                 /* Invalid, do not use. */
@@ -10697,34 +11124,41 @@ namespace Eagle._Components.Public
         Breakpoint = 0x200,            /* Break into debugger upon entry and exit. */
         ScriptLocation = 0x400,        /* Use the previously pushed script location when evaluating
                                         * the procedure body. */
-        Private = 0x800,               /* The procedure may be executed only from within the file
+        Private = 0x800,               /* The procedure may NOT be called from anywhere outside of
+                                        * its own namespace. */
+        Internal = 0x1000,             /* The procedure may be executed only from within the file
                                         * it was defined in.  If the procedure was not defined in
                                         * a file, it may only be executed outside the context of
                                         * a file. */
-        NoReplace = 0x1000,            /* Attempts to replace the procedure are silently ignored. */
-        NoRename = 0x2000,             /* Attempts to rename the procedure are silently ignored. */
-        NoRemove = 0x4000,             /* Attempts to remove the procedure are silently ignored. */
-        Fast = 0x8000,                 /* Traces, watchpoints, and similar mechanisms are disabled
+        NoReplace = 0x2000,            /* Attempts to replace the procedure are silently ignored. */
+        NoRename = 0x4000,             /* Attempts to rename the procedure are silently ignored. */
+        NoRemove = 0x8000,             /* Attempts to remove the procedure are silently ignored. */
+        Fast = 0x10000,                /* Traces, watchpoints, and similar mechanisms are disabled
                                         * by default for all local variables. */
-        Atomic = 0x10000,              /* The interpreter lock should be held while the procedure
+        Atomic = 0x20000,              /* The interpreter lock should be held while the procedure
                                         * is running. */
-        PositionalArguments = 0x20000, /* The procedure uses positional arguments.  The special
+        PositionalArguments = 0x40000, /* The procedure uses positional arguments.  The special
                                         * "args" argument is supported. */
-        NamedArguments = 0x40000,      /* The procedure uses named arguments instead of positional
+        NamedArguments = 0x80000,      /* The procedure uses named arguments instead of positional
                                         * arguments.  Any named argument with an associated default
                                         * value is optional.  The special "args" argument is still
                                         * supported.  There must be an even number of arguments to
                                         * call the procedure as they represent name/value pairs. */
-        Obfuscated = 0x80000,          /* The procedure has been obfuscated by a plugin (i.e. its
+        Obfuscated = 0x100000,         /* The procedure has been obfuscated by a plugin (i.e. its
                                         * body and argument names will be unavailable). */
-        NoAttributes = 0x100000,       /* Skip querying and combining the flags, etc, from the
+        NoAttributes = 0x200000,       /* Skip querying and combining the flags, etc, from the
                                         * underlying managed type. */
 
 #if ARGUMENT_CACHE || PARSE_CACHE
-        NonCaching = 0x200000,         /* Disable caching for the body of the procedure.  The exact
+        NonCaching = 0x400000,         /* Disable caching for the body of the procedure.  The exact
                                         * cache(s) that is/are disabled is unspecified and subject
                                         * to change in the future. */
 #endif
+
+        MatchTypes = 0x800000,         /* Enforce restrictions on local variables that pertain to
+                                        * their types.  Variable values can only be changed if they
+                                        * are null or have the same type as the previous variable
+                                        * value. */
 
         Default = None
     }
@@ -11009,7 +11443,7 @@ namespace Eagle._Components.Public
 
     [Flags()]
     [ObjectId("eb0e3225-f87c-4f47-b30e-6ab38548cd7c")]
-    public enum PackageIndexFlags
+    public enum PackageIndexFlags : ulong
     {
         None = 0x0,                         /* No special handling. */
         Invalid = 0x1,                      /* Invalid, do not use. */
@@ -11073,6 +11507,17 @@ namespace Eagle._Components.Public
         WhatIf = 0x2000000,                 /* Running in "what-if" mode, do not
                                              * modify any persistent interpreter
                                              * state. */
+        Temporary = 0x4000000,              /* When processing package indexes, mark
+                                             * all the created packages as temporary.
+                                             */
+        Primary = 0x8000000,                /* Include the primary package index file
+                                             * in the file search. */
+        Tagged = 0x10000000,                /* Include the tagged package index files
+                                             * in the file search. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForEngine = 0x100000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11105,12 +11550,12 @@ namespace Eagle._Components.Public
         //       callback.
         //
 #if DEBUG
-        AutoPath = Host | Normal | NoNormal |
-                   Recursive | MaybeNoTrusted |
+        AutoPath = Host | Normal | Primary | Tagged |
+                   NoNormal | Recursive | MaybeNoTrusted |
                    MaybeNoVerified | NoSort, /* TODO: Good default? */
 #else
-        AutoPath = Host | Normal | NoNormal |
-                   Recursive | NoSort, /* TODO: Good default? */
+        AutoPath = Host | Normal | Primary | Tagged |
+                   NoNormal | Recursive | NoSort, /* TODO: Good default? */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -11126,6 +11571,11 @@ namespace Eagle._Components.Public
         //       EnableOrDisableSecurity method.
         //
         SecurityPackage = (AutoPath | Safe) & ~(Host | Recursive),
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        EvaluateFile = Normal | Temporary | Tagged | NoComplain |
+                       NoFileError | ForEngine,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11159,6 +11609,8 @@ namespace Eagle._Components.Public
         Rejected = 0x400,       /* When used with the Locked flag, this flag
                                  * will cause an error to be generated by the
                                  * [package ifneeded] sub-command. */
+        Temporary = 0x800,      /* The package was added automatically via core
+                                 * script file evaluation. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11192,7 +11644,8 @@ namespace Eagle._Components.Public
 
         InstanceMask = System | Loading | Static | Core |
                        Plugin | Library | Interactive |
-                       Automatic | Locked | Rejected,
+                       Automatic | Locked | Rejected |
+                       Temporary,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11237,12 +11690,10 @@ namespace Eagle._Components.Public
 
         ForDefault = 0x2000000,
 
-        LegacyVariableMask = FollowLink | Trace, // COMPAT: Eagle beta.
-
         StopOnAnyComplain = StopOnComplain | StopOnGlobalComplain,
         StopOnAny = StopOnError | StopOnComplain | StopOnGlobalComplain,
 
-        Default = DoOneEvent | LegacyVariableMask | ForDefault
+        Default = DoOneEvent | FollowLink | ForDefault
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -11486,6 +11937,8 @@ namespace Eagle._Components.Public
     {
         None = 0x0,                  /* No special handling. */
         Invalid = 0x1,               /* Invalid, do not use. */
+        Library = 0x2,               /* This call frame is being used for a
+                                      * core script library procedure. */
         NoFree = 0x8,                /* This call frame should not be freed
                                       * via the Free() method unless the
                                       * "global" parameter is true.  This
@@ -11565,8 +12018,11 @@ namespace Eagle._Components.Public
         Restricted = 0x8000000000,   /* Special restrictions are applied to
                                       * evaluated scripts, some scripts may
                                       * not work. */
-        Application = 0x10000000000, /* Reserved application-defined flag. */
-        User = 0x20000000000,        /* Reserved user-defined flag. */
+        MatchTypes = 0x10000000000,  /* Variables within this call frame can
+                                      * only accept new values that have the
+                                      * same basic type. */
+        Application = 0x20000000000, /* Reserved application-defined flag. */
+        User = 0x40000000000,        /* Reserved user-defined flag. */
 
         /* these flags are toggled when marking/unmarking global scope frames */
 
@@ -11830,58 +12286,68 @@ namespace Eagle._Components.Public
 
     [Flags()]
     [ObjectId("87619eee-2103-4488-a2ce-59cc8d94059e")]
-    public enum ResultFlags
+    public enum ResultFlags : ulong
     {
-        None = 0x0,              /* No extra flags. */
-        Invalid = 0x1,           /* Invalid, do not use. */
-        Reserved1 = 0x2,         /* Reserved, do not use. */
-        Global = 0x4,            /* The result is globally scoped? */
-        Local = 0x8,             /* The result is locally scoped? */
-        String = 0x10,           /* Result is a string (always true for now) */
-        Exception = 0x20,        /* The result has an exception instance */
-        Error = 0x40,            /* The result has error information? */
-        Application = 0x80,      /* Application-defined flag. */
-        User = 0x100,            /* User-defined flag. */
+        None = 0x0,                     /* No extra flags. */
+        Invalid = 0x1,                  /* Invalid, do not use. */
+        Reserved1 = 0x2,                /* Reserved, do not use. */
+        Global = 0x4,                   /* The result is globally scoped? */
+        Local = 0x8,                    /* The result is locally scoped? */
+        String = 0x10,                  /* Result is a string (always true for now) */
+        Exception = 0x20,               /* The result has an exception instance */
+        Error = 0x40,                   /* The result has error information? */
+        Application = 0x80,             /* Application-defined flag. */
+        User = 0x100,                   /* User-defined flag. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ClientData = 0x1000,     /* When cloning, copy the client data, if
-                                  * any. */
-        ValueData = 0x2000,      /* When cloning, copy the value data, if
-                                  * any. */
-        ExtraData = 0x4000,      /* When cloning, copy the extra data, if
-                                  * any. */
-        CallFrame = 0x8000,      /* When cloning, copy the call frame, if
-                                  * any. */
-        EngineData = 0x10000,    /* When cloning, copy the engine data, if
-                                  * any. */
-        StackTrace = 0x20000,    /* When cloning, copy the stack trace, if
-                                  * any. */
-        IgnoreType = 0x40000,    /* When cloning, use new value even if the
-                                  * types do not match. */
+        ClientData = 0x1000,            /* When cloning, copy the client data, if
+                                         * any. */
+        ValueData = 0x2000,             /* When cloning, copy the value data, if
+                                         * any. */
+        ExtraData = 0x4000,             /* When cloning, copy the extra data, if
+                                         * any. */
+        CallFrame = 0x8000,             /* When cloning, copy the call frame, if
+                                         * any. */
+        EngineData = 0x10000,           /* When cloning, copy the engine data, if
+                                         * any. */
+        StackTrace = 0x20000,           /* When cloning, copy the stack trace, if
+                                         * any. */
+        IgnoreType = 0x40000,           /* When cloning, use new value even if the
+                                         * types do not match. */
+        FullString = 0x80000,           /* When cloning, copy the full string, if
+                                         * any. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForList = 0x100000,      /* Used for the ResultList class. */
-        ForCopy = 0x200000,      /* Used for the Copy methods. */
-        ForReset = 0x400000,     /* Used for the Result methods. */
+        ForList = 0x100000,             /* Used for the ResultList class. */
+        ForCopy = 0x200000,             /* Used for the Copy methods. */
+        ForReset = 0x400000,            /* Used for the Result methods. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        AddRange = 0x1000000,     /* ResultList only: when adding a nested
-                                   * ResultList, add as a range of values,
-                                   * not as a single value. */
-        NoAddRange = 0x2000000,   /* ResultList only: when adding a nested
-                                   * ResultList, add as a single value, not
-                                   * as a range of values. */
-        Squash = 0x4000000,       /* ResultList only: collapse zero and one
-                                   * element lists into empty string and/or
-                                   * just the element itself. */
-        NoSquash = 0x8000000,     /* ResultList only: opposite of Squash. */
-        SkipEmpty = 0x10000000,   /* ResultList only: skip null values, null
-                                   * strings, and empty string values when
-                                   * converting the list of a string. */
-        NoSkipEmpty = 0x20000000, /* ResultList only: opposite of SkipEmpty. */
+        AddRange = 0x1000000,           /* ResultList only: when adding a nested
+                                         * ResultList, add as a range of values,
+                                         * not as a single value. */
+        NoAddRange = 0x2000000,         /* ResultList only: when adding a nested
+                                         * ResultList, add as a single value, not
+                                         * as a range of values. */
+        Squash = 0x4000000,             /* ResultList only: collapse zero and one
+                                         * element lists into empty string and/or
+                                         * just the element itself. */
+        NoSquash = 0x8000000,           /* ResultList only: opposite of Squash. */
+        SkipEmpty = 0x10000000,         /* ResultList only: skip null values, null
+                                         * strings, and empty string values when
+                                         * converting the list of a string. */
+        NoSkipEmpty = 0x20000000,       /* ResultList only: opposite of SkipEmpty. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForceNullArgument = 0x40000000, /* The script engine should permit the
+                                         * associated argument to be null, even if
+                                         * the NoNullArgument flag has been set. */
+        ForceNullResult = 0x80000000,   /* The script engine should transform this
+                                         * result into a null result object. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11891,8 +12357,8 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Complaint = Error | StackTrace,
-        InternalMask = EngineData | StackTrace,
+        Complaint = Error | StackTrace | FullString,
+        InternalMask = EngineData | StackTrace | FullString,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11916,7 +12382,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        Reserved = unchecked((int)0x80000000)
+        ForceNullMask = ForceNullArgument | ForceNullResult,
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        Reserved = 0x8000000000000000
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -12642,7 +13112,7 @@ namespace Eagle._Components.Public
         //
         ForPromptMask = NoCancel
 #if DEBUGGER
-            | NoBreakpoint
+            | NoDebuggerMask
 #endif
             ,
 
@@ -12663,7 +13133,7 @@ namespace Eagle._Components.Public
         // NOTE: Used when evaluating an interpreter or shell startup script
         //       in the debugger.
         //
-        DebuggerExecutionMask = NoWatchpoint,
+        NoDebuggerMask = NoBreakpoint | NoWatchpoint,
 #endif
 
         //
@@ -12673,7 +13143,7 @@ namespace Eagle._Components.Public
         //
         FastMask = NoReady |
 #if DEBUGGER
-                   NoBreakpoint | NoWatchpoint |
+                   NoDebuggerMask |
 #endif
 #if DEBUGGER && DEBUGGER_ARGUMENTS
                    NoDebuggerArguments |

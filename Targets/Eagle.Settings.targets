@@ -356,7 +356,7 @@
         NOTE: The official URL for the project(s) being compiled.  This can be
               overridden in each project file.
     -->
-    <EagleProjectUrl Condition="'$(EagleProjectUrl)' == ''">https://eagle.to/</EagleProjectUrl>
+    <EagleProjectUrl Condition="'$(EagleProjectUrl)' == ''">https://urn.to/r/eagle</EagleProjectUrl>
 
     <!--
         NOTE: The official Authenticode time-stamping URL for the project(s)

@@ -14,6 +14,47 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Private
 {
+    [Flags()]
+    [ObjectId("37642c03-7be0-4f32-86d8-05345880f8c4")]
+    internal enum TestResultType
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        Pending = 0x1000,
+        Passed = 0x2000,
+        Failed = 0x4000,
+        Disabled = 0x8000,
+        Ignored = 0x10000
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    [Flags()]
+    [ObjectId("62cbe58f-73dd-4f14-b139-f5daeac54883")]
+    internal enum TestHookType
+    {
+        None = 0x0,
+        Invalid = 0x1,
+
+        Before = 0x100,
+        After = 0x200,
+
+        ExactMatch = 0x1000,
+        AnyMatch = 0x2000,
+        NoCase = 0x4000,
+        AllowOverwrite = 0x8000,
+
+        ForDefault = 0x100000,
+
+        TypeMask = Before | After,
+        FlagMask = ExactMatch | NoCase | AllowOverwrite,
+
+        Default = Before | ForDefault
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
 #if !NET_STANDARD_20 && !MONO
     [Flags()]
     [ObjectId("be6327bf-27b6-4d04-b794-4526d0b712c1")]
@@ -169,6 +210,9 @@ namespace Eagle._Components.Private
                                * preparing to read interactive input from
                                * within the interactive loop. */
         TraceCommand = 0x40,  /* Trace interactive commands.  Used by the
+                               * interactive loop. */
+        DumpCommands = 0x80,  /* Dump the debugger "override" command
+                               * and its queue of commands.  Used by the
                                * interactive loop. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -482,8 +526,9 @@ namespace Eagle._Components.Private
         Queue = 0x4000,
         PostQueue = 0x8000,
         Count = 0x10000,
+        Trace = 0x20000,
 
-        ForDefault = 0x10000,
+        ForDefault = 0x40000,
 
         Default = Queue | PostQueue | ForDefault
     }
@@ -1290,126 +1335,136 @@ namespace Eagle._Components.Private
     [ObjectId("956f972f-4c63-4009-a142-98e1765fc752")]
     internal enum InterpreterStateFlags : ulong
     {
-        None = 0x0,                      /* No flags. */
-        Invalid = 0x1,                   /* Invalid, do not use. */
-        Reserved1 = 0x2,                 /* Reserved, do not use. */
+        None = 0x0,                        /* No flags. */
+        Invalid = 0x1,                     /* Invalid, do not use. */
+        Reserved1 = 0x2,                   /* Reserved, do not use. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        PendingCleanup = 0x4,            /* Interpreter is pending cleanup when
-                                          * the current evaluation stack is
-                                          * unwound (delete all commands,
-                                          * procedures, and global variables).
-                                          * This flag is used by the namespace
-                                          * deletion subsystem. */
-        Shared = 0x8,                    /* The interpreter is shared with an
-                                          * external component and must not be
-                                          * disposed.  This flag is used by the
-                                          * [interp shareinterp] sub-command. */
+        PendingCleanup = 0x4,              /* Interpreter is pending cleanup when
+                                            * the current evaluation stack is
+                                            * unwound (delete all commands,
+                                            * procedures, and global variables).
+                                            * This flag is used by the namespace
+                                            * deletion subsystem. */
+        Shared = 0x8,                      /* The interpreter is shared with an
+                                            * external component and must not be
+                                            * disposed.  This flag is used by the
+                                            * [interp shareinterp] sub-command. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        PendingPolicies = 0x10,          /* Skip all command and file policy
-                                          * checks?  This is used internally to
-                                          * prevent unwanted mutual recursion. */
-        PendingTraces = 0x20,            /* Skip all variable traces?  This is
-                                          * used internally to prevent unwanted
-                                          * mutual recursion. */
-        PendingPackageIndexes = 0x40,    /* Skip searching for package indexes.
-                                          * This flag prevents a package index
-                                          * that modifies the auto-path from
-                                          * triggering a nested package index
-                                          * search.  This is used internally to
-                                          * prevent unwanted mutual recursion. */
+        PendingPolicies = 0x10,            /* Skip all command and file policy
+                                            * checks?  This is used internally to
+                                            * prevent unwanted mutual recursion. */
+        PendingTraces = 0x20,              /* Skip all variable traces?  This is
+                                            * used internally to prevent unwanted
+                                            * mutual recursion. */
+        PendingPackageIndexes = 0x40,      /* Skip searching for package indexes.
+                                            * This flag prevents a package index
+                                            * that modifies the auto-path from
+                                            * triggering a nested package index
+                                            * search.  This is used internally to
+                                            * prevent unwanted mutual recursion. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        SecurityWasEnabled = 0x80,       /* The ScriptOps.EnableOrDisableSecurity
-                                          * method successfully enabled security.
-                                          */
+        SecurityWasEnabled = 0x80,         /* The ScriptOps.EnableOrDisableSecurity
+                                            * method successfully enabled security.
+                                            */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if DEBUG
-        StrictCallStack = 0x100,         /* Throw an exception if the call stack
-                                          * appears to be in an invalid state? */
+        StrictCallStack = 0x100,           /* Throw an exception if the call stack
+                                            * appears to be in an invalid state? */
 #endif
-        ScriptLocation = 0x200,          /* Keep track of all script locations;
-                                          * if not set, only those pushed by
-                                          * [source] are tracked. */
-        StrictScriptLocation = 0x400,    /* Throw an exception if called upon
-                                          * to push or pop a script location
-                                          * when they are not available (i.e.
-                                          * null). */
+        ScriptLocation = 0x200,            /* Keep track of all script locations;
+                                            * if not set, only those pushed by
+                                            * [source] are tracked. */
+        StrictScriptLocation = 0x400,      /* Throw an exception if called upon
+                                            * to push or pop a script location
+                                            * when they are not available (i.e.
+                                            * null). */
 #if DEBUGGER && DEBUGGER_BREAKPOINTS
-        ArgumentLocation = 0x800,        /* PER-THREAD: Keep track of Argument
-                                          *             locations. */
-        ArgumentLocationLock = 0x1000,   /* PER-THREAD: Do not modify the
-                                          *             ArgumentLocation flag
-                                          *             automatically (e.g. via the
-                                          *             [source] command, etc). */
+        ArgumentLocation = 0x800,          /* PER-THREAD: Keep track of Argument
+                                            *             locations. */
+        ArgumentLocationLock = 0x1000,     /* PER-THREAD: Do not modify the
+                                            *             ArgumentLocation flag
+                                            *             automatically (e.g. via the
+                                            *             [source] command, etc). */
 #endif
 #if SCRIPT_ARGUMENTS
-        ScriptArguments = 0x2000,        /* Keep track of script argument lists for
-                                          * all nested command invocations. */
-        StrictScriptArguments = 0x4000,  /* Throw an exception if called upon to push
-                                          * or pop a script argument list when they
-                                          * are not available (i.e. null). */
+        ScriptArguments = 0x2000,          /* Keep track of script argument lists for
+                                            * all nested command invocations. */
+        StrictScriptArguments = 0x4000,    /* Throw an exception if called upon to push
+                                            * or pop a script argument list when they
+                                            * are not available (i.e. null). */
 #endif
-        ReUseProfiler = 0x8000,          /* The profiler instance associated with the
-                                          * interpreter may be reused for non-engine
-                                          * operations. */
+        ReUseProfiler = 0x8000,            /* The profiler instance associated with the
+                                            * interpreter may be reused for non-engine
+                                            * operations. */
 #if ISOLATED_PLUGINS
-        NoIsolatedNotify = 0x10000,      /* Any plugins that are loaded into isolated
-                                          * application domains should not be notified
-                                          * of any interpreter events. */
+        NoIsolatedNotify = 0x10000,        /* Any plugins that are loaded into isolated
+                                            * application domains should not be notified
+                                            * of any interpreter events. */
 #endif
 #if SHELL
-        KioskLock = 0x20000,             /* The interactive shell is currently operating
-                                          * in "kiosk" mode. */
-        KioskArgv = 0x40000,             /* Grab the $argv from the interpreter and make
-                                          * use of it before reentering the interactive
-                                          * loop. */
+        KioskLock = 0x20000,               /* The interactive shell is currently operating
+                                            * in "kiosk" mode. */
+        KioskArgv = 0x40000,               /* Grab the $argv from the interpreter and make
+                                            * use of it before reentering the interactive
+                                            * loop. */
 #endif
-        HighPriority = 0x80000,          /* This interpreter instance is important to
-                                          * the overall application or process.  This
-                                          * flag MAY cause the interpreter to consume
-                                          * more resources in the pursuit of a higher
-                                          * level of performance. */
-        AutoTraceObject = 0x100000,      /* Skip adding the ObjectTraceCallback to the
-                                          * list of traces for a variable if the value
-                                          * does not currently represent an opaque
-                                          * object handle. */
+        HighPriority = 0x80000,            /* This interpreter instance is important to
+                                            * the overall application or process.  This
+                                            * flag MAY cause the interpreter to consume
+                                            * more resources in the pursuit of a higher
+                                            * level of performance. */
+        AutoTraceObject = 0x100000,        /* Skip adding the ObjectTraceCallback to the
+                                            * list of traces for a variable if the value
+                                            * does not currently represent an opaque
+                                            * object handle. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        TraceTextWriterOwned = 0x200000, /* The TraceTextWriter is owned by the current
-                                          * interpreter and should be disposed. */
-        DebugTextWriterOwned = 0x400000, /* The DebugTextWriter is owned by the current
-                                          * interpreter and should be disposed. */
-        NoDispose = 0x800000,            /* Prevent the interpreter from actually being
-                                          * disposed. */
+        TraceTextWriterOwned = 0x200000,   /* The TraceTextWriter is owned by the current
+                                            * interpreter and should be disposed. */
+        DebugTextWriterOwned = 0x400000,   /* The DebugTextWriter is owned by the current
+                                            * interpreter and should be disposed. */
+        NoDispose = 0x800000,              /* Prevent the interpreter from actually being
+                                            * disposed. */
 
 #if SHELL
-        InitializeShell = 0x2000000,     /* Perform shell script library initialization
-                                          * when entering the interactive loop. */
-        ReadLineDisabled = 0x4000000,    /* Disable use of the IHost.ReadLine method for
-                                          * use by the interactive loop.  This means the
-                                          * interactive loop will not read any input from
-                                          * the interactive user, i.e. any input must be
-                                          * pre-queued via the IDebugger interface. */
+        InitializeShell = 0x2000000,       /* Perform shell script library initialization
+                                            * when entering the interactive loop. */
+        ReadLineDisabled = 0x4000000,      /* Disable use of the IHost.ReadLine method for
+                                            * use by the interactive loop.  This means the
+                                            * interactive loop will not read any input from
+                                            * the interactive user, i.e. any input must be
+                                            * pre-queued via the IDebugger interface. */
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        TraceStateQuery = 0x8000000,     /* SPECIAL: Emit trace messages when the state
-                                          * flags are being queried. */
-        TraceStateChange = 0x10000000,   /* SPECIAL: Emit trace messages when the state
-                                          * flags are being changed. */
+        TraceStateQuery = 0x8000000,       /* SPECIAL: Emit trace messages when the state
+                                            * flags are being queried. */
+        TraceStateChange = 0x10000000,     /* SPECIAL: Emit trace messages when the state
+                                            * flags are being changed. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        ForDefaultUse = 0x10000000,
+        TemporaryPackages = 0x20000000,    /* When set, all newly created packages should
+                                            * be marked as temporary. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        LibraryScriptPending = 0x40000000, /* When set, a script (file) from the core script
+                                            * library is being evaluated. */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+        ForDefaultUse = 0x100000000,
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 

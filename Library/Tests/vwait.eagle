@@ -261,9 +261,11 @@ runTest {test vwait-1.9 {after idle priority (last)} -setup {
     lappend ::events [list idle $value]
   }
 
-  set interp [object invoke -alias Interpreter GetActive]
-  set waitEventFlags [$interp -flags +NonPublic waitEventFlags]
-  $interp -flags +NonPublic waitEventFlags {+Wait IdleIfEmpty}
+  package require Eagle.Test
+
+  set savedWaitEventFlags [enableWaitEventFlags]
+  enableWaitEventFlags Wait true
+  enableWaitEventFlags IdleIfEmpty true
 } -body {
   set ::idle 0
 
@@ -279,10 +281,14 @@ runTest {test vwait-1.9 {after idle priority (last)} -setup {
   list $::events $::idle $::forever
 } -cleanup {
   cleanupAfterEvents
-  catch {$interp -flags +NonPublic waitEventFlags $waitEventFlags}
+
+  catch {
+    enableWaitEventFlags $savedWaitEventFlags
+    unset -nocomplain savedWaitEventFlags
+  }
 
   unset -nocomplain ::events ::idle ::forever
-  unset -nocomplain e waitEventFlags interp
+  unset -nocomplain e
 
   rename idleEvent ""
 } -constraints {eagle command.object} -result {{0000 0002 1000 1001 1999 2000\
@@ -820,11 +826,10 @@ runTest {test vwait-1.26 {wait on array, multiple elements} -setup {
 ###############################################################################
 
 runTest {test vwait-1.27 {wait on array, multiple elements} -setup {
-  set savedEventWaitFlags [object invoke -flags +NonPublic \
-      Interpreter.GetActive eventWaitFlags]
+  package require Eagle.Test
 
-  object invoke -flags +NonPublic Interpreter.GetActive \
-      eventWaitFlags [appendArgs $savedEventWaitFlags " StopOnError"]
+  set savedEventWaitFlags [enableEventWaitFlags]
+  enableEventWaitFlags StopOnError true
 
   unset -nocomplain varray
 } -body {
@@ -844,11 +849,9 @@ runTest {test vwait-1.27 {wait on array, multiple elements} -setup {
   unset -nocomplain varray
 
   catch {
-    object invoke -flags +NonPublic Interpreter.GetActive \
-        eventWaitFlags $savedEventWaitFlags
+    enableEventWaitFlags $savedEventWaitFlags
+    unset -nocomplain savedEventWaitFlags
   }
-
-  unset -nocomplain savedEventWaitFlags
 } -constraints {eagle tip285 command.object} -result {1 2 3 5}}
 
 ###############################################################################
@@ -862,17 +865,21 @@ runTest {test vwait-1.28 {ProcessEvents with limit} -setup {
   after 1000 [list set varray(2) two]
   after 1000 [list set varray(3) three]
 
+  set notReady(1) false; set timedOut(1) false
   set changed(1) false; set error null
 
   set code [object invoke \
       Interpreter.GetActive WaitVariable Default \
-      None varray 0 null 1 null changed(1) error]
+      None varray 0 null 1 null notReady(1) timedOut(1) \
+      changed(1) error]
 
+  set notReady(2) false; set timedOut(2) false
   set changed(2) false; set error null
 
   set code [object invoke \
       Interpreter.GetActive WaitVariable Default \
-      None varray 0 null 1 null changed(2) error]
+      None varray 0 null 1 null notReady(2) timedOut(2) \
+      changed(2) error]
 
   list $changed(1) $changed(2) \
       [testArrayGet varray true] [llength [after info]] \
@@ -881,7 +888,7 @@ runTest {test vwait-1.28 {ProcessEvents with limit} -setup {
 } -cleanup {
   cleanupAfterEvents
 
-  unset -nocomplain code changed error result varray
+  unset -nocomplain code notReady timedOut changed error result varray
 } -constraints {eagle command.object} -result \
 {True True {0 zero 1 one 2 two} 1 0 {{set varray(3) three} timer}}}
 
@@ -1046,6 +1053,23 @@ TestSleepWaitCallback\(Eagle\._Components\.Public\.Interpreter,\
 System\.Threading\.EventWaitHandle\[\], Int32,\
 Eagle\._Components\.Public\.EventWaitFlags, Eagle\._Components\.Public\.Result\
 ByRef\)\} \d+ 0 11 \{too many to count\}$}}
+
+###############################################################################
+
+runTest {test vwait-1.32 {high priority, later DateTime} -setup {
+  unset -nocomplain x
+} -body {
+  set x [list]
+
+  after 2000 -priority Immediate -flags +Immediate -- \
+      [list lappend x IMMEDIATE]
+
+  after 1000 [list lappend x AFTER]
+
+  vwait x; vwait x; set x
+} -cleanup {
+  unset -nocomplain x
+} -constraints {eagle command.object} -result {AFTER IMMEDIATE}}
 
 ###############################################################################
 

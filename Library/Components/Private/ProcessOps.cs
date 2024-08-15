@@ -23,6 +23,7 @@ using Eagle._Constants;
 using Eagle._Containers.Private;
 using Eagle._Containers.Public;
 using Eagle._Interfaces.Public;
+using ComEnv = Eagle._Components.Private.CommonOps.Environment;
 
 #if NET_STANDARD_21
 using Index = Eagle._Constants.Index;
@@ -174,7 +175,7 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        #region Process Reference Count Support Methods
+        #region Process-Wide Variable Support Methods
         public static string GetEnvironmentVariable(
             string prefix, /* in: OPTIONAL */
             long processId /* in */
@@ -212,7 +213,7 @@ namespace Eagle._Components.Private
 
                 string localValue = null;
 
-                if (CommonOps.Environment.DoesVariableExist(
+                if (ComEnv.DoesVariableExist(
                         localVariable, ref localValue))
                 {
                     variable = localVariable;
@@ -240,15 +241,35 @@ namespace Eagle._Components.Private
         private static bool TryGetReferenceCount(
             string value,            /* in */
             CultureInfo cultureInfo, /* in */
-            out int referenceCount,  /* out */
+            out long referenceCount, /* out */
             ref Result error         /* out */
             )
         {
             referenceCount = 0;
 
-            if ((value == null) || Value.GetInteger2(
+            if ((value == null) || (Value.GetWideInteger2(
                     value, ValueFlags.AnyInteger, cultureInfo,
-                    ref referenceCount, ref error) == ReturnCode.Ok)
+                    ref referenceCount, ref error) == ReturnCode.Ok))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static bool TryGetStringList(
+            string value,        /* in */
+            out StringList list, /* out */
+            ref Result error     /* out */
+            )
+        {
+            list = null;
+
+            if ((value == null) || (ParserOps<string>.SplitList(
+                    null, value, 0, Length.Invalid, false,
+                    ref list, ref error) == ReturnCode.Ok))
             {
                 return true;
             }
@@ -262,7 +283,7 @@ namespace Eagle._Components.Private
             string prefix,           /* in: OPTIONAL */
             CultureInfo cultureInfo, /* in */
             bool? increment,         /* in: OPTIONAL */
-            out int referenceCount,  /* out */
+            out long referenceCount, /* out */
             ref Result error         /* out */
             )
         {
@@ -282,7 +303,7 @@ namespace Eagle._Components.Private
                     return ReturnCode.Error;
                 }
 
-                int localReferenceCount;
+                long localReferenceCount;
 
                 if (!TryGetReferenceCount(
                         value, cultureInfo, out localReferenceCount,
@@ -300,8 +321,8 @@ namespace Eagle._Components.Private
 
                     if (localReferenceCount > 0)
                     {
-                        if (!CommonOps.Environment.SetVariable(
-                                variable, localReferenceCount.ToString()))
+                        if (!ComEnv.SetVariable(variable,
+                                localReferenceCount.ToString()))
                         {
                             error = "could not set environment variable";
                             return ReturnCode.Error;
@@ -309,7 +330,7 @@ namespace Eagle._Components.Private
                     }
                     else
                     {
-                        if (!CommonOps.Environment.UnsetVariable(variable))
+                        if (!ComEnv.UnsetVariable(variable))
                         {
                             error = "could not unset environment variable";
                             return ReturnCode.Error;
@@ -318,6 +339,84 @@ namespace Eagle._Components.Private
                 }
 
                 referenceCount = localReferenceCount;
+                return ReturnCode.Ok;
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+
+            return ReturnCode.Error;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static ReturnCode CheckAndMaybeAppendElement(
+            string prefix,       /* in: OPTIONAL */
+            string element,      /* in: OPTIONAL */
+            bool clear,          /* in */
+            out StringList list, /* out */
+            ref Result error     /* out */
+            )
+        {
+            list = null;
+
+            try
+            {
+                string variable;
+                string value;
+
+                GetEnvironmentVariableAndValue(
+                    prefix, out variable, out value);
+
+                if (String.IsNullOrEmpty(variable))
+                {
+                    error = "invalid environment variable name";
+                    return ReturnCode.Error;
+                }
+
+                StringList localList;
+
+                if (!TryGetStringList(
+                        value, out localList, ref error))
+                {
+                    return ReturnCode.Error;
+                }
+
+                if (clear || (element != null))
+                {
+                    if (clear && (localList != null))
+                        localList.Clear();
+
+                    if (element != null)
+                    {
+                        if (localList == null)
+                            localList = new StringList();
+
+                        localList.Add(element);
+                    }
+
+                    if ((localList != null) &&
+                        (localList.Count > 0))
+                    {
+                        if (!ComEnv.SetVariable(
+                                variable, localList.ToString()))
+                        {
+                            error = "could not set environment variable";
+                            return ReturnCode.Error;
+                        }
+                    }
+                    else
+                    {
+                        if (!ComEnv.UnsetVariable(variable))
+                        {
+                            error = "could not unset environment variable";
+                            return ReturnCode.Error;
+                        }
+                    }
+                }
+
+                list = localList;
                 return ReturnCode.Ok;
             }
             catch (Exception e)
@@ -735,6 +834,17 @@ namespace Eagle._Components.Private
 
                     if (startInfo.RedirectStandardOutput)
                     {
+                        try
+                        {
+                            process.CancelOutputRead(); /* throw */
+                        }
+                        catch (Exception e)
+                        {
+                            TraceOps.DebugTrace(
+                                e, typeof(ProcessOps).Name,
+                                TracePriority.CleanupError);
+                        }
+
                         lock (syncRoot) /* TRANSACTIONAL */
                         {
                             if (standardOutputs != null)
@@ -749,6 +859,17 @@ namespace Eagle._Components.Private
 
                     if (startInfo.RedirectStandardError)
                     {
+                        try
+                        {
+                            process.CancelErrorRead(); /* throw */
+                        }
+                        catch (Exception e)
+                        {
+                            TraceOps.DebugTrace(
+                                e, typeof(ProcessOps).Name,
+                                TracePriority.CleanupError);
+                        }
+
                         lock (syncRoot) /* TRANSACTIONAL */
                         {
                             if (standardErrors != null)
@@ -1130,9 +1251,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         private static bool TryGetIdAndPassToInterpreter(
-            Interpreter interpreter, /* in: OPTIONAL */
-            Process process,         /* in */
-            ref long id              /* out */
+            Interpreter interpreter,  /* in: OPTIONAL */
+            Process process,          /* in */
+            bool noPreviousProcessId, /* in */
+            ref long id               /* out */
             )
         {
             //
@@ -1152,7 +1274,8 @@ namespace Eagle._Components.Private
                 //       any (script) events that get processed while
                 //       waiting for the process to exit.
                 //
-                Interpreter.SetPreviousProcessId(interpreter, id);
+                if (!noPreviousProcessId)
+                    Interpreter.SetPreviousProcessId(interpreter, id);
 
                 //
                 // NOTE: The process Id was obtained and it should be
@@ -1412,6 +1535,30 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
+            EngineFlags engineFlags;
+            SubstitutionFlags substitutionFlags;
+            ExpressionFlags expressionFlags;
+            Result localError = null;
+
+            if (!Engine.TryQueryAllFlags(
+                    interpreter, Engine.BlockingFlagsForProcess,
+                    out engineFlags, out substitutionFlags,
+                    out expressionFlags, ref localError))
+            {
+                if (FlagOps.HasFlags(
+                        eventFlags, EventFlags.FailSafe, true))
+                {
+                    Engine.InitializeAllFlags(
+                        out engineFlags, out substitutionFlags,
+                        out expressionFlags);
+                }
+                else
+                {
+                    error = localError;
+                    return ReturnCode.Error;
+                }
+            }
+
             //
             // NOTE: If the "Debug" event flag has been set, be verbose
             //       about killing processes in response to failures.
@@ -1442,8 +1589,9 @@ namespace Eagle._Components.Private
                     {
                         localResult = null;
 
-                        if (Engine.CheckEvents(
-                                interpreter, eventFlags,
+                        if (Engine.CheckEvents(interpreter,
+                                engineFlags, substitutionFlags,
+                                eventFlags, expressionFlags,
                                 ref localResult) != ReturnCode.Ok)
                         {
                             if (killOnError)
@@ -2328,6 +2476,9 @@ namespace Eagle._Components.Private
                                              *     process to exit. */
             bool events,                    /* in: Process events while waiting
                                              *     (non-background only). */
+            bool noPreviousProcessId,       /* in: Do NOT set and/or reset the
+                                             *     PreviousProcessId of the
+                                             *     interpreter. */
             ref long id,                    /* out: Upon returning, the Id of
                                              *      started process, if any. */
             ref ExitCode exitCode,          /* out: Upon success, ExitCode from
@@ -2548,7 +2699,8 @@ namespace Eagle._Components.Private
                 id = 0;
 
                 if (!TryGetIdAndPassToInterpreter(
-                        interpreter, process, ref id) || background)
+                        interpreter, process, noPreviousProcessId,
+                        ref id) || background)
                 {
                     //
                     // NOTE: For background child processes, we do not
@@ -2712,7 +2864,8 @@ namespace Eagle._Components.Private
                 null, null, null, null, ProcessWindowStyle.Normal,
                 eventFlags, null, false, true, true, useUnicode,
                 false, false, false, false, false, true, false,
-                true, ref id, ref exitCode, ref result, ref error);
+                true, false, ref id, ref exitCode, ref result,
+                ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2737,8 +2890,8 @@ namespace Eagle._Components.Private
                 null, null, fileName, arguments, null, null, null, null,
                 null, null, ProcessWindowStyle.Normal, eventFlags, null,
                 false, true, true, false, false, false, false, false,
-                true, false, false, true, ref id, ref exitCode, ref result,
-                ref error);
+                true, false, false, true, false, ref id, ref exitCode,
+                ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2764,8 +2917,8 @@ namespace Eagle._Components.Private
                 null, null, fileName, arguments, directory, null, null,
                 null, null, null, ProcessWindowStyle.Normal, eventFlags,
                 null, true, false, false, false, false, false, false,
-                false, false, false, false, true, ref id, ref exitCode,
-                ref result, ref error);
+                false, false, false, false, true, false, ref id,
+                ref exitCode, ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2790,8 +2943,8 @@ namespace Eagle._Components.Private
                 null, null, fileName, arguments, directory, null, null,
                 null, null, null, ProcessWindowStyle.Normal, eventFlags,
                 null, false, false, false, false, false, false, false,
-                false, false, false, false, true, ref id, ref exitCode,
-                ref result, ref error);
+                false, false, false, false, true, false, ref id,
+                ref exitCode, ref result, ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2817,8 +2970,8 @@ namespace Eagle._Components.Private
                 null, null, fileName, arguments, directory, null, null,
                 null, null, null, ProcessWindowStyle.Normal, eventFlags,
                 null, false, false, false, false, false, false, false,
-                false, false, false, background, true, ref id, ref exitCode,
-                ref result, ref error);
+                false, false, false, background, true, false, ref id,
+                ref exitCode, ref result, ref error);
         }
 #endif
         #endregion

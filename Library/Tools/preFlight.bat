@@ -441,7 +441,7 @@ REM       along the PATH.
 REM
 REM ****************************************************************************
 
-REM SET EAGLEWEB=C:\some\directory
+REM SET EAGLEWEBDIR=C:\some\directory
 REM SET EagleJunctionDir=C:\some\directory
 REM SET EagleSnDir=C:\some\directory
 REM SET EagleSigCheckDir=C:\some\directory
@@ -573,6 +573,7 @@ REM SET NOVERIFYHASH=1
 REM SET OFFICIAL=1
 REM SET PACKAGE_PATCHLEVEL=1.0.X.X
 REM SET PATCHLEVEL=1.0.X.X
+REM SET PRE_RELEASE_ENABLED=1
 REM SET POST_FLIGHT_HOOK=C:\full\path\to\postHook.bat
 REM SET PRE_FLIGHT_HOOK=C:\full\path\to\preHook.bat
 REM SET SHELLONLY=1
@@ -797,7 +798,7 @@ GOTO no_errors
   ECHO exist in the "%%LKG%%\Eagle\bin" directory or somewhere along your PATH.  They
   ECHO can be downloaded for free from:
   ECHO.
-  ECHO                          https://eagle.to/
+  ECHO                          https://urn.to/r/eagle
   ECHO.
   GOTO errors
 

@@ -617,6 +617,31 @@ namespace Eagle._Components.Private
                 /* ULONG */ uint processInformationLength,
                 /* PULONG */ ref uint returnLength
             );
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [ObjectId("1d24e68f-8f1a-433c-8dae-940847e02cbd")]
+            internal enum ProcessIntegrityLevel /* NOTE: From "WinNT.h". */
+            {
+                /* SECURITY_MANDATORY_UNSUPPORTED_RID */ UNSUPPORTED_INTEGRITY = -2,
+                /* SECURITY_MANDATORY_UNKNOWN_RID */ UNKNOWN_INTEGRITY = -1,
+                /* SECURITY_MANDATORY_UNTRUSTED_RID */ UNTRUSTED_INTEGRITY = 0x0000,
+                /* SECURITY_MANDATORY_LOW_RID */ LOW_INTEGRITY = 0x1000,
+                /* SECURITY_MANDATORY_MEDIUM_RID */ MEDIUM_INTEGRITY = 0x2000,
+                /* SECURITY_MANDATORY_MEDIUM_PLUS_RID */ MEDIUM_PLUS_INTEGRITY = 0x2100,
+                /* SECURITY_MANDATORY_HIGH_RID */ HIGH_INTEGRITY = 0x3000,
+                /* SECURITY_MANDATORY_SYSTEM_RID */ SYSTEM_INTEGRITY = 0x4000,
+                /* SECURITY_MANDATORY_PROTECTED_PROCESS_RID */ PROTECTED_PROCESS = 0x5000
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.IeRtUtil,
+                CallingConvention = CallingConvention.Winapi, EntryPoint = "#35")]
+            internal static extern /* HRESULT */ int GetProcessIntegrityLevel(
+                /* HANDLE */ IntPtr token,
+                /* LPDWORD */ ref ProcessIntegrityLevel integrityLevel
+            );
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -631,6 +656,13 @@ namespace Eagle._Components.Private
                 SetLastError = true)]
             internal static extern IntPtr OpenProcess(uint desiredAccess,
                 [MarshalAs(UnmanagedType.Bool)] bool inheritHandle, uint processId);
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            [DllImport(DllName.AdvApi32, CallingConvention = CallingConvention.Winapi,
+                SetLastError = true)]
+            internal static extern IntPtr OpenProcessToken(IntPtr handle,
+                uint desiredAccess, ref IntPtr token);
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2494,6 +2526,104 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        private static bool WindowsGetIntegrityLevel(
+            IntPtr processId, /* in */
+            ref string level  /* out */
+            )
+        {
+            IntPtr handle = IntPtr.Zero;
+
+            try
+            {
+                if (processId != IntPtr.Zero)
+                {
+                    handle = UnsafeNativeMethods.OpenProcess(
+                        UnsafeNativeMethods.PROCESS_QUERY_INFORMATION, false,
+                        ConversionOps.ToUInt(processId));
+
+                    if (handle == IntPtr.Zero)
+                        return false;
+                }
+
+                IntPtr token = IntPtr.Zero;
+
+                try
+                {
+                    int hResult;
+
+                    UnsafeNativeMethods.ProcessIntegrityLevel integrityLevel =
+                        UnsafeNativeMethods.ProcessIntegrityLevel.UNKNOWN_INTEGRITY;
+
+                    hResult = UnsafeNativeMethods.GetProcessIntegrityLevel(
+                        token, ref integrityLevel);
+
+                    switch (hResult)
+                    {
+                        case 0: /* HRESULT: S_OK */
+                            {
+                                level = StringList.MakeList(
+                                    (int)integrityLevel, integrityLevel);
+
+                                return true;
+                            }
+                        case 1: /* HRESULT: S_FALSE */
+                            {
+                                integrityLevel = UnsafeNativeMethods.ProcessIntegrityLevel.UNSUPPORTED_INTEGRITY;
+                                goto case 0;
+                            }
+                        default: /* HRESULT: E_FAIL, etc. */
+                            {
+                                return false;
+                            }
+                    }
+                }
+                finally
+                {
+                    if (IsValidHandle(token))
+                    {
+                        try
+                        {
+                            UnsafeNativeMethods.CloseHandle(token); /* throw */
+                        }
+                        catch (Exception e)
+                        {
+                            TraceOps.DebugTrace(
+                                e, typeof(NativeOps).Name,
+                                TracePriority.NativeError);
+                        }
+
+                        token = IntPtr.Zero;
+                    }
+                }
+            }
+            catch
+            {
+                // do nothing.
+            }
+            finally
+            {
+                if (IsValidHandle(handle))
+                {
+                    try
+                    {
+                        UnsafeNativeMethods.CloseHandle(handle); /* throw */
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(
+                            e, typeof(NativeOps).Name,
+                            TracePriority.NativeError);
+                    }
+
+                    handle = IntPtr.Zero;
+                }
+            }
+
+            return false;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         private static UnsafeNativeMethods.SystemErrorMode WindowsGetErrorMode()
         {
             try
@@ -3720,6 +3850,21 @@ namespace Eagle._Components.Private
 #endif
 
             return IntPtr.Zero;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        public static bool GetIntegrityLevel(
+            IntPtr processId, /* in */
+            ref string level  /* out */
+            )
+        {
+#if WINDOWS
+            if (PlatformOps.IsWindowsOperatingSystem())
+                return WindowsGetIntegrityLevel(processId, ref level);
+#endif
+
+            return false;
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////

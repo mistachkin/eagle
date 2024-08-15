@@ -253,7 +253,7 @@ namespace TclSample.Forms
                         {
                             code = tclEntityManager.AddTclBridge(
                                 command, interpName, command.Name,
-                                command.ClientData, false, false,
+                                command.ClientData, TclCommandFlags.None,
                                 ref result);
                         }
                         else

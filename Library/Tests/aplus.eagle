@@ -17,6 +17,19 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 
 ###############################################################################
 
+runTest {test remote-1.1 {logRemoteMessage test suite helper} -setup {
+  package require Eagle.Test
+} -body {
+  if {[info exists ::env(logRemoteMessagePassword)]} then {
+    logRemoteMessage [appendArgs \
+        "TEST '" $eagle_tests(CurrentName) "' MESSAGE - " [getTestRunTag]]
+  } else {
+    list OK 0; # There is no logging password, just "succeed".
+  }
+} -constraints {eagle tlsOk internet_urn.to} -match regexp -result {^OK \d+$}}
+
+###############################################################################
+
 runTest {test aplus-1.1 {a+ file open mode} -setup {
   set file [file join [getTemporaryPath] aplus-1-1.txt]
 

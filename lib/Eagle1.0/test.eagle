@@ -19,7 +19,1276 @@
 #       support namespaces ourselves, we do not want to pollute the global
 #       namespace if this script actually ends up being evaluated in Tcl.
 #
+# WARNING: Do not call any of these procedures unless you know exactly how
+#          they work and are willing to accept broken script compatibility
+#          later.  You have been warned.
+#
 namespace eval ::Eagle {
+  proc hideMyself { {hide true} } {
+    set hWnd [object invoke -create -alias -flags +NonPublic \
+        Eagle._Components.Private.NativeConsole GetWindow]
+
+    if {[$hWnd ToString] ne "0"} then {
+      set show [expr {!$hide}]
+      set returnValue false; set error null
+
+      set code [object invoke -flags +NonPublic \
+          Eagle._Components.Private.WindowOps ShowWindow \
+          $hWnd $show returnValue error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+    } else {
+      error "native console window unavailable"
+    }
+  }
+
+  proc removeTemporarySubDirectories { directory } {
+    #
+    # HACK: Cleanup any sub-directories underneath the log
+    #       file "root" directory, e.g. TEMP, etc.  So, we
+    #       should remove "logs" and "2024-07-04", beneath
+    #       the TEMP directory, but only when they are now
+    #       empty.  This block is designed to be basically
+    #       "fail-safe" unless the user has purposely set
+    #       their TEMP directory to something bad.  Please
+    #       do not modify this block of code unless needed
+    #       -AND- you know EXACTLY how (and why) it works.
+    #
+    set temporaryDirectory [getTemporaryPath]
+
+    catch {
+      if {[string length $temporaryDirectory] > 0 && \
+          [file isdirectory $temporaryDirectory] && \
+          [file writable $temporaryDirectory]} then {
+        while {[string length $directory] > 0 && \
+               [file isdirectory $directory] && \
+               [file writable $directory] && \
+               [file under $directory $temporaryDirectory] && \
+               ![file same $directory $temporaryDirectory]} {
+          file rmdir $directory; # NOTE: Throws on error.
+          set directory [file dirname $directory]
+        }
+      }
+    }
+
+    return $directory
+  }
+
+  proc enableInteractiveCommands { {enable ""} } {
+    if {[string length $enable] == 0} then {
+      set enable [expr {![object invoke -flags +NonPublic \
+          Interpreter.GetActive InteractiveCommandsEnabled]}]
+    }
+
+    object invoke -flags +NonPublic Interpreter.GetActive \
+        InteractiveCommandsEnabled $enable
+  }
+
+  proc cloneProcedure { oldName newName } {
+    if {[isEagle]} then {
+      set arguments [info args $oldName true]
+    } else {
+      set arguments [list]
+
+      foreach argument [info args $oldName] {
+        if {[info default $oldName $argument default]} then {
+          lappend arguments [list $argument $default]
+        } else {
+          lappend arguments $argument
+        }
+      }
+    }
+
+    set body [info body $oldName]
+
+    if {[isEagle] && \
+        [llength [info commands nproc]] > 0 && \
+        [llength [info nprocs $oldName]] > 0} then {
+      set command nproc
+    } else {
+      set command proc
+    }
+
+    return [$command $newName $arguments $body]
+  }
+
+  proc getTclMinimumVersion {} {
+    #
+    # HACK: The minimum version that should be used here
+    #       is 8.6, due to its support for TIP #285, e.g.
+    #       [interp cancel], et al.  Also, do not bother
+    #       using Tcl 9.x, which is "broken" by design.
+    #
+    if {[info exists ::env(TclMinimumVersion)]} then {
+      return $::env(TclMinimumVersion)
+    } else {
+      return 8.6
+    }
+  }
+
+  proc getTclMaximumVersion {} {
+    #
+    # HACK: The minimum version that should be used here
+    #       is 8.6, due to its support for TIP #285, e.g.
+    #       [interp cancel], et al.  Also, do not bother
+    #       using Tcl 9.x, which is "broken" by design.
+    #
+    if {[info exists ::env(TclMaximumVersion)]} then {
+      return $::env(TclMaximumVersion)
+    } else {
+      return 8.9
+    }
+  }
+
+  proc tryToLoadZeus { {quiet false} } {
+    # <help>
+    # This procedure attempts to load the Zeus plugin, which is part
+    # of Eagle Enterprise Edition.  It allows encrypted scripts to be
+    # encrypted, decrypted, and evaluated.  Since it is a commercial
+    # product, some kind of license certificate for it must be available
+    # on the local computer (e.g. a trial license certificate from the
+    # associated NuGet package, etc) -OR- it will fail to load.  Upon
+    # success, this procedure will return non-zero.
+    # </help>
+
+    if {[catch {
+      package require Zeus.Enterprise; # binary plugin
+      package require Zeus.Cryptography; # script package
+    } error] == 0} then {
+      return true
+    } else {
+      if {!$quiet} then {
+        set level [lindex [info level [info level]] 0]
+
+        catch {
+          tclLog [appendArgs "ERROR (" $level "): " $error]
+        }
+      }
+
+      return false
+    }
+  }
+
+  proc loadTetrisViaTclTk { {security ""} {path ""} {waitType Tcl} } {
+    # <help>
+    # This procedure attempts to load the native Tcl runtime via
+    # the [tcl load] sub-command.  Then, sets up the interpreter
+    # to evaluate the Tk Tetris game written by Jeffrey Hobbs.
+    # Finally, it enters a native Tcl event loop until canceled.
+    # </help>
+
+    if {![isEagle] && ![info exists ::env(EAGLE)]} then {
+      error "the EAGLE environment variable is not set"
+    }
+
+    ############################################################
+
+    if {[isEagle] && [string length $security] > 0} then {
+      #
+      # NOTE: This requires the Harpy and Badge plugins to be
+      #       available and loadable.
+      #
+      if {$security} then {
+        source enableSecurity
+      } else {
+        source disableSecurity
+      }
+    }
+
+    ############################################################
+
+    set script(try) {
+      if {![info exists ::env(NoTetris)]} then {
+        if {[info exists ::argv]} then {
+          set ::savedArgv $::argv
+        } else {
+          unset -nocomplain ::savedArgv
+        }
+        set ::argv [list]
+        rename exit __exit
+        proc exit { args } {
+          set ai [after info]
+          if {[llength $ai] > 0} then {
+            foreach i $ai {after cancel $i}
+          }
+          catch {destroy .}; # can this fail?
+          set ::forever 1; # exit vwait
+        }
+        package require Tk; # may error, no Tk?
+        wm protocol . WM_DELETE_WINDOW exit
+        %source%
+        %vwait%
+      }
+    }
+
+    ############################################################
+
+    set script(finally) {
+      if {![info exists ::env(NoTetris)]} then {
+        unset -nocomplain ::forever
+        rename exit ""; rename __exit exit
+        if {[info exists ::savedArgv]} then {
+          set ::argv $::savedArgv
+        } else {
+          unset -nocomplain ::argv
+        }
+        unset -nocomplain ::savedArgv
+      }
+    }
+
+    ############################################################
+
+    if {[isEagle] && $waitType eq "Eagle"} then {
+      #
+      # NOTE: Uses a Eagle event loop, to be setup later in the
+      #       procedure.
+      #
+      set script(try) [string map [list %vwait% ""] $script(try)]
+    } else {
+      #
+      # NOTE: Assume using the current interpreter (thread) will
+      #       require us to manually enter the Tcl event loop in
+      #       order to service the native Tcl events.
+      #
+      set script(try) [string map [list %vwait% {
+        after 0 list; vwait ::forever
+      }] $script(try)]
+    }
+
+    ############################################################
+
+    if {[isEagle]} then {
+      set script(body) [interp \
+          readorgetscriptfile {} lib/Tetris1.0/tetris.tcl]
+
+      if {[tryToLoadZeus] && \
+          [isEncryptedScript $script(body)]} then {
+        if {[info exists ::zeus(encodingName)] && \
+            [info exists ::zeus(password)] && \
+            [info exists ::zeus(salt)] && \
+            [info exists ::zeus(iterationCount)] && \
+            [info exists ::zeus(hashAlgorithmName)]} then {
+          set script(body) \
+              [decryptScript [eval $script(body)] \
+              $::zeus(encodingName) $::zeus(password) \
+              $::zeus(salt) $::zeus(iterationCount) \
+              $::zeus(hashAlgorithmName)]
+
+          set script(try) [string map \
+              [list %source% [list eval $script(body)]] \
+              $script(try)]
+        } else {
+          error "missing one or more Zeus decryption parameters"
+        }
+      } else {
+        if {[info exists ::env(AllowTetrisWithoutZeus)]} then {
+          set script(try) [string map [list %source% \
+              {eval [eagle [list interp readorgetscriptfile {} \
+              lib/Tetris1.0/tetris.tcl]]}] $script(try)]
+        } else {
+          error "cannot load Zeus -OR- script is not encrypted"
+        }
+      }
+    } else {
+      if {[info exists ::env(AllowTetrisWithoutEagle)]} then {
+        set script(try) [string map \
+            [list %source% [list source [file normalize [file \
+            join $::env(EAGLE) Example Scripts tetris.tcl]]]] \
+            $script(try)]
+      } else {
+        error "cannot evaluate script without Eagle"
+      }
+    }
+
+    ############################################################
+
+    set started [clock seconds]
+
+    try {
+      if {[isEagle]} then {
+        if {![tcl ready]} then {
+          #
+          # HACK: Avoid using any ActiveTcl "BaseKits" here in
+          #       case they do not embed Tk correctly.  Also,
+          #       make sure the Win32 SetDllDirectory API gets
+          #       called prior to attempting to load the native
+          #       Tcl library; otherwise, the inability of the
+          #       "tcl*.dll" library to locate the "zlib1.dll"
+          #       library could cause issues.
+          #
+          if {[string length $path] > 0} then {
+            tcl load -maybetrustedonly -bridge -robustify \
+                -minimumversion [getTclMinimumVersion] \
+                -maximumversion [getTclMaximumVersion] -- \
+                $path
+          } else {
+            tcl load -maybetrustedonly -bridge -robustify \
+                -minimumversion [getTclMinimumVersion] \
+                -maximumversion [getTclMaximumVersion] --
+          }
+
+          set loaded 1; # NOTE: We loaded Tcl, we must unload.
+        }
+
+        tcl eval [tcl primary] [list uplevel #0 $script(try)]
+
+        if {$waitType eq "Eagle"} then {
+          uplevel #0 [list vwait \
+              -force -eventwaitflags +TclDoOneEvent -- forever]
+        }
+      } else {
+        uplevel #0 $script(try)
+      }
+    } finally {
+      if {[isEagle]} then {
+        tcl eval [tcl primary] \
+            [list uplevel #0 $script(finally)]
+
+        if {![info exists ::env(NoTclUnload)]} then {
+          if {[info exists loaded] && $loaded} then {
+            tcl unload
+          }
+        }
+
+        unset -nocomplain loaded; # NOTE: We unloaded Tcl.
+      } else {
+        uplevel #0 $script(finally)
+      }
+
+      set elapsed [expr {[clock seconds] - $started}]
+    }
+
+    ############################################################
+
+    return $elapsed; # return total time wasted...  :)
+  }
+
+  proc breakOnError { script } {
+    # <help>
+    # This procedure attempts to evaluate the specified script in the call
+    # frame of the immediate caller.  If the script is successful, result
+    # is returned to the caller verbatim.  If the script is unsuccessful,
+    # the [debug break] sub-command will be invoked on the current thread,
+    # thereby blocking further evaluation, until the interactive user has
+    # a chance to dismiss the debugger.  The interactive user can retry a
+    # failed script by successfully returning a true value from within the
+    # current interactive loop (i.e. the one entered via the [debug break]
+    # sub-command).  Here is an illustrative example:
+    #
+    #  STEP #1: Imagine a script that refers to a missing variable.
+    #
+    #           [1] % breakOnError {set blarg}
+    #
+    #  STEP #2: The script error is caught, reported, and an interactive
+    #           loop is entered, waiting for user input.
+    #
+    #           breakOnError: can't read "blarg": no such variable
+    #           [stop]
+    #
+    #  STEP #3: The user can now create the missing variable.
+    #
+    #           (debug) [2] % set blarg 1
+    #           1
+    #
+    #  STEP #4: Then, to retry the failed operation, simply store a
+    #           literal "1" integer value into the result, e.g. via
+    #           the "#setr" interactive command, etc.
+    #
+    #           (debug) [3] % #setr
+    #           result set
+    #
+    #  STEP #5: Finally, use the "#go" interactive command to exit an
+    #           instance of the interactive loop.
+    #
+    #           (debug) [4] % #go
+    #           [go]
+    # </help>
+
+    while {true} {
+      if {[catch {uplevel 1 $script} result] == 0} then {
+        return $result
+      } else {
+        set levelNumber [info level]
+        set levelName [lindex [info level $levelNumber] 0]
+
+        set errorLine \
+            [object invoke Interpreter.GetActive ErrorLine]
+
+        host result Error [appendArgs \
+            "==== " $levelName " (" $levelNumber \
+            "): ERROR, line #" $errorLine ": " $result \n]
+
+        if {![string is true -strict [uplevel 1 \
+            [list debug emergency {now break}]]]} then {
+          error $result
+        }
+      }
+    }
+  }
+
+  proc getEnvironmentViaComSpec { includeExisting } {
+    # <help>
+    # This procedure attempts to extract the list of environment variables
+    # from an instance of the operating system Command Processor.  If the
+    # includeExisting argument is zero, any environment variables present
+    # in the current process are ignored.  This procedure is designed to
+    # be used by (development environment?) scripts that require the full
+    # set of environment variables provided by the operating system Command
+    # Processor, e.g. set via the AutoRun registry, et al.  An example of
+    # its usage is:
+    #
+    #           apply [list [list] {
+    #             foreach pair [getEnvironmentViaComSpec false] {
+    #               set ::env([lindex $pair 0]) [lindex $pair 1]
+    #             }
+    #           }]
+    # </help>
+
+    if {![info exists ::env(ComSpec)]} then {
+      error "the ComSpec environment variable must be set first."
+    }
+
+    set data [string map [list \r\n \n] [string trim \
+        [exec -success Success -- $::env(ComSpec) /c SET]]]
+
+    set lines [split $data \n]
+    set result [list]
+
+    foreach line $lines {
+      set index [string first = $line]
+      if {$index == -1} then {continue}
+
+      set name [string range $line 0 [expr {$index - 1}]]
+      set value [string range $line [expr {$index + 1}] end]
+
+      if {$includeExisting || ![info exists ::env($name)]} then {
+        lappend result [list $name $value]
+      }
+    }
+
+    return $result
+  }
+
+  proc getNameForDebugHook { dictionary } {
+    # <help>
+    # This procedure attempts to extract the name from the list of arguments,
+    # which is treated as a dictionary.  If there is no name, it should return
+    # a suitable placeholder string.
+    # </help>
+
+    set result [getDictionaryValue $dictionary name]
+
+    if {[string length $result] == 0} then {
+      set result <unknown>
+    }
+
+    return $result
+  }
+
+  proc announceForDebugHook { message } {
+    # <help>
+    # This procedure attempts to announce to the user that the associated hook
+    # has been hit.
+    # </help>
+
+    host result Continue [appendArgs "---- " $message \n]
+    return ""
+  }
+
+  proc forceInteractiveLoopForDebugHook {} {
+    # <help>
+    # This procedure attempts to forcibly break into the interactive loop now.
+    # It has been designed for use with the [debug hook] support procedures.
+    # </help>
+
+    debug emergency now; debug break
+    return ""
+  }
+
+  proc debugBreakHook { args } {
+    # <help>
+    # This procedure is designed to be used with the [debug hook] sub-command.
+    # It will attempt to break into the interactive loop after announcing that
+    # it has been hit.  In order to use it, something like the following must
+    # be executed: [debug hook -type Before basic-1.* ::debugBreakHook]
+    # </help>
+
+    set name [getNameForDebugHook $args]
+
+    set message [appendArgs \
+        "test " $name " being debugged via hook"]
+
+    announceForDebugHook $message
+    forceInteractiveLoopForDebugHook
+    return -code Ok $message
+  }
+
+  proc skipTestHook { args } {
+    # <help>
+    # This procedure is designed to be used with the [debug hook] sub-command.
+    # It will attempt to entirely skip the test after announcing it has been
+    # hit.  In order to use it, something like the following must be executed:
+    # [debug hook -type Before basic-1.* ::skipTestHook]
+    # </help>
+
+    set name [getNameForDebugHook $args]
+
+    set message [appendArgs \
+        "test " $name " forcibly skipped via hook"]
+
+    announceForDebugHook $message
+    return -code Break $message
+  }
+
+  proc noFailTestHook { args } {
+    # <help>
+    # This procedure is designed to be used with the [debug hook] sub-command.
+    # It will attempt to prevent the test from failing after announcing it has
+    # been hit.  In order to use it, something like the following must be
+    # executed: [debug hook -type Before basic-1.* ::noFailTestHook]
+    # </help>
+
+    set name [getNameForDebugHook $args]
+
+    set message [appendArgs \
+        "test " $name " forcibly non-failed via hook"]
+
+    announceForDebugHook $message
+    return -code Continue $message
+  }
+
+  proc whatIfTestHook { args } {
+    # <help>
+    # This procedure is designed to be used with the [debug hook] sub-command.
+    # It will attempt to enable 'what-if' mode for the test after announcing it
+    # has been hit.  In order to use it, something like the following must be
+    # executed: [debug hook -type Before basic-1.* ::whatIfTestHook]
+    # </help>
+
+    set name [getNameForDebugHook $args]
+
+    set message [appendArgs \
+        "test " $name " forcibly 'what-if' mode via hook"]
+
+    announceForDebugHook $message
+    return -code WhatIf $message
+  }
+
+  proc errorTestHook { args } {
+    # <help>
+    # This procedure is designed to be used with the [debug hook] sub-command.
+    # It will attempt to force the test to error out after announcing it has
+    # been hit.  In order to use it, something like the following must be
+    # executed: [debug hook -type Before basic-1.* ::errorTestHook]
+    # </help>
+
+    set name [getNameForDebugHook $args]
+
+    set message [appendArgs \
+        "test " $name " forcibly errored out via hook"]
+
+    announceForDebugHook $message
+    return -code Error $message
+  }
+
+  proc failTestHook { args } {
+    # <help>
+    # This procedure is designed to be used with the [debug hook] sub-command.
+    # It will attempt to force the test to fail after announcing it has been
+    # hit.  In order to use it, something like the following must be executed:
+    # [debug hook -type Before basic-1.* ::failTestHook]
+    # </help>
+
+    set name [getNameForDebugHook $args]
+
+    set message [appendArgs \
+        "test " $name " forcibly failed via hook"]
+
+    announceForDebugHook $message
+    return -code Exception $message
+  }
+
+  proc maybeGetArgv {} {
+    global argv
+
+    if {[info exists argv] && [llength $argv] > 0} then {
+      return $argv
+    } else {
+      return <none>
+    }
+  }
+
+  proc addToArgv { option subValue } {
+    global argv
+
+    if {[info exists argv]} then {
+      set length [llength $argv]
+      set found false
+
+      for {set i 0} {$i < $length} {incr i} {
+        set arg [lindex $argv $i]
+
+        if {$arg eq $option} then {
+          incr i
+
+          if {$i < $length} then {
+            set value [lindex $argv $i]
+
+            if {[lsearch -exact -- $value $subValue] == -1} then {
+              lset argv $i [concat $value [list $subValue]]
+            }
+          } else {
+            lappend argv [list $subValue]
+          }
+
+          set found true; break
+        }
+      }
+
+      if {!$found} then {
+        lappend argv $option [list $subValue]
+      }
+    } else {
+      set argv [list $option [list $subValue]]
+    }
+
+    return $argv
+  }
+
+  proc removeFromArgv { option subValue } {
+    global argv
+
+    if {[info exists argv]} then {
+      set length [llength $argv]
+
+      for {set i(1) 0} {$i(1) < $length} {incr i(1)} {
+        set arg [lindex $argv $i(1)]
+
+        if {$arg eq $option} then {
+          set i(0) $i(1); incr i(1); # save, advance
+
+          if {$i(1) < $length} then {
+            set value [lindex $argv $i(1)]
+            set i(2) [lsearch -exact -- $value $subValue]
+
+            if {$i(2) != -1} then {
+              set value [lreplace $value $i(2) $i(2)]
+
+              if {[llength $value] > 0} then {
+                lset argv $i(1) $value
+              } else {
+                set argv [lreplace $argv $i(0) $i(1)]
+              }
+            }
+          } else {
+            set argv [lreplace $argv $i(0) $i(0)]
+          }
+
+          break
+        }
+      }
+    }
+
+    return $argv
+  }
+
+  proc addConstraintToArgv { subValue } {
+    return [addToArgv -constraints $subValue]
+  }
+
+  proc removeConstraintFromArgv { subValue } {
+    return [removeFromArgv -constraints $subValue]
+  }
+
+  proc enableSystemAliasFlags { enable } {
+    if {$enable} then {
+      set savedNewAliasFlags [enableFlags newAliasFlags]
+      set ::eagle_debugger(savedNewAliasFlags) $savedNewAliasFlags
+
+      return [enableFlags newAliasFlags System true]
+    } else {
+      set savedNewAliasFlags $::eagle_debugger(savedNewAliasFlags)
+      unset -nocomplain ::eagle_debugger(savedNewAliasFlags)
+
+      return [enableFlags newAliasFlags $savedNewAliasFlags]
+    }
+  }
+
+  #
+  # NOTE: This procedure is designed to make this file suitable for use
+  #       with the "-preFile" command line option, et al, to flag those
+  #       aliases created during core script library initialization as
+  #       belonging to the system itself.
+  #
+  proc setupSystemAliases { stage } {
+    switch -exact -- $stage {
+      before {
+        enableSystemAliasFlags true
+      }
+      after {
+        enableSystemAliasFlags false
+      }
+    }
+  }
+
+  proc reopenHost {} {
+    set level [lindex [info level [info level]] 0]
+
+    if {[catch {host close; host open} error]} then {
+      debug output [appendArgs \
+          "ERROR " $level ": could not reopen host, error: " \
+          $error \n]
+
+      exit -force; # NOTE: Upon failure, cannot continue.
+      error [appendArgs $level ": could not forcibly exit"]
+    }
+  }
+
+  proc breakpoint { args } {
+    if {![info exists ::eagle_debugger(emergency)]} then {
+      set ::eagle_debugger(emergency) [clock seconds]
+      debug emergency now; # NOTE: Once.
+    }
+
+    debug break
+  }
+
+  proc debugBreakWithNewConsole { args } {
+    reopenHost; # NOTE: Attempt to force a new console window.
+    eval breakpoint $args
+  }
+
+  proc getTestRunTag {} {
+    # <help>
+    # Builds the WebClient tag to be used in all web requests that come
+    # from the Eagle core library, including those performed by Harpy.
+    # The returned tag will include various pieces of contextual data
+    # for use in remote logging searches, etc.
+    # </help>
+
+    if {[info exists ::tcl_platform(user)]} then {
+      set user $::tcl_platform(user)
+    } else {
+      set user ""
+    }
+
+    if {[info exists ::tcl_platform(host)]} then {
+      set host $::tcl_platform(host)
+    } else {
+      set host [info hostname]
+    }
+
+    if {[string length $user] == 0} then {
+      set user unknown
+    }
+
+    if {[string length $host] == 0} then {
+      set host unknown
+    }
+
+    if {[info exists ::env(BATCH_ID)]} then {
+      set bid $::env(BATCH_ID)
+    } else {
+      set bid unknown
+    }
+
+    if {[catch {
+      package require Eagle.Test
+
+      set rid [getTestRunId]
+    }]} then {
+      set rid ""
+    }
+
+    if {[string length $rid] == 0} then {
+      set rid unknown
+    }
+
+    if {[catch {
+      set ppid [info ppid]
+    }]} then {
+      set ppid ""
+    }
+
+    if {[string length $ppid] == 0} then {
+      set ppid unknown
+    }
+
+    if {[isEagle]} then {
+      return [appendArgs \
+          "Eagle BATCH-ID " $bid " TEST-RUN " $rid " user " $user \
+          " host " $host " ppid " $ppid " pid " [pid] " tid " \
+          [info tid] " ctx " [info context]]
+    } else {
+      return [appendArgs \
+          "Tcl BATCH-ID " $bid " TEST-RUN " $rid " user " $user \
+          " host " $host " pid " [pid]]
+    }
+  }
+
+  proc setupTestRunTag { {channel stdout} {quiet false} } {
+    # <help>
+    # Sets up the WebClient tag to be used in all web requests that come
+    # from the Eagle core library, including those performed by Harpy.
+    # </help>
+
+    if {![info exists ::no(NoTestWebClientTag)] && \
+        ![info exists ::env(NoTestWebClientTag)]} then {
+      set tag [getTestRunTag]
+
+      if {[string length $tag] > 0} then {
+        set count 0
+
+        if {[catch {info ppid} ppid] == 0} then {
+          set varName0 [appendArgs WebClientTag_ $ppid]
+
+          if {![info exists ::env($varName0)] || \
+              $::env($varName0) ne $tag} then {
+            set ::env($varName0) $tag; incr count
+          }
+        }
+
+        set pid [pid]
+        set varName1 [appendArgs WebClientTag_ $pid]
+
+        if {![info exists ::env($varName1)] || \
+            $::env($varName1) ne $tag} then {
+          set ::env($varName1) $tag; incr count
+        }
+
+        set tid [info tid]
+        set varName2 [appendArgs WebClientTag_ $tid]
+
+        if {![info exists ::env($varName2)] || \
+            $::env($varName2) ne $tag} then {
+          set ::env($varName2) $tag; incr count
+        }
+
+        if {$count > 0} then {
+          if {!$quiet} then {
+            #
+            # HACK: Cannot use [tputs] / [tlog] here due to the
+            #       potential for "unwanted" recursion.
+            #
+            tqputs $channel [appendArgs \
+                "---- set or reset WebClient tag to: " $tag \n]
+          }
+
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  proc makeProcedureCommand { oldName {newName ""} {command ""} } {
+    set result [list]
+
+    if {[string length $command] > 0} then {
+      lappend result $command
+    } else {
+      lappend result ::proc
+    }
+
+    if {[string length $newName] > 0} then {
+      lappend result $newName
+    } else {
+      lappend result $oldName
+    }
+
+    if {[isEagle]} then {
+      lappend result [info args $oldName true]
+    } else {
+      set args [list]
+
+      foreach arg [info args $oldName] {
+        if {[info default $oldName $arg default]} then {
+          lappend args [list $arg $default]
+        } else {
+          lappend args [list $arg]
+        }
+      }
+
+      lappend result $args
+    }
+
+    lappend result [info body $oldName]
+
+    return $result
+  }
+
+  proc enableFlags {
+          memberName {newFlags ""} {enable ""} {memberType Field}
+          {typeName Interpreter} {objectName Interpreter.GetActive} } {
+    #
+    # HACK: Enforce that the "fieldName" argument must refer
+    #       to an (non-public?) instance field of the active
+    #       interpreter with the specified name.
+    #
+    set pattern {^(?<!(?:get_|set_))?[A-Z][0-9A-Z]*Flags$}
+
+    if {$memberName ni [object members \
+        -bindingflags +NonPublic -membertype $memberType \
+        -mode regexp -pattern $pattern -nocase \
+        -matchnameonly -nameonly $typeName]} then {
+      error [appendArgs \
+          "cannot find \"" $typeName "\" flags field: " \
+          $memberName]
+    }
+
+    if {$memberType eq "Field"} then {
+      if {[string length $enable] > 0} then {
+        object invoke -flags +NonPublic \
+            -objectflags +AutoFlagsEnum \
+            $objectName $memberName [appendArgs \
+            [expr {$enable ? "+" : "-"}] $newFlags]
+      } elseif {[string length $newFlags] > 0} then {
+        object invoke -flags +NonPublic \
+            -objectflags +AutoFlagsEnum \
+            $objectName $memberName $newFlags
+      }
+    } else {
+      if {[string length $enable] > 0} then {
+        set oldFlags [object invoke \
+            -flags +NonPublic $objectName $memberName]
+
+        object invoke -flags +NonPublic $objectName \
+            $memberName [combineFlags $oldFlags [appendArgs \
+            [expr {$enable ? "+" : "-"}] $newFlags]]
+      } elseif {[string length $newFlags] > 0} then {
+        object invoke -flags +NonPublic $objectName \
+            $memberName $newFlags
+      }
+    }
+
+    return [object invoke \
+        -flags +NonPublic $objectName $memberName]
+  }
+
+  proc enableHostFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags hostFlags $newFlags $enable \
+        Field Eagle._Hosts.Default Interpreter.GetActive.Host]
+  }
+
+  proc enableInterpreterFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags interpreterFlags $newFlags $enable]
+  }
+
+  proc enableInterpreterStateFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags interpreterStateFlags $newFlags $enable]
+  }
+
+  proc enablePluginFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags pluginFlags $newFlags $enable]
+  }
+
+  proc enableSharedEngineFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags SharedEngineFlags $newFlags $enable Property]
+  }
+
+  proc enableContextEngineFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags ContextEngineFlags $newFlags $enable Property]
+  }
+
+  proc enableDefaultInterpreterFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags DefaultInterpreterFlags $newFlags $enable Property]
+  }
+
+  proc enableExpressionFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags ExpressionFlags $newFlags $enable Property]
+  }
+
+  proc enableInterpreterTestFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags interpreterTestFlags $newFlags $enable]
+  }
+
+  proc enableInteractiveLoopFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags interactiveLoopFlags $newFlags $enable]
+  }
+
+  proc enableReadyFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags readyFlags $newFlags $enable]
+  }
+
+  proc enableEventWaitFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags eventWaitFlags $newFlags $enable]
+  }
+
+  proc enableQueueEventFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags queueEventFlags $newFlags $enable]
+  }
+
+  proc enableWaitEventFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags waitEventFlags $newFlags $enable]
+  }
+
+  proc enableNewGlobalVariableFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags newGlobalVariableFlags $newFlags $enable]
+  }
+
+  proc enableNewLocalVariableFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags newLocalVariableFlags $newFlags $enable]
+  }
+
+  proc enableTclExitUnloadFlags { {newFlags ""} {enable ""} } {
+    return [enableFlags tclExitUnloadFlags $newFlags $enable]
+  }
+
+  proc whereAmI {} {
+    set stackTrace [object create \
+        -alias System.Diagnostics.StackTrace true]
+
+    return [$stackTrace ToString]
+  }
+
+  proc dumpWhereAmI {} {
+    set level [lindex [info level [info level]] 0]
+
+    if {[info exists ::eagle_debugger(whereAmICount)]} then {
+      set count [incr ::eagle_debugger(whereAmICount)]
+    } else {
+      set count [set ::eagle_debugger(whereAmICount) 1]
+    }
+
+    set fileName [file join \
+        [info binary] [appendArgs $level - $count .txt]]
+
+    if {![file exists $fileName]} then {
+      writeFile $fileName [whereAmI]
+    }
+
+    return ""
+  }
+
+  proc enableTracing {
+          {stateTypes "=CoreEnableMask +ForceListeners"} {message true} } {
+    return [debug trace -priority {=Always +NoLimits} \
+        -category META_TRACING \
+        -resetsystem true -resetlisteners true -forceenabled true \
+        -statetypes $stateTypes -default true -log true -- \
+        [expr {$message ? "Forcibly enabled maximum tracing." : ""}]]
+  }
+
+  proc disableTracing {
+          {stateTypes "=CoreDisableMask +ForceListeners"} {message true} } {
+    return [debug trace -priority {=Always +NoLimits} \
+        -category META_TRACING \
+        -resetsystem true -resetlisteners true -forceenabled false \
+        -statetypes $stateTypes -default true -- \
+        [expr {$message ? "Forcibly disabled maximum tracing." : ""}]]
+  }
+
+  proc hideMyself { {hide true} } {
+    set hWnd [object invoke -create -alias -flags +NonPublic \
+        Eagle._Components.Private.NativeConsole GetWindow]
+
+    if {[$hWnd ToString] ne "0"} then {
+      set show [expr {!$hide}]
+      set returnValue false; set error null
+
+      set code [object invoke -flags +NonPublic \
+          Eagle._Components.Private.WindowOps ShowWindow \
+          $hWnd $show returnValue error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+    } else {
+      error "native console window unavailable"
+    }
+  }
+
+  proc getEngineFlagsForTest { {style 0} } {
+    set result [list]
+
+    if {[isEagle]} then {
+      if {[haveConstraint compile.PARSE_CACHE]} then {
+        lappend result NoCacheParseState
+      }
+
+      if {[haveConstraint compile.ARGUMENT_CACHE]} then {
+        lappend result NoCacheArgument
+      }
+    }
+
+    if {$style > 0} then {
+      if {[llength $result] > 0} then {
+        set result [join $result ", "]
+
+        switch -exact -- $style {
+          1 {
+            set result [appendArgs ", " $result]; # basic-1.34
+          }
+          2 {
+            set result [appendArgs \{ $result \}]; # parser-20.*
+          }
+          3 {
+            set result [appendArgs \\\{ $result \\\}]; # parser-5.1
+          }
+        }
+      } elseif {$style in [list 2 3]} then {
+        set result None; # parser-20.* / parser-5.1
+      } else {
+        set result ""; # REDUNDANT: basic-1.34
+      }
+    }
+
+    return $result
+  }
+
+  proc getProcessGroup { pid {varName ""} {quiet false} } {
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName pgid
+    }
+
+    if {[catch {
+      string trim [exec -success Success -- ps -o pgid= $pid]
+    } pgid] == 0 && [string is integer -strict $pgid]} then {
+      if {!$quiet} then {
+        catch {
+          tputs [getTestChannelOrDefault] [appendArgs \
+              "==== PROCESS " $pid " GROUP IS " $pgid \n]
+        }
+      }
+
+      return true
+    }
+
+    return false
+  }
+
+  proc killProcessGroup { pgid {quiet false} } {
+    if {!$quiet} then {
+      catch {
+        tputs [getTestChannelOrDefault] [appendArgs \
+            "==== KILLING PROCESS GROUP " $pgid " NOW...\n"]
+      }
+    }
+
+    if {[catch {
+      exec -success Success -- kill -s KILL [appendArgs - $pgid]
+    }] == 0} then {
+      return true
+    }
+
+    return false
+  }
+
+  proc maybeKillProcessGroup { pid {self false} {quiet false} } {
+    if {![isWindows]} then {
+      set pid1 $pid;     # target process.
+      set pid2 [pid];    # current process.
+                         # allow killing self?
+      if {$self} then {; # query both for diagnostics...
+        if {[getProcessGroup $pid1 pgid1 $quiet] && \
+            [getProcessGroup $pid2 pgid2 $quiet]} then {
+          return [killProcessGroup $pgid1 $quiet]
+        }
+      } else {
+        if {$pid1 != $pid2 && \
+            [getProcessGroup $pid1 pgid1 $quiet] && \
+            [getProcessGroup $pid2 pgid2 $quiet] && \
+            $pgid1 != $pgid2} then {
+          return [killProcessGroup $pgid1 $quiet]
+        }
+      }
+    }
+
+    return false
+  }
+
+  proc enableFailSafeExitAfter { {group false} {milliseconds 600000} } {
+    catch {failSafeExitAfter $milliseconds before}
+
+    if {[isEagle]} then {
+      set script(1) [list apply [list [list args] {
+        catch {failSafeExitAfter $milliseconds after}
+      }]]
+
+      set script(2) [list apply [list [list args] {
+        if {[llength $args] > 0} then {
+          set milliseconds [lindex $args 0]
+        } else {
+          if {[info exists \
+              ::eagle_debugger(failSafeExitAfterMilliseconds)]} then {
+            set milliseconds \
+                $::eagle_debugger(failSafeExitAfterMilliseconds)
+          } else {
+            set milliseconds ""
+          }
+        }
+
+        if {[string is integer -strict $milliseconds]} then {
+          after $milliseconds
+        }
+
+        if {![info exists ::no(failSafeAbort)]} then {
+          set withTrace true
+
+          if {[info exists ::no(failSafeAbortWithTrace)]} then {
+            set withTrace false
+          }
+
+          object invoke \
+              Eagle._Tests.Default TestFailSafeAbortWithTrace \
+              Ok enableFailSafeExitAfter false $withTrace
+        }
+
+        if {!$group || \
+            ![maybeKillProcessGroup $pid true]} then {
+          kill -force -- [pid]
+        }
+      }]]
+
+      #
+      # NOTE: The script setup above will be evaluated
+      #       (asynchronously, and eventually) on this
+      #       thread, via the [after] event queue used
+      #       by the engine.
+      #
+      foreach id [lsort -integer [array names script]] {
+        after $milliseconds -priority Immediate -flags \
+            +Immediate $script($id)
+      }
+
+      if {[catch {
+        #
+        # NOTE: The script built here will be evaluated
+        #       (asynchronously, but immediately) on a
+        #       pooled thread; therefore, it must wait
+        #       for the specified number of milliseconds
+        #       prior to using the [kill] command.
+        #
+        try {
+          foreach id [lsort -integer [array names script]] {
+            set callback($id) $script($id)
+            lappend callback($id) $milliseconds
+
+            object invoke \
+                System.Threading.ThreadPool QueueUserWorkItem \
+                $callback($id)
+          }
+        } finally {
+          #
+          # HACK: Just in case we do not actually exit the
+          #       process, cleanup the callbacks we created
+          #       above.
+          #
+          foreach id [lsort -integer [array names callback]] {
+            catch {object removecallback $callback($id)}
+          }
+        }
+      } result] == 0} then {
+        return $result
+      } else {
+        return false
+      }
+    }
+  }
+
   proc evalPackageIndexFile {
           fileName {directory ""} {ignoreFileDirectory false} } {
     if {[string length $directory] == 0} then {
@@ -58,13 +1327,17 @@ namespace eval ::Eagle {
   proc cleanupAfterEvents { {quiet false} } {
     set count 0
 
+    if {!$quiet} then {
+      set channel [getTestChannelOrDefault]
+    }
+
     if {[catch {
       foreach id [after info] {
         if {[catch {after cancel $id} error2] == 0} then {
           incr count; # canceled one more.
         } else {
           if {!$quiet} then {
-            tputs $::test_channel [appendArgs \
+            tputs $channel [appendArgs \
                 "---- failed to cancel after event \"" \
                 $id "\": " $error2 \n]
           }
@@ -72,14 +1345,14 @@ namespace eval ::Eagle {
       }
     } error1] == 0} then {
       if {!$quiet} then {
-        tputs $::test_channel [appendArgs \
+        tputs $channel [appendArgs \
             "---- cleaned up " $count " after events\n"]
       }
 
       return $count
     } else {
       if {!$quiet} then {
-        tputs $::test_channel [appendArgs \
+        tputs $channel [appendArgs \
             "---- failed to cleanup after events (" \
             $count "): " $error1 \n]
       }
@@ -143,7 +1416,7 @@ namespace eval ::Eagle {
             $name "\" does not exist"]
       }
 
-      if {$script ne [readFile $fileName]} then {
+      if {$script ne [readSharedFile $fileName]} then {
         error [appendArgs \
             "temporary file \"" $fileName "\" for \"" \
             $name "\" does not match script"]
@@ -201,7 +1474,7 @@ namespace eval ::Eagle {
               [file exists $fileName]} then {
             if {[catch {file delete $fileName} error]} then {
               if {$verbose > 0} then {
-                tputs $::test_channel [appendArgs \
+                tputs [getTestChannelOrDefault] [appendArgs \
                     "---- temporary script cleanup failure (1): " \
                     $error \n]
               }
@@ -232,7 +1505,7 @@ namespace eval ::Eagle {
           lappend result $fileName
         } else {
           if {$verbose > 0} then {
-            tputs $::test_channel [appendArgs \
+            tputs [getTestChannelOrDefault] [appendArgs \
                 "---- temporary script cleanup failure (2): " \
                 $error \n]
           }
@@ -696,6 +1969,14 @@ namespace eval ::Eagle {
     }
   }
 
+  proc dputs { string } {
+    debug output $string
+  }
+
+  proc dlog { string } {
+    debug log $string
+  }
+
   proc toneputs { channel string } {
     trawputs $channel $string; tlog $string
   }
@@ -710,7 +1991,7 @@ namespace eval ::Eagle {
   # NOTE: This is a shim designed to act like tclLog.
   #
   proc ttclLog { string } {
-    tputs $::test_channel [appendArgs $string \n]
+    tputs [getTestChannelOrDefault] [appendArgs $string \n]
   }
 
   proc doesTestLogFileExist { fileName } {
@@ -834,6 +2115,12 @@ namespace eval ::Eagle {
     }
 
     set ::test_log_sentry $sentry
+  }
+
+  proc dtrace { string } {
+    catch {
+      debug trace -priority {:Always Demand Debug} -- $string
+    }
   }
 
   proc tlog { string } {
@@ -1111,6 +2398,33 @@ namespace eval ::Eagle {
     }
 
     return false
+  }
+
+  proc isOfficialStableReleaseInProgress {} {
+    if {[info exists ::env(OFFICIAL)] && [info exists ::env(STABLE)]} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  proc fixMemoryConstraints { constraints } {
+    #
+    # HACK: In Eagle, when the right test constraint is present, *any* tests
+    #       where PASSED / FAILED results can vary non-deterministically due
+    #       to transient memory issues (e.g. performance) are forbidden from
+    #       causing the overall test run to fail.
+    #
+    if {[isEagle]} then {
+      if {[info exists ::no(failMemoryTests)] || ([haveConstraint 32bit] && \
+          [haveConstraint officialStableReleaseInProgress])} then {
+        return [fixConstraints [concat $constraints [list fail.false]]]
+      } else {
+        return [fixConstraints $constraints]
+      }
+    } else {
+      return [fixConstraints $constraints]
+    }
   }
 
   proc fixTimingConstraints { constraints } {
@@ -1555,12 +2869,14 @@ namespace eval ::Eagle {
 
   proc sourceIfValid { type fileName } {
     if {[string length $fileName] > 0} then {
+      set channel [getTestChannelOrDefault]
+
       if {[file exists $fileName]} then {
-        tputs $::test_channel [appendArgs \
+        tputs $channel [appendArgs \
             "---- evaluating " $type " file: \"" $fileName \"\n]
 
         if {[catch {uplevel 1 [list source $fileName]} error]} then {
-          tputs $::test_channel [appendArgs \
+          tputs $channel [appendArgs \
               "---- error during " $type " file: " $error \n]
 
           #
@@ -1570,7 +2886,7 @@ namespace eval ::Eagle {
           error $error $::errorInfo $::errorCode
         }
       } else {
-        tputs $::test_channel [appendArgs \
+        tputs $channel [appendArgs \
             "---- skipped " $type " file: \"" $fileName \
             "\", it does not exist\n"]
       }
@@ -1590,6 +2906,12 @@ namespace eval ::Eagle {
     if {[string length $varName] > 0} then {
       upvar 1 $varName array
     }
+
+    #
+    # NOTE: Figure out where to send the output from processing the test
+    #       arguments into options.
+    #
+    set channel [getTestChannelOrDefault]
 
     #
     # TODO: Add more support for standard "tcltest" options here.
@@ -1628,11 +2950,11 @@ namespace eval ::Eagle {
 
           set array($name) $value
 
-          tqputs $::test_channel [appendArgs \
+          tqputs $channel [appendArgs \
               "---- overrode test option \"" $name "\" with value \"" \
               $value \"\n]
         } else {
-          tqputs $::test_channel [appendArgs \
+          tqputs $channel [appendArgs \
               "---- no value for test option \"" $name "\", ignored\n"]
         }
       } elseif {[string index $name 0] eq "-"} then {
@@ -1648,21 +2970,21 @@ namespace eval ::Eagle {
             incr index -1; # HACK: Resynchronize with valid test option.
             lappend result [list $name]
 
-            tqputs $::test_channel [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- no value for unknown test option \"" $name \
                 "\", ignored, backing up one for test option \"" \
                 $value \"...\n]
           } else {
             lappend result [list $name $value]
 
-            tqputs $::test_channel [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- unknown test option \"" $name "\" with value \"" \
                 $value "\", ignored\n"]
           }
         } else {
           lappend result [list $name]
 
-          tqputs $::test_channel [appendArgs \
+          tqputs $channel [appendArgs \
               "---- no value for unknown test option \"" $name \
               "\", ignored\n"]
         }
@@ -1679,14 +3001,14 @@ namespace eval ::Eagle {
             incr index -1; # HACK: Resynchronize with valid test argument.
             lappend result [list $name]
 
-            tqputs $::test_channel [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- no value for unknown argument \"" $name \
                 "\", ignored, backing up one for test option \"" \
                 $value \"...\n]
           } else {
             lappend result [list $name $value]
 
-            tqputs $::test_channel [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- unknown argument \"" $name "\" with value \"" \
                 $value "\", ignored\n"]
           }
@@ -1697,7 +3019,7 @@ namespace eval ::Eagle {
           #
           lappend result [list $name]
 
-          tqputs $::test_channel [appendArgs \
+          tqputs $channel [appendArgs \
               "---- unknown argument \"" $name "\", ignored\n"]
         }
       }
@@ -1713,6 +3035,143 @@ namespace eval ::Eagle {
     #       name/value pairs, to the caller.
     #
     return $result
+  }
+
+  proc makeUseOfTestDefaults { varName } {
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName test_flags
+    }
+
+    set test_flags(-suite) ""; # test suite name, default empty.
+    set test_flags(-machine) ""; # machine architecture, default empty.
+    set test_flags(-platform) ""; # build platform, default empty.
+    set test_flags(-configuration) ""; # build configuration, default empty.
+    set test_flags(-namePrefix) ""; # test name prefix, default empty.
+    set test_flags(-suffix) ""; # build suffix, default empty.
+    set test_flags(-file) [list *.eagle]; # default to running all test files.
+    set test_flags(-notFile) [list l.*.eagle]; # COMPAT: Tcl.
+    set test_flags(-startFile) [list]; # start running at these test files.
+    set test_flags(-stopFile) [list]; # stop running after these test files.
+    set test_flags(-match) [list *]; # default to running all tests.
+    set test_flags(-skip) [list]; # default to skipping no tests.
+    set test_flags(-constraints) [list]; # default to no manual constraints.
+    set test_flags(-verbose) ""; # default to pass, body, skip, start, error.
+    set test_flags(-logPath) ""; # default to using standard log file path.
+    set test_flags(-logId) ""; # default to using no log identifier.
+    set test_flags(-logFile) ""; # default to using standard log file naming.
+    set test_flags(-threshold) ""; # default to requiring all tests to pass.
+    set test_flags(-randomOrder) ""; # default to deterministic order.
+    set test_flags(-uncountedLeaks) [list]; # defaults for uncounted resources.
+    set test_flags(-listedLeaks) [list]; # defaults for listed resources.
+    set test_flags(-breakOnLeak) ""; # default to continue on leak.
+    set test_flags(-stopOnFailure) ""; # default to continue on failure.
+    set test_flags(-stopOnLeak) ""; # default to continue on leak.
+    set test_flags(-exitOnComplete) ""; # default to not exit after complete.
+    set test_flags(-preTest) ""; # default to not evaluating anything.
+    set test_flags(-postTest) ""; # default to not evaluating anything.
+    set test_flags(-preWait) ""; # default to not waiting.
+    set test_flags(-postWait) ""; # default to not waiting.
+    set test_flags(-tclsh) ""; # Tcl shell, default empty.
+    set test_flags(-bad) [list]; # these are the unrecognized arguments.
+    set test_flags(-no) [list]; # default to not having any restrictions.
+
+    return ""
+  }
+
+  proc makeUseOfTestArguments { varName } {
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName test_flags
+    }
+
+    if {[info exists test_flags(-no)] && \
+        [llength $test_flags(-no)] > 0} then {
+      #
+      # NOTE: Set the test run prohibitions based on the provided
+      #       command line argument value (which is assumed to be
+      #       a "dictionary-style" list containing the name/value
+      #       pairs to add to the global "no" array).
+      #
+      foreach {name value} $test_flags(-no) {
+        set ::no($name) $value
+      }
+    }
+
+    if {[info exists test_flags(-logPath)] && \
+        [string length $test_flags(-logPath)] > 0} then {
+      set ::test_log_path $test_flags(-logPath)
+    }
+
+    if {[info exists test_flags(-logId)] && \
+        [string length $test_flags(-logId)] > 0} then {
+      set ::test_log_id $test_flags(-logId)
+    }
+
+    if {[info exists test_flags(-logFile)] && \
+        [string length $test_flags(-logFile)] > 0} then {
+      set ::test_log $test_flags(-logFile)
+    }
+
+    if {[info exists test_flags(-threshold)] && \
+        [string is integer -strict $test_flags(-threshold)]} then {
+      set ::test_threshold $test_flags(-threshold)
+    }
+
+    if {[info exists test_flags(-randomOrder)] && \
+        [string is boolean -strict $test_flags(-randomOrder)]} then {
+      set ::test_random_order $test_flags(-randomOrder)
+    }
+
+    if {[info exists test_flags(-uncountedLeaks)] && \
+        [string length $test_flags(-uncountedLeaks)] > 0} then {
+      set ::test_uncounted_leaks $test_flags(-uncountedLeaks)
+    }
+
+    if {[info exists test_flags(-listedLeaks)] && \
+        [string length $test_flags(-listedLeaks)] > 0} then {
+      set ::test_listed_leaks $test_flags(-listedLeaks)
+    }
+
+    if {[info exists test_flags(-breakOnLeak)] && \
+        [string is boolean -strict $test_flags(-breakOnLeak)]} then {
+      set ::test_break_on_leak $test_flags(-breakOnLeak)
+    }
+
+    if {[info exists test_flags(-stopOnFailure)] && \
+        [string is boolean -strict $test_flags(-stopOnFailure)]} then {
+      set ::test_stop_on_failure $test_flags(-stopOnFailure)
+    }
+
+    if {[info exists test_flags(-stopOnLeak)] && \
+        [string is boolean -strict $test_flags(-stopOnLeak)]} then {
+      set ::test_stop_on_leak $test_flags(-stopOnLeak)
+    }
+
+    if {[info exists test_flags(-exitOnComplete)] && \
+        [string is boolean -strict $test_flags(-exitOnComplete)]} then {
+      set ::test_exit_on_complete $test_flags(-exitOnComplete)
+    }
+
+    if {[info exists test_flags(-preTest)] && \
+        [string length $test_flags(-preTest)] > 0} then {
+      set ::test_script(pre) $test_flags(-preTest)
+    }
+
+    if {[info exists test_flags(-postTest)] && \
+        [string length $test_flags(-postTest)] > 0} then {
+      set ::test_script(post) $test_flags(-postTest)
+    }
+
+    if {[info exists test_flags(-preWait)] && \
+        [string is integer -strict $test_flags(-preWait)]} then {
+      set ::test_wait(pre) $test_flags(-preWait)
+    }
+
+    if {[info exists test_flags(-postWait)] && \
+        [string is integer -strict $test_flags(-postWait)]} then {
+      set ::test_wait(post) $test_flags(-postWait)
+    }
+
+    return ""
   }
 
   proc getTclShellFileName { automatic kits machine } {
@@ -2133,6 +3592,12 @@ namespace eval ::Eagle {
     set result [list]
 
     #
+    # NOTE: Figure out where to send the output from gathering the
+    #       list of test files.
+    #
+    set channel [getTestChannelOrDefault]
+
+    #
     # HACK: If any "directory" appears to look like a variable name,
     #       use that variable name, in the context of the caller, in
     #       order to obtain a list of directories where test files
@@ -2162,7 +3627,7 @@ namespace eval ::Eagle {
           if {!$quiet} then {
             set varLength [llength $varValue]
 
-            tputs $::test_channel [appendArgs \
+            tputs $channel [appendArgs \
                 "---- added " $varLength " test file " \
                 [expr {$varLength == 1 ? \
                     "directory" : "directories"}] \
@@ -2201,13 +3666,37 @@ namespace eval ::Eagle {
     if {!$quiet} then {
       set length [llength $newDirectories]
 
-      tputs $::test_channel [appendArgs \
+      tputs $channel [appendArgs \
           "---- added " $count " test files from " \
           [expr {$length == 1 ? "directory" : "directories"}] \
           ": " $newDirectories \n]
     }
 
     return $result
+  }
+
+  proc getTestChildren {} {
+    if {[isStableEagleRelease 45 true]} then {; # NOTE: Post Beta 45.
+      #
+      # NOTE: This version of Eagle should support the [interp children]
+      #       sub-command.
+      #
+      return [interp children]; # Beta 46+
+    } elseif {[catch {interp children} children] == 0} then {
+      #
+      # NOTE: The version of native Tcl in use appears to support the new
+      #       [interp children] sub-command.
+      #
+      return $children; # Tcl 8.7+ (?)
+    } else {
+      #
+      # NOTE: Unfortunately, this exact terminology is needed to retain
+      #       backward compatibility with native Tcl 8.4+.  Please see:
+      #
+      #       https://urn.to/r/tcl_interp_slaves
+      #
+      return [interp slaves]; # COMPAT: Tcl.
+    }
   }
 
   proc getTestRunId {} {
@@ -2243,7 +3732,7 @@ namespace eval ::Eagle {
       if {![info exists ::no(guidNew)] && [isEagle]} then {
         set guid [guid new]
       } elseif {![info exists ::no(uuidgenTool)] && [catch {
-        exec uuidgen; # maybe in PATH?
+        exec -success Success -- uuidgen; # maybe in PATH?
       } exec] == 0 && [isValidGuid $exec]} then {
         set guid $exec
       }
@@ -2327,7 +3816,7 @@ namespace eval ::Eagle {
     return $result
   }
 
-  proc getDefaultTestLogPath { executable } {
+  proc getDefaultTestLogPath { executable {quiet false} } {
     #
     # NOTE: By default, use the configured temporary directory for
     #       test log files unless we are forbidden from doing so.
@@ -2385,9 +3874,11 @@ namespace eval ::Eagle {
         # HACK: Queue an error message indicating that something
         #       went horribly wrong (?) here.
         #
-        tqputs $::test_channel [appendArgs \
-            "==== WARNING: creation of test logs directory \"" \
-            $subPath "\" failed: " $error \n]
+        if {!$quiet} then {
+          tqputs [getTestChannelOrDefault] [appendArgs \
+              "==== WARNING: creation of test logs directory \"" \
+              $subPath "\" failed: " $error \n]
+        }
       }
     }
 
@@ -2404,6 +3895,10 @@ namespace eval ::Eagle {
   }
 
   proc getDefaultTestLog {} {
+    if {[info exists ::no(getDefaultTestLog)]} then {
+      return ""
+    }
+
     set executable [getShellExecutableName]
 
     if {[info exists ::test_log_path]} then {
@@ -2414,6 +3909,27 @@ namespace eval ::Eagle {
 
     return [file normalize [file join $path [appendArgs \
         [file tail $executable] [getTestLogId] .test. [pid] .log]]]
+  }
+
+  #
+  # HACK: Do not define the [newTestLog] test procedure if it apppears
+  #       to already be present.  This is necessary due to the external
+  #       log monitor tool needing to override this procedure prior to
+  #       the test package actually being loaded.
+  #
+  if {[llength [info commands newTestLog]] == 0} then {
+    #
+    # WARNING: This procedure is RESERVED for use by external log
+    #          monitoring tools, e.g. the official "watchCat" tool.
+    #
+    proc newTestLog { oldFileName newFileName } {
+      #
+      # NOTE: This procedure is designed to be called by external code
+      #       that wants to change the test log file name after it has
+      #       already been setup.  This can be used to enable external
+      #       log monitor tools to obtain the new test log file name.
+      #
+    }
   }
 
   proc getTestLog {} {
@@ -2432,6 +3948,7 @@ namespace eval ::Eagle {
     }
 
     set logFileName [file normalize $logFileName]
+
     set logTime [expr {[file exists $logFileName] ? \
         [file mtime $logFileName] : 0}]
 
@@ -2442,7 +3959,7 @@ namespace eval ::Eagle {
     if {[regsub -- {\.\d+\.} $logFileName {.*.} pattern]} then {
       set lastLogFile [list]
 
-      foreach fileName [findFiles $pattern] {
+      foreach fileName [findFilesRecursive $pattern] {
         #
         # NOTE: Skip the current test log file, if found.
         #
@@ -2908,13 +4425,16 @@ namespace eval ::Eagle {
 
     if {[llength $args] > 0} then {eval lappend command $args}
     set procName [lindex [info level [info level]] 0]
+    set channel [getTestChannelOrDefault]
 
     if {![canTestExec $procName]} then {
-      tputs $::test_channel [appendArgs "---- skipping command: " $command \n]
+      tputs $channel [appendArgs \
+          "---- skipping command: " $command \n]
 
       error "test use of \[$procName\] has been disabled"
     } else {
-      tputs $::test_channel [appendArgs "---- running command: " $command \n]
+      tputs $channel [appendArgs \
+          "---- running command: " $command \n]
 
       return [uplevel 1 $command]
     }
@@ -2929,13 +4449,16 @@ namespace eval ::Eagle {
     eval lappend command [getRuntimeCommandLine $commandName]
     if {[llength $args] > 0} then {eval lappend command $args}
     set procName [lindex [info level [info level]] 0]
+    set channel [getTestChannelOrDefault]
 
     if {![canTestExec $procName]} then {
-      tputs $::test_channel [appendArgs "---- skipping command: " $command \n]
+      tputs $channel [appendArgs \
+          "---- skipping command: " $command \n]
 
       error "test use of \[$procName\] has been disabled"
     } else {
-      tputs $::test_channel [appendArgs "---- running command: " $command \n]
+      tputs $channel [appendArgs \
+          "---- running command: " $command \n]
 
       return [uplevel 1 $command]
     }
@@ -2943,15 +4466,16 @@ namespace eval ::Eagle {
 
   proc execTestShell { options args } {
     set procName [lindex [info level [info level]] 0]
+    set channel [getTestChannelOrDefault]
 
     if {![canTestExec $procName]} then {
-      tputs $::test_channel [appendArgs \
+      tputs $channel [appendArgs \
           "---- skipping nested shell with options \{" \
           $options "\} and arguments \{" $args \}\n]
 
       error "test use of \[$procName\] has been disabled"
     } else {
-      tputs $::test_channel [appendArgs \
+      tputs $channel [appendArgs \
           "---- running nested shell with options \{" \
           $options "\} and arguments \{" $args \}\n]
 
@@ -3078,14 +4602,16 @@ namespace eval ::Eagle {
           #
           # NOTE: Only the string to be printed is specified (stdout).
           #
-          return [tputs $::test_channel [appendArgs [lindex $args 0] \n]]
+          return [tputs [getTestChannelOrDefault] \
+              [appendArgs [lindex $args 0] \n]]
         }
         2 {
           #
           # NOTE: Either -nonewline or channelId has been specified.
           #
           if {[lindex $args 0] eq "-nonewline"} then {
-            return [tputs $::test_channel [lindex $args end]]
+            return [tputs [getTestChannelOrDefault] \
+                [lindex $args end]]
           } else {
             set channel [lindex $args 0]
             set newLine \n
@@ -3108,8 +4634,8 @@ namespace eval ::Eagle {
         #
         # NOTE: Write output for stdout to the test channel.
         #
-        return [tputs $::test_channel [appendArgs [lindex $args end] \
-            $newLine]]
+        return [tputs [getTestChannelOrDefault] \
+            [appendArgs [lindex $args end] $newLine]]
       }
 
       #
@@ -3180,24 +4706,26 @@ namespace eval ::Eagle {
       }
 
       #
-      # NOTE: If the test failed with an actual error (i.e. not just a
-      #       test failure), make sure we do not obscure the error
+      # NOTE: If the test failed with an actual error (i.e. not just
+      #       a test failure), make sure we do not obscure the error
       #       message with test suite output.
       #
       if {$error} then {
-        tputs $::test_channel \n; # emit a blank line.
+        thostresult $tresultCode \n; # emit a blank line.
+        tlog \n; # log a blank line.
       }
 
       #
       # NOTE: If this test failed and the stop-on-failure flag is set,
       #       raise an error now.  If we are being run from inside
-      #       runAllTests, this will also serve to signal it to stop
+      #       [runAllTests], this will also serve to signal it to stop
       #       processing further test files.
       #
       if {$code != 0 && [isStopOnFailure]} then {
         tresult Error "OVERALL RESULT: STOP-ON-FAILURE\n"
 
         unset -nocomplain ::test_suite_running
+        if {[isEagle]} then {igap MaybeResetLastError}
         error ""; # no message
       }
 
@@ -3224,7 +4752,7 @@ namespace eval ::Eagle {
         if {[isEagle] || \
             (![regexp -- $badOptionPattern $result] && \
              ![regexp -- $badMatchValuePattern $result])} then {
-          tputs $::test_channel [appendArgs \
+          tputs [getTestChannelOrDefault] [appendArgs \
               "ERROR (runTest): " $result \n]
         }
       }
@@ -3323,7 +4851,8 @@ namespace eval ::Eagle {
           1.0.6483.12345 1.0.6543.58654 1.0.6781.49000 1.0.6781.49042 \
           1.0.6848.11041 1.0.7213.50727 1.0.7790.43198 1.0.7897.33333 \
           1.0.7900.33333 1.0.7945.33333 1.0.8192.54321 1.0.8251.52012 \
-          1.0.8369.11942 1.0.8503.24499 1.0.8613.27347 1.0.8734.30319]
+          1.0.8369.11942 1.0.8503.24499 1.0.8613.27347 1.0.8734.30319 \
+          1.0.9001.43210]
     } else {
       return [list]
     }
@@ -3350,6 +4879,62 @@ namespace eval ::Eagle {
     } else {
       return false; # NOTE: Not Eagle -OR- something failed?
     }
+  }
+
+  proc changeArrayElement { varName varIndex value enable } {
+    upvar 1 $varName array
+
+    if {[info exists array($varIndex)]} then {
+      set index [lsearch -exact -- $array($varIndex) $value]
+
+      if {$enable} then {
+        if {$index != -1} then {
+          return false; # no, it was present.
+        } else {
+          lappend array($varIndex) $value
+
+          return true; # yes, it was missing.
+        }
+      } else {
+        if {$index != -1} then {
+          set array($varIndex) [lreplace \
+              $array($varIndex) $index $index]
+
+          return true; # yes, it was removed.
+        } else {
+          return false; # no, it was missing.
+        }
+      }
+    } else {
+      if {$enable} then {
+        set array($varIndex) [list $value]
+
+        return true; # yes, created with it.
+      } else {
+        return false; # no, there is nothing.
+      }
+    }
+  }
+
+  proc enableTestStatisticsLists { varName index statistics enable } {
+    #
+    # NOTE: Enable or disable tracking lists for the specified
+    #       object types that we track.
+    #
+    upvar 1 $varName array
+
+    set allResults [list]
+    set allStatistics [getNamesForTestStatistics]
+
+    foreach statistic $statistics {
+      if {[lsearch -exact -- $allStatistics $statistic] != -1} then {
+        lappend allResults [list $statistic \
+            [changeArrayElement array [appendArgs listed, $index] \
+            $statistic $enable]]
+      }
+    }
+
+    return $allResults
   }
 
   proc recordTestStatistics { varName index } {
@@ -3545,29 +5130,8 @@ namespace eval ::Eagle {
 
     ###########################################################################
 
-    if {![info exists ::no(query,interpreters)]} then {
-      if {[isStableEagleRelease 45 true]} then {; # NOTE: Post Beta 45.
-        #
-        # NOTE: This version of Eagle should support the [interp children]
-        #       sub-command.
-        #
-        set list [interp children]; # Beta 46+
-      } elseif {[catch {interp children} children] == 0} then {
-        #
-        # NOTE: The version of native Tcl in use appears to support the new
-        #       [interp children] sub-command.
-        #
-        set list $children; # Tcl 8.7+ (?)
-      } else {
-        #
-        # NOTE: Unfortunately, this exact terminology is needed to retain
-        #       backward compatibility with native Tcl 8.4+.  Please see:
-        #
-        #       https://urn.to/r/tcl_interp_slaves
-        #
-        set list [interp slaves]; # COMPAT: Tcl.
-      }
-    } else {
+    if {[info exists ::no(query,interpreters)] || \
+        [catch {getTestChildren} list]} then {
       set list [list]
     }
 
@@ -3663,18 +5227,8 @@ namespace eval ::Eagle {
 
       #########################################################################
 
-      if {[info exists ::no(query,snippets)] || [catch {
-        if {[llength [info commands object]] > 0} then {
-          set names null; set error null
-
-          set code [object invoke Interpreter.GetActive \
-              ListSnippets null false None None names error]
-
-          if {$code ne "Ok"} then {
-            error [getStringFromObjectHandle $error]
-          }
-        }
-      } list]} then {
+      if {[info exists ::no(query,snippets)] || \
+          [catch {getTestSnippets} list]} then {
         set list [list]
       }
 
@@ -3711,6 +5265,20 @@ namespace eval ::Eagle {
       if {[info exists array(listed,$index)] && \
           [lsearch -exact $array(listed,$index) processes] != -1} then {
         set array(processes,$index,list) $list
+      }
+
+      #########################################################################
+
+      if {[info exists ::no(query,appDomains)] || \
+          [catch {getTestAppDomains} list]} then {
+        set list [list]
+      }
+
+      set array(appDomains,$index) [llength $list]
+
+      if {[info exists array(listed,$index)] && \
+          [lsearch -exact $array(listed,$index) appDomains] != -1} then {
+        set array(appDomains,$index,list) $list
       }
 
       #########################################################################
@@ -3944,11 +5512,10 @@ namespace eval ::Eagle {
     }
   }
 
-  proc reportTestStatistics {
-          channel fileName stop statsVarName filesVarName {quiet false} } {
-    set statistics [list afters variables commands procedures namespaces \
-        files binaryFiles temporaryFiles channels aliases interpreters \
-        environment loaded]
+  proc getNamesForTestStatistics {} {
+    set result [list \
+        afters variables commands procedures namespaces files binaryFiles \
+        temporaryFiles channels aliases interpreters environment loaded]
 
     if {[isEagle]} then {
       #
@@ -3956,19 +5523,24 @@ namespace eval ::Eagle {
       #       the .NET Framework has no way to unload them without tearing
       #       down the entire application domain.
       #
-      lappend statistics \
-          previousPid scopes assemblies processes objects objectCallbacks \
-          objectTypes objectInterfaces objectNamespaces connections \
-          transactions modules delegates tcl tclInterps tclThreads \
-          tclCommands scriptThreads
+      lappend result \
+          previousPid scopes assemblies processes appDomains objects \
+          objectCallbacks objectTypes objectInterfaces objectNamespaces \
+          connections transactions modules delegates tcl tclInterps \
+          tclThreads tclCommands scriptThreads
     }
 
+    return $result
+  }
+
+  proc reportTestStatistics {
+          channel fileName stop statsVarName filesVarName {quiet false} } {
     #
     # NOTE: Show what leaked, if anything.
     #
     set count 0; upvar 1 $statsVarName array
 
-    foreach statistic $statistics {
+    foreach statistic [getNamesForTestStatistics] {
       if {![info exists array($statistic,after)]} then {
         if {!$quiet} then {
           tputs $channel [appendArgs "==== \"" $fileName "\" MISSING " \
@@ -4052,6 +5624,7 @@ namespace eval ::Eagle {
           tresult Error "OVERALL RESULT: STOP-ON-LEAK\n"
 
           unset -nocomplain ::test_suite_running
+          if {[isEagle]} then {igap MaybeResetLastError}
           error ""; # no message
         } elseif {[isBreakOnLeak]} then {
           testDebugBreak
@@ -4566,7 +6139,7 @@ namespace eval ::Eagle {
         #
         # NOTE: Skip files that are not part of the test suite.
         #
-        set data [readFile $fileName]
+        set data [readSharedFile $fileName]
 
         #
         # NOTE: Check for a match.
@@ -4598,8 +6171,14 @@ namespace eval ::Eagle {
           #
           if {![info exists ::no(leak)]} then {
             #
-            # NOTE: Get "before" resource counts for leak tracking.
+            # NOTE: Get "before" resource counts for leak tracking,
+            #       optionally with full lists of tracked resources.
             #
+            if {[info exists ::env(enableTestStatisticsLists)]} then {
+              enableTestStatisticsLists leaks before \
+                  $::env(enableTestStatisticsLists) true
+            }
+
             recordTestStatistics leaks before
           }
 
@@ -4818,8 +6397,14 @@ namespace eval ::Eagle {
           #
           if {![info exists ::no(leak)]} then {
             #
-            # NOTE: Get "after" resource counts for leak tracking.
+            # NOTE: Get "after" resource counts for leak tracking,
+            #       optionally with full lists of tracked resources.
             #
+            if {[info exists ::env(enableTestStatisticsLists)]} then {
+              enableTestStatisticsLists leaks after \
+                  $::env(enableTestStatisticsLists) true
+            }
+
             recordTestStatistics leaks after
 
             if {![info exists ::no(runStatistics)]} then {
@@ -4967,6 +6552,12 @@ namespace eval ::Eagle {
 
   proc checkForAndSetTestPath { whatIf {quiet false} } {
     #
+    # NOTE: Figure out where to send diagnostic messages related to setting
+    #       up the test path.
+    #
+    set channel [getTestChannelOrDefault]
+
+    #
     # NOTE: Everything in this procedure requires access to the file system;
     #       therefore, it cannot be used in a stock "safe" interpreter.
     #
@@ -4999,7 +6590,7 @@ namespace eval ::Eagle {
               dirname $library]] Library Tests]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #1 for Eagle test path at \"" \
                 $::test_path \"...\n]
           }
@@ -5017,7 +6608,7 @@ namespace eval ::Eagle {
           set ::test_path [file normalize [file join $base Library Tests]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #2 for Eagle test path at \"" \
                 $::test_path \"...\n]
           }
@@ -5035,7 +6626,7 @@ namespace eval ::Eagle {
               dirname $script]] [appendArgs Test [info engine Version]]]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #3 for Eagle test path at \"" \
                 $::test_path \"...\n]
           }
@@ -5054,7 +6645,7 @@ namespace eval ::Eagle {
               Test [info engine Version]]]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #4 for Eagle test path at \"" \
                 $::test_path \"...\n]
           }
@@ -5073,7 +6664,7 @@ namespace eval ::Eagle {
               Test [info engine Version]]]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #5 for Eagle test path at \"" \
                 $::test_path \"...\n]
           }
@@ -5094,7 +6685,7 @@ namespace eval ::Eagle {
               dirname $library]] Tests]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #6 for Eagle test path at \"" \
                 $::test_path \"...\n]
           }
@@ -5112,14 +6703,14 @@ namespace eval ::Eagle {
           set ::test_path [file normalize [file join $base Tests]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #7 for Eagle test path at \"" \
                 $::test_path \"...\n]
           }
         }
 
         if {!$quiet} then {
-          tqputs [getTestChannelOrDefault] [appendArgs \
+          tqputs $channel [appendArgs \
               "---- final Eagle test path is \"" \
               [expr {[info exists ::test_path] ? \
               $::test_path : "<none>"}] \"\n]
@@ -5136,7 +6727,7 @@ namespace eval ::Eagle {
               dirname [file dirname $script]]] Library Tests]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #1 for Tcl test path at \"" \
                 $::test_path \"...\n]
           }
@@ -5154,7 +6745,7 @@ namespace eval ::Eagle {
               dirname $script]] Test1.0]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #2 for Tcl test path at \"" \
                 $::test_path \"...\n]
           }
@@ -5175,14 +6766,14 @@ namespace eval ::Eagle {
               dirname [file dirname $script]]] Tests]]
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] [appendArgs \
+            tqputs $channel [appendArgs \
                 "---- checking #3 for Tcl test path at \"" \
                 $::test_path \"...\n]
           }
         }
 
         if {!$quiet} then {
-          tqputs [getTestChannelOrDefault] [appendArgs \
+          tqputs $channel [appendArgs \
               "---- final Tcl test path is \"" \
               [expr {[info exists ::test_path] ? \
               $::test_path : "<none>"}] \"\n]
@@ -5408,9 +6999,106 @@ namespace eval ::Eagle {
     }
   }
 
+  proc getRemoteMessageLimit {} {
+    if {[info exists ::eagle_debugger(logRemoteMessageLimit)]} then {
+      set limit $::eagle_debugger(logRemoteMessageLimit)
+    } else {
+      set limit -1; # i.e. use maximum message limit
+    }
+
+    #
+    # NOTE: This should be the maximum possible remote message size,
+    #       given the following set of simplifying assumptions:
+    #
+    #       1. The maximum possible query string is 262144 bytes.
+    #
+    #       2. The maximum number of allowed query parameters is 1000.
+    #
+    #       3. Each parameter needs one byte for '?' or '&' -AND- may
+    #          need one byte for '='.
+    #
+    #       4. The overhead for Base-64 encoding is 4 / 3.
+    #
+    #       5. The overhead for URL encoding is 4 / 3.
+    #
+    set maximumLimit [expr {
+      (1024 * 128) - (1000 * 2)
+    }]; # 129072 (minimum?) <= 191568 (tested) <= 262144 (maximum?)
+
+    if {![string is integer -strict $limit] || \
+        $limit < 0 || $limit > $maximumLimit} then {
+      set limit $maximumLimit
+    }
+
+    return $limit
+  }
+
+  proc encodeRemoteMessage {
+          messageVarName base64VarName limit raiseError } {
+    upvar 1 $messageVarName message
+    upvar 1 $base64VarName base64
+
+    if {[isEagle]} then {
+      set base64 [base64 encode $message]
+    } else {
+      package require base64
+
+      set base64 [::base64::encode $message]
+    }
+
+    set length [string length $base64]
+
+    if {$length > $limit} then {
+      if {$raiseError} then {
+        error [appendArgs \
+            "base64 remote message length " $length \
+            " exceeds configured message limit " $limit]
+      } else {
+        #
+        # HACK: Truncate message at the limit and then
+        #       encode it again in Base-64.  This means
+        #       we have to (approximately) calculate the
+        #       maximum length for a UTF-8 message to be
+        #       encoded with it.  Since Base-64 will end
+        #       up increasing length by ($n * (4 / 3)),
+        #       just attempt to undo that.
+        #
+        set messageLength [string length $message]
+        set messageLimit [expr {int($limit / 4.0 * 3.0)}]
+
+        set message [appendArgs \
+            LOG_REMOTE_MESSAGE_TOO_BIG( $messageLength "): " \
+            [string range $message 0 $messageLimit]]
+
+        if {[isEagle]} then {
+          set base64 [base64 encode $message]
+        } else {
+          set base64 [::base64::encode $message]
+        }
+      }
+
+      return false
+    } else {
+      return true
+    }
+  }
+
   proc logRemoteMessage {
           message {uri ""} {apiKey ""} {password ""} {channel stdout}
           {quiet false} } {
+    #
+    # HACK: Should this procedure raise a script error if some kind
+    #       of error condition is detected, i.e. not an unexpected
+    #       error?
+    #
+    if {[info exists ::eagle_debugger(logRemoteMessageRaiseError)] && \
+        [string is true -strict \
+            $::eagle_debugger(logRemoteMessageRaiseError)]} then {
+      set raiseError true
+    } else {
+      set raiseError false
+    }
+
     #
     # NOTE: This procedure attempts to (securely) send the specified
     #       log message to the specified logging endpoint.
@@ -5439,23 +7127,55 @@ namespace eval ::Eagle {
     if {[string length $password] == 0} then {
       if {[info exists ::env(logRemoteMessagePassword)]} then {
         set password $::env(logRemoteMessagePassword)
-      } else {
-        set password {nopenotarealpassword}; # Fake.
       }
     }
 
+    if {[string length $password] == 0} then {
+      if {[info exists ::env(logRemoteMessagePasswordFile)]} then {
+        set password [readFile $::env(logRemoteMessagePasswordFile)]
+      } else {
+        if {$raiseError} then {
+          error "password for remote message log is missing"
+        } else {
+          set password {nopenotarealpassword}; # Fake.
+        }
+      }
+    }
+
+    #
+    # HACK: Yes, we should not be using the query string for passing
+    #       the log message itself; however, it does work up to this
+    #       limit, which is plenty big, so just do that.
+    #
+    set limit [getRemoteMessageLimit]
+
+    #
+    # NOTE: If the limit is exactly zero, remote logging is disabled
+    #       and we should return now.
+    #
+    if {$limit == 0} then {
+      return DISABLED
+    }
+
+    #
+    # NOTE: Make sure the message string is encoded using UTF-8 and
+    #       then encode it using Base-64, while honoring the limit,
+    #       if any.
+    #
     set message [encoding convertto utf-8 $message]
+    encodeRemoteMessage message base64 $limit $raiseError
 
+    #
+    # NOTE: Next, calculate HMAC-SHA1 of the message, which will be
+    #       verified by the server before the message is considered
+    #       valid.
+    #
     if {[isEagle]} then {
-      set base64 [base64 encode $message]
-
       set hash [string tolower \
           [hash keyed hmacsha1 $message $password]]
     } else {
-      package require base64
       package require sha1
 
-      set base64 [::base64::encode $message]
       set hash [::sha1::hmac -hex -key $password $message]
     }
 
@@ -5463,8 +7183,8 @@ namespace eval ::Eagle {
         raw 1 apiKey $apiKey message $base64 hash $hash]
 
     if {[isEagle]} then {
-      return [string trim \
-          [uri upload -inline -data $query $uri]]
+      return [string trim [uri upload \
+          -timeouttype network -inline -data $query $uri]]
     } else {
       package require http 2.0
       package require Eagle.Tools.Common
@@ -5478,7 +7198,36 @@ namespace eval ::Eagle {
     }
   }
 
-  proc logRemoteTestResults { success {verbose false} {quiet false} } {
+  proc logRemoteMessageWrapper {
+          message {uri ""} {apiKey ""} {password ""} {channel stdout}
+          {quiet false} {useLevel false} {milliseconds ""} } {
+    if {!$useLevel || \
+        [catch {lindex [info level -1] 0} level]} then {
+      set level ""
+    }
+
+    if {[string length $level] > 0} then {
+      set message [appendArgs $level ": " $message]
+    }
+
+    if {[info exists ::no(NoSynchronousRemoteMessage)] || \
+        [info exists ::env(NoSynchronousRemoteMessage)]} then {
+      return [execTestShell \
+          [list -success Success] -initialize -postInitialize \
+          [appendArgs \" [list package require Eagle.Test] \"] \
+          -postInitialize \
+          [appendArgs \" "delayForTest " $milliseconds \"] \
+          -evaluate [appendArgs \" [list logRemoteMessage \
+          $message $uri $apiKey $password $channel $quiet] \"] &]
+    } else {
+      delayForTest $milliseconds
+
+      return [logRemoteMessage \
+          $message $uri $apiKey $password $channel $quiet]
+    }
+  }
+
+  proc getRemoteMessageHeader { success } {
     set id [getTestRunId]
     if {[string length $id] == 0} then {set id <noId>}
 
@@ -5494,27 +7243,49 @@ namespace eval ::Eagle {
     set tags [getValueOrDefault ::test_repository_tags <noTags>]
     set tags [string map [list "  " " "] [string map [list , " "] $tags]]
 
-    set header [appendArgs \
-        [expr {$success ? "SUCCESS" : "FAILURE"}] \
-        " TEST-RUN " $id " bucket " $bucket ": " [getTestSuiteFullName] \
-        ", url " $url ", checkout " $checkout ", tags " $tags ", log " \
-        $log ", " [getTestSuiteVariantName]]
+    if {[string length $success] > 0} then {
+      if {$success} then {
+        set prefix "SUCCESS "
+      } else {
+        set prefix "FAILURE "
+      }
+    } else {
+      set prefix ""
+    }
+
+    set result [appendArgs \
+        $prefix "TEST-RUN " $id " bucket " $bucket ": " \
+        [getTestSuiteFullName] ", url " $url ", checkout " \
+        $checkout ", tags " $tags ", log " $log ", " \
+        [getTestSuiteVariantName]]
 
     set argv [getValueOrDefault ::argv [list]]
 
     if {[llength $argv] > 0} then {
-      append header ", argv " [list $argv]
+      append result ", argv " [list $argv]
     }
 
     if {[isEagle]} then {
+      set runtimeVersion [object invoke -flags +NonPublic \
+          Eagle._Components.Private.FormatOps ShortImageOrRuntimeVersion \
+          [set assembly [object invoke Utility GetAssembly]] null null]
+
+      if {[string length $runtimeVersion] > 0} then {
+        append result ", runtime version " $runtimeVersion
+      }
+
       set cmdLine [info cmdline]
 
       if {[string length $cmdLine] > 0} then {
-        append header ", command line " [list $cmdLine]
+        append result ", command line " [list $cmdLine]
       }
     }
 
-    set detail ""
+    return $result
+  }
+
+  proc getRemoteTestResults { verbose } {
+    set result(1) ""; set result(2) ""
 
     if {[isEagle]} then {
       foreach name [list Passed Failed Skipped Disabled Total] {
@@ -5522,7 +7293,7 @@ namespace eval ::Eagle {
           set value $::eagle_tests($name)
 
           if {$verbose || $value != 0} then {
-            append detail ", " [string tolower $name] " " \
+            append result(1) ", " [string tolower $name] " " \
                 $value
           }
         }
@@ -5533,19 +7304,33 @@ namespace eval ::Eagle {
 
         if {$verbose || [llength $value] > 0} then {
           if {[llength $value] == 0} then {set value <none>}
-          append detail ", failedNames " $value
+          append result(1) ", failedNames " $value
         }
       }
 
       if {[info exists ::eagle_tests(SkippedNames)]} then {
+        set skippedNames $::eagle_tests(SkippedNames)
+
         calculateTestConstraintCounts \
-            $::eagle_tests(SkippedNames) maximum counts
+            $skippedNames maximum counts
 
         set value [testArrayGet counts]
 
         if {$verbose || [llength $value] > 0} then {
           if {[llength $value] == 0} then {set value <none>}
-          append detail ", skippedConstraints " $value
+          append result(1) ", skippedConstraints " $value
+        }
+
+        #
+        # HACK: Since the list of skipped test names can be quite
+        #       large, return it to the caller as its own element
+        #       of the result list.  This data is very valuable.
+        #
+        set value $skippedNames
+
+        if {$verbose || [llength $value] > 0} then {
+          if {[llength $value] == 0} then {set value <none>}
+          append result(2) ", skippedNames " $value
         }
       }
 
@@ -5553,7 +7338,7 @@ namespace eval ::Eagle {
         set value $::test_timestamp(elapsedMicroseconds)
 
         if {[string is double -strict $value]} then {
-          append detail ", duration " [formatDecimal $value] \
+          append result(1) ", duration " [formatDecimal $value] \
               " microseconds"
         }
       }
@@ -5563,7 +7348,7 @@ namespace eval ::Eagle {
           set value $::tcltest::numTests($name)
 
           if {$verbose || $value != 0} then {
-            append detail ", " [string tolower $name] " " \
+            append result(1) ", " [string tolower $name] " " \
                 $value
           }
         }
@@ -5577,7 +7362,7 @@ namespace eval ::Eagle {
 
         if {$verbose || [llength $value] > 0} then {
           if {[llength $value] == 0} then {set value <none>}
-          append detail ", skippedConstraints " $value
+          append result(1) ", skippedConstraints " $value
         }
       }
 
@@ -5586,30 +7371,177 @@ namespace eval ::Eagle {
 
         if {$verbose || [llength $value] > 0} then {
           if {[llength $value] == 0} then {set value <none>}
-          append detail ", failFiles " $value
+          append result(1) ", failFiles " $value
         }
       }
     }
 
+    return [list $result(1) $result(2)]
+  }
+
+  #
+  # HACK: The server bandwidth can be a very limited resource;
+  #       therefore, wait at least X milliseconds before doing
+  #       it again.
+  #
+  proc delayForTest { {milliseconds ""} } {
+    if {[info exists ::no(NoDelayForTest)] || \
+        [info exists ::env(NoDelayForTest)]} then {
+      return false
+    }
+
+    if {[string length $milliseconds] == 0 && \
+        [info exists ::eagle_debugger(delayForTest)]} then {
+      set milliseconds $::eagle_debugger(delayForTest)
+    }
+
+    if {[string length $milliseconds] == 0 && \
+        [info exists ::env(DelayForTest)]} then {
+      set milliseconds $::env(DelayForTest)
+    }
+
+    if {[string length $milliseconds] == 0 && \
+        [info exists ::test_timeout]} then {
+      set milliseconds $::test_timeout
+    }
+
+    if {[string is not integer -strict $milliseconds]} then {
+      set milliseconds 2000
+    }
+
+    after $milliseconds
+    return true
+  }
+
+  proc logRemoteTestResults {
+          success {channel stdout} {verbose false} {quiet false} } {
     if {[catch {
-      set message [appendArgs $header $detail]
+      set header [getRemoteMessageHeader $success]
+      set detail [getRemoteTestResults $verbose]
+
+      set basicDetail [lindex $detail 0]
+      set extraDetail [lindex $detail 1]
+
+      set newMessage [appendArgs $header $basicDetail]
 
       if {!$quiet} then {
-        tputs $::test_channel [appendArgs \
-            "---- test results: " $message \n]
+        tputs $channel [appendArgs \
+            "---- test results: " $newMessage \n]
       }
 
-      logRemoteMessage $message
+      set responses [list]
+
+      if {[catch {
+        logRemoteMessageWrapper $newMessage
+      } response] == 0} then {
+        lappend responses $response
+      } else {
+        lappend responses [list ERROR $response]
+      }
+
+      if {[string length $extraDetail] > 0 && \
+          [hasRuntimeOption logExtraTestResults]} then {
+        set newMessage [appendArgs "EXTRA " $header $extraDetail]
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- extra test results: " $newMessage \n]
+        }
+
+        if {[catch {
+          logRemoteMessageWrapper $newMessage
+        } response] == 0} then {
+          lappend responses $response
+        } else {
+          lappend responses [list ERROR $response]
+        }
+      }
+
+      if {[llength $responses] == 1} then {
+        set responses [lindex $responses 0]
+      }
+
+      set responses
     } result] == 0} then {
       if {!$quiet} then {
-        tputs $::test_channel [appendArgs \
+        tputs $channel [appendArgs \
             "---- success logging remote test results: " \
             $result \n]
       }
     } else {
       if {!$quiet} then {
-        tputs $::test_channel [appendArgs \
+        tputs $channel [appendArgs \
             "---- failure logging remote test results: " \
+            $result \n]
+      }
+    }
+
+    return $result
+  }
+
+  proc logRemoteTestRunMessage {
+          message {results false} {uri ""} {apiKey ""} {password ""}
+          {channel stdout} {verbose false} {quiet false} } {
+    if {[catch {
+      set header [getRemoteMessageHeader ""]
+      set detail [expr {$results ? [getRemoteTestResults $verbose] : [list]}]
+
+      set basicDetail [lindex $detail 0]
+      set extraDetail [lindex $detail 1]
+
+      set newMessage [appendArgs \
+          "MESSAGE " $header $basicDetail ": " $message]
+
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- remote message: " $newMessage \n]
+      }
+
+      set responses [list]
+
+      if {[catch {
+        logRemoteMessageWrapper $newMessage \
+            $uri $apiKey $password $channel $quiet
+      } response] == 0} then {
+        lappend responses $response
+      } else {
+        lappend responses [list ERROR $response]
+      }
+
+      if {[string length $extraDetail] > 0 && \
+          [hasRuntimeOption logExtraTestRunMessage]} then {
+        set newMessage [appendArgs "EXTRA " $header $extraDetail]
+
+        if {!$quiet} then {
+          tputs $channel [appendArgs \
+              "---- extra remote message: " $newMessage \n]
+        }
+
+        if {[catch {
+          logRemoteMessageWrapper $newMessage \
+              $uri $apiKey $password $channel $quiet
+        } response] == 0} then {
+          lappend responses $response
+        } else {
+          lappend responses [list ERROR $response]
+        }
+      }
+
+      if {[llength $responses] == 1} then {
+        set responses [lindex $responses 0]
+      }
+
+      set responses
+    } result] == 0} then {
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- success logging remote test message: " \
+            $result \n]
+      }
+    } else {
+      if {!$quiet} then {
+        tputs $channel [appendArgs \
+            "---- failure logging remote test message: " \
             $result \n]
       }
     }
@@ -5700,7 +7632,8 @@ namespace eval ::Eagle {
           #
           set test_verbose [split [string map [list \
               Body B Pass P Skip S Start T Error E Line L \
-              Fail F Reason R Time I Exit X StdOut O StdErr D] \
+              Fail F Reason R Time I Exit X StdOut O StdErr D \
+              Enter N Leave A Track G Hook H] \
               $test_flags(-verbose)] ""]
         }
 
@@ -5709,6 +7642,8 @@ namespace eval ::Eagle {
     }
 
     proc setupTestShims { setup {quiet false} } {
+      set channel [getTestChannelOrDefault]
+
       if {$setup} then {
         #
         # HACK: Compatibility shim(s) for use with various tests in the Tcl
@@ -5719,7 +7654,7 @@ namespace eval ::Eagle {
           interp alias {} testConstraint {} haveOrAddConstraint
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] \
+            tqputs $channel \
                 "---- added \"testConstraint\" alias\n"
           }
         }
@@ -5728,7 +7663,7 @@ namespace eval ::Eagle {
           interp alias {} ::tcltest::testConstraint {} haveOrAddConstraint
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] \
+            tqputs $channel \
                 "---- added \"::tcltest::testConstraint\" alias\n"
           }
         }
@@ -5741,7 +7676,7 @@ namespace eval ::Eagle {
           proc ::tcltest::cleanupTests { args } {}
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] \
+            tqputs $channel \
                 "---- added \"::tcltest::cleanupTests\" procedure\n"
           }
         }
@@ -5755,7 +7690,7 @@ namespace eval ::Eagle {
           proc ::tcltest::loadTestedCommands { args } {}
 
           if {!$quiet} then {
-            tqputs [getTestChannelOrDefault] \
+            tqputs $channel \
                 "---- added \"::tcltest::loadTestedCommands\" procedure\n"
           }
         }
@@ -5769,7 +7704,7 @@ namespace eval ::Eagle {
           rename ::tcltest::loadTestedCommands ""
 
           if {!$quiet} then {
-            tqputs $::test_channel \
+            tqputs $channel \
                 "---- removed \"::tcltest::loadTestedCommands\" procedure\n"
           }
         }
@@ -5778,7 +7713,7 @@ namespace eval ::Eagle {
           rename ::tcltest::cleanupTests ""
 
           if {!$quiet} then {
-            tqputs $::test_channel \
+            tqputs $channel \
                 "---- removed \"::tcltest::cleanupTests\" procedure\n"
           }
         }
@@ -5787,7 +7722,7 @@ namespace eval ::Eagle {
           interp alias {} ::tcltest::testConstraint {} {}
 
           if {!$quiet} then {
-            tqputs $::test_channel \
+            tqputs $channel \
                 "---- removed \"::tcltest::testConstraint\" alias\n"
           }
         }
@@ -5796,11 +7731,26 @@ namespace eval ::Eagle {
           interp alias {} testConstraint {} {}
 
           if {!$quiet} then {
-            tqputs $::test_channel \
+            tqputs $channel \
                 "---- removed \"testConstraint\" alias\n"
           }
         }
       }
+    }
+
+    proc maybeAppendNewLine { varName } {
+      upvar 1 $varName value
+
+      if {[info exists value] && [string length $value] > 0} then {
+        set lastChar [string index $value 0]
+
+        if {[string is not space -strict $lastChar]} then {
+          append value \n
+          return true
+        }
+      }
+
+      return false
     }
 
     proc shouldWriteTestData { code } {
@@ -5895,6 +7845,7 @@ namespace eval ::Eagle {
 
     proc deleteInactiveTestLogFiles { baseDirectory baseFileNameOnly } {
       set result [list]
+      set channel [getTestChannelOrDefault]
 
       foreach fileName [lsort -decreasing [findFilesRecursive [file join \
           $baseDirectory [appendArgs $baseFileNameOnly .test.*.log]]]] {
@@ -5911,11 +7862,11 @@ namespace eval ::Eagle {
             }] == 0} then {
               lappend result $directory; # removed
             }
-          } elseif {[info exists ::test_channel]} then {
+          } else {
             #
             # TODO: Is this actually valid to use here?
             #
-            tputs $::test_channel [appendArgs \
+            tputs $channel [appendArgs \
                 "---- inactive test log cleanup error: " $error \n]
           }
         }
@@ -5979,7 +7930,7 @@ namespace eval ::Eagle {
         append result "Content-Type: application/octet-stream\r\n"
         # append result "Content-Transfer-Encoding: binary\r\n"
         append result \r\n
-        append result [readFile $fileName] \r\n
+        append result [readSharedFile $fileName] \r\n
       }
 
       if {[string length $result] > 0} then {
@@ -6029,8 +7980,12 @@ namespace eval ::Eagle {
       }
     }
 
+    proc thostresult { code result } {
+      host result $code $result
+    }
+
     proc tresult { code result } {
-      host result $code $result; tlog $result
+      thostresult $code $result; tlog $result
     }
 
     proc getPassedPercentage {} {
@@ -6336,6 +8291,61 @@ namespace eval ::Eagle {
       return ""
     }
 
+    proc getTestSnippets {} {
+      set names null; set error null
+
+      set code [object invoke Interpreter.GetActive \
+          ListSnippets null false None None names error]
+
+      if {$code ne "Ok"} then {
+        error [getStringFromObjectHandle $error]
+      }
+
+      return $names
+    }
+
+    proc lmissing { list1 list2 } {
+      set result [list]
+
+      foreach element $list1 {
+        if {[lsearch -exact $list2 $element] == -1} then {
+          lappend result $element
+        }
+      }
+
+      return $result
+    }
+
+    proc getTestAppDomains {} {
+      #
+      # HACK: First, grab lists of AppDomain identifiers that
+      #       have been created -OR- unloaded from within the
+      #       AppDomainOps subsystem.  The resulting list of
+      #       AppDomain identifiers will only contain those
+      #       that have been created and not (yet) unloaded.
+      #
+      set createList null
+      set unloadList null
+
+      object invoke -create -flags +NonPublic \
+          Eagle._Components.Private.AppDomainOps \
+          GetLists createList unloadList
+
+      if {[isNonNullObjectHandle $createList]} then {
+        set createList [object invoke $createList ToString]
+      } else {
+        set createList [list]
+      }
+
+      if {[isNonNullObjectHandle $unloadList]} then {
+        set unloadList [object invoke $unloadList ToString]
+      } else {
+        set unloadList [list]
+      }
+
+      return [lmissing $createList $unloadList]
+    }
+
     proc testObjectMembers { args } {
       if {[llength $args] == 0} then {
         error [appendArgs \
@@ -6469,6 +8479,7 @@ namespace eval ::Eagle {
     }
 
     proc syncThread { thread {timeout ""} {state WaitSleepJoin} } {
+      set channel [getTestChannelOrDefault]
       set timeout [getThreadTimeout $timeout Start]
       set start [clock milliseconds]
 
@@ -6477,14 +8488,14 @@ namespace eval ::Eagle {
         set diff [expr {$now - $start}]
 
         if {[$thread ThreadState] eq $state} then {
-          tputs $::test_channel [appendArgs \
+          tputs $channel [appendArgs \
               "---- sleep success after " $diff " milliseconds\n"]
 
           break
         }
 
         if {$timeout >= 0 && $diff > $timeout} then {
-          tputs $::test_channel [appendArgs \
+          tputs $channel [appendArgs \
               "---- sleep timeout after " $diff " milliseconds\n"]
 
           break
@@ -6505,9 +8516,15 @@ namespace eval ::Eagle {
       }
     }
 
-    proc cleanupThread { thread {timeout ""} } {
+    proc cleanupThread { thread {timeout ""} {quiet false} } {
       #
-      # NOTE: First, translate the specified timeout value, if any, into an
+      # NOTE: First, figure out where to send diagnostic / error messages
+      #       related to cleaning up the target thread, if any.
+      #
+      set channel [getTestChannelOrDefault]
+
+      #
+      # NOTE: Next, translate the specified timeout value, if any, into an
       #       integer value we can actually use.  Since this timeout value
       #       is used with the Thread.Join method, that is what is used for
       #       the timeout type here.  An argument could be made for using a
@@ -6527,59 +8544,81 @@ namespace eval ::Eagle {
           if {[catch {
             $thread -parametertypes [list Int32] Join $timeout
           } error]} then {
-            tputs $::test_channel [appendArgs \
-                "---- failed to pre-join test thread \"" $thread "\": " \
-                $error \n]
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "---- failed to pre-join test thread \"" $thread \
+                  "\": " $error \n]
+            }
           } elseif {$error} then {
-            tputs $::test_channel [appendArgs \
-                "---- pre-joined test thread \"" $thread \"\n]
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "---- pre-joined test thread \"" $thread \"\n]
+            }
           } else {
-            tputs $::test_channel [appendArgs \
-                "---- timeout pre-joining test thread \"" $thread " (" \
-                $timeout " milliseconds)\"\n"]
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "---- timeout pre-joining test thread \"" $thread \
+                  " (" $timeout " milliseconds)\"\n"]
+            }
           }
         }
       }
 
       if {[$thread IsAlive]} then {
         if {[catch {$thread Interrupt} error]} then {
-          tputs $::test_channel [appendArgs \
-              "---- failed to interrupt test thread \"" $thread "\": " \
-              $error \n]
+          if {!$quiet} then {
+            tputs $channel [appendArgs \
+                "---- failed to interrupt test thread \"" $thread \
+                "\": " $error \n]
+          }
         } else {
-          tputs $::test_channel [appendArgs "---- test thread \"" $thread \
-              "\" interrupted\n"]
+          if {!$quiet} then {
+            tputs $channel [appendArgs \
+                "---- test thread \"" $thread "\" interrupted\n"]
+          }
         }
 
         if {[$thread IsAlive]} then {
           if {[catch {
             $thread -parametertypes [list Int32] Join $timeout
           } error]} then {
-            tputs $::test_channel [appendArgs \
-                "---- failed to join test thread \"" $thread "\": " \
-                $error \n]
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "---- failed to join test thread \"" $thread \
+                  "\": " $error \n]
+            }
           } elseif {$error} then {
-            tputs $::test_channel [appendArgs "---- joined test thread \"" \
-                $thread \"\n]
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "---- joined test thread \"" $thread \"\n]
+            }
           } else {
-            tputs $::test_channel [appendArgs \
-                "---- timeout joining test thread \"" $thread " (" \
-                $timeout " milliseconds)\"\n"]
+            if {!$quiet} then {
+              tputs $channel [appendArgs \
+                  "---- timeout joining test thread \"" $thread \
+                  " (" $timeout " milliseconds)\"\n"]
+            }
           }
 
           if {[$thread IsAlive]} then {
             if {[catch {$thread Abort} error]} then {
-              tputs $::test_channel [appendArgs \
-                  "---- failed to abort test thread \"" $thread "\": " \
-                  $error \n]
+              if {!$quiet} then {
+                tputs $channel [appendArgs \
+                    "---- failed to abort test thread \"" $thread \
+                    "\": " $error \n]
+              }
             } else {
-              tputs $::test_channel [appendArgs "---- test thread \"" \
-                  $thread "\" aborted\n"]
+              if {!$quiet} then {
+                tputs $channel [appendArgs \
+                    "---- test thread \"" $thread "\" aborted\n"]
+              }
             }
 
             if {[$thread IsAlive]} then {
-              tputs $::test_channel [appendArgs "---- test thread \"" \
-                  $thread "\" appears to be a zombie\n"]
+              if {!$quiet} then {
+                tputs $channel [appendArgs \
+                    "---- test thread \"" $thread "\" may be zombied\n"]
+              }
             } else {
               return true; # aborted?
             }
@@ -6848,7 +8887,7 @@ namespace eval ::Eagle {
         set module [tcl module]
         set interp [tcl primary]
 
-        tputs $::test_channel [appendArgs \
+        tputs [getTestChannelOrDefault] [appendArgs \
             "---- native Tcl loaded, module \"" $module \
             "\", interpreter \"" $interp \"\n]
       }
@@ -6881,7 +8920,7 @@ namespace eval ::Eagle {
 
         uplevel 1 [list tcl unload]
 
-        tputs $::test_channel [appendArgs \
+        tputs [getTestChannelOrDefault] [appendArgs \
             "---- native Tcl " [expr {$force ? "forcibly " : ""}] \
             "unloaded, module \"" $module "\", interpreter \"" \
             $interp \"\n]
@@ -6908,6 +8947,12 @@ namespace eval ::Eagle {
 
     proc testExecTclScript { script {shell ""} {verbose 0} } {
       try {
+        #
+        # NOTE: Figure out where to send diagnostic messages related to
+        #       evaluating the native Tcl script.
+        #
+        set channel [getTestChannelOrDefault]
+
         #
         # NOTE: Get a temporary file name for the script we are going to
         #       use to query the machine type for the native Tcl shell.
@@ -6945,7 +8990,7 @@ namespace eval ::Eagle {
             set error "error: \"::test_tclsh\" variable is missing"
 
             if {$verbose > 0} then {
-              tputs $::test_channel [appendArgs \
+              tputs $channel [appendArgs \
                   "---- native Tcl script failure: " $error \n]
             }
 
@@ -6970,7 +9015,7 @@ namespace eval ::Eagle {
         #       the log file.
         #
         if {$verbose > 2} then {
-          tputs $::test_channel [appendArgs \
+          tputs $channel [appendArgs \
               "---- native Tcl script (" $id ") text: " [string trim \
               $script] \n]
         }
@@ -6988,7 +9033,7 @@ namespace eval ::Eagle {
           #       results to the log file.
           #
           if {$verbose > 1} then {
-            tputs $::test_channel [appendArgs \
+            tputs $channel [appendArgs \
                 "---- native Tcl script (" $id ") result: " $result \n]
           }
 
@@ -7004,7 +9049,7 @@ namespace eval ::Eagle {
           set error [appendArgs "error: " $result]
 
           if {$verbose > 0} then {
-            tputs $::test_channel [appendArgs \
+            tputs $channel [appendArgs \
                 "---- native Tcl script failure: " $error \n]
           }
 
@@ -7031,7 +9076,7 @@ namespace eval ::Eagle {
             #
             if {[catch {file delete $fileName} error]} then {
               if {$verbose > 0} then {
-                tputs $::test_channel [appendArgs \
+                tputs $channel [appendArgs \
                     "---- native Tcl cleanup failure: " $error \n]
               }
 
@@ -7509,25 +9554,48 @@ namespace eval ::Eagle {
     #       namespace as well.
     #
     exportAndImportPackageCommands [namespace current] [list \
+        hideMyself removeTemporarySubDirectories enableInteractiveCommands \
+        cloneProcedure getTclMinimumVersion getTclMaximumVersion \
+        tryToLoadZeus loadTetrisViaTclTk breakOnError \
+        getEnvironmentViaComSpec getNameForDebugHook announceForDebugHook \
+        forceInteractiveLoopForDebugHook debugBreakHook skipTestHook \
+        noFailTestHook whatIfTestHook errorTestHook failTestHook \
+        maybeGetArgv addToArgv removeFromArgv addConstraintToArgv \
+        removeConstraintFromArgv enableSystemAliasFlags setupSystemAliases \
+        reopenHost breakpoint debugBreakWithNewConsole getTestRunTag \
+        setupTestRunTag makeProcedureCommand enableFlags enableHostFlags \
+        enableInterpreterFlags enableInterpreterStateFlags enablePluginFlags \
+        enableSharedEngineFlags enableContextEngineFlags \
+        enableDefaultInterpreterFlags enableExpressionFlags \
+        enableInterpreterTestFlags enableInteractiveLoopFlags \
+        enableReadyFlags enableEventWaitFlags enableQueueEventFlags \
+        enableWaitEventFlags enableNewGlobalVariableFlags \
+        enableNewLocalVariableFlags enableTclExitUnloadFlags whereAmI \
+        dumpWhereAmI enableTracing disableTracing hideMyself \
+        getEngineFlagsForTest getProcessGroup killProcessGroup \
+        maybeKillProcessGroup enableFailSafeExitAfter evalPackageIndexFile \
         cleanupAfterEvents findParentDirectory enableRuntimeOptionsForTcl \
         setupEvaluateViaTemporaryFile evaluateViaTemporaryFile \
         cleanupEvaluateViaTemporaryFiles getKnownTclVariables \
         getKnownTestVariables getKnownOtherVariables cleanState dumpState \
-        needTestDoEvents testDoEvents trawputs doesTestOutputRepeat \
-        toneputs tputs ttclLog doesTestLogFileExist getTestLogStartSentry \
-        readTestLogStartSentry extractTestRunIdFromLogStartSentry \
-        doesTestLogHaveStartSentry didTestLogHaveStartSentry \
-        setTestLogStartSentry tlog getSoftwareRegistryKey haveConstraint \
-        addConstraint haveOrAddConstraint getConstraints \
-        getCachedConstraints useCachedConstraints removeConstraint \
-        fixConstraints fixTimingConstraints testDebugBreak testArrayGet \
-        testArrayGet2 testResultGet testValueGet getValueOrDefault \
-        getFirstLineOfError calculateBogoCops calculateRelativePerformance \
-        formatTimeStamp formatElapsedTime sourceIfValid processTestArguments \
-        getTclShellFileName getTemporaryPath getTemporaryFileName getFiles \
-        getTestFiles getTestRunId getTestRunBucket isValidGuid \
+        needTestDoEvents testDoEvents trawputs doesTestOutputRepeat dputs \
+        dlog toneputs tputs ttclLog doesTestLogFileExist \
+        getTestLogStartSentry readTestLogStartSentry \
+        extractTestRunIdFromLogStartSentry doesTestLogHaveStartSentry \
+        didTestLogHaveStartSentry setTestLogStartSentry dtrace tlog \
+        getSoftwareRegistryKey haveConstraint addConstraint \
+        haveOrAddConstraint getConstraints getCachedConstraints \
+        useCachedConstraints removeConstraint fixConstraints \
+        isOfficialStableReleaseInProgress fixMemoryConstraints \
+        fixTimingConstraints testDebugBreak testArrayGet testArrayGet2 \
+        testResultGet testValueGet getValueOrDefault getFirstLineOfError \
+        calculateBogoCops calculateRelativePerformance formatTimeStamp \
+        formatElapsedTime sourceIfValid makeUseOfTestDefaults \
+        processTestArguments makeUseOfTestArguments getTclShellFileName \
+        getTemporaryPath getTemporaryFileName getFiles getTestFiles \
+        getTestChildren getTestRunId getTestRunBucket isValidGuid \
         getNewTestRunId getDefaultTestLogSubPath getDefaultTestLogPath \
-        getTestLogPath getTestLogId getDefaultTestLog getTestLog \
+        getTestLogPath getTestLogId getDefaultTestLog newTestLog getTestLog \
         getLastTestLog getTestSuite getTestSuiteFileName \
         getTestSuiteFullName getTestSuiteVariantName getTestMachine \
         getTestPlatform getTestConfiguration getTestNamePrefix getTestSuffix \
@@ -7536,17 +9604,21 @@ namespace eval ::Eagle {
         isRandomOrder isBreakOnDemand isBreakOnLeak isStopOnFailure \
         isStopOnLeak isExitOnComplete returnInfoScript runTestPrologue \
         runTestEpilogue hookPuts unhookPuts runTest testShim tsource \
-        getKnownEagleVersions isStableEagleRelease recordTestStatistics \
-        reportTestStatistics formatList formatListAsDict pathToRegexp \
-        assemblyNameToRegexp maybeGetOption inverseLsearchGlob \
-        removePathFromFileNames formatDecimal clearTestPercent \
-        reportTestPercent reportArrayGet reportTestStatisticCounts \
-        runAllTests isTestSuiteRunning getTestChannelOrDefault \
-        tryVerifyTestPath checkForAndSetTestPath configureTcltest \
-        machineToPlatform architectureForPlatform \
-        calculateTestConstraintCounts logRemoteMessage logRemoteTestResults \
-        getPassedPercentage getSkippedPercentage testCheckOverallResult \
-        reportTestResultCounts] false false
+        getKnownEagleVersions isStableEagleRelease changeArrayElement \
+        enableTestStatisticsLists recordTestStatistics \
+        getNamesForTestStatistics reportTestStatistics formatList \
+        formatListAsDict pathToRegexp assemblyNameToRegexp maybeGetOption \
+        inverseLsearchGlob removePathFromFileNames formatDecimal \
+        clearTestPercent reportTestPercent reportArrayGet \
+        reportTestStatisticCounts runAllTests isTestSuiteRunning \
+        getTestChannelOrDefault tryVerifyTestPath checkForAndSetTestPath \
+        configureTcltest machineToPlatform architectureForPlatform \
+        calculateTestConstraintCounts getRemoteMessageLimit \
+        encodeRemoteMessage logRemoteMessage logRemoteMessageWrapper \
+        getRemoteMessageHeader getRemoteTestResults logRemoteTestResults \
+        logRemoteTestRunMessage getPassedPercentage getSkippedPercentage \
+        testCheckOverallResult reportTestResultCounts getTestSnippets \
+        lmissing getTestAppDomains] false false
 
     ###########################################################################
     ############################## END Tcl ONLY ###############################

@@ -39,9 +39,7 @@ SET FFLAGS=/V /F /G /H /R /Y /Z
 
 %_VECHO% FFlags = '%FFLAGS%'
 
-IF NOT DEFINED DEFAULT_PLATFORM (
-  SET DEFAULT_PLATFORM=Win32
-)
+CALL :fn_SetDefaultPlatform DEFAULT_PLATFORM
 
 %_VECHO% DefaultPlatform = '%DEFAULT_PLATFORM%'
 
@@ -335,6 +333,20 @@ IF ERRORLEVEL 1 (
 )
 
 GOTO no_errors
+
+:fn_SetDefaultPlatform
+  IF "%1" == "" GOTO :EOF
+  IF NOT DEFINED PROCESSOR_ARCHITECTURE GOTO :EOF
+  IF /I "%PROCESSOR_ARCHITECTURE%" == "x86" (
+    SET %1=Win32
+    GOTO :EOF
+  )
+  IF /I "%PROCESSOR_ARCHITECTURE%" == "AMD64" (
+    SET %1=x64
+    GOTO :EOF
+  )
+  SET %1=Win32
+  GOTO :EOF
 
 :fn_UnquoteVariable
   IF NOT DEFINED %1 GOTO :EOF

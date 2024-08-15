@@ -44,11 +44,16 @@
 *\Hippogriff.*
 *\HotKey1.0\*
 *\Kapok1.0\*
+*\Microsoft.AspNetCore*.dll
+*\Microsoft.Extensions*.dll
+*\Microsoft.Net*.dll
+*\Newtonsoft.Json.dll
 *\Obfuscated\*
 *\Original\*
 *\Plugin1.0\*
 *\README
 *\README.*
+*\runtimes\*
 *\Sample.*
 *\Scripts\*
 *\sqlite3.*

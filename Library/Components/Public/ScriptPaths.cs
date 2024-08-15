@@ -19,6 +19,16 @@ namespace Eagle._Components.Public
     public static class ScriptPaths
     {
         //
+        // NOTE: This is the "path fragment" to the Eagle plugin loader library
+        //       package.  It should look something like "lib/Loader1.0".
+        //
+        public static readonly string LoaderPackage = PathOps.GetUnixPath(
+            PathOps.CombinePath(null, TclVars.Path.Lib, GlobalState.GetPackagePath(
+            PackageType.Loader, GlobalState.GetPackageVersion(), String.Empty)));
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
         // NOTE: This is the "path fragment" to the Eagle core script library
         //       package.  It should look something like "lib/Eagle1.0".
         //

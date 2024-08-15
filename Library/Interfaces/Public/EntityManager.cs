@@ -516,6 +516,24 @@ namespace Eagle._Interfaces.Public
             ref Result result
             );
 
+        ReturnCode AddExecuteCallback(
+            string name,
+            ExecuteCallback callback,
+            IClientData clientData,
+            IPlugin plugin,
+            ref long token,
+            ref Result result
+            );
+
+        ReturnCode AddExecuteCallback(
+            string name,
+            ExecuteCallback callback,
+            IClientData clientData,
+            IPlugin plugin,
+            CommandFlags commandFlags,
+            ref long token,
+            ref Result result);
+
         ReturnCode AddExecuteCallbacks(
             IEnumerable<IExecuteCallbackData> collection,
             IPlugin plugin,
@@ -622,8 +640,21 @@ namespace Eagle._Interfaces.Public
             );
 
         ReturnCode SwapCommands(
+            SwapFlags swapFlags,
+            ref Result error
+            );
+
+        ReturnCode SwapCommands(
+            SwapFlags swapFlags,
             ref StringList list,
             ref Result error
+            );
+
+        ReturnCode RemoveSwapCommand(
+            long token,
+            IClientData clientData,
+            SwapFlags swapFlags,
+            ref Result result
             );
 
         ///////////////////////////////////////////////////////////////////////

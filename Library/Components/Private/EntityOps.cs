@@ -1043,8 +1043,8 @@ namespace Eagle._Components.Private
 
         #region Variable Checking Methods
         public static IVariable FollowLinks(
-            IVariable variable,
-            VariableFlags flags
+            IVariable variable, /* in */
+            VariableFlags flags /* in */
             )
         {
             Result error = null;
@@ -1055,21 +1055,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static IVariable FollowLinks(
-            IVariable variable,
-            VariableFlags flags,
-            ref Result error
+            IVariable variable,  /* in */
+            VariableFlags flags, /* in */
+            ref Result error     /* out */
             )
         {
-            return FollowLinks(variable, flags, Count.Invalid, ref error);
+            string linkIndex = null;
+
+            return FollowLinks(
+                variable, flags, Count.Invalid, ref linkIndex,
+                ref error);
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         public static IVariable FollowLinks(
-            IVariable variable,
-            VariableFlags flags,
-            int limit,
-            ref Result error
+            IVariable variable,   /* in */
+            VariableFlags flags,  /* in */
+            int limit,            /* in */
+            ref string linkIndex, /* in, out */
+            ref Result error      /* out */
             )
         {
             if (variable == null)
@@ -1078,16 +1083,23 @@ namespace Eagle._Components.Private
                 return null;
             }
 
-            if (FlagOps.HasFlags(flags, VariableFlags.NoFollowLink, true))
+            if (FlagOps.HasFlags(
+                    flags, VariableFlags.NoFollowLink, true))
+            {
                 return variable;
+            }
 
             bool noUsable = false;
 
-            if (FlagOps.HasFlags(flags, VariableFlags.NoUsable, true))
+            if (FlagOps.HasFlags(
+                    flags, VariableFlags.NoUsable, true))
+            {
                 noUsable = true;
+            }
 
             int count = 0;
             IVariable linkVariable = variable.Link;
+            string localLinkIndex = variable.LinkIndex;
 
             while (linkVariable != null)
             {
@@ -1096,7 +1108,8 @@ namespace Eagle._Components.Private
 
                 Result linkError = null;
 
-                if (!noUsable && !linkVariable.IsUsable(ref linkError))
+                if (!noUsable &&
+                    !linkVariable.IsUsable(ref linkError))
                 {
                     error = String.Format(
                         "can't follow from {0} to {1}: {2}",
@@ -1108,8 +1121,21 @@ namespace Eagle._Components.Private
                 }
 
                 variable = linkVariable;
+
+                //
+                // BUGBUG: Why does this conditional never
+                //         get hit?
+                //
+                // if ((localLinkIndex == null) &&
+                //     EntityOps.IsLink(variable))
+                // {
+                //     localLinkIndex = variable.LinkIndex;
+                // }
+
                 linkVariable = linkVariable.Link;
             }
+
+            linkIndex = localLinkIndex;
 
             return variable; /* NOTE: Cannot be null at this point. */
         }
@@ -1208,18 +1234,6 @@ namespace Eagle._Components.Private
             }
 
             return false;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public static bool IsUndefined2(
-            IVariable variable
-            )
-        {
-            if (variable == null)
-                return false;
-
-            return variable.HasFlags(VariableFlags.Undefined, true);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -2792,6 +2806,8 @@ namespace Eagle._Components.Private
 
                     result.Add("PackageFlags");
                     result.Add(packageData.Flags.ToString());
+                    result.Add("Loaded");
+                    result.Add((packageData.Loaded != null).ToString());
                 }
 
                 IPluginData pluginData = @object as IPluginData;

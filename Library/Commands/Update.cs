@@ -79,17 +79,32 @@ namespace Eagle._Commands
 
             if (code == ReturnCode.Ok)
             {
-                if ((code == ReturnCode.Ok) &&
-                    (FlagOps.HasFlags(updateFlags, UpdateFlags.IdleTasks, true) ||
-                    FlagOps.HasFlags(updateFlags, UpdateFlags.PreQueue, true)))
+                bool idleTasks = FlagOps.HasFlags(
+                    updateFlags, UpdateFlags.IdleTasks, true);
+
+                bool preQueue = FlagOps.HasFlags(
+                    updateFlags, UpdateFlags.PreQueue, true);
+
+                bool queue = FlagOps.HasFlags(
+                    updateFlags, UpdateFlags.Queue, true);
+
+                bool postQueue = FlagOps.HasFlags(
+                    updateFlags, UpdateFlags.PostQueue, true);
+
+                bool count = FlagOps.HasFlags(
+                    updateFlags, UpdateFlags.Count, true);
+
+                bool trace = FlagOps.HasFlags(
+                    updateFlags, UpdateFlags.Trace, true);
+
+                if ((code == ReturnCode.Ok) && (idleTasks || preQueue))
                 {
                     code = EventOps.Wait(
-                        interpreter, null, 0, null, true, false, false, false,
-                        ref result);
+                        interpreter, null, 0, null, true, false, false,
+                        false, trace, ref result);
                 }
 
-                if ((code == ReturnCode.Ok) &&
-                    FlagOps.HasFlags(updateFlags, UpdateFlags.Queue, true))
+                if ((code == ReturnCode.Ok) && queue)
                 {
                     int eventCount = 0;
 
@@ -98,20 +113,15 @@ namespace Eagle._Commands
                         EventPriority.Update, null, 0, true, false,
                         ref eventCount, ref result);
 
-                    if ((code == ReturnCode.Ok) &&
-                        FlagOps.HasFlags(updateFlags, UpdateFlags.Count, true))
-                    {
+                    if ((code == ReturnCode.Ok) && count)
                         result = eventCount;
-                    }
                 }
 
-                if ((code == ReturnCode.Ok) &&
-                    (!FlagOps.HasFlags(updateFlags, UpdateFlags.IdleTasks, true) &&
-                    FlagOps.HasFlags(updateFlags, UpdateFlags.PostQueue, true)))
+                if ((code == ReturnCode.Ok) && (!idleTasks && postQueue))
                 {
                     code = EventOps.Wait(
-                        interpreter, null, 0, null, true, false, false, false,
-                        ref result);
+                        interpreter, null, 0, null, true, false, false,
+                        false, trace, ref result);
                 }
             }
 

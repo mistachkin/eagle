@@ -116,16 +116,21 @@ namespace eval ::Eagle {
       #       error.  Convert the read data to Unix-style line-endings.  If
       #       there is no data, do nothing.
       #
-      set data [string map [list \r\n \n] [readFile $fileName]]
+      set data [string map [list \r\n \n] [readSharedFile $fileName]]
 
       if {[string length $data] > 0} then {
         #
         # NOTE: Split the data into lines.  This will always use Unix-style
         #       line-endings.
         #
-        set lines [split $data \n]
+        set lines [split $data \n]; set lineCount 0
 
         foreach line $lines {
+          #
+          # NOTE: The first line is one (1), not zero (0).
+          #
+          incr lineCount
+
           #
           # NOTE: Save the original line for use by the script callback, if
           #       any.
@@ -157,9 +162,9 @@ namespace eval ::Eagle {
           #
           #       <startLine> updateId <tab> timeStamp <tab> notes <newLine>
           #
-          set fields [split $line \t]
+          set fields [split $line \t]; set fieldCount [llength $fields]
 
-          if {[llength $fields] < 3} then {
+          if {$fieldCount < 3} then {
             if {[string length $script] > 0} then {eval $script}
             continue
           }
@@ -185,8 +190,8 @@ namespace eval ::Eagle {
           if {$field(updateId) eq $updateId} then {
             #
             # NOTE: The update appears to be installed.  We cannot simply
-            #       here because the caller supplied script, if any, needs
-            #       access to all the lines.
+            #       exit here because the caller supplied script, if any,
+            #       needs access to all the lines.
             #
             set result true
           }
@@ -561,7 +566,7 @@ namespace eval ::Eagle {
         #
         # NOTE: Download the file from the web site.
         #
-        eval uri download $args; # synchronous.
+        eval uri download -timeouttype network $args; # synchronous.
       } finally {
         if {$trusted && \
             [lindex [uri softwareupdates] end] eq "trusted"} then {
@@ -871,6 +876,8 @@ namespace eval ::Eagle {
             }
           }
           .eagle -
+          .eeagle -
+          .exml -
           .harpy -
           .pdb -
           .xml {
@@ -1103,7 +1110,9 @@ namespace eval ::Eagle {
       #
       # NOTE: Download the tag file from the web site.
       #
-      return [uri download -timeout $timeout -inline $uri]; # synchronous.
+      return [uri download \
+          -timeouttype network -timeout $timeout -inline \
+          $uri]; # synchronous.
     } finally {
       if {$trusted && \
           [lindex [uri softwareupdates] end] eq "trusted"} then {
@@ -1225,9 +1234,19 @@ namespace eval ::Eagle {
     #       If the test channel has been set (i.e. by the test suite), it
     #       will be used instead.
     #
-    set channel [expr {
-      [info exists ::test_channel] ? $::test_channel : "stdout"
-    }]
+    # HACK: The [getTestChannelOrDefault] procedure will almost always
+    #       be available at this point; however, we can work around the
+    #       lack of it.
+    #
+    if {[llength [info commands getTestChannelOrDefault]] > 0} then {
+      set channel [getTestChannelOrDefault]
+    } else {
+      if {[info exists ::test_channel]} then {
+        set channel $::test_channel
+      } else {
+        set channel stdout
+      }
+    }
 
     #
     # NOTE: First of all, what type of update are we checking?  Possible
@@ -1463,7 +1482,7 @@ namespace eval ::Eagle {
     # NOTE: Split the data into lines.  Given the previous command, this
     #       will always use Unix-style line-endings.
     #
-    set lines [split $updateData \n]
+    set lines [split $updateData \n]; set lineCount 0
 
     #
     # NOTE: Keep track of how many update scripts are processed -AND- their
@@ -1478,7 +1497,18 @@ namespace eval ::Eagle {
     # NOTE: Check each update line to find the build information...  Lines
     #       that do not conform to the correct format should be skipped.
     #
+    set formatLine [list [list number line] {; # lambda
+      return [appendArgs \
+          # $number ", which contains: " \
+          [string map [list \t <tab>] $line]]
+    }]
+
     foreach line $lines {
+      #
+      # NOTE: The first line is one (1), not zero (0).
+      #
+      incr lineCount
+
       #
       # NOTE: Remove surrounding spaces (but not tabs), skip blank lines
       #       and comment lines.
@@ -1498,8 +1528,17 @@ namespace eval ::Eagle {
       #       culture <tab> patchLevel <tab> timeStamp <tab> baseUri <tab>
       #       md5Hash <tab> sha1Hash <tab> sha512Hash <tab> notes <newLine>
       #
-      set fields [split $line \t]
-      if {[llength $fields] < 11} then {continue}
+      set fields [split $line \t]; set fieldCount [llength $fields]
+
+      if {$fieldCount < 11} then {
+        if {!$quiet} then {
+          tqputs $channel [appendArgs \
+              "---- not enough fields (" $fieldCount ") for line: " \
+              [apply $formatLine $lineCount $line] \n]
+        }
+
+        continue
+      }
 
       #
       # NOTE: Grab the protocol Id field.
@@ -1545,6 +1584,16 @@ namespace eval ::Eagle {
       set checkPlugin [expr {
         !$wantScripts && $field(protocolId) eq "4"
       }]
+
+      #
+      # NOTE: For diagnostic purposes, et al, figure out which protocols
+      #       we are actually interested in.
+      #
+      if {$wantScripts} then {
+        set protocols [list 2]; # only update scripts.
+      } else {
+        set protocols [list 1 3 4]; # everything except update scripts.
+      }
 
       #
       # NOTE: We only want to find the first line that matches our target.
@@ -1803,7 +1852,7 @@ namespace eval ::Eagle {
               if {!$quiet} then {
                 tqputs $channel [appendArgs \
                     "---- invalid baseUri value for update script " \
-                    "line: " $line \n]
+                    "line: " [apply $formatLine $lineCount $line] \n]
               }
 
               incr scriptCounts(invalid); continue
@@ -1818,7 +1867,7 @@ namespace eval ::Eagle {
               if {!$quiet} then {
                 tqputs $channel [appendArgs \
                     "---- invalid md5 value for update script " \
-                    "line: " $line \n]
+                    "line: " [apply $formatLine $lineCount $line] \n]
               }
 
               incr scriptCounts(invalid); continue
@@ -1833,7 +1882,7 @@ namespace eval ::Eagle {
               if {!$quiet} then {
                 tqputs $channel [appendArgs \
                     "---- invalid sha1 value for update script " \
-                    "line: " $line \n]
+                    "line: " [apply $formatLine $lineCount $line] \n]
               }
 
               incr scriptCounts(invalid); continue
@@ -1848,7 +1897,7 @@ namespace eval ::Eagle {
               if {!$quiet} then {
                 tqputs $channel [appendArgs \
                     "---- invalid sha512 value for update script " \
-                    "line: " $line \n]
+                    "line: " [apply $formatLine $lineCount $line] \n]
               }
 
               incr scriptCounts(invalid); continue
@@ -1903,7 +1952,8 @@ namespace eval ::Eagle {
               if {!$quiet} then {
                 tqputs $channel [appendArgs \
                     "---- wrong md5 value \"" $md5 \
-                    "\" for update script line: " $line \n]
+                    "\" for update script line: " \
+                    [apply $formatLine $lineCount $line] \n]
               }
 
               incr scriptCounts(bad); continue
@@ -1915,7 +1965,8 @@ namespace eval ::Eagle {
               if {!$quiet} then {
                 tqputs $channel [appendArgs \
                     "---- wrong sha1 value \"" $sha1 \
-                    "\" for update script line: " $line \n]
+                    "\" for update script line: " \
+                    [apply $formatLine $lineCount $line] \n]
               }
 
               incr scriptCounts(bad); continue
@@ -1927,7 +1978,8 @@ namespace eval ::Eagle {
               if {!$quiet} then {
                 tqputs $channel [appendArgs \
                     "---- wrong sha512 value \"" $sha512 \
-                    "\" for update script line: " $line \n]
+                    "\" for update script line: " \
+                    [apply $formatLine $lineCount $line] \n]
               }
 
               incr scriptCounts(bad); continue
@@ -2012,6 +2064,16 @@ namespace eval ::Eagle {
               "running " $updateType " " $updatePatchLevel ", dated " \
               $updateDateTime ", is the " $updateUriType " " $updateType \
               ", based on the data from " $updateBaseUri]]
+        }
+      } else {
+        if {!$quiet} then {
+          tqputs $channel [appendArgs \
+              "---- mismatch with protocol " $field(protocolId) \
+              " versus list " $protocols ", public key token " \
+              $field(publicKeyToken) " versus " $updatePublicKeyToken \
+              ", build name " $field(name) " versus " $updateName \
+              ", culture " $field(culture) " versus " $updateCulture \
+              " for line: " [apply $formatLine $lineCount $line] \n]
         }
       }
     }

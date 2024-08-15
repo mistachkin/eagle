@@ -322,6 +322,7 @@ runTest {test garuda-1.2 {Eagle Package for Tcl (Garuda) via Eagle} -setup {
       -noArgumentsFileName -noAppSettings \
       -preInitialize [appendArgs \" "set env(NoAutoRecord) true" \"] \
       -preInitialize [appendArgs \" "set env(NoWorkerThread) true" \"] \
+      -preInitialize [appendArgs \" "set env(NoLicensing) true" \"] \
       -preInitialize [appendArgs \" [expr {[haveConstraint quiet] ? \
       "catch {object invoke Eagle._Tests.Default TestSetQuiet}" : ""}] \"] \
       -preInitialize [appendArgs \" "catch \{object invoke -flags " \
@@ -399,12 +400,6 @@ testExec file_Garuda.dll}] -result {Success}}
 
 ###############################################################################
 
-proc pathToRegExp { path } {
-  return [string map [list \\ \\\\ . \\. \{ \\\{ \} \\\}] $path]
-}
-
-###############################################################################
-
 if {[isEagle]} then {
   set enginePatchLevel [info engine PatchLevel]
 } else {
@@ -430,19 +425,15 @@ runTest {test package-1.1 {package info sub-command} -body {
 [appendArgs "^kind Package id " \
 "\[0-9A-Fa-f\]{8}-\[0-9A-Fa-f\]{4}-\[0-9A-Fa-f\]{4}-\[0-9A-Fa-f\]{4}-" \
 "\[0-9A-Fa-f\]{12} name Eagle\\.Library description \\{\\} indexFileName " \
-[pathToRegExp [list [file normalize [file join $tcl_library pkgIndex.eagle]]]] \
-" provideFileName " [pathToRegExp [list [file normalize [file join \
+[pathToRegexp [list [file normalize [file join $tcl_library pkgIndex.eagle]]]] \
+" provideFileName " [pathToRegexp [list [file normalize [file join \
 $tcl_library init.eagle]]]] " flags \\{(?:(?:None|Default), )?Core, Library\\}\
 loaded " [string map [list . \\.] $enginePatchLevel] " ifNeeded \\{1\\.0 \\{" \
-[pathToRegExp [package ifneeded Eagle.Library 1.0]] "\\}\\} wasNeeded \{\}\$"]}
+[pathToRegexp [package ifneeded Eagle.Library 1.0]] "\\}\\} wasNeeded \{\}\$"]}
 
 ###############################################################################
 
 unset -nocomplain enginePatchLevel
-
-###############################################################################
-
-rename pathToRegExp ""
 
 ###############################################################################
 

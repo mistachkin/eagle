@@ -37,7 +37,7 @@ namespace Eagle._Components.Public
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         ScriptMarshalByRefObject,
 #endif
-        IDisposable
+        ISupportVariable, IDisposable
     {
         #region Private Constants
         #region Network Request Parameter Names
@@ -156,6 +156,8 @@ namespace Eagle._Components.Public
             string argument,                                   /* in */
             IClientData clientData,                            /* in */
             Uri baseUri,                                       /* in */
+            int? maximumRetries,                               /* in */
+            int? timeout,                                      /* in */
             Encoding encoding,                                 /* in */
             string apiKeyParameterName,                        /* in */
             string apiKeyParameterValue,                       /* in */
@@ -172,6 +174,8 @@ namespace Eagle._Components.Public
             this.argument = argument;
             this.clientData = clientData;
             this.baseUri = baseUri;
+            this.maximumRetries = maximumRetries;
+            this.timeout = timeout;
             this.encoding = encoding;
             this.apiKeyParameterName = apiKeyParameterName;
             this.apiKeyParameterValue = apiKeyParameterValue;
@@ -192,6 +196,8 @@ namespace Eagle._Components.Public
             string argument,                                   /* in */
             IClientData clientData,                            /* in */
             Uri baseUri,                                       /* in */
+            int? maximumRetries,                               /* in */
+            int? timeout,                                      /* in */
             Encoding encoding,                                 /* in */
             string apiKeyParameterName,                        /* in */
             string apiKeyParameterValue,                       /* in */
@@ -205,7 +211,8 @@ namespace Eagle._Components.Public
         {
             return new NetworkVariable(
                 newNetworkClientCallback, argument,
-                clientData, baseUri, encoding,
+                clientData, baseUri, maximumRetries,
+                timeout, encoding,
                 apiKeyParameterName, apiKeyParameterValue,
                 methodParameterName, patternParameterName,
                 noCaseParameterName, nameParameterName,
@@ -245,6 +252,22 @@ namespace Eagle._Components.Public
         public Uri BaseUri
         {
             get { CheckDisposed(); return baseUri; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private int? timeout;
+        public int? Timeout
+        {
+            get { CheckDisposed(); return timeout; }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private int? maximumRetries;
+        public int? MaximumRetries
+        {
+            get { CheckDisposed(); return maximumRetries; }
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -317,126 +340,6 @@ namespace Eagle._Components.Public
         public BreakpointType Permissions
         {
             get { CheckDisposed(); return permissions; }
-        }
-        #endregion
-
-        ///////////////////////////////////////////////////////////////////////
-
-        #region Array Sub-Command Helper Methods
-        public bool DoesExist(
-            Interpreter interpreter, /* in */
-            string name              /* in */
-            )
-        {
-            CheckDisposed();
-
-            return DoesExistViaNetwork(interpreter, name);
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public long? GetCount(
-            Interpreter interpreter, /* in */
-            ref Result error         /* out */
-            )
-        {
-            CheckDisposed();
-
-            long count = 0;
-
-            if (GetCountViaNetwork(
-                    interpreter, ref count, ref error) == ReturnCode.Ok)
-            {
-                return count;
-            }
-
-            return null;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public ObjectDictionary GetList(
-            Interpreter interpreter, /* in */
-            string pattern,          /* in */
-            bool noCase,             /* in */
-            bool names,              /* in */
-            bool values,             /* in */
-            ref Result error         /* out */
-            )
-        {
-            CheckDisposed();
-
-            ObjectDictionary dictionary = null;
-
-            if (GetListViaNetwork(
-                    interpreter, pattern, noCase, names, values,
-                    ref dictionary, ref error) == ReturnCode.Ok)
-            {
-                return dictionary;
-            }
-
-            return null;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public string KeysToString(
-            Interpreter interpreter,   /* in */
-            MatchMode mode,            /* in */
-            string pattern,            /* in */
-            bool noCase,               /* in */
-            RegexOptions regExOptions, /* in */
-            ref Result error           /* out */
-            )
-        {
-            CheckDisposed();
-
-            ObjectDictionary dictionary = null;
-
-            if (GetListViaNetwork(
-                    interpreter, pattern, noCase, true, false,
-                    ref dictionary, ref error) == ReturnCode.Ok)
-            {
-                StringList list = GenericOps<string, object>.KeysAndValues(
-                    dictionary, false, true, false, mode, pattern, null,
-                    null, null, null, noCase, regExOptions) as StringList;
-
-                return ParserOps<string>.ListToString(
-                    list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), null, false);
-            }
-
-            return null;
-        }
-
-        ///////////////////////////////////////////////////////////////////////
-
-        public string KeysAndValuesToString(
-            Interpreter interpreter, /* in */
-            string pattern,          /* in */
-            bool noCase,             /* in */
-            ref Result error         /* out */
-            )
-        {
-            CheckDisposed();
-
-            ObjectDictionary dictionary = null;
-
-            if (GetListViaNetwork(
-                    interpreter, pattern, noCase, true, true,
-                    ref dictionary, ref error) == ReturnCode.Ok)
-            {
-                StringList list = GenericOps<string, object>.KeysAndValues(
-                    dictionary, false, true, true, StringOps.DefaultMatchMode,
-                    pattern, null, null, null, null, noCase, RegexOptions.None)
-                    as StringList;
-
-                return ParserOps<string>.ListToString(
-                    list, Index.Invalid, Index.Invalid, ToStringFlags.None,
-                    Characters.Space.ToString(), null, false);
-            }
-
-            return null;
         }
         #endregion
 
@@ -520,6 +423,155 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        #region ISupportVariable Members
+        public bool DoesExist(
+            Interpreter interpreter, /* in */
+            string name              /* in */
+            )
+        {
+            CheckDisposed();
+
+            return DoesExistViaNetwork(
+                interpreter, name, MaximumRetries, Timeout);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public long? GetCount(
+            Interpreter interpreter, /* in */
+            ref Result error         /* out */
+            )
+        {
+            CheckDisposed();
+
+            long count = 0;
+
+            if (GetCountViaNetwork(
+                    interpreter, MaximumRetries, Timeout,
+                    ref count, ref error) == ReturnCode.Ok)
+            {
+                return count;
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ObjectDictionary GetList(
+            Interpreter interpreter, /* in */
+            bool names,              /* in */
+            bool values,             /* in */
+            ref Result error         /* out */
+            )
+        {
+            CheckDisposed();
+
+            ObjectDictionary dictionary = null;
+
+            if (GetListViaNetwork(
+                    interpreter, null, false, names, values,
+                    MaximumRetries, Timeout, ref dictionary,
+                    ref error) == ReturnCode.Ok)
+            {
+                return dictionary;
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public ObjectDictionary GetList(
+            Interpreter interpreter, /* in */
+            string pattern,          /* in */
+            bool noCase,             /* in */
+            bool names,              /* in */
+            bool values,             /* in */
+            ref Result error         /* out */
+            )
+        {
+            CheckDisposed();
+
+            ObjectDictionary dictionary = null;
+
+            if (GetListViaNetwork(
+                    interpreter, pattern, noCase, names, values,
+                    MaximumRetries, Timeout, ref dictionary,
+                    ref error) == ReturnCode.Ok)
+            {
+                return dictionary;
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public string KeysToString(
+            Interpreter interpreter,   /* in */
+            MatchMode mode,            /* in */
+            string pattern,            /* in */
+            bool noCase,               /* in */
+            RegexOptions regExOptions, /* in */
+            ref Result error           /* out */
+            )
+        {
+            CheckDisposed();
+
+            ObjectDictionary dictionary = null;
+
+            if (GetListViaNetwork(
+                    interpreter, pattern, noCase, true, false,
+                    MaximumRetries, Timeout, ref dictionary,
+                    ref error) == ReturnCode.Ok)
+            {
+                StringList list = GenericOps<string, object>.KeysAndValues(
+                    dictionary, false, true, false, mode, pattern, null,
+                    null, null, null, noCase, regExOptions) as StringList;
+
+                return ParserOps<string>.ListToString(
+                    list, Index.Invalid, Index.Invalid, ToStringFlags.None,
+                    Characters.Space.ToString(), null, false);
+            }
+
+            return null;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public string KeysAndValuesToString(
+            Interpreter interpreter, /* in */
+            string pattern,          /* in */
+            bool noCase,             /* in */
+            ref Result error         /* out */
+            )
+        {
+            CheckDisposed();
+
+            ObjectDictionary dictionary = null;
+
+            if (GetListViaNetwork(
+                    interpreter, pattern, noCase, true, true,
+                    MaximumRetries, Timeout, ref dictionary,
+                    ref error) == ReturnCode.Ok)
+            {
+                StringList list = GenericOps<string, object>.KeysAndValues(
+                    dictionary, false, true, true, StringOps.DefaultMatchMode,
+                    pattern, null, null, null, null, noCase, RegexOptions.None)
+                    as StringList;
+
+                return ParserOps<string>.ListToString(
+                    list, Index.Invalid, Index.Invalid, ToStringFlags.None,
+                    Characters.Space.ToString(), null, false);
+            }
+
+            return null;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
         #region Trace Callback Method
         [MethodFlags(
             MethodFlags.VariableTrace | MethodFlags.System |
@@ -531,8 +583,6 @@ namespace Eagle._Components.Public
             ref Result result              /* out */
             )
         {
-            CheckDisposed();
-
             if (interpreter == null)
             {
                 result = "invalid interpreter";
@@ -598,7 +648,8 @@ namespace Eagle._Components.Public
                 try
                 {
                     webClient = MaybeCreateWebClient(
-                        interpreter, ref dispose, ref result);
+                        interpreter, Timeout, ref dispose,
+                        ref result);
 
                     if (webClient == null)
                         return ReturnCode.Error;
@@ -609,7 +660,7 @@ namespace Eagle._Components.Public
                     string text = PerformWebRequest(interpreter,
                         webClient, breakpointType, traceInfo.Flags,
                         null, DefaultNoCaseParameterValue, varName,
-                        varValue, ref result);
+                        varValue, MaximumRetries, ref result);
 
                     if (text == null)
                         return ReturnCode.Error;
@@ -981,6 +1032,7 @@ namespace Eagle._Components.Public
 
         private WebClient CreateWebClientViaCallback(
             Interpreter interpreter, /* in */
+            int? timeout,            /* in: NOT USED */
             ref bool dispose,        /* out */
             ref Result error         /* out */
             )
@@ -1022,13 +1074,14 @@ namespace Eagle._Components.Public
 
         private WebClient CreateWebClientViaInterpreter(
             Interpreter interpreter, /* in */
+            int? timeout,            /* in */
             ref bool dispose,        /* out */
             ref Result error         /* out */
             )
         {
             WebClient webClient = WebOps.CreateClient(
-                interpreter, argument, clientData,
-                WebOps.GetTimeout(interpreter), ref error);
+                interpreter, argument, clientData, WebOps.GetTimeout(
+                interpreter, TimeoutType.Network, timeout), ref error);
 
             SetCachedWebClient(webClient, ref dispose);
             return webClient;
@@ -1038,12 +1091,12 @@ namespace Eagle._Components.Public
 
         private WebClient MaybeCreateWebClient(
             Interpreter interpreter, /* in */
+            int? timeout,            /* in */
             ref bool dispose,        /* out */
             ref Result error         /* out */
             )
         {
-            WebClient webClient = GetCachedWebClient(
-                ref dispose);
+            WebClient webClient = GetCachedWebClient(ref dispose);
 
             if (webClient != null)
                 return webClient;
@@ -1051,12 +1104,12 @@ namespace Eagle._Components.Public
             if (ShouldUseNewNetworkClientCallback())
             {
                 return CreateWebClientViaCallback(
-                    interpreter, ref dispose, ref error);
+                    interpreter, timeout, ref dispose, ref error);
             }
             else
             {
                 return CreateWebClientViaInterpreter(
-                    interpreter, ref dispose, ref error);
+                    interpreter, timeout, ref dispose, ref error);
             }
         }
         #endregion
@@ -1216,6 +1269,7 @@ namespace Eagle._Components.Public
             bool noCase,                   /* in */
             string name,                   /* in */
             string value,                  /* in */
+            int? maximumRetries,           /* in */
             ref Result error               /* out */
             )
         {
@@ -1270,7 +1324,7 @@ namespace Eagle._Components.Public
                     localError = null;
 
                     if (WebOps.SetSecurityProtocol(
-                            false, ref localError) != ReturnCode.Ok)
+                            false, false, ref localError) != ReturnCode.Ok)
                     {
                         if (localError != null)
                             error = localError;
@@ -1284,8 +1338,8 @@ namespace Eagle._Components.Public
                     localError = null;
 
                     byte[] bytes = WebOps.MakeRequest(
-                        webClient, uri, data, profiler,
-                        ref localError) as byte[];
+                        interpreter, webClient, uri, maximumRetries,
+                        data, profiler, false, ref localError) as byte[];
 
                     if (TraceRequestTime)
                     {
@@ -1315,7 +1369,7 @@ namespace Eagle._Components.Public
                     localError = null;
 
                     if (WebOps.SetSecurityProtocol(
-                            false, ref localError) != ReturnCode.Ok)
+                            false, false, ref localError) != ReturnCode.Ok)
                     {
                         if (localError != null)
                             error = localError;
@@ -1329,8 +1383,8 @@ namespace Eagle._Components.Public
                     localError = null;
 
                     string text = WebOps.MakeRequest(
-                        webClient, uri, data, profiler,
-                        ref localError) as string;
+                        interpreter, webClient, uri, maximumRetries,
+                        data, profiler, false, ref localError) as string;
 
                     if (TraceRequestTime)
                     {
@@ -1521,7 +1575,9 @@ namespace Eagle._Components.Public
         //
         private bool DoesExistViaNetwork( /* CANARY */
             Interpreter interpreter, /* in */
-            string name              /* in */
+            string name,             /* in */
+            int? maximumRetries,     /* in */
+            int? timeout             /* in */
             )
         {
             bool success = false;
@@ -1529,7 +1585,8 @@ namespace Eagle._Components.Public
 
             try
             {
-                if (!HasFlags(BreakpointType.BeforeVariableExist, true))
+                if (!HasFlags(
+                        BreakpointType.BeforeVariableExist, true))
                 {
                     error = "permission denied";
                     return false;
@@ -1542,7 +1599,8 @@ namespace Eagle._Components.Public
                 try
                 {
                     webClient = MaybeCreateWebClient(
-                        interpreter, ref dispose, ref error);
+                        interpreter, timeout, ref dispose,
+                        ref error);
 
                     if (webClient == null)
                         return false;
@@ -1552,7 +1610,7 @@ namespace Eagle._Components.Public
                         BreakpointType.BeforeVariableExist,
                         VariableFlags.None, null,
                         DefaultNoCaseParameterValue, name,
-                        null, ref error);
+                        null, maximumRetries, ref error);
 
                     if (text == null)
                         return false;
@@ -1597,11 +1655,14 @@ namespace Eagle._Components.Public
 
         private ReturnCode GetCountViaNetwork(
             Interpreter interpreter, /* in */
+            int? maximumRetries,     /* in */
+            int? timeout,            /* in */
             ref long count,          /* in */
             ref Result error         /* out */
             )
         {
-            if (!HasFlags(BreakpointType.BeforeVariableCount, true))
+            if (!HasFlags(
+                    BreakpointType.BeforeVariableCount, true))
             {
                 error = "permission denied";
                 return ReturnCode.Error;
@@ -1613,7 +1674,8 @@ namespace Eagle._Components.Public
             try
             {
                 webClient = MaybeCreateWebClient(
-                    interpreter, ref dispose, ref error);
+                    interpreter, timeout, ref dispose,
+                    ref error);
 
                 if (webClient == null)
                     return ReturnCode.Error;
@@ -1623,14 +1685,15 @@ namespace Eagle._Components.Public
                     BreakpointType.BeforeVariableCount,
                     VariableFlags.None, null,
                     DefaultNoCaseParameterValue, null,
-                    null, ref error);
+                    null, maximumRetries, ref error);
 
                 if (text == null)
                     return ReturnCode.Error;
 
                 return Value.GetWideInteger2(
-                    text, ValueFlags.AnyWideInteger, GetCultureInfo(
-                    interpreter), ref count, ref error);
+                    text, ValueFlags.AnyWideInteger,
+                    GetCultureInfo(interpreter),
+                    ref count, ref error);
             }
             finally
             {
@@ -1655,6 +1718,8 @@ namespace Eagle._Components.Public
             bool noCase,                     /* in */
             bool names,                      /* in */
             bool values,                     /* in */
+            int? maximumRetries,             /* in */
+            int? timeout,                    /* in */
             ref ObjectDictionary dictionary, /* out */
             ref Result error                 /* out */
             )
@@ -1680,14 +1745,16 @@ namespace Eagle._Components.Public
             try
             {
                 webClient = MaybeCreateWebClient(
-                    interpreter, ref dispose, ref error);
+                    interpreter, timeout, ref dispose,
+                    ref error);
 
                 if (webClient == null)
                     return ReturnCode.Error;
 
-                string text = PerformWebRequest(interpreter,
-                    webClient, breakpointType, VariableFlags.None,
-                    pattern, noCase, null, null, ref error);
+                string text = PerformWebRequest(
+                    interpreter, webClient, breakpointType,
+                    VariableFlags.None, pattern, noCase,
+                    null, null, maximumRetries, ref error);
 
                 if (text == null)
                     return ReturnCode.Error;

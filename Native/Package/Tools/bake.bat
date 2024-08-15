@@ -35,9 +35,7 @@ IF DEFINED __ECHO SET OUTPUT=^^^>
 
 %_AECHO% Running %0 %*
 
-IF NOT DEFINED DEFAULT_PLATFORM (
-  SET DEFAULT_PLATFORM=Win32
-)
+CALL :fn_SetDefaultPlatform DEFAULT_PLATFORM
 
 %_VECHO% DefaultPlatform = '%DEFAULT_PLATFORM%'
 
@@ -191,7 +189,7 @@ IF NOT DEFINED ISNETFX4 (
 
 IF DEFINED PACKAGE_PATCHLEVEL GOTO skip_patchLevel1
 
-SET GET_PATCHLEVEL_CMD=EagleShell.exe -eval "puts stdout [file version {%SRCBINDIR%\Garuda.dll}]"
+SET GET_PATCHLEVEL_CMD=EagleShell.exe -evaluate "puts stdout [file version {%SRCBINDIR%\Garuda.dll}]"
 
 %_VECHO% GetPatchLevelCmd = '%GET_PATCHLEVEL_CMD%'
 
@@ -241,7 +239,7 @@ SET UNINSTALL=%UNINSTALL:\\=\%
 %_VECHO% Setup = '%SETUP%'
 %_VECHO% Uninstall = '%UNINSTALL%'
 
-SET GET_MAJORMINOR_CMD=EagleShell.exe -eval "puts stdout [join [lrange [split %PACKAGE_PATCHLEVEL% .] 0 1] .]"
+SET GET_MAJORMINOR_CMD=EagleShell.exe -evaluate "puts stdout [join [lrange [split %PACKAGE_PATCHLEVEL% .] 0 1] .]"
 
 %_VECHO% GetMajorMinorCmd = '%GET_MAJORMINOR_CMD%'
 
@@ -299,7 +297,7 @@ IF NOT DEFINED URL (
   IF DEFINED SIGN_URL (
     SET URL=%SIGN_URL%
   ) ELSE (
-    SET URL=https://eagle.to/
+    SET URL=https://urn.to/r/eagle
   )
 )
 
@@ -331,6 +329,20 @@ IF NOT DEFINED NOSIGN (
 )
 
 GOTO no_errors
+
+:fn_SetDefaultPlatform
+  IF "%1" == "" GOTO :EOF
+  IF NOT DEFINED PROCESSOR_ARCHITECTURE GOTO :EOF
+  IF /I "%PROCESSOR_ARCHITECTURE%" == "x86" (
+    SET %1=Win32
+    GOTO :EOF
+  )
+  IF /I "%PROCESSOR_ARCHITECTURE%" == "AMD64" (
+    SET %1=x64
+    GOTO :EOF
+  )
+  SET %1=Win32
+  GOTO :EOF
 
 :fn_UnquoteVariable
   IF NOT DEFINED %1 GOTO :EOF

@@ -2127,10 +2127,12 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [sql execute] sub-command.
         //
-        public static OptionDictionary GetExecuteOnlyOptions()
+        private static OptionDictionary GetExecuteOnlyOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
+                new Option(null, OptionFlags.MustHaveCallbackValue,
+                    Index.Invalid, Index.Invalid, "-changed", null),
                 new Option(null, OptionFlags.MustHaveCultureInfoValue,
                     Index.Invalid, Index.Invalid, "-culture", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
@@ -2770,7 +2772,11 @@ namespace Eagle._Components.Private
                 new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-trustedonly", null),
                 new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-maybetrustedonly", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
                     Index.Invalid, "-verifiedonly", null),
+                new Option(null, OptionFlags.None, Index.Invalid,
+                    Index.Invalid, "-maybeverifiedonly", null),
                 Option.CreateEndOfOptions()
             });
         }
@@ -3454,6 +3460,7 @@ namespace Eagle._Components.Private
             out DateTimeBehavior dateTimeBehavior,
             out DateTimeKind dateTimeKind,
             out DateTimeStyles dateTimeStyles,
+            out ICallback changedCallback,
             out string rowsVarName,
             out string timeVarName,
             out string valueFormat,
@@ -3571,6 +3578,16 @@ namespace Eagle._Components.Private
                 options.CheckPresent("-datetimestyles", ref value))
             {
                 dateTimeStyles = (DateTimeStyles)value.Value;
+            }
+
+            ///////////////////////////////////////////////////////////////////
+
+            changedCallback = null;
+
+            if ((options != null) &&
+                options.CheckPresent("-changed", ref value))
+            {
+                changedCallback = (ICallback)value.Value;
             }
 
             ///////////////////////////////////////////////////////////////////
@@ -5353,12 +5370,22 @@ namespace Eagle._Components.Private
             if ((options != null) && options.CheckPresent("-trustedonly"))
                 trustedOnly = true;
 
+#if !DEBUG
+            if ((options != null) && options.CheckPresent("-maybetrustedonly"))
+                trustedOnly = true;
+#endif
+
             ///////////////////////////////////////////////////////////////////
 
             verifiedOnly = false;
 
             if ((options != null) && options.CheckPresent("-verifiedonly"))
                 verifiedOnly = true;
+
+#if !DEBUG
+            if ((options != null) && options.CheckPresent("-maybeverifiedonly"))
+                verifiedOnly = true;
+#endif
         }
 
         ///////////////////////////////////////////////////////////////////////

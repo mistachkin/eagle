@@ -23,6 +23,7 @@ namespace Eagle._Components.Public
         public static readonly string Constraints = "constraints"; // test suite constraints (via GetData)
         public static readonly string Empty = "empty";             // empty string (via GetData)
         public static readonly string Epilogue = "epilogue";       // test suite epilogue (via GetData)
+        public static readonly string Loader = "loader";           // plugin loader routines (via GetData)
         public static readonly string Initialization = "init";     // library initialization / routines (via GetData)
         public static readonly string Embedding = "embed";         // application embedding initialization (via GetData)
         public static readonly string Vendor = "vendor";           // vendor initialization (via GetData)

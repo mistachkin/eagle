@@ -112,6 +112,7 @@ namespace Eagle._Hosts
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            ScriptTypes.Loader,
             ScriptTypes.Initialization,
             ScriptTypes.Embedding,
             ScriptTypes.Vendor,
@@ -129,6 +130,8 @@ namespace Eagle._Hosts
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            FileNameOnly.Loader,
+            /* FileNameOnly.LoaderPackageIndex, */ /* DUPLICATE */
             FileNameOnly.Initialization,
             FileNameOnly.Embedding,
             FileNameOnly.Vendor,
@@ -148,6 +151,8 @@ namespace Eagle._Hosts
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            FileName.Loader,
+            FileName.LoaderPackageIndex,
             FileName.Initialization,
             FileName.Embedding,
             FileName.Vendor,
@@ -2191,6 +2196,21 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Detail Flags Support
+        protected virtual void PopulateDetailFlags(
+            Interpreter interpreter,
+            out DetailFlags detailFlags
+            )
+        {
+            detailFlags = DetailFlags.Default;
+
+#if DEBUGGER || SHELL
+            if (interpreter != null)
+                detailFlags = interpreter.DetailFlags;
+#endif
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         protected virtual bool HasEmptyContent(
             DetailFlags detailFlags
             )
@@ -3234,8 +3254,16 @@ namespace Eagle._Hosts
                             if (empty || (stringValue != null))
                             {
                                 localList.Add(GetPairKeyWithPrefix(
-                                    "ToString", prefix), stringValue != null ?
+                                    "ToString", prefix), (stringValue != null) ?
                                     stringValue : FormatOps.DisplayNull);
+                            }
+
+                            int hashCode = RuntimeOps.GetHashCode(objectValue);
+
+                            if (empty || (hashCode != 0))
+                            {
+                                localList.Add(GetPairKeyWithPrefix(
+                                    "HashCode", prefix), hashCode.ToString());
                             }
                         }
                         else
@@ -3990,7 +4018,7 @@ namespace Eagle._Hosts
                 interpreter.GetHostFlagInfo(ref list, detailFlags);
 
             if (list.Count == headerCount)
-                list.Add(FormatOps.DisplayEmpty);
+                list.Add(FormatOps.DisplayNothing);
 
             return true;
         }
@@ -4064,6 +4092,7 @@ namespace Eagle._Hosts
 
                     list.Add("Profile", GetHostInfo(host, "Profile"));
                     list.Add("UseAttach", GetHostInfo(host, "UseAttach"));
+                    list.Add("UseForce", GetHostInfo(host, "UseForce"));
                     list.Add("NoColor", GetHostInfo(host, "NoColor"));
                     list.Add("NoTitle", GetHostInfo(host, "NoTitle"));
                     list.Add("NoIcon", GetHostInfo(host, "NoIcon"));
@@ -4484,7 +4513,7 @@ namespace Eagle._Hosts
                     ref list, detailFlags);
 
                 if (list.Count == headerCount)
-                    list.Add(FormatOps.DisplayEmpty);
+                    list.Add(FormatOps.DisplayNothing);
             }
             else
             {
@@ -4533,7 +4562,7 @@ namespace Eagle._Hosts
 #endif
 
             list.Add("CurrentAppDomain",
-                AppDomainOps.GetCurrentId().ToString());
+                AppDomainOps.GetCurrentId().ToString()); /* EXEMPT */
 
             list.Add("PrimaryAppDomain",
                 AppDomainOps.GetPrimaryId().ToString());
@@ -4559,6 +4588,9 @@ namespace Eagle._Hosts
 
             list.Add("CurrentNativeThread",
                 AppDomain.GetCurrentThreadId().ToString()); /* EXEMPT */
+
+            list.Add("GlobalStateLockThread",
+                GlobalState.GetCurrentLockThreadId().ToString()); /* EXEMPT */
 
             list.Add("GlobalStateCurrentThread",
                 GlobalState.GetCurrentThreadId().ToString()); /* EXEMPT */
@@ -4755,7 +4787,7 @@ namespace Eagle._Hosts
                 interpreter.GetHostEntityInfo(ref list, detailFlags);
 
                 if (list.Count == headerCount)
-                    list.Add(FormatOps.DisplayEmpty);
+                    list.Add(FormatOps.DisplayNothing);
             }
             else
             {
@@ -4852,7 +4884,7 @@ namespace Eagle._Hosts
                 interpreter.GetHostControlInfo(ref list, detailFlags);
 
                 if (list.Count == headerCount)
-                    list.Add(FormatOps.DisplayEmpty);
+                    list.Add(FormatOps.DisplayNothing);
             }
             else
             {
@@ -4888,7 +4920,7 @@ namespace Eagle._Hosts
                 interpreter.GetHostTestInfo(ref list, detailFlags);
 
                 if (list.Count == headerCount)
-                    list.Add(FormatOps.DisplayEmpty);
+                    list.Add(FormatOps.DisplayNothing);
             }
             else
             {
@@ -5033,7 +5065,7 @@ namespace Eagle._Hosts
                     detailFlags);
 
                 if (list.Count == headerCount)
-                    list.Add(FormatOps.DisplayEmpty);
+                    list.Add(FormatOps.DisplayNothing);
             }
             else
             {
@@ -5091,7 +5123,7 @@ namespace Eagle._Hosts
                 list.Add("Flags", flags.ToString());
 
             if (list.Count == headerCount)
-                list.Add(FormatOps.DisplayEmpty);
+                list.Add(FormatOps.DisplayNothing);
 
             return true;
         }
@@ -5315,7 +5347,7 @@ namespace Eagle._Hosts
                             {
                                 if (shouldColorForPass)
                                 {
-                                    PrivateStaticTryLock(ref locked);
+                                    PrivateStaticTryLockWithWait(ref locked);
 
                                     if (!locked)
                                     {
@@ -5446,7 +5478,7 @@ namespace Eagle._Hosts
                             {
                                 if (shouldColorForPass)
                                 {
-                                    PrivateStaticTryLock(ref locked);
+                                    PrivateStaticTryLockWithWait(ref locked);
 
                                     if (!locked)
                                     {
@@ -5574,7 +5606,7 @@ namespace Eagle._Hosts
                             {
                                 if (shouldColorForPass)
                                 {
-                                    PrivateStaticTryLock(ref locked);
+                                    PrivateStaticTryLockWithWait(ref locked);
 
                                     if (!locked)
                                     {
@@ -5804,7 +5836,7 @@ namespace Eagle._Hosts
                         {
                             if (shouldColorForPass)
                             {
-                                PrivateStaticTryLock(ref locked);
+                                PrivateStaticTryLockWithWait(ref locked);
 
                                 if (!locked)
                                 {
@@ -6106,8 +6138,16 @@ namespace Eagle._Hosts
             //       the LeftwardsArrow (U+2190) appears to cause
             //       serious display (and other?) issues.
             //
+            // BUGFIX: Also avoid using the Unicode or extended
+            //         characters at all, since it cannot work
+            //         consistently.
+            //
             if (IsWindowsTerminal())
+            {
+                whiteSpaceFlags &= ~WhiteSpaceFlags.Extended;
+                whiteSpaceFlags &= ~WhiteSpaceFlags.Unicode;
                 whiteSpaceFlags |= WhiteSpaceFlags.NoArrows;
+            }
 
             //
             // HACK: Make sure the "Extended ASCII" and/or Unicode
@@ -9057,8 +9097,9 @@ namespace Eagle._Hosts
             HeaderFlags headerFlags = (loopData != null) ?
                 loopData.HeaderFlags : HeaderFlags.Default;
 
-            DetailFlags detailFlags = DetailFlags.Default;
+            DetailFlags detailFlags;
 
+            PopulateDetailFlags(interpreter, out detailFlags);
             HeaderFlagsToDetailFlags(headerFlags, ref detailFlags);
 
             bool autoSize = FlagOps.HasFlags(
@@ -11090,6 +11131,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        public virtual bool UseForce
+        {
+            get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.UseForce, true); }
+            set { CheckDisposed(); MaybeEnableCreateFlags(HostCreateFlags.UseForce, value); }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         public virtual bool NoTitle
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.NoTitle, true); }
@@ -11235,14 +11284,24 @@ namespace Eagle._Hosts
         #region IMaybeDisposed Members
         public virtual bool Disposed
         {
-            get { return disposed; }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                return disposed;
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         public virtual bool Disposing
         {
-            get { throw new NotImplementedException(); }
+            get
+            {
+                // CheckDisposed(); /* EXEMPT */
+
+                throw new NotImplementedException();
+            }
         }
         #endregion
 
@@ -11265,7 +11324,7 @@ namespace Eagle._Hosts
             {
                 /* IGNORED */
                 Interlocked.CompareExchange(ref staticLockThreadId,
-                    GlobalState.GetCurrentThreadId(), 0);
+                    GlobalState.GetCurrentLockThreadId(), 0);
             }
         }
 
@@ -11279,7 +11338,7 @@ namespace Eagle._Hosts
             {
                 /* IGNORED */
                 Interlocked.CompareExchange(ref staticLockThreadId,
-                    0, GlobalState.GetCurrentThreadId());
+                    0, GlobalState.GetCurrentLockThreadId());
             }
         }
 

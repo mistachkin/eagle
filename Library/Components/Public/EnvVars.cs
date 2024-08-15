@@ -17,6 +17,12 @@ namespace Eagle._Components.Public
     public static class EnvVars
     {
         #region Runtime Behavior Environment Variables
+#if TEST
+        public static readonly string TestCommands = "TestCommands";
+#endif
+
+        public static readonly string AllowAnyThread = "AllowAnyThread";
+
         public static readonly string AssemblyAnchorPath = "AssemblyAnchorPath";
         public static readonly string Break = "Break";
         public static readonly string NoBreak = "NoBreak";
@@ -52,7 +58,8 @@ namespace Eagle._Components.Public
 
         public static readonly string ForceModernAlgorithms = "ForceModernAlgorithms";
         public static readonly string Security = "Security";
-        public static readonly string ResultStack = "ResultStack";
+        public static readonly string PopulateResultStack = "PopulateResultStack";
+        public static readonly string IncludeResultStack = "IncludeResultStack";
         public static readonly string SetupTrace = "SetupTrace";
         public static readonly string TraceStack = "TraceStack";
         public static readonly string TraceToHost = "TraceToHost";
@@ -85,6 +92,7 @@ namespace Eagle._Components.Public
         public static readonly string NoLoop = "NoLoop";
         public static readonly string NoThrowOnDisposed = "NoThrowOnDisposed";
         public static readonly string UseAttach = "UseAttach";
+        public static readonly string UseForce = "UseForce";
 
 #if SHELL
         public static readonly string NoInitializeShell = "NoInitializeShell";
@@ -141,6 +149,7 @@ namespace Eagle._Components.Public
         public static readonly string StrictBasePath = "StrictBasePath";
 
 #if NETWORK
+        public static readonly string WebClientTagFormat = "WebClientTag_{0}";
         public static readonly string NetworkTimeout = "NetworkTimeout";
 #endif
 
@@ -381,6 +390,40 @@ namespace Eagle._Components.Public
         public static readonly string EagleLibraryHostsConsole =
             "EAGLE_LIBRARY_HOSTS_CONSOLE_";
 #endif
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region AppDomainOps Only Environment Variables
+        //
+        // NOTE: The value of this variable is a reference count managed by
+        //       various methods of the "AppDomainOps" class.  The process
+        //       Id is always inserted into this name.
+        //
+        // WARNING: This environment variable should NOT be changed or removed
+        //          by any third-party applications, plugins or scripts.
+        //
+        public static readonly string EagleLibraryAppDomainCreateCount =
+            "EAGLE_LIBRARY_APPDOMAIN_CREATE_COUNT_";
+
+        public static readonly string EagleLibraryAppDomainUnloadCount =
+            "EAGLE_LIBRARY_APPDOMAIN_UNLOAD_COUNT_";
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // NOTE: The value of this variable is a list managed by various
+        //       methods of the "AppDomainOps" class.  The process Id is
+        //       always inserted into this name.
+        //
+        // WARNING: This environment variable should NOT be changed or removed
+        //          by any third-party applications, plugins or scripts.
+        //
+        public static readonly string EagleLibraryAppDomainCreateList =
+            "EAGLE_LIBRARY_APPDOMAIN_CREATE_LIST_";
+
+        public static readonly string EagleLibraryAppDomainUnloadList =
+            "EAGLE_LIBRARY_APPDOMAIN_UNLOAD_LIST_";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////

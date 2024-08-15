@@ -257,6 +257,27 @@ namespace Sample
         {
             return new Class14(plugin);
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Creates an instance of a class (<see cref="Class14" />) that
+        /// can handle the <see cref="WebErrorCallback" /> delegate.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin context we are executing in.
+        /// </param>
+        /// <returns>
+        /// The newly created class that handles the
+        /// <see cref="WebErrorCallback" /> delegate -OR- null if it
+        /// cannot be created.
+        /// </returns>
+        private static Class14 CreateWebErrorCallbackClass(
+            IPlugin plugin /* in */
+            )
+        {
+            return new Class14(plugin);
+        }
 #endif
 
         ///////////////////////////////////////////////////////////////////////
@@ -352,6 +373,27 @@ namespace Sample
             )
         {
             return CreateWebTransferCallbackClass(plugin);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// Creates an instance of a class (<see cref="Class14" />) that
+        /// implements the <see cref="IWebErrorCallback" /> interface.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin context we are executing in.
+        /// </param>
+        /// <returns>
+        /// The newly created class that implements the
+        /// <see cref="IWebErrorCallback" /> interface -OR- null if it
+        /// cannot be created.
+        /// </returns>
+        private static IWebErrorCallback CreateWebErrorCallback(
+            IPlugin plugin /* in */
+            )
+        {
+            return CreateWebErrorCallbackClass(plugin);
         }
 #endif
 #endif
@@ -790,6 +832,112 @@ namespace Sample
 
             return ReturnCode.Error;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method is used to install -OR- uninstall the per-interpreter
+        /// callbacks used for the <see cref="System.Net.WebClient" />
+        /// subsystem.  It is designed to work correctly even when the plugin
+        /// has been loaded into an isolated application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context we are executing in.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin context we are executing in.
+        /// </param>
+        /// <param name="install">
+        /// Non-zero is used to install the callbacks and zero is used to
+        /// uninstall them.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// </returns>
+        private static ReturnCode InstallWebErrorCallbacks(
+            Interpreter interpreter, /* in */
+            IPlugin plugin,          /* in */
+            bool install,            /* in */
+            ref Result error         /* out */
+            )
+        {
+            if (interpreter == null)
+            {
+                error = "invalid interpreter";
+                return ReturnCode.Error;
+            }
+
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+            WebErrorCallbackBridge callbackBridge = null;
+#endif
+
+            if (install && Utility.IsCrossAppDomain(interpreter, plugin))
+            {
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+                callbackBridge = WebErrorCallbackBridge.Create(
+                    CreateWebErrorCallback(plugin), ref error);
+
+                if (callbackBridge == null)
+                    return ReturnCode.Error;
+#else
+                error = "cannot set delegates with plugin isolated";
+                return ReturnCode.Error;
+#endif
+            }
+
+            bool locked = false;
+
+            try
+            {
+                interpreter.TryLockWithWait(
+                    ref locked); /* TRANSACTIONAL */
+
+                if (locked)
+                {
+                    if (install)
+                    {
+#if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+                        if (callbackBridge != null)
+                        {
+                            interpreter.WebErrorCallback =
+                                new WebErrorCallback(
+                                    callbackBridge.WebErrorCallback);
+                        }
+                        else
+#endif
+                        {
+                            interpreter.WebErrorCallback =
+                                CreateWebErrorCallbackClass(
+                                    plugin).WebError;
+                        }
+                    }
+                    else
+                    {
+                        interpreter.WebErrorCallback = null;
+                    }
+
+                    return ReturnCode.Ok;
+                }
+                else
+                {
+                    error = "interpreter is locked";
+                }
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+            finally
+            {
+                interpreter.ExitLock(
+                    ref locked); /* TRANSACTIONAL */
+            }
+
+            return ReturnCode.Error;
+        }
 #endif
         #endregion
 
@@ -838,6 +986,12 @@ namespace Sample
             }
 
             if (InstallWebTransferCallbacks(
+                    interpreter, this, true, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
+            if (InstallWebErrorCallbacks(
                     interpreter, this, true, ref result) != ReturnCode.Ok)
             {
                 return ReturnCode.Error;
@@ -932,6 +1086,12 @@ namespace Sample
             }
 
 #if NETWORK && WEB
+            if (InstallWebErrorCallbacks(
+                    interpreter, this, false, ref result) != ReturnCode.Ok)
+            {
+                return ReturnCode.Error;
+            }
+
             if (InstallWebTransferCallbacks(
                     interpreter, this, false, ref result) != ReturnCode.Ok)
             {

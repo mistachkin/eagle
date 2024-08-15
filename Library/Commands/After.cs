@@ -64,12 +64,13 @@ namespace Eagle._Commands
                 {
                     if (arguments.Count >= 2)
                     {
-                        string subCommand = arguments[1];
+                        Argument firstArgument = arguments[1];
+                        string subCommand = firstArgument;
                         bool tried = false;
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, arguments, false,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -299,6 +300,14 @@ namespace Eagle._Commands
                                                 new Option(null, OptionFlags.MustHaveWideIntegerValue |
                                                     OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
                                                     "-thread", null),
+                                                new Option(typeof(EventPriority),
+                                                    OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
+                                                    Index.Invalid, Index.Invalid, "-priority",
+                                                    new Variant(EventPriority.Idle)),
+                                                new Option(typeof(EventFlags),
+                                                    OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
+                                                    Index.Invalid, Index.Invalid, "-flags",
+                                                    new Variant(EventFlags.None)),
                                                 Option.CreateEndOfOptions()
                                             });
 
@@ -317,6 +326,16 @@ namespace Eagle._Commands
 
                                                     if (options.IsPresent("-thread", ref value))
                                                         threadId = (long)value.Value;
+
+                                                    EventPriority priority = EventPriority.Idle;
+
+                                                    if (options.IsPresent("-priority", ref value))
+                                                        priority = (EventPriority)value.Value;
+
+                                                    EventFlags flags = EventFlags.None;
+
+                                                    if (options.IsPresent("-flags", ref value))
+                                                        flags = (EventFlags)value.Value;
 
                                                     IEventManager eventManager = interpreter.EventManager;
 
@@ -339,12 +358,12 @@ namespace Eagle._Commands
                                                         IScript script = interpreter.CreateAfterScript(
                                                             name, null, null, ScriptTypes.Idle, text,
                                                             now, EngineMode.EvaluateScript, ScriptFlags.None,
-                                                            clientData, true);
+                                                            flags, clientData, true);
 
                                                         code = eventManager.QueueScript(
                                                             name, dateTime, script, script.EventFlags,
-                                                            EventPriority.Idle, threadId,
-                                                            interpreter.InternalEventLimit, ref result);
+                                                            priority, threadId, interpreter.InternalEventLimit,
+                                                            ref result);
 
                                                         if (code == ReturnCode.Ok)
                                                             result = name;
@@ -452,8 +471,9 @@ namespace Eagle._Commands
                                         long milliseconds = 0; // for idle, execute the script right now.
 
                                         code = Value.GetWideInteger2(
-                                            subCommand, ValueFlags.AnyWideInteger,
-                                            interpreter.InternalCultureInfo, ref milliseconds, ref result);
+                                            (IGetValue)firstArgument, ValueFlags.AnyWideInteger,
+                                            interpreter.InternalCultureInfo, ref milliseconds,
+                                            ref result);
 
                                         if (code == ReturnCode.Ok)
                                         {
@@ -471,10 +491,13 @@ namespace Eagle._Commands
                                                 bool noGlobalCancel = FlagOps.HasFlags(
                                                     eventWaitFlags, EventWaitFlags.NoGlobalCancel, true);
 
+                                                bool trace = FlagOps.HasFlags(
+                                                    eventWaitFlags, EventWaitFlags.Trace, true);
+
                                                 code = EventOps.Wait(interpreter, null,
                                                     PerformanceOps.GetMicrosecondsFromMilliseconds(
                                                     milliseconds), null, false, false, noCancel,
-                                                    noGlobalCancel, ref result);
+                                                    noGlobalCancel, trace, ref result);
 
                                                 if (code == ReturnCode.Ok)
                                                     result = String.Empty;
@@ -485,6 +508,14 @@ namespace Eagle._Commands
                                                     new Option(null, OptionFlags.MustHaveWideIntegerValue |
                                                         OptionFlags.Unsafe, Index.Invalid, Index.Invalid,
                                                         "-thread", null),
+                                                    new Option(typeof(EventPriority),
+                                                        OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
+                                                        Index.Invalid, Index.Invalid, "-priority",
+                                                        new Variant(EventPriority.After)),
+                                                    new Option(typeof(EventFlags),
+                                                        OptionFlags.MustHaveEnumValue | OptionFlags.Unsafe,
+                                                        Index.Invalid, Index.Invalid, "-flags",
+                                                        new Variant(EventFlags.None)),
                                                     Option.CreateEndOfOptions()
                                                 });
 
@@ -504,6 +535,16 @@ namespace Eagle._Commands
                                                         if (options.IsPresent("-thread", ref value))
                                                             threadId = (long)value.Value;
 
+                                                        EventPriority priority = EventPriority.After;
+
+                                                        if (options.IsPresent("-priority", ref value))
+                                                            priority = (EventPriority)value.Value;
+
+                                                        EventFlags flags = EventFlags.None;
+
+                                                        if (options.IsPresent("-flags", ref value))
+                                                            flags = (EventFlags)value.Value;
+
                                                         IEventManager eventManager = interpreter.EventManager;
 
                                                         if (EventOps.ManagerIsOk(eventManager))
@@ -521,12 +562,12 @@ namespace Eagle._Commands
                                                             IScript script = interpreter.CreateAfterScript(
                                                                 name, null, null, ScriptTypes.Timer, text,
                                                                 now, EngineMode.EvaluateScript, ScriptFlags.None,
-                                                                clientData, false);
+                                                                flags, clientData, false);
 
                                                             code = eventManager.QueueScript(
                                                                 name, dateTime, script, script.EventFlags,
-                                                                EventPriority.After, threadId,
-                                                                interpreter.InternalEventLimit, ref result);
+                                                                priority, threadId, interpreter.InternalEventLimit,
+                                                                ref result);
 
                                                             if (code == ReturnCode.Ok)
                                                                 result = name;

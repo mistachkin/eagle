@@ -53,15 +53,15 @@ namespace Eagle._Commands
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "break", "breakpoints", "cacheconfiguration", "callback",
             "cleanup", "collect", "complaint", "emergency", "enable", "eval",
-            "exception", "execute", "function", "gcmemory", "halt",
+            "exception", "execute", "function", "gcmemory", "halt", "hook",
             "history", "icommand", "interactive", "invoke", "iqueue",
             "iresult", "keyring", "levels", "lockloop", "lockvar",
-            "log", "memory", "oncancel", "onerror", "onexecute",
+            "log", "memory", "null", "oncancel", "onerror", "onexecute",
             "onexit", "onreturn", "ontest", "ontoken", "operator",
             "output", "paths", "pluginexecute", "pluginflags", "purge",
             "procedureflags", "resume", "restore", "readonly", "ready",
-            "refreshautopath", "run", "runtimeoption", "runtimeoverride",
-            "secureeval", "self", "setup", "shell", "stack", "status",
+            "refreshautopath", "result", "run", "runtimeoption", "runtimeoverride",
+            "secureeval", "self", "set", "setup", "shell", "stack", "status",
             "step", "steps", "subst", "suspend", "sysmemory", "test",
             "testpath", "token", "trace", "types", "undelete",
             "variable", "vout", "watch"
@@ -98,7 +98,7 @@ namespace Eagle._Commands
 
                         code = ScriptOps.TryExecuteSubCommandFromEnsemble(
                             interpreter, this, clientData, newArguments, true,
-                            false, ref subCommand, ref tried, ref result);
+                            null, ref subCommand, ref tried, ref result);
 
                         if ((code == ReturnCode.Ok) && !tried)
                         {
@@ -559,11 +559,11 @@ namespace Eagle._Commands
                                                 new IOption[] {
                                                     new Option(null, OptionFlags.MustHaveInterpreterValue,
                                                         Index.Invalid, Index.Invalid, "-interpreter", null),
-                                                    new Option(null, OptionFlags.None,
+                                                    new Option(null, OptionFlags.None, /* [debug break] */
                                                         Index.Invalid, Index.Invalid, "-ignoreenabled", null),
-                                                    new Option(null, OptionFlags.None,
+                                                    new Option(null, OptionFlags.None, /* [debug break] */
                                                         Index.Invalid, Index.Invalid, "-nocomplain", null),
-                                                    new Option(null, OptionFlags.None,
+                                                    new Option(null, OptionFlags.None, /* [debug break] */
                                                         Index.Invalid, Index.Invalid, "-noerror", null),
                                                     Option.CreateEndOfOptions()
                                             });
@@ -653,6 +653,21 @@ namespace Eagle._Commands
                                                                     enabled = false;
                                                                 }
 
+                                                                if (!noComplain && FlagOps.HasFlags(
+                                                                        emergencyLevel, DebugEmergencyLevel.NoComplain,
+                                                                        true))
+                                                                {
+                                                                    noComplain = true;
+                                                                }
+                                                                else if (noComplain)
+                                                                {
+                                                                    emergencyLevel |= DebugEmergencyLevel.NoComplain;
+                                                                }
+
+                                                                bool reset = FlagOps.HasFlags(
+                                                                    emergencyLevel, DebugEmergencyLevel.Reset,
+                                                                    true);
+
                                                                 bool @break = FlagOps.HasFlags(
                                                                     emergencyLevel, DebugEmergencyLevel.Break,
                                                                     true);
@@ -667,6 +682,10 @@ namespace Eagle._Commands
 
                                                                 bool verbose = FlagOps.HasFlags(
                                                                     emergencyLevel, DebugEmergencyLevel.Verbose,
+                                                                    true);
+
+                                                                bool quiet = FlagOps.HasFlags(
+                                                                    emergencyLevel, DebugEmergencyLevel.Quiet,
                                                                     true);
 
                                                                 bool resetCancel = FlagOps.HasFlags(
@@ -685,7 +704,37 @@ namespace Eagle._Commands
                                                                     emergencyLevel, DebugEmergencyLevel.ForceResetHalt,
                                                                     true);
 
+                                                                bool populateResultStack = FlagOps.HasFlags(
+                                                                    emergencyLevel, DebugEmergencyLevel.PopulateResultStack,
+                                                                    true);
+
+                                                                bool includeResultStack = FlagOps.HasFlags(
+                                                                    emergencyLevel, DebugEmergencyLevel.IncludeResultStack,
+                                                                    true);
+
 #if DEBUGGER
+                                                                if (!ignoreEnabled && FlagOps.HasFlags(
+                                                                        emergencyLevel, DebugEmergencyLevel.IgnoreEnabled,
+                                                                        true))
+                                                                {
+                                                                    ignoreEnabled = true;
+                                                                }
+                                                                else if (ignoreEnabled)
+                                                                {
+                                                                    emergencyLevel |= DebugEmergencyLevel.IgnoreEnabled;
+                                                                }
+
+                                                                if (!noError && FlagOps.HasFlags(
+                                                                        emergencyLevel, DebugEmergencyLevel.NoError,
+                                                                        true))
+                                                                {
+                                                                    noError = true;
+                                                                }
+                                                                else if (noError)
+                                                                {
+                                                                    emergencyLevel |= DebugEmergencyLevel.NoError;
+                                                                }
+
                                                                 IDebugger debugger = null;
 
                                                                 bool created = FlagOps.HasFlags(
@@ -758,6 +807,93 @@ namespace Eagle._Commands
 #else
                                                                 builder.AppendLine("debugger is not available");
 #endif
+
+                                                                if (code == ReturnCode.Ok)
+                                                                {
+                                                                    if (populateResultStack)
+                                                                    {
+                                                                        if (reset)
+                                                                        {
+                                                                            /* NO RESULT */
+                                                                            Result.ResetPopulateStackTrace();
+
+                                                                            builder.AppendLine(
+                                                                                "reset populate result stack traces");
+                                                                        }
+
+                                                                        bool? wasPopulateResultStack =
+                                                                            Result.EnablePopulateStackTrace(null);
+
+                                                                        if (enabled != null)
+                                                                        {
+                                                                            if ((wasPopulateResultStack == null) ||
+                                                                                ((bool)enabled != (bool)wasPopulateResultStack))
+                                                                            {
+                                                                                /* IGNORED */
+                                                                                Result.EnablePopulateStackTrace(
+                                                                                    (bool)enabled);
+
+                                                                                builder.AppendLine(String.Format(
+                                                                                    "populate result stack traces {0}",
+                                                                                    FormatOps.IsEnabled(enabled)));
+                                                                            }
+                                                                            else if (verbose)
+                                                                            {
+                                                                                builder.AppendLine(String.Format(
+                                                                                    "populate result stack traces {0}",
+                                                                                    FormatOps.WasEnabled(wasPopulateResultStack)));
+                                                                            }
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            builder.AppendLine(String.Format(
+                                                                                "populate result stack traces {0}",
+                                                                                FormatOps.WasEnabled(wasPopulateResultStack)));
+                                                                        }
+                                                                    }
+
+                                                                    if (includeResultStack)
+                                                                    {
+                                                                        if (reset)
+                                                                        {
+                                                                            /* NO RESULT */
+                                                                            Result.ResetIncludeStackTrace();
+
+                                                                            builder.AppendLine(
+                                                                                "reset include result stack traces");
+                                                                        }
+
+                                                                        bool? wasIncludeResultStack =
+                                                                            Result.EnableIncludeStackTrace(null);
+
+                                                                        if (enabled != null)
+                                                                        {
+                                                                            if ((wasIncludeResultStack == null) ||
+                                                                                ((bool)enabled != (bool)wasIncludeResultStack))
+                                                                            {
+                                                                                /* IGNORED */
+                                                                                Result.EnableIncludeStackTrace(
+                                                                                    (bool)enabled);
+
+                                                                                builder.AppendLine(String.Format(
+                                                                                    "include result stack traces {0}",
+                                                                                    FormatOps.IsEnabled(enabled)));
+                                                                            }
+                                                                            else if (verbose)
+                                                                            {
+                                                                                builder.AppendLine(String.Format(
+                                                                                    "include result stack traces {0}",
+                                                                                    FormatOps.WasEnabled(wasIncludeResultStack)));
+                                                                            }
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            builder.AppendLine(String.Format(
+                                                                                "include result stack traces {0}",
+                                                                                FormatOps.WasEnabled(wasIncludeResultStack)));
+                                                                        }
+                                                                    }
+                                                                }
 
                                                                 if (code == ReturnCode.Ok)
                                                                 {
@@ -844,21 +980,21 @@ namespace Eagle._Commands
                                                                                 debugger.Enabled = (bool)enabled; /* per-thread */
 
                                                                                 builder.AppendLine(String.Format(
-                                                                                    "debugger {0}", (bool)enabled ?
-                                                                                    "enabled" : "disabled"));
+                                                                                    "debugger {0}",
+                                                                                    FormatOps.IsEnabled(enabled)));
                                                                             }
                                                                             else if (verbose)
                                                                             {
                                                                                 builder.AppendLine(String.Format(
-                                                                                    "debugger is {0}", wasEnabled ?
-                                                                                    "enabled" : "disabled"));
+                                                                                    "debugger {0}",
+                                                                                    FormatOps.IsEnabled(wasEnabled)));
                                                                             }
                                                                         }
                                                                         else
                                                                         {
                                                                             builder.AppendLine(String.Format(
-                                                                                "debugger is {0}", wasEnabled ?
-                                                                                "enabled" : "disabled"));
+                                                                                "debugger {0}",
+                                                                                FormatOps.IsEnabled(wasEnabled)));
                                                                         }
 
 #if DEBUGGER_BREAKPOINTS
@@ -874,23 +1010,20 @@ namespace Eagle._Commands
 
                                                                                     builder.AppendLine(String.Format(
                                                                                         "debugger break-on-token {0}",
-                                                                                        (bool)enabled ? "enabled" :
-                                                                                        "disabled"));
+                                                                                        FormatOps.IsEnabled(enabled)));
                                                                                 }
                                                                                 else if (verbose)
                                                                                 {
                                                                                     builder.AppendLine(String.Format(
-                                                                                        "debugger break-on-token is {0}",
-                                                                                        wasBreakOnToken ? "enabled" :
-                                                                                        "disabled"));
+                                                                                        "debugger break-on-token {0}",
+                                                                                        FormatOps.IsEnabled(wasBreakOnToken)));
                                                                                 }
                                                                             }
                                                                             else
                                                                             {
                                                                                 builder.AppendLine(String.Format(
-                                                                                    "debugger break-on-token is {0}",
-                                                                                    wasBreakOnToken ? "enabled" :
-                                                                                    "disabled"));
+                                                                                    "debugger break-on-token {0}",
+                                                                                    FormatOps.IsEnabled(wasBreakOnToken)));
                                                                             }
                                                                         }
 #else
@@ -909,21 +1042,21 @@ namespace Eagle._Commands
                                                                             localInterpreter.InternalInteractive = (bool)enabled; /* per-thread */
 
                                                                             builder.AppendLine(String.Format(
-                                                                                "interactive mode {0}", (bool)enabled ?
-                                                                                "enabled" : "disabled"));
+                                                                                "interactive mode {0}",
+                                                                                FormatOps.IsEnabled(enabled)));
                                                                         }
                                                                         else if (verbose)
                                                                         {
                                                                             builder.AppendLine(String.Format(
-                                                                                "interactive mode is {0}", wasInteractive ?
-                                                                                "enabled" : "disabled"));
+                                                                                "interactive mode {0}",
+                                                                                FormatOps.IsEnabled(wasInteractive)));
                                                                         }
                                                                     }
                                                                     else
                                                                     {
                                                                         builder.AppendLine(String.Format(
-                                                                            "interactive mode is {0}", wasInteractive ?
-                                                                            "enabled" : "disabled"));
+                                                                            "interactive mode {0}",
+                                                                            FormatOps.IsEnabled(wasInteractive)));
                                                                     }
 
                                                                     if (tokens)
@@ -937,21 +1070,21 @@ namespace Eagle._Commands
                                                                                 localInterpreter.EnableScriptLocation((bool)enabled);
 
                                                                                 builder.AppendLine(String.Format(
-                                                                                    "script locations {0}", (bool)enabled ?
-                                                                                    "enabled" : "disabled"));
+                                                                                    "script locations {0}",
+                                                                                    FormatOps.IsEnabled(enabled)));
                                                                             }
                                                                             else if (verbose)
                                                                             {
                                                                                 builder.AppendLine(String.Format(
-                                                                                    "script locations are {0}", wasScriptLocation ?
-                                                                                    "enabled" : "disabled"));
+                                                                                    "script locations {0}",
+                                                                                    FormatOps.IsEnabled(wasScriptLocation)));
                                                                             }
                                                                         }
                                                                         else
                                                                         {
                                                                             builder.AppendLine(String.Format(
-                                                                                "script locations are {0}", wasScriptLocation ?
-                                                                                "enabled" : "disabled"));
+                                                                                "script locations {0}",
+                                                                                FormatOps.IsEnabled(wasScriptLocation)));
                                                                         }
 
 #if DEBUGGER && DEBUGGER_BREAKPOINTS
@@ -965,21 +1098,21 @@ namespace Eagle._Commands
                                                                                     enabled, true);
 
                                                                                 builder.AppendLine(String.Format(
-                                                                                    "argument locations {0}", (bool)enabled ?
-                                                                                    "enabled" : "disabled"));
+                                                                                    "argument locations {0}",
+                                                                                    FormatOps.IsEnabled(enabled)));
                                                                             }
                                                                             else if (verbose)
                                                                             {
                                                                                 builder.AppendLine(String.Format(
-                                                                                    "argument locations are {0}", wasArgumentLocation ?
-                                                                                    "enabled" : "disabled"));
+                                                                                    "argument locations {0}",
+                                                                                    FormatOps.IsEnabled(wasArgumentLocation)));
                                                                             }
                                                                         }
                                                                         else
                                                                         {
                                                                             builder.AppendLine(String.Format(
-                                                                                "argument locations are {0}", wasArgumentLocation ?
-                                                                                "enabled" : "disabled"));
+                                                                                "argument locations {0}",
+                                                                                FormatOps.IsEnabled(wasArgumentLocation)));
                                                                         }
 #else
                                                                         builder.AppendLine(
@@ -999,21 +1132,21 @@ namespace Eagle._Commands
                                                                                 localInterpreter.EnableScriptArguments((bool)enabled);
 
                                                                                 builder.AppendLine(String.Format(
-                                                                                    "script arguments {0}", (bool)enabled ?
-                                                                                    "enabled" : "disabled"));
+                                                                                    "script arguments {0}",
+                                                                                    FormatOps.IsEnabled(enabled)));
                                                                             }
                                                                             else if (verbose)
                                                                             {
                                                                                 builder.AppendLine(String.Format(
-                                                                                    "script arguments are {0}", wasScriptArguments ?
-                                                                                    "enabled" : "disabled"));
+                                                                                    "script arguments {0}",
+                                                                                    FormatOps.IsEnabled(wasScriptArguments)));
                                                                             }
                                                                         }
                                                                         else
                                                                         {
                                                                             builder.AppendLine(String.Format(
-                                                                                "script arguments are {0}", wasScriptArguments ?
-                                                                                "enabled" : "disabled"));
+                                                                                "script arguments {0}",
+                                                                                FormatOps.IsEnabled(wasScriptArguments)));
                                                                         }
 #else
                                                                         builder.AppendLine(
@@ -1023,7 +1156,7 @@ namespace Eagle._Commands
 
 #if DEBUGGER && TEST
                                                                     if (_Tests.Default.TestSetDebugInteractiveLoopCallback(
-                                                                            localInterpreter, enabled)) /* per-thread */
+                                                                            localInterpreter, enabled, quiet)) /* per-thread */
                                                                     {
                                                                         if (enabled != null)
                                                                         {
@@ -1051,8 +1184,9 @@ namespace Eagle._Commands
                                                                         (verbose || (builder.Length > 0)))
                                                                     {
                                                                         builder.Insert(0, String.Format(
-                                                                            "emergency mode now {0}{1}", (bool)enabled ?
-                                                                            "enabled" : "disabled", Environment.NewLine));
+                                                                            "emergency mode now {0}{1}",
+                                                                            FormatOps.IsEnabled(enabled),
+                                                                            Environment.NewLine));
                                                                     }
 
                                                                     string builderString = StringBuilderCache.GetStringAndRelease(
@@ -1060,7 +1194,7 @@ namespace Eagle._Commands
 
                                                                     if (@break)
                                                                     {
-                                                                        if (builder.Length > 0)
+                                                                        if ((builderString != null) && (builderString.Length > 0))
                                                                         {
                                                                             IDebugHost debugHost = interpreter.Host;
 
@@ -1232,8 +1366,10 @@ namespace Eagle._Commands
 
                                                 if (code == ReturnCode.Error)
                                                 {
+                                                    /* IGNORED */
                                                     Engine.CopyErrorInformation(debugInterpreter, interpreter, result);
 
+                                                    /* IGNORED */
                                                     Engine.AddErrorInformation(interpreter, result,
                                                         String.Format("{0}    (in debug eval script line {1})",
                                                             Environment.NewLine, Interpreter.GetErrorLine(debugInterpreter)));
@@ -1552,6 +1688,107 @@ namespace Eagle._Commands
                                         }
                                         break;
                                     }
+                                case "hook":
+                                    {
+                                        if (newArguments.Count >= 2) // e.g. debug hook -type Before harpy-34.* "if 1 { puts hi }; list "
+                                        {
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(typeof(TestHookType),
+                                                    OptionFlags.MustHaveEnumValue, Index.Invalid,
+                                                    Index.Invalid, "-type", new Variant(TestHookType.Default)),
+                                                new Option(null, OptionFlags.MustHaveBooleanValue,
+                                                    Index.Invalid, Index.Invalid, "-unset", null),
+                                                Option.CreateEndOfOptions()
+                                            });
+
+                                            int argumentIndex = Index.Invalid;
+
+                                            if (newArguments.Count > 2)
+                                            {
+                                                code = interpreter.GetOptions(
+                                                    options, newArguments, 0, 2, Index.Invalid, true,
+                                                    ref argumentIndex, ref result);
+                                            }
+                                            else
+                                            {
+                                                code = ReturnCode.Ok;
+                                            }
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                if ((argumentIndex == Index.Invalid) ||
+                                                    ((argumentIndex + 2) >= newArguments.Count))
+                                                {
+                                                    IVariant value = null;
+                                                    TestHookType type = TestHookType.Default;
+
+                                                    if (options.IsPresent("-type", ref value))
+                                                        type = (TestHookType)value.Value;
+
+                                                    bool unset = false;
+
+                                                    if (options.IsPresent("-unset", ref value))
+                                                        unset = (bool)value.Value;
+
+                                                    string pattern = null;
+
+                                                    if (argumentIndex != Index.Invalid)
+                                                        pattern = newArguments[argumentIndex];
+
+                                                    string text = null;
+
+                                                    if ((argumentIndex + 1) < newArguments.Count)
+                                                        text = newArguments[argumentIndex + 1];
+
+                                                    if (pattern != null)
+                                                    {
+                                                        if (unset || (text != null))
+                                                        {
+                                                            code = interpreter.SetOrUnsetTestHook(
+                                                                type, pattern, text, ref result);
+                                                        }
+                                                        else
+                                                        {
+                                                            StringList list = null;
+
+                                                            code = interpreter.HasTestHooks(
+                                                                type, pattern, true, ref list,
+                                                                ref result);
+
+                                                            if (code == ReturnCode.Ok)
+                                                                result = list;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        code = interpreter.ListTestHooks(ref result);
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(newArguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, newArguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"debug hook ?options? ?pattern? ?script?\"";
+                                                    }
+
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"debug hook ?options? ?pattern? ?script?\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "icommand":
                                     {
                                         //
@@ -1693,9 +1930,12 @@ namespace Eagle._Commands
                                                                         ref result);
 
                                                                     if (code == ReturnCode.Error)
+                                                                    {
+                                                                        /* IGNORED */
                                                                         Engine.AddErrorInformation(interpreter, result,
                                                                             String.Format("{0}    (\"debug invoke\" body line {1})",
                                                                                 Environment.NewLine, Interpreter.GetErrorLine(debugInterpreter)));
+                                                                    }
 
                                                                     //
                                                                     // NOTE: Pop the original call frame
@@ -1927,6 +2167,7 @@ namespace Eagle._Commands
                                             result = StringList.MakeList(
                                                 "maximumLevels", interpreter.MaximumLevels,
                                                 "maximumScriptLevels", interpreter.MaximumScriptLevels,
+                                                "maximumScriptFileLevels", interpreter.MaximumScriptFileLevels,
                                                 "maximumParserLevels", interpreter.MaximumParserLevels,
                                                 "maximumExpressionLevels", interpreter.MaximumExpressionLevels
                                             );
@@ -2267,6 +2508,17 @@ namespace Eagle._Commands
                                             result = "wrong # args: should be \"debug memory\"";
                                             code = ReturnCode.Error;
                                         }
+                                        break;
+                                    }
+                                case "null":
+                                    {
+                                        //
+                                        // HACK: Completely ignore all arguments, do
+                                        //       nothing, and always force the script
+                                        //       engine to return null.
+                                        //
+                                        result = String.Empty;
+                                        result.Flags |= ResultFlags.ForceNullMask;
                                         break;
                                     }
                                 case "oncancel":
@@ -3197,6 +3449,42 @@ namespace Eagle._Commands
                                         }
                                         break;
                                     }
+                                case "result":
+                                    {
+                                        if (newArguments.Count == 2)
+                                        {
+                                            /* DEEP-COPY */
+                                            Result localResult = Result.Copy(
+                                                result, ResultFlags.CopyAll); /* COPY */
+
+#if PREVIOUS_RESULT
+                                            if (localResult == null)
+                                            {
+                                                /* DEEP-COPY */
+                                                localResult = Result.Copy(
+                                                    Interpreter.GetPreviousResult(interpreter),
+                                                    ResultFlags.CopyAll); /* COPY */
+                                            }
+#endif
+
+                                            string fullString = null;
+
+                                            if (localResult != null)
+                                                fullString = localResult.FullString;
+
+                                            if (fullString == null)
+                                                fullString = Result.WithStackTraces(localResult);
+
+                                            result = fullString;
+                                            code = ReturnCode.Ok;
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"debug result\"";
+                                            code = ReturnCode.Error;
+                                        }
+                                        break;
+                                    }
                                 case "run":
                                     {
                                         //
@@ -3687,8 +3975,10 @@ namespace Eagle._Commands
 
                                                                                                 if (code == ReturnCode.Error)
                                                                                                 {
+                                                                                                    /* IGNORED */
                                                                                                     Engine.CopyErrorInformation(childInterpreter, interpreter, result);
 
+                                                                                                    /* IGNORED */
                                                                                                     Engine.AddErrorInformation(interpreter, result,
                                                                                                         String.Format("{0}    (in debug secureeval \"{1}\" script line {2})",
                                                                                                             Environment.NewLine, path, Interpreter.GetErrorLine(childInterpreter)));
@@ -3825,6 +4115,101 @@ namespace Eagle._Commands
                                         if ((code == ReturnCode.Ok) && debug)
                                             DebugOps.Break(interpreter, null, force);
 
+                                        break;
+                                    }
+                                case "set":
+                                    {
+                                        if (newArguments.Count >= 4)
+                                        {
+                                            OptionDictionary options = new OptionDictionary(
+                                                new IOption[] {
+                                                new Option(null, OptionFlags.MustHaveIntegerValue,
+                                                    Index.Invalid, Index.Invalid, "-reference", null),
+                                                new Option(null, OptionFlags.MustHaveBooleanValue,
+                                                    Index.Invalid, Index.Invalid, "-convert", null),
+                                                Option.CreateEndOfOptions()
+                                            });
+
+                                            int argumentIndex = Index.Invalid;
+
+                                            code = interpreter.GetOptions(
+                                                options, newArguments, 0, 2, Index.Invalid, false,
+                                                ref argumentIndex, ref result);
+
+                                            if (code == ReturnCode.Ok)
+                                            {
+                                                if ((argumentIndex != Index.Invalid) &&
+                                                    ((argumentIndex + 2) == newArguments.Count))
+                                                {
+                                                    IVariant value = null;
+                                                    int reference = 0;
+
+                                                    if (options.IsPresent("-reference", ref value))
+                                                        reference = (int)value.Value;
+
+                                                    bool convert = false; // TODO: Good default?
+
+                                                    if (options.IsPresent("-convert", ref value))
+                                                        convert = (bool)value.Value;
+
+                                                    IObject @object = null;
+
+                                                    code = interpreter.GetObject(
+                                                        newArguments[argumentIndex + 1],
+                                                        LookupFlags.Default, ref @object,
+                                                        ref result);
+
+                                                    if (code == ReturnCode.Ok)
+                                                    {
+                                                        object objectValue = @object.Value;
+
+                                                        code = interpreter.SetVariableValue2(
+                                                            VariableFlags.None, null,
+                                                            newArguments[argumentIndex],
+                                                            objectValue, ref result);
+
+                                                        if (code == ReturnCode.Ok)
+                                                        {
+                                                            if (reference > 0)
+                                                            {
+                                                                result = @object.AddReference();
+                                                            }
+                                                            else if (reference < 0)
+                                                            {
+                                                                result = @object.RemoveReference();
+                                                            }
+                                                            else if (convert)
+                                                            {
+                                                                code = MarshalOps.ConvertValueToString(
+                                                                    interpreter.InternalBinder as IScriptBinder,
+                                                                    interpreter.InternalCultureInfo, objectValue,
+                                                                    ref result);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ((argumentIndex != Index.Invalid) &&
+                                                        Option.LooksLikeOption(newArguments[argumentIndex]))
+                                                    {
+                                                        result = OptionDictionary.BadOption(
+                                                            options, newArguments[argumentIndex], !interpreter.InternalIsSafe());
+                                                    }
+                                                    else
+                                                    {
+                                                        result = "wrong # args: should be \"debug set ?options? varName object\"";
+                                                    }
+
+                                                    code = ReturnCode.Error;
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            result = "wrong # args: should be \"debug set ?options? varName object\"";
+                                            code = ReturnCode.Error;
+                                        }
                                         break;
                                     }
                                 case "setup":
@@ -4335,8 +4720,10 @@ namespace Eagle._Commands
 
                                                         if (code == ReturnCode.Error)
                                                         {
+                                                            /* IGNORED */
                                                             Engine.CopyErrorInformation(debugInterpreter, interpreter, result);
 
+                                                            /* IGNORED */
                                                             Engine.AddErrorInformation(interpreter, result,
                                                                 String.Format("{0}    (in debug subst script line {1})",
                                                                     Environment.NewLine, Interpreter.GetErrorLine(debugInterpreter)));
@@ -4996,46 +5383,57 @@ namespace Eagle._Commands
 
                                                         if (code == ReturnCode.Ok)
                                                         {
+                                                        maybeQueryStatus:
+
                                                             if (argumentIndex != Index.Invalid)
                                                             {
-                                                                if (debug)
-                                                                {
-                                                                    if (raw)
-                                                                    {
-                                                                        /* EXEMPT */
-                                                                        DebugOps.DebugWrite(
-                                                                            newArguments[argumentIndex], category);
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        /* NO RESULT */
-                                                                        TraceOps.DebugWriteToAlways(
-                                                                            interpreter, newArguments[argumentIndex],
-                                                                            true);
-                                                                    }
-                                                                }
-                                                                else
-                                                                {
-                                                                    if (raw)
-                                                                    {
-                                                                        /* IGNORED */
-                                                                        DebugOps.TraceWrite(
-                                                                            interpreter, newArguments[argumentIndex],
-                                                                            category); /* EXEMPT */
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        /* NO RESULT */
-                                                                        TraceOps.DebugTraceAlways(
-                                                                            newArguments[argumentIndex], category,
-                                                                            priority);
-                                                                    }
-                                                                }
+                                                                string message = newArguments[argumentIndex];
 
-                                                                if (!noResult && (resultStateType != null))
-                                                                    result = resultStateType;
+                                                                if (!String.IsNullOrEmpty(message))
+                                                                {
+                                                                    if (debug)
+                                                                    {
+                                                                        if (raw)
+                                                                        {
+                                                                            /* EXEMPT */
+                                                                            DebugOps.DebugWrite(
+                                                                                message, category);
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            /* NO RESULT */
+                                                                            TraceOps.DebugWriteToAlways(
+                                                                                interpreter, message, true);
+                                                                        }
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        if (raw)
+                                                                        {
+                                                                            /* IGNORED */
+                                                                            DebugOps.TraceWrite(
+                                                                                interpreter, message,
+                                                                                category); /* EXEMPT */
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            /* NO RESULT */
+                                                                            TraceOps.DebugTraceAlways(
+                                                                                message, category,
+                                                                                priority);
+                                                                        }
+                                                                    }
+
+                                                                    if (!noResult && (resultStateType != null))
+                                                                        result = resultStateType;
+                                                                    else
+                                                                        result = String.Empty;
+                                                                }
                                                                 else
-                                                                    result = String.Empty;
+                                                                {
+                                                                    argumentIndex = Index.Invalid;
+                                                                    goto maybeQueryStatus;
+                                                                }
                                                             }
                                                             else
                                                             {

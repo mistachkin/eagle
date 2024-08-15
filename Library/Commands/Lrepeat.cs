@@ -58,6 +58,7 @@ namespace Eagle._Commands
                                 StringList subList = new StringList(arguments, 2);
 
 #if RESULT_LIMITS
+                                /* NO RESULT */
                                 Engine.CheckResultAgainstLimits(
                                     interpreter, subList.Length, 1, count, 0,
                                     ref code, ref result);

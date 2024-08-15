@@ -1507,10 +1507,16 @@ runTest {test object-10.21 {script thread, queue, user interface} -setup {
   }
 
   #
+  # NOTE: Set the window title to something that is easy to see externally.
+  #
+  set title [appendArgs \
+      [info engine] " Test '" $eagle_tests(CurrentName) "' Form Title"]
+
+  #
   # NOTE: Queue a script to the thread that creates and hosts a WinForm.  Also,
   #       attempt to prove that the thread can handle showing a modal dialog.
   #
-  lappend results [$thread Queue {
+  lappend results [$thread Queue [string map [list %title% $title] {
     proc handleClickEvent { sender e } {
       set dialog [object create -alias OpenFileDialog]
       $dialog Title "please click \"Open\" or \"Cancel\" to continue..."
@@ -1530,19 +1536,19 @@ runTest {test object-10.21 {script thread, queue, user interface} -setup {
 
     object invoke $form.Controls Add $button
 
-    $form Text [appendArgs [info engine] " Test Form Title"]
+    $form Text {%title%}
     $form TopMost true
     $form Show
 
     after 0 nop; vwait result; thread Result $result; set foo 1
-  }]
+  }]]
 
   #
   # NOTE: Make sure the console user knows that we are waiting for input.
   #
   tputs $test_channel [appendArgs \
-      "please find the window marked \"" [info engine] \
-      " Test Form Title\" and click \"OK\" to continue.\n"]
+      "please find the window marked \"" $title \
+      "\" and click \"OK\" to continue.\n"]
 
   lappend results [$thread WaitForEnd $w(6)]; # NOTE: Wait for user.
   set result [$thread Result]
@@ -1552,7 +1558,7 @@ runTest {test object-10.21 {script thread, queue, user interface} -setup {
   stopThreads thread
   cleanupThreads thread
 
-  unset -nocomplain results thread error result
+  unset -nocomplain results thread error result title
 } -constraints {eagle command.object dotNetCoreOrShell dotNet compile.WINFORMS\
 winForms interactive userInteraction} -match regexp -result \
 {^True True Ok (?:OK|Cancel)$} -ignoreMatch glob -ignorePatterns {*timeout*}}

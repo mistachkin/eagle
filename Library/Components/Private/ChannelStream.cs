@@ -675,6 +675,7 @@ namespace Eagle._Components.Private
                                         //       include it.
                                         //
                                         outBuffer[outIndex++] = inBuffer[inIndex - 1];
+                                        flags |= StreamFlags.LastCarriageReturn;
                                     }
                                 }
                                 else if (inBuffer[inIndex] == ChannelOps.LineFeed)
@@ -1568,13 +1569,19 @@ namespace Eagle._Components.Private
                 ref localLineEndings, ref flags);
 
             //
-            // BUGFIX: Is the buffer ends with the first character
+            // BUGFIX: If the last (final?) character in the buffer
+            //         is a carriage-return -AND- we care about the
+            //         line-endings, this is a failure.
+            //
+            // BUGFIX: If the buffer ends with the first character
             //         of a carriage-return / line-feed pair (i.e.
             //         a carriage-return), then it is not ready to
             //         return yet.
             //
-            if (!ignoreLineEnding && FlagOps.HasFlags(
-                    flags, StreamFlags.NeedLineFeed, false))
+            if (!ignoreLineEnding && (FlagOps.HasFlags(
+                    flags, StreamFlags.NeedLineFeed, true) ||
+                FlagOps.HasFlags(
+                    flags, StreamFlags.LastCarriageReturn, true)))
             {
                 if (readBuffer != null)
                 {

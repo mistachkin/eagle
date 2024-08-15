@@ -430,5 +430,36 @@ namespace Eagle._Commands
             return code;
         }
         #endregion
+
+        ///////////////////////////////////////////////////////////////////////
+
+        #region Public Static Methods
+        public static bool IsSystemAlias(
+            IExecute execute /* in */
+            )
+        {
+            if (execute == null)
+                return false;
+
+            IAlias alias;
+            IWrapper wrapper = execute as IWrapper;
+
+            if ((wrapper != null) &&
+                (wrapper.Object is IAlias)) /* NOT REDUNDANT: DNR */
+            {
+                alias = wrapper.Object as IAlias;
+            }
+            else
+            {
+                alias = execute as IAlias;
+            }
+
+            if (alias == null)
+                return false;
+
+            return FlagOps.HasFlags(
+                alias.AliasFlags, AliasFlags.System, true);
+        }
+        #endregion
     }
 }

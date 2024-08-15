@@ -51,9 +51,7 @@ namespace Eagle._Interfaces.Public
         //       success.
         //
         ReturnCode CreateTclInterpreter(
-            bool initialize,
-            bool memory,
-            bool safe,
+            TclCreateFlags createFlags,
             ref Result result
             );
 
@@ -94,15 +92,13 @@ namespace Eagle._Interfaces.Public
             ResultCallback callback,
             IClientData clientData,
             int timeout,
-            bool generic,
-            bool debug,
-            bool wait,
+            TclThreadFlags threadFlags,
             ref Result result
             );
 
         ReturnCode DeleteTclThread(
             string name,
-            bool strict,
+            TclThreadFlags threadFlags,
             ref Result result
             );
 #endif
@@ -125,8 +121,7 @@ namespace Eagle._Interfaces.Public
             string interpName,
             string commandName,
             IClientData clientData,
-            bool forceDelete,
-            bool noComplain,
+            TclCommandFlags commandFlags,
             ref Result result
             );
 
@@ -138,8 +133,7 @@ namespace Eagle._Interfaces.Public
             string interpName,
             string commandName,
             IClientData clientData,
-            bool forceDelete,
-            bool noComplain,
+            TclCommandFlags commandFlags,
             ref Result result
             );
 
@@ -147,6 +141,7 @@ namespace Eagle._Interfaces.Public
             string interpName,
             string commandName,
             IClientData clientData,
+            TclCommandFlags commandFlags,
             ref Result result
             );
     }

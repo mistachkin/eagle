@@ -32,9 +32,10 @@ source [file join [file normalize [file dirname [info script]]] prologue.eagle]
 ###############################################################################
 
 if {[isEagle]} then {
-  set engineName [info engine]
+  set windowTitle [appendArgs \
+      [info engine] " Test 'winForms-4.1' Form Title"]
 } else {
-  set engineName Tcl; # NOTE: Native Tcl.
+  set windowTitle ""; # NOTE: Native Tcl.
 }
 
 ###############################################################################
@@ -43,7 +44,7 @@ runTest {test winForms-4.1 {create and show a form with script event} -body {
   set assembly [object load -import System.Windows.Forms]
   set form [object create -alias Form]
 
-  set text [appendArgs $engineName " Test Form Title"]
+  set text $windowTitle
   $form Text $text
   set text [$form Text]
 
@@ -69,13 +70,13 @@ runTest {test winForms-4.1 {create and show a form with script event} -body {
 
   unset -nocomplain y x callback eventArgs text form assembly
 } -constraints {eagle command.object compile.WINFORMS winForms\
-monoMatchFramework} -match regexp -result [appendArgs "^\\{" $engineName \
-" Test Form Title\\} \\{test System#Windows#Forms#Form#\\d+\
+monoMatchFramework} -match regexp -result [appendArgs "^\\{" [string map \
+[list . \\.] $windowTitle] "\\} \\{test System#Windows#Forms#Form#\\d+\
 System#EventArgs#\\d+\\}\$"]}
 
 ###############################################################################
 
-unset -nocomplain engineName
+unset -nocomplain windowTitle
 
 ###############################################################################
 

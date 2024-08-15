@@ -108,24 +108,50 @@ IF NOT DEFINED PACKAGE_PLATFORM (
 %_VECHO% PackagePlatform = '%PACKAGE_PLATFORM%'
 
 REM ****************************************************************************
+REM *************************** Pre-Release Checks? ****************************
+REM ****************************************************************************
+
+IF DEFINED PRE_RELEASE_ENABLED (
+  %_AECHO% Performing pre-release checks...
+
+  REM
+  REM HACK: This assumes that the "preRelease.bat" batch file is available
+  REM       somewhere along the PATH.  That is partially why this specific
+  REM       feature of this tool is both optional and opt-in.  Generally,
+  REM       the actual pre-release checks will verify that various source
+  REM       checkouts and related directories are clean and ready for the
+  REM       build process.
+  REM
+  %_CECHO3% CALL preRelease.bat
+  %__ECHO3% CALL preRelease.bat
+
+  IF ERRORLEVEL 1 (
+    ECHO Pre-release checks failed.
+    GOTO errors
+  )
+)
+
+REM ****************************************************************************
 REM *********************** Minimum Build Configuration? ***********************
 REM ****************************************************************************
 
 REM
 REM NOTE: This is setup to do only the necessary steps for releases marked as
 REM       "latest" ^(i.e. in development^).  This should run quickly.  As of
-REM       February 2021, only the following build configurations are produced
+REM       August 2024, -ONLY- the following build configurations are produced
 REM       and tested in this mode of operation:
 REM
-REM       1. NetFx20
-REM       2. NetFx40
+REM       1. NetStandard20
+REM       2. NetStandard21
+REM       3. NetFx40
+REM       4. NetFx40
 REM
 REM       This build configuration list is subject to change at any time.
 REM
 IF DEFINED MINBUILD (
   %_AECHO% Skipping build configurations for "minimal" release...
-  SET NONETSTANDARD20=1
-  SET NONETSTANDARD21=1
+  REM SET NONETSTANDARD20=1
+  REM SET NONETSTANDARD21=1
   REM SET NONETFX20=1
   SET NONETFX35=1
   REM SET NONETFX40=1
@@ -1039,6 +1065,38 @@ IF ERRORLEVEL 1 (
 :skip_eagleShell
 
 REM ****************************************************************************
+REM ********************* Set Test Suite Batch Identifier **********************
+REM ****************************************************************************
+
+IF DEFINED BATCH_ID GOTO skip_batchId
+
+SET BATCH_ID_CMD=EagleShell.exe -evaluate "package require Eagle.Test; puts -nonewline stdout [getNewTestRunId]"
+
+IF DEFINED __ECHO (
+  %__ECHO% %BATCH_ID_CMD%
+  SET BATCH_ID=0000000000000000000000000000000000000000000000000000000000000000
+) ELSE (
+  FOR /F %%T IN ('%BATCH_ID_CMD%') DO (SET BATCH_ID=%%T)
+)
+
+IF NOT DEFINED BATCH_ID (
+  ECHO The BATCH_ID environment variable could not be set.
+  GOTO errors
+)
+
+:skip_batchId
+
+%_VECHO% BatchId = '%BATCH_ID%'
+
+%_CECHO% EagleShell.exe -anyInitialize "list BATCH-ID %BATCH_ID% START 1" -evaluate "package require Eagle.Test; logRemoteMessage [appendArgs {BATCH BATCH-ID %BATCH_ID% START TEST-RUN: host } [set ::tcl_platform(host)]]"
+%__ECHO% EagleShell.exe -anyInitialize "list BATCH-ID %BATCH_ID% START 1" -evaluate "package require Eagle.Test; logRemoteMessage [appendArgs {BATCH BATCH-ID %BATCH_ID% START TEST-RUN: host } [set ::tcl_platform(host)]]"
+
+IF ERRORLEVEL 1 (
+  ECHO Logging start-of-batch failed.
+  GOTO errors
+)
+
+REM ****************************************************************************
 REM *********************** Set Build Output Directories ***********************
 REM ****************************************************************************
 
@@ -1334,7 +1392,7 @@ IF NOT DEFINED ADMINISTRATOR (
 
 %_VECHO% Administrator = '%ADMINISTRATOR%'
 
-IF "%ADMINISTRATOR%" == "False" (
+IF /I "%ADMINISTRATOR%" == "False" (
   ECHO This tool requires [elevated] administrator privileges.
   GOTO usage
 )
@@ -3073,6 +3131,27 @@ IF NOT DEFINED NOSOURCEID (
 )
 
 REM ****************************************************************************
+REM ************************ Manual PatchLevel Override ************************
+REM ****************************************************************************
+
+CALL :fn_UnsetVariable WROTE_PATCHLEVEL
+
+IF NOT DEFINED NOPATCHLEVEL IF DEFINED PATCHLEVEL (
+  CALL :fn_writePatchLevel
+  IF ERRORLEVEL 1 GOTO errors
+  SET WROTE_PATCHLEVEL=1
+)
+
+REM ****************************************************************************
+REM ************************* Manual DateTime Override *************************
+REM ****************************************************************************
+
+IF NOT DEFINED NODATETIME IF DEFINED ASSEMBLY_DATETIME (
+  CALL :fn_writeDateTime
+  IF ERRORLEVEL 1 GOTO errors
+)
+
+REM ****************************************************************************
 REM *********************** Skip To Specific Build Step? ***********************
 REM ****************************************************************************
 
@@ -3174,27 +3253,6 @@ IF DEFINED BUILD_DATABASE (
 IF DEFINED BUILD_UNIX (
   %_AECHO% Going directly to the "MonoOnUnix" build phase...
   GOTO build_Unix
-)
-
-REM ****************************************************************************
-REM ************************ Manual PatchLevel Override ************************
-REM ****************************************************************************
-
-CALL :fn_UnsetVariable WROTE_PATCHLEVEL
-
-IF NOT DEFINED NOPATCHLEVEL IF DEFINED PATCHLEVEL (
-  CALL :fn_writePatchLevel
-  IF ERRORLEVEL 1 GOTO errors
-  SET WROTE_PATCHLEVEL=1
-)
-
-REM ****************************************************************************
-REM ************************* Manual DateTime Override *************************
-REM ****************************************************************************
-
-IF NOT DEFINED NODATETIME IF DEFINED ASSEMBLY_DATETIME (
-  CALL :fn_writeDateTime
-  IF ERRORLEVEL 1 GOTO errors
 )
 
 REM ****************************************************************************
@@ -6732,6 +6790,14 @@ IF NOT DEFINED NOUNIX (
   )
 )
 
+%_CECHO% EagleShell.exe -anyInitialize "list BATCH-ID %BATCH_ID% DONE 1" -evaluate "package require Eagle.Test; logRemoteMessage [appendArgs {BATCH BATCH-ID %BATCH_ID% DONE TEST-RUN: host } [set ::tcl_platform(host)]]"
+%__ECHO% EagleShell.exe -anyInitialize "list BATCH-ID %BATCH_ID% DONE 1" -evaluate "package require Eagle.Test; logRemoteMessage [appendArgs {BATCH BATCH-ID %BATCH_ID% DONE TEST-RUN: host } [set ::tcl_platform(host)]]"
+
+IF ERRORLEVEL 1 (
+  ECHO Logging done-with-batch failed.
+  GOTO errors
+)
+
 :skip_build
 
 REM ****************************************************************************
@@ -10217,31 +10283,31 @@ IF NOT DEFINED NOTAG (
     )
   )
 
-  IF DEFINED EAGLEWEB (
+  IF DEFINED EAGLEWEBDIR (
     IF DEFINED STABLE (
-      IF EXIST "%EAGLEWEB%\stable.txt" (
-        %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEB%\stable.txt" "%SRCBINDIR%"
-        %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEB%\stable.txt" "%SRCBINDIR%"
+      IF EXIST "%EAGLEWEBDIR%\stable.txt" (
+        %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEBDIR%\stable.txt" "%SRCBINDIR%"
+        %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEBDIR%\stable.txt" "%SRCBINDIR%"
 
         IF ERRORLEVEL 1 (
-          ECHO Updating "%EAGLEWEB%\stable.txt" failed.
+          ECHO Updating "%EAGLEWEBDIR%\stable.txt" failed.
           GOTO errors
         )
       )
     ) ELSE (
-      IF EXIST "%EAGLEWEB%\latest.txt" (
-        %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEB%\latest.txt" "%SRCBINDIR%"
-        %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEB%\latest.txt" "%SRCBINDIR%"
+      IF EXIST "%EAGLEWEBDIR%\latest.txt" (
+        %_CECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEBDIR%\latest.txt" "%SRCBINDIR%"
+        %__ECHO% EagleShell.exe -file "%TOOLS%\versionTag.eagle" UpdateMode "%EAGLEWEBDIR%\latest.txt" "%SRCBINDIR%"
 
         IF ERRORLEVEL 1 (
-          ECHO Updating "%EAGLEWEB%\latest.txt" failed.
+          ECHO Updating "%EAGLEWEBDIR%\latest.txt" failed.
           GOTO errors
         )
       )
     )
   ) ELSE (
     ECHO.
-    ECHO WARNING: The EAGLEWEB environment variable is not set.
+    ECHO WARNING: The EAGLEWEBDIR environment variable is not set.
     ECHO.
   )
 )
@@ -10738,7 +10804,7 @@ REM ****************************************************************************
   ECHO exist in the "%%LKG%%\Eagle\bin" directory or somewhere along your PATH.  They
   ECHO can be downloaded for free from:
   ECHO.
-  ECHO                          https://eagle.to/
+  ECHO                          https://urn.to/r/eagle
   ECHO.
   ECHO Several of the tasks performed by this tool require [elevated] administrator
   ECHO privileges.  Therefore, this tool will refuse to run without them.

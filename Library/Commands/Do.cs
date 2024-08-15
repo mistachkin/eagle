@@ -127,6 +127,7 @@ namespace Eagle._Commands
 
                                     if (code == ReturnCode.Error)
                                     {
+                                        /* IGNORED */
                                         Engine.AddErrorInformation(interpreter, result,
                                             String.Format("{0}    (\"do\" body line {1})",
                                                 Environment.NewLine, Interpreter.GetErrorLine(interpreter)));

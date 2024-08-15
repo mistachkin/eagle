@@ -53,6 +53,7 @@ namespace Eagle._Commands
                     if (arguments.Count == 4)
                     {
                         string name = arguments[1];
+                        IScriptLocation body = arguments[3];
                         StringList list = null;
 
                         code = ListOps.GetOrCopyOrSplitList(
@@ -60,6 +61,30 @@ namespace Eagle._Commands
 
                         if (code == ReturnCode.Ok)
                         {
+                            bool isLibrary = false;
+                            bool isPrivate = false;
+                            bool isFast = false;
+                            bool isAtomic = false;
+
+#if ARGUMENT_CACHE || PARSE_CACHE
+                            bool isNonCaching = false;
+#endif
+
+                            bool isMatchTypes = false;
+
+                            if (!interpreter.InternalIsSafe())
+                            {
+                                ScriptOps.ShouldProcedureHaveFlags(
+                                    interpreter, name, (Argument)body,
+                                    interpreter.InternalCultureInfo,
+                                    out isLibrary, out isPrivate,
+                                    out isFast, out isAtomic,
+#if ARGUMENT_CACHE || PARSE_CACHE
+                                    out isNonCaching,
+#endif
+                                    out isMatchTypes);
+                            }
+
                             StringPairList list2 = new StringPairList();
 
                             for (int argumentIndex = 0; argumentIndex < list.Count; argumentIndex++)
@@ -115,6 +140,26 @@ namespace Eagle._Commands
                                     procedureFlags &= ~ProcedureFlags.NamedArguments;
                                     procedureFlags |= ProcedureFlags.PositionalArguments;
 
+                                    if (isPrivate)
+                                        procedureFlags |= ProcedureFlags.Private;
+
+                                    if (isLibrary)
+                                        procedureFlags |= ProcedureFlags.Library;
+
+                                    if (isFast)
+                                        procedureFlags |= ProcedureFlags.Fast;
+
+                                    if (isAtomic)
+                                        procedureFlags |= ProcedureFlags.Atomic;
+
+#if ARGUMENT_CACHE || PARSE_CACHE
+                                    if (isLibrary || isNonCaching)
+                                        procedureFlags |= ProcedureFlags.NonCaching;
+#endif
+
+                                    if (isMatchTypes)
+                                        procedureFlags |= ProcedureFlags.MatchTypes;
+
                                     IProcedure procedure;
                                     Result error = null;
 
@@ -122,9 +167,9 @@ namespace Eagle._Commands
                                         interpreter, interpreter.AreNamespacesEnabled() ?
                                         NamespaceOps.MakeQualifiedName(interpreter, name) :
                                         ScriptOps.MakeCommandName(name), null, null,
-                                        procedureFlags, formalArguments, null, arguments[3],
-                                        ScriptLocation.Create(arguments[3]), clientData,
-                                        ref error);
+                                        procedureFlags, formalArguments, null,
+                                        (Argument)body, ScriptLocation.Create(body),
+                                        clientData, ref error);
 
                                     if (procedure != null)
                                     {
@@ -144,9 +189,12 @@ namespace Eagle._Commands
                         }
 
                         if (code == ReturnCode.Error)
+                        {
+                            /* IGNORED */
                             Engine.AddErrorInformation(interpreter, result,
                                 String.Format("{0}    (creating proc \"{1}\")",
                                     Environment.NewLine, name));
+                        }
                     }
                     else
                     {

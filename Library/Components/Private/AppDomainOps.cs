@@ -41,10 +41,7 @@ using System.Security.Permissions;
 using System.Security.Policy;
 #endif
 
-#if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
 using System.Threading;
-#endif
-
 using Eagle._Attributes;
 using Eagle._Components.Public;
 using Eagle._Components.Public.Delegates;
@@ -248,6 +245,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+#if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+        //
+        // HACK: How many application domains has this class been responsible
+        //       for creating -OR- unloading?
+        //
+        private static long createCount;
+        private static long unloadCount;
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if REMOTING
         private static readonly object syncRoot = new object();
 
@@ -718,28 +726,83 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         public static string GetIdString(
-            AppDomain appDomain
+            bool display
+            )
+        {
+            return GetIdString(AppDomain.CurrentDomain, display);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string GetIdString(
+            AppDomain appDomain,
+            bool display
             )
         {
             if (appDomain == null)
-                return null;
+                return display ? FormatOps.DisplayNull : null;
 
             int id = appDomain.Id;
 
             if (id == InvalidId)
-                return null;
+                return display ? FormatOps.DisplayInvalid : null;
 
             return id.ToString();
         }
 
         ///////////////////////////////////////////////////////////////////////
 
+        public static string FormatAppDomain(
+            string idString
+            )
+        {
+            return String.Format("AppDomain:{0}", idString);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        public static string FormatIdString(
+            AppDomain appDomain,
+            bool disposed,
+            bool display
+            )
+        {
+            string idString = disposed ?
+                (display ? FormatOps.DisplayDisposed : null) :
+                GetIdString(appDomain, display);
+
+            return display ? FormatAppDomain(idString) : idString;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
         public static int GetId(
+            Interpreter interpreter
+            )
+        {
+            return GetId(GetFrom(interpreter));
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int GetId(
             AppDomain appDomain
             )
         {
             if (appDomain == null)
                 return InvalidId;
+
+            return appDomain.Id;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static int? GetIdOrNull(
+            AppDomain appDomain
+            )
+        {
+            if (appDomain == null)
+                return null;
 
             return appDomain.Id;
         }
@@ -1152,6 +1215,171 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+#if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+        public static void GetCounts(
+            bool localOnly,
+            ref long createCount,
+            ref long unloadCount
+            )
+        {
+            if (localOnly)
+            {
+                createCount = Interlocked.CompareExchange(
+                    ref AppDomainOps.createCount, 0, 0);
+
+                unloadCount = Interlocked.CompareExchange(
+                    ref AppDomainOps.unloadCount, 0, 0);
+            }
+            else
+            {
+                Result error; /* REUSED */
+                long count;
+
+                error = null;
+
+                if (ProcessOps.CheckAndMaybeModifyReferenceCount(
+                        EnvVars.EagleLibraryAppDomainCreateCount, null,
+                        null, out count, ref error) == ReturnCode.Ok)
+                {
+                    createCount = count;
+                }
+                else
+                {
+                    DebugOps.Complain(null, ReturnCode.Error, error);
+                }
+
+                error = null;
+
+                if (ProcessOps.CheckAndMaybeModifyReferenceCount(
+                        EnvVars.EagleLibraryAppDomainUnloadCount, null,
+                        null, out count, ref error) == ReturnCode.Ok)
+                {
+                    unloadCount = count;
+                }
+                else
+                {
+                    DebugOps.Complain(null, ReturnCode.Error, error);
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        //
+        // WARNING: This method is for use by the test suite AppDomain
+        //          leak checking code only.  Please do not use it for
+        //          anything else.
+        //
+        private static void GetLists(
+            ref StringList createList,
+            ref StringList unloadList
+            )
+        {
+            Result error; /* REUSED */
+            StringList localList; /* REUSED */
+
+            error = null;
+
+            if (ProcessOps.CheckAndMaybeAppendElement(
+                    EnvVars.EagleLibraryAppDomainCreateList, null,
+                    false, out localList, ref error) == ReturnCode.Ok)
+            {
+                createList = localList;
+            }
+            else
+            {
+                DebugOps.Complain(null, ReturnCode.Error, error);
+            }
+
+            error = null;
+
+            if (ProcessOps.CheckAndMaybeAppendElement(
+                    EnvVars.EagleLibraryAppDomainUnloadList, null,
+                    false, out localList, ref error) == ReturnCode.Ok)
+            {
+                unloadList = localList;
+            }
+            else
+            {
+                DebugOps.Complain(null, ReturnCode.Error, error);
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long AnotherOneCreated(
+            int? id
+            )
+        {
+            if (id == null)
+                return 0;
+
+            Result error; /* REUSED */
+            StringList list;
+
+            error = null;
+
+            if (ProcessOps.CheckAndMaybeAppendElement(
+                    EnvVars.EagleLibraryAppDomainCreateList,
+                    id.ToString(), false, out list,
+                    ref error) != ReturnCode.Ok)
+            {
+                DebugOps.Complain(null, ReturnCode.Error, error);
+            }
+
+            long count;
+
+            error = null;
+
+            if (ProcessOps.CheckAndMaybeModifyReferenceCount(
+                    EnvVars.EagleLibraryAppDomainCreateCount, null,
+                    true, out count, ref error) != ReturnCode.Ok)
+            {
+                DebugOps.Complain(null, ReturnCode.Error, error);
+            }
+
+            return Interlocked.Increment(ref createCount);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        private static long AnotherOneUnloaded(
+            int? id
+            )
+        {
+            if (id == null)
+                return 0;
+
+            Result error; /* REUSED */
+            StringList list;
+
+            error = null;
+
+            if (ProcessOps.CheckAndMaybeAppendElement(
+                    EnvVars.EagleLibraryAppDomainUnloadList,
+                    id.ToString(), false, out list,
+                    ref error) != ReturnCode.Ok)
+            {
+                DebugOps.Complain(null, ReturnCode.Error, error);
+            }
+
+            long count;
+
+            error = null;
+
+            if (ProcessOps.CheckAndMaybeModifyReferenceCount(
+                    EnvVars.EagleLibraryAppDomainUnloadCount, null,
+                    true, out count, ref error) != ReturnCode.Ok)
+            {
+                DebugOps.Complain(null, ReturnCode.Error, error);
+            }
+
+            return Interlocked.Increment(ref unloadCount);
+        }
+#endif
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if CAS_POLICY && NET_40
         public static bool IsLegacyCasPolicyEnabled()
         {
@@ -1355,8 +1583,8 @@ namespace Eagle._Components.Private
             IPluginData pluginData
             )
         {
-            return (pluginData != null) &&
-                FlagOps.HasFlags(pluginData.Flags, PluginFlags.Isolated, true);
+            return (pluginData != null) && FlagOps.HasFlags(
+                pluginData.Flags, PluginFlags.Isolated, true);
         }
 
         ///////////////////////////////////////////////////////////////////////
@@ -1899,14 +2127,17 @@ namespace Eagle._Components.Private
                             if (fieldInfo == null)
                                 continue;
 
-                            if (FlagOps.HasFlags(fieldInfo.Attributes,
+                            FieldAttributes attributes = fieldInfo.Attributes;
+
+                            if (FlagOps.HasFlags(attributes,
+                                    FieldAttributes.Literal, true) ||
+                                FlagOps.HasFlags(attributes,
                                     FieldAttributes.InitOnly, true))
                             {
                                 continue;
                             }
 
-                            fieldInfo.SetValue(
-                                null, pair.Value); /* throw */
+                            fieldInfo.SetValue(null, pair.Value); /* throw */
                         }
                         catch
                         {
@@ -2138,6 +2369,7 @@ namespace Eagle._Components.Private
             if (appDomainSetup != null)
             {
                 bool empty = HostOps.HasEmptyContent(detailFlags);
+                long count; /* REUSED */
 
                 if (empty || (appDomainSetup.ApplicationName != null))
                 {
@@ -2156,6 +2388,16 @@ namespace Eagle._Components.Private
                     list.Add("PrivateBinPath",
                         appDomainSetup.PrivateBinPath);
                 }
+
+                count = Interlocked.CompareExchange(ref createCount, 0, 0);
+
+                if (empty || (count > 0))
+                    list.Add("CreateCount", count.ToString());
+
+                count = Interlocked.CompareExchange(ref unloadCount, 0, 0);
+
+                if (empty || (count > 0))
+                    list.Add("UnloadCount", count.ToString());
             }
             else
             {
@@ -2434,6 +2676,12 @@ namespace Eagle._Components.Private
 #endif
                             appDomainSetup);
 
+                        int? id = AppDomainOps.GetIdOrNull(
+                            localAppDomain);
+
+                        /* IGNORED */
+                        AnotherOneCreated(id);
+
                         if (useEntryAssembly)
                         {
                             Assembly entryAssembly =
@@ -2463,6 +2711,18 @@ namespace Eagle._Components.Private
                                     throw;
                             }
                         }
+
+                        TraceOps.DebugTrace(String.Format(
+                            "Create: created application domain " +
+                            "{0}, total created now {1}, total " +
+                            "unloaded now {2}",
+                            FormatOps.MaybeNull(id),
+                            Interlocked.CompareExchange(
+                                ref createCount, 0, 0),
+                            Interlocked.CompareExchange(
+                                ref unloadCount, 0, 0)),
+                            typeof(AppDomainOps).Name,
+                            TracePriority.RemotingDebug);
 
                         appDomain = localAppDomain;
                         success = true;
@@ -2580,13 +2840,27 @@ namespace Eagle._Components.Private
                     {
                         if (MarkPendingUnload(appDomain))
                         {
+                            int? id = appDomain.Id; /* NOT-NULL */
+
                             AppDomain.Unload(appDomain); /* throw */
 
+                            /* IGNORED */
+                            AnotherOneUnloaded(id);
+
                             TraceOps.DebugTrace(String.Format(
-                                "Unload: unloaded application domain " +
-                                "{0} with retry count {1} in {2}",
-                                appDomainName, count, FormatTime(
-                                startCount)), typeof(AppDomainOps).Name,
+                                "Unload: unloaded application " +
+                                "domain {0} ({1}) with retry " +
+                                "count {2} in {3}, total " +
+                                "locally created now {4}, " +
+                                "total locally unloaded now {5}",
+                                appDomainName,
+                                FormatOps.MaybeNull(id),
+                                count, FormatTime(startCount),
+                                Interlocked.CompareExchange(
+                                    ref createCount, 0, 0),
+                                Interlocked.CompareExchange(
+                                    ref unloadCount, 0, 0)),
+                                typeof(AppDomainOps).Name,
                                 TracePriority.RemotingDebug);
 
                             return ReturnCode.Ok;
